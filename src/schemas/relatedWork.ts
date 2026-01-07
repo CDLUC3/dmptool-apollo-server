@@ -15,11 +15,20 @@ export const typeDefs = gql`
       paginationOptions: PaginationOptions
       filterOptions: RelatedWorksFilterOptions
     ): RelatedWorkSearchResults
+
+    "Find a work with an identifier"
+    findWorkByIdentifier(
+      planId: Int!,
+      doi: String,
+      paginationOptions: PaginationOptions
+    ): RelatedWorkSearchResults
   }
 
   extend type Mutation {
-    "Add a related work"
-    addRelatedWork(input: AddRelatedWorkInput!): RelatedWorkSearchResult
+    "Insert or update a related work, the work is looked up in OpenSearch and details added"
+    upsertRelatedWork(input: UpsertRelatedWorkInput!): RelatedWorkSearchResult
+    "Add a related work manually, by specifying all work details"
+    addRelatedWorkManual(input: AddRelatedWorkManualInput!): RelatedWorkSearchResult
     "Update the status of a related work"
     updateRelatedWorkStatus(input: UpdateRelatedWorkStatusInput!): RelatedWorkSearchResult
   }
@@ -56,19 +65,19 @@ export const typeDefs = gql`
 
   type RelatedWorkSearchResult {
     "The unique identifier for the Object"
-    id: Int!
+    id: Int
     "The unique identifier of the plan that this related work has been matched to"
-    planId: Int!
+    planId: Int
     "The version of the work that the plan was matched to"
     workVersion: WorkVersion!
     "Whether the related work was automatically or manually added"
-    sourceType: RelatedWorkSourceType!
+    sourceType: RelatedWorkSourceType
     "The confidence score indicating how well the work matches the plan"
     score: Float
     "The maximum confidence score returned when this work was matched to the plan"
-    scoreMax: Float!
+    scoreMax: Float
     "The normalised confidence score from 0.0-1.0"
-    scoreNorm: Float!
+    scoreNorm: Float
     "The confidence of the related work match"
     confidence: RelatedWorkConfidence
     "The status of the related work"
@@ -86,11 +95,11 @@ export const typeDefs = gql`
     "Details which awards matched from the work and the fields they matched on"
     awardMatches: [ItemMatch!]
     "The timestamp when the Object was created"
-    created: String!
+    created: String
     "The user who created the Object. Null if the related work was automatically found"
     createdById: Int
     "The timestamp when the Object was last modified"
-    modified: String!
+    modified: String
     "The user who last modified the Object"
     modifiedById: Int
   }
@@ -299,7 +308,7 @@ export const typeDefs = gql`
     workType: WorkType
   }
 
-  input AddRelatedWorkInput {
+  input AddRelatedWorkManualInput {
     "The unique identifier of the plan that this related work has been matched to"
     planId: Int
     "The Digital Object Identifier (DOI) of the work"
@@ -328,6 +337,17 @@ export const typeDefs = gql`
     sourceName: String!
     "The URL for the source of the work"
     sourceUrl: String!
+  }
+
+  input UpsertRelatedWorkInput {
+    "The unique identifier of the plan that this related work has been matched to"
+    planId: Int
+    "The Digital Object Identifier (DOI) of the work"
+    doi: String!
+    "A hash of the content of this version of a work"
+    hash: MD5!
+    "The status to give the related work"
+    status: RelatedWorkStatus!
   }
 
   input UpdateRelatedWorkStatusInput {
@@ -375,5 +395,42 @@ export const typeDefs = gql`
     name: String
     "The ROR ID of the funder"
     ror: String
+  }
+
+  "Work metadata returned by the OpenSearch works-index"
+  type OpenSearchWork {
+    "The DOI of the work"
+    doi: String!
+    "The title of the work"
+    title: String
+    "The abstract of the work"
+    abstractText: String
+    "A hash of the content of this version of a work"
+    hash: MD5!
+    "The type of the work"
+    workType: WorkType!
+    "The date that the work was published YYYY-MM-DD"
+    publicationDate: String
+    "The date that the work was updated YYYY-MM-DD"
+    updatedDate: String
+    "The venue where the work was published, e.g. IEEE Transactions on Software Engineering, Zenodo etc"
+    publicationVenue: String
+    "The unique institutions of the authors of the work"
+    institutions: [Institution!]!
+    "The authors of the work"
+    authors: [Author!]!
+    "The funders of the work"
+    funders: [Funder!]!
+    "The awards that funded the work"
+    awards: [Award!]!
+    "The source of the work"
+    source: OpenSearchWorkSource!
+  }
+
+  type OpenSearchWorkSource {
+    "The name of the source where the work was found"
+    name: String!
+    "The URL for the source of the work"
+    url: String
   }
 `;

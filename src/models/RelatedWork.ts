@@ -387,6 +387,19 @@ export class RelatedWork extends MySqlModel {
     const result = await RelatedWork.query(context, sql, [planId.toString(), workVersionId.toString()], reference);
     return Array.isArray(result) && result.length > 0 ? new RelatedWork(result[0]) : null;
   }
+
+  // Find a RelatedWork by planID and DOI
+  static async findByDOI(
+    reference: string,
+    context: MyContext,
+    planId: number,
+    doi: string,
+  ): Promise<RelatedWork> {
+    const sql = `SELECT rw.* FROM ${RelatedWork.tableName} AS rw LEFT JOIN plans p ON rw.planId = p.id LEFT JOIN workVersions wv ON rw.workVersionId = wv.id LEFT JOIN works w ON wv.workId = w.id WHERE rw.planId = ? AND w.doi = ?`;
+    const result = await RelatedWork.query(context, sql, [planId.toString(), doi], reference);
+    console.log(result);
+    return Array.isArray(result) && result.length > 0 ? new RelatedWork(result[0]) : null;
+  }
 }
 
 export interface RelatedWorkSearchResults<T> extends PaginatedQueryResults<T> {
@@ -520,6 +533,7 @@ export class RelatedWorkSearchResult extends MySqlModel {
     context: MyContext,
     projectId: number,
     planId?: number,
+    doi?: string,
     filterOptions: RelatedWorksFilterOptions = {},
     options: PaginationOptions = RelatedWorkSearchResult.getDefaultPaginationOptions(),
   ): Promise<RelatedWorkSearchResults<RelatedWorkSearchResult>> {
@@ -572,6 +586,10 @@ export class RelatedWorkSearchResult extends MySqlModel {
     if (!isNullOrUndefined(planId)) {
       whereFilters.push('rw.planId = ?');
       values.push(planId);
+    }
+    if (!isNullOrUndefined(doi)) {
+      whereFilters.push('w.doi = ?');
+      values.push(doi);
     }
     if (!isNullOrUndefined(filterOptions.confidence)) {
       whereFilters.push(

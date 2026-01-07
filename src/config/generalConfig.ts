@@ -44,4 +44,16 @@ export const generalConfig = {
 
   csrfLength: Number.parseInt(process.env.CSRF_LENGTH) || 32,
   csrfTTL: Number.parseInt(process.env.CSRF_TTL) || 3600, // Default is 1 hour
+
+  opensearch: {
+    host: process.env.OPENSEARCH_HOST || 'host.docker.internal',
+    port: Number.parseInt(process.env.OPENSEARCH_PORT || '9200', 10),
+    useSSL: process.env.OPENSEARCH_USE_SSL === 'true', // true or false
+    verifyCerts: process.env.OPENSEARCH_VERIFY_CERTS === 'true', // true or false
+    authType: process.env.OPENSEARCH_AUTH_TYPE || null, // aws or basic
+    username: process.env.OPENSEARCH_USERNAME,
+    password: process.env.OPENSEARCH_PASSWORD,
+    awsRegion: process.env.OPENSEARCH_REGION || 'us-west-2',
+    awsService: process.env.OPENSEARCH_SERVICE || 'es',
+  }
 }

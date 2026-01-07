@@ -134,7 +134,7 @@ export type AddQuestionInput = {
   useSampleTextAsDefault?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
-export type AddRelatedWorkInput = {
+export type AddRelatedWorkManualInput = {
   /** The abstract of the work */
   abstractText?: InputMaybe<Scalars['String']['input']>;
   /** The authors of the work */
@@ -1040,8 +1040,8 @@ export type Mutation = {
   addQuestion: Question;
   /** Create a new QuestionCondition associated with a question */
   addQuestionCondition: QuestionCondition;
-  /** Add a related work */
-  addRelatedWork?: Maybe<RelatedWorkSearchResult>;
+  /** Add a related work manually, by specifying all work details */
+  addRelatedWorkManual?: Maybe<RelatedWorkSearchResult>;
   /** Add a new Repository */
   addRepository?: Maybe<Repository>;
   /** Add a new research output type (name must be unique!) */
@@ -1200,6 +1200,8 @@ export type Mutation = {
   updateUserProfile?: Maybe<User>;
   /** Upload a plan */
   uploadPlan?: Maybe<Plan>;
+  /** Insert or update a related work, the work is looked up in OpenSearch and details added */
+  upsertRelatedWork?: Maybe<RelatedWorkSearchResult>;
 };
 
 
@@ -1318,8 +1320,8 @@ export type MutationAddQuestionConditionArgs = {
 };
 
 
-export type MutationAddRelatedWorkArgs = {
-  input: AddRelatedWorkInput;
+export type MutationAddRelatedWorkManualArgs = {
+  input: AddRelatedWorkManualInput;
 };
 
 
@@ -1754,6 +1756,50 @@ export type MutationUploadPlanArgs = {
   fileContent?: InputMaybe<Scalars['String']['input']>;
   fileName?: InputMaybe<Scalars['String']['input']>;
   projectId: Scalars['Int']['input'];
+};
+
+
+export type MutationUpsertRelatedWorkArgs = {
+  input: UpsertRelatedWorkInput;
+};
+
+/** Work metadata returned by the OpenSearch works-index */
+export type OpenSearchWork = {
+  __typename?: 'OpenSearchWork';
+  /** The abstract of the work */
+  abstractText?: Maybe<Scalars['String']['output']>;
+  /** The authors of the work */
+  authors: Array<Author>;
+  /** The awards that funded the work */
+  awards: Array<Award>;
+  /** The DOI of the work */
+  doi: Scalars['String']['output'];
+  /** The funders of the work */
+  funders: Array<Funder>;
+  /** A hash of the content of this version of a work */
+  hash: Scalars['MD5']['output'];
+  /** The unique institutions of the authors of the work */
+  institutions: Array<Institution>;
+  /** The date that the work was published YYYY-MM-DD */
+  publicationDate?: Maybe<Scalars['String']['output']>;
+  /** The venue where the work was published, e.g. IEEE Transactions on Software Engineering, Zenodo etc */
+  publicationVenue?: Maybe<Scalars['String']['output']>;
+  /** The source of the work */
+  source: OpenSearchWorkSource;
+  /** The title of the work */
+  title?: Maybe<Scalars['String']['output']>;
+  /** The date that the work was updated YYYY-MM-DD */
+  updatedDate?: Maybe<Scalars['String']['output']>;
+  /** The type of the work */
+  workType: WorkType;
+};
+
+export type OpenSearchWorkSource = {
+  __typename?: 'OpenSearchWorkSource';
+  /** The name of the source where the work was found */
+  name: Scalars['String']['output'];
+  /** The URL for the source of the work */
+  url?: Maybe<Scalars['String']['output']>;
 };
 
 export type PaginatedQueryResults = {
@@ -2470,6 +2516,8 @@ export type Query = {
   defaultResearchOutputTypes?: Maybe<Array<Maybe<ResearchOutputType>>>;
   /** Search for a User to add as a collaborator */
   findCollaborator?: Maybe<CollaboratorSearchResults>;
+  /** Find a work with an identifier */
+  findWorkByIdentifier?: Maybe<RelatedWorkSearchResults>;
   /** Get a specific Guidance item by ID */
   guidance?: Maybe<Guidance>;
   /** Get all Guidance items for a specific GuidanceGroup */
@@ -2657,6 +2705,13 @@ export type QueryChildResearchDomainsArgs = {
 export type QueryFindCollaboratorArgs = {
   options?: InputMaybe<PaginationOptions>;
   term: Scalars['String']['input'];
+};
+
+
+export type QueryFindWorkByIdentifierArgs = {
+  doi?: InputMaybe<Scalars['String']['input']>;
+  paginationOptions?: InputMaybe<PaginationOptions>;
+  planId: Scalars['Int']['input'];
 };
 
 
@@ -3099,7 +3154,7 @@ export type RelatedWorkSearchResult = {
   /** Details how relevant the title and abstract of the work were to the plan */
   contentMatch?: Maybe<ContentMatch>;
   /** The timestamp when the Object was created */
-  created: Scalars['String']['output'];
+  created?: Maybe<Scalars['String']['output']>;
   /** The user who created the Object. Null if the related work was automatically found */
   createdById?: Maybe<Scalars['Int']['output']>;
   /** Details whether the work's DOI was found on a funder award page */
@@ -3107,23 +3162,23 @@ export type RelatedWorkSearchResult = {
   /** Details which funders matched from the work and the fields they matched on */
   funderMatches?: Maybe<Array<ItemMatch>>;
   /** The unique identifier for the Object */
-  id: Scalars['Int']['output'];
+  id?: Maybe<Scalars['Int']['output']>;
   /** Details which institutions matched from the work and the fields they matched on */
   institutionMatches?: Maybe<Array<ItemMatch>>;
   /** The timestamp when the Object was last modified */
-  modified: Scalars['String']['output'];
+  modified?: Maybe<Scalars['String']['output']>;
   /** The user who last modified the Object */
   modifiedById?: Maybe<Scalars['Int']['output']>;
   /** The unique identifier of the plan that this related work has been matched to */
-  planId: Scalars['Int']['output'];
+  planId?: Maybe<Scalars['Int']['output']>;
   /** The confidence score indicating how well the work matches the plan */
   score?: Maybe<Scalars['Float']['output']>;
   /** The maximum confidence score returned when this work was matched to the plan */
-  scoreMax: Scalars['Float']['output'];
+  scoreMax?: Maybe<Scalars['Float']['output']>;
   /** The normalised confidence score from 0.0-1.0 */
-  scoreNorm: Scalars['Float']['output'];
+  scoreNorm?: Maybe<Scalars['Float']['output']>;
   /** Whether the related work was automatically or manually added */
-  sourceType: RelatedWorkSourceType;
+  sourceType?: Maybe<RelatedWorkSourceType>;
   /** The status of the related work */
   status: RelatedWorkStatus;
   /** The version of the work that the plan was matched to */
@@ -3849,6 +3904,17 @@ export type UpdateUserProfileInput = {
   otherAffiliationName?: InputMaybe<Scalars['String']['input']>;
   /** The user's last/family name */
   surName: Scalars['String']['input'];
+};
+
+export type UpsertRelatedWorkInput = {
+  /** The Digital Object Identifier (DOI) of the work */
+  doi: Scalars['String']['input'];
+  /** A hash of the content of this version of a work */
+  hash: Scalars['MD5']['input'];
+  /** The unique identifier of the plan that this related work has been matched to */
+  planId?: InputMaybe<Scalars['Int']['input']>;
+  /** The status to give the related work */
+  status: RelatedWorkStatus;
 };
 
 /** A user of the DMPTool */
@@ -4596,7 +4662,7 @@ export type ResolversTypes = {
   AddProjectMemberInput: AddProjectMemberInput;
   AddQuestionConditionInput: AddQuestionConditionInput;
   AddQuestionInput: AddQuestionInput;
-  AddRelatedWorkInput: AddRelatedWorkInput;
+  AddRelatedWorkManualInput: AddRelatedWorkManualInput;
   AddRepositoryInput: AddRepositoryInput;
   AddSectionInput: AddSectionInput;
   Affiliation: ResolverTypeWrapper<Affiliation>;
@@ -4655,6 +4721,8 @@ export type ResolversTypes = {
   MetadataStandardErrors: ResolverTypeWrapper<MetadataStandardErrors>;
   MetadataStandardSearchResults: ResolverTypeWrapper<MetadataStandardSearchResults>;
   Mutation: ResolverTypeWrapper<{}>;
+  OpenSearchWork: ResolverTypeWrapper<OpenSearchWork>;
+  OpenSearchWorkSource: ResolverTypeWrapper<OpenSearchWorkSource>;
   Orcid: ResolverTypeWrapper<Scalars['Orcid']['output']>;
   PaginatedQueryResults: ResolverTypeWrapper<ResolversInterfaceTypes<ResolversTypes>['PaginatedQueryResults']>;
   PaginationOptions: PaginationOptions;
@@ -4752,6 +4820,7 @@ export type ResolversTypes = {
   UpdateSectionInput: UpdateSectionInput;
   UpdateUserNotificationsInput: UpdateUserNotificationsInput;
   UpdateUserProfileInput: UpdateUserProfileInput;
+  UpsertRelatedWorkInput: UpsertRelatedWorkInput;
   User: ResolverTypeWrapper<User>;
   UserEmail: ResolverTypeWrapper<UserEmail>;
   UserEmailErrors: ResolverTypeWrapper<UserEmailErrors>;
@@ -4790,7 +4859,7 @@ export type ResolversParentTypes = {
   AddProjectMemberInput: AddProjectMemberInput;
   AddQuestionConditionInput: AddQuestionConditionInput;
   AddQuestionInput: AddQuestionInput;
-  AddRelatedWorkInput: AddRelatedWorkInput;
+  AddRelatedWorkManualInput: AddRelatedWorkManualInput;
   AddRepositoryInput: AddRepositoryInput;
   AddSectionInput: AddSectionInput;
   Affiliation: Affiliation;
@@ -4846,6 +4915,8 @@ export type ResolversParentTypes = {
   MetadataStandardErrors: MetadataStandardErrors;
   MetadataStandardSearchResults: MetadataStandardSearchResults;
   Mutation: {};
+  OpenSearchWork: OpenSearchWork;
+  OpenSearchWorkSource: OpenSearchWorkSource;
   Orcid: Scalars['Orcid']['output'];
   PaginatedQueryResults: ResolversInterfaceTypes<ResolversParentTypes>['PaginatedQueryResults'];
   PaginationOptions: PaginationOptions;
@@ -4927,6 +4998,7 @@ export type ResolversParentTypes = {
   UpdateSectionInput: UpdateSectionInput;
   UpdateUserNotificationsInput: UpdateUserNotificationsInput;
   UpdateUserProfileInput: UpdateUserProfileInput;
+  UpsertRelatedWorkInput: UpsertRelatedWorkInput;
   User: User;
   UserEmail: UserEmail;
   UserEmailErrors: UserEmailErrors;
@@ -5400,7 +5472,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   addProjectMember?: Resolver<Maybe<ResolversTypes['ProjectMember']>, ParentType, ContextType, RequireFields<MutationAddProjectMemberArgs, 'input'>>;
   addQuestion?: Resolver<ResolversTypes['Question'], ParentType, ContextType, RequireFields<MutationAddQuestionArgs, 'input'>>;
   addQuestionCondition?: Resolver<ResolversTypes['QuestionCondition'], ParentType, ContextType, RequireFields<MutationAddQuestionConditionArgs, 'input'>>;
-  addRelatedWork?: Resolver<Maybe<ResolversTypes['RelatedWorkSearchResult']>, ParentType, ContextType, RequireFields<MutationAddRelatedWorkArgs, 'input'>>;
+  addRelatedWorkManual?: Resolver<Maybe<ResolversTypes['RelatedWorkSearchResult']>, ParentType, ContextType, RequireFields<MutationAddRelatedWorkManualArgs, 'input'>>;
   addRepository?: Resolver<Maybe<ResolversTypes['Repository']>, ParentType, ContextType, Partial<MutationAddRepositoryArgs>>;
   addResearchOutputType?: Resolver<Maybe<ResolversTypes['ResearchOutputType']>, ParentType, ContextType, RequireFields<MutationAddResearchOutputTypeArgs, 'name'>>;
   addSection?: Resolver<ResolversTypes['Section'], ParentType, ContextType, RequireFields<MutationAddSectionArgs, 'input'>>;
@@ -5480,6 +5552,30 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   updateUserNotifications?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationUpdateUserNotificationsArgs, 'input'>>;
   updateUserProfile?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationUpdateUserProfileArgs, 'input'>>;
   uploadPlan?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType, RequireFields<MutationUploadPlanArgs, 'projectId'>>;
+  upsertRelatedWork?: Resolver<Maybe<ResolversTypes['RelatedWorkSearchResult']>, ParentType, ContextType, RequireFields<MutationUpsertRelatedWorkArgs, 'input'>>;
+};
+
+export type OpenSearchWorkResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['OpenSearchWork'] = ResolversParentTypes['OpenSearchWork']> = {
+  abstractText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  authors?: Resolver<Array<ResolversTypes['Author']>, ParentType, ContextType>;
+  awards?: Resolver<Array<ResolversTypes['Award']>, ParentType, ContextType>;
+  doi?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  funders?: Resolver<Array<ResolversTypes['Funder']>, ParentType, ContextType>;
+  hash?: Resolver<ResolversTypes['MD5'], ParentType, ContextType>;
+  institutions?: Resolver<Array<ResolversTypes['Institution']>, ParentType, ContextType>;
+  publicationDate?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  publicationVenue?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  source?: Resolver<ResolversTypes['OpenSearchWorkSource'], ParentType, ContextType>;
+  title?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  updatedDate?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  workType?: Resolver<ResolversTypes['WorkType'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type OpenSearchWorkSourceResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['OpenSearchWorkSource'] = ResolversParentTypes['OpenSearchWorkSource']> = {
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  url?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
 export interface OrcidScalarConfig extends GraphQLScalarTypeConfig<ResolversTypes['Orcid'], any> {
@@ -5873,6 +5969,7 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   childResearchDomains?: Resolver<Maybe<Array<Maybe<ResolversTypes['ResearchDomain']>>>, ParentType, ContextType, RequireFields<QueryChildResearchDomainsArgs, 'parentResearchDomainId'>>;
   defaultResearchOutputTypes?: Resolver<Maybe<Array<Maybe<ResolversTypes['ResearchOutputType']>>>, ParentType, ContextType>;
   findCollaborator?: Resolver<Maybe<ResolversTypes['CollaboratorSearchResults']>, ParentType, ContextType, RequireFields<QueryFindCollaboratorArgs, 'term'>>;
+  findWorkByIdentifier?: Resolver<Maybe<ResolversTypes['RelatedWorkSearchResults']>, ParentType, ContextType, RequireFields<QueryFindWorkByIdentifierArgs, 'planId'>>;
   guidance?: Resolver<Maybe<ResolversTypes['Guidance']>, ParentType, ContextType, RequireFields<QueryGuidanceArgs, 'guidanceId'>>;
   guidanceByGroup?: Resolver<Array<ResolversTypes['Guidance']>, ParentType, ContextType, RequireFields<QueryGuidanceByGroupArgs, 'guidanceGroupId'>>;
   guidanceGroup?: Resolver<Maybe<ResolversTypes['GuidanceGroup']>, ParentType, ContextType, RequireFields<QueryGuidanceGroupArgs, 'guidanceGroupId'>>;
@@ -6007,19 +6104,19 @@ export type RelatedWorkSearchResultResolvers<ContextType = MyContext, ParentType
   awardMatches?: Resolver<Maybe<Array<ResolversTypes['ItemMatch']>>, ParentType, ContextType>;
   confidence?: Resolver<Maybe<ResolversTypes['RelatedWorkConfidence']>, ParentType, ContextType>;
   contentMatch?: Resolver<Maybe<ResolversTypes['ContentMatch']>, ParentType, ContextType>;
-  created?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   createdById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   doiMatch?: Resolver<Maybe<ResolversTypes['DoiMatch']>, ParentType, ContextType>;
   funderMatches?: Resolver<Maybe<Array<ResolversTypes['ItemMatch']>>, ParentType, ContextType>;
-  id?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   institutionMatches?: Resolver<Maybe<Array<ResolversTypes['ItemMatch']>>, ParentType, ContextType>;
-  modified?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  planId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  planId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   score?: Resolver<Maybe<ResolversTypes['Float']>, ParentType, ContextType>;
-  scoreMax?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
-  scoreNorm?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
-  sourceType?: Resolver<ResolversTypes['RelatedWorkSourceType'], ParentType, ContextType>;
+  scoreMax?: Resolver<Maybe<ResolversTypes['Float']>, ParentType, ContextType>;
+  scoreNorm?: Resolver<Maybe<ResolversTypes['Float']>, ParentType, ContextType>;
+  sourceType?: Resolver<Maybe<ResolversTypes['RelatedWorkSourceType']>, ParentType, ContextType>;
   status?: Resolver<ResolversTypes['RelatedWorkStatus'], ParentType, ContextType>;
   workVersion?: Resolver<ResolversTypes['WorkVersion'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
@@ -6719,6 +6816,8 @@ export type Resolvers<ContextType = MyContext> = {
   MetadataStandardErrors?: MetadataStandardErrorsResolvers<ContextType>;
   MetadataStandardSearchResults?: MetadataStandardSearchResultsResolvers<ContextType>;
   Mutation?: MutationResolvers<ContextType>;
+  OpenSearchWork?: OpenSearchWorkResolvers<ContextType>;
+  OpenSearchWorkSource?: OpenSearchWorkSourceResolvers<ContextType>;
   Orcid?: GraphQLScalarType;
   PaginatedQueryResults?: PaginatedQueryResultsResolvers<ContextType>;
   Plan?: PlanResolvers<ContextType>;

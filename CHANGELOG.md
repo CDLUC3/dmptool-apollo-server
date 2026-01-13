@@ -5,6 +5,10 @@
 - Related works stored procedures so that they can insert existing related works and ground truth data.
 
 ### Added
+- Added `hasAssociatedPlans` method to VersionedTemplate model to check if any plans are associated with a template
+- Added `deactivateByTemplateId` method to VersionedTemplate model to deactivate all versionedTemplates for a given template
+- Added unit tests for `hasAssociatedPlans` and `deactivateByTemplateId` methods in VersionedTemplate model
+- Added unit tests for `archiveTemplate` resolver in template resolver
 - Added `overrides` section to `package.json` for `qs` since `supertest` is still using old version
 - Added `slug` to tags array returned in `PlanSectionOverview`
 - Added new `ssoPassthruController` and `ssoCallbackController` stub controllers
@@ -39,6 +43,7 @@ prior to 2025-12-05
 - Added `slug` to the `Tag` schema
 
 ### Updated
+- Updated `archiveTemplate` resolver to check for associated plans before deleting: if plans exist, unpublishes the template by clearing `latestPublishVersion` and `latestPublishDate`, setting `isDirty` to true, and deactivating all related versionedTemplates; if no plans exist, deletes the template as before
 - Added `description` column to `guidanceGroups` and `versionedGuidanceGroups` db tables [#528]
 - Added `description` to `GuidanceGroup` model
 - Fixed issue in `VersionedGuidance` model's `create` method to ignore `tagId` [#528]

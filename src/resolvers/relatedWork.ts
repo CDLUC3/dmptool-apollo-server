@@ -26,6 +26,7 @@ import {
   PaginationType
 } from '../types/general';
 import {openSearchFindWorkByIdentifier} from "../services/openSearchService";
+import {generalConfig} from "../config/generalConfig";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -102,7 +103,7 @@ export const resolvers: Resolvers = {
       }
     },
 
-    // Get all the related works for a plan
+    // Find related works by an identifier, e.g. DOI
     async findWorkByIdentifier(
       _,
       { planId, doi, paginationOptions },
@@ -119,11 +120,12 @@ export const resolvers: Resolvers = {
                 ? (paginationOptions as PaginationOptionsForOffsets)
                 : ({ ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors);
             const project = await Project.findById(reference, context, plan.projectId);
+            const limit = Math.min(paginationOptions.limit, generalConfig.maximumSearchLimit);
             if (project && (await hasPermissionOnProject(context, project))) {
               if(!doi){
                 return {
                   items: [],
-                  limit: 20,
+                  limit: limit,
                   totalCount: 0,
                   currentOffset: 0,
                   hasNextPage: false,
@@ -145,6 +147,7 @@ export const resolvers: Resolvers = {
               const openSearchWorks =  await openSearchFindWorkByIdentifier(
                 context,
                 doi,
+                limit,
               );
 
               // Convert OpenSearch results to related works
@@ -177,7 +180,7 @@ export const resolvers: Resolvers = {
                     modified: null,
                   } as RelatedWorkSearchResult
                 }),
-                limit: 20,
+                limit: limit,
                 totalCount: openSearchWorks.length,
                 currentOffset: 0,
                 hasNextPage: false,
@@ -234,6 +237,7 @@ export const resolvers: Resolvers = {
                   const openSearchWorks =  await openSearchFindWorkByIdentifier(
                     context,
                     input.doi,
+                    2, // We should currently only be getting 1 result
                   );
                   if (openSearchWorks.length == 0)
                   {

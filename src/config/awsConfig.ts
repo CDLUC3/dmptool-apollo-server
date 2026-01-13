@@ -10,6 +10,14 @@ if (!['development', 'test'].includes(process.env.NODE_ENV)) {
   verifyCriticalEnvVariable('SES_BOUNCE_EMAIL_ADDRESS');
   verifyCriticalEnvVariable('SES_BOUNCED_EMAIL_BUCKET');
   verifyCriticalEnvVariable('DYNAMO_TABLE_NAME');
+
+  verifyCriticalEnvVariable('OPENSEARCH_HOST');
+  verifyCriticalEnvVariable('OPENSEARCH_PORT');
+  verifyCriticalEnvVariable('OPENSEARCH_USE_SSL');
+  verifyCriticalEnvVariable('OPENSEARCH_VERIFY_CERTS');
+  verifyCriticalEnvVariable('OPENSEARCH_AUTH_TYPE');
+  verifyCriticalEnvVariable('OPENSEARCH_REGION');
+  verifyCriticalEnvVariable('OPENSEARCH_SERVICE');
 }
 
 export const awsConfig = {
@@ -28,4 +36,17 @@ export const awsConfig = {
   dynamoTableName: process.env.DYNAMO_TABLE_NAME,
   dynamoEndpoint: process.env.DYNAMO_ENDPOINT,
   dynamoMaxQueryAttempts: process.env.DYNAMO_MAX_ATTEMPTS ? parseInt(process.env.DYNAMO_MAX_ATTEMPTS) : 3,
+
+  // OpenSearch config
+  opensearch: {
+    host: process.env.OPENSEARCH_HOST || 'host.docker.internal',
+    port: Number.parseInt(process.env.OPENSEARCH_PORT || '9200', 10),
+    useSSL: process.env.OPENSEARCH_USE_SSL === 'true', // true or false
+    verifyCerts: process.env.OPENSEARCH_VERIFY_CERTS === 'true', // true or false
+    authType: process.env.OPENSEARCH_AUTH_TYPE || null, // aws or basic
+    username: process.env.OPENSEARCH_USERNAME,
+    password: process.env.OPENSEARCH_PASSWORD,
+    awsRegion: process.env.OPENSEARCH_REGION || 'us-west-2',
+    awsService: process.env.OPENSEARCH_SERVICE || 'es',
+  }
 }

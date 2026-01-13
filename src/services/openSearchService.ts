@@ -1,10 +1,8 @@
 import { MyContext } from '../context';
 import { OpenSearchWork, WorkType } from '../types';
-import { Client, ClientOptions } from '@opensearch-project/opensearch';
-import { AwsSigv4Signer } from '@opensearch-project/opensearch/aws';
-import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
-import { generalConfig } from '../config/generalConfig';
+import { awsConfig } from '../config/awsConfig';
 import { prepareObjectForLogs } from '../logger';
+import {createOpenSearchClient} from "../datasources/opensearch";
 
 export interface OpenSearchConfig {
   host: string;
@@ -83,50 +81,20 @@ function convertWorkToCamelCase(work: OpenSearchWorkRecord): OpenSearchWork {
   };
 }
 
-function createOpenSearchClient(config: OpenSearchConfig): Client {
-  const protocol = config.useSSL ? 'https:' : 'http:';
-  const url = new URL(`${protocol}//${config.host}:${config.port}`);
-
-  const clientOptions: ClientOptions = {
-    node: url.toString(),
-    ssl: {
-      rejectUnauthorized: config.verifyCerts,
-    },
-    compression: 'gzip',
-  };
-
-  if (config.authType === 'aws') {
-    Object.assign(
-      clientOptions,
-      AwsSigv4Signer({
-        region: config.awsRegion,
-        service: config.awsService,
-        getCredentials: fromNodeProviderChain(),
-      }),
-    );
-  } else if (config.authType === 'basic') {
-    clientOptions.auth = {
-      username: config.username || '',
-      password: config.password || '',
-    };
-  }
-
-  return new Client(clientOptions);
-}
-
-export const openSearchFindWorkByIdentifier = async (context: MyContext, doi: string | null | undefined): Promise<OpenSearchWork[]> => {
+export const openSearchFindWorkByIdentifier = async (context: MyContext, doi: string | null | undefined, maxResults: number): Promise<OpenSearchWork[]> => {
   // If doi is empty, whitespace, null or undefined return no results
   if (!doi?.trim()) {
     return [];
   }
 
   // Fetch data from OpenSearch
-  const client = createOpenSearchClient(generalConfig.opensearch as OpenSearchConfig);
+  const client = createOpenSearchClient(awsConfig.opensearch as OpenSearchConfig);
   let response;
   try {
     response = await client.search({
       index: 'works-index',
       body: {
+        size: maxResults,
         query: {
           ids: {
             values: [doi],

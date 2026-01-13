@@ -5,6 +5,8 @@
 - Related works stored procedures so that they can insert existing related works and ground truth data.
 
 ### Added
+- Added `findByURIs` methods to both `Repository` and `MetadataStandards` models [#572]
+- Added `repositoriesByURIs` and `metadataStandardsByURIs` resolvers to return matching repos to provided URIs [#572]
 - Added `overrides` section to `package.json` for `qs` since `supertest` is still using old version
 - Added `slug` to tags array returned in `PlanSectionOverview`
 - Added new `ssoPassthruController` and `ssoCallbackController` stub controllers

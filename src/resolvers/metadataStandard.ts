@@ -38,6 +38,20 @@ export const resolvers: Resolvers = {
         throw InternalServerError();
       }
     },
+    // Return repositories matching a list of unique URIs
+    metadataStandardsByURIs: async (_, { uris }, context: MyContext): Promise<MetadataStandard[]> => {
+      const reference = 'repositoriesByURIs resolver';
+      try {
+        if (isAuthorized(context.token)) {
+          return await MetadataStandard.findByURIs(reference, context, uris);
+        }
+        throw context?.token ? ForbiddenError() : AuthenticationError();
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    },
   },
 
   Mutation: {

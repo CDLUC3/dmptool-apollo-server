@@ -6,6 +6,8 @@ export const typeDefs = gql`
     metadataStandards(term: String, researchDomainId: Int, paginationOptions: PaginationOptions): MetadataStandardSearchResults
     "Fetch a specific metadata standard"
     metadataStandard(uri: String!): MetadataStandard
+    "return all metadata standards whose unique uri values are provided"
+    metadataStandardsByURIs(uris: [String!]!): [MetadataStandard!]
   }
 
   extend type Mutation {

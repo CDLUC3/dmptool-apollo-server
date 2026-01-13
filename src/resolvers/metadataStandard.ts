@@ -38,9 +38,9 @@ export const resolvers: Resolvers = {
         throw InternalServerError();
       }
     },
-    // Return repositories matching a list of unique URIs
+    // Return metadata standards matching a list of unique URIs
     metadataStandardsByURIs: async (_, { uris }, context: MyContext): Promise<MetadataStandard[]> => {
-      const reference = 'repositoriesByURIs resolver';
+      const reference = 'metadataStandardsByURIs resolver';
       try {
         if (isAuthorized(context.token)) {
           return await MetadataStandard.findByURIs(reference, context, uris);

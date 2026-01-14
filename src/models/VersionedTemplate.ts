@@ -295,4 +295,23 @@ export class VersionedTemplate extends MySqlModel {
     const results = Array.isArray(result) ? result : [];
     return results.length > 0 && results[0].count > 0;
   }
+
+  // Check if any plans exist that are associated with any versionedTemplate for the given template
+  static async hasAssociatedPlans(reference: string, context: MyContext, templateId: number): Promise<boolean> {
+    const sql = 'SELECT p.id FROM plans AS p ' +
+                'JOIN versionedTemplates AS vt ON p.versionedTemplateId = vt.id ' +
+                'WHERE vt.templateId = ? LIMIT 1';
+    const results = await VersionedTemplate.query(context, sql, [templateId.toString()], reference);
+    // Explicitly handle null or non-array results
+    if (!results || !Array.isArray(results)) {
+      return false;
+    }
+    return results.length > 0;
+  }
+
+  // Deactivate all versionedTemplates for the given template
+  static async deactivateByTemplateId(reference: string, context: MyContext, templateId: number): Promise<void> {
+    const sql = 'UPDATE versionedTemplates SET active = 0 WHERE templateId = ?';
+    await VersionedTemplate.query(context, sql, [templateId.toString()], reference);
+  }
 }

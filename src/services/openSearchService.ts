@@ -2,19 +2,8 @@ import { MyContext } from '../context';
 import { OpenSearchWork, WorkType } from '../types';
 import { awsConfig } from '../config/awsConfig';
 import { prepareObjectForLogs } from '../logger';
-import {createOpenSearchClient} from "../datasources/opensearch";
+import { createOpenSearchClient, OpenSearchConfig } from "../datasources/openSearch";
 
-export interface OpenSearchConfig {
-  host: string;
-  port: number;
-  useSSL: boolean;
-  verifyCerts: boolean;
-  authType: 'aws' | 'basic' | null;
-  username?: string;
-  password?: string;
-  awsRegion: string;
-  awsService: 'es' | 'aoss';
-}
 
 interface OpenSearchWorkRecord {
   doi: string;
@@ -40,7 +29,7 @@ interface OpenSearchWorkRecord {
   source: { name: string; url?: string };
 }
 
-function convertWorkToCamelCase(work: OpenSearchWorkRecord): OpenSearchWork {
+export function convertWorkToCamelCase(work: OpenSearchWorkRecord): OpenSearchWork {
   return {
     doi: work.doi,
     title: work.title,

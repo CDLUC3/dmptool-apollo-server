@@ -44,9 +44,9 @@ export const awsConfig = {
     useSSL: process.env.OPENSEARCH_USE_SSL === 'true', // true or false
     verifyCerts: process.env.OPENSEARCH_VERIFY_CERTS === 'true', // true or false
     authType: process.env.OPENSEARCH_AUTH_TYPE || null, // aws or basic
-    username: process.env.OPENSEARCH_USERNAME,
-    password: process.env.OPENSEARCH_PASSWORD,
-    awsRegion: process.env.OPENSEARCH_REGION || 'us-west-2',
-    awsService: process.env.OPENSEARCH_SERVICE || 'es',
+    username: process.env.OPENSEARCH_USERNAME || null,
+    password: process.env.OPENSEARCH_PASSWORD || null,
+    awsRegion: process.env.OPENSEARCH_REGION || null,
+    awsService: process.env.OPENSEARCH_SERVICE || null,
   }
 }

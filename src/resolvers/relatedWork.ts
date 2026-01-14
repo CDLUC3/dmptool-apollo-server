@@ -120,7 +120,7 @@ export const resolvers: Resolvers = {
                 ? (paginationOptions as PaginationOptionsForOffsets)
                 : ({ ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors);
             const project = await Project.findById(reference, context, plan.projectId);
-            const limit = Math.min(paginationOptions.limit, generalConfig.maximumSearchLimit);
+            const limit = Math.min(pagOpts.limit ?? generalConfig.defaultSearchLimit, generalConfig.maximumSearchLimit);
             if (project && (await hasPermissionOnProject(context, project))) {
               if(!doi){
                 return {

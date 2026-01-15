@@ -92,7 +92,7 @@ export async function planToDMPCommonStandard(
   // Get all of the fundings and narrative info
   const fundings = plan.id ? await loadFundingInfo(context, reference, plan.id) : [];
   const narrative = plan.id ? await loadNarrativeTemplateInfo(context, reference, plan.id) : [];
-  const works = await RelatedWorkSearchResult.search(reference, context, plan.projectId, undefined, {status: "ACCEPTED"});
+  const works = await RelatedWorkSearchResult.search(reference, context, plan.projectId, undefined, undefined, {status: "ACCEPTED"});
   const defaultRole = await MemberRole.defaultRole(context, reference);
 
   // Build the DMP with all the required properties (and any that we have defaults for)

@@ -2604,8 +2604,12 @@ export type Query = {
   recommendedLicenses?: Maybe<Array<Maybe<License>>>;
   /** Get all of the related works for a plan */
   relatedWorksByPlan?: Maybe<RelatedWorkSearchResults>;
+  /** Get summary statistics for related works by plan */
+  relatedWorksByPlanStats?: Maybe<RelatedWorkStatsResults>;
   /** Get all of the related works for a project */
   relatedWorksByProject?: Maybe<RelatedWorkSearchResults>;
+  /** Get summary statistics for related works by project */
+  relatedWorksByProjectStats?: Maybe<RelatedWorkStatsResults>;
   /** Search for a repository */
   repositories?: Maybe<RepositorySearchResults>;
   /** return all repositories whose unique uri values are provided */
@@ -2918,9 +2922,19 @@ export type QueryRelatedWorksByPlanArgs = {
 };
 
 
+export type QueryRelatedWorksByPlanStatsArgs = {
+  planId: Scalars['Int']['input'];
+};
+
+
 export type QueryRelatedWorksByProjectArgs = {
   filterOptions?: InputMaybe<RelatedWorksFilterOptions>;
   paginationOptions?: InputMaybe<PaginationOptions>;
+  projectId: Scalars['Int']['input'];
+};
+
+
+export type QueryRelatedWorksByProjectStatsArgs = {
   projectId: Scalars['Int']['input'];
 };
 
@@ -3215,6 +3229,18 @@ export type RelatedWorkSearchResults = PaginatedQueryResults & {
 export type RelatedWorkSourceType =
   | 'SYSTEM_MATCHED'
   | 'USER_ADDED';
+
+export type RelatedWorkStatsResults = {
+  __typename?: 'RelatedWorkStatsResults';
+  /** Count of accepted related works */
+  acceptedCount?: Maybe<Scalars['Int']['output']>;
+  /** Count of pending related works */
+  pendingCount?: Maybe<Scalars['Int']['output']>;
+  /** Count of rejected related works */
+  rejectedCount?: Maybe<Scalars['Int']['output']>;
+  /** The total number of related works */
+  totalCount?: Maybe<Scalars['Int']['output']>;
+};
 
 /** The status of the related work */
 export type RelatedWorkStatus =
@@ -4775,6 +4801,7 @@ export type ResolversTypes = {
   RelatedWorkSearchResult: ResolverTypeWrapper<RelatedWorkSearchResult>;
   RelatedWorkSearchResults: ResolverTypeWrapper<RelatedWorkSearchResults>;
   RelatedWorkSourceType: RelatedWorkSourceType;
+  RelatedWorkStatsResults: ResolverTypeWrapper<RelatedWorkStatsResults>;
   RelatedWorkStatus: RelatedWorkStatus;
   RelatedWorksFilterOptions: RelatedWorksFilterOptions;
   ReorderQuestionsResult: ResolverTypeWrapper<ReorderQuestionsResult>;
@@ -4958,6 +4985,7 @@ export type ResolversParentTypes = {
   QuestionErrors: QuestionErrors;
   RelatedWorkSearchResult: RelatedWorkSearchResult;
   RelatedWorkSearchResults: RelatedWorkSearchResults;
+  RelatedWorkStatsResults: RelatedWorkStatsResults;
   RelatedWorksFilterOptions: RelatedWorksFilterOptions;
   ReorderQuestionsResult: ReorderQuestionsResult;
   ReorderSectionsResult: ReorderSectionsResult;
@@ -6013,7 +6041,9 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   questions?: Resolver<Maybe<Array<Maybe<ResolversTypes['Question']>>>, ParentType, ContextType, RequireFields<QueryQuestionsArgs, 'sectionId'>>;
   recommendedLicenses?: Resolver<Maybe<Array<Maybe<ResolversTypes['License']>>>, ParentType, ContextType, RequireFields<QueryRecommendedLicensesArgs, 'recommended'>>;
   relatedWorksByPlan?: Resolver<Maybe<ResolversTypes['RelatedWorkSearchResults']>, ParentType, ContextType, RequireFields<QueryRelatedWorksByPlanArgs, 'planId'>>;
+  relatedWorksByPlanStats?: Resolver<Maybe<ResolversTypes['RelatedWorkStatsResults']>, ParentType, ContextType, RequireFields<QueryRelatedWorksByPlanStatsArgs, 'planId'>>;
   relatedWorksByProject?: Resolver<Maybe<ResolversTypes['RelatedWorkSearchResults']>, ParentType, ContextType, RequireFields<QueryRelatedWorksByProjectArgs, 'projectId'>>;
+  relatedWorksByProjectStats?: Resolver<Maybe<ResolversTypes['RelatedWorkStatsResults']>, ParentType, ContextType, RequireFields<QueryRelatedWorksByProjectStatsArgs, 'projectId'>>;
   repositories?: Resolver<Maybe<ResolversTypes['RepositorySearchResults']>, ParentType, ContextType, RequireFields<QueryRepositoriesArgs, 'input'>>;
   repositoriesByURIs?: Resolver<Maybe<Array<ResolversTypes['Repository']>>, ParentType, ContextType, RequireFields<QueryRepositoriesByUrIsArgs, 'uris'>>;
   repository?: Resolver<Maybe<ResolversTypes['Repository']>, ParentType, ContextType, RequireFields<QueryRepositoryArgs, 'uri'>>;
@@ -6134,6 +6164,14 @@ export type RelatedWorkSearchResultsResolvers<ContextType = MyContext, ParentTyp
   statusOnlyCount?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   totalCount?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   workTypeCounts?: Resolver<Maybe<Array<ResolversTypes['TypeCount']>>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type RelatedWorkStatsResultsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['RelatedWorkStatsResults'] = ResolversParentTypes['RelatedWorkStatsResults']> = {
+  acceptedCount?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  pendingCount?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  rejectedCount?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  totalCount?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
@@ -6856,6 +6894,7 @@ export type Resolvers<ContextType = MyContext> = {
   QuestionErrors?: QuestionErrorsResolvers<ContextType>;
   RelatedWorkSearchResult?: RelatedWorkSearchResultResolvers<ContextType>;
   RelatedWorkSearchResults?: RelatedWorkSearchResultsResolvers<ContextType>;
+  RelatedWorkStatsResults?: RelatedWorkStatsResultsResolvers<ContextType>;
   ReorderQuestionsResult?: ReorderQuestionsResultResolvers<ContextType>;
   ReorderSectionsResult?: ReorderSectionsResultResolvers<ContextType>;
   Repository?: RepositoryResolvers<ContextType>;

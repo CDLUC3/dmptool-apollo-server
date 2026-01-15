@@ -1,5 +1,5 @@
 import {prepareObjectForLogs} from '../logger';
-import {Resolvers} from '../types';
+import {RelatedWorkStatsResults, Resolvers} from '../types';
 import {MyContext} from '../context';
 import {isAuthorized} from '../services/authService';
 import {
@@ -190,6 +190,37 @@ export const resolvers: Resolvers = {
                 workTypeCounts: [],
                 confidenceCounts: [],
               };
+            }
+          }
+        }
+        throw context?.token ? ForbiddenError() : AuthenticationError();
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    },
+
+    // Get related works stats per plan
+    async relatedWorksByPlanStats(
+      _,
+      { planId },
+      context: MyContext,
+    ): Promise<RelatedWorkStatsResults> {
+      const reference = 'relatedWorksByPlanStats resolver';
+
+      try {
+        if (isAuthorized(context.token)) {
+          const plan = await Plan.findById(reference, context, planId);
+          if (plan) {
+            const project = await Project.findById(reference, context, plan.projectId);
+            if (project && (await hasPermissionOnProject(context, project))) {
+              return await RelatedWork.statsByPlanId(
+                reference,
+                context,
+                planId,
+              );
             }
           }
         }

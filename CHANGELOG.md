@@ -5,6 +5,7 @@
 - Related works stored procedures so that they can insert existing related works and ground truth data.
 
 ### Added
+- Added endpoint for returning summary stats for related works associated with a plan.
 - Added ability to manually add a related work via a DOI.
 - Added `findByURIs` methods to both `Repository` and `MetadataStandards` models [#572]
 - Added `repositoriesByURIs` and `metadataStandardsByURIs` resolvers to return matching repos to provided URIs [#572]

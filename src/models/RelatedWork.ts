@@ -445,7 +445,7 @@ export class RelatedWorkSearchResult extends MySqlModel {
   public institutionMatches: ItemMatch[];
   public funderMatches: ItemMatch[];
   public awardMatches: ItemMatch[];
-  
+
   public static sqlStatement =
     `SELECT ` + // requires 'SELECT ' for cursor pagination to work
     `rw.id,

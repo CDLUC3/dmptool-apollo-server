@@ -6,6 +6,10 @@
 - Changed min node/npm versions in `package.json` (node `22.15`, npm `11.3`)
 - Updated codebuild env to use node `22`
 - Upgraded `graphql` to v `16.12.0`
+- Bumped `tsconfig` to `es2023`
+
+### Removed
+- Removed duplicative properties like `public id: number;` from classes in `models/RelatedWork`. They are inherited from `MySQLModel`.
 
 ## v1.0
 

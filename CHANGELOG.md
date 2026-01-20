@@ -2,6 +2,9 @@
 
 ## v1.1.0
 
+### Added
+- added `@as-integrations/express4` for Apollo-Express integration
+
 ### Updated
 - Changed min node/npm versions in `package.json` (node `22.15`, npm `11.3`)
 - Updated codebuild env to use node `22`
@@ -10,6 +13,7 @@
 
 ### Removed
 - Removed duplicative properties like `public id: number;` from classes in `models/RelatedWork`. They are inherited from `MySQLModel`.
+- removed Apollo config option to deal with flaw in Apollo4 `status400ForVariableCoercionErrors`
 
 ## v1.0
 

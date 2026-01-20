@@ -3,8 +3,9 @@
 ## v1.1.0
 
 ### Updated
-- Changed min node/npm versions in package.json (node 22.15, npm 11.3)
-- Updated codebuild env to use node 22
+- Changed min node/npm versions in `package.json` (node `22.15`, npm `11.3`)
+- Updated codebuild env to use node `22`
+- Upgraded `graphql` to v `16.12.0`
 
 ## v1.0
 

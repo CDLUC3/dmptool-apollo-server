@@ -22,7 +22,6 @@ import { prepareObjectForLogs } from '../logger';
 import { Plan } from './Plan';
 
 export class Work extends MySqlModel {
-  public id: number;
   public doi: string;
 
   private static tableName = 'works';
@@ -129,7 +128,6 @@ export const parseDOI = (doi: string | undefined | null): string => {
 };
 
 export class WorkVersion extends MySqlModel {
-  public id: number;
   public workId: number;
   public hash: Buffer;
   public workType: WorkType;
@@ -255,7 +253,6 @@ export class WorkVersion extends MySqlModel {
 }
 
 export class RelatedWork extends MySqlModel {
-  public id: number;
   public planId: number;
   public workVersionId: number;
   public sourceType: RelatedWorkSourceType;
@@ -409,7 +406,6 @@ export interface RelatedWorkSearchResults<T> extends PaginatedQueryResults<T> {
 }
 
 export class RelatedWorkSearchResult extends MySqlModel {
-  public id: number;
   public planId: number;
   public workVersion: {
     id: number;
@@ -449,11 +445,7 @@ export class RelatedWorkSearchResult extends MySqlModel {
   public institutionMatches: ItemMatch[];
   public funderMatches: ItemMatch[];
   public awardMatches: ItemMatch[];
-  public created: string;
-  public createdById: number;
-  public modified: string;
-  public modifiedById: number;
-
+  
   public static sqlStatement =
     `SELECT ` + // requires 'SELECT ' for cursor pagination to work
     `rw.id,

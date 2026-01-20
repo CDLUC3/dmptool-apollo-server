@@ -1,5 +1,13 @@
 # DMP Tool Apollo Server Change Log
 
+## v1.1.0
+
+### Updated
+- Changed min node/npm versions in package.json (node 22.15, npm 11.3)
+- Updated codebuild env to use node 22
+
+## v1.0
+
 ### Updated
 - Updated tests and isValid functions on `Question`, `VersionedQuestion` and `Answer` to work with new version of `@dmptool/types` v2.0
 - Related works stored procedures so that they can insert existing related works and ground truth data.
@@ -30,6 +38,7 @@
 - Fixed relatedWorksTables.spec.ts tests.
 - Fixed a small data-migration issue related to using the wrong createdById
 - Updated `auth0/node-jws Improperly Verifies HMAC Signature` due to vulnerability
+
 ============================================================================
 prior to 2025-12-05
 

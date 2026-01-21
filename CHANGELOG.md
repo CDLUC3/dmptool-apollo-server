@@ -3,17 +3,24 @@
 ## v1.1.0
 
 ### Added
-- added `@as-integrations/express4` for Apollo-Express integration
+- added `@as-integrations/express5` for Apollo-Express integration
 
 ### Updated
+- Regenerated `src/types` using new `graphql-codegen` version
+- Updated `tokenService` to use `uuid` instead of `uuidv4` package
+- Updated all calls to `logger.[level](null, 'message')` to `logger.[level]({}, 'message')` because new version of Pino doesn't allow null
 - Changed min node/npm versions in `package.json` (node `22.15`, npm `11.3`)
-- Updated codebuild env to use node `22`
+- Updated CodeBuild env to use node `22`
 - Upgraded `graphql` to v `16.12.0`
 - Bumped `tsconfig` to `es2023`
+- Upgraded to `@keyv/redis` which required some changes to the `src/config/cacheConfig` and `src/datasources/cache.ts` files
+- Updates to appease newer version of eslint
 
 ### Removed
 - Removed duplicative properties like `public id: number;` from classes in `models/RelatedWork`. They are inherited from `MySQLModel`.
 - removed Apollo config option to deal with flaw in Apollo4 `status400ForVariableCoercionErrors`
+- Removed deprecated `@types/bcrypt` and `uuidv4` packages
+- Removed `ioredis` package
 
 ## v1.0
 

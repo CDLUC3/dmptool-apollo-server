@@ -117,11 +117,11 @@ export const parseDOI = (doi: string | undefined | null): string => {
     // Parse URL, get pathname and decode
     const url = new URL(trimmed);
     return decodeURIComponent(url.pathname.slice(1)).toLowerCase();
-  } catch (error) {
+  } catch {
     // Non URL based DOI
     try {
       return decodeURIComponent(trimmed).toLowerCase();
-    } catch (e) {
+    } catch {
       return trimmed.toLowerCase();
     }
   }

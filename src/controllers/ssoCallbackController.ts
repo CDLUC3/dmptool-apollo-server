@@ -38,7 +38,7 @@ export const ssoCallbackController = async (req: Request, res: Response) => {
     res.status(301).location(`/`).send();
 
   } catch (err) {
-    context.logger.error(prepareObjectForLogs({ email, entityId }), 'SSO Passthrough 500 error');
+    context.logger.error(prepareObjectForLogs({ email, entityId, err }), 'SSO Passthrough 500 error');
     res.status(500).json({ success: false, message: 'Internal server error.' });
   }
 }

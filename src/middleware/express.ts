@@ -1,4 +1,4 @@
-import { expressMiddleware } from '@apollo/server/express4';
+import { expressMiddleware } from '@as-integrations/express5';
 import { JWTAccessToken } from '../services/tokenService';
 import { buildContext } from '../context';
 import { ApolloServer } from '@apollo/server';
@@ -22,7 +22,7 @@ export async function attachApolloServer(
     sqlDataSource,
     dmphubAPIDataSource
   );
-  context.logger.info(null, 'Attaching Apollo server');
+  context.logger.info({}, 'Attaching Apollo server');
 
   // expressMiddleware accepts the same arguments:
   //   an Apollo Server instance and optional configuration options

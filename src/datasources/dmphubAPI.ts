@@ -1,5 +1,8 @@
 import { Buffer } from "buffer";
-import { AugmentedRequest, RESTDataSource } from "@apollo/datasource-rest";
+import {
+  AugmentedRequest,
+  RESTDataSource
+} from "@apollo/datasource-rest";
 import { logger, prepareObjectForLogs } from '../logger';
 import { DMPHubConfig } from '../config/dmpHubConfig';
 import { JWTAccessToken } from '../services/tokenService';
@@ -7,7 +10,7 @@ import { MyContext } from "../context";
 import { GraphQLError } from "graphql";
 import { DMPCommonStandard, DMPCommonStandardContact, DMPCommonStandardContributor, DMPCommonStandardProject } from "../types/DMP";
 import { isNullOrUndefined } from "../utils/helpers";
-import {KeyvAdapter} from "@apollo/utils.keyvadapter";
+import { KeyvAdapter } from "@apollo/utils.keyvadapter";
 
 // Singleton class that retrieves an Auth token from the API
 export class Authorizer extends RESTDataSource {
@@ -20,6 +23,7 @@ export class Authorizer extends RESTDataSource {
 
   private creds: string;
   private expiry: Date;
+  private initialized = false;
 
   constructor() {
     super();
@@ -28,8 +32,11 @@ export class Authorizer extends RESTDataSource {
     // Base64 encode the credentials for the auth request
     const hdr = `${DMPHubConfig.dmpHubClientId}:${DMPHubConfig.dmpHubClientSecret}`;
     this.creds = Buffer.from(hdr, 'binary').toString('base64');
+  }
 
-    this.authenticate();
+  // Release the instance of the Authorizer singleton
+  public static releaseInstance() {
+    Authorizer.#instance = undefined;
   }
 
   // Singleton function to ensure we aren't reauthenticating every time
@@ -41,27 +48,37 @@ export class Authorizer extends RESTDataSource {
     return Authorizer.#instance;
   }
 
+  // Initialize the Authorizer singleton
+  async init() {
+    if (!this.initialized) {
+      await this.authenticate();
+      this.initialized = true;
+    }
+  }
+
   // Call the authenticate method and set this class' expiry timestamp
   async authenticate() {
     const response = await this.post(`/oauth2/token`);
-
-    logger.info(`Authenticating with DMPHub`);
     this.oauth2Token = response.access_token;
+    logger.info(`Authenticating with DMPHub`);
+
     const currentDate = new Date();
     this.expiry = new Date(currentDate.getTime() + 600 * 1000);
   }
 
   // Check if the current token has expired
   hasExpired() {
-    const currentDate = new Date();
-    return currentDate >= this.expiry;
+    return new Date() >= this.expiry;
   }
 
   // Attach all of the necessary HTTP headers and the body prior to calling the token endpoint
   override willSendRequest(_path: string, request: AugmentedRequest) {
     request.headers['authorization'] =`Basic ${this.creds}`;
     request.headers['content-type'] = 'application/x-www-form-urlencoded';
-    request.body = `grant_type=client_credentials&scope=${this.baseURL}/${this.env}.read ${this.baseURL}/${this.env}.write`;
+    request.body =
+      `grant_type=client_credentials&scope=` +
+      `${this.baseURL}/${this.env}.read` +
+      `${this.baseURL}/${this.env}.write`;
   }
 }
 
@@ -71,25 +88,16 @@ export class Authorizer extends RESTDataSource {
 export class DMPHubAPI extends RESTDataSource {
   override baseURL = DMPHubConfig.dmpHubURL;
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  private cache: KeyvAdapter;
-  private token: JWTAccessToken;
   private authorizer: Authorizer;
 
   constructor(options: { cache: KeyvAdapter, token: JWTAccessToken }) {
     super(options);
 
-    this.token = options.token;
-    this.cache = options.cache;
     this.authorizer = Authorizer.instance;
   }
 
   // Add the Authorization token to the headers prior to the request
   override willSendRequest(_path: string, request: AugmentedRequest) {
-    // Check the current token's expiry. If it has expired re-authenticate
-    if (this.authorizer.hasExpired) {
-      this.authorizer.authenticate();
-    }
     request.headers['authorization'] = `Bearer ${this.authorizer.oauth2Token}`;
   };
 
@@ -106,6 +114,8 @@ export class DMPHubAPI extends RESTDataSource {
     reference = 'dmphubAPI.getDMP'
   ): Promise<DMPCommonStandard | null> {
     try {
+      await this.authorizer.init();
+
       // If we don't have a cached version, call the API
       const sanitizedDOI = encodeURI(this.removeProtocol(dmp_id));
       const sanitizedVersion = `?version=${encodeURI(version)}`;
@@ -136,6 +146,8 @@ export class DMPHubAPI extends RESTDataSource {
     reference = 'dmphubAPI.createDMP'
   ): Promise<DMPCommonStandard> {
     try {
+      await this.authorizer.init();
+
       const path = `dmps`;
       context.logger.debug(`${reference} calling DMPHub Create: ${this.baseURL}/${path}`);
       const response = await this.post(path, { body: JSON.stringify({ dmp }) });
@@ -156,6 +168,8 @@ export class DMPHubAPI extends RESTDataSource {
     reference = 'dmphubAPI.updateDMP'
   ): Promise<DMPCommonStandard> {
     try {
+      await this.authorizer.init();
+
       const path = `dmps/${encodeURI(this.removeProtocol(dmp.dmp_id.identifier))}`;
       context.logger.debug(`${reference} calling DMPHub Update: ${this.baseURL}/${path}`);
 
@@ -177,6 +191,8 @@ export class DMPHubAPI extends RESTDataSource {
     reference = 'dmphubAPI.tombstoneDMP'
   ): Promise<DMPCommonStandard> {
     try {
+      await this.authorizer.init();
+
       const path = `dmps/${encodeURI(this.removeProtocol(dmp.dmp_id.identifier))}`;
       context.logger.debug(`${reference} calling DMPHub Tombstone: ${this.baseURL}/${path}`);
 
@@ -194,6 +210,8 @@ export class DMPHubAPI extends RESTDataSource {
   // Validate the DMP JSON content against the RDA DMP Common Metadata Standard
   async validateDMP(context: MyContext, dmp: DMPCommonStandard, reference = 'dmphubAPI.validate'): Promise<string[]> {
     try {
+      await this.authorizer.init();
+
       // If we don't have a cached version, call the API
       const path = `dmps/validate`;
       context.logger.debug(`${reference} Calling DMPHub: ${this.baseURL}/${path}`);
@@ -212,7 +230,7 @@ export class DMPHubAPI extends RESTDataSource {
             return body.errors;
           }
         }
-        catch (e) {
+        catch {
           return ['The resulting JSON from the DMP is not valid'];
         }
       }
@@ -246,6 +264,8 @@ export class DMPHubAPI extends RESTDataSource {
     reference = 'dmphubAPI.getAwards'
   ): Promise<DMPHubAward[]> {
     try {
+      await this.authorizer.init();
+
       // Build query parameters
       const params = new URLSearchParams();
       if(!isNullOrUndefined(awardId)) {

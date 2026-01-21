@@ -17,6 +17,7 @@ import {
   Funder,
   Institution,
   Award,
+  RelatedWorkStatsResults,
 } from '../types';
 import { prepareObjectForLogs } from '../logger';
 import { Plan } from './Plan';
@@ -399,6 +400,22 @@ export class RelatedWork extends MySqlModel {
     const result = await RelatedWork.query(context, sql, [planId.toString(), doi], reference);
     console.log(result);
     return Array.isArray(result) && result.length > 0 ? new RelatedWork(result[0]) : null;
+  }
+
+  // Calculate related works stats for a plan
+  static async statsByPlanId(reference: string, context: MyContext, planId: number): Promise<RelatedWorkStatsResults> {
+    const sql = `
+      SELECT
+        COUNT(*) AS totalCount,
+        SUM(CASE WHEN rw.status = 'PENDING' THEN 1 ELSE 0 END) AS pendingCount,
+        SUM(CASE WHEN rw.status = 'ACCEPTED' THEN 1 ELSE 0 END) AS acceptedCount,
+        SUM(CASE WHEN rw.status = 'REJECTED' THEN 1 ELSE 0 END) AS rejectedCount
+      FROM relatedWorks rw
+      WHERE rw.planId = ?;
+    `;
+
+    const result = await RelatedWork.query(context, sql, [planId.toString()], reference);
+    return Array.isArray(result) && result.length > 0 ? result[0] as RelatedWorkStatsResults : null;
   }
 }
 

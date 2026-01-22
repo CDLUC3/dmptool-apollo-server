@@ -30,71 +30,57 @@ import {generalConfig} from "../config/generalConfig";
 
 export const resolvers: Resolvers = {
   Query: {
-    // Get all the related works for a plan
-    async relatedWorksByProject(
+    // Get all the related works for a project or plan
+    async relatedWorks(
       _,
-      { projectId, filterOptions, paginationOptions },
+      { id, idType, filterOptions, paginationOptions },
       context: MyContext,
     ): Promise<RelatedWorkSearchResults<RelatedWorkSearchResult>> {
-      const reference = 'relatedWorksByProject resolver';
+      const reference = 'relatedWorks resolver';
       try {
-        if (isAuthorized(context.token)) {
-          const pagOpts =
-            !isNullOrUndefined(paginationOptions) && paginationOptions.type === PaginationType.OFFSET
-              ? (paginationOptions as PaginationOptionsForOffsets)
-              : ({ ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors);
-          const project = await Project.findById(reference, context, projectId);
-          if (project && (await hasPermissionOnProject(context, project))) {
-            return await RelatedWorkSearchResult.search(
-              reference,
-              context,
-              projectId,
-              undefined,
-              undefined,
-              filterOptions,
-              pagOpts,
-            );
-          }
+        if (!isAuthorized(context.token)) {
+          throw AuthenticationError();
         }
-        throw context?.token ? ForbiddenError() : AuthenticationError();
-      } catch (err) {
-        if (err instanceof GraphQLError) throw err;
 
-        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
-        throw InternalServerError();
-      }
-    },
+        let projectId = undefined;
+        let planId = undefined;
 
-    // Get all the related works for a plan
-    async relatedWorksByPlan(
-      _,
-      { planId, filterOptions, paginationOptions },
-      context: MyContext,
-    ): Promise<RelatedWorkSearchResults<RelatedWorkSearchResult>> {
-      const reference = 'relatedWorksByPlan resolver';
-      try {
-        if (isAuthorized(context.token)) {
-          const plan = await Plan.findById(reference, context, planId);
-          if (plan) {
-            const pagOpts =
-              !isNullOrUndefined(paginationOptions) && paginationOptions.type === PaginationType.OFFSET
-                ? (paginationOptions as PaginationOptionsForOffsets)
-                : ({ ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors);
-            const project = await Project.findById(reference, context, plan.projectId);
-            if (project && (await hasPermissionOnProject(context, project))) {
-              return await RelatedWorkSearchResult.search(
-                reference,
-                context,
-                plan.projectId,
-                planId,
-                undefined,
-                filterOptions,
-                pagOpts,
-              );
-            }
-          }
+        if(idType === "PLAN_ID"){
+          const plan = await Plan.findById(reference, context, id);
+          if (!plan) throw NotFoundError();
+          planId = id;
+          projectId = plan?.projectId;
+        } else if (idType === "PROJECT_ID") {
+          projectId = id;
         }
-        throw context?.token ? ForbiddenError() : AuthenticationError();
+
+        if (projectId == null) {
+          throw NotFoundError();
+        }
+
+        const project = await Project.findById(reference, context, projectId);
+        if(!project) {
+          throw NotFoundError();
+        }
+
+        if(!(await hasPermissionOnProject(context, project))) {
+          throw ForbiddenError();
+        }
+
+        const pagOpts =
+          !isNullOrUndefined(paginationOptions) && paginationOptions.type === PaginationType.OFFSET
+            ? (paginationOptions as PaginationOptionsForOffsets)
+            : ({ ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors);
+
+        return await RelatedWorkSearchResult.search(
+            reference,
+            context,
+            projectId,
+            planId,
+            undefined,
+            filterOptions,
+            pagOpts,
+          );
       } catch (err) {
         if (err instanceof GraphQLError) throw err;
 
@@ -122,7 +108,7 @@ export const resolvers: Resolvers = {
             const project = await Project.findById(reference, context, plan.projectId);
             const limit = Math.min(pagOpts.limit ?? generalConfig.defaultSearchLimit, generalConfig.maximumSearchLimit);
             if (project && (await hasPermissionOnProject(context, project))) {
-              if(!doi){
+              if(!planId || !doi){
                 return {
                   items: [],
                   limit: limit,
@@ -156,6 +142,7 @@ export const resolvers: Resolvers = {
                   return {
                     id: null,
                     planId: planId,
+                    planTitle: null,
                     workVersion: {
                       id: null,
                       work: {
@@ -222,6 +209,34 @@ export const resolvers: Resolvers = {
                 planId,
               );
             }
+          }
+        }
+        throw context?.token ? ForbiddenError() : AuthenticationError();
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    },
+
+    // Get related works stats per project
+    async relatedWorksByProjectStats(
+      _,
+      { projectId },
+      context: MyContext,
+    ): Promise<RelatedWorkStatsResults> {
+      const reference = 'relatedWorksByPlanStats resolver';
+
+      try {
+        if (isAuthorized(context.token)) {
+          const project = await Project.findById(reference, context, projectId);
+          if (project && (await hasPermissionOnProject(context, project))) {
+            return await RelatedWork.statsByProjectId(
+              reference,
+              context,
+              projectId,
+            );
           }
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();

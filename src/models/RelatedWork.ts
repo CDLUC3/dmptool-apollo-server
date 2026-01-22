@@ -247,7 +247,7 @@ export class WorkVersion extends MySqlModel {
     doi: string,
     hash: Buffer,
   ): Promise<WorkVersion> {
-    const sql = `SELECT * FROM workVersions wv LEFT JOIN works w ON wv.workId = w.id WHERE wv.hash = ? AND w.doi = ?`;
+    const sql = `SELECT wv.* FROM workVersions wv LEFT JOIN works w ON wv.workId = w.id WHERE wv.hash = ? AND w.doi = ?`;
     const results = await WorkVersion.query(context, sql, [hash, doi?.toString()], reference);
     return Array.isArray(results) && results.length > 0 ? new WorkVersion(results[0]) : null;
   }
@@ -387,15 +387,9 @@ export class RelatedWork extends MySqlModel {
   }
 
   // Find a RelatedWork by planID and DOI
-  static async findByDOI(
-    reference: string,
-    context: MyContext,
-    planId: number,
-    doi: string,
-  ): Promise<RelatedWork> {
+  static async findByDOI(reference: string, context: MyContext, planId: number, doi: string): Promise<RelatedWork> {
     const sql = `SELECT rw.* FROM ${RelatedWork.tableName} AS rw LEFT JOIN plans p ON rw.planId = p.id LEFT JOIN workVersions wv ON rw.workVersionId = wv.id LEFT JOIN works w ON wv.workId = w.id WHERE rw.planId = ? AND w.doi = ?`;
     const result = await RelatedWork.query(context, sql, [planId.toString(), doi], reference);
-    console.log(result);
     return Array.isArray(result) && result.length > 0 ? new RelatedWork(result[0]) : null;
   }
 
@@ -403,16 +397,52 @@ export class RelatedWork extends MySqlModel {
   static async statsByPlanId(reference: string, context: MyContext, planId: number): Promise<RelatedWorkStatsResults> {
     const sql = `
       SELECT
+        CASE
+          WHEN SUM(CASE WHEN p.registered IS NOT NULL THEN 1 ELSE 0 END) > 0
+            THEN TRUE
+          ELSE FALSE
+        END AS hasPublishedPlan,
         COUNT(*) AS totalCount,
-        SUM(CASE WHEN rw.status = 'PENDING' THEN 1 ELSE 0 END) AS pendingCount,
-        SUM(CASE WHEN rw.status = 'ACCEPTED' THEN 1 ELSE 0 END) AS acceptedCount,
-        SUM(CASE WHEN rw.status = 'REJECTED' THEN 1 ELSE 0 END) AS rejectedCount
+        COALESCE(SUM(CASE WHEN rw.status = 'PENDING' THEN 1 ELSE 0 END), 0) AS pendingCount,
+        COALESCE(SUM(CASE WHEN rw.status = 'ACCEPTED' THEN 1 ELSE 0 END), 0) AS acceptedCount,
+        COALESCE(SUM(CASE WHEN rw.status = 'REJECTED' THEN 1 ELSE 0 END), 0) AS rejectedCount
       FROM relatedWorks rw
+      LEFT JOIN plans p ON rw.planId = p.id
       WHERE rw.planId = ?;
     `;
 
     const result = await RelatedWork.query(context, sql, [planId.toString()], reference);
-    return Array.isArray(result) && result.length > 0 ? result[0] as RelatedWorkStatsResults : null;
+    return Array.isArray(result) && result.length > 0
+      ? (result[0] as RelatedWorkStatsResults)
+      : { acceptedCount: 0, hasPublishedPlan: false, pendingCount: 0, rejectedCount: 0, totalCount: 0 };
+  }
+
+  // Calculate related works stats for a project
+  static async statsByProjectId(
+    reference: string,
+    context: MyContext,
+    projectId: number,
+  ): Promise<RelatedWorkStatsResults> {
+    const sql = `
+      SELECT
+        CASE
+          WHEN SUM(CASE WHEN p.registered IS NOT NULL THEN 1 ELSE 0 END) > 0
+            THEN TRUE
+          ELSE FALSE
+        END AS hasPublishedPlan,
+        COUNT(*) AS totalCount,
+        COALESCE(SUM(CASE WHEN rw.status = 'PENDING' THEN 1 ELSE 0 END), 0) AS pendingCount,
+        COALESCE(SUM(CASE WHEN rw.status = 'ACCEPTED' THEN 1 ELSE 0 END), 0) AS acceptedCount,
+        COALESCE(SUM(CASE WHEN rw.status = 'REJECTED' THEN 1 ELSE 0 END), 0) AS rejectedCount
+      FROM relatedWorks rw
+      LEFT JOIN plans p ON rw.planId = p.id
+      WHERE p.projectId = ?;
+    `;
+
+    const result = await RelatedWork.query(context, sql, [projectId.toString()], reference);
+    return Array.isArray(result) && result.length > 0
+      ? (result[0] as RelatedWorkStatsResults)
+      : { acceptedCount: 0, hasPublishedPlan: false, pendingCount: 0, rejectedCount: 0, totalCount: 0 };
   }
 }
 
@@ -423,7 +453,9 @@ export interface RelatedWorkSearchResults<T> extends PaginatedQueryResults<T> {
 }
 
 export class RelatedWorkSearchResult extends MySqlModel {
+  public projectId: number;
   public planId: number;
+  public planTitle: string;
   public workVersion: {
     id: number;
     work: {
@@ -467,6 +499,7 @@ export class RelatedWorkSearchResult extends MySqlModel {
     `SELECT ` + // requires 'SELECT ' for cursor pagination to work
     `rw.id,
       rw.planId,
+      p.title as planTitle,
       JSON_OBJECT(
        'id', wv.id,
        'work', JSON_OBJECT(
@@ -523,6 +556,7 @@ export class RelatedWorkSearchResult extends MySqlModel {
     super(options.id, options.created, options.createdById, options.modified, options.modifiedById, options.errors);
 
     this.planId = options.planId;
+    this.planTitle = options.planTitle;
     this.workVersion = options.workVersion;
     this.sourceType = options.sourceType;
     this.score = options.score;
@@ -592,10 +626,13 @@ export class RelatedWorkSearchResult extends MySqlModel {
     // Where clauses
     whereFilters.push('p.projectId = ?');
     values.push(projectId);
-    if (!isNullOrUndefined(planId)) {
+
+    // Set planId with planId or fall back to filterOptions.planId (which is used on project level page)
+    if (!isNullOrUndefined(planId) || !isNullOrUndefined(filterOptions.planId)) {
       whereFilters.push('rw.planId = ?');
-      values.push(planId);
+      values.push(planId ?? filterOptions.planId);
     }
+
     if (!isNullOrUndefined(doi)) {
       whereFilters.push('w.doi = ?');
       values.push(doi);

@@ -124,7 +124,7 @@ export class Affiliation extends MySqlModel {
     try {
       const url = new URL(this.homepage);
       return url.hostname;
-    } catch (err) {
+    } catch {
       // It's not a URL so just return as is
       return this.homepage;
     }

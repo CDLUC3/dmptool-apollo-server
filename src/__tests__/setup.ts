@@ -38,10 +38,12 @@ jest.mock('../config/awsConfig', () => ({
 
 jest.mock('../config/cacheConfig', () => ({
   cacheConfig: {
-    host: 'localhost',
-    port: '6379',
-    connectTimeout: 10000,
-    autoFailoverEnabled: 'false',
+    socket: {
+      host: 'localhost',
+      port: 6379,
+      connectTimeout: 10000,
+      reconnectStrategy: jest.fn(),
+    }
   },
 }));
 

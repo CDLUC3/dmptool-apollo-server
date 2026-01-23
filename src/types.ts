@@ -4160,6 +4160,8 @@ export type VersionedQuestion = {
   modified?: Maybe<Scalars['String']['output']>;
   /** The user who last modified the Object */
   modifiedById?: Maybe<Scalars['Int']['output']>;
+  /** Owner affiliation for the question */
+  ownerAffiliation?: Maybe<Affiliation>;
   /** Id of the original question that was versioned */
   questionId: Scalars['Int']['output'];
   /** This will be used as a sort of title for the Question */
@@ -4170,6 +4172,8 @@ export type VersionedQuestion = {
   requirementText?: Maybe<Scalars['String']['output']>;
   /** Sample text to possibly provide a starting point or example to answer question */
   sampleText?: Maybe<Scalars['String']['output']>;
+  /** Versioned Section Tags associated with the question */
+  sectionTags?: Maybe<Array<Tag>>;
   /** Whether or not the sample text should be used as the default answer for this question */
   useSampleTextAsDefault?: Maybe<Scalars['Boolean']['output']>;
   /** The conditional logic associated with this VersionedQuestion */
@@ -6551,11 +6555,13 @@ export type VersionedQuestionResolvers<ContextType = MyContext, ParentType exten
   json?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  ownerAffiliation?: Resolver<Maybe<ResolversTypes['Affiliation']>, ParentType, ContextType>;
   questionId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   questionText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   required?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
   requirementText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   sampleText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  sectionTags?: Resolver<Maybe<Array<ResolversTypes['Tag']>>, ParentType, ContextType>;
   useSampleTextAsDefault?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
   versionedQuestionConditions?: Resolver<Maybe<Array<ResolversTypes['VersionedQuestionCondition']>>, ParentType, ContextType>;
   versionedSectionId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;

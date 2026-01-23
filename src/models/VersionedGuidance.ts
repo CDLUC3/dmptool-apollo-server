@@ -81,8 +81,7 @@ export class VersionedGuidance extends MySqlModel {
       SELECT DISTINCT vg.*
       FROM ${VersionedGuidance.tableName} vg
       INNER JOIN versionedGuidanceGroups vgg ON vg.versionedGuidanceGroupId = vgg.id
-      INNER JOIN versionedGuidanceTags vgt ON vg.id = vgt.versionedGuidanceId
-      WHERE vgt.tagId IN (${placeholders}) AND vgg.bestPractice = 1 AND vgg.active = 1
+      WHERE vg.tagId IN (${placeholders}) AND vgg.bestPractice = 1 AND vgg.active = 1
       ORDER BY vg.id ASC
     `;
     const results = await VersionedGuidance.query(context, sql, tagIds.map(id => id.toString()), reference);

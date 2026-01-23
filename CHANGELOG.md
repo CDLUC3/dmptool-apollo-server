@@ -1,10 +1,12 @@
 # DMP Tool Apollo Server Change Log
 
 ### Updated
+- Updated `findBestPracticeByTagIds` in `VersionedGuidance` to remove the use of `VersionedGuidanceTags` table, since there is not table with that name [#18]
 - Updated tests and isValid functions on `Question`, `VersionedQuestion` and `Answer` to work with new version of `@dmptool/types` v2.0
 - Related works stored procedures so that they can insert existing related works and ground truth data.
 
 ### Added
+- Added `ownerAffiliation` and `sectionTags` chained resolvers to `versionedQuestion` [#18]
 - Added ability to manually add a related work via a DOI.
 - Added `findByURIs` methods to both `Repository` and `MetadataStandards` models [#572]
 - Added `repositoriesByURIs` and `metadataStandardsByURIs` resolvers to return matching repos to provided URIs [#572]

@@ -49,7 +49,7 @@ export const generateVersionSnapshot = async (
     if (isNullOrUndefined(snapshot)) {
       return errMsg;
     }
-  } catch (err) {
+  } catch {
     return errMsg
   }
   return null;

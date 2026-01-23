@@ -133,7 +133,7 @@ export class VersionedTemplateSearchResult {
               'FROM versionedTemplates vt ' +
                 'LEFT JOIN users u ON u.id = vt.modifiedById ' +
                 'LEFT JOIN affiliations a ON a.uri = vt.ownerId ' +
-              'WHERE vt.ownerId = affiliationId AND vt.active = 1 AND vt.versionType = ? '
+              'WHERE vt.ownerId = affiliationId AND vt.active = 1 AND vt.versionType = ? ' +
               'ORDER BY vt.modified DESC;';
     const vals = [affiliationId, TemplateVersionType.PUBLISHED];
     const results = await VersionedTemplate.query(context, sql, vals, reference);

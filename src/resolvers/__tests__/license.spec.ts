@@ -14,16 +14,6 @@ import { JWTAccessToken } from "../../services/tokenService";
 import { getCurrentDate } from '../../utils/helpers'
 
 import { License, DEFAULT_DMPTOOL_LICENSE_URL } from '../../models/License';
-import { isAdmin, isSuperAdmin } from '../../services/authService';
-import {
-  AuthenticationError,
-  ForbiddenError,
-  InternalServerError,
-  NotFoundError
-} from '../../utils/graphQLErrors';
-import { normaliseDateTime } from '../../utils/helpers';
-import { UserRole } from '../../models/User';
-import {Token} from "oauth2-server";
 
 jest.mock('../../context.ts');
 jest.mock('../../datasources/cache');
@@ -33,11 +23,8 @@ let token: JWTAccessToken;
 let context: MyContext;
 
 // Proxy call to the Apollo server test server
-async function executeQuery (
-  query: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  variables: any,
-): Promise<any> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function executeQuery (query: string, variables: any): Promise<any> {
   return await testServer.executeOperation(
     { query, variables },
     { contextValue: context },

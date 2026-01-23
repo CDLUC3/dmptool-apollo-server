@@ -1,7 +1,6 @@
 import casual from "casual";
 import { buildMockContextWithToken } from "../../__mocks__/context";
 import { License } from "../License";
-import { generalConfig } from "../../config/generalConfig";
 import { logger } from "../../logger";
 
 jest.mock('../../context.ts');

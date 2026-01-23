@@ -885,26 +885,6 @@ export type LicenseErrors = {
   uri?: Maybe<Scalars['String']['output']>;
 };
 
-export type LicenseSearchResults = PaginatedQueryResults & {
-  __typename?: 'LicenseSearchResults';
-  /** The sortFields that are available for this query (for standard offset pagination only!) */
-  availableSortFields?: Maybe<Array<Maybe<Scalars['String']['output']>>>;
-  /** The current offset of the results (for standard offset pagination) */
-  currentOffset?: Maybe<Scalars['Int']['output']>;
-  /** Whether or not there is a next page */
-  hasNextPage?: Maybe<Scalars['Boolean']['output']>;
-  /** Whether or not there is a previous page */
-  hasPreviousPage?: Maybe<Scalars['Boolean']['output']>;
-  /** The TemplateSearchResults that match the search criteria */
-  items?: Maybe<Array<Maybe<License>>>;
-  /** The number of items returned */
-  limit?: Maybe<Scalars['Int']['output']>;
-  /** The cursor to use for the next page of results (for infinite scroll/load more) */
-  nextCursor?: Maybe<Scalars['String']['output']>;
-  /** The total number of possible items */
-  totalCount?: Maybe<Scalars['Int']['output']>;
-};
-
 export type MemberRole = {
   __typename?: 'MemberRole';
   /** The timestamp when the Object was created */
@@ -2530,8 +2510,8 @@ export type Query = {
   languages?: Maybe<Array<Maybe<Language>>>;
   /** Fetch a specific license */
   license?: Maybe<License>;
-  /** Search for a license */
-  licenses?: Maybe<LicenseSearchResults>;
+  /** Return all licenses */
+  licenses?: Maybe<Array<Maybe<License>>>;
   /** Returns the currently logged in user's information */
   me?: Maybe<User>;
   /** Get the member role by it's id */
@@ -2608,8 +2588,6 @@ export type Query = {
   relatedWorksByPlanStats?: Maybe<RelatedWorkStatsResults>;
   /** Get all of the related works for a project */
   relatedWorksByProject?: Maybe<RelatedWorkSearchResults>;
-  /** Get summary statistics for related works by project */
-  relatedWorksByProjectStats?: Maybe<RelatedWorkStatsResults>;
   /** Search for a repository */
   repositories?: Maybe<RepositorySearchResults>;
   /** return all repositories whose unique uri values are provided */
@@ -2741,12 +2719,6 @@ export type QueryGuidanceGroupsArgs = {
 
 export type QueryLicenseArgs = {
   uri: Scalars['String']['input'];
-};
-
-
-export type QueryLicensesArgs = {
-  paginationOptions?: InputMaybe<PaginationOptions>;
-  term?: InputMaybe<Scalars['String']['input']>;
 };
 
 
@@ -2930,11 +2902,6 @@ export type QueryRelatedWorksByPlanStatsArgs = {
 export type QueryRelatedWorksByProjectArgs = {
   filterOptions?: InputMaybe<RelatedWorksFilterOptions>;
   paginationOptions?: InputMaybe<PaginationOptions>;
-  projectId: Scalars['Int']['input'];
-};
-
-
-export type QueryRelatedWorksByProjectStatsArgs = {
   projectId: Scalars['Int']['input'];
 };
 
@@ -4676,7 +4643,7 @@ export type DirectiveResolverFn<TResult = {}, TParent = {}, TContext = {}, TArgs
 
 /** Mapping of interface types */
 export type ResolversInterfaceTypes<_RefType extends Record<string, unknown>> = {
-  PaginatedQueryResults: ( AffiliationSearchResults ) | ( CollaboratorSearchResults ) | ( LicenseSearchResults ) | ( MetadataStandardSearchResults ) | ( ProjectSearchResults ) | ( PublishedTemplateSearchResults ) | ( RelatedWorkSearchResults ) | ( RepositorySearchResults ) | ( ResearchDomainSearchResults ) | ( TemplateSearchResults ) | ( UserSearchResults ) | ( VersionedSectionSearchResults );
+  PaginatedQueryResults: ( AffiliationSearchResults ) | ( CollaboratorSearchResults ) | ( MetadataStandardSearchResults ) | ( ProjectSearchResults ) | ( PublishedTemplateSearchResults ) | ( RelatedWorkSearchResults ) | ( RepositorySearchResults ) | ( ResearchDomainSearchResults ) | ( TemplateSearchResults ) | ( UserSearchResults ) | ( VersionedSectionSearchResults );
 };
 
 /** Mapping between all available schema types and the resolvers types */
@@ -4739,7 +4706,6 @@ export type ResolversTypes = {
   Language: ResolverTypeWrapper<Language>;
   License: ResolverTypeWrapper<License>;
   LicenseErrors: ResolverTypeWrapper<LicenseErrors>;
-  LicenseSearchResults: ResolverTypeWrapper<LicenseSearchResults>;
   MD5: ResolverTypeWrapper<Scalars['MD5']['output']>;
   MemberRole: ResolverTypeWrapper<MemberRole>;
   MemberRoleErrors: ResolverTypeWrapper<MemberRoleErrors>;
@@ -4934,7 +4900,6 @@ export type ResolversParentTypes = {
   Language: Language;
   License: License;
   LicenseErrors: LicenseErrors;
-  LicenseSearchResults: LicenseSearchResults;
   MD5: Scalars['MD5']['output'];
   MemberRole: MemberRole;
   MemberRoleErrors: MemberRoleErrors;
@@ -5403,18 +5368,6 @@ export type LicenseErrorsResolvers<ContextType = MyContext, ParentType extends R
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
-export type LicenseSearchResultsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['LicenseSearchResults'] = ResolversParentTypes['LicenseSearchResults']> = {
-  availableSortFields?: Resolver<Maybe<Array<Maybe<ResolversTypes['String']>>>, ParentType, ContextType>;
-  currentOffset?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  hasNextPage?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
-  hasPreviousPage?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
-  items?: Resolver<Maybe<Array<Maybe<ResolversTypes['License']>>>, ParentType, ContextType>;
-  limit?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  nextCursor?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  totalCount?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
-};
-
 export interface Md5ScalarConfig extends GraphQLScalarTypeConfig<ResolversTypes['MD5'], any> {
   name: 'MD5';
 }
@@ -5611,7 +5564,7 @@ export interface OrcidScalarConfig extends GraphQLScalarTypeConfig<ResolversType
 }
 
 export type PaginatedQueryResultsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PaginatedQueryResults'] = ResolversParentTypes['PaginatedQueryResults']> = {
-  __resolveType: TypeResolveFn<'AffiliationSearchResults' | 'CollaboratorSearchResults' | 'LicenseSearchResults' | 'MetadataStandardSearchResults' | 'ProjectSearchResults' | 'PublishedTemplateSearchResults' | 'RelatedWorkSearchResults' | 'RepositorySearchResults' | 'ResearchDomainSearchResults' | 'TemplateSearchResults' | 'UserSearchResults' | 'VersionedSectionSearchResults', ParentType, ContextType>;
+  __resolveType: TypeResolveFn<'AffiliationSearchResults' | 'CollaboratorSearchResults' | 'MetadataStandardSearchResults' | 'ProjectSearchResults' | 'PublishedTemplateSearchResults' | 'RelatedWorkSearchResults' | 'RepositorySearchResults' | 'ResearchDomainSearchResults' | 'TemplateSearchResults' | 'UserSearchResults' | 'VersionedSectionSearchResults', ParentType, ContextType>;
   availableSortFields?: Resolver<Maybe<Array<Maybe<ResolversTypes['String']>>>, ParentType, ContextType>;
   currentOffset?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   hasNextPage?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
@@ -6004,7 +5957,7 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   guidanceGroups?: Resolver<Array<ResolversTypes['GuidanceGroup']>, ParentType, ContextType, Partial<QueryGuidanceGroupsArgs>>;
   languages?: Resolver<Maybe<Array<Maybe<ResolversTypes['Language']>>>, ParentType, ContextType>;
   license?: Resolver<Maybe<ResolversTypes['License']>, ParentType, ContextType, RequireFields<QueryLicenseArgs, 'uri'>>;
-  licenses?: Resolver<Maybe<ResolversTypes['LicenseSearchResults']>, ParentType, ContextType, Partial<QueryLicensesArgs>>;
+  licenses?: Resolver<Maybe<Array<Maybe<ResolversTypes['License']>>>, ParentType, ContextType>;
   me?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType>;
   memberRoleById?: Resolver<Maybe<ResolversTypes['MemberRole']>, ParentType, ContextType, RequireFields<QueryMemberRoleByIdArgs, 'memberRoleId'>>;
   memberRoleByURL?: Resolver<Maybe<ResolversTypes['MemberRole']>, ParentType, ContextType, RequireFields<QueryMemberRoleByUrlArgs, 'memberRoleURL'>>;
@@ -6043,7 +5996,6 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   relatedWorksByPlan?: Resolver<Maybe<ResolversTypes['RelatedWorkSearchResults']>, ParentType, ContextType, RequireFields<QueryRelatedWorksByPlanArgs, 'planId'>>;
   relatedWorksByPlanStats?: Resolver<Maybe<ResolversTypes['RelatedWorkStatsResults']>, ParentType, ContextType, RequireFields<QueryRelatedWorksByPlanStatsArgs, 'planId'>>;
   relatedWorksByProject?: Resolver<Maybe<ResolversTypes['RelatedWorkSearchResults']>, ParentType, ContextType, RequireFields<QueryRelatedWorksByProjectArgs, 'projectId'>>;
-  relatedWorksByProjectStats?: Resolver<Maybe<ResolversTypes['RelatedWorkStatsResults']>, ParentType, ContextType, RequireFields<QueryRelatedWorksByProjectStatsArgs, 'projectId'>>;
   repositories?: Resolver<Maybe<ResolversTypes['RepositorySearchResults']>, ParentType, ContextType, RequireFields<QueryRepositoriesArgs, 'input'>>;
   repositoriesByURIs?: Resolver<Maybe<Array<ResolversTypes['Repository']>>, ParentType, ContextType, RequireFields<QueryRepositoriesByUrIsArgs, 'uris'>>;
   repository?: Resolver<Maybe<ResolversTypes['Repository']>, ParentType, ContextType, RequireFields<QueryRepositoryArgs, 'uri'>>;
@@ -6846,7 +6798,6 @@ export type Resolvers<ContextType = MyContext> = {
   Language?: LanguageResolvers<ContextType>;
   License?: LicenseResolvers<ContextType>;
   LicenseErrors?: LicenseErrorsResolvers<ContextType>;
-  LicenseSearchResults?: LicenseSearchResultsResolvers<ContextType>;
   MD5?: GraphQLScalarType;
   MemberRole?: MemberRoleResolvers<ContextType>;
   MemberRoleErrors?: MemberRoleErrorsResolvers<ContextType>;

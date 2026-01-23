@@ -1,10 +1,12 @@
 # DMP Tool Apollo Server Change Log
 
 ### Updated
+- Updated License resolver to remove pagination from `licenses` query. It now returns all licenses.
 - Updated tests and isValid functions on `Question`, `VersionedQuestion` and `Answer` to work with new version of `@dmptool/types` v2.0
 - Related works stored procedures so that they can insert existing related works and ground truth data.
 
 ### Added
+- Added unit tests for the license resolver
 - Added endpoint for returning summary stats for related works associated with a plan.
 - Added ability to manually add a related work via a DOI.
 - Added `findByURIs` methods to both `Repository` and `MetadataStandards` models [#572]
@@ -31,6 +33,7 @@
 - Fixed relatedWorksTables.spec.ts tests.
 - Fixed a small data-migration issue related to using the wrong createdById
 - Updated `auth0/node-jws Improperly Verifies HMAC Signature` due to vulnerability
+
 ============================================================================
 prior to 2025-12-05
 

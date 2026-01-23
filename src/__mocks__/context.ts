@@ -112,6 +112,19 @@ export const mockToken = async (
   }
 }
 
+export const mockResearcherToken = async (): Promise<JWTAccessToken> => {
+  const token = await mockToken();
+  return { ...token, role: UserRole.RESEARCHER };
+}
+export const mockAdminToken = async (): Promise<JWTAccessToken> => {
+  const token = await mockToken();
+  return { ...token, role: UserRole.ADMIN };
+}
+export const mockSuperAdminToken = async (): Promise<JWTAccessToken> => {
+  const token = await mockToken();
+  return { ...token, role: UserRole.SUPERADMIN };
+}
+
 export const mockDataSources = {
   dmphubAPIDataSource: new DMPHubAPI({ cache: null, token: null}),
   sqlDataSource: mockedMysqlInstance,

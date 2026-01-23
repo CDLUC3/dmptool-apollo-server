@@ -4,7 +4,7 @@ import { PaginatedQueryResults, PaginationOptions, PaginationOptionsForCursors, 
 import { isNullOrUndefined, randomHex, validateURL } from "../utils/helpers";
 import { MySqlModel } from "./MySqlModel";
 
-export const DEFAULT_DMPTOOL_LICENSE_URL = 'https://dmptool.org/licenses/';;
+export const DEFAULT_DMPTOOL_LICENSE_URL = 'https://dmptool.org/licenses/';
 
 export class License extends MySqlModel {
   public name: string;
@@ -12,7 +12,7 @@ export class License extends MySqlModel {
   public description?: string;
   public recommended: boolean;
 
-  private tableName = 'licenses';
+  private static tableName = 'licenses';
 
   constructor(options) {
     super(options.id, options.created, options.createdById, options.modified, options.modifiedById, options.errors);
@@ -63,7 +63,7 @@ export class License extends MySqlModel {
         this.addError('general', 'License already exists');
       } else {
         // Save the record and then fetch it
-        const newId = await License.insert(context, this.tableName, this, reference);
+        const newId = await License.insert(context, License.tableName, this, reference);
         const response = await License.findById(reference, context, newId);
         return response;
       }
@@ -79,7 +79,7 @@ export class License extends MySqlModel {
     this.prepForSave();
     if (await this.isValid()) {
       if (id) {
-        await License.update(context, this.tableName, this, 'License.update', [], noTouch);
+        await License.update(context, License.tableName, this, 'License.update', [], noTouch);
         return await License.findById('License.update', context, id);
       }
       // This template has never been saved before so we cannot update it!
@@ -95,7 +95,7 @@ export class License extends MySqlModel {
 
       const successfullyDeleted = await License.delete(
         context,
-        this.tableName,
+        License.tableName,
         this.id,
         'License.delete'
       );
@@ -110,77 +110,36 @@ export class License extends MySqlModel {
 
   // Fetch a License by it's id
   static async findById(reference: string, context: MyContext, licenseId: number): Promise<License> {
-    const sql = `SELECT * FROM licenses WHERE id = ?`;
+    const sql = `SELECT * FROM ${License.tableName} WHERE id = ?`;
     const results = await License.query(context, sql, [licenseId?.toString()], reference);
     return Array.isArray(results) && results.length > 0 ? new License(results[0]) : null;
   }
 
+  // Find a License by its URI. The URI is case insensitive.
   static async findByURI(reference: string, context: MyContext, uri: string): Promise<License> {
-    const sql = `SELECT * FROM licenses WHERE uri = ?`;
+    const sql = `SELECT * FROM ${License.tableName} WHERE uri = ?`;
     const results = await License.query(context, sql, [uri], reference);
     return Array.isArray(results) && results.length > 0 ? new License(results[0]) : null;
   }
 
+  // Find a License by its name. The name is case insensitive.
   static async findByName(reference: string, context: MyContext, name: string): Promise<License> {
-    const sql = `SELECT * FROM licenses WHERE LOWER(name) = ?`;
+    const sql = `SELECT * FROM ${License.tableName} WHERE LOWER(name) = ?`;
     const results = await License.query(context, sql, [name?.toLowerCase()?.trim()], reference);
     return Array.isArray(results) && results.length > 0 ? new License(results[0]) : null;
   }
 
-  // Find licenses that match the search term
-  static async search(
-    reference: string,
-    context: MyContext,
-    name: string,
-    options: PaginationOptions = License.getDefaultPaginationOptions(),
-  ): Promise<PaginatedQueryResults<License>> {
-    const whereFilters = [];
-    const values = [];
-
-    // Handle the incoming search term
-    const searchTerm = (name ?? '').toLowerCase().trim();
-    if (!isNullOrUndefined(searchTerm)) {
-      whereFilters.push('(LOWER(l.name) LIKE ? OR LOWER(l.description) LIKE ?)');
-      values.push(`%${searchTerm}%`, `%${searchTerm}%`);
-    }
-
-    // Set the default sort field and order if none was provided
-    if (isNullOrUndefined(options.sortField)) options.sortField = 'l.name';
-    if (isNullOrUndefined(options.sortDir)) options.sortDir = 'ASC';
-
-    // Specify the fields available for sorting
-    options.availableSortFields = ['l.name', 'l.created', 'l.recommended'];
-    // Specify the field we want to use for the count
-    options.countField = 'l.id';
-
-    // Determine the type of pagination we are using and then set any additional options we need
-    let opts;
-    if (options.type === PaginationType.OFFSET) {
-      opts = options as PaginationOptionsForOffsets;
-    } else {
-      opts = options as PaginationOptionsForCursors;
-      opts.cursorField = 'l.id';
-    }
-
-    const sqlStatement = 'SELECT l.* FROM licenses l';
-
-    const response: PaginatedQueryResults<License> = await License.queryWithPagination(
-      context,
-      sqlStatement,
-      whereFilters,
-      '',
-      values,
-      opts,
-      reference,
-    )
-
-    context.logger.debug(prepareObjectForLogs({ options, response }), reference);
-    return response;
+  // Return all licenses
+  static async all(reference: string, context: MyContext): Promise<License[]> {
+    const sql = `SELECT * FROM ${License.tableName} ORDER BY name ASC`;
+    const results = await License.query(context, sql, [], reference);
+    // No need to initialize new License objects here as they are just search results
+    return Array.isArray(results) ? results : [];
   }
 
-  // Find licenses that match the search term
+  // Find licenses that are either recommended or not recommended
   static async recommended(reference: string, context: MyContext, recommended = true): Promise<License[]> {
-    const sql = `SELECT * FROM licenses WHERE recommended = ?`;
+    const sql = `SELECT * FROM ${License.tableName} WHERE recommended = ?`;
     const vals = recommended ? ['1'] : ['0'];
     const results = await License.query(context, sql, vals, reference);
     // No need to initialize new License objects here as they are just search results

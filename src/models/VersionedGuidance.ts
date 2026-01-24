@@ -42,7 +42,7 @@ export class VersionedGuidance extends MySqlModel {
       this.prepForSave();
 
       // Save the record and then fetch it
-      const newId = await VersionedGuidance.insert(context, VersionedGuidance.tableName, this, 'VersionedGuidance.create', ['tagId']);
+      const newId = await VersionedGuidance.insert(context, VersionedGuidance.tableName, this, 'VersionedGuidance.create');
       return await VersionedGuidance.findById('VersionedGuidance.create', context, newId);
     }
     // Otherwise return as-is with all the errors
@@ -89,7 +89,12 @@ export class VersionedGuidance extends MySqlModel {
   }
 
   // Find VersionedGuidance for a specific affiliation and tags
-  static async findByAffiliationAndTagIds(reference: string, context: MyContext, affiliationId: string, tagIds: number[]): Promise<VersionedGuidance[]> {
+  static async findByAffiliationAndTagIds(
+    reference: string,
+    context: MyContext,
+    affiliationId: string,
+    tagIds: number[]
+  ): Promise<VersionedGuidance[]> {
     if (!tagIds || tagIds.length === 0) {
       return [];
     }
@@ -100,11 +105,16 @@ export class VersionedGuidance extends MySqlModel {
       FROM ${VersionedGuidance.tableName} vg
       INNER JOIN versionedGuidanceGroups vgg ON vg.versionedGuidanceGroupId = vgg.id
       INNER JOIN guidanceGroups gg ON vgg.guidanceGroupId = gg.id
-      INNER JOIN versionedGuidanceTags vgt ON vg.id = vgt.versionedGuidanceId
-      WHERE gg.affiliationId = ? AND vgt.tagId IN (${placeholders}) AND vgg.active = 1
+      INNER JOIN guidance g ON vg.guidanceId = g.id
+      WHERE gg.affiliationId = ? AND g.tagId IN (${placeholders}) AND vgg.active = 1
       ORDER BY vg.id ASC
     `;
-    const results = await VersionedGuidance.query(context, sql, [affiliationId, ...tagIds.map(id => id.toString())], reference);
+    const results = await VersionedGuidance.query(
+      context,
+      sql,
+      [affiliationId, ...tagIds.map(id => id.toString())],
+      reference
+    );
     return Array.isArray(results) ? results.map((entry) => new VersionedGuidance(entry)) : [];
   }
 }

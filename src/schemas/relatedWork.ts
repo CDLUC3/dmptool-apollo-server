@@ -22,6 +22,11 @@ export const typeDefs = gql`
       doi: String,
       paginationOptions: PaginationOptions
     ): RelatedWorkSearchResults
+
+    "Get summary statistics for related works by plan"
+    relatedWorksByPlanStats(
+      planId: Int!
+    ): RelatedWorkStatsResults
   }
 
   extend type Mutation {
@@ -31,6 +36,20 @@ export const typeDefs = gql`
     addRelatedWorkManual(input: AddRelatedWorkManualInput!): RelatedWorkSearchResult
     "Update the status of a related work"
     updateRelatedWorkStatus(input: UpdateRelatedWorkStatusInput!): RelatedWorkSearchResult
+  }
+
+  type RelatedWorkStatsResults {
+    "The total number of related works"
+    totalCount: Int
+
+    "Count of pending related works"
+    pendingCount: Int
+
+    "Count of accepted related works"
+    acceptedCount: Int
+
+    "Count of rejected related works"
+    rejectedCount: Int
   }
 
   type RelatedWorkSearchResults implements PaginatedQueryResults {

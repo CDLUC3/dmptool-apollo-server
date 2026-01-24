@@ -34,6 +34,11 @@ export class Authorizer extends RESTDataSource {
     return Authorizer.#instance;
   }
 
+  // Release the instance of the Authorizer singleton
+  public static releaseInstance() {
+    Authorizer.#instance = undefined;
+  }
+
   // Call the authenticate method and set this class' expiry timestamp
   async authenticate() {
     const response = await this.post(OrcidConfig.authPath);
@@ -61,14 +66,11 @@ export class Authorizer extends RESTDataSource {
 export class OrcidAPI extends RESTDataSource {
   override baseURL = OrcidConfig.baseApiUrl;
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  private cache: KeyvAdapter;
   private authorizer: Authorizer;
 
   constructor(options: { cache: KeyvAdapter }) {
     super(options);
 
-    this.cache = options.cache;
     this.authorizer = Authorizer.instance;
   }
 

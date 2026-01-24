@@ -608,6 +608,31 @@ describe("RelatedWork queries", () => {
     const result = await RelatedWork.findByPlanAndWorkVersionId("testing", context, planId, workVersionId);
     expect(result).toEqual(null);
   });
+
+  it("statsByPlanId should call query with correct params and return the object", async () => {
+    const rw = new RelatedWork({ planId: casual.integer(1, 999), ...getMockWork() });
+    localQuery.mockResolvedValueOnce([rw]);
+    const result = await RelatedWork.statsByPlanId("testing", context, rw.planId);
+    const expectedSql = `
+      SELECT
+        COUNT(*) AS totalCount,
+        SUM(CASE WHEN rw.status = 'PENDING' THEN 1 ELSE 0 END) AS pendingCount,
+        SUM(CASE WHEN rw.status = 'ACCEPTED' THEN 1 ELSE 0 END) AS acceptedCount,
+        SUM(CASE WHEN rw.status = 'REJECTED' THEN 1 ELSE 0 END) AS rejectedCount
+      FROM relatedWorks rw
+      WHERE rw.planId = ?;
+    `;
+    expect(localQuery).toHaveBeenCalledTimes(1);
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [rw.planId.toString()], "testing");
+    expect(result).toEqual(rw);
+  });
+
+  it("statsByPlanId should return null if it finds no records", async () => {
+    localQuery.mockResolvedValueOnce([]);
+    const planId = casual.integer(1, 999);
+    const result = await RelatedWork.statsByPlanId("testing", context, planId);
+    expect(result).toEqual(null);
+  });
 });
 
 describe("RelatedWork update", () => {

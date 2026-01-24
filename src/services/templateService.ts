@@ -88,6 +88,8 @@ export const generateTemplateVersion = async (
   });
   const created = await versionedTemplate.create(context);
 
+  console.log("***Created VersionedTemplate:", created); // --- IGNORE ---
+
   // If the version was successfully created and there are no errors
   if (created && !created.hasErrors()) {
 
@@ -101,6 +103,8 @@ export const generateTemplateVersion = async (
 
     const sections = await Section.findByTemplateId('generateTemplateVersion', context, template.id);
 
+
+    console.log("***Sections to version:", sections); // --- IGNORE ---
     try {
       let allSectionsWereVersioned = true;
 
@@ -111,6 +115,8 @@ export const generateTemplateVersion = async (
 
         // Get current tags for the section so we can add it to versionedSectionTags table
         const currentTags = await Tag.findBySectionId('generateTemplateVersion', context, sectionInstance.id);
+
+        console.log("***Current Tags for Section:", currentTags); // --- IGNORE ---
         sectionInstance.tags = currentTags;
 
         const passed = await generateSectionVersion(context, sectionInstance, created.id);
@@ -126,7 +132,7 @@ export const generateTemplateVersion = async (
         template.latestPublishDate = created.created;
         template.latestPublishVisibility = latestPublishVisibility;
         // Only set isDirty to true if it's published. Otherwise, publishing is prevented when we save any drafts.
-        versionType === TemplateVersionType.PUBLISHED ? template.isDirty = false : template.isDirty = true;
+        template.isDirty = versionType !== TemplateVersionType.PUBLISHED;
 
         // Pass the noTouch flag to avoid default behavior of setting isDirty, modified, etc.
         const updated = await template.update(context, true);

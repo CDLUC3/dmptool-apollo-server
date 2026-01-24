@@ -1,5 +1,29 @@
 # DMP Tool Apollo Server Change Log
 
+## v1.1.0
+
+### Added
+- added `@as-integrations/express5` for Apollo-Express integration
+
+### Updated
+- Regenerated `src/types` using new `graphql-codegen` version
+- Updated `tokenService` to use `uuid` instead of `uuidv4` package
+- Updated all calls to `logger.[level](null, 'message')` to `logger.[level]({}, 'message')` because new version of Pino doesn't allow null
+- Changed min node/npm versions in `package.json` (node `22.15`, npm `11.3`)
+- Updated CodeBuild env to use node `22`
+- Upgraded `graphql` to v `16.12.0`
+- Bumped `tsconfig` to `es2023`
+- Upgraded to `@keyv/redis` which required some changes to the `src/config/cacheConfig` and `src/datasources/cache.ts` files
+- Updates to appease newer version of eslint
+
+### Removed
+- Removed duplicative properties like `public id: number;` from classes in `models/RelatedWork`. They are inherited from `MySQLModel`.
+- removed Apollo config option to deal with flaw in Apollo4 `status400ForVariableCoercionErrors`
+- Removed deprecated `@types/bcrypt` and `uuidv4` packages
+- Removed `ioredis` package
+
+## v1.0
+
 ### Updated
 - Updated `findBestPracticeByTagIds` and `findByAffiliationAndTagIds` in `VersionedGuidance` to remove the use of `VersionedGuidanceTags` table, since there is not table with that name [#18]
 - Updated tests and isValid functions on `Question`, `VersionedQuestion` and `Answer` to work with new version of `@dmptool/types` v2.0
@@ -7,6 +31,7 @@
 
 ### Added
 - Added `ownerAffiliation` and `sectionTags` chained resolvers to `versionedQuestion` [#18]
+- Added endpoint for returning summary stats for related works associated with a plan.
 - Added ability to manually add a related work via a DOI.
 - Added `findByURIs` methods to both `Repository` and `MetadataStandards` models [#572]
 - Added `repositoriesByURIs` and `metadataStandardsByURIs` resolvers to return matching repos to provided URIs [#572]
@@ -32,6 +57,7 @@
 - Fixed relatedWorksTables.spec.ts tests.
 - Fixed a small data-migration issue related to using the wrong createdById
 - Updated `auth0/node-jws Improperly Verifies HMAC Signature` due to vulnerability
+
 ============================================================================
 prior to 2025-12-05
 

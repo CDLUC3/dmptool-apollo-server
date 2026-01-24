@@ -100,7 +100,6 @@ const sendEmail = async (
 }
 
 // Send out an email asking the user to confirm the email address
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const sendEmailConfirmationNotification = async (context: MyContext, email: string): Promise<boolean> => {
   return await sendEmail(
     context,

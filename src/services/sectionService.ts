@@ -40,11 +40,9 @@ export const generateSectionVersion = async (
     modified: section.modified,
   });
 
-  console.log("***Generating version for section:", section); // --- IGNORE ---
   try {
     const created = await versionedSection.create(context);
 
-    console.log("***Created VersionedSection:", created); // --- IGNORE ---
     // Get tags associated with section so we can add it to versionedSectionTags table
     const addTagErrors = [];
     if (Array.isArray(section.tags) && section.tags.length > 0) {
@@ -63,7 +61,6 @@ export const generateSectionVersion = async (
 
       }
     }
-    console.log("***Tag errors:", addTagErrors); // --- IGNORE ---
 
     if (addTagErrors.length > 0) {
       created.addError('tags', `Saved but we were unable to assign tags: ${addTagErrors.join(', ')}`);
@@ -106,7 +103,6 @@ export const generateSectionVersion = async (
       throw new Error(msg);
     }
   } catch (err) {
-    console.log("***Error generating section version:", err); // --- IGNORE ---
     context.logger.error(prepareObjectForLogs(err), `Unable to generate a new version for section: ${section.id}`);
     throw err;
   }

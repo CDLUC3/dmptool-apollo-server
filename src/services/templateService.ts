@@ -88,8 +88,6 @@ export const generateTemplateVersion = async (
   });
   const created = await versionedTemplate.create(context);
 
-  console.log("***Created VersionedTemplate:", created); // --- IGNORE ---
-
   // If the version was successfully created and there are no errors
   if (created && !created.hasErrors()) {
 
@@ -103,8 +101,6 @@ export const generateTemplateVersion = async (
 
     const sections = await Section.findByTemplateId('generateTemplateVersion', context, template.id);
 
-
-    console.log("***Sections to version:", sections); // --- IGNORE ---
     try {
       let allSectionsWereVersioned = true;
 
@@ -116,7 +112,6 @@ export const generateTemplateVersion = async (
         // Get current tags for the section so we can add it to versionedSectionTags table
         const currentTags = await Tag.findBySectionId('generateTemplateVersion', context, sectionInstance.id);
 
-        console.log("***Current Tags for Section:", currentTags); // --- IGNORE ---
         sectionInstance.tags = currentTags;
 
         const passed = await generateSectionVersion(context, sectionInstance, created.id);

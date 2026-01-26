@@ -290,8 +290,7 @@ describe('VersionedGuidance.findByAffiliationAndTagIds', () => {
       FROM versionedGuidance vg
       INNER JOIN versionedGuidanceGroups vgg ON vg.versionedGuidanceGroupId = vgg.id
       INNER JOIN guidanceGroups gg ON vgg.guidanceGroupId = gg.id
-      INNER JOIN guidance g ON vg.guidanceId = g.id
-      WHERE gg.affiliationId = ? AND g.tagId IN (${placeholders}) AND vgg.active = 1
+      WHERE gg.affiliationId = ? AND vg.tagId IN (${placeholders}) AND vgg.active = 1
       ORDER BY vg.id ASC
     `;
     expect(localQuery).toHaveBeenCalledTimes(1);

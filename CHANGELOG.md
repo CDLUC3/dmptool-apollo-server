@@ -25,10 +25,12 @@
 ## v1.0
 
 ### Updated
+- Updated License resolver to remove pagination from `licenses` query. It now returns all licenses.
 - Updated tests and isValid functions on `Question`, `VersionedQuestion` and `Answer` to work with new version of `@dmptool/types` v2.0
 - Related works stored procedures so that they can insert existing related works and ground truth data.
 
 ### Added
+- Added unit tests for the license resolver
 - Added endpoint for returning summary stats for related works associated with a plan.
 - Added ability to manually add a related work via a DOI.
 - Added `findByURIs` methods to both `Repository` and `MetadataStandards` models [#572]

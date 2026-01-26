@@ -111,7 +111,6 @@ export const generateTemplateVersion = async (
 
         // Get current tags for the section so we can add it to versionedSectionTags table
         const currentTags = await Tag.findBySectionId('generateTemplateVersion', context, sectionInstance.id);
-
         sectionInstance.tags = currentTags;
 
         const passed = await generateSectionVersion(context, sectionInstance, created.id);

@@ -10,7 +10,6 @@ import { GraphQLError } from "graphql";
 import { normaliseDateTime } from "../utils/helpers";
 import { VersionedTemplate } from "../models/VersionedTemplate";
 import { Affiliation } from "../models/Affiliation";
-import { Tag } from "../models/Tag";
 
 // Define new output structure for the published questions including whether they have an answer
 type VersionedQuestionWithFilled = VersionedQuestion & { hasAnswer: boolean };
@@ -83,14 +82,6 @@ export const resolvers: Resolvers = {
         reference,
         context,
         versionedTemplate.ownerId
-      );
-    },
-    sectionTags: async (parent: VersionedQuestion, _, context: MyContext): Promise<Tag[]> => {
-      // Returns an array of Tag objects for the section this question belongs to
-      return await Tag.findByVersionedSectionId(
-        'VersionedQuestion.sectionTags resolver',
-        context,
-        parent.versionedSectionId
       );
     },
     created: (parent: VersionedQuestion) => {

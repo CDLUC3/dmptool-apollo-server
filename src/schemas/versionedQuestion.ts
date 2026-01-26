@@ -50,8 +50,6 @@ type VersionedQuestion {
     versionedQuestionConditions: [VersionedQuestionCondition!]
     "Owner affiliation for the question"
     ownerAffiliation: Affiliation
-    "Versioned Section Tags associated with the question"
-    sectionTags: [Tag!]
 }
 
 "A snapshot of a Question when it became published, but includes extra information about if answer is filled."

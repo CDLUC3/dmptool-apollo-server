@@ -3,9 +3,11 @@
 ## v1.1.0
 
 ### Added
+- Added `ownerAffiliation` chained resolvers to `versionedQuestion` [#18]
 - added `@as-integrations/express5` for Apollo-Express integration
 
 ### Updated
+- Updated `findBestPracticeByTagIds` and `findByAffiliationAndTagIds` in `VersionedGuidance` to remove the use of `VersionedGuidanceTags` table, since there is not table with that name [#18]
 - Regenerated `src/types` using new `graphql-codegen` version
 - Updated `tokenService` to use `uuid` instead of `uuidv4` package
 - Updated all calls to `logger.[level](null, 'message')` to `logger.[level]({}, 'message')` because new version of Pino doesn't allow null
@@ -25,12 +27,10 @@
 ## v1.0
 
 ### Updated
-- Updated `findBestPracticeByTagIds` and `findByAffiliationAndTagIds` in `VersionedGuidance` to remove the use of `VersionedGuidanceTags` table, since there is not table with that name [#18]
 - Updated tests and isValid functions on `Question`, `VersionedQuestion` and `Answer` to work with new version of `@dmptool/types` v2.0
 - Related works stored procedures so that they can insert existing related works and ground truth data.
 
 ### Added
-- Added `ownerAffiliation` and `sectionTags` chained resolvers to `versionedQuestion` [#18]
 - Added endpoint for returning summary stats for related works associated with a plan.
 - Added ability to manually add a related work via a DOI.
 - Added `findByURIs` methods to both `Repository` and `MetadataStandards` models [#572]

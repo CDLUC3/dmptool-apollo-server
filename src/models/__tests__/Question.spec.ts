@@ -1,7 +1,11 @@
 import casual from "casual";
 import { buildMockContextWithToken } from "../../__mocks__/context";
 import { Question } from "../Question";
-import { CURRENT_SCHEMA_VERSION } from "@dmptool/types";
+import {
+  CURRENT_SCHEMA_VERSION,
+  DefaultResearchOutputTableQuestion,
+  DefaultTextAreaQuestion
+} from "@dmptool/types";
 import { removeNullAndUndefinedFromJSON } from "../../utils/helpers";
 import { logger } from "../../logger";
 
@@ -25,7 +29,7 @@ describe('Question', () => {
   const questionData = {
     templateId: casual.integer(1, 9),
     sectionId: casual.integer(1, 9),
-    json: `{"type":"textArea","meta":{"asRichText":true,"schemaVersion":"${CURRENT_SCHEMA_VERSION}"}}`,
+    json: DefaultTextAreaQuestion,
     questionText: casual.sentences(5),
     requirementText: casual.sentences(3),
     guidanceText: casual.sentences(10),
@@ -38,7 +42,7 @@ describe('Question', () => {
   });
 
   it('should initialize options as expected', () => {
-    expect(question.json).toEqual(questionData.json);
+    expect(question.json).toEqual(JSON.stringify(questionData.json));
     expect(question.questionText).toEqual(questionData.questionText);
     expect(question.requirementText).toEqual(questionData.requirementText);
     expect(question.guidanceText).toEqual(questionData.guidanceText);
@@ -49,8 +53,8 @@ describe('Question', () => {
   });
 
   it('should call removeNullAndUndefinedFromJSON and set json as a string', () => {
-    const parsedJSON = removeNullAndUndefinedFromJSON(questionData.json);
-    expect(parsedJSON).toEqual(questionData.json);
+    const parsedJSON = removeNullAndUndefinedFromJSON(JSON.stringify(questionData.json));
+    expect(parsedJSON).toEqual(JSON.stringify(questionData.json));
     expect(question.json).toEqual(parsedJSON);
     expect(typeof question.json).toBe('string');
   });
@@ -126,255 +130,10 @@ describe('Question', () => {
 describe('ResearchOutputTable Question', () => {
   let question;
 
-  const json = {
-    type: 'researchOutputTable',
-    meta: { schemaVersion: CURRENT_SCHEMA_VERSION },
-    columns: [
-      {
-        heading: 'Title',
-        required: true,
-        enabled: true,
-        content: { type: 'text', meta: { schemaVersion: CURRENT_SCHEMA_VERSION } }
-      },
-      {
-        heading: 'Description',
-        required: false,
-        enabled: false,
-        content: {
-          type: 'textArea',
-          attributes: { richText: true },
-          meta: { schemaVersion: CURRENT_SCHEMA_VERSION }
-        }
-      },
-      {
-        heading: 'Output Type',
-        content: {
-          type: 'selectBox',
-          required: true,
-          enabled: true,
-          attributes: {
-            multiple: false,
-            tooltip: 'Select a good one'
-          },
-          options: [
-            { label: "Dataset", value: "dataset" },
-            { label: "Text", value: "text" },
-            { label: "Test", value: "test" }
-          ],
-          meta: { schemaVersion: CURRENT_SCHEMA_VERSION }
-        }
-      },
-      {
-        heading: 'Initial Access Level',
-        content: {
-          // The type of question that the researcher will answer
-          type: 'selectBox',
-          required: false,
-          enabled: true,
-          attributes: { multiple: false },
-          options: [
-            { label: "Unrestricted access", value: "open" },
-            { label: "Controlled access", value: "shared" },
-            { label: "Other", value: "closed" }
-          ],
-          meta: { schemaVersion: CURRENT_SCHEMA_VERSION }
-        }
-      },
-      {
-        heading: 'Anticipated Release',
-        required: false,
-        enabled: true,
-        content: { type: 'date', meta: { schemaVersion: CURRENT_SCHEMA_VERSION } }
-      },
-      {
-        heading: 'Byte Size',
-        required: false,
-        enabled: true,
-        outputTypeContext: ["dataset"],
-        content: {
-          type: 'numberWithContext',
-          attributes: {
-            contextOptions: [
-              { label: "Bytes", value: "b" },
-              { label: "KB", value: "kb" }
-            ]
-          },
-          meta: { schemaVersion: CURRENT_SCHEMA_VERSION }
-        }
-      },
-      {
-        heading: 'Data Flags',
-        required: false,
-        enabled: true,
-        outputTypeContext: ["dataset", "test"],
-        content: {
-          type: 'checkBoxes',
-          options: [
-            {
-              label: 'May contain sensitive data?',
-              value: 'sensitive',
-              checked: true
-            },
-            {
-              label: 'May contain personally identifiable information?',
-              value: 'personal',
-              checked: true
-            },
-          ],
-          meta: { schemaVersion: CURRENT_SCHEMA_VERSION }
-        }
-      },
-      {
-        heading: 'Repository Selector',
-        required: false,
-        enabled: true,
-        outputTypeContext: ["dataset", "test"],
-        preferences: [
-          { label: 'Repository 1', value: 'https://repository1.example.com' },
-          { label: 'Repository 2', value: 'https://repository2.example.com' }
-        ],
-        content: {
-          type: 'repositorySearch',
-          attributes: { multiple: true },
-          graphQL: {
-            query: "query Repositories($term: String, $keywords: [String!], $repositoryType: String, $paginationOptions: PaginationOptions){ repositories(term: $term, keywords: $keywords, repositoryType: $repositoryType, paginationOptions: $paginationOptions) { totalCount currentOffset limit hasNextPage hasPreviousPage availableSortFields items { id name uri description website keywords repositoryTypes } } }",
-            displayFields: [
-              {
-                propertyName: "name",
-                label: "Name"
-              },
-              {
-                propertyName: "description",
-                label: "Description"
-              },
-              {
-                propertyName: "website",
-                label: "Website"
-              },
-              {
-                propertyName: "keywords",
-                label: "Subject Areas"
-              }
-            ],
-            answerField: "uri",
-            responseField: "repositories.items",
-            variables: [
-              {
-                type: "string",
-                name: "term",
-                label: "Search term",
-                minLength: 2
-              },
-              {
-                type: "string",
-                name: "repositoryType",
-                label: "Repository Type"
-              },
-              {
-                type: "string",
-                name: "keywords",
-                label: "Subject Areas"
-              }
-            ],
-          },
-          meta: { schemaVersion: CURRENT_SCHEMA_VERSION }
-        }
-      },
-      {
-        heading: 'Metadata Standard Selector',
-        required: false,
-        enabled: false,
-        content: {
-          type: 'metadataStandardSearch',
-          attributes: { multiple: true },
-          preferences: [],
-          graphQL: {
-            query: "query MetadataStandards($term: String, $keywords: [String!], $paginationOptions: PaginationOptions){ metadataStandards(term: $term, keywords: $keywords, paginationOptions: $paginationOptions) { totalCount currentOffset limit hasNextPage hasPreviousPage availableSortFields items { id name uri description keywords } } }",
-            displayFields: [
-              {
-                propertyName: "name",
-                label: "Name"
-              },
-              {
-                propertyName: "description",
-                label: "Description"
-              },
-              {
-                propertyName: "website",
-                label: "Website"
-              },
-              {
-                propertyName: "keywords",
-                label: "Subject Areas"
-              }
-            ],
-            answerField: "uri",
-            responseField: "metadataStandards.items",
-            variables: [
-              {
-                type: "string",
-                name: "term",
-                label: "Search term",
-                minLength: 2
-              },
-              {
-                type: "string",
-                name: "keywords",
-                label: "Subject Areas"
-              }
-            ],
-          },
-          meta: { schemaVersion: CURRENT_SCHEMA_VERSION }
-        }
-      },
-      {
-        heading: 'License Selector',
-        required: false,
-        enabled: true,
-        content: {
-          type: 'licenseSearch',
-          attributes: { multiple: false },
-          preferences: [
-            { label: 'CC BY 4.0', value: 'http://license.example.com/by/4.0/' },
-            { label: 'CC0 1.0', value: 'http://license.example.com/zero/1.0/' },
-            { label: 'MIT', value: 'http://license.example.com/mit/1.0' }
-          ],
-          graphQL: {
-            query: "query Licenses($term: String, $paginationOptions: PaginationOptions){ license(term: $term, paginationOptions: $paginationOptions) { totalCount currentOffset limit hasNextPage hasPreviousPage availableSortFields items { id name uri description } } }",
-            displayFields: [
-              {
-                propertyName: "name",
-                label: "Name"
-              },
-              {
-                propertyName: "description",
-                label: "Description"
-              },
-              {
-                propertyName: "recommended",
-                label: "Recommended"
-              }
-            ],
-            answerField: "uri",
-            responseField: "licenses.items",
-            variables: [
-              {
-                type: "string",
-                name: "term",
-                label: "Search term",
-                minLength: 2
-              },
-            ],
-          },
-          meta: { schemaVersion: CURRENT_SCHEMA_VERSION }
-        }
-      }
-    ]
-  };
   const questionData = {
     templateId: casual.integer(1, 9),
     sectionId: casual.integer(1, 9),
-    json: JSON.stringify(json),
+    json: JSON.stringify(DefaultResearchOutputTableQuestion),
     questionText: casual.sentences(5),
     requirementText: casual.sentences(3),
     guidanceText: casual.sentences(10),
@@ -493,7 +252,7 @@ describe('findBy Queries', () => {
       id: casual.integer(1, 9),
       questionText: casual.sentences(5),
       displayOrder: casual.integer(1, 9),
-      json: '{"type":"textArea","meta":{"asRichText":true,"schemaVersion":"' + CURRENT_SCHEMA_VERSION + '"}}',
+      json: DefaultTextAreaQuestion,
     })
   });
 
@@ -551,7 +310,7 @@ describe('update', () => {
       id: casual.integer(1, 9),
       questionText: casual.sentences(5),
       displayOrder: casual.integer(1, 9),
-      json: '{"type":"textArea","meta":{"asRichText":true,"schemaVersion":"' + CURRENT_SCHEMA_VERSION + '"}}',
+      json: DefaultTextAreaQuestion,
     })
   });
 
@@ -612,13 +371,14 @@ describe('create', () => {
       id: casual.integer(1, 9),
       questionType: {
         type: 'number',
+        attributes: {},
         meta: {
           schemaVersion: CURRENT_SCHEMA_VERSION
         }
       },
       questionText: casual.sentences(5),
       displayOrder: casual.integer(1, 9),
-      json: '{"type":"textArea","meta":{"asRichText":true,"schemaVersion":"' + CURRENT_SCHEMA_VERSION + '"}}',
+      json: DefaultTextAreaQuestion,
     })
   });
 
@@ -678,7 +438,7 @@ describe('delete', () => {
       id: casual.integer(1, 9),
       questionText: casual.sentences(5),
       displayOrder: casual.integer(1, 9),
-      json: '{"type":"textArea","meta":{"asRichText":true,"schemaVersion":"' + CURRENT_SCHEMA_VERSION + '"}}',
+      json: DefaultTextAreaQuestion,
     })
   })
 

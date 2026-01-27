@@ -2560,6 +2560,8 @@ export type Query = {
   repositories?: Maybe<RepositorySearchResults>;
   /** Fetch a specific repository */
   repository?: Maybe<Repository>;
+  /** return all distinct subject area keywords across all repositories */
+  repositorySubjectAreas?: Maybe<Array<Scalars['String']['output']>>;
   /** Get the research output type by it's id */
   researchOutputType?: Maybe<ResearchOutputType>;
   /** Get the research output type by it's name */
@@ -3228,10 +3230,12 @@ export type RepositoryErrors = {
 };
 
 export type RepositorySearchInput = {
+  /** The subject area keyword associated with the repository */
+  keyword?: InputMaybe<Scalars['String']['input']>;
   /** The pagination options */
   paginationOptions?: InputMaybe<PaginationOptions>;
   /** The repository category/type */
-  repositoryType?: InputMaybe<Scalars['String']['input']>;
+  repositoryType?: InputMaybe<RepositoryType>;
   /** The research domain associated with the repository */
   researchDomainId?: InputMaybe<Scalars['Int']['input']>;
   /** The search term */
@@ -3248,7 +3252,7 @@ export type RepositorySearchResults = PaginatedQueryResults & {
   hasNextPage?: Maybe<Scalars['Boolean']['output']>;
   /** Whether or not there is a previous page */
   hasPreviousPage?: Maybe<Scalars['Boolean']['output']>;
-  /** The TemplateSearchResults that match the search criteria */
+  /** The Repository search results that match the search criteria */
   items?: Maybe<Array<Maybe<Repository>>>;
   /** The number of items returned */
   limit?: Maybe<Scalars['Int']['output']>;
@@ -3263,8 +3267,16 @@ export type RepositoryType =
   | 'DISCIPLINARY'
   /** A generalist repository (e.g. Zenodo, Dryad) */
   | 'GENERALIST'
+  /** A repository owned and managed by a government entity (e.g. NCBI, NASA) */
+  | 'GOVERNMENTAL'
   /** An institution specific repository (e.g. ASU Library Research Data Repository, etc.) */
-  | 'INSTITUTIONAL';
+  | 'INSTITUTIONAL'
+  /** A repository that accepts any type of dataset, from any discipline. Often used when no disciplinary repository exists. */
+  | 'MULTI_DISCIPLINARY'
+  /** A repository that doesn't fit into any of the other categories */
+  | 'OTHER'
+  /** A repository created to support a specific project or initiative (e.g. Human Genome Project) */
+  | 'PROJECT_RELATED';
 
 /** An aread of research (e.g. Electrical Engineering, Cellular biology, etc.) */
 export type ResearchDomain = {
@@ -5892,6 +5904,7 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   relatedWorksByProject?: Resolver<Maybe<ResolversTypes['RelatedWorkSearchResults']>, ParentType, ContextType, RequireFields<QueryRelatedWorksByProjectArgs, 'projectId'>>;
   repositories?: Resolver<Maybe<ResolversTypes['RepositorySearchResults']>, ParentType, ContextType, RequireFields<QueryRepositoriesArgs, 'input'>>;
   repository?: Resolver<Maybe<ResolversTypes['Repository']>, ParentType, ContextType, RequireFields<QueryRepositoryArgs, 'uri'>>;
+  repositorySubjectAreas?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
   researchOutputType?: Resolver<Maybe<ResolversTypes['ResearchOutputType']>, ParentType, ContextType, RequireFields<QueryResearchOutputTypeArgs, 'id'>>;
   researchOutputTypeByName?: Resolver<Maybe<ResolversTypes['ResearchOutputType']>, ParentType, ContextType, RequireFields<QueryResearchOutputTypeByNameArgs, 'name'>>;
   searchExternalProjects?: Resolver<Maybe<Array<Maybe<ResolversTypes['ExternalProject']>>>, ParentType, ContextType, RequireFields<QuerySearchExternalProjectsArgs, 'input'>>;

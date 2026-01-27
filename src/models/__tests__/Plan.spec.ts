@@ -211,6 +211,7 @@ describe('PlanSectionProgress.findByPlanId', () => {
           JSON_ARRAYAGG(
             JSON_OBJECT(
               'id', t.id,
+              'slug', t.slug,
               'name', t.name,
               'description', t.description
             )

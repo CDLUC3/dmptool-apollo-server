@@ -6,6 +6,8 @@ export const typeDefs = gql`
     repositories(input: RepositorySearchInput!): RepositorySearchResults
     "Fetch a specific repository"
     repository(uri: String!): Repository
+    "return all distinct subject area keywords across all repositories"
+    repositorySubjectAreas: [String!]
   }
 
   extend type Mutation {
@@ -27,6 +29,14 @@ export const typeDefs = gql`
     GENERALIST
     "An institution specific repository (e.g. ASU Library Research Data Repository, etc.)"
     INSTITUTIONAL
+    "A repository that doesn't fit into any of the other categories"
+    OTHER
+    "A repository owned and managed by a government entity (e.g. NCBI, NASA)"
+    GOVERNMENTAL
+    "A repository created to support a specific project or initiative (e.g. Human Genome Project)"
+    PROJECT_RELATED
+    "A repository that accepts any type of dataset, from any discipline. Often used when no disciplinary repository exists."
+    MULTI_DISCIPLINARY
   }
 
   "A repository where research outputs are preserved"
@@ -61,7 +71,7 @@ export const typeDefs = gql`
   }
 
   type RepositorySearchResults implements PaginatedQueryResults {
-    "The TemplateSearchResults that match the search criteria"
+    "The Repository search results that match the search criteria"
     items: [Repository]
     "The total number of possible items"
     totalCount: Int
@@ -97,9 +107,11 @@ export const typeDefs = gql`
     "The search term"
     term: String
     "The repository category/type"
-    repositoryType: String
+    repositoryType: RepositoryType
     "The research domain associated with the repository"
     researchDomainId: Int
+    "The subject area keyword associated with the repository"
+    keyword: String
     "The pagination options"
     paginationOptions: PaginationOptions
   }

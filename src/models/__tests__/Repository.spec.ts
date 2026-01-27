@@ -9,6 +9,11 @@ jest.mock('../../context.ts');
 
 let context;
 
+// Helper function to convert enum values to kebab-case
+const toKebabCase = (str: string): string => {
+  return str.toLowerCase().replace(/_/g, '-');
+};
+
 beforeEach(async () => {
   jest.resetAllMocks();
 
@@ -188,11 +193,11 @@ describe('findBy Queries', () => {
     const term = casual.words(3);
     const researchDomainId = casual.integer(1, 9);
     const repositoryType = getRandomEnumValue(RepositoryType);
-    const result = await Repository.search('testing', context, term, researchDomainId, repositoryType);
+    const result = await Repository.search('testing', context, term, researchDomainId, null, repositoryType);
     const sql = 'SELECT r.* FROM repositories r ' +
                 'LEFT OUTER JOIN repositoryResearchDomains rrd ON r.id = rrd.repositoryId';
     const vals = [`%${term.toLowerCase()}%`, `%${term.toLowerCase()}%`, `%${term.toLowerCase()}%`,
-                  repositoryType, researchDomainId.toString()];
+                  JSON.stringify(toKebabCase(repositoryType)), researchDomainId.toString()];
     const whereFilters = ['(LOWER(r.name) LIKE ? OR LOWER(r.description) LIKE ? OR LOWER(r.keywords) LIKE ?)',
                           'JSON_CONTAINS(r.repositoryTypes, ?, \'$\')', 'rrd.researchDomainId = ?'];
     const sortFields = ["r.name", "r.created"];
@@ -213,7 +218,7 @@ describe('findBy Queries', () => {
   it('search should work when only a Research Domain is specified', async () => {
     localPaginationQuery.mockResolvedValueOnce([repo]);
     const researchDomainId = casual.integer(1, 9);
-    const result = await Repository.search('testing', context, null, researchDomainId, null);
+    const result = await Repository.search('testing', context, null, researchDomainId, null, null);
     const sql = 'SELECT r.* FROM repositories r ' +
                 'LEFT OUTER JOIN repositoryResearchDomains rrd ON r.id = rrd.repositoryId';
     const vals = ['%%', '%%', '%%', researchDomainId.toString()];
@@ -239,10 +244,10 @@ describe('findBy Queries', () => {
   it('search should work when only a Repository Type is specified', async () => {
     localPaginationQuery.mockResolvedValueOnce([repo]);
     const repositoryType = getRandomEnumValue(RepositoryType);
-    const result = await Repository.search('testing', context, null, null, repositoryType);
+    const result = await Repository.search('testing', context, null, null, null, repositoryType);
     const sql = 'SELECT r.* FROM repositories r ' +
                 'LEFT OUTER JOIN repositoryResearchDomains rrd ON r.id = rrd.repositoryId';
-    const vals = ['%%', '%%', '%%', repositoryType];
+    const vals = ['%%', '%%', '%%', JSON.stringify(toKebabCase(repositoryType))];
     const whereFilters = [
       '(LOWER(r.name) LIKE ? OR LOWER(r.description) LIKE ? OR LOWER(r.keywords) LIKE ?)',
       'JSON_CONTAINS(r.repositoryTypes, ?, \'$\')'
@@ -266,10 +271,10 @@ describe('findBy Queries', () => {
     localPaginationQuery.mockResolvedValueOnce([repo]);
     const researchDomainId = casual.integer(1, 9);
     const repositoryType = getRandomEnumValue(RepositoryType);
-    const result = await Repository.search('testing', context, null, researchDomainId, repositoryType);
+    const result = await Repository.search('testing', context, null, researchDomainId, null, repositoryType);
     const sql = 'SELECT r.* FROM repositories r ' +
                 'LEFT OUTER JOIN repositoryResearchDomains rrd ON r.id = rrd.repositoryId';
-    const vals = ['%%', '%%', '%%', repositoryType, researchDomainId.toString()];
+    const vals = ['%%', '%%', '%%', JSON.stringify(toKebabCase(repositoryType)), researchDomainId.toString()];
     const whereFilters = [
       '(LOWER(r.name) LIKE ? OR LOWER(r.description) LIKE ? OR LOWER(r.keywords) LIKE ?)',
       'JSON_CONTAINS(r.repositoryTypes, ?, \'$\')',
@@ -293,7 +298,7 @@ describe('findBy Queries', () => {
   it('search should work when only a search term is specified', async () => {
     localPaginationQuery.mockResolvedValueOnce([repo]);
     const term = casual.words(3);
-    const result = await Repository.search('testing', context, term, null, null);
+    const result = await Repository.search('testing', context, term, null, null, null);
     const sql = 'SELECT r.* FROM repositories r ' +
                 'LEFT OUTER JOIN repositoryResearchDomains rrd ON r.id = rrd.repositoryId';
     const vals = [`%${term.toLowerCase()}%`, `%${term.toLowerCase()}%`, `%${term.toLowerCase()}%`];
@@ -318,7 +323,7 @@ describe('findBy Queries', () => {
     const term = casual.words(3);
     const researchDomainId = casual.integer(1, 9);
     const repositoryType = getRandomEnumValue(RepositoryType);
-    const result = await Repository.search('testing', context, term, researchDomainId, repositoryType);
+    const result = await Repository.search('testing', context, term, researchDomainId, null, repositoryType);
     expect(result).toEqual([]);
   });
 });
@@ -406,11 +411,37 @@ describe('create', () => {
   it('returns the Repository without errors if it is valid', async () => {
     const localValidator = jest.fn();
     (repo.isValid as jest.Mock) = localValidator;
-    localValidator.mockResolvedValueOnce(false);
+    localValidator.mockResolvedValueOnce(true);
+
+    // Mock findByURI and findByName to return null so repo is considered new
+    const mockFindByURI = jest.fn();
+    (Repository.findByURI as jest.Mock) = mockFindByURI;
+    mockFindByURI.mockResolvedValueOnce(null);
+
+    const mockFindByName = jest.fn();
+    (Repository.findByName as jest.Mock) = mockFindByName;
+    mockFindByName.mockResolvedValueOnce(null);
+
+    // Mock insert and findById for successful creation
+    const mockInsert = jest.fn();
+    (Repository.insert as jest.Mock) = mockInsert;
+    mockInsert.mockResolvedValueOnce(123); // fake new id
+
+    const mockFindById = jest.fn();
+    (Repository.findById as jest.Mock) = mockFindById;
+    mockFindById.mockResolvedValueOnce(repo);
 
     const result = await repo.create(context);
-    expect(result.errors).toEqual({});
+    expect(Object.keys(result.errors).length).toBe(0);
     expect(localValidator).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns the Repository with errors if it is not valid', async () => {
+    repo.name = null; // Make repo invalid so errors are set
+
+    const result = await repo.create(context);
+    expect(Object.keys(result.errors).length).toBeGreaterThan(0);
+    expect(result.errors['name']).toBe('Name can\'t be blank');
   });
 
   it('returns the Repository with errors if it is invalid', async () => {

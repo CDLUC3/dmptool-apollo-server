@@ -4,6 +4,7 @@ import { VersionedQuestion } from "../VersionedQuestion";
 import { CURRENT_SCHEMA_VERSION } from "@dmptool/types";
 import { removeNullAndUndefinedFromJSON } from "../../utils/helpers";
 import { logger } from "../../logger";
+import { DefaultTextAreaQuestion } from '@dmptool/types'
 
 jest.mock('../../context.ts');
 
@@ -26,7 +27,7 @@ describe('VersionedQuestion', () => {
     versionedTemplateId: casual.integer(1, 999),
     versionedSectionId: casual.integer(1, 999),
     questionId: casual.integer(1, 999),
-    json: '{"type":"boolean","meta":{"schemaVersion":"' + CURRENT_SCHEMA_VERSION + '"}}',
+    json: JSON.stringify(DefaultTextAreaQuestion),
     questionText: casual.sentences(5),
     requirementText: casual.sentences(3),
     guidanceText: casual.sentences(10),
@@ -113,7 +114,7 @@ describe('VersionedQuestion', () => {
   });
 
   it('should not be valid if Zod parse fails', async () => {
-    versionedQuestion.json = `{"type":"textArea","attributes":{"asRichText":"abc"}}`;
+    versionedQuestion.json = `{"type":"textArea","attributes":{"asRichText":"abc"},"meta":{"schemaVersion":"1.0"}}`;
     expect(await versionedQuestion.isValid()).toBe(false);
     expect(versionedQuestion.errors['json']).toBeTruthy();
     expect(versionedQuestion.errors['json'].includes('asRichText')).toBe(true);

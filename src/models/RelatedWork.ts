@@ -534,14 +534,6 @@ export class RelatedWorkSearchResult extends MySqlModel {
     sortMapping.set('publicationDate', 'wv.publicationDate');
     options.availableSortFields = Array.from(sortMapping.keys());
 
-    // Change offset to zero based indexing
-    if (options.type === PaginationType.OFFSET && !isNullOrUndefined((options as PaginationOptionsForOffsets).offset)) {
-      options = {
-        ...options,
-        offset: (options as PaginationOptionsForOffsets).offset - 1,
-      };
-    }
-
     if (!isNullOrUndefined(options.sortField) && !sortMapping.has(options.sortField)) {
       throw Error(`Sort field ${options.sortField} not found.`);
     }

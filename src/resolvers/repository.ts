@@ -1,4 +1,3 @@
-
 import { prepareObjectForLogs } from '../logger';
 import { RepositorySearchResults, Resolvers } from "../types";
 import { DEFAULT_DMPTOOL_REPOSITORY_URL, Repository, RepositoryType } from "../models/Repository";
@@ -21,14 +20,14 @@ export const resolvers: Resolvers = {
       const reference = 'repositories resolver';
       try {
         if (isAuthorized(context.token)) {
-          const { term, researchDomainId, repositoryType, paginationOptions } = input
+          const { term, researchDomainId, keyword, repositoryType, paginationOptions } = input
           const repoType = stringToEnumValue(RepositoryType, repositoryType);
 
           const opts = !isNullOrUndefined(paginationOptions) && paginationOptions.type === PaginationType.OFFSET
-                      ? paginationOptions as PaginationOptionsForOffsets
-                      : { ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors;
+            ? paginationOptions as PaginationOptionsForOffsets
+            : { ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors;
 
-          return await Repository.search(reference, context, term, researchDomainId, repoType, opts);
+          return await Repository.search(reference, context, term, researchDomainId, keyword, repoType, opts);
         }
         // Unauthorized access
         throw context?.token ? ForbiddenError() : AuthenticationError();
@@ -46,6 +45,23 @@ export const resolvers: Resolvers = {
       try {
         if (isAuthorized(context.token)) {
           return await Repository.findByURI(reference, context, uri);
+        }
+        // Unauthorized access
+        throw context?.token ? ForbiddenError() : AuthenticationError();
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    },
+
+    // return all distinct subject area keywords across all repositories
+    repositorySubjectAreas: async (_, __, context: MyContext): Promise<string[]> => {
+      const reference = 'repositorySubjectAreas resolver';
+      try {
+        if (isAuthorized(context.token)) {
+          return await Repository.findAllDistinctKeywords(reference, context);
         }
         // Unauthorized access
         throw context?.token ? ForbiddenError() : AuthenticationError();
@@ -77,7 +93,7 @@ export const resolvers: Resolvers = {
 
           // If any ResearchDomains were specified and there were no errors creating the record
           if (Array.isArray(input.researchDomainIds)) {
-            if (created && !created.hasErrors()){
+            if (created && !created.hasErrors()) {
               const addErrors = [];
               // Add any researchDomains associations
               for (const id of input.researchDomainIds) {

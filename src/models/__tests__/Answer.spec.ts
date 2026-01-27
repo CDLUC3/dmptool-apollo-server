@@ -2,7 +2,7 @@ import casual from "casual";
 import { buildMockContextWithToken } from "../../__mocks__/context";
 import { Answer } from "../Answer";
 import { logger } from "../../logger";
-import { CURRENT_SCHEMA_VERSION } from "@dmptool/types";
+import { CURRENT_SCHEMA_VERSION, DefaultResearchOutputTableAnswer } from "@dmptool/types";
 import { Question } from "../Question";
 import { removeNullAndUndefinedFromJSON } from "../../utils/helpers";
 
@@ -27,7 +27,7 @@ describe('Answer', () => {
     planId: casual.integer(1, 9999),
     versionedQuestionId: casual.integer(1, 9999),
     versionedSectionId: casual.integer(1, 9999),
-    json: "{\"type\":\"textArea\",\"answer\":\"California\"}"
+    json: "{\"type\":\"textArea\",\"answer\":\"California\",\"meta\":{\"schemaVersion\":\"${CURRENT_SCHEMA_VERSION}\"}}"
   }
   beforeEach(() => {
     answer = new Answer(answerData);
@@ -84,7 +84,7 @@ describe('findBy Queries', () => {
       planId: casual.integer(1, 9999),
       versionedQuestionId: casual.integer(1, 9999),
       versionedSectionId: casual.integer(1, 9999),
-      json: `{"type":"textArea","answer":"${casual.sentences(3)}"}`,
+      json: `{"type":"textArea","answer":"${casual.sentences(3)}","meta":{"schemaVersion":"${CURRENT_SCHEMA_VERSION}"}}`,
     });
   });
 
@@ -195,7 +195,7 @@ describe('update', () => {
       planId: casual.integer(1, 9999),
       versionedQuestionId: casual.integer(1, 9999),
       versionedSectionId: casual.integer(1, 9999),
-      json: "{\"type\":\"textArea\",\"answer\":\"California\"}"
+      json: "{\"type\":\"textArea\",\"answer\":\"California\",\"meta\":{\"schemaVersion\":\"${CURRENT_SCHEMA_VERSION}\"}}"
     })
   });
 
@@ -252,7 +252,7 @@ describe('create', () => {
       planId: casual.integer(1, 9999),
       versionedQuestionId: casual.integer(1, 9999),
       versionedSectionId: casual.integer(1, 9999),
-      json: "{\"type\":\"textArea\",\"answer\":\"California\"}"
+      json: "{\"type\":\"textArea\",\"answer\":\"California\",\"meta\":{\"schemaVersion\":\"${CURRENT_SCHEMA_VERSION}\"}}"
     });
   });
 
@@ -314,7 +314,7 @@ describe('delete', () => {
       planId: casual.integer(1, 9999),
       versionedQuestionId: casual.integer(1, 9999),
       versionedSectionId: casual.integer(1, 9999),
-      json: "{\"type\":\"textArea\",\"answer\":\"California\"}"
+      json: "{\"type\":\"textArea\",\"answer\":\"California\",\"meta\":{\"schemaVersion\":\"${CURRENT_SCHEMA_VERSION}\"}}"
     });
   })
 
@@ -349,57 +349,7 @@ describe('delete', () => {
 describe('ResearchOutputTable Answer', () => {
   let answer;
 
-  const json = {
-    type: 'researchOutputTable',
-    meta: { schemaVersion: CURRENT_SCHEMA_VERSION },
-    columnHeadings: ['Title', 'Output Type', 'Initial Access Level', 'Anticipated Release',
-                     'Byte Size', 'Data Flags', 'Repository Selector', 'License Selector'],
-    columns: [
-      {
-        type: 'text',
-        answer: 'My Research Output',
-        meta: { schemaVersion: CURRENT_SCHEMA_VERSION }
-      },
-      {
-        type: 'selectBox',
-        answer: 'dataset',
-        meta: { schemaVersion: CURRENT_SCHEMA_VERSION }
-      },
-      {
-        type: 'selectBox',
-        answer: "open",
-        meta: { schemaVersion: CURRENT_SCHEMA_VERSION }
-      },
-      {
-        type: 'date',
-        answer: "2027-01-01",
-        meta: { schemaVersion: CURRENT_SCHEMA_VERSION }
-      },
-      {
-        type: 'numberWithContext',
-        answer: { value: 100, context: "kb" },
-        meta: { schemaVersion: CURRENT_SCHEMA_VERSION }
-      },
-      {
-        type: 'checkBoxes',
-        answer: ["sensitive", "personal"],
-        meta: { schemaVersion: CURRENT_SCHEMA_VERSION }
-      },
-      {
-        type: 'repositorySearch',
-        answer: [
-          { label: 'Repository 1', value: 'https://repository1.example.com' },
-          { label: 'Repository 5', value: 'https://repository5.example.com' },
-        ],
-        meta: { schemaVersion: CURRENT_SCHEMA_VERSION }
-      },
-      {
-        type: 'licenseSearch',
-        answer: { label: 'CC0 1.0', value: 'http://license.example.com/zero/1.0/' },
-        meta: { schemaVersion: CURRENT_SCHEMA_VERSION }
-      }
-    ]
-  };
+  const json = DefaultResearchOutputTableAnswer;
   const answerData = {
     planId: casual.integer(1, 9),
     versionedSectionId: casual.integer(1, 9),

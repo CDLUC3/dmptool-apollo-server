@@ -57,7 +57,7 @@ export class VersionedQuestion extends MySqlModel {
           const result = QuestionSchemaMap[parsedJSON['type']]?.safeParse(parsedJSON);
           if (result && !result.success) {
             // If there are validation errors, add them to the errors object
-            this.addError('json', result.error.errors.map(e => `${JSON.stringify(e.path)} - ${e.message}`).join('; '));
+            this.addError('json', result.error?.issues?.map(e => `${e.path.join('.')} - ${e.message}`)?.join('; '));
           }
         } catch (e) {
           this.addError('json', e.message);

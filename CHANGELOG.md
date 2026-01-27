@@ -1,9 +1,28 @@
 # DMP Tool Apollo Server Change Log
 
-### Added 
+### Updated
+- Updated tests and isValid functions on `Question`, `VersionedQuestion` and `Answer` to work with new version of `@dmptool/types` v2.0
+- Related works stored procedures so that they can insert existing related works and ground truth data.
+
+### Added
+- Added `overrides` section to `package.json` for `qs` since `supertest` is still using old version
+- Added `slug` to tags array returned in `PlanSectionOverview`
 - Added new `ssoPassthruController` and `ssoCallbackController` stub controllers
 - Added a `findByEmailDomain` endpoint to the `Affiliation` model
 
+### Updated
+- Fixed issue with package-lock which was using local `../dmptool/types` instead of `@dmptool/types`
+- Upgrade `express` due to vulnerability in `qs`
+- Fixed data-migration script: `2025-12-01-1512-add-recommended-licenses.sql` [#552]
+- Updated `RepositoryType` enum to cover all the ones in our db [#552]
+- Update Repository model to get all unique repositoryTypes from db and return that info [#552]
+- Updated repository resolver to return `subject areas` [#552]
+- Fixed auth0/node-jws vulnerability [#552]
+
+### Fixed
+- Fixed relatedWorksTables.spec.ts tests.
+- Fixed a small data-migration issue related to using the wrong createdById
+- Updated `auth0/node-jws Improperly Verifies HMAC Signature` due to vulnerability
 ============================================================================
 prior to 2025-12-05
 

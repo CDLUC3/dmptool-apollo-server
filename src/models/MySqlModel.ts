@@ -305,6 +305,7 @@ export class MySqlModel {
     reference = 'undefined caller',
   ): Promise<PaginatedQueryResults<T>> {
     const paginationOptions = this.preparePaginationOptions(options);
+    console.log("***Options Type:", paginationOptions.type);
     try {
       // If the options contain a cursorField then this is a cursor-based query
       if (options.type === 'CURSOR') {
@@ -457,6 +458,8 @@ export class MySqlModel {
       let sql = `${sqlStatement.replace('SELECT ', `SELECT ${options.cursorField} cursorId, `)} `
       sql += `${whereClause} ${groupByClause} ${orderByClause} ${limitClause}`;
 
+      console.log("***Final SQL:", sql);
+      console.log("***Values:", vals);
       const rows = await MySqlModel.query(apolloContext, sql, vals, reference);
       const items = Array.isArray(rows) ? rows : [];
 

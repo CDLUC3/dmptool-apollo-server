@@ -27,8 +27,8 @@ export const resolvers: Resolvers = {
       const reference = 'affiliations resolver';
       try {
         const opts = !isNullOrUndefined(paginationOptions) && paginationOptions.type === PaginationType.OFFSET
-            ? paginationOptions as PaginationOptionsForOffsets
-            : { ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors;
+          ? paginationOptions as PaginationOptionsForOffsets
+          : { ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors;
 
         return await AffiliationSearch.search(reference, context, name, funderOnly, opts);
       } catch (err) {
@@ -37,6 +37,24 @@ export const resolvers: Resolvers = {
       }
     },
 
+    // returns managed affiliations with guidance
+    managedAffiliationsWithGuidance: async (
+      _,
+      { name, paginationOptions },
+      context: MyContext
+    ): Promise<AffiliationSearchResults> => {
+      const reference = 'managedAffiliationsWithGuidance resolver';
+      try {
+        const opts = !isNullOrUndefined(paginationOptions) && paginationOptions.type === PaginationType.OFFSET
+          ? paginationOptions as PaginationOptionsForOffsets
+          : { ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors;
+
+        return await AffiliationSearch.searchManagedWithPublishedGuidance(reference, context, name, opts);
+      } catch (err) {
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    },
     // Returns the specified Affiliation by id
     affiliationById: async (_, { affiliationId }, context: MyContext): Promise<Affiliation> => {
       const reference = 'affiliationById resolver';

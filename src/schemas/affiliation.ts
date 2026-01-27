@@ -12,6 +12,8 @@ export const typeDefs = gql`
     affiliations(name: String!, funderOnly: Boolean, paginationOptions: PaginationOptions): AffiliationSearchResults
     "Returns a list of the top 20 funders ranked by popularity (nbr of plans) for the past year"
     popularFunders: [FunderPopularityResult]
+    "Perform a search for managed Affiliations with published guidance"
+    managedAffiliationsWithGuidance(name: String, paginationOptions: PaginationOptions): AffiliationSearchResults
   }
 
   extend type Mutation {

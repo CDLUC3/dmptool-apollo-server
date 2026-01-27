@@ -118,7 +118,7 @@ describe('VersionedTemplateSearchResult', () => {
                   'FROM versionedTemplates vt ' +
                     'LEFT JOIN users u ON u.id = vt.modifiedById ' +
                     'LEFT JOIN affiliations a ON a.uri = vt.ownerId ' +
-                  'WHERE vt.ownerId = affiliationId AND vt.active = 1 AND vt.versionType = ? '
+                  'WHERE vt.ownerId = affiliationId AND vt.active = 1 AND vt.versionType = ? ' +
                   'ORDER BY vt.modified DESC;';
       const vals = [affiliationId, TemplateVersionType.PUBLISHED];
       expect(localQuery).toHaveBeenCalledTimes(1);
@@ -421,6 +421,92 @@ describe('VersionedTemplate', () => {
       expect(updateQuery).toHaveBeenCalledTimes(1);
       expect(Object.keys(result.errors).length).toBe(0);
       expect(result).toBeInstanceOf(VersionedTemplate);
+    });
+  });
+
+  describe('hasAssociatedPlans', () => {
+    const originalQuery = VersionedTemplate.query;
+
+    let localQuery;
+    let context;
+    let templateId;
+
+    beforeEach(async () => {
+      jest.resetAllMocks();
+
+      localQuery = jest.fn();
+      (VersionedTemplate.query as jest.Mock) = localQuery;
+
+      context = await buildMockContextWithToken(logger);
+      templateId = casual.integer(1, 999);
+    });
+
+    afterEach(() => {
+      jest.clearAllMocks();
+      VersionedTemplate.query = originalQuery;
+    });
+
+    it('returns true when there are associated plans', async () => {
+      localQuery.mockResolvedValueOnce([{ id: 1 }]);
+
+      const result = await VersionedTemplate.hasAssociatedPlans('Test', context, templateId);
+      const expectedSql = 'SELECT p.id FROM plans AS p ' +
+                          'JOIN versionedTemplates AS vt ON p.versionedTemplateId = vt.id ' +
+                          'WHERE vt.templateId = ? LIMIT 1';
+      expect(localQuery).toHaveBeenCalledTimes(1);
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [templateId.toString()], 'Test');
+      expect(result).toBe(true);
+    });
+
+    it('returns false when there are no associated plans', async () => {
+      localQuery.mockResolvedValueOnce([]);
+
+      const result = await VersionedTemplate.hasAssociatedPlans('Test', context, templateId);
+      const expectedSql = 'SELECT p.id FROM plans AS p ' +
+                          'JOIN versionedTemplates AS vt ON p.versionedTemplateId = vt.id ' +
+                          'WHERE vt.templateId = ? LIMIT 1';
+      expect(localQuery).toHaveBeenCalledTimes(1);
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [templateId.toString()], 'Test');
+      expect(result).toBe(false);
+    });
+
+    it('returns false when query returns null', async () => {
+      localQuery.mockResolvedValueOnce(null);
+
+      const result = await VersionedTemplate.hasAssociatedPlans('Test', context, templateId);
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('deactivateByTemplateId', () => {
+    const originalQuery = VersionedTemplate.query;
+
+    let localQuery;
+    let context;
+    let templateId;
+
+    beforeEach(async () => {
+      jest.resetAllMocks();
+
+      localQuery = jest.fn();
+      (VersionedTemplate.query as jest.Mock) = localQuery;
+
+      context = await buildMockContextWithToken(logger);
+      templateId = casual.integer(1, 999);
+    });
+
+    afterEach(() => {
+      jest.clearAllMocks();
+      VersionedTemplate.query = originalQuery;
+    });
+
+    it('executes the correct SQL to deactivate versionedTemplates', async () => {
+      localQuery.mockResolvedValueOnce([]);
+
+      await VersionedTemplate.deactivateByTemplateId('Test', context, templateId);
+      const expectedSql = 'UPDATE versionedTemplates SET active = 0 WHERE templateId = ?';
+      expect(localQuery).toHaveBeenCalledTimes(1);
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [templateId.toString()], 'Test');
     });
   });
 });

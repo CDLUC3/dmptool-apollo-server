@@ -1,7 +1,6 @@
 import casual from "casual";
 import { buildMockContextWithToken } from "../../__mocks__/context";
 import { License } from "../License";
-import { generalConfig } from "../../config/generalConfig";
 import { logger } from "../../logger";
 
 jest.mock('../../context.ts');
@@ -145,32 +144,18 @@ describe('findBy Queries', () => {
     expect(result).toEqual(null);
   });
 
-  it('search should call query with correct params and return the objects', async () => {
-    localPaginationQuery.mockResolvedValueOnce([license]);
-    const term = casual.company_name;
-    const result = await License.search('testing', context, term);
-    const sql = 'SELECT l.* FROM licenses l';
-    const whereFilters = ['(LOWER(l.name) LIKE ? OR LOWER(l.description) LIKE ?)'];
-    const vals = [`%${term.toLowerCase().trim()}%`, `%${term.toLowerCase().trim()}%`];
-    const sortFields = ["l.name", "l.created", "l.recommended"];
-    const opts = {
-      cursor: null,
-      limit: generalConfig.defaultSearchLimit,
-      sortField: 'l.name',
-      sortDir: 'ASC',
-      countField: 'l.id',
-      cursorField: 'l.id',
-      availableSortFields: sortFields,
-    };
-    expect(localPaginationQuery).toHaveBeenCalledTimes(1);
-    expect(localPaginationQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, '', vals, opts, 'testing')
+  it('all should call query with correct params and return the objects', async () => {
+    localQuery.mockResolvedValueOnce([license]);
+    const result = await License.all('testing', context);
+    const expectedSql = 'SELECT * FROM licenses ORDER BY name ASC';
+    expect(localQuery).toHaveBeenCalledTimes(1);
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [], 'testing')
     expect(result).toEqual([license]);
   });
 
-  it('search should return an empty array if it finds no records', async () => {
-    localPaginationQuery.mockResolvedValueOnce([]);
-    const term = casual.company_name;
-    const result = await License.search('testing', context, term);
+  it('all should return an empty array if it finds no records', async () => {
+    localQuery.mockResolvedValueOnce([]);
+    const result = await License.all('testing', context);
     expect(result).toEqual([]);
   });
 

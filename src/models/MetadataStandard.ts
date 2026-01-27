@@ -212,6 +212,20 @@ export class MetadataStandard extends MySqlModel {
     return null;
   }
 
+    static async findByURIs(reference: string, context: MyContext, uris: string[]): Promise<MetadataStandard[]> {
+    if (!Array.isArray(uris) || uris.length === 0) {
+      return [];
+    }
+    // Create placeholders for each URI
+    const placeholders = uris.map(() => '?').join(', ');
+    const sql = `SELECT * FROM metadataStandards WHERE uri IN (${placeholders})`;
+    const results = await MetadataStandard.query(context, sql, uris, reference);
+    if (Array.isArray(results) && results.length !== 0) {
+      return results.map((row) => MetadataStandard.processResult(new MetadataStandard(row)));
+    }
+    return [];
+  }
+
   static async findByName(reference: string, context: MyContext, name: string): Promise<MetadataStandard> {
     const sql = `SELECT * FROM metadataStandards WHERE LOWER(name) = ?`;
     const results = await MetadataStandard.query(context, sql, [name?.toLowerCase()?.trim()], reference);

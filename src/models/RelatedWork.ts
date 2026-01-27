@@ -17,12 +17,12 @@ import {
   Funder,
   Institution,
   Award,
+  RelatedWorkStatsResults,
 } from '../types';
 import { prepareObjectForLogs } from '../logger';
 import { Plan } from './Plan';
 
 export class Work extends MySqlModel {
-  public id: number;
   public doi: string;
 
   private static tableName = 'works';
@@ -118,18 +118,17 @@ export const parseDOI = (doi: string | undefined | null): string => {
     // Parse URL, get pathname and decode
     const url = new URL(trimmed);
     return decodeURIComponent(url.pathname.slice(1)).toLowerCase();
-  } catch (error) {
+  } catch {
     // Non URL based DOI
     try {
       return decodeURIComponent(trimmed).toLowerCase();
-    } catch (e) {
+    } catch {
       return trimmed.toLowerCase();
     }
   }
 };
 
 export class WorkVersion extends MySqlModel {
-  public id: number;
   public workId: number;
   public hash: Buffer;
   public workType: WorkType;
@@ -255,7 +254,6 @@ export class WorkVersion extends MySqlModel {
 }
 
 export class RelatedWork extends MySqlModel {
-  public id: number;
   public planId: number;
   public workVersionId: number;
   public sourceType: RelatedWorkSourceType;
@@ -387,6 +385,35 @@ export class RelatedWork extends MySqlModel {
     const result = await RelatedWork.query(context, sql, [planId.toString(), workVersionId.toString()], reference);
     return Array.isArray(result) && result.length > 0 ? new RelatedWork(result[0]) : null;
   }
+
+  // Find a RelatedWork by planID and DOI
+  static async findByDOI(
+    reference: string,
+    context: MyContext,
+    planId: number,
+    doi: string,
+  ): Promise<RelatedWork> {
+    const sql = `SELECT rw.* FROM ${RelatedWork.tableName} AS rw LEFT JOIN plans p ON rw.planId = p.id LEFT JOIN workVersions wv ON rw.workVersionId = wv.id LEFT JOIN works w ON wv.workId = w.id WHERE rw.planId = ? AND w.doi = ?`;
+    const result = await RelatedWork.query(context, sql, [planId.toString(), doi], reference);
+    console.log(result);
+    return Array.isArray(result) && result.length > 0 ? new RelatedWork(result[0]) : null;
+  }
+
+  // Calculate related works stats for a plan
+  static async statsByPlanId(reference: string, context: MyContext, planId: number): Promise<RelatedWorkStatsResults> {
+    const sql = `
+      SELECT
+        COUNT(*) AS totalCount,
+        SUM(CASE WHEN rw.status = 'PENDING' THEN 1 ELSE 0 END) AS pendingCount,
+        SUM(CASE WHEN rw.status = 'ACCEPTED' THEN 1 ELSE 0 END) AS acceptedCount,
+        SUM(CASE WHEN rw.status = 'REJECTED' THEN 1 ELSE 0 END) AS rejectedCount
+      FROM relatedWorks rw
+      WHERE rw.planId = ?;
+    `;
+
+    const result = await RelatedWork.query(context, sql, [planId.toString()], reference);
+    return Array.isArray(result) && result.length > 0 ? result[0] as RelatedWorkStatsResults : null;
+  }
 }
 
 export interface RelatedWorkSearchResults<T> extends PaginatedQueryResults<T> {
@@ -396,7 +423,6 @@ export interface RelatedWorkSearchResults<T> extends PaginatedQueryResults<T> {
 }
 
 export class RelatedWorkSearchResult extends MySqlModel {
-  public id: number;
   public planId: number;
   public workVersion: {
     id: number;
@@ -436,10 +462,6 @@ export class RelatedWorkSearchResult extends MySqlModel {
   public institutionMatches: ItemMatch[];
   public funderMatches: ItemMatch[];
   public awardMatches: ItemMatch[];
-  public created: string;
-  public createdById: number;
-  public modified: string;
-  public modifiedById: number;
 
   public static sqlStatement =
     `SELECT ` + // requires 'SELECT ' for cursor pagination to work
@@ -520,6 +542,7 @@ export class RelatedWorkSearchResult extends MySqlModel {
     context: MyContext,
     projectId: number,
     planId?: number,
+    doi?: string,
     filterOptions: RelatedWorksFilterOptions = {},
     options: PaginationOptions = RelatedWorkSearchResult.getDefaultPaginationOptions(),
   ): Promise<RelatedWorkSearchResults<RelatedWorkSearchResult>> {
@@ -572,6 +595,10 @@ export class RelatedWorkSearchResult extends MySqlModel {
     if (!isNullOrUndefined(planId)) {
       whereFilters.push('rw.planId = ?');
       values.push(planId);
+    }
+    if (!isNullOrUndefined(doi)) {
+      whereFilters.push('w.doi = ?');
+      values.push(doi);
     }
     if (!isNullOrUndefined(filterOptions.confidence)) {
       whereFilters.push(

@@ -194,20 +194,41 @@ export const resolvers: Resolvers = {
       const reference = 'archiveTemplate resolver';
       try {
         if (isAdmin(context.token)) {
-          // TODO: Once we have plans and overlays in place, update this so that it does not
-          //       get deleted and orphan those records but instead just unpublishes and sets a flag
-
           const template = await Template.findById(reference, context, templateId);
-          // Need to create an instance of template in order to access the "delete" method below
-          const templateInstance = new Template({ ...template });
 
-          if (templateInstance) {
+          if (template) {
+            // Need to create an instance of template in order to access the "update" or "delete" method below
+            const templateInstance = new Template({ ...template });
+
             if (await hasPermissionOnTemplate(context, template)) {
-              const deleted = await templateInstance.delete(context);
-              if (!deleted) {
-                templateInstance.addError('general', 'Unable to delete Template');
+              // Check if there are any plans associated with any versionedTemplate for this template
+              const hasPlans = await VersionedTemplate.hasAssociatedPlans(reference, context, templateId);
+
+              if (hasPlans) {
+                // Template has associated plans, so unpublish it instead of deleting
+                templateInstance.latestPublishVersion = null;
+                templateInstance.latestPublishDate = null;
+                templateInstance.isDirty = true;
+
+                const updated = await templateInstance.update(context);
+                if (!updated || updated.hasErrors()) {
+                  updated?.addError('general', 'Unable to unpublish Template');
+                }
+
+                // Set all related versionedTemplates to inactive
+                if (updated && !updated.hasErrors()) {
+                  await VersionedTemplate.deactivateByTemplateId(reference, context, templateId);
+                }
+
+                return updated;
+              } else {
+                // No plans associated, safe to delete the template
+                const deleted = await templateInstance.delete(context);
+                if (!deleted) {
+                  templateInstance.addError('general', 'Unable to delete Template');
+                }
+                return templateInstance;
               }
-              return templateInstance;
             }
           }
           throw NotFoundError();

@@ -132,6 +132,16 @@ describe('findBy Queries', () => {
     expect(result).toEqual(null);
   });
 
+  it('findByURIs should call query with correct params and return the objects', async () => {
+    localQuery.mockResolvedValueOnce([standard]);
+    const uris = [casual.url, casual.url];
+    const result = await MetadataStandard.findByURIs('testing', context, uris);
+    const expectedSql = `SELECT * FROM metadataStandards WHERE uri IN (?, ?)`;
+    expect(localQuery).toHaveBeenCalledTimes(1);
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, uris, 'testing');
+    expect(result).toEqual([standard]);
+  });
+
   it('findByName should call query with correct params and return the object', async () => {
     localQuery.mockResolvedValueOnce([standard]);
     const name = casual.company_name;

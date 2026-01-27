@@ -51,7 +51,7 @@ export const persistUser = async (
       return created;
     }
     console.error(prepareObjectForLogs({ errors: user.errors }), "Unable to persist user");
-  } catch (e) {
+  } catch {
     console.error("Error persisting user");
   }
   return null;

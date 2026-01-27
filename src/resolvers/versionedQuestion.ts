@@ -8,6 +8,8 @@ import { prepareObjectForLogs } from "../logger";
 import { isAuthorized } from "../services/authService";
 import { GraphQLError } from "graphql";
 import { normaliseDateTime } from "../utils/helpers";
+import { VersionedTemplate } from "../models/VersionedTemplate";
+import { Affiliation } from "../models/Affiliation";
 
 // Define new output structure for the published questions including whether they have an answer
 type VersionedQuestionWithFilled = VersionedQuestion & { hasAnswer: boolean };
@@ -66,6 +68,20 @@ export const resolvers: Resolvers = {
         'Chained VersionedQuestion.versionedQuestionConditions',
         context,
         parent.id
+      );
+    },
+    ownerAffiliation: async (parent: VersionedQuestion, _, context: MyContext): Promise<Affiliation | null> => {
+      const reference = 'VersionedQuestion.ownerAffiliation resolver';
+      const versionedTemplate = await VersionedTemplate.findById(
+        reference,
+        context,
+        parent.versionedTemplateId
+      );
+      if (!versionedTemplate?.ownerId) return null;
+      return await Affiliation.findByURI(
+        reference,
+        context,
+        versionedTemplate.ownerId
       );
     },
     created: (parent: VersionedQuestion) => {

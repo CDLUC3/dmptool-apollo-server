@@ -3,9 +3,11 @@
 ## v1.1.0
 
 ### Added
+- Added `ownerAffiliation` chained resolvers to `versionedQuestion` [#18]
 - added `@as-integrations/express5` for Apollo-Express integration
 
 ### Updated
+- Updated `findBestPracticeByTagIds` and `findByAffiliationAndTagIds` in `VersionedGuidance` to remove the use of `VersionedGuidanceTags` table, since there is not table with that name [#18]
 - Regenerated `src/types` using new `graphql-codegen` version
 - Updated `tokenService` to use `uuid` instead of `uuidv4` package
 - Updated all calls to `logger.[level](null, 'message')` to `logger.[level]({}, 'message')` because new version of Pino doesn't allow null

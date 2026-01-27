@@ -4153,6 +4153,8 @@ export type VersionedQuestion = {
   modified?: Maybe<Scalars['String']['output']>;
   /** The user who last modified the Object */
   modifiedById?: Maybe<Scalars['Int']['output']>;
+  /** Owner affiliation for the question */
+  ownerAffiliation?: Maybe<Affiliation>;
   /** Id of the original question that was versioned */
   questionId: Scalars['Int']['output'];
   /** This will be used as a sort of title for the Question */
@@ -6454,6 +6456,7 @@ export type VersionedQuestionResolvers<ContextType = MyContext, ParentType exten
   json?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  ownerAffiliation?: Resolver<Maybe<ResolversTypes['Affiliation']>, ParentType, ContextType>;
   questionId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   questionText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   required?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;

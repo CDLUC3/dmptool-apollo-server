@@ -93,3 +93,162 @@ export class Guidance extends MySqlModel {
     return Array.isArray(result) && result.length > 0 ? new Guidance(result[0]) : null;
   }
 }
+
+
+// Represents guidance associated with a plan and user
+export class PlanGuidance extends MySqlModel {
+  public planId: number;
+  public affiliationId: string;
+  public userId: number;
+  public static tableName = 'planMembers';
+
+  constructor(options) {
+    super(options.id, options.created, options.createdById, options.modified, options.modifiedById, options.errors);
+
+    this.planId = options.planId;
+    this.affiliationId = options.affiliationId;
+    this.userId = options.userId;
+  }
+
+  // Validation to be used prior to saving the record
+  async isValid(): Promise<boolean> {
+    await super.isValid();
+    if (!this.planId) this.addError('planId', 'Plan can\'t be blank');
+    if (!this.affiliationId) this.addError('affiliationId', 'Affiliation can\'t be blank');
+    if (!this.userId) this.addError('userId', 'User can\'t be blank');
+    return Object.keys(this.errors).length === 0;
+  }
+
+  //Create a new PlanGuidanceAffiliation
+  async create(context: MyContext): Promise<PlanGuidance> {
+    const reference = 'PlanGuidanceAffiliation.create';
+
+    // First make sure the record is valid
+    if (await this.isValid()) {
+      const current = await PlanGuidance.findByPlanUserAndAffiliation(
+        reference,
+        context,
+        this.planId,
+        this.userId,
+        this.affiliationId);
+
+      // Then make sure it doesn't already exist
+      if (current) {
+        this.addError('general', 'PlanGuidanceAffiliation already has an entry for this member');
+      } else {
+        // Save the record and then fetch it
+        const newId = await PlanGuidance.insert(
+          context,
+          PlanGuidance.tableName,
+          this,
+          reference,
+          ['memberRoleIds']
+        );
+        const response = await PlanGuidance.findById(reference, context, newId);
+        return response;
+      }
+    }
+    // Otherwise return as-is with all the errors
+    return new PlanGuidance(this);
+  }
+
+  //Update an existing plan member
+  async update(context: MyContext, noTouch = false): Promise<PlanGuidance> {
+    if (await this.isValid()) {
+      if (this.id) {
+        await PlanGuidance.update(
+          context,
+          PlanGuidance.tableName,
+          this,
+          'PlanGuidanceAffiliation.update',
+          ['memberRoleIds'],
+          noTouch
+        );
+        return await PlanGuidance.findById('PlanGuidance.update', context, this.id);
+      }
+      // This template has never been saved before so we cannot update it!
+      this.addError('general', 'PlanGuidanceAffiliation has never been saved');
+    }
+    return new PlanGuidance(this);
+  }
+
+  //Delete PlanGuidanceAffiliation
+  async delete(context: MyContext): Promise<PlanGuidance> {
+    if (this.id) {
+      const reference = 'PlanGuidanceAffiliation.delete';
+
+      // If there is only one plan member, then it cannot be deleted
+      const planGuidanceAffiliation = await PlanGuidance.findByPlanUserAndAffiliation(reference, context, this.planId, this.userId, this.affiliationId);
+      if (planGuidanceAffiliation) {
+        this.addError('general', 'A plan needs at least one member, so you cannot remove the last one.');
+        return this;
+      } else {
+        const deleted = await PlanGuidance.findById('PlanGuidanceAffiliation.delete', context, this.id);
+
+        const successfullyDeleted = await PlanGuidance.delete(
+          context,
+          PlanGuidance.tableName,
+          this.id,
+          'PlanGuidanceAffiliation.delete'
+        );
+        if (successfullyDeleted) {
+          return deleted;
+        } else {
+          return null
+        }
+      }
+    }
+    return null;
+  }
+
+  // Get the affiliation details using the affilation query to find by URI
+
+  // Find the guidance Affiliation by its id
+  static async findById(reference: string, context: MyContext, id: number): Promise<PlanGuidance> {
+    const sql = `SELECT * FROM ${this.tableName} WHERE id = ?`;
+    const results = await PlanGuidance.query(context, sql, [id?.toString()], reference);
+    return Array.isArray(results) && results.length > 0 ? new PlanGuidance(results[0]) : null;
+  }
+
+  // Fetch a member by the PLan and ProjectMember
+  static async findByPlanAndAffiliation(
+    reference: string,
+    context: MyContext,
+    planId: number,
+    affiliationId: string
+  ): Promise<PlanGuidance> {
+    const sql = `SELECT * FROM ${this.tableName} WHERE planId = ? AND affiliationId = ?`;
+    const results = await PlanGuidance.query(context, sql, [planId?.toString(), affiliationId?.toString()], reference);
+    return Array.isArray(results) && results.length > 0 ? new PlanGuidance(results[0]) : null;
+  }
+
+  // Find all guidance affiliations for a specific plan and user
+  static async findByPlanIdAndUserId(
+    reference: string,
+    context: MyContext,
+    planId: number,
+    userId: number
+  ): Promise<PlanGuidance[]> {
+    const sql = `SELECT * FROM ${this.tableName} WHERE planId = ? AND userId = ?`;
+    const results = await PlanGuidance.query(context, sql, [planId?.toString(), userId?.toString()], reference);
+    return Array.isArray(results) ? results.map((entry) => new PlanGuidance(entry)) : [];
+  }
+
+  // Find a specific guidance affiliation
+  static async findByPlanUserAndAffiliation(
+    reference: string,
+    context: MyContext,
+    planId: number,
+    userId: number,
+    affiliationId: string
+  ): Promise<PlanGuidance> {
+    const sql = `SELECT * FROM ${this.tableName} WHERE planId = ? AND userId = ? AND affiliationId = ?`;
+    const results = await PlanGuidance.query(
+      context,
+      sql,
+      [planId?.toString(), userId?.toString(), affiliationId?.toString()],
+      reference
+    );
+    return Array.isArray(results) && results.length > 0 ? new PlanGuidance(results[0]) : null;
+  }
+}

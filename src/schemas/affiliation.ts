@@ -39,6 +39,8 @@ export const typeDefs = gql`
     types: [AffiliationType!]
     "Has an API that be used to search for project/award information"
     apiTarget: String
+    "The acronyms for the affiliation"
+    acronyms: [String!]
   }
 
   type AffiliationSearchResults implements PaginatedQueryResults {

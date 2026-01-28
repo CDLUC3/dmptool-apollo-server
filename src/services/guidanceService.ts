@@ -1,11 +1,36 @@
 import { MyContext } from "../context";
 import { GuidanceGroup } from "../models/GuidanceGroup";
 import { Guidance } from "../models/Guidance";
+import { PlanGuidance } from "../models/Guidance";
+import { Affiliation } from "../models/Affiliation";
 import { VersionedGuidanceGroup } from "../models/VersionedGuidanceGroup";
 import { VersionedGuidance } from "../models/VersionedGuidance";
 import { prepareObjectForLogs } from "../logger";
 import { getCurrentDate } from "../utils/helpers";
 import { isSuperAdmin } from "./authService";
+
+export interface GuidanceItem {
+  id?: number;
+  title?: string;
+  guidanceText: string;
+}
+
+export interface GuidanceSource {
+  id: string;
+  type: 'BEST_PRACTICE' | 'TEMPLATE_OWNER' | 'USER_AFFILIATION' | 'USER_SELECTED';
+  label: string;
+  shortName: string | null;
+  orgURI: string;
+  items: GuidanceItem[];
+  hasGuidance: boolean;
+}
+
+interface VersionedGuidanceRow {
+  guidanceText: string;
+  tagId: number;
+  tagName: string;
+  affiliationId: string;
+}
 
 // Check if the user has permission to access the GuidanceGroup
 export const hasPermissionOnGuidanceGroup = async (
@@ -198,3 +223,303 @@ export const markGuidanceGroupAsDirty = async (
     throw err;
   }
 };
+
+
+/**
+ * Group guidance by tag and combine texts
+ */
+function groupGuidanceByTag(
+  guidanceRows: VersionedGuidanceRow[],
+  sectionTagIds: number[]
+): GuidanceItem[] {
+  // Filter to only include guidance for tags in this section
+  const relevantGuidance = guidanceRows.filter(row =>
+    sectionTagIds.includes(row.tagId)
+  );
+
+  // Group by tagId and combine texts
+  const itemsByTag = new Map<number, { texts: string[]; tagName: string }>();
+
+  relevantGuidance.forEach(row => {
+    if (!itemsByTag.has(row.tagId)) {
+      itemsByTag.set(row.tagId, { texts: [], tagName: row.tagName });
+    }
+    itemsByTag.get(row.tagId)!.texts.push(row.guidanceText);
+  });
+
+  // Convert to items array
+  const items: GuidanceItem[] = [];
+  itemsByTag.forEach((value, tagId) => {
+    items.push({
+      id: tagId,
+      title: value.tagName,
+      guidanceText: value.texts.join('')
+    });
+  });
+
+  return items;
+}
+
+/**
+ * Fetch guidance for a specific affiliation
+ */
+async function fetchAffiliationGuidance(
+  context: MyContext,
+  affiliationId: string,
+  reference: string,
+  tagIds: number[]
+): Promise<VersionedGuidanceRow[]> {
+  if (tagIds.length === 0) {
+    return [];
+  }
+
+  const placeholders = tagIds.map(() => '?').join(',');
+  const sql = `
+    SELECT 
+      vg.guidanceText,
+      vg.tagId,
+      t.name as tagName,
+      gg.affiliationId
+    FROM versionedGuidance vg
+    JOIN guidanceGroups gg ON vg.guidanceGroupId = gg.id
+    JOIN tags t ON vg.tagId = t.id
+    WHERE gg.affiliationId = ?
+      AND vg.tagId IN (${placeholders})
+      AND vg.versionNumber = gg.latestPublishedVersion
+    ORDER BY vg.tagId
+  `;
+
+  try {
+
+    const results = await PlanGuidance.query(context, sql, [affiliationId.toString()], reference);
+    return Array.isArray(results) ? results : [];
+  } catch (err) {
+    context.logger.error({ err, sql, affiliationId, tagIds }, 'Error fetching affiliation guidance');
+    return [];
+  }
+}
+
+/**
+ * Fetch best practice guidance
+ */
+async function fetchBestPracticeGuidance(
+  context: MyContext,
+  reference: string,
+  tagIds: number[]
+): Promise<VersionedGuidanceRow[]> {
+  if (tagIds.length === 0) {
+    return [];
+  }
+
+  const placeholders = tagIds.map(() => '?').join(',');
+  const sql = `
+    SELECT 
+      vg.guidanceText,
+      vg.tagId,
+      t.name as tagName,
+      'bestPractice' as affiliationId
+    FROM versionedGuidance vg
+    JOIN guidanceGroups gg ON vg.guidanceGroupId = gg.id
+    JOIN tags t ON vg.tagId = t.id
+    WHERE gg.bestPractice = 1
+      AND vg.tagId IN (${placeholders})
+      AND vg.versionNumber = gg.latestPublishedVersion
+    ORDER BY vg.tagId
+  `;
+
+  try {
+    // Convert tagIds to strings to match expected parameter type
+    const tagIdParams = tagIds.map(String);
+    const results = await PlanGuidance.query(context, sql, tagIdParams, reference);
+    return Array.isArray(results) ? results : [];
+  } catch (err) {
+    context.logger.error({ err, sql, tagIds }, 'Error fetching best practice guidance');
+    return [];
+  }
+}
+
+/**
+ * Get guidance sources for a specific section
+ * This is the main function that combines all guidance from different sources
+ */
+export async function getGuidanceSourcesForSection(
+  context: MyContext,
+  reference: string,
+  planId: number,
+  sectionTagIds: number[],
+  sectionGuidance: string | null,
+  templateOwnerUri: string | null,
+  templateOwnerName: string | null,
+  templateOwnerAcronyms: string[] | null,
+  userAffiliationUri: string | null,
+  userAffiliationName: string | null,
+  userAffiliationAcronyms: string[] | null,
+  userId: number
+): Promise<GuidanceSource[]> {
+  const guidanceSources: GuidanceSource[] = [];
+  const processedOrgURIs = new Set<string>();
+
+  // Skip if no tags
+  if (sectionTagIds.length === 0) {
+    return guidanceSources;
+  }
+
+  // 1. Best Practice Guidance
+  const bestPracticeGuidance = await fetchBestPracticeGuidance(context, reference, sectionTagIds);
+  if (bestPracticeGuidance.length > 0) {
+    const items = groupGuidanceByTag(bestPracticeGuidance, sectionTagIds);
+    if (items.length > 0) {
+      guidanceSources.push({
+        id: 'bestPractice',
+        type: 'BEST_PRACTICE',
+        label: 'DMP Tool',
+        shortName: 'DMP Tool',
+        orgURI: 'bestPractice',
+        items,
+        hasGuidance: true
+      });
+    }
+  }
+
+  // 2. Template Owner Guidance
+  if (templateOwnerUri && !processedOrgURIs.has(templateOwnerUri)) {
+    const ownerGuidance = await fetchAffiliationGuidance(context, templateOwnerUri, reference, sectionTagIds);
+    const items = groupGuidanceByTag(ownerGuidance, sectionTagIds);
+
+    // Also include section-level guidance if it exists
+    if (sectionGuidance) {
+      items.unshift({
+        title: templateOwnerName || 'Template Owner',
+        guidanceText: sectionGuidance
+      });
+    }
+
+    if (items.length > 0) {
+      guidanceSources.push({
+        id: `template-owner-${templateOwnerUri}`,
+        type: 'TEMPLATE_OWNER',
+        label: templateOwnerName || 'Template Owner',
+        shortName: (templateOwnerAcronyms && templateOwnerAcronyms[0]) || templateOwnerName || 'Template Owner',
+        orgURI: templateOwnerUri,
+        items,
+        hasGuidance: true
+      });
+      processedOrgURIs.add(templateOwnerUri);
+    }
+  }
+
+  // 3. User Affiliation Guidance
+  if (userAffiliationUri && !processedOrgURIs.has(userAffiliationUri)) {
+    const userAffGuidance = await fetchAffiliationGuidance(context, userAffiliationUri, reference, sectionTagIds);
+    const items = groupGuidanceByTag(userAffGuidance, sectionTagIds);
+
+    if (items.length > 0) {
+      guidanceSources.push({
+        id: `user-affiliation-${userAffiliationUri}`,
+        type: 'USER_AFFILIATION',
+        label: userAffiliationName || 'Your Organization',
+        shortName: (userAffiliationAcronyms && userAffiliationAcronyms[0]) || userAffiliationName || 'Your Org',
+        orgURI: userAffiliationUri,
+        items,
+        hasGuidance: true
+      });
+      processedOrgURIs.add(userAffiliationUri);
+    }
+  }
+
+  // 4. User-Selected Affiliations Guidance
+  const userSelections = await PlanGuidance.findByPlanIdAndUserId(
+    'getGuidanceSourcesForSection',
+    context,
+    planId,
+    userId
+  );
+
+  for (const selection of userSelections) {
+    const affiliationUri = selection.affiliationId;
+
+    // Skip if already processed
+    if (!affiliationUri || processedOrgURIs.has(affiliationUri)) {
+      continue;
+    }
+
+    // Fetch the affiliation object using the affiliationId
+    const affiliation = await Affiliation.findByURI(reference, context, affiliationUri);
+    if (!affiliation) {
+      continue;
+    }
+
+    const selectedGuidance = await fetchAffiliationGuidance(context, affiliationUri, reference, sectionTagIds);
+    const items = groupGuidanceByTag(selectedGuidance, sectionTagIds);
+
+    if (items.length > 0) {
+      guidanceSources.push({
+        id: `user-selected-${affiliationUri}`,
+        type: 'USER_SELECTED',
+        label: affiliation.displayName || affiliation.name,
+        shortName: (affiliation.acronyms && affiliation.acronyms[0]) || affiliation.displayName || affiliation.name,
+        orgURI: affiliationUri,
+        items,
+        hasGuidance: true
+      });
+      processedOrgURIs.add(affiliationUri);
+    }
+  }
+
+  return guidanceSources;
+}
+
+/**
+ * Get section tags map (tagId -> tagName)
+ */
+export async function getSectionTagsMap(
+  context: MyContext,
+  versionedSectionId: number
+): Promise<Record<number, string>> {
+  const sql = `
+    SELECT t.id, t.name
+    FROM tags t
+    JOIN versionedSectionTags vst ON t.id = vst.tagId
+    WHERE vst.versionedSectionId = ?
+  `;
+
+  try {
+    const results = await PlanGuidance.query(context, sql, [versionedSectionId.toString()]);
+    return Array.isArray(results) ? results : [];
+    const tagsMap: Record<number, string> = {};
+
+    if (results) {
+      results.forEach((row: any) => {
+        tagsMap[row.id] = row.name;
+      });
+    }
+
+    return tagsMap;
+  } catch (err) {
+    context.logger.error({ err, sql, versionedSectionId }, 'Error fetching section tags');
+    return {};
+  }
+}
+
+/**
+ * Add a PlanGuidanceAffiliation record for a plan, affiliation, and user.
+ */
+export async function addPlanGuidanceAffiliation(
+  context: MyContext,
+  planId: number,
+  affiliationId: number | string,
+  userId: number
+): Promise<boolean> {
+  try {
+    const planGuidanceAffiliation = new PlanGuidance({
+      planId,
+      affiliationId,
+      userId
+    });
+    const created = await planGuidanceAffiliation.create(context);
+    return !!created && !created.hasErrors?.();
+  } catch (err) {
+    context.logger.error(prepareObjectForLogs(err), 'Failed to add PlanGuidanceAffiliation');
+    return false;
+  }
+}

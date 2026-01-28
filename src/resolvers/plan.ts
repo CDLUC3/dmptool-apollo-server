@@ -9,12 +9,14 @@ import { hasPermissionOnProject } from "../services/projectService";
 import { PlanMember } from "../models/Member";
 import { PlanFunding } from "../models/Funding";
 import { PlanFeedback } from "../models/PlanFeedback";
+import { PlanGuidance } from "../models/Guidance";
 import { Resolvers } from "../types";
 import { VersionedTemplate } from "../models/VersionedTemplate";
 import { Answer } from "../models/Answer";
 import { ProjectCollaboratorAccessLevel } from "../models/Collaborator";
 import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
 import { ensureDefaultPlanContact } from "../services/planService";
+import { addPlanGuidanceAffiliation } from "../services/guidanceService";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -90,7 +92,24 @@ export const resolvers: Resolvers = {
               if (!contactWasSet) {
                 created.addError('general', 'Unable to set the default contact');
               }
+
+              // Add an entry in the planGuidance table for user's affiliation and template ownerId
+              try {
+                const affiliationId = versionedTemplate.ownerId;
+                const planId = created.id;
+                const userId = context.token?.userId;
+
+                if (affiliationId && planId && userId) {
+                  await addPlanGuidanceAffiliation(context, planId, affiliationId, userId);
+                }
+              } catch (e) {
+                context.logger.warn(
+                  prepareObjectForLogs(e),
+                  `Failed to add planGuidance for planId=${created.id}`
+                );
+              }
             }
+
             return created;
           }
         }

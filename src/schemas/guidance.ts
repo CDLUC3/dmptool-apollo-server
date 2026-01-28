@@ -6,6 +6,8 @@ export const typeDefs = gql`
     guidanceByGroup(guidanceGroupId: Int!): [Guidance!]!
     "Get a specific Guidance item by ID"
     guidance(guidanceId: Int!): Guidance
+    "Get guidance items for a specific plan and user"
+    planGuidance(planId: Int!, userId: Int!): [PlanGuidance!]!
   }
 
   extend type Mutation {
@@ -15,6 +17,10 @@ export const typeDefs = gql`
     updateGuidance(input: UpdateGuidanceInput!): Guidance!
     "Delete a Guidance item"
     removeGuidance(guidanceId: Int!): Guidance!
+    "Add Plan Guidance"
+    addPlanGuidance(planId: Int!, affiliationId: Int!, userId: Int!): PlanGuidance!
+    "Remove Plan Guidance"
+    removePlanGuidance(planId: Int!, affiliationId: Int!): PlanGuidance
   }
 
   "A Guidance item contains guidance text and associated tag id"
@@ -77,5 +83,35 @@ export const typeDefs = gql`
     guidanceText: String
     "The Tags associated with this Guidance"
     tagId: Int
+  }
+
+  "Guidance items for a plan and user"
+  type PlanGuidance {
+    "The unique identifier for the Object"
+    id: Int
+    "The user who created the Object"
+    createdById: Int
+    "The timestamp when the Object was created"
+    created: String
+    "The user who last modified the Object"
+    modifiedById: Int
+    "The timestamp when the Object was last modified"
+    modified: String
+    "Errors associated with the Object"
+    errors: GuidanceErrors
+
+    "The id of the plan"
+    planId: Int!
+    "The id of the affiliation who has the guidance"
+    affiliationId: String!
+    "The id of the user in the plan who selected the guidance"
+    userId: Int!
+
+    "The plan the guidance is associated with"
+    plan: Plan
+    "The affiliation the guidance is associated with"
+    affiliation: Affiliation
+    "The user who selected the guidance"
+    user: User
   }
 `;

@@ -2,15 +2,18 @@ import { Resolvers } from "../types";
 import { MyContext } from "../context";
 import { Guidance } from "../models/Guidance";
 import { GuidanceGroup } from "../models/GuidanceGroup";
+import { PlanGuidance } from "../models/Guidance";
+import { Affiliation } from "../models/Affiliation";
 import { User } from "../models/User";
 import { Tag } from "../models/Tag";
 import { hasPermissionOnGuidanceGroup, markGuidanceGroupAsDirty } from "../services/guidanceService";
 import { ForbiddenError, NotFoundError, AuthenticationError, InternalServerError } from "../utils/graphQLErrors";
-import { isAdmin } from "../services/authService";
+import { isAdmin, isAuthorized } from "../services/authService";
 import { prepareObjectForLogs } from "../logger";
 import { GraphQLError } from "graphql";
-import { normaliseDateTime } from "../utils/helpers";
+import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
 import { hasPublishedFlag } from "./guidanceGroup";
+import { Plan } from "../models/Plan";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -73,6 +76,40 @@ export const resolvers: Resolvers = {
         }
 
         throw ForbiddenError();
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    },
+
+    // ============================================================================
+    // Plan Guidance Affiliations Query (User permissions)
+    // ============================================================================
+
+    // Return user's selected guidance affiliations for a plan
+    planGuidance: async (_, { planId }, context: MyContext): Promise<PlanGuidance[]> => {
+      const reference = 'planGuidanceAffiliations resolver';
+      try {
+        if (isAuthorized(context.token)) {
+          const plan = await Plan.findById(reference, context, planId);
+
+          if (isNullOrUndefined(plan)) {
+            throw NotFoundError(`Plan with id ${planId} not found`);
+          }
+          const userId = context.token?.userId;
+          if (!userId) {
+            throw AuthenticationError();
+          }
+
+          return await PlanGuidance.findByPlanIdAndUserId(
+            reference,
+            context,
+            planId,
+            userId
+          );
+        }
+        throw context?.token ? ForbiddenError() : AuthenticationError();
       } catch (err) {
         if (err instanceof GraphQLError) throw err;
         context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
@@ -207,6 +244,94 @@ export const resolvers: Resolvers = {
         throw InternalServerError();
       }
     },
+    // Add a user-selected affiliation for plan guidance
+    addPlanGuidance: async (
+      _,
+      { planId, affiliationId },
+      context: MyContext
+    ): Promise<PlanGuidance> => {
+      const reference = 'add plan guidance affiliation resolver';
+      try {
+        if (isAuthorized(context.token)) {
+          const plan = await Plan.findById(reference, context, planId);
+          if (!plan) {
+            throw NotFoundError(`Plan with id ${planId} not found`);
+          }
+
+          const affiliation = await Affiliation.findByURI(reference, context, affiliationId.toString());
+          if (!affiliation) {
+            throw NotFoundError(`Affiliation with URI ${affiliationId} not found`);
+          }
+
+          const userId = context.token?.userId;
+          if (!userId) {
+            throw AuthenticationError();
+          }
+
+          const planGuidanceAffiliation = new PlanGuidance({
+            planId,
+            affiliationId,
+            userId
+          });
+
+          const created = await planGuidanceAffiliation.create(context);
+          if (created && !created.hasErrors()) {
+            created.addError("general", "Unable to add plan guidance affiliation");
+          } else {
+            return await created.delete(context);
+          }
+        }
+        throw context?.token ? ForbiddenError() : AuthenticationError();
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    },
+
+    // Remove a user-selected affiliation from plan guidance
+    removePlanGuidance: async (
+      _,
+      { planId, affiliationId },
+      context: MyContext
+    ): Promise<PlanGuidance> => {
+      const reference = 'remove plan guidance affiliation resolver';
+      try {
+        if (isAuthorized(context.token)) {
+          const plan = await Plan.findById(reference, context, planId);
+          if (!plan) {
+            throw NotFoundError(`Plan with id ${planId} not found`);
+          }
+
+          const userId = context.token?.userId;
+          if (!userId) {
+            throw AuthenticationError();
+          }
+
+          const removed = await PlanGuidance.findByPlanUserAndAffiliation(
+            reference,
+            context,
+            planId,
+            userId,
+            affiliationId.toString()
+          );
+
+          if (removed && !removed.hasErrors()) {
+            removed.addError("general", "Unable to remove");
+          } else {
+            return await removed.delete(context);
+          }
+        }
+        throw context?.token ? ForbiddenError() : AuthenticationError();
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    }
+
   },
 
   Guidance: {
@@ -232,4 +357,24 @@ export const resolvers: Resolvers = {
       return null;
     },
   },
+  PlanGuidance: {
+    plan: async (parent: PlanGuidance, _, context: MyContext): Promise<Plan> => {
+      if (parent?.planId) {
+        return await Plan.findById('Chained PlanGuidanceAffiliation.plan', context, parent.planId);
+      }
+      return null;
+    },
+    affiliation: async (parent: PlanGuidance, _, context: MyContext): Promise<Affiliation> => {
+      if (parent?.affiliationId) {
+        return await Affiliation.findByURI('Chained PlanGuidanceAffiliation.affiliation', context, parent.affiliationId);
+      }
+      return null;
+    },
+    created: (parent: PlanGuidance) => {
+      return normaliseDateTime(parent.created);
+    },
+    modified: (parent: PlanGuidance) => {
+      return normaliseDateTime(parent.modified);
+    }
+  }
 };

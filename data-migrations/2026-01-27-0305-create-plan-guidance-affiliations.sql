@@ -5,8 +5,10 @@ CREATE TABLE `planGuidance` (
   `affiliationId` VARCHAR(255) NOT NULL,
   `userId` INT UNSIGNED NOT NULL,
   `created` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `createdById` int NOT NULL,
   `modified` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  
+  `modifiedById` int NOT NULL,
+
   UNIQUE KEY `unique_plan_affiliation_user` (`planId`, `affiliationId`, `userId`),
   
   FOREIGN KEY (`planId`) REFERENCES `plans`(`id`) ON DELETE CASCADE,

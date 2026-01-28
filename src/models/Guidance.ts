@@ -100,7 +100,7 @@ export class PlanGuidance extends MySqlModel {
   public planId: number;
   public affiliationId: string;
   public userId: number;
-  public static tableName = 'planMembers';
+  public static tableName = 'planGuidance';
 
   constructor(options) {
     super(options.id, options.created, options.createdById, options.modified, options.modifiedById, options.errors);
@@ -119,9 +119,9 @@ export class PlanGuidance extends MySqlModel {
     return Object.keys(this.errors).length === 0;
   }
 
-  //Create a new PlanGuidanceAffiliation
+  //Create a new PlanGuidance
   async create(context: MyContext): Promise<PlanGuidance> {
-    const reference = 'PlanGuidanceAffiliation.create';
+    const reference = 'PlanGuidance.create';
 
     // First make sure the record is valid
     if (await this.isValid()) {
@@ -134,7 +134,7 @@ export class PlanGuidance extends MySqlModel {
 
       // Then make sure it doesn't already exist
       if (current) {
-        this.addError('general', 'PlanGuidanceAffiliation already has an entry for this member');
+        this.addError('general', 'PlanGuidance already has an entry for this member');
       } else {
         // Save the record and then fetch it
         const newId = await PlanGuidance.insert(
@@ -142,8 +142,9 @@ export class PlanGuidance extends MySqlModel {
           PlanGuidance.tableName,
           this,
           reference,
-          ['memberRoleIds']
+          [],
         );
+
         const response = await PlanGuidance.findById(reference, context, newId);
         return response;
       }

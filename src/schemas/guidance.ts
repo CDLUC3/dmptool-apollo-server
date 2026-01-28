@@ -7,7 +7,9 @@ export const typeDefs = gql`
     "Get a specific Guidance item by ID"
     guidance(guidanceId: Int!): Guidance
     "Get guidance items for a specific plan and user"
-    planGuidance(planId: Int!, userId: Int!): [PlanGuidance!]!
+    planGuidance(planId: Int!): [PlanGuidance!]!
+    "Get all guidance sources for a plan, optionally filtered by section"
+    guidanceSourcesForPlan(planId: Int!, versionedSectionId: Int, versionedQuestionId: Int): [GuidanceSource!]!
   }
 
   extend type Mutation {
@@ -17,10 +19,10 @@ export const typeDefs = gql`
     updateGuidance(input: UpdateGuidanceInput!): Guidance!
     "Delete a Guidance item"
     removeGuidance(guidanceId: Int!): Guidance!
-    "Add Plan Guidance"
-    addPlanGuidance(planId: Int!, affiliationId: Int!, userId: Int!): PlanGuidance!
-    "Remove Plan Guidance"
-    removePlanGuidance(planId: Int!, affiliationId: Int!): PlanGuidance
+    "Add Plan Guidance affiliation for current user"
+    addPlanGuidance(planId: Int!, affiliationId: String!): PlanGuidance!
+    "Remove Plan Guidance affiliation for current user"
+    removePlanGuidance(planId: Int!, affiliationId: String!): PlanGuidance
   }
 
   "A Guidance item contains guidance text and associated tag id"
@@ -98,7 +100,7 @@ export const typeDefs = gql`
     "The timestamp when the Object was last modified"
     modified: String
     "Errors associated with the Object"
-    errors: GuidanceErrors
+    errors: PlanGuidanceErrors
 
     "The id of the plan"
     planId: Int!
@@ -113,5 +115,54 @@ export const typeDefs = gql`
     affiliation: Affiliation
     "The user who selected the guidance"
     user: User
+  }
+
+  "A collection of errors related to PlanGuidance"
+  type PlanGuidanceErrors {
+    "General error messages"
+    general: String
+    planId: String
+    affiliationId: String
+    userId: String
+  }
+
+  "A source of guidance (organization, best practice, etc.)"
+  type GuidanceSource {
+    "Unique identifier for this guidance source"
+    id: String!
+    "The type of guidance source"
+    type: GuidanceSourceType!
+    "Full label/name of the organization"
+    label: String!
+    "Short name or acronym"
+    shortName: String!
+    "Organization URI (ROR ID)"
+    orgURI: String!
+    "Guidance items from this source"
+    items: [GuidanceItem!]!
+    "Whether this source has any guidance"
+    hasGuidance: Boolean!
+  }
+
+  "A single guidance item with its content"
+  type GuidanceItem {
+    "Tag ID this guidance is associated with"
+    id: Int
+    "Title/name of the tag"
+    title: String
+    "The guidance text content (HTML)"
+    guidanceText: String!
+  }
+
+  "Types of guidance sources"
+  enum GuidanceSourceType {
+    "Best practice guidance from DMP Tool"
+    BEST_PRACTICE
+    "Guidance from the template owner organization"
+    TEMPLATE_OWNER
+    "Guidance from the user's affiliation"
+    USER_AFFILIATION
+    "Guidance from user-selected organizations"
+    USER_SELECTED
   }
 `;

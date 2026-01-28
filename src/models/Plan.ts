@@ -10,8 +10,11 @@ import {
 } from "../utils/helpers";
 import { MySqlModel } from "./MySqlModel";
 import { addVersion, removeVersions, updateVersion } from "./PlanVersion";
+import { PlanGuidance } from "../models/Guidance";
+import { VersionedTemplate } from "../models/VersionedTemplate";
 import { Project } from "./Project";
 import { Tag } from "./Tag";
+import { User } from "./User";
 
 export const DEFAULT_TEMPORARY_DMP_ID_PREFIX = 'temp-dmpId-';
 
@@ -339,6 +342,10 @@ export class Plan extends MySqlModel {
           if (newPlan) {
             // Generate the version history of the DMP
             await addVersion(context, newPlan, reference);
+
+            // Auto-populate planGuidance with default affiliations
+            await this.initializePlanGuidance(context, newId, this.versionedTemplateId);
+
             return new Plan(newPlan);
           } else {
             this.addError('general', 'Unable to create your plan.');
@@ -349,6 +356,67 @@ export class Plan extends MySqlModel {
     // Otherwise return as-is with all the errors
     return new Plan(this);
   }
+
+  /**
+ * Initialize plan guidance with default affiliations (template owner and user affiliation)
+ */
+  private async initializePlanGuidance(
+    context: MyContext,
+    planId: number,
+    versionedTemplateId: number
+  ): Promise<void> {
+    const reference = 'Plan.initializePlanGuidance';
+
+    try {
+      // Get the user ID from token
+      const userId = context.token?.id;
+      if (!userId) {
+        context.logger.warn({ planId }, 'No userId found in token, skipping planGuidance initialization');
+        return;
+      }
+
+      // Get template owner URI
+      const versionedTemplate = await VersionedTemplate.findById(reference, context, versionedTemplateId);
+      const templateOwnerUri = versionedTemplate?.ownerId;
+
+      // Get user's affiliation URI
+      const userAffiliationUri = context.token?.affiliationId;
+
+      const affiliationsToAdd = new Set<string>();
+
+      // Add template owner if exists
+      if (templateOwnerUri) {
+        affiliationsToAdd.add(templateOwnerUri);
+      }
+
+      // Add user affiliation if exists (Set automatically handles duplicates)
+      if (userAffiliationUri) {
+        affiliationsToAdd.add(userAffiliationUri);
+      }
+
+      // Create PlanGuidance records for each unique affiliation
+      for (const affiliationId of affiliationsToAdd) {
+        try {
+          const planGuidance = new PlanGuidance({
+            planId,
+            affiliationId,
+            userId
+          });
+          await planGuidance.create(context);
+        } catch (err) {
+          // Log but don't fail plan creation if guidance initialization fails
+          context.logger.error(
+            { err, planId, affiliationId, userId },
+            'Failed to create planGuidance record'
+          );
+        }
+      }
+    } catch (err) {
+      // Log but don't fail plan creation if guidance initialization fails
+      context.logger.error({ err, planId }, 'Failed to initialize plan guidance');
+    }
+  }
+
 
   //Update an existing Plan
   async update(context: MyContext, noTouch = false): Promise<Plan> {

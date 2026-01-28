@@ -5,9 +5,21 @@ import { PlanGuidance } from "../models/Guidance";
 import { Affiliation } from "../models/Affiliation";
 import { VersionedGuidanceGroup } from "../models/VersionedGuidanceGroup";
 import { VersionedGuidance } from "../models/VersionedGuidance";
+import { VersionedSection } from "../models/VersionedSection";
+import { VersionedQuestion } from "../models/VersionedQuestion";
+import { Plan } from "../models/Plan";
+import { VersionedTemplate } from "../models/VersionedTemplate";
 import { prepareObjectForLogs } from "../logger";
 import { getCurrentDate } from "../utils/helpers";
 import { isSuperAdmin } from "./authService";
+import { User } from "../models/User";
+
+export enum GuidanceSourceType {
+  BEST_PRACTICE = 'BEST_PRACTICE',
+  TEMPLATE_OWNER = 'TEMPLATE_OWNER',
+  USER_AFFILIATION = 'USER_AFFILIATION',
+  USER_SELECTED = 'USER_SELECTED'
+}
 
 export interface GuidanceItem {
   id?: number;
@@ -17,9 +29,9 @@ export interface GuidanceItem {
 
 export interface GuidanceSource {
   id: string;
-  type: 'BEST_PRACTICE' | 'TEMPLATE_OWNER' | 'USER_AFFILIATION' | 'USER_SELECTED';
+  type: GuidanceSourceType;
   label: string;
-  shortName: string | null;
+  shortName: string;
   orgURI: string;
   items: GuidanceItem[];
   hasGuidance: boolean;
@@ -229,31 +241,34 @@ export const markGuidanceGroupAsDirty = async (
  * Group guidance by tag and combine texts
  */
 function groupGuidanceByTag(
-  guidanceRows: VersionedGuidanceRow[],
-  sectionTagIds: number[]
+  versionedGuidanceItems: VersionedGuidance[],
+  sectionTagIds: number[],
+  tagsMap: Record<number, string> // Add tagsMap parameter
 ): GuidanceItem[] {
   // Filter to only include guidance for tags in this section
-  const relevantGuidance = guidanceRows.filter(row =>
-    sectionTagIds.includes(row.tagId)
+  const relevantGuidance = versionedGuidanceItems.filter(vg =>
+    vg.tagId && sectionTagIds.includes(vg.tagId)
   );
 
   // Group by tagId and combine texts
-  const itemsByTag = new Map<number, { texts: string[]; tagName: string }>();
+  const itemsByTag = new Map<number, string[]>();
 
-  relevantGuidance.forEach(row => {
-    if (!itemsByTag.has(row.tagId)) {
-      itemsByTag.set(row.tagId, { texts: [], tagName: row.tagName });
+  relevantGuidance.forEach(vg => {
+    if (!vg.tagId || !vg.guidanceText) return;
+
+    if (!itemsByTag.has(vg.tagId)) {
+      itemsByTag.set(vg.tagId, []);
     }
-    itemsByTag.get(row.tagId)!.texts.push(row.guidanceText);
+    itemsByTag.get(vg.tagId)!.push(vg.guidanceText);
   });
 
   // Convert to items array
   const items: GuidanceItem[] = [];
-  itemsByTag.forEach((value, tagId) => {
+  itemsByTag.forEach((texts, tagId) => {
     items.push({
       id: tagId,
-      title: value.tagName,
-      guidanceText: value.texts.join('')
+      title: tagsMap[tagId] || '', // Get tag name from tagsMap
+      guidanceText: texts.join('\n\n') // Join multiple guidance texts
     });
   });
 
@@ -261,231 +276,190 @@ function groupGuidanceByTag(
 }
 
 /**
- * Fetch guidance for a specific affiliation
+ * Get all guidance sources for a plan (optionally filtered by section)
  */
-async function fetchAffiliationGuidance(
+export async function getGuidanceSourcesForPlan(
   context: MyContext,
-  affiliationId: string,
-  reference: string,
-  tagIds: number[]
-): Promise<VersionedGuidanceRow[]> {
-  if (tagIds.length === 0) {
-    return [];
-  }
-
-  const placeholders = tagIds.map(() => '?').join(',');
-  const sql = `
-    SELECT 
-      vg.guidanceText,
-      vg.tagId,
-      t.name as tagName,
-      gg.affiliationId
-    FROM versionedGuidance vg
-    JOIN guidanceGroups gg ON vg.guidanceGroupId = gg.id
-    JOIN tags t ON vg.tagId = t.id
-    WHERE gg.affiliationId = ?
-      AND vg.tagId IN (${placeholders})
-      AND vg.versionNumber = gg.latestPublishedVersion
-    ORDER BY vg.tagId
-  `;
-
-  try {
-
-    const results = await PlanGuidance.query(context, sql, [affiliationId.toString()], reference);
-    return Array.isArray(results) ? results : [];
-  } catch (err) {
-    context.logger.error({ err, sql, affiliationId, tagIds }, 'Error fetching affiliation guidance');
-    return [];
-  }
-}
-
-/**
- * Fetch best practice guidance
- */
-async function fetchBestPracticeGuidance(
-  context: MyContext,
-  reference: string,
-  tagIds: number[]
-): Promise<VersionedGuidanceRow[]> {
-  if (tagIds.length === 0) {
-    return [];
-  }
-
-  const placeholders = tagIds.map(() => '?').join(',');
-  const sql = `
-    SELECT 
-      vg.guidanceText,
-      vg.tagId,
-      t.name as tagName,
-      'bestPractice' as affiliationId
-    FROM versionedGuidance vg
-    JOIN guidanceGroups gg ON vg.guidanceGroupId = gg.id
-    JOIN tags t ON vg.tagId = t.id
-    WHERE gg.bestPractice = 1
-      AND vg.tagId IN (${placeholders})
-      AND vg.versionNumber = gg.latestPublishedVersion
-    ORDER BY vg.tagId
-  `;
-
-  try {
-    // Convert tagIds to strings to match expected parameter type
-    const tagIdParams = tagIds.map(String);
-    const results = await PlanGuidance.query(context, sql, tagIdParams, reference);
-    return Array.isArray(results) ? results : [];
-  } catch (err) {
-    context.logger.error({ err, sql, tagIds }, 'Error fetching best practice guidance');
-    return [];
-  }
-}
-
-/**
- * Get guidance sources for a specific section
- * This is the main function that combines all guidance from different sources
- */
-export async function getGuidanceSourcesForSection(
-  context: MyContext,
-  reference: string,
   planId: number,
-  sectionTagIds: number[],
-  sectionGuidance: string | null,
-  templateOwnerUri: string | null,
-  templateOwnerName: string | null,
-  templateOwnerAcronyms: string[] | null,
-  userAffiliationUri: string | null,
-  userAffiliationName: string | null,
-  userAffiliationAcronyms: string[] | null,
-  userId: number
+  versionedSectionId?: number,
+  versionedQuestionId?: number
 ): Promise<GuidanceSource[]> {
-  const guidanceSources: GuidanceSource[] = [];
-  const processedOrgURIs = new Set<string>();
+  const reference = 'getGuidanceSourcesForPlan';
 
-  // Skip if no tags
-  if (sectionTagIds.length === 0) {
+  try {
+    // Get plan details
+    const plan = await Plan.findById(reference, context, planId);
+    if (!plan) {
+      throw new Error(`Plan ${planId} not found`);
+    }
+
+    const versionedTemplateId = plan.versionedTemplateId;
+
+    if (!versionedTemplateId) {
+      return [];
+    }
+
+    // Get user ID from token
+    const userId = context.token?.id;
+    if (!userId) {
+      return [];
+    }
+
+    // Get section tag IDs and section-level guidance
+    let tagsMap: Record<number, string>;
+    let guidanceText: string | null = null;
+
+    if (versionedQuestionId) {
+      // Question-specific query: get question's tags and guidance
+      const question = await VersionedQuestion.findById(reference, context, versionedQuestionId);
+      if (!question) {
+        return [];
+      }
+
+      // Get tags for the question's section
+      tagsMap = await getSectionTags(context, question.versionedSectionId);
+      guidanceText = question.guidanceText || null; // Question-level guidance
+    } else if (versionedSectionId) {
+      // Section query: get section's tags and guidance
+      tagsMap = await getSectionTags(context, versionedSectionId);
+      const section = await VersionedSection.findById(reference, context, versionedSectionId);
+      guidanceText = section?.guidance || null; // Section-level guidance
+    } else {
+      // All sections: get all tags (no specific guidance)
+      tagsMap = await getSectionTagsMap(context, versionedTemplateId);
+    }
+
+    const sectionTagIds = Object.keys(tagsMap).map(Number);
+    if (sectionTagIds.length === 0) {
+      return [];
+    }
+
+    // Get template owner info
+    const versionedTemplate = await VersionedTemplate.findById(reference, context, versionedTemplateId);
+    const templateOwnerUri = versionedTemplate?.ownerId;
+
+    const guidanceSources: GuidanceSource[] = [];
+    const processedOrgURIs = new Set<string>();
+
+    // ============================================================
+    // 1. Best Practice Guidance (using existing model method)
+    // ============================================================
+    const bestPracticeGuidance = await VersionedGuidance.findBestPracticeByTagIds(
+      reference,
+      context,
+      sectionTagIds
+    );
+
+    if (bestPracticeGuidance.length > 0) {
+      const items = groupGuidanceByTag(bestPracticeGuidance, sectionTagIds, tagsMap);
+      if (items.length > 0) {
+        guidanceSources.push({
+          id: 'bestPractice',
+          type: GuidanceSourceType.BEST_PRACTICE,
+          label: 'DMP Tool',
+          shortName: 'DMP Tool',
+          orgURI: 'bestPractice',
+          items,
+          hasGuidance: true
+        });
+      }
+    }
+
+    // ============================================================
+    // 2. Get user-selected affiliations from planGuidance table
+    // ============================================================
+    const userSelections = await PlanGuidance.findByPlanIdAndUserId(
+      reference,
+      context,
+      planId,
+      userId
+    );
+
+    // ============================================================
+    // 3. Process each affiliation from planGuidance
+    // ============================================================
+    for (const selection of userSelections) {
+      const affiliationUri = selection.affiliationId;
+
+      if (!affiliationUri || processedOrgURIs.has(affiliationUri)) {
+        continue;
+      }
+
+      // Fetch affiliation details
+      const affiliation = await Affiliation.findByURI(reference, context, affiliationUri);
+      if (!affiliation) {
+        continue;
+      }
+
+      // Fetch TAG-BASED guidance using existing model method
+      const tagBasedGuidance = await VersionedGuidance.findByAffiliationAndTagIds(
+        reference,
+        context,
+        affiliationUri,
+        sectionTagIds
+      );
+
+      const items = groupGuidanceByTag(tagBasedGuidance, sectionTagIds, tagsMap);
+
+      // Check if this is the template owner
+      const isTemplateOwner = affiliationUri === templateOwnerUri;
+
+      // If template owner AND there's section-level guidance, add it FIRST
+      if (isTemplateOwner && guidanceText) {
+        items.unshift({
+          title: affiliation.displayName || affiliation.name,
+          guidanceText
+        });
+      }
+
+      // Only add if there's at least some guidance (either tag-based or section-level)
+      if (items.length > 0) {
+        const sourceType = isTemplateOwner
+          ? GuidanceSourceType.TEMPLATE_OWNER
+          : GuidanceSourceType.USER_SELECTED;
+
+        guidanceSources.push({
+          id: `affiliation-${affiliationUri}`,
+          type: sourceType,
+          label: affiliation.displayName || affiliation.name,
+          shortName: (affiliation.acronyms && affiliation.acronyms[0]) ||
+            affiliation.displayName ||
+            affiliation.name,
+          orgURI: affiliationUri,
+          items,
+          hasGuidance: true
+        });
+
+        processedOrgURIs.add(affiliationUri);
+      }
+    }
+
     return guidanceSources;
+  } catch (err) {
+    context.logger.error({ err, planId, versionedSectionId }, 'Error getting guidance sources for plan');
+    return [];
   }
-
-  // 1. Best Practice Guidance
-  const bestPracticeGuidance = await fetchBestPracticeGuidance(context, reference, sectionTagIds);
-  if (bestPracticeGuidance.length > 0) {
-    const items = groupGuidanceByTag(bestPracticeGuidance, sectionTagIds);
-    if (items.length > 0) {
-      guidanceSources.push({
-        id: 'bestPractice',
-        type: 'BEST_PRACTICE',
-        label: 'DMP Tool',
-        shortName: 'DMP Tool',
-        orgURI: 'bestPractice',
-        items,
-        hasGuidance: true
-      });
-    }
-  }
-
-  // 2. Template Owner Guidance
-  if (templateOwnerUri && !processedOrgURIs.has(templateOwnerUri)) {
-    const ownerGuidance = await fetchAffiliationGuidance(context, templateOwnerUri, reference, sectionTagIds);
-    const items = groupGuidanceByTag(ownerGuidance, sectionTagIds);
-
-    // Also include section-level guidance if it exists
-    if (sectionGuidance) {
-      items.unshift({
-        title: templateOwnerName || 'Template Owner',
-        guidanceText: sectionGuidance
-      });
-    }
-
-    if (items.length > 0) {
-      guidanceSources.push({
-        id: `template-owner-${templateOwnerUri}`,
-        type: 'TEMPLATE_OWNER',
-        label: templateOwnerName || 'Template Owner',
-        shortName: (templateOwnerAcronyms && templateOwnerAcronyms[0]) || templateOwnerName || 'Template Owner',
-        orgURI: templateOwnerUri,
-        items,
-        hasGuidance: true
-      });
-      processedOrgURIs.add(templateOwnerUri);
-    }
-  }
-
-  // 3. User Affiliation Guidance
-  if (userAffiliationUri && !processedOrgURIs.has(userAffiliationUri)) {
-    const userAffGuidance = await fetchAffiliationGuidance(context, userAffiliationUri, reference, sectionTagIds);
-    const items = groupGuidanceByTag(userAffGuidance, sectionTagIds);
-
-    if (items.length > 0) {
-      guidanceSources.push({
-        id: `user-affiliation-${userAffiliationUri}`,
-        type: 'USER_AFFILIATION',
-        label: userAffiliationName || 'Your Organization',
-        shortName: (userAffiliationAcronyms && userAffiliationAcronyms[0]) || userAffiliationName || 'Your Org',
-        orgURI: userAffiliationUri,
-        items,
-        hasGuidance: true
-      });
-      processedOrgURIs.add(userAffiliationUri);
-    }
-  }
-
-  // 4. User-Selected Affiliations Guidance
-  const userSelections = await PlanGuidance.findByPlanIdAndUserId(
-    'getGuidanceSourcesForSection',
-    context,
-    planId,
-    userId
-  );
-
-  for (const selection of userSelections) {
-    const affiliationUri = selection.affiliationId;
-
-    // Skip if already processed
-    if (!affiliationUri || processedOrgURIs.has(affiliationUri)) {
-      continue;
-    }
-
-    // Fetch the affiliation object using the affiliationId
-    const affiliation = await Affiliation.findByURI(reference, context, affiliationUri);
-    if (!affiliation) {
-      continue;
-    }
-
-    const selectedGuidance = await fetchAffiliationGuidance(context, affiliationUri, reference, sectionTagIds);
-    const items = groupGuidanceByTag(selectedGuidance, sectionTagIds);
-
-    if (items.length > 0) {
-      guidanceSources.push({
-        id: `user-selected-${affiliationUri}`,
-        type: 'USER_SELECTED',
-        label: affiliation.displayName || affiliation.name,
-        shortName: (affiliation.acronyms && affiliation.acronyms[0]) || affiliation.displayName || affiliation.name,
-        orgURI: affiliationUri,
-        items,
-        hasGuidance: true
-      });
-      processedOrgURIs.add(affiliationUri);
-    }
-  }
-
-  return guidanceSources;
 }
 
 /**
- * Get section tags map (tagId -> tagName)
+ * Get section tags for a specific section (tagId -> tagName)
  */
-export async function getSectionTagsMap(
+export async function getSectionTags(
   context: MyContext,
   versionedSectionId: number
 ): Promise<Record<number, string>> {
   const sql = `
-    SELECT t.id, t.name
+    SELECT DISTINCT
+      t.id,
+      t.name
     FROM tags t
     JOIN versionedSectionTags vst ON t.id = vst.tagId
     WHERE vst.versionedSectionId = ?
+    ORDER BY t.name;
   `;
 
   try {
     const results = await PlanGuidance.query(context, sql, [versionedSectionId.toString()]);
-    return Array.isArray(results) ? results : [];
     const tagsMap: Record<number, string> = {};
 
     if (results) {
@@ -497,6 +471,41 @@ export async function getSectionTagsMap(
     return tagsMap;
   } catch (err) {
     context.logger.error({ err, sql, versionedSectionId }, 'Error fetching section tags');
+    return {};
+  }
+}
+
+/**
+ * Get section tags map (tagId -> tagName) for all sections in a template
+ */
+export async function getSectionTagsMap(
+  context: MyContext,
+  versionedTemplateId: number
+): Promise<Record<number, string>> {
+  const sql = `
+    SELECT DISTINCT
+      t.id,
+      t.name
+    FROM tags t
+    JOIN versionedSectionTags vst ON t.id = vst.tagId
+    JOIN versionedSections vs ON vst.versionedSectionId = vs.id
+    WHERE vs.versionedTemplateId = ?
+    ORDER BY t.name;
+  `;
+
+  try {
+    const results = await PlanGuidance.query(context, sql, [versionedTemplateId.toString()]);
+    const tagsMap: Record<number, string> = {};
+
+    if (results) {
+      results.forEach((row: any) => {
+        tagsMap[row.id] = row.name;
+      });
+    }
+
+    return tagsMap;
+  } catch (err) {
+    context.logger.error({ err, sql, versionedTemplateId }, 'Error fetching section tags');
     return {};
   }
 }

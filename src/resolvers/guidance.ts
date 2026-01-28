@@ -6,7 +6,7 @@ import { PlanGuidance } from "../models/Guidance";
 import { Affiliation } from "../models/Affiliation";
 import { User } from "../models/User";
 import { Tag } from "../models/Tag";
-import { hasPermissionOnGuidanceGroup, markGuidanceGroupAsDirty } from "../services/guidanceService";
+import { getGuidanceSourcesForPlan, hasPermissionOnGuidanceGroup, markGuidanceGroupAsDirty, GuidanceSource } from "../services/guidanceService";
 import { ForbiddenError, NotFoundError, AuthenticationError, InternalServerError } from "../utils/graphQLErrors";
 import { isAdmin, isAuthorized } from "../services/authService";
 import { prepareObjectForLogs } from "../logger";
@@ -115,7 +115,35 @@ export const resolvers: Resolvers = {
         context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
         throw InternalServerError();
       }
-    }
+    },
+    guidanceSourcesForPlan: async (
+      _,
+      { planId, versionedSectionId, versionedQuestionId },
+      context: MyContext
+    ): Promise<GuidanceSource[]> => {
+      const reference = 'guidanceSourcesForPlan resolver';
+      try {
+        if (isAuthorized(context.token)) {
+          const plan = await Plan.findById(reference, context, planId);
+
+          if (isNullOrUndefined(plan)) {
+            throw NotFoundError(`Plan with id ${planId} not found`);
+          }
+
+          return await getGuidanceSourcesForPlan(
+            context,
+            planId,
+            versionedSectionId,
+            versionedQuestionId
+          );
+        }
+        throw context?.token ? ForbiddenError() : AuthenticationError();
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    },
   },
 
   Mutation: {

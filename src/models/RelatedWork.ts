@@ -397,11 +397,11 @@ export class RelatedWork extends MySqlModel {
   static async statsByPlanId(reference: string, context: MyContext, planId: number): Promise<RelatedWorkStatsResults> {
     const sql = `
       SELECT
-        CASE
-          WHEN SUM(CASE WHEN p.registered IS NOT NULL THEN 1 ELSE 0 END) > 0
-            THEN TRUE
-          ELSE FALSE
-        END AS hasPublishedPlan,
+        EXISTS (SELECT 1
+          FROM plans p2
+          WHERE p2.id = ?
+          AND p2.registered IS NOT NULL
+        ) AS hasPublishedPlan,
         COUNT(*) AS totalCount,
         COALESCE(SUM(CASE WHEN rw.status = 'PENDING' THEN 1 ELSE 0 END), 0) AS pendingCount,
         COALESCE(SUM(CASE WHEN rw.status = 'ACCEPTED' THEN 1 ELSE 0 END), 0) AS acceptedCount,
@@ -411,7 +411,7 @@ export class RelatedWork extends MySqlModel {
       WHERE rw.planId = ?;
     `;
 
-    const result = await RelatedWork.query(context, sql, [planId.toString()], reference);
+    const result = await RelatedWork.query(context, sql, [planId.toString(), planId.toString()], reference);
     return Array.isArray(result) && result.length > 0
       ? (result[0] as RelatedWorkStatsResults)
       : { acceptedCount: 0, hasPublishedPlan: false, pendingCount: 0, rejectedCount: 0, totalCount: 0 };
@@ -425,11 +425,11 @@ export class RelatedWork extends MySqlModel {
   ): Promise<RelatedWorkStatsResults> {
     const sql = `
       SELECT
-        CASE
-          WHEN SUM(CASE WHEN p.registered IS NOT NULL THEN 1 ELSE 0 END) > 0
-            THEN TRUE
-          ELSE FALSE
-        END AS hasPublishedPlan,
+        EXISTS (SELECT 1
+          FROM plans p2
+          WHERE p2.projectId = ?
+          AND p2.registered IS NOT NULL
+        ) AS hasPublishedPlan,
         COUNT(*) AS totalCount,
         COALESCE(SUM(CASE WHEN rw.status = 'PENDING' THEN 1 ELSE 0 END), 0) AS pendingCount,
         COALESCE(SUM(CASE WHEN rw.status = 'ACCEPTED' THEN 1 ELSE 0 END), 0) AS acceptedCount,
@@ -439,7 +439,7 @@ export class RelatedWork extends MySqlModel {
       WHERE p.projectId = ?;
     `;
 
-    const result = await RelatedWork.query(context, sql, [projectId.toString()], reference);
+    const result = await RelatedWork.query(context, sql, [projectId.toString(), projectId.toString()], reference);
     return Array.isArray(result) && result.length > 0
       ? (result[0] as RelatedWorkStatsResults)
       : { acceptedCount: 0, hasPublishedPlan: false, pendingCount: 0, rejectedCount: 0, totalCount: 0 };

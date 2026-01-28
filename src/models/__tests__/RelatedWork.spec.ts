@@ -623,11 +623,11 @@ describe('RelatedWork queries', () => {
     const result = await RelatedWork.statsByPlanId('testing', context, planId);
     const expectedSql = `
       SELECT
-        CASE
-          WHEN SUM(CASE WHEN p.registered IS NOT NULL THEN 1 ELSE 0 END) > 0
-            THEN TRUE
-          ELSE FALSE
-        END AS hasPublishedPlan,
+        EXISTS (SELECT 1
+          FROM plans p2
+          WHERE p2.id = ?
+          AND p2.registered IS NOT NULL
+        ) AS hasPublishedPlan,
         COUNT(*) AS totalCount,
         COALESCE(SUM(CASE WHEN rw.status = 'PENDING' THEN 1 ELSE 0 END), 0) AS pendingCount,
         COALESCE(SUM(CASE WHEN rw.status = 'ACCEPTED' THEN 1 ELSE 0 END), 0) AS acceptedCount,
@@ -637,7 +637,7 @@ describe('RelatedWork queries', () => {
       WHERE rw.planId = ?;
     `;
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [planId.toString()], 'testing');
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [planId.toString(), planId.toString()], 'testing');
     expect(result).toEqual(stats);
   });
 
@@ -667,11 +667,11 @@ describe('RelatedWork queries', () => {
     const result = await RelatedWork.statsByProjectId('testing', context, projectId);
     const expectedSql = `
       SELECT
-        CASE
-          WHEN SUM(CASE WHEN p.registered IS NOT NULL THEN 1 ELSE 0 END) > 0
-            THEN TRUE
-          ELSE FALSE
-        END AS hasPublishedPlan,
+        EXISTS (SELECT 1
+          FROM plans p2
+          WHERE p2.projectId = ?
+          AND p2.registered IS NOT NULL
+        ) AS hasPublishedPlan,
         COUNT(*) AS totalCount,
         COALESCE(SUM(CASE WHEN rw.status = 'PENDING' THEN 1 ELSE 0 END), 0) AS pendingCount,
         COALESCE(SUM(CASE WHEN rw.status = 'ACCEPTED' THEN 1 ELSE 0 END), 0) AS acceptedCount,
@@ -681,7 +681,7 @@ describe('RelatedWork queries', () => {
       WHERE p.projectId = ?;
     `;
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectId.toString()], 'testing');
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectId.toString(), projectId.toString()], 'testing');
     expect(result).toEqual(stats);
   });
 

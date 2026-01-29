@@ -176,28 +176,21 @@ export class PlanGuidance extends MySqlModel {
   //Delete PlanGuidanceAffiliation
   async delete(context: MyContext): Promise<PlanGuidance> {
     if (this.id) {
-      const reference = 'PlanGuidanceAffiliation.delete';
 
-      // If there is only one plan member, then it cannot be deleted
-      const planGuidanceAffiliation = await PlanGuidance.findByPlanUserAndAffiliation(reference, context, this.planId, this.userId, this.affiliationId);
-      if (planGuidanceAffiliation) {
-        this.addError('general', 'A plan needs at least one member, so you cannot remove the last one.');
-        return this;
+      const deleted = await PlanGuidance.findById('PlanGuidance.delete', context, this.id);
+
+      const successfullyDeleted = await PlanGuidance.delete(
+        context,
+        PlanGuidance.tableName,
+        this.id,
+        'PlanGuidance.delete'
+      );
+      if (successfullyDeleted) {
+        return deleted;
       } else {
-        const deleted = await PlanGuidance.findById('PlanGuidanceAffiliation.delete', context, this.id);
-
-        const successfullyDeleted = await PlanGuidance.delete(
-          context,
-          PlanGuidance.tableName,
-          this.id,
-          'PlanGuidanceAffiliation.delete'
-        );
-        if (successfullyDeleted) {
-          return deleted;
-        } else {
-          return null
-        }
+        return null
       }
+
     }
     return null;
   }

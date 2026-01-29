@@ -245,6 +245,7 @@ function groupGuidanceByTag(
   sectionTagIds: number[],
   tagsMap: Record<number, string> // Add tagsMap parameter
 ): GuidanceItem[] {
+
   // Filter to only include guidance for tags in this section
   const relevantGuidance = versionedGuidanceItems.filter(vg =>
     vg.tagId && sectionTagIds.includes(vg.tagId)
@@ -400,7 +401,6 @@ export async function getGuidanceSourcesForPlan(
       );
 
       const items = groupGuidanceByTag(tagBasedGuidance, sectionTagIds, tagsMap);
-
       // Check if this is the template owner
       const isTemplateOwner = affiliationUri === templateOwnerUri;
 

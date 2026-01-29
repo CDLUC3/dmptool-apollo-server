@@ -97,7 +97,7 @@ export const resolvers: Resolvers = {
               try {
                 const affiliationId = versionedTemplate.ownerId;
                 const planId = created.id;
-                const userId = context.token?.userId;
+                const userId = context.token?.id;
 
                 if (affiliationId && planId && userId) {
                   await addPlanGuidanceAffiliation(context, planId, affiliationId, userId);

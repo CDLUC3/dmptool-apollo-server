@@ -630,10 +630,10 @@ describe('RelatedWork queries', () => {
         COALESCE(SUM(CASE WHEN rw.status = 'REJECTED' THEN 1 ELSE 0 END), 0) AS rejectedCount
       FROM plans p
       LEFT JOIN relatedWorks rw ON p.id = rw.planId
-      WHERE p.planId = ?;
+      WHERE p.id = ?;
     `;
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [planId.toString(), planId.toString()], 'testing');
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [planId.toString()], 'testing');
     expect(result).toEqual(stats);
   });
 
@@ -673,7 +673,7 @@ describe('RelatedWork queries', () => {
       WHERE p.projectId = ?;
     `;
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectId.toString(), projectId.toString()], 'testing');
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectId.toString()], 'testing');
     expect(result).toEqual(stats);
   });
 

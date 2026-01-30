@@ -404,10 +404,10 @@ export class RelatedWork extends MySqlModel {
         COALESCE(SUM(CASE WHEN rw.status = 'REJECTED' THEN 1 ELSE 0 END), 0) AS rejectedCount
       FROM plans p
       LEFT JOIN relatedWorks rw ON p.id = rw.planId
-      WHERE p.planId = ?;
+      WHERE p.id = ?;
     `;
 
-    const result = await RelatedWork.query(context, sql, [planId.toString(), planId.toString()], reference);
+    const result = await RelatedWork.query(context, sql, [planId.toString()], reference);
     return Array.isArray(result) && result.length > 0
       ? (result[0] as RelatedWorkStatsResults)
       : { acceptedCount: 0, hasPublishedPlan: false, pendingCount: 0, rejectedCount: 0, totalCount: 0 };
@@ -431,7 +431,7 @@ export class RelatedWork extends MySqlModel {
       WHERE p.projectId = ?;
     `;
 
-    const result = await RelatedWork.query(context, sql, [projectId.toString(), projectId.toString()], reference);
+    const result = await RelatedWork.query(context, sql, [projectId.toString()], reference);
     return Array.isArray(result) && result.length > 0
       ? (result[0] as RelatedWorkStatsResults)
       : { acceptedCount: 0, hasPublishedPlan: false, pendingCount: 0, rejectedCount: 0, totalCount: 0 };

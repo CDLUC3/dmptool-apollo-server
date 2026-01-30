@@ -1,342 +1,310 @@
-import {
-  AttributeValue,
-  DeleteItemCommand,
-  DynamoDBClient,
-  DynamoDBClientConfig,
-  PutItemCommand,
-  PutItemCommandOutput,
-  QueryCommand,
-  QueryCommandOutput,
-  ScanCommand,
-} from "@aws-sdk/client-dynamodb";
-import { marshall, NativeAttributeValue, unmarshall } from "@aws-sdk/util-dynamodb";
-import { awsConfig } from "../config/awsConfig";
-import {logger, prepareObjectForLogs } from "../logger";
-import { DMPCommonStandard } from "../types/DMP";
 import { generalConfig } from "../config/generalConfig";
+import { awsConfig } from "../config/awsConfig";
+import { mysqlPoolConfig } from "../config/mysqlConfig";
+import { Logger } from "pino";
+import { prepareObjectForLogs } from "../logger";
 import { MyContext } from "../context";
-import { isNullOrUndefined } from "../utils/helpers";
+import { DMPToolDMPType } from "@dmptool/types";
+import { Plan } from '../models/Plan';
+import {
+  ConnectionParams,
+  deleteDMP,
+  DMPExists,
+  DMPVersionType,
+  DynamoConnectionParams,
+  DMP_LATEST_VERSION,
+  EnvironmentEnum,
+  getDMPs,
+  createDMP,
+  planToDMPCommonStandard,
+  tombstoneDMP,
+  updateDMP, getDMPVersions,
+} from "@dmptool/utils";
 
-const DMP_PK_PREFIX = 'DMP';
-const DMP_SK_PREFIX = 'VERSION';
-const DMP_LATEST_VERSION = 'latest';
-const DMP_TOMBSTONE_VERSION = 'tombstone';
-
-export const dynamoEnabled = !isNullOrUndefined(awsConfig.dynamoTableName);
-
-const dynamoConfigParams: DynamoDBClientConfig = {
-  region: awsConfig.region,
-  maxAttempts: awsConfig.dynamoMaxQueryAttempts,
-  logger: logger,
+// Compile the parameters needed to connect to the DynamoDB table.
+const GetDynamoConfigParams = (logger: Logger): DynamoConnectionParams => {
+  return {
+    tableName: awsConfig.dynamo.tableName,
+    region: awsConfig.region,
+    maxAttempts: awsConfig.dynamo.maxQueryAttempts,
+    logger: logger,
+  };
 }
 
-if (process.env.NODE_ENV === 'development') {
-  dynamoConfigParams.endpoint = awsConfig.dynamoEndpoint;
+// Compile the parameters needed to connect to the RDS MySQL database.
+const GetRdsConfigParams = (logger: Logger): ConnectionParams => {
+  return {
+    host: mysqlPoolConfig.host,
+    port: mysqlPoolConfig.port,
+    user: mysqlPoolConfig.user,
+    password: mysqlPoolConfig.password,
+    database: mysqlPoolConfig.database,
+    logger
+  };
 }
 
-// Initialize AWS SDK clients (outside the handler function)
-const dynamoDBClient = new DynamoDBClient(dynamoConfigParams);
-
-export interface dynamoInterface {
-  getDMP: (dmpId: string, version: string | null) => Promise<DMPCommonStandard[] | []>;
-  createDMP: (dmpId: string, dmp: DMPCommonStandard, version?: string) => Promise<DMPCommonStandard | null>;
-  updateDMP: (dmp: DMPCommonStandard) => Promise<DMPCommonStandard | null>;
-  tombstoneDMP: (dmpId: string) => Promise<DMPCommonStandard>;
-  deleteDMP: (dmpId: string) => Promise<void>;
-}
-
-// Lightweight query just to check if the DMP exists
-export const DMPExists = async (context: MyContext, dmpId: string): Promise<boolean> => {
-  // Very lightweight here, just returning a PK if successful
-  const params = {
-    KeyConditionExpression: "PK = :pk AND SK = :sk",
-    ExpressionAttributeValues: {
-      ":pk": { S: dmpIdToPK(dmpId) },
-      ":sk": { S: versionToSK(DMP_LATEST_VERSION) }
-    },
-    ProjectExpression: "PK"
+// Convert the environment name to an EnvironmentEnum value.
+const envToEnum = (env: string): EnvironmentEnum => {
+  switch (env) {
+    case 'stg':
+      return EnvironmentEnum.STG;
+    case 'prd':
+      return EnvironmentEnum.PRD;
+    default:
+      return EnvironmentEnum.DEV;
   }
+}
 
+/**
+ * Determines whether the specified DMP ID has a maDMP record in the DynamoDB table.
+ *
+ * @param context The Apollo Server Context object passed in to the Resolver on
+ * each request.
+ * @param dmpId The DMP ID to check.
+ * @returns True if the maDMP exists in the DynamoDB table, false otherwise.
+ */
+export const maDMPExists = async (
+  context: MyContext,
+  dmpId: string
+): Promise<boolean> => {
   try {
-    const response = await queryTable(context, awsConfig.dynamoTableName, params);
-    return response && response.Items.length > 0;
+    return await DMPExists(GetDynamoConfigParams(context.logger), dmpId);
   } catch (err) {
-    context.logger.error(prepareObjectForLogs(err), 'Error checking DynamoDB for DMP existence');
+    context.logger.error(
+      prepareObjectForLogs(err),
+      'Error checking DynamoDB for DMP existence'
+    );
     return false;
   }
 }
 
-// Fetch the specified DMP metadata record
-//   - Version is optional, if not provided ALL versions of the DMP will be returned
-//   - If you just want the latest version, use the DMP_LATEST_VERSION constant
-export const getDMP = async (
+/**
+ * Fetch the timestamps of all versions of the specified DMP in the DynamoDB table.
+ *
+ * @param context The Apollo Server Context object passed in to the Resolver on
+ * @param dmpId The DMP ID to fetch versions for.
+ * @returns An array of DMPVersionType objects containing the timestamps of each
+ * version sorted from the newest to the oldest, or an empty array if no versions exist.
+ * @throws Error if there was an error fetching the versions from DynamoDB.
+ */
+export const getMaDMPVersionTimestamps = async (
+  context: MyContext,
+  dmpId: string
+): Promise<DMPVersionType[]> => {
+  try {
+    return await getDMPVersions(GetDynamoConfigParams(context.logger), dmpId);
+  } catch (err) {
+    context.logger.error(
+      prepareObjectForLogs({ dmpId, err }),
+      'Error getting version list for maDMP from DynamoDB'
+    );
+    throw(err);
+  }
+}
+
+/**
+ * Fetch the specified DMP metadata record
+ *
+ * @param context The Apollo Server Context object passed in to the Resolver on
+ * each request.
+ * @param dmpId The DMP ID to fetch.
+ * @param version The version of the DMP to fetch. Defaults to the latest version.
+ * @param includeExtensions The flag to indicate whether to include the DMP Tool
+ * extensions to the RDA Common Standard. Defaults to true.
+ * @returns The DMP metadata record or an empty array if the DMP does not exist.
+ * @throws Error if there was an error fetching the DMP metadata record.
+ */
+export const getMaDMP = async (
   context: MyContext,
   dmpId: string,
-  version: string | null
-): Promise<DMPCommonStandard[] | []> => {
-  let params = {};
-
-  if (version) {
-    params = {
-      KeyConditionExpression: "PK = :pk and SK = :sk",
-      ExpressionAttributeValues: {
-        ":pk": { S: dmpIdToPK(dmpId) },
-        ":sk": { S: versionToSK(version) }
-      }
-    }
-  } else {
-    params = {
-      KeyConditionExpression: "PK = :pk",
-      ExpressionAttributeValues: {
-        ":pk": { S: dmpIdToPK(dmpId) }
-      }
-    }
-  }
-
+  version: string | null,
+  includeExtensions = true
+): Promise<DMPToolDMPType[] | []> => {
   try {
-    const response = await queryTable(context, awsConfig.dynamoTableName, params);
-    if (response && response.Items.length > 0) {
-      // sort the the results by the SK (version) descending
-      const items = response.Items.sort((a, b) => b?.SK?.S?.toString().localeCompare(a?.SK?.S?.toString()));
-      return items.map((item) => {
-        // Unmarshall the item and remove the PK and SK because they're only important to DynamoDB
-        const unmarshalled = unmarshall(item);
-        delete unmarshalled.PK;
-        delete unmarshalled.SK;
-        return unmarshalled as DMPCommonStandard;
-      });
-    }
+    return await getDMPs(
+      GetDynamoConfigParams(context.logger),
+      `https://${generalConfig.domain}`,
+      dmpId,
+      version || DMP_LATEST_VERSION,
+      includeExtensions
+    );
   } catch (err) {
-    context.logger.error(prepareObjectForLogs({ dmpId, version }), 'Error getting DMP');
-    throw(err);
-  }
-  return [];
-}
-
-  // Create a new DMP metadata record
-  //  - Version is optional, if not provided the latest version will be created
-export const createDMP = async (
-  context: MyContext,
-  dmpId: string,
-  dmp: DMPCommonStandard,
-  version = DMP_LATEST_VERSION
-): Promise<DMPCommonStandard | null> => {
-  // Set the DynamoDB Partition Key (PK) and Sort Key (SK)
-  dmp['PK'] = dmpIdToPK(dmpId);
-  dmp['SK'] = versionToSK(version);
-
-  // if the version is LATEST, then first make sure there is not already a latest version!
-  if (version === DMP_LATEST_VERSION) {
-    const existing = await getDMP(context, dmpId, DMP_LATEST_VERSION);
-    if (!Array.isArray(existing) || existing.length > 0) {
-      context.logger.error(prepareObjectForLogs({ dmpId, version }), 'Error creating DMP: Latest version already exists');
-      return null;
-    }
-  }
-
-  const now = new Date().toISOString()
-  // If the version is LATEST, then this is the first version of the DMP so set the created timestamp
-  if (version === DMP_LATEST_VERSION) {
-    dmp.created = now;
-  }
-  dmp.modified = now;
-  // Set the provenance ID
-  dmp.dmphub_provenance_id = generalConfig.applicationName.toLowerCase();
-
-  try {
-    const marshalled = marshall(dmp, { removeUndefinedValues: true });
-    const response = await putItem(context, awsConfig.dynamoTableName, marshalled);
-    if (response) {
-      // If the create was successful, fetch the new entry and return it
-      const newDMP = await getDMP(context, dmpId, DMP_LATEST_VERSION);
-      if (newDMP && newDMP.length > 0) {
-        return newDMP[0];
-      }
-    }
-  } catch (err) {
-    context.logger.error(prepareObjectForLogs({ dmpId, dmp, version, err }), 'Error creating DMP');
-    throw(err);
-  }
-  return null;
-}
-
-// Update the specified DMP metadata record
-export const updateDMP = async (
-  context: MyContext,
-  dmp: DMPCommonStandard
-): Promise<DMPCommonStandard | null> => {
-  dmp['PK'] = dmpIdToPK(dmp.dmp_id?.identifier);
-  // Updates can only ever occur on the latest version of the DMP (the Plan logic should handle creating
-  // a snapshot of the original version of the DMP when appropriate)
-  dmp['SK'] = versionToSK(DMP_LATEST_VERSION);
-
-  try {
-    const marshalled = marshall(dmp, { removeUndefinedValues: true });
-    const response = await putItem(context, awsConfig.dynamoTableName, marshalled);
-    if (response) {
-      // If the update was successful, fetch the updated entry and return it
-      const updated = await getDMP(context, dmp.dmp_id?.identifier, DMP_LATEST_VERSION);
-      return Array.isArray(updated) && updated.length > 0 ? updated[0] : null;
-    }
-  } catch (err) {
-    context.logger.error(prepareObjectForLogs(dmp), 'Error updating DMP for DynamoDB');
-    throw(err);
-  }
-  return null;
-}
-
-// Tombstone the specified DMP metadata record (registered/published DMPs only!)
-export const tombstoneDMP = async (context: MyContext, dmpId: string): Promise<DMPCommonStandard> => {
-  const dmps = await getDMP(context, dmpId, DMP_LATEST_VERSION);
-  if (dmps && dmps.length !== 0) {
-    const dmp = dmps[0];
-
-    // Set the tombstone version and title
-    dmp['SK'] = DMP_TOMBSTONE_VERSION;
-    dmp.title = `OBSOLETE: ${dmp.title}`;
-    // Set the modified and tombstoned timestamps
-    const now = new Date().toISOString();
-    dmp.modified = now;
-    dmp.tombstoned = now;
-
-    try {
-      const marshalled = marshall(dmp, { removeUndefinedValues: true });
-      const response = await putItem(context, awsConfig.dynamoTableName, marshalled);
-      if (response) {
-        return dmp;
-      }
-    } catch (err) {
-      context.logger.error(prepareObjectForLogs({ dmpId }), 'Error tombstoning DMP in DynamoDB');
-      throw(err);
-    }
-  }
-  return null;
-}
-
-// Delete the specified DMP metadata record (NON registered/published DMPs only!)
-export const deleteDMP = async (context: MyContext, dmpId: string): Promise<void> => {
-  // Get all of the versions of the DMP
-  try {
-    const dmps = await getDMP(context, dmpId, DMP_LATEST_VERSION);
-
-    if (Array.isArray(dmps) && dmps.length > 0 && dmps[0]['SK'] !== DMP_TOMBSTONE_VERSION) {
-      for (const dmp of dmps) {
-        // Delete each version of the DMP
-        await deleteItem(context, awsConfig.dynamoTableName, {
-          PK: { S: dmpIdToPK(dmpId) }, SK: { S: versionToSK(dmp.modified) }
-        });
-      }
-    }
-  } catch (err) {
-    context.logger.error(prepareObjectForLogs({ dmpId }), 'Error deleting DMP from DynamoDB');
+    context.logger.error(
+      prepareObjectForLogs({ dmpId, version, err }),
+      'Error getting maDMP from DynamoDB'
+    );
     throw(err);
   }
 }
 
-  // Scan the specified DynamoDB table using the specified criteria
- export const scanTable = async (
+/**
+ * Create the initial maDMP metadata record for the PLan in the DynamoDB table.
+ *
+ * @param context The Apollo Server Context object passed in to the Resolver on
+ * each request.
+ * @param plan The Plan instance containing the DMP ID to create.
+ * @param includeExtensions The flag to indicate whether to include the DMP Tool
+ * Extensions in the response. Defaults to true.
+ * @returns The created maDMP metadata record or null if the DMP already exists.
+ * @throws Error if there was an error creating the maDMP metadata record.
+ */
+export const createMaDMP = async (
   context: MyContext,
-  table: string,
-  params: object
-): Promise<Record<string, AttributeValue>[] | undefined> => {
-  let items = [];
-  let lastEvaluatedKey;
-
-  // Query the DynamoDB index table for all DMP metadata (with pagination)
-  do {
-    const command = new ScanCommand({
-      TableName: table,
-      ExclusiveStartKey: lastEvaluatedKey,
-      ConsistentRead: false,
-      ReturnConsumedCapacity: logger?.level === 'debug' ? 'TOTAL' : 'NONE',
-      ...params
-    });
-
-    context.logger.debug(prepareObjectForLogs({ table, params }), 'Scanning DynamoDB');
-    const response = await dynamoDBClient.send(command);
-
-    // Collect items and update the pagination key
-    items = items.concat(response?.Items || []);
-    // LastEvaluatedKey is the position of the end cursor from the query that was just run
-    // when it is undefined, then the query reached the end of the results.
-    lastEvaluatedKey = response?.LastEvaluatedKey;
-  } while (lastEvaluatedKey);
-
-  // Deserialize and split items into multiple files if necessary
-  return items;
-}
-
-// Query the specified DynamoDB table using the specified criteria
-export const queryTable = async (
-  context: MyContext,
-  table: string,
-  params: object = {}
-): Promise<QueryCommandOutput> => {
+  plan: Plan,
+  includeExtensions = true
+): Promise<DMPToolDMPType | null> => {
   try {
-    // Query the DynamoDB index table for all DMP metadata (with pagination)
-    const command = new QueryCommand({
-      TableName: table,
-      ConsistentRead: false,
-      ReturnConsumedCapacity: logger?.level === 'debug' ? 'TOTAL' : 'NONE',
-      ...params
-    });
-
-    context.logger.debug(prepareObjectForLogs({ table, params }), 'Querying DynamoDB');
-    return await dynamoDBClient.send(command);
+    return await createDMP(
+      GetDynamoConfigParams(context.logger),
+      `https://${generalConfig.domain}`,
+      plan.dmpId,
+      await convertPlanToMaDMP(context, plan.id, includeExtensions),
+      DMP_LATEST_VERSION,
+      includeExtensions
+    );
   } catch (err) {
-    logger.error({ table, err, params }, `Error querying DynamoDB table: ${table}`);
-    throw new Error('Unable to query DynamoDB table');
+    context.logger.error(
+      prepareObjectForLogs({ dmpId: plan.dmpId, title: plan.title, err }),
+      'Error creating initial maDMP in DynamoDB'
+    );
+    throw(err);
   }
 }
 
-// Put and item into the specified DynamoDB table
-export const putItem = async (
+/**
+ * Update an existing maDMP metadata record in the DynamoDB table. The updateDMP
+ * function will handle any versioning needed.
+ *
+ * @param context The Apollo Server Context object passed in to the Resolver on
+ * each request.
+ * @param plan The Plan instance containing the DMP ID to update.
+ * @param includeExtensions The flag to indicate whether to include the DMP Tool
+ * Extensions in the response. Defaults to true.
+ * @returns The updated maDMP metadata record or null if the DMP does not exist.
+ * @throws Error if there was an error updating the maDMP metadata record.
+ */
+export const updateMaDMP = async (
   context: MyContext,
-  table: string,
-  item: Record<string, NativeAttributeValue>
-): Promise<PutItemCommandOutput> => {
+  plan: Plan,
+  includeExtensions = true,
+): Promise<DMPToolDMPType | null> => {
   try {
-    // Put the item into the DynamoDB table
-    context.logger.debug(prepareObjectForLogs({ table, item }), 'Putting item into DynamoDB');
-    return await dynamoDBClient.send(new PutItemCommand({
-      TableName: table,
-      ReturnConsumedCapacity: logger?.level === 'debug' ? 'TOTAL' : 'NONE',
-      Item: item
-    }));
+    return await updateDMP(
+      GetDynamoConfigParams(context.logger),
+      `https://${generalConfig.domain}`,
+      plan.dmpId,
+      await convertPlanToMaDMP(context, plan.id, includeExtensions),
+      awsConfig.dynamo.versioningGracePeriodInMS,
+      includeExtensions
+    );
   } catch (err) {
-    context.logger.error(prepareObjectForLogs({ table, item, err }), 'Error putting item into DynamoDB');
-    throw new Error('Unable to put item into DynamoDB table');
+    context.logger.error(
+      prepareObjectForLogs({
+        dmpId: plan.dmpId,
+        title: plan.title,
+        modified: plan.modified,
+        err
+      }),
+      'Error updating maDMP in DynamoDB'
+    );
+    throw(err);
   }
 }
 
-// Delete an item from the specified DynamoDB table
-export const deleteItem = async (
+/**
+ * Tombstone the specified maDMP metadata record in the DynamoDB table.
+ *
+ * @param context The Apollo Server Context object passed in to the Resolver on
+ * each request.
+ * @param plan The Plan instance containing the DMP ID to tombstone.
+ * @param includeExtensions The flag to indicate whether to include the DMP Tool
+ * Extensions in the response. Defaults to true.
+ * @returns The tombstoned maDMP metadata record or null if the DMP does not exist.
+ * @throws Error if there was an error tombstoning the maDMP metadata record.
+ */
+export const tombstoneMaDMP = async (
   context: MyContext,
-  table: string,
-  key: Record<string, AttributeValue>
-): Promise<void> => {
+  plan: Plan,
+  includeExtensions = true,
+): Promise<DMPToolDMPType> => {
   try {
-    // Delete the item from the DynamoDB table
-    context.logger.debug(prepareObjectForLogs({ table, key }), 'Deleting item from DynamoDB');
-    await dynamoDBClient.send(new DeleteItemCommand({
-      TableName: table,
-      ReturnConsumedCapacity: logger?.level === 'debug' ? 'TOTAL' : 'NONE',
-      Key: key
-    }));
+    return await tombstoneDMP(
+      GetDynamoConfigParams(context.logger),
+      `https://${generalConfig.domain}`,
+      plan.dmpId,
+      includeExtensions
+    );
   } catch (err) {
-    context.logger.error(prepareObjectForLogs({table, key, err }), 'Error deleting item from DynamoDB');
-    throw new Error('Unable to delete item from DynamoDB table');
+    context.logger.error(
+      prepareObjectForLogs({ dmpId: plan.dmpId, err }),
+      'Error tombstoning maDMP in DynamoDB'
+    );
+    throw(err);
   }
 }
 
-// Function to convert a DMP ID into a PK for the DynamoDB table
-const dmpIdToPK = (dmpId: string): string => {
-  // Remove the protocol and slashes from the DMP ID
-  const id = dmpId?.replace(/(^\w+:|^)\/\//, '');
-  return `${DMP_PK_PREFIX}#${id}`;
+/**
+ * Delete the specified maDMP metadata record from the DynamoDB table.
+ *
+ * @param context The Apollo Server Context object passed in to the Resolver on
+ * each request.
+ * @param plan The Plan instance containing the DMP ID to delete.
+ * @param includeExtensions The flag to indicate whether to include the DMP Tool
+ * Extensions in the response. Defaults to true.
+ * @returns The deleted maDMP metadata record or null if the DMP does not exist.
+ * @throws Error if there was an error deleting the maDMP metadata record.
+ */
+export const deleteMaDMP = async (
+  context: MyContext,
+  plan: Plan,
+  includeExtensions = true,
+): Promise<DMPToolDMPType> => {
+  try {
+    return await deleteDMP(
+      GetDynamoConfigParams(context.logger),
+      `https://${generalConfig.domain}`,
+      plan.dmpId,
+      includeExtensions
+    );
+  } catch (err) {
+    context.logger.error(
+      prepareObjectForLogs({ dmpId: plan.dmpId, err }),
+      'Error deleting maDMP from DynamoDB'
+    );
+    throw(err);
+  }
 }
 
-// Function to convert a DMP ID version timestamp into a SK for the DynamoDB table
-const versionToSK = (version = DMP_LATEST_VERSION): string => {
-  return `${DMP_SK_PREFIX}#${version}`;
+/**
+ * Convert a Plan record to a maDMP record.
+ *
+ * @param context The Apollo Server Context object passed in to the Resolver on
+ * each request.
+ * @param planId The Plan ID to convert.
+ * @param includeExtensions The flag to indicate whether to include the DMP Tool
+ * Extensions. Defaults to true.
+ * @returns The converted maDMP record.
+ * @throws Error if the Plan cannot be converted to a maDMP record.
+ */
+export const convertPlanToMaDMP = async (
+  context: MyContext,
+  planId: number,
+  includeExtensions = true,
+): Promise<DMPToolDMPType> => {
+  try {
+    return await planToDMPCommonStandard(
+      GetRdsConfigParams(context.logger),
+      generalConfig.applicationName,
+      `https://${generalConfig.domain}`,
+      envToEnum(generalConfig.env),
+      planId,
+      includeExtensions
+    );
+  } catch (err) {
+    context.logger.error(
+      prepareObjectForLogs({ planId, err }),
+      'Error converting Plan to maDMP'
+    );
+    throw(err);
+  }
 }

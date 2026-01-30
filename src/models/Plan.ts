@@ -9,9 +9,15 @@ import {
   valueIsEmpty
 } from "../utils/helpers";
 import { MySqlModel } from "./MySqlModel";
-import { addVersion, removeVersions, updateVersion } from "./PlanVersion";
 import { Project } from "./Project";
 import { Tag } from "./Tag";
+import {
+  createMaDMP,
+  deleteMaDMP,
+  tombstoneMaDMP,
+  updateMaDMP
+} from "../datasources/dynamo";
+import { prepareObjectForLogs } from "../logger";
 
 export const DEFAULT_TEMPORARY_DMP_ID_PREFIX = 'temp-dmpId-';
 
@@ -338,7 +344,15 @@ export class Plan extends MySqlModel {
           const newPlan = await Plan.findById(reference, context, newId);
           if (newPlan) {
             // Generate the version history of the DMP
-            await addVersion(context, newPlan, reference);
+            const maDMP = await createMaDMP(context, newPlan, true);
+
+            // Log an error if the maDMP activity failed but allow the process to continue
+            if (!maDMP) {
+              context.logger.error(
+                prepareObjectForLogs({ plan: newPlan }),
+                'Unable to create an initial maDMP version.'
+              );
+            }
             return new Plan(newPlan);
           } else {
             this.addError('general', 'Unable to create your plan.');
@@ -364,9 +378,17 @@ export class Plan extends MySqlModel {
           updated = new Plan(updated);
           // Do not update any version info if the plan has not been modified or noTouch is true
           if (!noTouch && updated && !updated.hasErrors()) {
-            // Update the version history of the DMP
-            updated = await updateVersion(context, this, reference);
             if (updated && !updated.hasErrors()) {
+              // Update the maDMP snapshot
+              const maDMP = await updateMaDMP(context, updated as Plan, true);
+
+              // Log an error if the maDMP activity failed but allow the process to continue
+              if (!maDMP) {
+                context.logger.error(
+                  prepareObjectForLogs({ plan: updated }),
+                  'Unable to update the maDMP version.'
+                );
+              }
               return new Plan(updated);
             }
           }
@@ -389,7 +411,21 @@ export class Plan extends MySqlModel {
         // Delete the plan
         const successfullyDeleted = await Plan.delete(context, Plan.tableName, this.id, reference);
         if (successfullyDeleted) {
-          return await removeVersions(context, this, reference);
+          // Delete or tombstone the maDMP versions
+          const maDMP = toDelete.registered
+            // If the plan was registered, we cannot delete the DOI so tombstone instead
+            ? await tombstoneMaDMP(context, toDelete, true)
+            // Otherwise delete all of the maDMP versions
+            : await deleteMaDMP(context, toDelete as Plan, true);
+
+          // Log an error if the maDMP activity failed but allow the process to continue
+          if (!maDMP) {
+            context.logger.error(
+              prepareObjectForLogs({ plan: toDelete }),
+              'Unable to delete the maDMP versions.'
+            );
+          }
+          return toDelete;
         }
       }
     }

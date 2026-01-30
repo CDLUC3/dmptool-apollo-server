@@ -30,9 +30,10 @@ jest.mock('../config/awsConfig', () => ({
     sesAccessSecret: '98765',
     sesBounceAddress: 'bounce@example.com',
     sesBouncedEmailBucket: 'my-test-bucket',
-    dynamoTableName: 'test-table',
-    dynamoMaxQueryAttempts: 3,
-    dynamoEndpoint: 'http://localhost:8000',
+    dynamo: {
+      tableName: 'test-table',
+      endpoint: 'http://localhost:8000',
+    },
   }
 }));
 

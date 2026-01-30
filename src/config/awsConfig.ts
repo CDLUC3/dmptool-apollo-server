@@ -33,9 +33,12 @@ export const awsConfig = {
   sesBouncedEmailBucket: process.env.SES_BOUNCED_EMAIL_BUCKET,
 
   // DynamoDB configuration
-  dynamoTableName: process.env.DYNAMO_TABLE_NAME,
-  dynamoEndpoint: process.env.DYNAMO_ENDPOINT,
-  dynamoMaxQueryAttempts: process.env.DYNAMO_MAX_ATTEMPTS ? parseInt(process.env.DYNAMO_MAX_ATTEMPTS) : 3,
+  dynamo: {
+    tableName: process.env.DYNAMO_TABLE_NAME,
+    endpoint: process.env.DYNAMO_ENDPOINT,
+    maxQueryAttempts: process.env.DYNAMO_MAX_ATTEMPTS ? parseInt(process.env.DYNAMO_MAX_ATTEMPTS) : 3,
+    versioningGracePeriodInMS: process.env.VERSION_GRACE_PERIOD ? parseInt(process.env.VERSION_GRACE_PERIOD) : 10000,
+  },
 
   // OpenSearch config
   opensearch: {

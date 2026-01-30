@@ -8,6 +8,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated related works endpoints to support related works project overview page.
 - Updated `findBestPracticeByTagIds` and `findByAffiliationAndTagIds` in `VersionedGuidance` to remove the use of `VersionedGuidanceTags` table, since there is not table with that name [#18]
 - Regenerated `src/types` using new `graphql-codegen` version
 - Updated `tokenService` to use `uuid` instead of `uuidv4` package

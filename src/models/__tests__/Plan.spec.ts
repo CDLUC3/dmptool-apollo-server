@@ -1,7 +1,16 @@
 import casual from "casual";
 import { buildMockContextWithToken } from "../../__mocks__/context";
 import { logger } from "../../logger";
-import { getMockDMPId, getRandomEnumValue } from "../../__tests__/helpers";
+import { defaultLanguageId } from "../Language";
+import { generalConfig } from "../../config/generalConfig";
+import { getCurrentDate } from "../../utils/helpers";
+import { DMPToolDMPType } from "@dmptool/types";
+import { MyContext } from "../../context";
+import {
+  getMockDMPId,
+  getMockORCID,
+  getRandomEnumValue
+} from "../../__tests__/helpers";
 import {
   DEFAULT_TEMPORARY_DMP_ID_PREFIX,
   Plan,
@@ -11,23 +20,86 @@ import {
   PlanStatus,
   PlanVisibility
 } from "../Plan";
-import { defaultLanguageId } from "../Language";
-import { generalConfig } from "../../config/generalConfig";
-import { getCurrentDate } from "../../utils/helpers";
-import * as PlanVersionModule from "../PlanVersion";
+import {
+  createMaDMP,
+  deleteMaDMP,
+  updateMaDMP,
+  tombstoneMaDMP
+} from "../../datasources/dynamo";
+import {
+  convertMySQLDateTimeToRFC3339,
+  planToDMPCommonStandard
+} from "@dmptool/utils";
 
 jest.mock('../../context.ts');
+jest.mock('../../datasources/dynamo.ts');
 
-let context;
+jest.mock('@dmptool/utils', () => ({
+  ...jest.requireActual('@dmptool/utils'), // Keep other utils working
+  planToDMPCommonStandard: jest.fn(),      // Mock only this specific function
+}));
+
+const mockCreateMaDMPs = createMaDMP as jest.MockedFunction<typeof createMaDMP>;
+const mockDeleteMaDMPs = deleteMaDMP as jest.MockedFunction<typeof deleteMaDMP>;
+const mockUpdateMaDMPs = updateMaDMP as jest.MockedFunction<typeof updateMaDMP>;
+const mockTombstoneMaDMPs = tombstoneMaDMP as jest.MockedFunction<typeof tombstoneMaDMP>;
+const mockPlanToDMPCommonStandard = planToDMPCommonStandard as jest.MockedFunction<typeof planToDMPCommonStandard>;
+
+let context: MyContext;
+let mockPlan: Plan;
+let mockDMP: DMPToolDMPType;
 
 beforeEach(async () => {
-  jest.resetAllMocks();
+  jest.clearAllMocks();
 
   context = await buildMockContextWithToken(logger);
-});
 
-afterEach(() => {
-  jest.clearAllMocks();
+  mockPlan = new Plan({
+    id: casual.integer(1, 999),
+    projectId: casual.integer(1, 99),
+    versionedTemplateId: casual.integer(1, 99),
+    title: casual.sentence,
+    dmpId: casual.url,
+    status: getRandomEnumValue(PlanStatus),
+    visibility: getRandomEnumValue(PlanVisibility),
+    registeredById: casual.integer(1, 99),
+    registered: casual.date('YYYY-MM-DD'),
+    languageId: defaultLanguageId,
+    featured: casual.boolean,
+  });
+
+  mockDMP = {
+    dmp: {
+      title: mockPlan.title,
+      dmp_id: {
+        identifier: mockPlan.dmpId,
+        type: 'doi'
+      },
+      created: convertMySQLDateTimeToRFC3339(mockPlan.created),
+      modified: convertMySQLDateTimeToRFC3339(mockPlan.modified),
+      ethical_issues_exist: 'unknown',
+      language: 'eng',
+      contact: {
+        name: casual.name,
+        mbox: casual.email,
+        contact_id: [{
+          identifier: getMockORCID(),
+          type: 'orcid'
+        }]
+      },
+      dataset: [{
+        title: casual.sentence,
+        dataset_id: {
+          identifier: 'https://example.com/projects/123/dmps/12345/outputs/9876',
+          type: 'other'
+        },
+        personal_data: 'unknown',
+        sensitive_data: 'no',
+      }]
+    }
+  } as DMPToolDMPType;
+
+  mockPlanToDMPCommonStandard.mockResolvedValue(mockDMP);
 });
 
 describe('PlanSearchResult', () => {
@@ -539,18 +611,14 @@ describe('publish', () => {
 
   it('returns the newly published Plan', async () => {
     updateQuery.mockResolvedValueOnce(plan);
-    const versionMock = jest.fn().mockResolvedValueOnce(plan);
-    (PlanVersionModule.updateVersion as jest.Mock) = versionMock;
 
     const result = await plan.publish(context);
-    const versionMockInput = versionMock.mock.calls[0][1] as Plan;
 
     expect(Object.keys(result.errors).length).toBe(0);
-    expect(PlanVersionModule.updateVersion).toHaveBeenCalledTimes(1);
+    mockUpdateMaDMPs.mockResolvedValueOnce(mockDMP);
 
     expect(result).toBeInstanceOf(Plan);
-    expect(versionMockInput.registered).toBeTruthy();
-    expect(versionMockInput.registeredById).toBeTruthy();
+    expect(mockUpdateMaDMPs).toHaveBeenCalled();
   });
 
   it('returns an error if the Plan is not valid', async () => {
@@ -561,6 +629,7 @@ describe('publish', () => {
     const result = await plan.publish(context);
     expect(result instanceof Plan).toBe(true);
     expect(localValidator).toHaveBeenCalledTimes(1);
+    expect(mockUpdateMaDMPs).not.toHaveBeenCalled();
   });
 
   it('returns an error if the Plan is already published', async () => {
@@ -570,6 +639,7 @@ describe('publish', () => {
     const result = await plan.publish(context);
     expect(Object.keys(result.errors).length).toBe(1);
     expect(result.errors['general']).toBeTruthy();
+    expect(mockUpdateMaDMPs).not.toHaveBeenCalled();
   });
 });
 
@@ -601,6 +671,7 @@ describe('create', () => {
     plan.projectId = undefined;
     const response = await plan.create(context);
     expect(response.errors['projectId']).toBe('Project can\'t be blank');
+    expect(mockCreateMaDMPs).not.toHaveBeenCalled();
   });
 
   it('returns the newly added Plan', async () => {
@@ -608,16 +679,14 @@ describe('create', () => {
     insertQuery.mockResolvedValueOnce(createdPlan.id);
     const mockFindById = jest.fn().mockResolvedValueOnce(createdPlan);
     (Plan.findById as jest.Mock) = mockFindById;
-    const versionMock = jest.fn().mockResolvedValueOnce(plan);
-    (PlanVersionModule.addVersion as jest.Mock) = versionMock;
 
     const result = await plan.create(context);
 
     expect(mockFindById).toHaveBeenCalledTimes(1);
     expect(insertQuery).toHaveBeenCalledTimes(1);
-    expect(PlanVersionModule.addVersion).toHaveBeenCalledTimes(1);
     expect(Object.keys(result.errors).length).toBe(0);
     expect(result).toBeInstanceOf(Plan);
+    expect(mockCreateMaDMPs).toHaveBeenCalled();
   });
 });
 
@@ -652,6 +721,7 @@ describe('update', () => {
     const result = await plan.update(context);
     expect(result instanceof Plan).toBe(true);
     expect(localValidator).toHaveBeenCalledTimes(1);
+    expect(mockUpdateMaDMPs).not.toHaveBeenCalled();
   });
 
   it('returns an error if the Plan has no id', async () => {
@@ -663,16 +733,14 @@ describe('update', () => {
     const result = await plan.update(context);
     expect(Object.keys(result.errors).length).toBe(1);
     expect(result.errors['general']).toBeTruthy();
+    expect(mockUpdateMaDMPs).not.toHaveBeenCalled();
   });
 
   it('returns the updated Plan', async () => {
     const localValidator = jest.fn();
     (plan.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValue(true);
-
     updateQuery.mockResolvedValueOnce(plan);
-    const versionMock = jest.fn().mockResolvedValueOnce(plan);
-    (PlanVersionModule.updateVersion as jest.Mock) = versionMock;
 
     const result = await plan.update(context);
 
@@ -680,7 +748,7 @@ describe('update', () => {
     expect(updateQuery).toHaveBeenCalledTimes(1);
     expect(Object.keys(result.errors).length).toBe(0);
     expect(result).toBeInstanceOf(Plan);
-    expect(versionMock).toHaveBeenCalledTimes(1);
+    expect(mockUpdateMaDMPs).toHaveBeenCalled();
   });
 
   it('does not do any versioning if noTouch is true', async () => {
@@ -689,15 +757,13 @@ describe('update', () => {
     localValidator.mockResolvedValue(true);
 
     updateQuery.mockResolvedValueOnce(plan);
-    const versionMock = jest.fn().mockResolvedValueOnce(plan);
-    (PlanVersionModule.updateVersion as jest.Mock) = versionMock;
 
     const result = await plan.update(context, true);
     expect(localValidator).toHaveBeenCalledTimes(1);
     expect(updateQuery).toHaveBeenCalledTimes(1);
     expect(Object.keys(result.errors).length).toBe(0);
     expect(result).toBeInstanceOf(Plan);
-    expect(versionMock).toHaveBeenCalledTimes(0);
+    expect(mockUpdateMaDMPs).not.toHaveBeenCalled();
   });
 
   it('does not do any versioning if the Plan update failed', async () => {
@@ -706,35 +772,20 @@ describe('update', () => {
     localValidator.mockResolvedValue(true);
 
     updateQuery.mockResolvedValueOnce(null);
-    const versionMock = jest.fn().mockResolvedValueOnce(plan);
-    (PlanVersionModule.updateVersion as jest.Mock) = versionMock;
 
     const result = await plan.update(context);
     expect(localValidator).toHaveBeenCalledTimes(1);
     expect(updateQuery).toHaveBeenCalledTimes(1);
     expect(Object.keys(result.errors).length).toBe(0);
     expect(result).toBeInstanceOf(Plan);
-    expect(versionMock).toHaveBeenCalledTimes(0);
+    expect(mockUpdateMaDMPs).not.toHaveBeenCalled();
   });
 });
 
 describe('delete', () => {
-  let plan;
-
-  beforeEach(() => {
-    plan = new Plan({
-      id: casual.integer(1, 999),
-      projectId: casual.integer(1, 99),
-      versionedTemplateId: casual.integer(1, 99),
-      dmpId: casual.url,
-      languageId: defaultLanguageId,
-      featured: casual.boolean,
-    });
-  })
-
   it('returns null if the Plan has no id', async () => {
-    plan.id = null;
-    expect(await plan.delete(context)).toBe(null);
+    mockPlan.id = null;
+    expect(await mockPlan.delete(context)).toBe(null);
   });
 
   it('returns null if it was not able to delete the record', async () => {
@@ -742,26 +793,67 @@ describe('delete', () => {
     (Plan.delete as jest.Mock) = deleteQuery;
 
     deleteQuery.mockResolvedValueOnce(null);
-    expect(await plan.delete(context)).toBe(null);
+    expect(await mockPlan.delete(context)).toBe(null);
+    expect(mockDeleteMaDMPs).not.toHaveBeenCalled();
+    expect(mockTombstoneMaDMPs).not.toHaveBeenCalled();
   });
 
   it('returns the Plan if it was able to delete the record', async () => {
+    mockPlan.registered = null;
+
     const deleteQuery = jest.fn();
     (Plan.delete as jest.Mock) = deleteQuery;
-    deleteQuery.mockResolvedValueOnce(plan);
+    deleteQuery.mockResolvedValueOnce(mockPlan);
 
     const mockFindById = jest.fn();
     (Plan.findById as jest.Mock) = mockFindById;
-    mockFindById.mockResolvedValueOnce(plan);
+    mockFindById.mockResolvedValue(mockPlan);
 
-    const versionMock = jest.fn().mockResolvedValueOnce(plan);
-    (PlanVersionModule.removeVersions as jest.Mock) = versionMock;
-
-    const result = await plan.delete(context);
+    const result = await mockPlan.delete(context);
     expect(Object.keys(result.errors).length).toBe(0);
     expect(result).toBeInstanceOf(Plan);
     expect(deleteQuery).toHaveBeenCalledTimes(1);
     expect(mockFindById).toHaveBeenCalledTimes(1);
-    expect(versionMock).toHaveBeenCalledTimes(1);
+    expect(mockDeleteMaDMPs).toHaveBeenCalledTimes(1);
+    expect(mockTombstoneMaDMPs).not.toHaveBeenCalled();
+  });
+
+  it('returns the Plan if it was registered and we were able to tombstone the record', async () => {
+    mockPlan.registered = getCurrentDate();
+
+    const deleteQuery = jest.fn();
+    (Plan.delete as jest.Mock) = deleteQuery;
+    deleteQuery.mockResolvedValueOnce(mockPlan);
+
+    const mockFindById = jest.fn();
+    (Plan.findById as jest.Mock) = mockFindById;
+    mockFindById.mockResolvedValueOnce(mockPlan);
+
+    const result = await mockPlan.delete(context);
+    expect(Object.keys(result.errors).length).toBe(0);
+    expect(result).toBeInstanceOf(Plan);
+    expect(deleteQuery).toHaveBeenCalledTimes(1);
+    expect(mockFindById).toHaveBeenCalledTimes(1);
+    expect(mockDeleteMaDMPs).not.toHaveBeenCalled();
+    expect(mockTombstoneMaDMPs).toHaveBeenCalled();
+  });
+});
+
+describe('convertPlanToMaDMP', () => {
+  it("should convert a Plan to maDMP format", async () => {
+    (planToDMPCommonStandard as jest.Mock).mockResolvedValue(mockDMP);
+
+    const result = await Plan.convertPlanToMaDMP(context, mockPlan.id, true);
+
+    expect(planToDMPCommonStandard).toHaveBeenCalled();
+    expect(result).toEqual(mockDMP);
+  });
+
+  it("should throw error when conversion fails", async () => {
+    const error = new Error("Conversion failed");
+    (planToDMPCommonStandard as jest.Mock).mockRejectedValue(error);
+
+    await expect(Plan.convertPlanToMaDMP(context, mockPlan.id)).rejects.toThrow(error);
+    expect(context.logger.error).toHaveBeenCalled();
   });
 });

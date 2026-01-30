@@ -1,22 +1,17 @@
 import { generalConfig } from "../config/generalConfig";
 import { awsConfig } from "../config/awsConfig";
-import { mysqlPoolConfig } from "../config/mysqlConfig";
 import { Logger } from "pino";
 import { prepareObjectForLogs } from "../logger";
 import { MyContext } from "../context";
 import { DMPToolDMPType } from "@dmptool/types";
-import { Plan } from '../models/Plan';
 import {
-  ConnectionParams,
   deleteDMP,
   DMPExists,
   DMPVersionType,
   DynamoConnectionParams,
   DMP_LATEST_VERSION,
-  EnvironmentEnum,
   getDMPs,
   createDMP,
-  planToDMPCommonStandard,
   tombstoneDMP,
   updateDMP, getDMPVersions,
 } from "@dmptool/utils";
@@ -29,30 +24,6 @@ const GetDynamoConfigParams = (logger: Logger): DynamoConnectionParams => {
     maxAttempts: awsConfig.dynamo.maxQueryAttempts,
     logger: logger,
   };
-}
-
-// Compile the parameters needed to connect to the RDS MySQL database.
-const GetRdsConfigParams = (logger: Logger): ConnectionParams => {
-  return {
-    host: mysqlPoolConfig.host,
-    port: mysqlPoolConfig.port,
-    user: mysqlPoolConfig.user,
-    password: mysqlPoolConfig.password,
-    database: mysqlPoolConfig.database,
-    logger
-  };
-}
-
-// Convert the environment name to an EnvironmentEnum value.
-const envToEnum = (env: string): EnvironmentEnum => {
-  switch (env) {
-    case 'stg':
-      return EnvironmentEnum.STG;
-    case 'prd':
-      return EnvironmentEnum.PRD;
-    default:
-      return EnvironmentEnum.DEV;
-  }
 }
 
 /**
@@ -142,7 +113,8 @@ export const getMaDMP = async (
  *
  * @param context The Apollo Server Context object passed in to the Resolver on
  * each request.
- * @param plan The Plan instance containing the DMP ID to create.
+ * @param dmpId The Plan's DMP id
+ * @param maDMP The maDMP metadata record to create.
  * @param includeExtensions The flag to indicate whether to include the DMP Tool
  * Extensions in the response. Defaults to true.
  * @returns The created maDMP metadata record or null if the DMP already exists.
@@ -150,21 +122,22 @@ export const getMaDMP = async (
  */
 export const createMaDMP = async (
   context: MyContext,
-  plan: Plan,
+  dmpId: string,
+  maDMP: DMPToolDMPType,
   includeExtensions = true
 ): Promise<DMPToolDMPType | null> => {
   try {
     return await createDMP(
       GetDynamoConfigParams(context.logger),
       `https://${generalConfig.domain}`,
-      plan.dmpId,
-      await convertPlanToMaDMP(context, plan.id, includeExtensions),
+      dmpId,
+      maDMP,
       DMP_LATEST_VERSION,
       includeExtensions
     );
   } catch (err) {
     context.logger.error(
-      prepareObjectForLogs({ dmpId: plan.dmpId, title: plan.title, err }),
+      prepareObjectForLogs({ dmpId, err }),
       'Error creating initial maDMP in DynamoDB'
     );
     throw(err);
@@ -177,7 +150,8 @@ export const createMaDMP = async (
  *
  * @param context The Apollo Server Context object passed in to the Resolver on
  * each request.
- * @param plan The Plan instance containing the DMP ID to update.
+ * @param dmpId The Plan's DMP id
+ * @param maDMP The maDMP metadata record to update.
  * @param includeExtensions The flag to indicate whether to include the DMP Tool
  * Extensions in the response. Defaults to true.
  * @returns The updated maDMP metadata record or null if the DMP does not exist.
@@ -185,24 +159,24 @@ export const createMaDMP = async (
  */
 export const updateMaDMP = async (
   context: MyContext,
-  plan: Plan,
+  dmpId: string,
+  maDMP: DMPToolDMPType,
   includeExtensions = true,
 ): Promise<DMPToolDMPType | null> => {
   try {
     return await updateDMP(
       GetDynamoConfigParams(context.logger),
       `https://${generalConfig.domain}`,
-      plan.dmpId,
-      await convertPlanToMaDMP(context, plan.id, includeExtensions),
+      dmpId,
+      maDMP,
       awsConfig.dynamo.versioningGracePeriodInMS,
       includeExtensions
     );
   } catch (err) {
     context.logger.error(
       prepareObjectForLogs({
-        dmpId: plan.dmpId,
-        title: plan.title,
-        modified: plan.modified,
+        dmpId,
+        modified: maDMP?.dmp?.modified,
         err
       }),
       'Error updating maDMP in DynamoDB'
@@ -216,7 +190,7 @@ export const updateMaDMP = async (
  *
  * @param context The Apollo Server Context object passed in to the Resolver on
  * each request.
- * @param plan The Plan instance containing the DMP ID to tombstone.
+ * @param dmpId The Plan's DMP id
  * @param includeExtensions The flag to indicate whether to include the DMP Tool
  * Extensions in the response. Defaults to true.
  * @returns The tombstoned maDMP metadata record or null if the DMP does not exist.
@@ -224,19 +198,19 @@ export const updateMaDMP = async (
  */
 export const tombstoneMaDMP = async (
   context: MyContext,
-  plan: Plan,
+  dmpId: string,
   includeExtensions = true,
 ): Promise<DMPToolDMPType> => {
   try {
     return await tombstoneDMP(
       GetDynamoConfigParams(context.logger),
       `https://${generalConfig.domain}`,
-      plan.dmpId,
+      dmpId,
       includeExtensions
     );
   } catch (err) {
     context.logger.error(
-      prepareObjectForLogs({ dmpId: plan.dmpId, err }),
+      prepareObjectForLogs({ dmpId, err }),
       'Error tombstoning maDMP in DynamoDB'
     );
     throw(err);
@@ -248,7 +222,7 @@ export const tombstoneMaDMP = async (
  *
  * @param context The Apollo Server Context object passed in to the Resolver on
  * each request.
- * @param plan The Plan instance containing the DMP ID to delete.
+ * @param dmpId The Plan's DMP id
  * @param includeExtensions The flag to indicate whether to include the DMP Tool
  * Extensions in the response. Defaults to true.
  * @returns The deleted maDMP metadata record or null if the DMP does not exist.
@@ -256,54 +230,20 @@ export const tombstoneMaDMP = async (
  */
 export const deleteMaDMP = async (
   context: MyContext,
-  plan: Plan,
+  dmpId: string,
   includeExtensions = true,
 ): Promise<DMPToolDMPType> => {
   try {
     return await deleteDMP(
       GetDynamoConfigParams(context.logger),
       `https://${generalConfig.domain}`,
-      plan.dmpId,
+      dmpId,
       includeExtensions
     );
   } catch (err) {
     context.logger.error(
-      prepareObjectForLogs({ dmpId: plan.dmpId, err }),
+      prepareObjectForLogs({ dmpId, err }),
       'Error deleting maDMP from DynamoDB'
-    );
-    throw(err);
-  }
-}
-
-/**
- * Convert a Plan record to a maDMP record.
- *
- * @param context The Apollo Server Context object passed in to the Resolver on
- * each request.
- * @param planId The Plan ID to convert.
- * @param includeExtensions The flag to indicate whether to include the DMP Tool
- * Extensions. Defaults to true.
- * @returns The converted maDMP record.
- * @throws Error if the Plan cannot be converted to a maDMP record.
- */
-export const convertPlanToMaDMP = async (
-  context: MyContext,
-  planId: number,
-  includeExtensions = true,
-): Promise<DMPToolDMPType> => {
-  try {
-    return await planToDMPCommonStandard(
-      GetRdsConfigParams(context.logger),
-      generalConfig.applicationName,
-      `https://${generalConfig.domain}`,
-      envToEnum(generalConfig.env),
-      planId,
-      includeExtensions
-    );
-  } catch (err) {
-    context.logger.error(
-      prepareObjectForLogs({ planId, err }),
-      'Error converting Plan to maDMP'
     );
     throw(err);
   }

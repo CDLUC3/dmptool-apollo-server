@@ -1,14 +1,17 @@
 // Represents an entry from the projectPlans table
-
-import { generalConfig } from "../config/generalConfig";
+import { mysqlPoolConfig } from "../config/mysqlConfig";
+import { envAsEnumValue, generalConfig } from "../config/generalConfig";
 import { MyContext } from "../context";
 import { prepareObjectForLogs } from "../logger";
 import { DMPToolDMPType } from "@dmptool/types";
-import { DMP_LATEST_VERSION, randomHex, isNullOrUndefined } from "@dmptool/utils";
 import { getCurrentDate, valueIsEmpty } from "../utils/helpers";
 import { MySqlModel } from "./MySqlModel";
 import { Project } from "./Project";
 import { Tag } from "./Tag";
+import {
+  DMP_LATEST_VERSION, randomHex, isNullOrUndefined,
+  planToDMPCommonStandard
+} from "@dmptool/utils";
 import {
   createMaDMP,
   deleteMaDMP, getMaDMP, getMaDMPVersionTimestamps,
@@ -396,7 +399,12 @@ export class Plan extends MySqlModel {
             // TODO: Eventually make a asyncronous call to EZID to register the DMP ID (DOI)
 
             // Update the maDMP snapshot
-            const maDMP = await updateMaDMP(context, this, true);
+            const maDMP = await updateMaDMP(
+              context,
+              this.dmpId,
+              await Plan.convertPlanToMaDMP(context, this.id),
+              false // We're not returning it, so no need to return the extensions too
+            );
 
             // Log an error if the maDMP activity failed but allow the process to continue
             if (!maDMP) {
@@ -447,7 +455,12 @@ export class Plan extends MySqlModel {
           const newPlan = await Plan.findById(reference, context, newId);
           if (newPlan) {
             // Generate the version history of the DMP
-            const maDMP = await createMaDMP(context, newPlan, true);
+            const maDMP = await createMaDMP(
+              context,
+              newPlan.dmpId,
+              await Plan.convertPlanToMaDMP(context, this.id),
+              false // We're not returning it, so no need to return the extensions too
+            );
 
             // Log an error if the maDMP activity failed but allow the process to continue
             if (!maDMP) {
@@ -483,14 +496,19 @@ export class Plan extends MySqlModel {
         this.prepForSave();
 
         // Update the plan
-        let updated = await Plan.update(context, Plan.tableName, this, reference, [], noTouch);
+        let updated = await Plan.update(context, Plan.tableName, this, reference, [], noTouch) as Plan;
         if (updated) {
           updated = new Plan(updated);
           // Do not update any version info if the plan has not been modified or noTouch is true
           if (!noTouch && updated && !updated.hasErrors()) {
             if (updated && !updated.hasErrors()) {
               // Update the maDMP snapshot
-              const maDMP = await updateMaDMP(context, updated as Plan, true);
+              const maDMP = await updateMaDMP(
+                context,
+                updated.dmpId,
+                await Plan.convertPlanToMaDMP(context, this.id),
+                false // We're not returning it, so no need to return the extensions too
+              );
 
               // Log an error if the maDMP activity failed but allow the process to continue
               if (!maDMP) {
@@ -529,9 +547,9 @@ export class Plan extends MySqlModel {
           // Delete or tombstone the maDMP versions
           const maDMP = toDelete.registered
             // If the plan was registered, we cannot delete the DOI so tombstone instead
-            ? await tombstoneMaDMP(context, toDelete, true)
+            ? await tombstoneMaDMP(context, toDelete.dmpId, false)
             // Otherwise delete all of the maDMP versions
-            : await deleteMaDMP(context, toDelete as Plan, true);
+            : await deleteMaDMP(context, toDelete.dmpId, false);
 
           // Log an error if the maDMP activity failed but allow the process to continue
           if (!maDMP) {
@@ -545,6 +563,47 @@ export class Plan extends MySqlModel {
       }
     }
     return null;
+  }
+
+  /**
+   * Convert a Plan record to a maDMP record.
+   *
+   * @param context The Apollo Server Context object passed in to the Resolver on
+   * each request.
+   * @param planId The ID of the Plan to convert.
+   * @param includeExtensions The flag to indicate whether to include the DMP Tool
+   * Extensions. Defaults to true.
+   * @returns The converted maDMP record.
+   * @throws Error if the Plan cannot be converted to a maDMP record.
+   */
+  static async convertPlanToMaDMP(
+    context: MyContext,
+    planId: number,
+    includeExtensions = true,
+  ): Promise<DMPToolDMPType> {
+    try {
+      return await planToDMPCommonStandard(
+        {
+          host: mysqlPoolConfig.host,
+          port: mysqlPoolConfig.port,
+          user: mysqlPoolConfig.user,
+          password: mysqlPoolConfig.password,
+          database: mysqlPoolConfig.database,
+          logger: context.logger
+        },
+        generalConfig.applicationName,
+        `https://${generalConfig.domain}`,
+        envAsEnumValue(),
+        planId,
+        includeExtensions
+      );
+    } catch (err) {
+      context.logger.error(
+        prepareObjectForLogs({ planId, err }),
+        'Error converting Plan to maDMP'
+      );
+      throw(err);
+    }
   }
 
   /**

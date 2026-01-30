@@ -1,3 +1,4 @@
+
 jest.mock('../logger', () => {
   const original = jest.requireActual('../logger') as typeof import('../logger');
 
@@ -33,6 +34,7 @@ jest.mock('../config/awsConfig', () => ({
     dynamo: {
       tableName: 'test-table',
       endpoint: 'http://localhost:8000',
+      versioningGracePeriodInMS: 60000
     },
   }
 }));
@@ -100,5 +102,6 @@ jest.mock('../config/generalConfig', () => ({
     jwtRefreshSecret: 'testJwtRefreshSecret',
     jwtRefreshTTL: 500,
     hashTokenSecret: 'testTokenSecret',
-  }
+  },
+  envAsEnumValue: () => 'dev'
 }));

@@ -623,18 +623,14 @@ describe('RelatedWork queries', () => {
     const result = await RelatedWork.statsByPlanId('testing', context, planId);
     const expectedSql = `
       SELECT
-        EXISTS (SELECT 1
-          FROM plans p2
-          WHERE p2.id = ?
-          AND p2.registered IS NOT NULL
-        ) AS hasPublishedPlan,
-        COUNT(*) AS totalCount,
+        COALESCE(MAX(CASE WHEN p.registered IS NOT NULL THEN 1 ELSE 0 END), 0) AS hasPublishedPlan,
+        COUNT(rw.id) AS totalCount,
         COALESCE(SUM(CASE WHEN rw.status = 'PENDING' THEN 1 ELSE 0 END), 0) AS pendingCount,
         COALESCE(SUM(CASE WHEN rw.status = 'ACCEPTED' THEN 1 ELSE 0 END), 0) AS acceptedCount,
         COALESCE(SUM(CASE WHEN rw.status = 'REJECTED' THEN 1 ELSE 0 END), 0) AS rejectedCount
-      FROM relatedWorks rw
-      LEFT JOIN plans p ON rw.planId = p.id
-      WHERE rw.planId = ?;
+      FROM plans p
+      LEFT JOIN relatedWorks rw ON p.id = rw.planId
+      WHERE p.planId = ?;
     `;
     expect(localQuery).toHaveBeenCalledTimes(1);
     expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [planId.toString(), planId.toString()], 'testing');
@@ -667,17 +663,13 @@ describe('RelatedWork queries', () => {
     const result = await RelatedWork.statsByProjectId('testing', context, projectId);
     const expectedSql = `
       SELECT
-        EXISTS (SELECT 1
-          FROM plans p2
-          WHERE p2.projectId = ?
-          AND p2.registered IS NOT NULL
-        ) AS hasPublishedPlan,
-        COUNT(*) AS totalCount,
+        COALESCE(MAX(CASE WHEN p.registered IS NOT NULL THEN 1 ELSE 0 END), 0) AS hasPublishedPlan,
+        COUNT(rw.id) AS totalCount,
         COALESCE(SUM(CASE WHEN rw.status = 'PENDING' THEN 1 ELSE 0 END), 0) AS pendingCount,
         COALESCE(SUM(CASE WHEN rw.status = 'ACCEPTED' THEN 1 ELSE 0 END), 0) AS acceptedCount,
         COALESCE(SUM(CASE WHEN rw.status = 'REJECTED' THEN 1 ELSE 0 END), 0) AS rejectedCount
-      FROM relatedWorks rw
-      LEFT JOIN plans p ON rw.planId = p.id
+      FROM plans p
+      LEFT JOIN relatedWorks rw ON p.id = rw.planId
       WHERE p.projectId = ?;
     `;
     expect(localQuery).toHaveBeenCalledTimes(1);

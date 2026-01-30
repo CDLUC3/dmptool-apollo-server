@@ -397,18 +397,14 @@ export class RelatedWork extends MySqlModel {
   static async statsByPlanId(reference: string, context: MyContext, planId: number): Promise<RelatedWorkStatsResults> {
     const sql = `
       SELECT
-        EXISTS (SELECT 1
-          FROM plans p2
-          WHERE p2.id = ?
-          AND p2.registered IS NOT NULL
-        ) AS hasPublishedPlan,
-        COUNT(*) AS totalCount,
+        COALESCE(MAX(CASE WHEN p.registered IS NOT NULL THEN 1 ELSE 0 END), 0) AS hasPublishedPlan,
+        COUNT(rw.id) AS totalCount,
         COALESCE(SUM(CASE WHEN rw.status = 'PENDING' THEN 1 ELSE 0 END), 0) AS pendingCount,
         COALESCE(SUM(CASE WHEN rw.status = 'ACCEPTED' THEN 1 ELSE 0 END), 0) AS acceptedCount,
         COALESCE(SUM(CASE WHEN rw.status = 'REJECTED' THEN 1 ELSE 0 END), 0) AS rejectedCount
-      FROM relatedWorks rw
-      LEFT JOIN plans p ON rw.planId = p.id
-      WHERE rw.planId = ?;
+      FROM plans p
+      LEFT JOIN relatedWorks rw ON p.id = rw.planId
+      WHERE p.planId = ?;
     `;
 
     const result = await RelatedWork.query(context, sql, [planId.toString(), planId.toString()], reference);
@@ -425,17 +421,13 @@ export class RelatedWork extends MySqlModel {
   ): Promise<RelatedWorkStatsResults> {
     const sql = `
       SELECT
-        EXISTS (SELECT 1
-          FROM plans p2
-          WHERE p2.projectId = ?
-          AND p2.registered IS NOT NULL
-        ) AS hasPublishedPlan,
-        COUNT(*) AS totalCount,
+        COALESCE(MAX(CASE WHEN p.registered IS NOT NULL THEN 1 ELSE 0 END), 0) AS hasPublishedPlan,
+        COUNT(rw.id) AS totalCount,
         COALESCE(SUM(CASE WHEN rw.status = 'PENDING' THEN 1 ELSE 0 END), 0) AS pendingCount,
         COALESCE(SUM(CASE WHEN rw.status = 'ACCEPTED' THEN 1 ELSE 0 END), 0) AS acceptedCount,
         COALESCE(SUM(CASE WHEN rw.status = 'REJECTED' THEN 1 ELSE 0 END), 0) AS rejectedCount
-      FROM relatedWorks rw
-      LEFT JOIN plans p ON rw.planId = p.id
+      FROM plans p
+      LEFT JOIN relatedWorks rw ON p.id = rw.planId
       WHERE p.projectId = ?;
     `;
 

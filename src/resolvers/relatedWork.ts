@@ -131,6 +131,7 @@ export const resolvers: Resolvers = {
 
               // Otherwise lookup the work in OpenSearch
               const openSearchWorks =  await openSearchFindWorkByIdentifier(
+                reference,
                 context,
                 doi,
                 limit,
@@ -185,7 +186,8 @@ export const resolvers: Resolvers = {
         if (err instanceof GraphQLError) throw err;
 
         context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
-        throw InternalServerError();
+
+        throw InternalServerError(`Error running search`);
       }
     },
 
@@ -281,6 +283,7 @@ export const resolvers: Resolvers = {
                 if (!workVersion) {
                   // Lookup work in OpenSearch
                   const openSearchWorks =  await openSearchFindWorkByIdentifier(
+                    reference,
                     context,
                     input.doi,
                     2, // We should currently only be getting 1 result

@@ -606,3 +606,103 @@ describe('top5', () => {
     await expect(PopularFunder.top5(context)).rejects.toThrow('Query failed');
   });
 });
+
+describe('searchManagedWithPublishedGuidance', () => {
+  let localQueryWithPagination;
+  let context;
+  let affiliationSearch;
+
+  beforeEach(async () => {
+    jest.resetAllMocks();
+
+    localQueryWithPagination = jest.fn();
+    (Affiliation.queryWithPagination as jest.Mock) = localQueryWithPagination;
+
+    context = await buildMockContextWithToken(logger);
+
+    affiliationSearch = new AffiliationSearch({
+      id: casual.integer(1, 9),
+      uri: 'https://ror.org/01234',
+      displayName: 'University of Virginia (virginia.edu)',
+      managed: 1,
+      apiTarget: casual.url,
+    });
+  });
+
+  it('should call queryWithPagination with correct params and return paginated results', async () => {
+    const name = 'Virginia';
+    const options = { sortField: undefined, sortDir: undefined, type: undefined };
+    const expectedOpts = expect.objectContaining({
+      sortField: 'a.displayName',
+      sortDir: 'ASC',
+      availableSortFields: ['a.displayName', 'a.created'],
+      countField: 'a.id',
+    });
+    localQueryWithPagination.mockResolvedValueOnce({ results: [affiliationSearch], totalCount: 1 });
+
+    // Change Affiliation. to AffiliationSearch.
+    const result = await AffiliationSearch.searchManagedWithPublishedGuidance(
+      'TestRef',
+      context,
+      name,
+      options as any
+    );
+
+    const expectedSql = expect.stringContaining('FROM affiliations a');
+    const expectedWhere = [
+      'a.active = 1',
+      'a.managed = 1',
+      '(LOWER(a.searchName) LIKE ?)',
+      'gg.latestPublishedDate IS NOT NULL',
+      'g.created <= gg.latestPublishedDate'
+    ];
+    const expectedGroupBy = 'GROUP BY a.id';
+    const expectedVals = [`%${name.toLowerCase().trim()}%`];
+
+    expect(localQueryWithPagination).toHaveBeenCalledTimes(1);
+    expect(localQueryWithPagination).toHaveBeenLastCalledWith(
+      context,
+      expectedSql,
+      expectedWhere,
+      expectedGroupBy,
+      expectedVals,
+      expect.objectContaining(expectedOpts),
+      'TestRef'
+    );
+    expect(result).toEqual({ results: [affiliationSearch], totalCount: 1 });
+  });
+
+  it('should handle no search term', async () => {
+    localQueryWithPagination.mockResolvedValueOnce({ results: [], totalCount: 0 });
+
+    const result = await AffiliationSearch.searchManagedWithPublishedGuidance(
+      'TestRef',
+      context,
+      undefined,
+      {} as any
+    );
+
+    expect(localQueryWithPagination).toHaveBeenCalledWith(
+      context,
+      expect.any(String),
+      expect.arrayContaining([
+        'a.active = 1',
+        'a.managed = 1',
+        'gg.latestPublishedDate IS NOT NULL',
+        'g.created <= gg.latestPublishedDate'
+      ]),
+      'GROUP BY a.id',
+      [],
+      expect.any(Object),
+      'TestRef'
+    );
+    expect(result).toEqual({ results: [], totalCount: 0 });
+  });
+
+  it('should propagate errors from queryWithPagination', async () => {
+    localQueryWithPagination.mockRejectedValueOnce(new Error('Query failed'));
+    await expect(
+      AffiliationSearch.searchManagedWithPublishedGuidance('TestRef', context, 'foo', {} as any)
+    ).rejects.toThrow('Query failed');
+  });
+});

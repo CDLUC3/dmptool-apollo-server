@@ -114,7 +114,6 @@ export class VersionedGuidance extends MySqlModel {
       [affiliationId, ...tagIds.map(id => id.toString())],
       reference
     );
-
     return Array.isArray(results) ? results.map((entry) => new VersionedGuidance(entry)) : [];
   }
 }

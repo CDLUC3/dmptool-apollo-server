@@ -8,6 +8,7 @@ import { VersionedGuidance } from "../models/VersionedGuidance";
 import { VersionedSection } from "../models/VersionedSection";
 import { VersionedQuestion } from "../models/VersionedQuestion";
 import { Plan } from "../models/Plan";
+import {User} from "../models/User";
 import { VersionedTemplate } from "../models/VersionedTemplate";
 import { prepareObjectForLogs } from "../logger";
 import { getCurrentDate } from "../utils/helpers";
@@ -306,6 +307,10 @@ export async function getGuidanceSourcesForPlan(
       return [];
     }
 
+    // Get user's affiliation
+    const user = await User.findById(reference, context, userId);
+    const userAffiliationUri = user?.affiliationId;
+
     // Get section tag IDs and section-level guidance
     let tagsMap: Record<number, string>;
     let guidanceText: string | null = null;
@@ -339,8 +344,17 @@ export async function getGuidanceSourcesForPlan(
     const versionedTemplate = await VersionedTemplate.findById(reference, context, versionedTemplateId);
     const templateOwnerUri = versionedTemplate?.ownerId;
 
+    // Get user-selected affiliations from planGuidance table
+    const userSelections = await PlanGuidance.findByPlanAndUserId(
+      reference,
+      context,
+      planId,
+      userId
+    );
+
     const guidanceSources: GuidanceSource[] = [];
     const processedOrgURIs = new Set<string>();
+
 
     // ============================================================
     // 1. Best Practice Guidance
@@ -367,15 +381,98 @@ export async function getGuidanceSourcesForPlan(
     }
 
     // ============================================================
-    // 2. Get user-selected affiliations from planGuidance table
+    // 2. Get user's affiliation guidance
     // ============================================================
-    const userSelections = await PlanGuidance.findByPlanAndUserId(
-      reference,
-      context,
-      planId,
-      userId
-    );
+  if (userAffiliationUri) {
+      const userAffiliationSelection = userSelections.find(
+        selection => selection.affiliationId === userAffiliationUri
+      );
 
+      if (userAffiliationSelection) {
+        const affiliation = await Affiliation.findByURI(reference, context, userAffiliationUri);
+        
+        if (affiliation) {
+          // Fetch TAG-BASED guidance
+          const tagBasedGuidance = await VersionedGuidance.findByAffiliationAndTagIds(
+            reference,
+            context,
+            userAffiliationUri,
+            sectionTagIds
+          );
+
+          const items = groupGuidanceByTag(tagBasedGuidance, sectionTagIds, tagsMap);
+
+          if (items.length > 0) {
+            guidanceSources.push({
+              id: `affiliation-${userAffiliationUri}`,
+              type: GuidanceSourceType.USER_AFFILIATION,
+              label: affiliation.displayName || affiliation.name,
+              shortName: (affiliation.acronyms && affiliation.acronyms[0]) ||
+                affiliation.displayName ||
+                affiliation.name,
+              orgURI: userAffiliationUri,
+              items,
+              hasGuidance: true
+            });
+
+            processedOrgURIs.add(userAffiliationUri);
+          }
+        }
+      }
+    }
+
+    // ============================================================
+    // 3. Template Owner's Guidance
+    // ============================================================
+    if (templateOwnerUri && !processedOrgURIs.has(templateOwnerUri)) {
+      const templateOwnerSelection = userSelections.find(
+        selection => selection.affiliationId === templateOwnerUri
+      );
+
+      if (templateOwnerSelection) {
+        const affiliation = await Affiliation.findByURI(reference, context, templateOwnerUri);
+        
+        if (affiliation) {
+          // Fetch TAG-BASED guidance
+          const tagBasedGuidance = await VersionedGuidance.findByAffiliationAndTagIds(
+            reference,
+            context,
+            templateOwnerUri,
+            sectionTagIds
+          );
+
+          const items = groupGuidanceByTag(tagBasedGuidance, sectionTagIds, tagsMap);
+
+          // If there's section-level guidance, add it FIRST
+          if (guidanceText) {
+            items.unshift({
+              title: affiliation.displayName || affiliation.name,
+              guidanceText
+            });
+          }
+
+          if (items.length > 0) {
+            guidanceSources.push({
+              id: `affiliation-${templateOwnerUri}`,
+              type: GuidanceSourceType.TEMPLATE_OWNER,
+              label: affiliation.displayName || affiliation.name,
+              shortName: (affiliation.acronyms && affiliation.acronyms[0]) ||
+                affiliation.displayName ||
+                affiliation.name,
+              orgURI: templateOwnerUri,
+              items,
+              hasGuidance: true
+            });
+
+            processedOrgURIs.add(templateOwnerUri);
+          }
+        }
+      }
+    }
+
+    // ============================================================
+    // 4. User-Selected Guidance (everything else)
+    // ============================================================
     for (const selection of userSelections) {
       const affiliationUri = selection.affiliationId;
 
@@ -389,7 +486,7 @@ export async function getGuidanceSourcesForPlan(
         continue;
       }
 
-      // Fetch TAG-BASED guidance using existing model method
+      // Fetch TAG-BASED guidance
       const tagBasedGuidance = await VersionedGuidance.findByAffiliationAndTagIds(
         reference,
         context,
@@ -398,26 +495,11 @@ export async function getGuidanceSourcesForPlan(
       );
 
       const items = groupGuidanceByTag(tagBasedGuidance, sectionTagIds, tagsMap);
-      // Check if this is the template owner
-      const isTemplateOwner = affiliationUri === templateOwnerUri;
 
-      // If template owner AND there's section-level guidance, add it FIRST
-      if (isTemplateOwner && guidanceText) {
-        items.unshift({
-          title: affiliation.displayName || affiliation.name,
-          guidanceText
-        });
-      }
-
-      // Only add if there's at least some guidance (either tag-based or section-level)
       if (items.length > 0) {
-        const sourceType = isTemplateOwner
-          ? GuidanceSourceType.TEMPLATE_OWNER
-          : GuidanceSourceType.USER_SELECTED;
-
         guidanceSources.push({
           id: `affiliation-${affiliationUri}`,
-          type: sourceType,
+          type: GuidanceSourceType.USER_SELECTED,
           label: affiliation.displayName || affiliation.name,
           shortName: (affiliation.acronyms && affiliation.acronyms[0]) ||
             affiliation.displayName ||
@@ -437,6 +519,7 @@ export async function getGuidanceSourcesForPlan(
     return [];
   }
 }
+
 
 /**
  * Get section tags for a specific section (tagId -> tagName)
@@ -508,21 +591,21 @@ export async function getSectionTagsMap(
 }
 
 /**
- * Add a PlanGuidanceAffiliation record for a plan, affiliation, and user.
+ * Add a PlanGuidance record for a plan, affiliation, and user.
  */
-export async function addPlanGuidanceAffiliation(
+export async function addPlanGuidance(
   context: MyContext,
   planId: number,
   affiliationId: number | string,
   userId: number
 ): Promise<boolean> {
   try {
-    const planGuidanceAffiliation = new PlanGuidance({
+    const planGuidance = new PlanGuidance({
       planId,
       affiliationId,
       userId
     });
-    const created = await planGuidanceAffiliation.create(context);
+    const created = await planGuidance.create(context);
     return !!created && !created.hasErrors?.();
   } catch (err) {
     context.logger.error(prepareObjectForLogs(err), 'Failed to add PlanGuidanceAffiliation');

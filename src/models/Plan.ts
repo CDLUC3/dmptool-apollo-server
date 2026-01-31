@@ -71,29 +71,29 @@ export class PlanSearchResult {
   // Find all of the high level details about the plans for a project
   static async findByProjectId(reference: string, context: MyContext, projectId: number): Promise<PlanSearchResult[]> {
     const sql = 'SELECT p.id, ' +
-      'CONCAT(cu.givenName, CONCAT(\' \', cu.surName)) createdBy, p.created, ' +
-      'CONCAT(cm.givenName, CONCAT(\' \', cm.surName)) modifiedBy, p.modified, ' +
-      'p.versionedTemplateId, p.title, p.status, p.visibility, p.dmpId, ' +
-      'CONCAT(cr.givenName, CONCAT(\' \', cr.surName)) registeredBy, p.registered, p.featured, ' +
-      'GROUP_CONCAT(DISTINCT CONCAT(prc.givenName, CONCAT(\' \', prc.surName, ' +
-      'CONCAT(\' (\', CONCAT(r.label, \')\'))))) members, ' +
-      'GROUP_CONCAT(DISTINCT fundings.name) funding ' +
-      'FROM plans p ' +
-      'LEFT JOIN users cu ON cu.id = p.createdById ' +
-      'LEFT JOIN users cm ON cm.id = p.modifiedById ' +
-      'LEFT JOIN users cr ON cr.id = p.registeredById ' +
-      'LEFT JOIN planMembers plc ON plc.planId = p.id ' +
-      'LEFT JOIN projectMembers prc ON prc.id = plc.projectMemberId ' +
-      'LEFT JOIN planMemberRoles plcr ON plc.id = plcr.planMemberId ' +
-      'LEFT JOIN memberRoles r ON plcr.memberRoleId = r.id ' +
-      'LEFT JOIN planFundings ON planFundings.planId = p.id ' +
-      'LEFT JOIN projectFundings ON projectFundings.id = planFundings.projectFundingId ' +
-      'LEFT JOIN affiliations fundings ON projectFundings.affiliationId = fundings.uri ' +
-      'WHERE p.projectId = ? ' +
-      'GROUP BY p.id, cu.givenName, cu.surName, cm.givenName, cm.surName, ' +
-      'p.title, p.status, p.visibility, ' +
-      'p.dmpId, cr.givenName, cr.surName, p.registered, p.featured ' +
-      'ORDER BY p.created DESC;';
+                'CONCAT(cu.givenName, CONCAT(\' \', cu.surName)) createdBy, p.created, ' +
+                'CONCAT(cm.givenName, CONCAT(\' \', cm.surName)) modifiedBy, p.modified, ' +
+                'p.versionedTemplateId, p.title, p.status, p.visibility, p.dmpId, ' +
+                'CONCAT(cr.givenName, CONCAT(\' \', cr.surName)) registeredBy, p.registered, p.featured, ' +
+                'GROUP_CONCAT(DISTINCT CONCAT(prc.givenName, CONCAT(\' \', prc.surName, ' +
+                  'CONCAT(\' (\', CONCAT(r.label, \')\'))))) members, ' +
+                'GROUP_CONCAT(DISTINCT fundings.name) funding ' +
+              'FROM plans p ' +
+                'LEFT JOIN users cu ON cu.id = p.createdById ' +
+                'LEFT JOIN users cm ON cm.id = p.modifiedById ' +
+                'LEFT JOIN users cr ON cr.id = p.registeredById ' +
+                'LEFT JOIN planMembers plc ON plc.planId = p.id ' +
+                  'LEFT JOIN projectMembers prc ON prc.id = plc.projectMemberId ' +
+                  'LEFT JOIN planMemberRoles plcr ON plc.id = plcr.planMemberId ' +
+                    'LEFT JOIN memberRoles r ON plcr.memberRoleId = r.id ' +
+                'LEFT JOIN planFundings ON planFundings.planId = p.id ' +
+                  'LEFT JOIN projectFundings ON projectFundings.id = planFundings.projectFundingId ' +
+                    'LEFT JOIN affiliations fundings ON projectFundings.affiliationId = fundings.uri ' +
+              'WHERE p.projectId = ? ' +
+              'GROUP BY p.id, cu.givenName, cu.surName, cm.givenName, cm.surName, ' +
+                'p.title, p.status, p.visibility, ' +
+                'p.dmpId, cr.givenName, cr.surName, p.registered, p.featured ' +
+              'ORDER BY p.created DESC;';
     const results = await Plan.query(context, sql, [projectId?.toString()], reference);
     return Array.isArray(results) ? results.map((entry) => new PlanSearchResult(entry)) : [];
   }

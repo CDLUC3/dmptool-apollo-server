@@ -105,12 +105,15 @@ export const resolvers: Resolvers = {
             throw NotFoundError(`Plan with id ${planId} not found`);
           }
 
-          return await getGuidanceSourcesForPlan(
+          const sources = await getGuidanceSourcesForPlan(
             context,
             planId,
             versionedSectionId,
             versionedQuestionId
           );
+
+          console.log("*** guidanceSourcesForPlan:", sources);
+          return sources;
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();
       } catch (err) {

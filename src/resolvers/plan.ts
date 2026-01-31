@@ -15,7 +15,7 @@ import { Answer } from "../models/Answer";
 import { ProjectCollaboratorAccessLevel } from "../models/Collaborator";
 import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
 import { ensureDefaultPlanContact } from "../services/planService";
-import { addPlanGuidanceAffiliation } from "../services/guidanceService";
+import { addPlanGuidance } from "../services/guidanceService";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -99,7 +99,7 @@ export const resolvers: Resolvers = {
                 const userId = context.token?.id;
 
                 if (affiliationId && planId && userId) {
-                  await addPlanGuidanceAffiliation(context, planId, affiliationId, userId);
+                  await addPlanGuidance(context, planId, affiliationId, userId);
                 }
               } catch (e) {
                 context.logger.warn(

@@ -2644,8 +2644,6 @@ export type Query = {
   planFeedbackStatus?: Maybe<PlanFeedbackStatusEnum>;
   /** Get all of the Funding information for the specific Plan */
   planFundings?: Maybe<Array<Maybe<PlanFunding>>>;
-  /** Get guidance items for a specific plan and user */
-  planGuidance: Array<PlanGuidance>;
   /** Get all of the Users that are Members for the specific Plan */
   planMembers?: Maybe<Array<Maybe<PlanMember>>>;
   /** Get all plans for the research project */
@@ -2901,11 +2899,6 @@ export type QueryPlanFeedbackStatusArgs = {
 
 
 export type QueryPlanFundingsArgs = {
-  planId: Scalars['Int']['input'];
-};
-
-
-export type QueryPlanGuidanceArgs = {
   planId: Scalars['Int']['input'];
 };
 
@@ -6094,7 +6087,6 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   planFeedbackComments?: Resolver<Maybe<Array<Maybe<ResolversTypes['PlanFeedbackComment']>>>, ParentType, ContextType, RequireFields<QueryPlanFeedbackCommentsArgs, 'planFeedbackId' | 'planId'>>;
   planFeedbackStatus?: Resolver<Maybe<ResolversTypes['PlanFeedbackStatusEnum']>, ParentType, ContextType, RequireFields<QueryPlanFeedbackStatusArgs, 'planId'>>;
   planFundings?: Resolver<Maybe<Array<Maybe<ResolversTypes['PlanFunding']>>>, ParentType, ContextType, RequireFields<QueryPlanFundingsArgs, 'planId'>>;
-  planGuidance?: Resolver<Array<ResolversTypes['PlanGuidance']>, ParentType, ContextType, RequireFields<QueryPlanGuidanceArgs, 'planId'>>;
   planMembers?: Resolver<Maybe<Array<Maybe<ResolversTypes['PlanMember']>>>, ParentType, ContextType, RequireFields<QueryPlanMembersArgs, 'planId'>>;
   plans?: Resolver<Maybe<Array<ResolversTypes['PlanSearchResult']>>, ParentType, ContextType, RequireFields<QueryPlansArgs, 'projectId'>>;
   popularFunders?: Resolver<Maybe<Array<Maybe<ResolversTypes['FunderPopularityResult']>>>, ParentType, ContextType>;

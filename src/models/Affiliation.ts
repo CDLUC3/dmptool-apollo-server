@@ -389,6 +389,7 @@ export class AffiliationSearch {
     return response;
   }
 
+  // Search for managed Affiliations that have published guidance associated with them
   static async searchManagedWithPublishedGuidance(
     reference: string,
     context: MyContext,

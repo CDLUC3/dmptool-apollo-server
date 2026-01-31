@@ -115,10 +115,6 @@ export class VersionedGuidance extends MySqlModel {
       reference
     );
 
-    const mapped = Array.isArray(results)
-      ? results.map((entry) => new VersionedGuidance(entry))
-      : [];
-
-    return mapped;
+    return Array.isArray(results) ? results.map((entry) => new VersionedGuidance(entry)) : [];
   }
 }

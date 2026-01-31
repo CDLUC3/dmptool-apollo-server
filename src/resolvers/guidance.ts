@@ -6,7 +6,12 @@ import { PlanGuidance } from "../models/Guidance";
 import { Affiliation } from "../models/Affiliation";
 import { User } from "../models/User";
 import { Tag } from "../models/Tag";
-import { getGuidanceSourcesForPlan, hasPermissionOnGuidanceGroup, markGuidanceGroupAsDirty, GuidanceSource } from "../services/guidanceService";
+import { 
+  hasPermissionOnGuidanceGroup, 
+  markGuidanceGroupAsDirty, 
+  getGuidanceSourcesForPlan, 
+  GuidanceSource 
+} from "../services/guidanceService";
 import { ForbiddenError, NotFoundError, AuthenticationError, InternalServerError } from "../utils/graphQLErrors";
 import { isAdmin, isAuthorized } from "../services/authService";
 import { prepareObjectForLogs } from "../logger";
@@ -84,38 +89,8 @@ export const resolvers: Resolvers = {
     },
 
     // ============================================================================
-    // Plan Guidance Affiliations Query (User permissions)
+    // Plan Guidance Sources for a plan
     // ============================================================================
-
-    // Return user's selected guidance affiliations for a plan
-    planGuidance: async (_, { planId }, context: MyContext): Promise<PlanGuidance[]> => {
-      const reference = 'planGuidanceAffiliations resolver';
-      try {
-        if (isAuthorized(context.token)) {
-          const plan = await Plan.findById(reference, context, planId);
-
-          if (isNullOrUndefined(plan)) {
-            throw NotFoundError(`Plan with id ${planId} not found`);
-          }
-          const userId = context.token?.userId;
-          if (!userId) {
-            throw AuthenticationError();
-          }
-
-          return await PlanGuidance.findByPlanIdAndUserId(
-            reference,
-            context,
-            planId,
-            userId
-          );
-        }
-        throw context?.token ? ForbiddenError() : AuthenticationError();
-      } catch (err) {
-        if (err instanceof GraphQLError) throw err;
-        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
-        throw InternalServerError();
-      }
-    },
     guidanceSourcesForPlan: async (
       _,
       { planId, versionedSectionId, versionedQuestionId },
@@ -130,14 +105,12 @@ export const resolvers: Resolvers = {
             throw NotFoundError(`Plan with id ${planId} not found`);
           }
 
-          const sources = await getGuidanceSourcesForPlan(
+          return await getGuidanceSourcesForPlan(
             context,
             planId,
             versionedSectionId,
             versionedQuestionId
           );
-
-          return sources;
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();
       } catch (err) {
@@ -274,13 +247,16 @@ export const resolvers: Resolvers = {
         throw InternalServerError();
       }
     },
-    // Add a user-selected affiliation for plan guidance
+    // ============================================================================
+    // Plan Guidance Mutations
+    // ============================================================================
+    // Add a user-selected affiliation for planGuidance
     addPlanGuidance: async (
       _,
       { planId, affiliationId },
       context: MyContext
     ): Promise<PlanGuidance> => {
-      const reference = 'add plan guidance affiliation resolver';
+      const reference = 'add plan guidance resolver';
       try {
         if (isAuthorized(context.token)) {
           const plan = await Plan.findById(reference, context, planId);
@@ -323,19 +299,16 @@ export const resolvers: Resolvers = {
       }
     },
 
-    // Remove a user-selected affiliation from plan guidance
+    // Remove a user-selected affiliation from planGuidance
     removePlanGuidance: async (
       _,
       { planId, affiliationId },
       context: MyContext
     ): Promise<PlanGuidance> => {
-      console.log("***Remove Plan Guidance called with:", { planId, affiliationId });
-
-      const reference = 'remove plan guidance affiliation resolver';
+      const reference = 'remove plan guidance resolver';
       try {
         if (isAuthorized(context.token)) {
           const plan = await Plan.findById(reference, context, planId);
-          console.log("***Found plan:", plan);
           if (!plan) {
             throw NotFoundError(`Plan with id ${planId} not found`);
           }
@@ -345,7 +318,6 @@ export const resolvers: Resolvers = {
             throw AuthenticationError();
           }
 
-          console.log("***User ID:", userId);
           const toRemove = await PlanGuidance.findByPlanUserAndAffiliation(
             reference,
             context,
@@ -354,13 +326,11 @@ export const resolvers: Resolvers = {
             affiliationId.toString()
           );
 
-          console.log("***To Remove:", toRemove);
           if (!toRemove) {
             throw NotFoundError('Plan guidance affiliation not found');
           }
 
           const deleted = await toRemove.delete(context);
-          console.log("***Deleted result:", deleted);
 
           if (deleted && !deleted.hasErrors()) {
             return deleted; // Success - return the deleted record
@@ -409,13 +379,13 @@ export const resolvers: Resolvers = {
   PlanGuidance: {
     plan: async (parent: PlanGuidance, _, context: MyContext): Promise<Plan> => {
       if (parent?.planId) {
-        return await Plan.findById('Chained PlanGuidanceAffiliation.plan', context, parent.planId);
+        return await Plan.findById('Chained PlanGuidance.plan', context, parent.planId);
       }
       return null;
     },
     affiliation: async (parent: PlanGuidance, _, context: MyContext): Promise<Affiliation> => {
       if (parent?.affiliationId) {
-        return await Affiliation.findByURI('Chained PlanGuidanceAffiliation.affiliation', context, parent.affiliationId);
+        return await Affiliation.findByURI('Chained PlanGuidance.affiliation', context, parent.affiliationId);
       }
       return null;
     },

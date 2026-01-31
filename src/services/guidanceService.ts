@@ -12,7 +12,6 @@ import { VersionedTemplate } from "../models/VersionedTemplate";
 import { prepareObjectForLogs } from "../logger";
 import { getCurrentDate } from "../utils/helpers";
 import { isSuperAdmin } from "./authService";
-import { User } from "../models/User";
 
 export enum GuidanceSourceType {
   BEST_PRACTICE = 'BEST_PRACTICE',
@@ -37,12 +36,10 @@ export interface GuidanceSource {
   hasGuidance: boolean;
 }
 
-interface VersionedGuidanceRow {
-  guidanceText: string;
-  tagId: number;
-  tagName: string;
-  affiliationId: string;
-}
+interface TagRow { 
+  id: number; 
+  name: string 
+};
 
 // Check if the user has permission to access the GuidanceGroup
 export const hasPermissionOnGuidanceGroup = async (
@@ -260,7 +257,10 @@ function groupGuidanceByTag(
     if (!itemsByTag.has(vg.tagId)) {
       itemsByTag.set(vg.tagId, []);
     }
-    itemsByTag.get(vg.tagId)!.push(vg.guidanceText);
+    const arr = itemsByTag.get(vg.tagId);
+    if (arr) {
+      arr.push(vg.guidanceText);
+    }
   });
 
   // Convert to items array
@@ -343,7 +343,7 @@ export async function getGuidanceSourcesForPlan(
     const processedOrgURIs = new Set<string>();
 
     // ============================================================
-    // 1. Best Practice Guidance (using existing model method)
+    // 1. Best Practice Guidance
     // ============================================================
     const bestPracticeGuidance = await VersionedGuidance.findBestPracticeByTagIds(
       reference,
@@ -369,16 +369,13 @@ export async function getGuidanceSourcesForPlan(
     // ============================================================
     // 2. Get user-selected affiliations from planGuidance table
     // ============================================================
-    const userSelections = await PlanGuidance.findByPlanIdAndUserId(
+    const userSelections = await PlanGuidance.findByPlanAndUserId(
       reference,
       context,
       planId,
       userId
     );
 
-    // ============================================================
-    // 3. Process each affiliation from planGuidance
-    // ============================================================
     for (const selection of userSelections) {
       const affiliationUri = selection.affiliationId;
 
@@ -463,7 +460,7 @@ export async function getSectionTags(
     const tagsMap: Record<number, string> = {};
 
     if (results) {
-      results.forEach((row: any) => {
+      (results as TagRow[]).forEach((row) => {
         tagsMap[row.id] = row.name;
       });
     }
@@ -498,7 +495,7 @@ export async function getSectionTagsMap(
     const tagsMap: Record<number, string> = {};
 
     if (results) {
-      results.forEach((row: any) => {
+      (results as TagRow[]).forEach((row) => {
         tagsMap[row.id] = row.name;
       });
     }

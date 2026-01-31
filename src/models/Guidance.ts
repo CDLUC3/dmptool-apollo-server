@@ -153,7 +153,7 @@ export class PlanGuidance extends MySqlModel {
     return new PlanGuidance(this);
   }
 
-  //Update an existing plan member
+  //Update an existing plan guidance
   async update(context: MyContext, noTouch = false): Promise<PlanGuidance> {
     if (await this.isValid()) {
       if (this.id) {
@@ -161,22 +161,21 @@ export class PlanGuidance extends MySqlModel {
           context,
           PlanGuidance.tableName,
           this,
-          'PlanGuidanceAffiliation.update',
-          ['memberRoleIds'],
+          'PlanGuidance.update',
+          [],
           noTouch
         );
         return await PlanGuidance.findById('PlanGuidance.update', context, this.id);
       }
-      // This template has never been saved before so we cannot update it!
-      this.addError('general', 'PlanGuidanceAffiliation has never been saved');
+      // This has never been saved before so we cannot update it!
+      this.addError('general', 'PlanGuidance has never been saved');
     }
     return new PlanGuidance(this);
   }
 
-  //Delete PlanGuidanceAffiliation
-  async delete(context: MyContext): Promise<PlanGuidance> {
+  //Delete PlanGuidance
+  async delete(context: MyContext): Promise<PlanGuidance | null> {
     if (this.id) {
-
       const deleted = await PlanGuidance.findById('PlanGuidance.delete', context, this.id);
 
       const successfullyDeleted = await PlanGuidance.delete(
@@ -188,36 +187,37 @@ export class PlanGuidance extends MySqlModel {
       if (successfullyDeleted) {
         return deleted;
       } else {
-        return null
+        return null;
       }
-
     }
     return null;
   }
 
-  // Get the affiliation details using the affilation query to find by URI
-
-  // Find the guidance Affiliation by its id
-  static async findById(reference: string, context: MyContext, id: number): Promise<PlanGuidance> {
+  // Find the plan guidance by its id
+  static async findById(
+    reference: string,
+    context: MyContext,
+    id: number
+  ): Promise<PlanGuidance | null> {
     const sql = `SELECT * FROM ${this.tableName} WHERE id = ?`;
     const results = await PlanGuidance.query(context, sql, [id?.toString()], reference);
     return Array.isArray(results) && results.length > 0 ? new PlanGuidance(results[0]) : null;
   }
 
-  // Fetch a member by the PLan and ProjectMember
+  // Fetch a guidance by the Plan and Affiliation
   static async findByPlanAndAffiliation(
     reference: string,
     context: MyContext,
     planId: number,
     affiliationId: string
-  ): Promise<PlanGuidance> {
+  ): Promise<PlanGuidance | null> {
     const sql = `SELECT * FROM ${this.tableName} WHERE planId = ? AND affiliationId = ?`;
     const results = await PlanGuidance.query(context, sql, [planId?.toString(), affiliationId?.toString()], reference);
     return Array.isArray(results) && results.length > 0 ? new PlanGuidance(results[0]) : null;
   }
 
-  // Find all guidance affiliations for a specific plan and user
-  static async findByPlanIdAndUserId(
+  // Fetch a guidance by the Plan and User ID
+  static async findByPlanAndUserId(
     reference: string,
     context: MyContext,
     planId: number,
@@ -225,17 +225,18 @@ export class PlanGuidance extends MySqlModel {
   ): Promise<PlanGuidance[]> {
     const sql = `SELECT * FROM ${this.tableName} WHERE planId = ? AND userId = ?`;
     const results = await PlanGuidance.query(context, sql, [planId?.toString(), userId?.toString()], reference);
-    return Array.isArray(results) ? results.map((entry) => new PlanGuidance(entry)) : [];
+    return Array.isArray(results) ? results.map((result) => new PlanGuidance(result)) : [];
   }
 
-  // Find a specific guidance affiliation
+
+  // Find a specific plan guidance by planID, userId and affiliationId
   static async findByPlanUserAndAffiliation(
     reference: string,
     context: MyContext,
     planId: number,
     userId: number,
     affiliationId: string
-  ): Promise<PlanGuidance> {
+  ): Promise<PlanGuidance | null> {
     const sql = `SELECT * FROM ${this.tableName} WHERE planId = ? AND userId = ? AND affiliationId = ?`;
     const results = await PlanGuidance.query(
       context,

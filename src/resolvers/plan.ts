@@ -9,7 +9,6 @@ import { hasPermissionOnProject } from "../services/projectService";
 import { PlanMember } from "../models/Member";
 import { PlanFunding } from "../models/Funding";
 import { PlanFeedback } from "../models/PlanFeedback";
-import { PlanGuidance } from "../models/Guidance";
 import { Resolvers } from "../types";
 import { VersionedTemplate } from "../models/VersionedTemplate";
 import { Answer } from "../models/Answer";

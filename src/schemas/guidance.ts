@@ -6,8 +6,6 @@ export const typeDefs = gql`
     guidanceByGroup(guidanceGroupId: Int!): [Guidance!]!
     "Get a specific Guidance item by ID"
     guidance(guidanceId: Int!): Guidance
-    "Get guidance items for a specific plan and user"
-    planGuidance(planId: Int!): [PlanGuidance!]!
     "Get all guidance sources for a plan, optionally filtered by section"
     guidanceSourcesForPlan(planId: Int!, versionedSectionId: Int, versionedQuestionId: Int): [GuidanceSource!]!
   }

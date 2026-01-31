@@ -3,10 +3,18 @@
 ## v1.1.0
 
 ### Added
+- Added data-migration script to create new `planGuidance` JOIN table [#29]
+- Added a new method `searchManagedWithPublishedGuidance` to `Affiliation` model for managed Affiliations that have published guidance associated with them [#29]
+- Added `managedAffiliationsWithGuidance` query to `Affiliation` resolvers [#29]
+- Added `guidanceSourcesForPlans` query and `addPlanGuidance` and `removePlanGuidance` to `guidance` resolvers [#29]
+- Added a new `PlanGuidance` model and schema to accommodate the new `planGuidance` table [#29]
+- Added `acronyms` to `AffiliationSearch` schema so that client can get shortened names of affiliations [#29]
+- Added new methods to `guidanceServices`: `groupGuidanceByTag`, `getGuidanceSourcesForPlan`, `getSectionTags`,`getSectionTagsMap1` and `addPlanGuidanceAffiliation` [#29]
 - Added `ownerAffiliation` chained resolvers to `versionedQuestion` [#18]
 - added `@as-integrations/express5` for Apollo-Express integration
 
 ### Updated
+- Updated the `Plan` model's `create` function to auto-populate the `planGuidance` table when a plan is created [#29]
 - Updated `findBestPracticeByTagIds` and `findByAffiliationAndTagIds` in `VersionedGuidance` to remove the use of `VersionedGuidanceTags` table, since there is not table with that name [#18]
 - Regenerated `src/types` using new `graphql-codegen` version
 - Updated `tokenService` to use `uuid` instead of `uuidv4` package

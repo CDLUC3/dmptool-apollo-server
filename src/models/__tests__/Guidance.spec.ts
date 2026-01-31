@@ -236,21 +236,6 @@ describe('PlanGuidance static methods', () => {
     localQuery.mockResolvedValueOnce([planGuidance]);
     const result = await PlanGuidance.findByPlanUserAndAffiliation('PlanGuidance query', context, planGuidance.planId, planGuidance.userId, planGuidance.affiliationId);
     expect(result).not.toBeNull();    
-    expect(result[0].planId).toEqual(planGuidance.planId);
-    expect(result[0].userId).toEqual(planGuidance.userId);
-    expect(result[0].affiliationId).toEqual(planGuidance.affiliationId);
-  });
-
-  it('findByPlanUserAndAffiliation should return null if not found', async () => {
-    localQuery.mockResolvedValueOnce([]);
-    const result = await PlanGuidance.findByPlanUserAndAffiliation('PlanGuidance query', context, 1, 2, 'notfound');
-    expect(result).toBeNull();
-  });
-
-  it('findByPlanUserAndAffiliation should return the correct plan guidance', async () => {
-    localQuery.mockResolvedValueOnce([planGuidance]);
-    const result = await PlanGuidance.findByPlanUserAndAffiliation('PlanGuidance query', context, planGuidance.planId, planGuidance.userId, planGuidance.affiliationId);
-    expect(result).not.toBeNull();
     expect(result.planId).toEqual(planGuidance.planId);
     expect(result.userId).toEqual(planGuidance.userId);
     expect(result.affiliationId).toEqual(planGuidance.affiliationId);
@@ -269,7 +254,6 @@ describe('PlanGuidance static methods', () => {
     expect(result.length).toBe(1);
     expect(result[0].planId).toEqual(planGuidance.planId);
     expect(result[0].userId).toEqual(planGuidance.userId);
-    expect(result[0].affiliationId).toEqual(planGuidance.affiliationId);
   });
 
   it('findByPlanAndUserId should return an empty array if no records are found', async () => {

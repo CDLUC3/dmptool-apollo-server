@@ -32,6 +32,9 @@
 - Removed deprecated `@types/bcrypt` and `uuidv4` packages
 - Removed `ioredis` package
 
+### Chore
+- Updated version of aws SDK `@aws-sdk/client-dynamodb` to : `v3.893.0`, `@aws-sdk/client-ssm` to `v3.893.0`, `@aws-sdk/credential-providers` to v`3.893.0`, and `@aws-sdk/util-dynamodb` to v: `3.893.0` and added override for `fast-xml-parser` to `5.3.4` due to high vulnerability.
+
 ## v1.0
 
 ### Updated

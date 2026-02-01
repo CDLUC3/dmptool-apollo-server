@@ -17,7 +17,6 @@ import { getCurrentDate } from "../../utils/helpers";
 import * as PlanVersionModule from "../PlanVersion";
 import { PlanGuidance } from "../Guidance";
 import { VersionedTemplate } from "../VersionedTemplate";
-import { Project } from "../Project";
 
 jest.mock('../../context.ts');
 
@@ -629,6 +628,16 @@ describe('create', () => {
 
   it('should add PlanGuidance entries for template owner and user affiliation', async () => {
     const planGuidanceCreate = jest.spyOn(PlanGuidance.prototype, 'create').mockResolvedValue(undefined);
+    
+    // Mock VersionedTemplate to return an owner
+    const mockVersionedTemplate = { ownerId: 'https://ror.org/template-owner' };
+    (VersionedTemplate.findById as jest.Mock) = jest.fn().mockResolvedValue(mockVersionedTemplate);
+    
+    // Mock successful insert and findById
+    insertQuery.mockResolvedValueOnce(123);
+    const createdPlan = new Plan({ ...planData, id: 123 });
+    (Plan.findById as jest.Mock) = jest.fn().mockResolvedValueOnce(createdPlan);
+    (PlanVersionModule.addVersion as jest.Mock) = jest.fn().mockResolvedValueOnce(createdPlan);
 
     const plan = new Plan(planData);
     await plan.create(context);

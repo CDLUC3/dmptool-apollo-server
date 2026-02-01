@@ -112,7 +112,6 @@ export const resolvers: Resolvers = {
             versionedQuestionId
           );
 
-          console.log("*** guidanceSourcesForPlan:", sources);
           return sources;
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();

@@ -4,6 +4,7 @@ import { buildMockContextWithToken } from "../../__mocks__/context";
 import { DMPHubConfig } from "../../config/dmpHubConfig";
 import { generalConfig } from "../../config/generalConfig";
 import { logger } from "../../logger";
+import { PaginationType } from "../../types/general";
 
 let context;
 jest.mock('../../context.ts');
@@ -631,8 +632,9 @@ describe('searchManagedWithPublishedGuidance', () => {
 
   it('should call queryWithPagination with correct params and return paginated results', async () => {
     const name = 'Virginia';
-    const options = { sortField: undefined, sortDir: undefined, type: undefined };
+    const options = { sortField: undefined, sortDir: undefined, type: PaginationType.OFFSET };
     const expectedOpts = expect.objectContaining({
+      type: PaginationType.OFFSET,
       sortField: 'a.displayName',
       sortDir: 'ASC',
       availableSortFields: ['a.displayName', 'a.created'],
@@ -645,7 +647,7 @@ describe('searchManagedWithPublishedGuidance', () => {
       'TestRef',
       context,
       name,
-      options as any
+      options
     );
 
     const expectedSql = expect.stringContaining('FROM affiliations a');
@@ -666,7 +668,7 @@ describe('searchManagedWithPublishedGuidance', () => {
       expectedWhere,
       expectedGroupBy,
       expectedVals,
-      expect.objectContaining(expectedOpts),
+      expectedOpts,
       'TestRef'
     );
     expect(result).toEqual({ results: [affiliationSearch], totalCount: 1 });
@@ -679,7 +681,7 @@ describe('searchManagedWithPublishedGuidance', () => {
       'TestRef',
       context,
       undefined,
-      {} as any
+      { type: PaginationType.OFFSET }
     );
 
     expect(localQueryWithPagination).toHaveBeenCalledWith(
@@ -702,7 +704,7 @@ describe('searchManagedWithPublishedGuidance', () => {
   it('should propagate errors from queryWithPagination', async () => {
     localQueryWithPagination.mockRejectedValueOnce(new Error('Query failed'));
     await expect(
-      AffiliationSearch.searchManagedWithPublishedGuidance('TestRef', context, 'foo', {} as any)
+      AffiliationSearch.searchManagedWithPublishedGuidance('TestRef', context, 'foo',   { type: PaginationType.OFFSET })
     ).rejects.toThrow('Query failed');
   });
 });

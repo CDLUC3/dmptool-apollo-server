@@ -36,7 +36,6 @@ export interface GuidanceSource {
   items: GuidanceItem[];
   hasGuidance: boolean;
 }
-
 interface TagRow { 
   id: number; 
   name: string 
@@ -236,12 +235,12 @@ export const markGuidanceGroupAsDirty = async (
 
 
 /**
- * Group guidance by tag and combine texts
+ * Group guidance by tag and combine text so we can display together for each affiliation/source
  */
 function groupGuidanceByTag(
   versionedGuidanceItems: VersionedGuidance[],
   sectionTagIds: number[],
-  tagsMap: Record<number, string> // Add tagsMap parameter
+  tagsMap: Record<number, string>
 ): GuidanceItem[] {
 
   // Filter to only include guidance for tags in this section
@@ -278,7 +277,12 @@ function groupGuidanceByTag(
 }
 
 /**
- * Get all guidance sources for a plan (optionally filtered by section)
+ * Get all guidance sources for a plan (optionally filtered by section or question)
+ * And order them by priority:
+ * 1. Best Practice Guidance
+ * 2. User's Affiliation Guidance
+ * 3. Template Owner's Guidance
+ * 4. User-Selected Guidance
  */
 export async function getGuidanceSourcesForPlan(
   context: MyContext,
@@ -309,12 +313,17 @@ export async function getGuidanceSourcesForPlan(
 
     // Get user's affiliation
     const user = await User.findById(reference, context, userId);
+    if (!user) {
+      context.logger.warn({ userId, planId }, 'User not found for guidance sources query');
+      return [];
+    }
     const userAffiliationUri = user?.affiliationId;
 
     // Get section tag IDs and section-level guidance
     let tagsMap: Record<number, string>;
     let guidanceText: string | null = null;
 
+    // If there is a versionedQuestionId provided, get tags and guidance for that question's section
     if (versionedQuestionId) {
       // Question-specific query: get question's tags and guidance
       const question = await VersionedQuestion.findById(reference, context, versionedQuestionId);
@@ -325,13 +334,13 @@ export async function getGuidanceSourcesForPlan(
       // Get tags for the question's section
       tagsMap = await getSectionTags(context, question.versionedSectionId);
       guidanceText = question.guidanceText || null; // Question-level guidance
-    } else if (versionedSectionId) {
-      // Section query: get section's tags and guidance
+    } else if (versionedSectionId) { // Otherwise, get tags and guidance for the section id provided
+
       tagsMap = await getSectionTags(context, versionedSectionId);
       const section = await VersionedSection.findById(reference, context, versionedSectionId);
       guidanceText = section?.guidance || null; // Section-level guidance
     } else {
-      // All sections: get all tags (no specific guidance)
+      // All sections: get all tags for all sections under given parent template
       tagsMap = await getSectionTagsMap(context, versionedTemplateId);
     }
 
@@ -383,7 +392,7 @@ export async function getGuidanceSourcesForPlan(
     // ============================================================
     // 2. Get user's affiliation guidance
     // ============================================================
-  if (userAffiliationUri) {
+    if (userAffiliationUri) {
       const userAffiliationSelection = userSelections.find(
         selection => selection.affiliationId === userAffiliationUri
       );
@@ -486,7 +495,6 @@ export async function getGuidanceSourcesForPlan(
         continue;
       }
 
-      // Fetch TAG-BASED guidance
       const tagBasedGuidance = await VersionedGuidance.findByAffiliationAndTagIds(
         reference,
         context,
@@ -515,7 +523,7 @@ export async function getGuidanceSourcesForPlan(
 
     return guidanceSources;
   } catch (err) {
-    context.logger.error({ err, planId, versionedSectionId }, 'Error getting guidance sources for plan');
+    context.logger.error({ err, planId, versionedSectionId, versionedQuestionId }, 'Error getting guidance sources for plan');
     return [];
   }
 }

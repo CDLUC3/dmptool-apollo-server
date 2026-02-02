@@ -437,13 +437,42 @@ To run the tests (without a running DB): `npm run test-no-db`
 To run the Trivy security scans: `npm run trivy-all`
 
 
+### LocalStack
+
+We are using LocalStack to emulate AWS services within the docker compose environment. It creates a DyanmoDB Table, SQS Queue and Lambda Functions.
+
+The DynamoDB table is used to store maDMP Plan version records. That data is managed by a Lambda function triggered by SQS messages.
+
+**Note:** These resources are NOT persisted between docker compose runs. We would need a "pro" account with LocalStack for that. Fortunately, it is ok for these resources to be deleted each run. The Apollo server does not interact directly with the DynamoDB table and does not yet need to access historical copies of a Plan. Localstack allows us though to see and debug SQS messages sent to the queue that should trigger Lambda functions as well as watch the Lambda function logs to ensure that they are behaving as expected.
+
+The LocalStack configuration can be found in the `docker-compose.yml` file. It uses a `./localstack-setup/init-aws.sh` script to build the resources using `awslocal` CLI commands. 
+
+The code for the Lambda functions (in ZIP format) can be found in the `./lambdas` folder.
+Both the init script and lambda ZIP files are mounted into the docker container at runtime.
+
+**Note:** You can skip setting up the Lambda Function and the Apollo application will still run normally. You will however see errors in the logs like `localstack     | 2026-02-02T19:04:33.720  INFO --- [et.reactor-0] localstack.request.aws     : AWS sqs.SendMessage => 400 (QueueDoesNotExist)`. These errors can be ignored.
+
+If you need to update the Lambda function, pull down the latest ZIP archive and drop it into the `./lambdas` folder. Note you will need to restart docker compose for the changes to take effect. 
+For example: `cp ../dmptool-infrastructure/src/lambda/function/generateMaDMPRecord/generateMaDMPRecord.zip ./lambdas`
+
+The docker compose output will show calls to LocalStack managed resources.
+
+To view or watch the Lambda function logs you can run: `awslocal logs tail /aws/lambda/generateMaDMPRecord --follow`. Note that if the Lambda has not run yet, the log group will not exist, so you will see an error like `An error occurred (ResourceNotFoundException) when calling the FilterLogEvents operation: The specified log group does not exist.`. Wait until you see Lambda activity in the docker compose output and try again.
+
+You can query the DynamoDB Table for a Plan's maDMP records. To do that, you should first find the Plan's `dmpId` value. 
+
+The DynamoDB table uses the DMP Id as a partition key. Istead of the `https://` though, it uses a prefix of `DMP#`. For example `DMP#doi.org/11.22222/3A4B5C6d`.
+ 
+To fetch the latest RDA Common Standard record for a specific Plan: `awslocal dynamodb get-item --table-name localDMPTable --key '{"PK":{"S":"DMP#<PLAN DMP ID>"},"SK":{"S":"VERSION#latest"}}'`
+To fetch the latest DMP Tool Extensions record for a specific Plan: `awslocal dynamodb get-item --table-name localDMPTable --key '{"PK":{"S":"DMP#<PLAN DMP ID>"},"SK":{"S":"EXTENSION#latest"}}'`
+To fetch ALL records for a specific Plan (including historical versions): `awslocal dynamodb query --table-name localDMPTable --key-condition-expression "PK = :pk" --expression-attribute-values '{":pk":{"S":"DMP#<PLAN DMP ID>"}}'`
+
+
 ### Data Models
 
-This system uses several data sources: A MySQL database, a DynamoDB table and a Redis cache to store information.
+This system uses several data sources: A MySQL database, a Redis cache to store token info, and various external APIs.
 
 The Redis cache is used to store ephemeral data like refresh tokens and GraphQL query results. This data has TTL settings.
-
-The DynamoDB Table (aka the DMPHub) stores the metadata for a DMP in the [DMP Metadata Standard developed by the Research Data Alliance (RDA)](https://github.com/RDA-DMP-Common/RDA-DMP-Common-Standard).
 
 In development, you can review the JSON store in the DynamoDB table by executing AWS CLI commands from within the docker container for the apollo server application.
 

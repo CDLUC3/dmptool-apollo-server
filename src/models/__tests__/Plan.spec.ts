@@ -1,16 +1,7 @@
 import casual from "casual";
 import { buildMockContextWithToken } from "../../__mocks__/context";
 import { logger } from "../../logger";
-import { defaultLanguageId } from "../Language";
-import { generalConfig } from "../../config/generalConfig";
-import { getCurrentDate } from "../../utils/helpers";
-import { DMPToolDMPType } from "@dmptool/types";
-import { MyContext } from "../../context";
-import {
-  getMockDMPId,
-  getMockORCID,
-  getRandomEnumValue
-} from "../../__tests__/helpers";
+import { getMockDMPId, getRandomEnumValue } from "../../__tests__/helpers";
 import {
   DEFAULT_TEMPORARY_DMP_ID_PREFIX,
   Plan,
@@ -20,86 +11,22 @@ import {
   PlanStatus,
   PlanVisibility
 } from "../Plan";
-import {
-  createMaDMP,
-  deleteMaDMP,
-  updateMaDMP,
-  tombstoneMaDMP
-} from "../../datasources/dynamo";
-import {
-  convertMySQLDateTimeToRFC3339,
-  planToDMPCommonStandard
-} from "@dmptool/utils";
+import { defaultLanguageId } from "../Language";
+import { generalConfig } from "../../config/generalConfig";
+import { getCurrentDate } from "../../utils/helpers";
 
 jest.mock('../../context.ts');
-jest.mock('../../datasources/dynamo.ts');
 
-jest.mock('@dmptool/utils', () => ({
-  ...jest.requireActual('@dmptool/utils'), // Keep other utils working
-  planToDMPCommonStandard: jest.fn(),      // Mock only this specific function
-}));
-
-const mockCreateMaDMPs = createMaDMP as jest.MockedFunction<typeof createMaDMP>;
-const mockDeleteMaDMPs = deleteMaDMP as jest.MockedFunction<typeof deleteMaDMP>;
-const mockUpdateMaDMPs = updateMaDMP as jest.MockedFunction<typeof updateMaDMP>;
-const mockTombstoneMaDMPs = tombstoneMaDMP as jest.MockedFunction<typeof tombstoneMaDMP>;
-const mockPlanToDMPCommonStandard = planToDMPCommonStandard as jest.MockedFunction<typeof planToDMPCommonStandard>;
-
-let context: MyContext;
-let mockPlan: Plan;
-let mockDMP: DMPToolDMPType;
+let context;
 
 beforeEach(async () => {
-  jest.clearAllMocks();
+  jest.resetAllMocks();
 
   context = await buildMockContextWithToken(logger);
+});
 
-  mockPlan = new Plan({
-    id: casual.integer(1, 999),
-    projectId: casual.integer(1, 99),
-    versionedTemplateId: casual.integer(1, 99),
-    title: casual.sentence,
-    dmpId: casual.url,
-    status: getRandomEnumValue(PlanStatus),
-    visibility: getRandomEnumValue(PlanVisibility),
-    registeredById: casual.integer(1, 99),
-    registered: casual.date('YYYY-MM-DD'),
-    languageId: defaultLanguageId,
-    featured: casual.boolean,
-  });
-
-  mockDMP = {
-    dmp: {
-      title: mockPlan.title,
-      dmp_id: {
-        identifier: mockPlan.dmpId,
-        type: 'doi'
-      },
-      created: convertMySQLDateTimeToRFC3339(mockPlan.created),
-      modified: convertMySQLDateTimeToRFC3339(mockPlan.modified),
-      ethical_issues_exist: 'unknown',
-      language: 'eng',
-      contact: {
-        name: casual.name,
-        mbox: casual.email,
-        contact_id: [{
-          identifier: getMockORCID(),
-          type: 'orcid'
-        }]
-      },
-      dataset: [{
-        title: casual.sentence,
-        dataset_id: {
-          identifier: 'https://example.com/projects/123/dmps/12345/outputs/9876',
-          type: 'other'
-        },
-        personal_data: 'unknown',
-        sensitive_data: 'no',
-      }]
-    }
-  } as DMPToolDMPType;
-
-  mockPlanToDMPCommonStandard.mockResolvedValue(mockDMP);
+afterEach(() => {
+  jest.clearAllMocks();
 });
 
 describe('PlanSearchResult', () => {
@@ -177,29 +104,29 @@ describe('PlanSearchResult.findByProjectId', () => {
     localQuery.mockResolvedValueOnce([planSearchResult]);
     const projectId = casual.integer(1, 99);
     const sql = 'SELECT p.id, ' +
-                'CONCAT(cu.givenName, CONCAT(\' \', cu.surName)) createdBy, p.created, ' +
-                'CONCAT(cm.givenName, CONCAT(\' \', cm.surName)) modifiedBy, p.modified, ' +
-                'p.versionedTemplateId, p.title, p.status, p.visibility, p.dmpId, ' +
-                'CONCAT(cr.givenName, CONCAT(\' \', cr.surName)) registeredBy, p.registered, p.featured, ' +
-                'GROUP_CONCAT(DISTINCT CONCAT(prc.givenName, CONCAT(\' \', prc.surName, ' +
-                  'CONCAT(\' (\', CONCAT(r.label, \')\'))))) members, ' +
-                'GROUP_CONCAT(DISTINCT fundings.name) funding ' +
-              'FROM plans p ' +
-                'LEFT JOIN users cu ON cu.id = p.createdById ' +
-                'LEFT JOIN users cm ON cm.id = p.modifiedById ' +
-                'LEFT JOIN users cr ON cr.id = p.registeredById ' +
-                'LEFT JOIN planMembers plc ON plc.planId = p.id ' +
-                  'LEFT JOIN projectMembers prc ON prc.id = plc.projectMemberId ' +
-                  'LEFT JOIN planMemberRoles plcr ON plc.id = plcr.planMemberId ' +
-                    'LEFT JOIN memberRoles r ON plcr.memberRoleId = r.id ' +
-                'LEFT JOIN planFundings ON planFundings.planId = p.id ' +
-                  'LEFT JOIN projectFundings ON projectFundings.id = planFundings.projectFundingId ' +
-                    'LEFT JOIN affiliations fundings ON projectFundings.affiliationId = fundings.uri ' +
-              'WHERE p.projectId = ? ' +
-              'GROUP BY p.id, cu.givenName, cu.surName, cm.givenName, cm.surName, ' +
-                'p.title, p.status, p.visibility, ' +
-                'p.dmpId, cr.givenName, cr.surName, p.registered, p.featured ' +
-              'ORDER BY p.created DESC;';
+      'CONCAT(cu.givenName, CONCAT(\' \', cu.surName)) createdBy, p.created, ' +
+      'CONCAT(cm.givenName, CONCAT(\' \', cm.surName)) modifiedBy, p.modified, ' +
+      'p.versionedTemplateId, p.title, p.status, p.visibility, p.dmpId, ' +
+      'CONCAT(cr.givenName, CONCAT(\' \', cr.surName)) registeredBy, p.registered, p.featured, ' +
+      'GROUP_CONCAT(DISTINCT CONCAT(prc.givenName, CONCAT(\' \', prc.surName, ' +
+      'CONCAT(\' (\', CONCAT(r.label, \')\'))))) members, ' +
+      'GROUP_CONCAT(DISTINCT fundings.name) funding ' +
+      'FROM plans p ' +
+      'LEFT JOIN users cu ON cu.id = p.createdById ' +
+      'LEFT JOIN users cm ON cm.id = p.modifiedById ' +
+      'LEFT JOIN users cr ON cr.id = p.registeredById ' +
+      'LEFT JOIN planMembers plc ON plc.planId = p.id ' +
+      'LEFT JOIN projectMembers prc ON prc.id = plc.projectMemberId ' +
+      'LEFT JOIN planMemberRoles plcr ON plc.id = plcr.planMemberId ' +
+      'LEFT JOIN memberRoles r ON plcr.memberRoleId = r.id ' +
+      'LEFT JOIN planFundings ON planFundings.planId = p.id ' +
+      'LEFT JOIN projectFundings ON projectFundings.id = planFundings.projectFundingId ' +
+      'LEFT JOIN affiliations fundings ON projectFundings.affiliationId = fundings.uri ' +
+      'WHERE p.projectId = ? ' +
+      'GROUP BY p.id, cu.givenName, cu.surName, cm.givenName, cm.surName, ' +
+      'p.title, p.status, p.visibility, ' +
+      'p.dmpId, cr.givenName, cr.surName, p.registered, p.featured ' +
+      'ORDER BY p.created DESC;';
 
     const result = await PlanSearchResult.findByProjectId('testing', context, projectId);
     expect(localQuery).toHaveBeenCalledTimes(1);
@@ -331,7 +258,7 @@ describe('PlanProgress', () => {
     expect(progress.totalQuestions).toEqual(progressData.totalQuestions);
     expect(progress.answeredQuestions).toEqual(progressData.answeredQuestions);
     expect(progress.percentComplete).toEqual(Math.round(
-        progressData.answeredQuestions / progressData.totalQuestions * 100));
+      progressData.answeredQuestions / progressData.totalQuestions * 100));
   });
 });
 
@@ -615,10 +542,7 @@ describe('publish', () => {
     const result = await plan.publish(context);
 
     expect(Object.keys(result.errors).length).toBe(0);
-    mockUpdateMaDMPs.mockResolvedValueOnce(mockDMP);
-
     expect(result).toBeInstanceOf(Plan);
-    expect(mockUpdateMaDMPs).toHaveBeenCalled();
   });
 
   it('returns an error if the Plan is not valid', async () => {
@@ -629,7 +553,6 @@ describe('publish', () => {
     const result = await plan.publish(context);
     expect(result instanceof Plan).toBe(true);
     expect(localValidator).toHaveBeenCalledTimes(1);
-    expect(mockUpdateMaDMPs).not.toHaveBeenCalled();
   });
 
   it('returns an error if the Plan is already published', async () => {
@@ -639,7 +562,6 @@ describe('publish', () => {
     const result = await plan.publish(context);
     expect(Object.keys(result.errors).length).toBe(1);
     expect(result.errors['general']).toBeTruthy();
-    expect(mockUpdateMaDMPs).not.toHaveBeenCalled();
   });
 });
 
@@ -671,7 +593,6 @@ describe('create', () => {
     plan.projectId = undefined;
     const response = await plan.create(context);
     expect(response.errors['projectId']).toBe('Project can\'t be blank');
-    expect(mockCreateMaDMPs).not.toHaveBeenCalled();
   });
 
   it('returns the newly added Plan', async () => {
@@ -686,7 +607,6 @@ describe('create', () => {
     expect(insertQuery).toHaveBeenCalledTimes(1);
     expect(Object.keys(result.errors).length).toBe(0);
     expect(result).toBeInstanceOf(Plan);
-    expect(mockCreateMaDMPs).toHaveBeenCalled();
   });
 });
 
@@ -721,7 +641,6 @@ describe('update', () => {
     const result = await plan.update(context);
     expect(result instanceof Plan).toBe(true);
     expect(localValidator).toHaveBeenCalledTimes(1);
-    expect(mockUpdateMaDMPs).not.toHaveBeenCalled();
   });
 
   it('returns an error if the Plan has no id', async () => {
@@ -733,13 +652,13 @@ describe('update', () => {
     const result = await plan.update(context);
     expect(Object.keys(result.errors).length).toBe(1);
     expect(result.errors['general']).toBeTruthy();
-    expect(mockUpdateMaDMPs).not.toHaveBeenCalled();
   });
 
   it('returns the updated Plan', async () => {
     const localValidator = jest.fn();
     (plan.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValue(true);
+
     updateQuery.mockResolvedValueOnce(plan);
 
     const result = await plan.update(context);
@@ -748,7 +667,6 @@ describe('update', () => {
     expect(updateQuery).toHaveBeenCalledTimes(1);
     expect(Object.keys(result.errors).length).toBe(0);
     expect(result).toBeInstanceOf(Plan);
-    expect(mockUpdateMaDMPs).toHaveBeenCalled();
   });
 
   it('does not do any versioning if noTouch is true', async () => {
@@ -763,7 +681,6 @@ describe('update', () => {
     expect(updateQuery).toHaveBeenCalledTimes(1);
     expect(Object.keys(result.errors).length).toBe(0);
     expect(result).toBeInstanceOf(Plan);
-    expect(mockUpdateMaDMPs).not.toHaveBeenCalled();
   });
 
   it('does not do any versioning if the Plan update failed', async () => {
@@ -778,14 +695,26 @@ describe('update', () => {
     expect(updateQuery).toHaveBeenCalledTimes(1);
     expect(Object.keys(result.errors).length).toBe(0);
     expect(result).toBeInstanceOf(Plan);
-    expect(mockUpdateMaDMPs).not.toHaveBeenCalled();
   });
 });
 
 describe('delete', () => {
+  let plan;
+
+  beforeEach(() => {
+    plan = new Plan({
+      id: casual.integer(1, 999),
+      projectId: casual.integer(1, 99),
+      versionedTemplateId: casual.integer(1, 99),
+      dmpId: casual.url,
+      languageId: defaultLanguageId,
+      featured: casual.boolean,
+    });
+  })
+
   it('returns null if the Plan has no id', async () => {
-    mockPlan.id = null;
-    expect(await mockPlan.delete(context)).toBe(null);
+    plan.id = null;
+    expect(await plan.delete(context)).toBe(null);
   });
 
   it('returns null if it was not able to delete the record', async () => {
@@ -793,67 +722,22 @@ describe('delete', () => {
     (Plan.delete as jest.Mock) = deleteQuery;
 
     deleteQuery.mockResolvedValueOnce(null);
-    expect(await mockPlan.delete(context)).toBe(null);
-    expect(mockDeleteMaDMPs).not.toHaveBeenCalled();
-    expect(mockTombstoneMaDMPs).not.toHaveBeenCalled();
+    expect(await plan.delete(context)).toBe(null);
   });
 
   it('returns the Plan if it was able to delete the record', async () => {
-    mockPlan.registered = null;
-
     const deleteQuery = jest.fn();
     (Plan.delete as jest.Mock) = deleteQuery;
-    deleteQuery.mockResolvedValueOnce(mockPlan);
+    deleteQuery.mockResolvedValueOnce(plan);
 
     const mockFindById = jest.fn();
     (Plan.findById as jest.Mock) = mockFindById;
-    mockFindById.mockResolvedValue(mockPlan);
+    mockFindById.mockResolvedValueOnce(plan);
 
-    const result = await mockPlan.delete(context);
+    const result = await plan.delete(context);
     expect(Object.keys(result.errors).length).toBe(0);
     expect(result).toBeInstanceOf(Plan);
     expect(deleteQuery).toHaveBeenCalledTimes(1);
     expect(mockFindById).toHaveBeenCalledTimes(1);
-    expect(mockDeleteMaDMPs).toHaveBeenCalledTimes(1);
-    expect(mockTombstoneMaDMPs).not.toHaveBeenCalled();
-  });
-
-  it('returns the Plan if it was registered and we were able to tombstone the record', async () => {
-    mockPlan.registered = getCurrentDate();
-
-    const deleteQuery = jest.fn();
-    (Plan.delete as jest.Mock) = deleteQuery;
-    deleteQuery.mockResolvedValueOnce(mockPlan);
-
-    const mockFindById = jest.fn();
-    (Plan.findById as jest.Mock) = mockFindById;
-    mockFindById.mockResolvedValueOnce(mockPlan);
-
-    const result = await mockPlan.delete(context);
-    expect(Object.keys(result.errors).length).toBe(0);
-    expect(result).toBeInstanceOf(Plan);
-    expect(deleteQuery).toHaveBeenCalledTimes(1);
-    expect(mockFindById).toHaveBeenCalledTimes(1);
-    expect(mockDeleteMaDMPs).not.toHaveBeenCalled();
-    expect(mockTombstoneMaDMPs).toHaveBeenCalled();
-  });
-});
-
-describe('convertPlanToMaDMP', () => {
-  it("should convert a Plan to maDMP format", async () => {
-    (planToDMPCommonStandard as jest.Mock).mockResolvedValue(mockDMP);
-
-    const result = await Plan.convertPlanToMaDMP(context, mockPlan.id, true);
-
-    expect(planToDMPCommonStandard).toHaveBeenCalled();
-    expect(result).toEqual(mockDMP);
-  });
-
-  it("should throw error when conversion fails", async () => {
-    const error = new Error("Conversion failed");
-    (planToDMPCommonStandard as jest.Mock).mockRejectedValue(error);
-
-    await expect(Plan.convertPlanToMaDMP(context, mockPlan.id)).rejects.toThrow(error);
-    expect(context.logger.error).toHaveBeenCalled();
   });
 });

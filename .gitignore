@@ -10,11 +10,15 @@ node_modules/
 # Skip the compile distribution files
 dist/
 
+# Skip all local AWS Lambda Functions hosted in LocalStack
+lambdas/
+
 # Skip the Jest code coverage folder
 coverage/
 
 # Ignore the persisted data sources for the local Docker dev env
 docker/
+volume/
 
 # Ignore VS Code files, like the launch.json file
 .vscode/

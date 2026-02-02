@@ -31,11 +31,9 @@ jest.mock('../config/awsConfig', () => ({
     sesAccessSecret: '98765',
     sesBounceAddress: 'bounce@example.com',
     sesBouncedEmailBucket: 'my-test-bucket',
-    dynamo: {
-      tableName: 'test-table',
-      endpoint: 'http://localhost:8000',
-      versioningGracePeriodInMS: 60000
-    },
+    sqs: {
+      generateMaDMPQueueUrl: 'http://sqs.example.com/queue/generateMadmp'
+    }
   }
 }));
 

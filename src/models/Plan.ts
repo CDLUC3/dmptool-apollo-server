@@ -1,23 +1,10 @@
 // Represents an entry from the projectPlans table
-import { mysqlPoolConfig } from "../config/mysqlConfig";
-import { envAsEnumValue, generalConfig } from "../config/generalConfig";
+import { generalConfig } from "../config/generalConfig";
 import { MyContext } from "../context";
-import { prepareObjectForLogs } from "../logger";
-import { DMPToolDMPType } from "@dmptool/types";
-import { getCurrentDate, valueIsEmpty } from "../utils/helpers";
+import { getCurrentDate, isNullOrUndefined, randomHex, valueIsEmpty } from "../utils/helpers";
 import { MySqlModel } from "./MySqlModel";
 import { Project } from "./Project";
 import { Tag } from "./Tag";
-import {
-  DMP_LATEST_VERSION, randomHex, isNullOrUndefined,
-  planToDMPCommonStandard
-} from "@dmptool/utils";
-import {
-  createMaDMP,
-  deleteMaDMP, getMaDMP, getMaDMPVersionTimestamps,
-  tombstoneMaDMP,
-  updateMaDMP
-} from "../datasources/dynamo";
 
 export const DEFAULT_TEMPORARY_DMP_ID_PREFIX = 'temp-dmpId-';
 
@@ -248,34 +235,6 @@ export class PlanProgress {
 
 /**
  * Class that represents a Plan/DMP
- *
- * Plan versioning management:
- *
- * Plan versions are also known as maDMP snapshots in this system.
- *
- * Versions are stored in the DynamoDB table in the maDMP format which is made
- * up of a combination of:
- * - The RDA Common Standard https://github.com/RDA-DMP-Common/RDA-DMP-Common-Standard
- * - DMP Tool specific extensions to that standard
- * See the @dmptool/types for details on the structure of these formats.
- *
- * A Plan always has a "latest" version that is the most recent snapshot of the DMP.
- *
- * When a plan is first created, an initial version snapshot is created. this becomes the "latest" version.
- * This initial version has the following properties:
- *  - created: current timestamp
- *  - modified: current timestamp
- *  - dmpId: unique identifier for the DMP
- *
- * When a plan (or any aspect of the parent project) is updated, a check is performed to see if the
- * "latest" version of the DMP has been modified within the last x hour(s) (x is defined in
- * generalConfig.versionPlanAfter). If it has been modified within that time frame, the "latest" version
- * is updated directly. If it has not been modified within that time frame, a version snapshot is created.
- *
- * A version snapshot is the state of the "latest" version at the time the change is being made. The
- * version snapshot is created and then the changes are made to the "latest" version.
- *
- * Each time a change is made, the "latest" version's modified timestamp is updated to the current timestamp.
  */
 export class Plan extends MySqlModel {
   public projectId: number;
@@ -394,25 +353,7 @@ export class Plan extends MySqlModel {
 
           // Update the plan
           const updated = await this.update(context);
-
           if (updated && !updated.hasErrors()) {
-            // TODO: Eventually make a asyncronous call to EZID to register the DMP ID (DOI)
-
-            // Update the maDMP snapshot
-            const maDMP = await updateMaDMP(
-              context,
-              this.dmpId,
-              await Plan.convertPlanToMaDMP(context, this.id),
-              false // We're not returning it, so no need to return the extensions too
-            );
-
-            // Log an error if the maDMP activity failed but allow the process to continue
-            if (!maDMP) {
-              context.logger.error(
-                prepareObjectForLogs({ planId: this }),
-                'Unable to update the maDMP version for DOI registration.'
-              );
-            }
             return new Plan(updated);
           }
         } else {
@@ -443,7 +384,7 @@ export class Plan extends MySqlModel {
         this.title = project?.title;
       }
 
-      // First make sure the record is valid
+      // Make sure the record is valid
       if (await this.isValid()) {
         this.prepForSave();
 
@@ -454,21 +395,6 @@ export class Plan extends MySqlModel {
         if (newId) {
           const newPlan = await Plan.findById(reference, context, newId);
           if (newPlan) {
-            // Generate the version history of the DMP
-            const maDMP = await createMaDMP(
-              context,
-              newPlan.dmpId,
-              await Plan.convertPlanToMaDMP(context, this.id),
-              false // We're not returning it, so no need to return the extensions too
-            );
-
-            // Log an error if the maDMP activity failed but allow the process to continue
-            if (!maDMP) {
-              context.logger.error(
-                prepareObjectForLogs({ plan: newPlan }),
-                'Unable to create an initial maDMP version.'
-              );
-            }
             return new Plan(newPlan);
           } else {
             this.addError('general', 'Unable to create your plan.');
@@ -499,26 +425,8 @@ export class Plan extends MySqlModel {
         let updated = await Plan.update(context, Plan.tableName, this, reference, [], noTouch) as Plan;
         if (updated) {
           updated = new Plan(updated);
-          // Do not update any version info if the plan has not been modified or noTouch is true
-          if (!noTouch && updated && !updated.hasErrors()) {
-            if (updated && !updated.hasErrors()) {
-              // Update the maDMP snapshot
-              const maDMP = await updateMaDMP(
-                context,
-                updated.dmpId,
-                await Plan.convertPlanToMaDMP(context, this.id),
-                false // We're not returning it, so no need to return the extensions too
-              );
-
-              // Log an error if the maDMP activity failed but allow the process to continue
-              if (!maDMP) {
-                context.logger.error(
-                  prepareObjectForLogs({ plan: updated }),
-                  'Unable to update the maDMP version.'
-                );
-              }
-              return new Plan(updated);
-            }
+          if (updated && !updated.hasErrors()) {
+            return new Plan(updated);
           }
         }
       }
@@ -544,101 +452,11 @@ export class Plan extends MySqlModel {
         // Delete the plan
         const successfullyDeleted = await Plan.delete(context, Plan.tableName, this.id, reference);
         if (successfullyDeleted) {
-          // Delete or tombstone the maDMP versions
-          const maDMP = toDelete.registered
-            // If the plan was registered, we cannot delete the DOI so tombstone instead
-            ? await tombstoneMaDMP(context, toDelete.dmpId, false)
-            // Otherwise delete all of the maDMP versions
-            : await deleteMaDMP(context, toDelete.dmpId, false);
-
-          // Log an error if the maDMP activity failed but allow the process to continue
-          if (!maDMP) {
-            context.logger.error(
-              prepareObjectForLogs({ plan: toDelete }),
-              'Unable to delete the maDMP versions.'
-            );
-          }
           return toDelete;
         }
       }
     }
     return null;
-  }
-
-  /**
-   * Convert a Plan record to a maDMP record.
-   *
-   * @param context The Apollo Server Context object passed in to the Resolver on
-   * each request.
-   * @param planId The ID of the Plan to convert.
-   * @param includeExtensions The flag to indicate whether to include the DMP Tool
-   * Extensions. Defaults to true.
-   * @returns The converted maDMP record.
-   * @throws Error if the Plan cannot be converted to a maDMP record.
-   */
-  static async convertPlanToMaDMP(
-    context: MyContext,
-    planId: number,
-    includeExtensions = true,
-  ): Promise<DMPToolDMPType> {
-    try {
-      return await planToDMPCommonStandard(
-        {
-          host: mysqlPoolConfig.host,
-          port: mysqlPoolConfig.port,
-          user: mysqlPoolConfig.user,
-          password: mysqlPoolConfig.password,
-          database: mysqlPoolConfig.database,
-          logger: context.logger
-        },
-        generalConfig.applicationName,
-        `https://${generalConfig.domain}`,
-        envAsEnumValue(),
-        planId,
-        includeExtensions
-      );
-    } catch (err) {
-      context.logger.error(
-        prepareObjectForLogs({ planId, err }),
-        'Error converting Plan to maDMP'
-      );
-      throw(err);
-    }
-  }
-
-  /**
-   * Fetch the timestamps of all historical maDMP versions of this Plan.
-   *
-   * @param context The Apollo context object
-   * @returns An array of timestamps of all historical maDMP versions of this Plan
-   */
-  // Fetch the timestamps of all the historical versions of this Plan
-  async getMaDMPVersionTimestamps(context: MyContext): Promise<string[]> {
-    const versions = await getMaDMPVersionTimestamps(context, this.dmpId);
-    return Array.isArray(versions) && versions.length > 0 ? versions.map(ver => ver.modified) : [];
-  }
-
-  /**
-   * Fetch the latest maDMP version of the Plan.
-   *
-   * @param context The Apollo context object
-   * @returns The historical maDMP version or undefined if it does not exist
-   */
-  async getLatestMaDMP(context: MyContext): Promise<DMPToolDMPType | undefined> {
-    const versions: DMPToolDMPType[] = await getMaDMP(context, this.dmpId, DMP_LATEST_VERSION, true);
-    return Array.isArray(versions) && versions.length > 0 ? versions[0] : undefined;
-  }
-
-  /**
-   * Fetch a specific historical maDMP version of the Plan.
-   *
-   * @param context The Apollo context object
-   * @param timestamp The timestamp of the historical version to fetch
-   * @returns The historical maDMP version or undefined if it does not exist
-   */
-  async getMaDMPVersion(context: MyContext, timestamp: string): Promise<DMPToolDMPType | undefined> {
-    const versions: DMPToolDMPType[] = await getMaDMP(context, this.dmpId, timestamp, true);
-    return Array.isArray(versions) && versions.length > 0 ? versions[0] : undefined;
   }
 
   /**

@@ -7,9 +7,27 @@ import { logger, prepareObjectForLogs } from '../logger';
 import { DMPHubConfig } from '../config/dmpHubConfig';
 import { JWTAccessToken } from '../services/tokenService';
 import { MyContext } from "../context";
-import { DMPCommonStandardContact, DMPCommonStandardContributor, DMPCommonStandardProject } from "../types/DMP";
+import { RDACommonStandardContact, RDACommonStandardContributor } from "@dmptool/utils";
 import { isNullOrUndefined } from "../utils/helpers";
 import { KeyvAdapter } from "@apollo/utils.keyvadapter";
+
+// This is a temporary type until the RDA Common Standard until we update the Awards
+// API to return the newer RDA Common Standard v1.2 format (with DMP Tool extensions).
+interface RDACommonStandardObsoleteProject {
+  title: string,
+  description?: string,
+  start?: string,
+  end?: string,
+  funding?: {
+    dmproadmap_project_number?: string
+    dmproadmap_opportunity_number?: string,
+    dmproadmap_award_amount?: number,
+    grant_id?: {
+      identifier: string,
+      type: string
+    }
+  }[]
+}
 
 // Singleton class that retrieves an Auth token from the API
 export class Authorizer extends RESTDataSource {
@@ -176,7 +194,7 @@ export class DMPHubAPI extends RESTDataSource {
 // Types returned by DMPHubAPI awards endpoint
 // -----------------------------------------------------------------------------------------------
 export interface DMPHubAward {
-  project: DMPCommonStandardProject
-  contact: DMPCommonStandardContact
-  contributor: [DMPCommonStandardContributor]
+  project: RDACommonStandardObsoleteProject
+  contact: RDACommonStandardContact
+  contributor: [RDACommonStandardContributor]
 }

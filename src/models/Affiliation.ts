@@ -390,10 +390,12 @@ export class AffiliationSearch {
   }
 
   // Search for managed Affiliations that have published guidance associated with them
+  // Filters by a list of affiliation URIs that have been pre-determined to have relevant guidance
   static async searchManagedWithPublishedGuidance(
     reference: string,
     context: MyContext,
     name?: string,
+    affiliationUris?: string[],
     options: PaginationOptions = Affiliation.getDefaultPaginationOptions(),
   ): Promise<PaginatedQueryResults<AffiliationSearch>> {
     const whereFilters = [
@@ -401,6 +403,13 @@ export class AffiliationSearch {
       'a.managed = 1',
     ];
     const values = [];
+
+    // Filter by the provided affiliation URIs
+    if (affiliationUris && affiliationUris.length > 0) {
+      const uriPlaceholders = affiliationUris.map(() => '?').join(',');
+      whereFilters.push(`a.uri IN (${uriPlaceholders})`);
+      values.push(...affiliationUris);
+    }
 
     // Handle the incoming search term
     const searchTerm = (name ?? '').toLowerCase().trim();
@@ -427,20 +436,9 @@ export class AffiliationSearch {
       opts.cursorField = 'a.id';
     }
 
-    // Join to guidance groups and guidance to ensure published guidance exists
-    const sqlStatement = `
-      SELECT a.* 
-      FROM affiliations a
-      INNER JOIN guidanceGroups gg ON gg.affiliationId = a.uri
-      INNER JOIN guidance g ON g.guidanceGroupId = gg.id
-    `;
-
-    // And add GROUP BY to handle duplicates:
-    const groupByClause = 'GROUP BY a.id';
-
-    // Add filters for published guidance groups and guidance created before publication
-    whereFilters.push('gg.latestPublishedDate IS NOT NULL');
-    whereFilters.push('g.created <= gg.latestPublishedDate');
+    // Simple query to get affiliations by URI
+    const sqlStatement = `SELECT a.* FROM affiliations a`;
+    const groupByClause = '';
 
     const response: PaginatedQueryResults<AffiliationSearch> = await Affiliation.queryWithPagination(
       context,

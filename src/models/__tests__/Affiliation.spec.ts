@@ -632,6 +632,7 @@ describe('searchManagedWithPublishedGuidance', () => {
 
   it('should call queryWithPagination with correct params and return paginated results', async () => {
     const name = 'Virginia';
+    const affiliationUris = ['https://ror.org/01234', 'https://ror.org/56789'];
     const options = { sortField: undefined, sortDir: undefined, type: PaginationType.OFFSET };
     const expectedOpts = expect.objectContaining({
       type: PaginationType.OFFSET,
@@ -642,24 +643,23 @@ describe('searchManagedWithPublishedGuidance', () => {
     });
     localQueryWithPagination.mockResolvedValueOnce({ results: [affiliationSearch], totalCount: 1 });
 
-    // Change Affiliation. to AffiliationSearch.
     const result = await AffiliationSearch.searchManagedWithPublishedGuidance(
       'TestRef',
       context,
       name,
+      affiliationUris,
       options
     );
 
-    const expectedSql = expect.stringContaining('FROM affiliations a');
+    const expectedSql = 'SELECT a.* FROM affiliations a';
     const expectedWhere = [
       'a.active = 1',
       'a.managed = 1',
+      'a.uri IN (?,?)',
       '(LOWER(a.searchName) LIKE ?)',
-      'gg.latestPublishedDate IS NOT NULL',
-      'g.created <= gg.latestPublishedDate'
     ];
-    const expectedGroupBy = 'GROUP BY a.id';
-    const expectedVals = [`%${name.toLowerCase().trim()}%`];
+    const expectedGroupBy = '';
+    const expectedVals = [...affiliationUris, `%${name.toLowerCase().trim()}%`];
 
     expect(localQueryWithPagination).toHaveBeenCalledTimes(1);
     expect(localQueryWithPagination).toHaveBeenLastCalledWith(
@@ -674,26 +674,25 @@ describe('searchManagedWithPublishedGuidance', () => {
     expect(result).toEqual({ results: [affiliationSearch], totalCount: 1 });
   });
 
-  it('should handle no search term', async () => {
+  it('should handle no search term and no URI filter', async () => {
     localQueryWithPagination.mockResolvedValueOnce({ results: [], totalCount: 0 });
 
     const result = await AffiliationSearch.searchManagedWithPublishedGuidance(
       'TestRef',
       context,
-      undefined,
+      undefined, // name
+      undefined, // affiliationUris
       { type: PaginationType.OFFSET }
     );
 
     expect(localQueryWithPagination).toHaveBeenCalledWith(
       context,
-      expect.any(String),
-      expect.arrayContaining([
+      'SELECT a.* FROM affiliations a',
+      [
         'a.active = 1',
         'a.managed = 1',
-        'gg.latestPublishedDate IS NOT NULL',
-        'g.created <= gg.latestPublishedDate'
-      ]),
-      'GROUP BY a.id',
+      ],
+      '',
       [],
       expect.any(Object),
       'TestRef'
@@ -704,7 +703,7 @@ describe('searchManagedWithPublishedGuidance', () => {
   it('should propagate errors from queryWithPagination', async () => {
     localQueryWithPagination.mockRejectedValueOnce(new Error('Query failed'));
     await expect(
-      AffiliationSearch.searchManagedWithPublishedGuidance('TestRef', context, 'foo',   { type: PaginationType.OFFSET })
+      AffiliationSearch.searchManagedWithPublishedGuidance('TestRef', context, 'foo', undefined, { type: PaginationType.OFFSET })
     ).rejects.toThrow('Query failed');
   });
 });

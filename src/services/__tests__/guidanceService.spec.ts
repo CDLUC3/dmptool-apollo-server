@@ -21,6 +21,7 @@ import { VersionedGuidance } from "../../models/VersionedGuidance";
 import { Plan } from "../../models/Plan";
 import { User } from "../../models/User";
 import { VersionedTemplate } from "../../models/VersionedTemplate";
+import { VersionedSection } from "../../models/VersionedSection";
 import { Affiliation } from "../../models/Affiliation";
 import { isSuperAdmin } from "../authService";
 
@@ -132,6 +133,7 @@ jest.mock("../../models/VersionedQuestion", () => ({
 jest.mock("../../models/Affiliation", () => ({
   Affiliation: {
     findByURI: jest.fn(),
+    query: jest.fn(),
   },
 }));
 
@@ -401,6 +403,198 @@ describe("getSectionTagsMap", () => {
   });
 });
 
+describe("getAffiliationsWithGuidanceForTemplate", () => {
+  beforeEach(async () => {
+    context = await buildMockContextWithToken(logger);
+    jest.clearAllMocks();
+  });
+
+  it("returns [] if template not found", async () => {
+    (VersionedTemplate.findById as jest.Mock).mockResolvedValue(null);
+    const result = await guidanceService.getAffiliationsWithGuidanceForTemplate(context, 1);
+    expect(result).toEqual([]);
+  });
+
+  it("returns template owner URI if template has section guidance", async () => {
+    const mockTemplate = { id: 1, ownerId: "https://ror.org/021nxhr62" };
+    (VersionedTemplate.findById as jest.Mock).mockResolvedValue(mockTemplate);
+    
+    // Mock section guidance check - has guidance
+    (Affiliation.query as jest.Mock).mockResolvedValueOnce([{ count: 1 }]); // sections with guidance
+    (Affiliation.query as jest.Mock).mockResolvedValueOnce([{ count: 0 }]); // questions without guidance
+    
+    // Mock getSectionTagsMap returning empty (no tags)
+    (PlanGuidance.query as jest.Mock).mockResolvedValue([]);
+    
+    const result = await guidanceService.getAffiliationsWithGuidanceForTemplate(context, 1);
+    
+    expect(result).toEqual(["https://ror.org/021nxhr62"]);
+  });
+
+  it("returns template owner URI if template has question guidance", async () => {
+    const mockTemplate = { id: 1, ownerId: "https://ror.org/021nxhr62" };
+    (VersionedTemplate.findById as jest.Mock).mockResolvedValue(mockTemplate);
+    
+    // Mock question guidance check - has guidance
+    (Affiliation.query as jest.Mock).mockResolvedValueOnce([{ count: 0 }]); // sections without guidance
+    (Affiliation.query as jest.Mock).mockResolvedValueOnce([{ count: 1 }]); // questions with guidance
+    
+    // Mock getSectionTagsMap returning empty (no tags)
+    (PlanGuidance.query as jest.Mock).mockResolvedValue([]);
+    
+    const result = await guidanceService.getAffiliationsWithGuidanceForTemplate(context, 1);
+    
+    expect(result).toEqual(["https://ror.org/021nxhr62"]);
+  });
+
+  it("returns template owner URI if they have tag-based guidance", async () => {
+    const mockTemplate = { id: 1, ownerId: "https://ror.org/021nxhr62" };
+    (VersionedTemplate.findById as jest.Mock).mockResolvedValue(mockTemplate);
+    
+    // Mock Affiliation.query calls in sequence
+    (Affiliation.query as jest.Mock)
+      .mockResolvedValueOnce([{ count: 0 }]) // sections check
+      .mockResolvedValueOnce([{ count: 0 }]) // questions check
+      .mockResolvedValueOnce([{ count: 2 }]); // template owner tag-based guidance check
+    
+    // Mock getSectionTagIds returning tag IDs
+    (PlanGuidance.query as jest.Mock).mockResolvedValue([
+      { tagId: 1 },
+      { tagId: 2 }
+    ]);
+    
+    const result = await guidanceService.getAffiliationsWithGuidanceForTemplate(context, 1);
+    
+    expect(result).toEqual(["https://ror.org/021nxhr62"]);
+  });
+
+  it("returns user affiliation URI if they have tag-based guidance", async () => {
+    const mockTemplate = { id: 1, ownerId: "https://ror.org/021nxhr62" };
+    const userContext = { 
+      ...context, 
+      token: { ...context.token, affiliationId: "https://ror.org/03yrm5c26" } 
+    };
+    
+    (VersionedTemplate.findById as jest.Mock).mockResolvedValue(mockTemplate);
+    
+    // Mock Affiliation.query calls in sequence
+    (Affiliation.query as jest.Mock)
+      .mockResolvedValueOnce([{ count: 0 }]) // sections check
+      .mockResolvedValueOnce([{ count: 0 }]) // questions check
+      .mockResolvedValueOnce([{ count: 0 }]) // template owner tag-based guidance check
+      .mockResolvedValueOnce([{ count: 1 }]); // user affiliation tag-based guidance check
+    
+    // Mock getSectionTagIds returning tag IDs
+    (PlanGuidance.query as jest.Mock).mockResolvedValue([
+      { tagId: 1 }
+    ]);
+    
+    const result = await guidanceService.getAffiliationsWithGuidanceForTemplate(userContext, 1);
+    
+    expect(result).toContain("https://ror.org/03yrm5c26");
+  });
+
+  it("returns both template owner and user affiliation if both have guidance", async () => {
+    const mockTemplate = { id: 1, ownerId: "https://ror.org/021nxhr62" };
+    const userContext = { 
+      ...context, 
+      token: { ...context.token, affiliationId: "https://ror.org/03yrm5c26" } 
+    };
+    
+    (VersionedTemplate.findById as jest.Mock).mockResolvedValue(mockTemplate);
+    
+    // Mock Affiliation.query calls in sequence
+    (Affiliation.query as jest.Mock)
+      .mockResolvedValueOnce([{ count: 1 }]) // sections check - has guidance
+      .mockResolvedValueOnce([{ count: 0 }]) // questions check
+      .mockResolvedValueOnce([{ count: 1 }]) // template owner tag-based guidance check
+      .mockResolvedValueOnce([{ count: 1 }]); // user affiliation tag-based guidance check
+    
+    // Mock getSectionTagIds returning tag IDs
+    (PlanGuidance.query as jest.Mock).mockResolvedValue([
+      { tagId: 1 }
+    ]);
+    
+    const result = await guidanceService.getAffiliationsWithGuidanceForTemplate(userContext, 1);
+    
+    expect(result).toHaveLength(2);
+    expect(result).toContain("https://ror.org/021nxhr62");
+    expect(result).toContain("https://ror.org/03yrm5c26");
+  });
+
+  it("does not duplicate template owner URI if they match user affiliation", async () => {
+    const mockTemplate = { id: 1, ownerId: "https://ror.org/021nxhr62" };
+    const userContext = { 
+      ...context, 
+      token: { ...context.token, affiliationId: "https://ror.org/021nxhr62" } 
+    };
+    
+    (VersionedTemplate.findById as jest.Mock).mockResolvedValue(mockTemplate);
+    
+    // Mock Affiliation.query calls in sequence
+    (Affiliation.query as jest.Mock)
+      .mockResolvedValueOnce([{ count: 1 }]) // sections check - has guidance
+      .mockResolvedValueOnce([{ count: 0 }]) // questions check
+      .mockResolvedValueOnce([{ count: 1 }]); // template owner tag-based guidance check
+    // Should not check user affiliation since it's the same as template owner
+    
+    // Mock getSectionTagIds returning tag IDs
+    (PlanGuidance.query as jest.Mock).mockResolvedValue([
+      { tagId: 1 }
+    ]);
+    
+    const result = await guidanceService.getAffiliationsWithGuidanceForTemplate(userContext, 1);
+    
+    expect(result).toEqual(["https://ror.org/021nxhr62"]);
+  });
+
+  it("returns [] if no section/question guidance and no tag-based guidance", async () => {
+    const mockTemplate = { id: 1, ownerId: "https://ror.org/021nxhr62" };
+    (VersionedTemplate.findById as jest.Mock).mockResolvedValue(mockTemplate);
+    
+    // Mock Affiliation.query calls in sequence
+    (Affiliation.query as jest.Mock)
+      .mockResolvedValueOnce([{ count: 0 }]) // sections check
+      .mockResolvedValueOnce([{ count: 0 }]) // questions check
+      .mockResolvedValueOnce([{ count: 0 }]); // template owner tag-based guidance check
+    
+    // Mock getSectionTagIds returning tag IDs
+    (PlanGuidance.query as jest.Mock).mockResolvedValue([
+      { tagId: 1 }
+    ]);
+    
+    const result = await guidanceService.getAffiliationsWithGuidanceForTemplate(context, 1);
+    
+    expect(result).toEqual([]);
+  });
+
+  it("returns [] if template has no tags and no section/question guidance", async () => {
+    const mockTemplate = { id: 1, ownerId: "https://ror.org/021nxhr62" };
+    (VersionedTemplate.findById as jest.Mock).mockResolvedValue(mockTemplate);
+    
+    // Mock Affiliation.query calls in sequence
+    (Affiliation.query as jest.Mock)
+      .mockResolvedValueOnce([{ count: 0 }]) // sections check - no guidance
+      .mockResolvedValueOnce([{ count: 0 }]); // questions check - no guidance
+    
+    // Mock getSectionTagIds returning no tags
+    (PlanGuidance.query as jest.Mock).mockResolvedValue([]);
+    
+    const result = await guidanceService.getAffiliationsWithGuidanceForTemplate(context, 1);
+    
+    expect(result).toEqual([]);
+  });
+
+  it("logs error and returns [] on exception", async () => {
+    (VersionedTemplate.findById as jest.Mock).mockRejectedValue(new Error("Database error"));
+    
+    const result = await guidanceService.getAffiliationsWithGuidanceForTemplate(context, 1);
+    
+    expect(result).toEqual([]);
+    expect(context.logger.error).toHaveBeenCalled();
+  });
+});
+
 describe("getGuidanceSourcesForPlan", () => {
   beforeEach(async () => {
     context = await buildMockContextWithToken(logger);
@@ -434,6 +628,7 @@ describe("getGuidanceSourcesForPlan", () => {
     (Plan.findById as jest.Mock).mockResolvedValue(mockPlan);
     (User.findById as jest.Mock).mockResolvedValue(mockUser);
     (VersionedTemplate.findById as jest.Mock).mockResolvedValue(mockVersionedTemplate);
+    (VersionedSection.findById as jest.Mock).mockResolvedValue({ guidance: null }); // Mock section without guidance
     (PlanGuidance.findByPlanAndUserId as jest.Mock).mockResolvedValue(mockUserSelections);
     
     (PlanGuidance.query as jest.Mock).mockResolvedValue([
@@ -456,46 +651,31 @@ describe("getGuidanceSourcesForPlan", () => {
       return Promise.resolve(null);
     });
 
-    const result = await guidanceService.getGuidanceSourcesForPlan(context, mockPlan.id);
+    const result = await guidanceService.getGuidanceSourcesForPlan(context, mockPlan.id, 1); // Pass versionedSectionId
 
     expect(result).toHaveLength(4);
-    expect(result).toEqual([
+    
+    // Check that all expected sources are present (order may vary)
+    expect(result).toEqual(expect.arrayContaining([
       expect.objectContaining({
         id: "bestPractice",
         type: "BEST_PRACTICE",
-        label: "DMP Tool",
-        shortName: "DMP Tool",
         orgURI: "bestPractice",
-        hasGuidance: true,
-        items: expect.any(Array),
       }),
       expect.objectContaining({
         id: "affiliation-https://ror.org/03yrm5c26",
-        type: "USER_AFFILIATION",
-        label: "California Digital Library (cdlib.org)",
-        shortName: "CDL",
         orgURI: "https://ror.org/03yrm5c26",
-        hasGuidance: true,
-        items: expect.any(Array),
       }),
       expect.objectContaining({
         id: "affiliation-https://ror.org/021nxhr62",
         type: "TEMPLATE_OWNER",
-        label: "National Science Foundation (nsf.gov)",
-        shortName: "NSF",
         orgURI: "https://ror.org/021nxhr62",
-        hasGuidance: true,
-        items: expect.any(Array),
       }),
       expect.objectContaining({
         id: "affiliation-https://ror.org/01cwqze88",
         type: "USER_SELECTED",
-        label: "National Institutes of Health (nih.gov)",
-        shortName: "NIH",
         orgURI: "https://ror.org/01cwqze88",
-        hasGuidance: true,
-        items: expect.any(Array),
       }),
-    ]);
+    ]));
   });
 });

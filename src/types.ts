@@ -2612,7 +2612,7 @@ export type Query = {
   license?: Maybe<License>;
   /** Return all licenses */
   licenses?: Maybe<Array<Maybe<License>>>;
-  /** Perform a search for managed Affiliations with published guidance */
+  /** Perform a search for managed Affiliations with published guidance for a specific template */
   managedAffiliationsWithGuidance?: Maybe<AffiliationSearchResults>;
   /** Returns the currently logged in user's information */
   me?: Maybe<User>;
@@ -2834,6 +2834,7 @@ export type QueryLicenseArgs = {
 export type QueryManagedAffiliationsWithGuidanceArgs = {
   name?: InputMaybe<Scalars['String']['input']>;
   paginationOptions?: InputMaybe<PaginationOptions>;
+  versionedTemplateId: Scalars['Int']['input'];
 };
 
 
@@ -6071,7 +6072,7 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   languages?: Resolver<Maybe<Array<Maybe<ResolversTypes['Language']>>>, ParentType, ContextType>;
   license?: Resolver<Maybe<ResolversTypes['License']>, ParentType, ContextType, RequireFields<QueryLicenseArgs, 'uri'>>;
   licenses?: Resolver<Maybe<Array<Maybe<ResolversTypes['License']>>>, ParentType, ContextType>;
-  managedAffiliationsWithGuidance?: Resolver<Maybe<ResolversTypes['AffiliationSearchResults']>, ParentType, ContextType, Partial<QueryManagedAffiliationsWithGuidanceArgs>>;
+  managedAffiliationsWithGuidance?: Resolver<Maybe<ResolversTypes['AffiliationSearchResults']>, ParentType, ContextType, RequireFields<QueryManagedAffiliationsWithGuidanceArgs, 'versionedTemplateId'>>;
   me?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType>;
   memberRoleById?: Resolver<Maybe<ResolversTypes['MemberRole']>, ParentType, ContextType, RequireFields<QueryMemberRoleByIdArgs, 'memberRoleId'>>;
   memberRoleByURL?: Resolver<Maybe<ResolversTypes['MemberRole']>, ParentType, ContextType, RequireFields<QueryMemberRoleByUrlArgs, 'memberRoleURL'>>;

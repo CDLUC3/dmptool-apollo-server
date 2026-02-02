@@ -11,7 +11,7 @@ node_modules/
 dist/
 
 # Skip all local AWS Lambda Functions hosted in LocalStack
-lambdas/
+lambdas/*.zip
 
 # Skip the Jest code coverage folder
 coverage/

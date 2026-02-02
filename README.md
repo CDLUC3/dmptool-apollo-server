@@ -466,33 +466,13 @@ The DynamoDB table uses the DMP Id as a partition key. Istead of the `https://` 
 To fetch the latest RDA Common Standard record for a specific Plan: `awslocal dynamodb get-item --table-name localDMPTable --key '{"PK":{"S":"DMP#<PLAN DMP ID>"},"SK":{"S":"VERSION#latest"}}'`
 To fetch the latest DMP Tool Extensions record for a specific Plan: `awslocal dynamodb get-item --table-name localDMPTable --key '{"PK":{"S":"DMP#<PLAN DMP ID>"},"SK":{"S":"EXTENSION#latest"}}'`
 To fetch ALL records for a specific Plan (including historical versions): `awslocal dynamodb query --table-name localDMPTable --key-condition-expression "PK = :pk" --expression-attribute-values '{":pk":{"S":"DMP#<PLAN DMP ID>"}}'`
-
+To scan the table for multiple items you can run something like this: `awslocal dynamodb scan --table-name $DYNAMO_TABLE_NAME --endpoint-url $DYNAMO_ENDPOINT --filter-expression "SK = :sk" --expression-attribute-values "{\":sk\":{\"S\":\"VERSION#latest\"}}" --projection-expression "PK, SK"`
 
 ### Data Models
 
 This system uses several data sources: A MySQL database, a Redis cache to store token info, and various external APIs.
 
 The Redis cache is used to store ephemeral data like refresh tokens and GraphQL query results. This data has TTL settings.
-
-In development, you can review the JSON store in the DynamoDB table by executing AWS CLI commands from within the docker container for the apollo server application.
-
-The key structure we use is
-- Partition key: `PK` with a prefix of `DMP#` and then either:
-  - The structure of the DMP ID is a DOI without the protocol (e.g. `DMP#doi.org/11.22222/A1B2C3`)
-  - When the plan's DMP ID is published/registered with EZID/DataCite, the record will include a `registered` timestamp
-  - If the plan doesn't have a `registered` value then we have only "reserved" the DOI. It has not yet been minted/published
-- Sort key: `SK` with a prefix of `VERSION#`. The version can be either `VERSION#latest` or a specific historical version as `VERSION#2025-04-08T09:20:00.000Z`
-
-To fetch a specific item you can run something like:
-`aws dynamodb get-item --key "{\"PK\":{\"S\":\"DMP#doi.org/11.22222/A1B2C3\"}}" --table-name $DYNAMO_TABLE_NAME --endpoint-url $DYNAMO_ENDPOINT`
-
-To scan the table for multiple items you can run something like this that returns all the unique `PK` and `SK`:
-`aws dynamodb scan --table-name $DYNAMO_TABLE_NAME --endpoint-url $DYNAMO_ENDPOINT --filter-expression "SK = :sk" --expression-attribute-values "{\":sk\":{\"S\":\"VERSION#latest\"}}" --projection-expression "PK, SK"`
-
-When querying the local DynamoDB Table you will need to specify the dummy credentials and the endpoint url:
-`AWS_ACCESS_KEY_ID=DUMMYIDEXAMPLE AWS_SECRET_ACCESS_KEY=DUMMYEXAMPLEKEY aws dynamodb get-item --table-name localDMPTable --endpoint-url http://localhost:8000 --key "{\"PK\":{\"S\":\"DMP#dmsp.com/10.48321/D11bcc3acd\"},\"SK\":{\"S\":\"VERSION#latest\"}}"`
-
-The MySQL database stores everything else (Templates, Guidance, Plan Feedback, Users, Affiliations, etc.). It also maintains a projectDOIs table that links Projects to the Plan DOIs to facilitate access to the DMPs stored in the DynamoDB table.
 
 The links for the data model images won't work until we have them in the `main` branch, so adding placeholders for now. Once merged we can come back and update these to display the images
 - ![Templates and Guidance](https://github.com/CDLUC3/dmsp_backend_prototype/blob/9ef9b8ae5e4f380663da90a71ad40ccb35b66310/docs/data-model-templates.png)

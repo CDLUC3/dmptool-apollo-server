@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added override for the `fast-xml-parser` dependency
 - Added `ownerAffiliation` chained resolvers to `versionedQuestion` [#18]
 - added `@as-integrations/express5` for Apollo-Express integration
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
@@ -21,6 +22,7 @@
 - Updates to appease newer version of eslint
 
 ### Removed
+- Removed override for `qs` dependency
 - Removed duplicative properties like `public id: number;` from classes in `models/RelatedWork`. They are inherited from `MySQLModel`.
 - removed Apollo config option to deal with flaw in Apollo4 `status400ForVariableCoercionErrors`
 - Removed deprecated `@types/bcrypt` and `uuidv4` packages

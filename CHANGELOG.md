@@ -3,12 +3,17 @@
 ## v1.1.0
 
 ### Added
+- Added `saveMaDMPVersion` function to the `src/services/planService`. This service handles sending the SQS messages to the AWS SQS Queue to trigger the `generateMaDMPRecord` Lambda Function.
+- Added SQS Queue URL env variable to config files (also added to the ECS container definitions)
 - Added `@dmptool/utils` package
 - Added `ownerAffiliation` chained resolvers to `versionedQuestion` [#18]
 - added `@as-integrations/express5` for Apollo-Express integration
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Started updating files to use JSDoc format 😎
+- Updated `answer`, `funding`, `member`, `plan` and `project` resolvers to use the new `saveMaDMPVersion` function to update maDMP records.
+- Updated `superAdmin` resolver and replaced existing functions with one that allows us to force the recreation of a maDMP record for a specified plan id.
 - Updated `findBestPracticeByTagIds` and `findByAffiliationAndTagIds` in `VersionedGuidance` to remove the use of `VersionedGuidanceTags` table, since there is not table with that name [#18]
 - Regenerated `src/types` using new `graphql-codegen` version
 - Updated `tokenService` to use `uuid` instead of `uuidv4` package
@@ -21,6 +26,10 @@
 - Updates to appease newer version of eslint
 
 ### Removed
+- Removed `src/datasources/dynamo` data source. Writes to Dynamo are now being handled by the `generateMaDMPRecord` Lambda Function.
+- Removed `src/models/PlanVersion`
+- Removed the old `commonStandardService`. This functionality now lives in the `@dmptool/utils` package
+- Removed most functions from `src/datasources/dmphubAPI` data source that were atempting to modify dynamo records via the old DMP Hub API
 - Removed DMP endpoints from `dmphubAPI` datasource
 - Removed duplicative properties like `public id: number;` from classes in `models/RelatedWork`. They are inherited from `MySQLModel`.
 - removed Apollo config option to deal with flaw in Apollo4 `status400ForVariableCoercionErrors`

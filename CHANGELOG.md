@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added `processResult` handler to the Plan model to help generate DMP ids when they are missing
 - Added `saveMaDMPVersion` function to the `src/services/planService`. This service handles sending the SQS messages to the AWS SQS Queue to trigger the `generateMaDMPRecord` Lambda Function.
 - Added SQS Queue URL env variable to config files (also added to the ECS container definitions)
 - Added `@dmptool/utils` package
@@ -11,7 +12,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
-- Started updating files to use JSDoc format 😎
+- Started updating files to use JSDoc format
 - Updated `answer`, `funding`, `member`, `plan` and `project` resolvers to use the new `saveMaDMPVersion` function to update maDMP records.
 - Updated `superAdmin` resolver and replaced existing functions with one that allows us to force the recreation of a maDMP record for a specified plan id.
 - Updated `findBestPracticeByTagIds` and `findByAffiliationAndTagIds` in `VersionedGuidance` to remove the use of `VersionedGuidanceTags` table, since there is not table with that name [#18]

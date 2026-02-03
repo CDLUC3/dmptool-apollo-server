@@ -424,6 +424,87 @@ describe('Plan', () => {
   });
 });
 
+describe('Plan.processResult', () => {
+  let plan;
+  let mockGenerateDMPId;
+  let mockUpdate;
+
+  beforeEach(() => {
+    plan = new Plan({
+      id: casual.integer(1, 999),
+      projectId: casual.integer(1, 99),
+      versionedTemplateId: casual.integer(1, 99),
+      title: casual.sentence,
+      status: getRandomEnumValue(PlanStatus),
+      visibility: getRandomEnumValue(PlanVisibility),
+      languageId: defaultLanguageId,
+      featured: casual.boolean,
+      createdById: casual.integer(1, 99),
+      modifiedById: casual.integer(1, 99),
+      created: casual.date('YYYY-MM-DD'),
+      modified: casual.date('YYYY-MM-DD'),
+    });
+
+    mockGenerateDMPId = jest.fn();
+    mockUpdate = jest.fn();
+  });
+
+  it('should generate a dmpId and update the plan if dmpId is null', async () => {
+    plan.dmpId = null;
+    plan.generateDMPId = mockGenerateDMPId;
+    plan.update = mockUpdate;
+
+    const newDmpId = getMockDMPId();
+    const updatedPlan = new Plan({...plan, dmpId: newDmpId});
+
+    mockGenerateDMPId.mockResolvedValueOnce(newDmpId);
+    mockUpdate.mockResolvedValueOnce(updatedPlan);
+
+    const result = await Plan.processResult(context, plan);
+
+    expect(mockGenerateDMPId).toHaveBeenCalledTimes(1);
+    expect(mockGenerateDMPId).toHaveBeenCalledWith(context);
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
+    expect(mockUpdate).toHaveBeenCalledWith(context, true);
+    expect(result).toEqual(updatedPlan);
+  });
+
+  it('should generate a dmpId and update the plan if dmpId is undefined', async () => {
+    plan.dmpId = undefined;
+    plan.generateDMPId = mockGenerateDMPId;
+    plan.update = mockUpdate;
+
+    const newDmpId = getMockDMPId();
+    const updatedPlan = new Plan({...plan, dmpId: newDmpId});
+
+    mockGenerateDMPId.mockResolvedValueOnce(newDmpId);
+    mockUpdate.mockResolvedValueOnce(updatedPlan);
+
+    const result = await Plan.processResult(context, plan);
+
+    expect(mockGenerateDMPId).toHaveBeenCalledTimes(1);
+    expect(mockGenerateDMPId).toHaveBeenCalledWith(context);
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
+    expect(mockUpdate).toHaveBeenCalledWith(context, true);
+    expect(result).toEqual(updatedPlan);
+  });
+
+  it('should return a new Plan instance if dmpId already exists', async () => {
+    plan.dmpId = getMockDMPId();
+    plan.generateDMPId = mockGenerateDMPId;
+    plan.update = mockUpdate;
+
+    const result = await Plan.processResult(context, plan);
+
+    expect(mockGenerateDMPId).not.toHaveBeenCalled();
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(result).toBeInstanceOf(Plan);
+    expect(result.dmpId).toEqual(plan.dmpId);
+  });
+
+
+});
+
 describe('findBy Queries', () => {
   const originalQuery = Plan.query;
 

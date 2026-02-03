@@ -335,6 +335,26 @@ export class Plan extends MySqlModel {
   }
 
   /**
+   * Process the result of a query to the database.
+   *
+   * @param context The Apollo context object
+   * @param plan The Plan object to process
+   * @returns The processed Plan object
+   */
+  static async processResult(context: MyContext, plan: Plan): Promise<Plan> {
+    // Check to see it the plan has a `dmpId`. If not, it was probably recently
+    // migrated, so we need to assign a `dmpId` and send a request to generate the
+    // maDMP record.
+    if (isNullOrUndefined(plan.dmpId)) {
+      // Generate a new DMP ID
+      plan.dmpId = await plan.generateDMPId(context);
+      return await plan.update(context, true);
+    }
+
+    return new Plan(plan);
+  }
+
+  /**
    * Publish the plan (register its DMP id with EZID/DataCite making it a DOI)
    *
    * @param context The Apollo context object
@@ -470,7 +490,7 @@ export class Plan extends MySqlModel {
   static async findById(reference: string, context: MyContext, planId: number): Promise<Plan | null> {
     const sql = `SELECT * FROM ${this.tableName} WHERE id = ?`;
     const results = await Plan.query(context, sql, [planId?.toString()], reference);
-    return Array.isArray(results) && results.length > 0 ? new Plan(results[0]) : null;
+    return Array.isArray(results) && results.length > 0 ? await Plan.processResult(context, results[0]) : null;
   }
 
   /**
@@ -484,7 +504,7 @@ export class Plan extends MySqlModel {
   static async findByDMPId(reference: string, context: MyContext, dmpId: string): Promise<Plan | null> {
     const sql = `SELECT * FROM ${this.tableName} WHERE dmpId = ?`;
     const results = await Plan.query(context, sql, [dmpId?.toString()], reference);
-    return Array.isArray(results) && results.length > 0 ? new Plan(results[0]) : null;
+    return Array.isArray(results) && results.length > 0 ? await Plan.processResult(context, results[0]) : null;
   }
 
   /**
@@ -498,6 +518,11 @@ export class Plan extends MySqlModel {
   static async findByProjectId(reference: string, context: MyContext, projectId: number): Promise<Plan[]> {
     const sql = `SELECT * FROM ${this.tableName} WHERE projectId = ?`;
     const results = await Plan.query(context, sql, [projectId?.toString()], reference);
-    return Array.isArray(results) ? results.map((result) => new Plan(result)) : [];
+
+    return Array.isArray(results)
+      ? await Promise.all(results.map(async (result) =>
+        await Plan.processResult(context, result)
+      ))
+      : [];
   }
 }

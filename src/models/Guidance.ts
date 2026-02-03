@@ -153,26 +153,6 @@ export class PlanGuidance extends MySqlModel {
     return new PlanGuidance(this);
   }
 
-  //Update an existing plan guidance
-  async update(context: MyContext, noTouch = false): Promise<PlanGuidance> {
-    if (await this.isValid()) {
-      if (this.id) {
-        await PlanGuidance.update(
-          context,
-          PlanGuidance.tableName,
-          this,
-          'PlanGuidance.update',
-          [],
-          noTouch
-        );
-        return await PlanGuidance.findById('PlanGuidance.update', context, this.id);
-      }
-      // This has never been saved before so we cannot update it!
-      this.addError('general', 'PlanGuidance has never been saved');
-    }
-    return new PlanGuidance(this);
-  }
-
   //Delete PlanGuidance
   async delete(context: MyContext): Promise<PlanGuidance | null> {
     if (this.id) {

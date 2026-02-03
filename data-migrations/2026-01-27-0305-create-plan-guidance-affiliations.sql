@@ -13,10 +13,5 @@ CREATE TABLE `planGuidance` (
   
   FOREIGN KEY (`planId`) REFERENCES `plans`(`id`) ON DELETE CASCADE,
   FOREIGN KEY (`affiliationId`) REFERENCES `affiliations`(`uri`) ON DELETE CASCADE,
-  FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE CASCADE,
-  
-  KEY `idx_plan_id` (`planId`),
-  KEY `idx_affiliation_id` (`affiliationId`),
-  KEY `idx_user_id` (`userId`),
-  KEY `idx_plan_user` (`planId`, `userId`)
+  FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

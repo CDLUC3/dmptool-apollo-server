@@ -15,7 +15,6 @@ import { Answer } from "../models/Answer";
 import { ProjectCollaboratorAccessLevel } from "../models/Collaborator";
 import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
 import { ensureDefaultPlanContact } from "../services/planService";
-import { addPlanGuidance } from "../services/guidanceService";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -90,22 +89,6 @@ export const resolvers: Resolvers = {
               const contactWasSet = await ensureDefaultPlanContact(context, created, project);
               if (!contactWasSet) {
                 created.addError('general', 'Unable to set the default contact');
-              }
-
-              // Add an entry in the planGuidance table for user's affiliation and template ownerId
-              try {
-                const affiliationId = versionedTemplate.ownerId;
-                const planId = created.id;
-                const userId = context.token?.id;
-
-                if (affiliationId && planId && userId) {
-                  await addPlanGuidance(context, planId, affiliationId, userId);
-                }
-              } catch (e) {
-                context.logger.warn(
-                  prepareObjectForLogs(e),
-                  `Failed to add planGuidance for planId=${created.id}`
-                );
               }
             }
 

@@ -5,8 +5,8 @@
 ### Added
 - Added data-migration script to create new `planGuidance` JOIN table [#29]
 - Added a new method `searchManagedWithPublishedGuidance` to `Affiliation` model for managed Affiliations that have published guidance associated with them [#29]
-- Added `managedAffiliationsWithGuidance` query to `Affiliation` resolvers [#29]
-- Added `guidanceSourcesForPlans` query and `addPlanGuidance` and `removePlanGuidance` to `guidance` resolvers [#29]
+- Added `managedAffiliationsWithGuidance` query resolver to `Affiliation` resolvers [#29]
+- Added `guidanceSourcesForPlans`, `addPlanGuidance` and `removePlanGuidance` to `guidance` resolvers [#29]
 - Added a new `PlanGuidance` model and schema to accommodate the new `planGuidance` table [#29]
 - Added `acronyms` to `AffiliationSearch` schema so that client can get shortened names of affiliations [#29]
 - Added new methods to `guidanceServices`: `groupGuidanceByTag`, `getGuidanceSourcesForPlan`, `getSectionTags`, `getSectionTagIds`, `getSectionTagsMap`, `addPlanGuidanceAffiliation` and `getAffiliationsWithGuidanceForTemplate` [#29]
@@ -31,9 +31,6 @@
 - removed Apollo config option to deal with flaw in Apollo4 `status400ForVariableCoercionErrors`
 - Removed deprecated `@types/bcrypt` and `uuidv4` packages
 - Removed `ioredis` package
-
-### Chore
-- Updated version of aws SDK `@aws-sdk/client-dynamodb` to : `v3.893.0`, `@aws-sdk/client-ssm` to `v3.893.0`, `@aws-sdk/credential-providers` to v`3.893.0`, and `@aws-sdk/util-dynamodb` to v: `3.893.0` and added override for `fast-xml-parser` to `5.3.4` due to high vulnerability.
 
 ## v1.0
 

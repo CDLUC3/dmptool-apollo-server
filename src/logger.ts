@@ -67,17 +67,30 @@ function maskEmail(email: string): string {
 
 // Inspect the keys and values of the object and recursively mask any sensitive information
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function redactSensitiveInfo(obj: any): any {
+function redactSensitiveInfo(obj: any, visited: WeakSet<any>): any {
+  // If we have seen object before then stop
+  if (obj !== null && typeof obj === 'object') {
+    if (visited.has(obj)) {
+      return '[Circular]';
+    }
+    visited.add(obj);
+  }
+
   if (Array.isArray(obj)) {
-    return obj.map(redactSensitiveInfo);
+    return obj.map(item => redactSensitiveInfo(item, visited));
   } else if (obj !== null && typeof obj === 'object') {
+    // Don't log buffers
+    if (Buffer.isBuffer(obj)) {
+      return '[Buffer]';
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const redactedObj: any = {};
     for (const [key, value] of Object.entries(obj)) {
       if (REDACTION_KEYS.includes(key)) {
         redactedObj[key] = REDACTION_MESSAGE;
       } else {
-        redactedObj[key] = redactSensitiveInfo(value);
+        redactedObj[key] = redactSensitiveInfo(value, visited);
       }
     }
     return redactedObj;
@@ -108,7 +121,7 @@ export function initLogger(baseLogger: Logger, contextFields: LoggerContext): Lo
 export function prepareObjectForLogs(obj: object): object {
   if (isNullOrUndefined(obj)) return {};
 
-  const cleansed = redactSensitiveInfo(obj);
+  const cleansed = redactSensitiveInfo(obj, new WeakSet());
   return Object.fromEntries(
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     Object.entries(cleansed).filter(([_, v]) => !isNullOrUndefined(v))

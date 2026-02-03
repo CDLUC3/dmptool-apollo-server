@@ -12,9 +12,11 @@
 - Added new methods to `guidanceServices`: `groupGuidanceByTag`, `getGuidanceSourcesForPlan`, `getSectionTags`, `getSectionTagIds`, `getSectionTagsMap`, `addPlanGuidanceAffiliation` and `getAffiliationsWithGuidanceForTemplate` [#29]
 - Added `ownerAffiliation` chained resolvers to `versionedQuestion` [#18]
 - added `@as-integrations/express5` for Apollo-Express integration
+- added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
 - Updated the `Plan` model's `create` function to auto-populate the `planGuidance` table when a plan is created [#29]
+- Updated related works endpoints to support related works project overview page.
 - Updated `findBestPracticeByTagIds` and `findByAffiliationAndTagIds` in `VersionedGuidance` to remove the use of `VersionedGuidanceTags` table, since there is not table with that name [#18]
 - Regenerated `src/types` using new `graphql-codegen` version
 - Updated `tokenService` to use `uuid` instead of `uuidv4` package

@@ -452,16 +452,24 @@ Both the init script and lambda ZIP files are mounted into the docker container 
 
 **Note:** You can skip setting up the Lambda Function and the Apollo application will still run normally. You will however see errors in the logs like `localstack     | 2026-02-02T19:04:33.720  INFO --- [et.reactor-0] localstack.request.aws     : AWS sqs.SendMessage => 400 (QueueDoesNotExist)`. These errors can be ignored.
 
-If you need to update the Lambda function, pull down the latest ZIP archive and drop it into the `./lambdas` folder. Note you will need to restart docker compose for the changes to take effect. 
-For example: `cp ../dmptool-infrastructure/src/lambda/function/generateMaDMPRecord/generateMaDMPRecord.zip ./lambdas`
+You can now clone the [dmptool-infrastructure repo](https://github.com/CDLUC3/dmptool-infrastructure) to your machine and then navigate to the `src/lambda/function/generateMaDMPRecord` directory and run `npm install && npm run build` which will compile the function code and generate a ZIP artifact. That ZIP artifact can then be placed into the `./lambdas` folder of this project.
 
-The docker compose output will show calls to LocalStack managed resources.
+Once the ZIP file is in place, LocalStack will generate the DynamoDB table, an SQS Queue, the generateMaDMPRecord Lambda function, and an event source map that will ensure that messages sent to the SQS Queue get picked up and processed by the Lambda function.
 
-To view or watch the Lambda function logs you can run: `awslocal logs tail /aws/lambda/generateMaDMPRecord --follow`. Note that if the Lambda has not run yet, the log group will not exist, so you will see an error like `An error occurred (ResourceNotFoundException) when calling the FilterLogEvents operation: The specified log group does not exist.`. Wait until you see Lambda activity in the docker compose output and try again.
+You will see logging from the LocalStack container about the messages intermixed with the regular Apollo logs.
 
+Note that as the Lambda Function changes over time you will need to replace the ZIP file in the `./lambdas` directory with the latest.
+
+**Loging:**
+The docker compose output will show calls to LocalStack managed resources with HTTP response code (e.g. `sqs.send-message 200`.
+
+To view or watch the actual logs output by the Lambda function you can run: `awslocal logs tail /aws/lambda/generateMaDMPRecord --follow`. This taps into the CloudWatch Logs emulator that LocalStack uses. 
+Note that if the Lambda has not run yet, the log group will not exist, so you will see an error like `An error occurred (ResourceNotFoundException) when calling the FilterLogEvents operation: The specified log group does not exist.`. Wait until you see Lambda activity in the docker compose output and try again.
+
+**Verifying the maDMP records:**
 You can query the DynamoDB Table for a Plan's maDMP records. To do that, you should first find the Plan's `dmpId` value. 
 
-The DynamoDB table uses the DMP Id as a partition key. Istead of the `https://` though, it uses a prefix of `DMP#`. For example `DMP#doi.org/11.22222/3A4B5C6d`.
+The DynamoDB table uses the DMP Id as a partition key. Instead of the `https://` though, it uses a prefix of `DMP#`. For example `DMP#doi.org/11.22222/3A4B5C6d`.
  
 To fetch the latest RDA Common Standard record for a specific Plan: `awslocal dynamodb get-item --table-name localDMPTable --key '{"PK":{"S":"DMP#<PLAN DMP ID>"},"SK":{"S":"VERSION#latest"}}'`
 To fetch the latest DMP Tool Extensions record for a specific Plan: `awslocal dynamodb get-item --table-name localDMPTable --key '{"PK":{"S":"DMP#<PLAN DMP ID>"},"SK":{"S":"EXTENSION#latest"}}'`

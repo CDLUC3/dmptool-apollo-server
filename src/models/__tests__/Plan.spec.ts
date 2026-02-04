@@ -707,7 +707,7 @@ describe('create', () => {
     insertQuery.mockResolvedValueOnce(123);
     const createdPlan = new Plan({ ...planData, id: 123 });
     (Plan.findById as jest.Mock) = jest.fn().mockResolvedValueOnce(createdPlan);
-    
+
     const plan = new Plan(planData);
     await plan.create(context);
 

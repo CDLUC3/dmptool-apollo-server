@@ -16,6 +16,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Upgraded to Apollo Server `5.4` and updates all `@aws-sdk` packages
 - Updated the `Plan` model's `create` function to auto-populate the `planGuidance` table when a plan is created [#29]
 - Updated related works endpoints to support related works project overview page.
 - Updated `findBestPracticeByTagIds` and `findByAffiliationAndTagIds` in `VersionedGuidance` to remove the use of `VersionedGuidanceTags` table, since there is not table with that name [#18]
@@ -30,6 +31,7 @@
 - Updates to appease newer version of eslint
 
 ### Removed
+- Removed override for `fast-xml-parser` dependency
 - Removed override for `qs` dependency
 - Removed duplicative properties like `public id: number;` from classes in `models/RelatedWork`. They are inherited from `MySQLModel`.
 - removed Apollo config option to deal with flaw in Apollo4 `status400ForVariableCoercionErrors`

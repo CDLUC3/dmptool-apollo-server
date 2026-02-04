@@ -38,7 +38,7 @@
     "@apollo/server": "5.4.0",
     "@apollo/utils.keyvadapter": "4.0.1",
     "@as-integrations/express5": "1.1.2",
-    "@aws-sdk/client-dynamodb": "^3.983.0",
+    "@aws-sdk/client-dynamodb": "3.983.0",
     "@aws-sdk/client-ssm": "3.983.0",
     "@aws-sdk/credential-providers": "3.983.0",
     "@aws-sdk/util-dynamodb": "3.983.0",

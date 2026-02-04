@@ -18,6 +18,7 @@
     - [Pagination](#pagination)
     - [Errors](#errors)
 - [Development](#development)
+    - [LocalStack](#localstack) 
     - [Data Model](#data-model)
     - [Adding or updating GraphQL functionality](#adding-or-updating-graphql-functionality)
     - [Context](#context)
@@ -176,9 +177,16 @@ flowchart LR;
 ### Prerequisites
 - Node.js v22.15 or higher
 - npm v11.3.0 or higher
-- docker v28.0 or higher 
+- docker v28.0 or higher
+- LocalStack free version
+
+If you will use the AWS infrastructure to generate maDMP metadata through Lambda Functions:
+- Python 3.13 or higher
+- awslocal cli 2.31 or higher
 
 ### Installation
+- Install localstack CLI: `brew install localstack`
+- Install awslocal CLI (if you will use AWS Lambda to create maDMP records): `pip install awscli-local`
 - Clone this repository to your local machine
 - Create your dotenv file the `cp ./.env.example ./.env`
 - Update the new `.env` file if necessary (make sure it has no references to MYSQL unless you want to override the docker-compose db settings)
@@ -440,6 +448,8 @@ To run the Trivy security scans: `npm run trivy-all`
 ### LocalStack
 
 We are using LocalStack to emulate AWS services within the docker compose environment. It creates a DyanmoDB Table, SQS Queue and Lambda Functions.
+
+See the Prerequisites and Getting Started sections for more details on installing LocalStack and the awslocal CLIs.
 
 The DynamoDB table is used to store maDMP Plan version records. That data is managed by a Lambda function triggered by SQS messages.
 

@@ -10,6 +10,8 @@ export const typeDefs = gql`
     publishedTemplatesMetaData(term: String, paginationOptions: PaginationOptions): PublishedTemplateMetaDataResults
     "Get the VersionedTemplates that belong to the current user's affiliation (user must be an Admin)"
     myVersionedTemplates: [VersionedTemplateSearchResult]
+    "Search for VersionedTemplates whose visibility is PUBLIC, excluding user org"
+    customizableTemplates(term: String, paginationOptions: PaginationOptions): PublishedTemplateSearchResults
   }
 
   "Template version type"

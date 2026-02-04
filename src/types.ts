@@ -841,15 +841,6 @@ export type GuidanceSourceType =
   /** Guidance from user-selected organizations */
   | 'USER_SELECTED';
 
-/** Output type for the initializePlanVersion mutation */
-export type InitializePlanVersionOutput = {
-  __typename?: 'InitializePlanVersionOutput';
-  /** The number of PlanVersion records that were created */
-  count: Scalars['Int']['output'];
-  /** The ids of the Plans that were processed */
-  planIds?: Maybe<Array<Scalars['Int']['output']>>;
-};
-
 /** An institution of an author of a work */
 export type Institution = {
   __typename?: 'Institution';
@@ -1161,8 +1152,8 @@ export type Mutation = {
   setPrimaryUserEmail?: Maybe<Array<Maybe<UserEmail>>>;
   /** Set the user's ORCID */
   setUserOrcid?: Maybe<User>;
-  /** Initialize an PLanVersion record in the DynamoDB for all Plans that do not have one */
-  superInitializePlanVersions: InitializePlanVersionOutput;
+  /** Initialize a PLanVersion record in the DynamoDB for all Plans that do not have one */
+  superSyncPlanMaDMP: Scalars['Boolean']['output'];
   /** Unpublish a GuidanceGroup (sets active flag to false on current version) */
   unpublishGuidanceGroup: GuidanceGroup;
   /** Update an Affiliation */
@@ -1604,6 +1595,11 @@ export type MutationSetPrimaryUserEmailArgs = {
 
 export type MutationSetUserOrcidArgs = {
   orcid: Scalars['String']['input'];
+};
+
+
+export type MutationSuperSyncPlanMaDmpArgs = {
+  planId: Scalars['Int']['input'];
 };
 
 
@@ -2710,8 +2706,6 @@ export type Query = {
   sectionVersions?: Maybe<Array<Maybe<VersionedSection>>>;
   /** Get the Sections that belong to the associated templateId */
   sections?: Maybe<Array<Maybe<Section>>>;
-  /** Fetch the DynamoDB PlanVersion record for a specific plan and version timestamp (leave blank for the latest) */
-  superInspectPlanVersion?: Maybe<Scalars['String']['output']>;
   /** Get all available tags to display */
   tags: Array<Tag>;
   tagsBySectionId?: Maybe<Array<Maybe<Tag>>>;
@@ -3063,12 +3057,6 @@ export type QuerySectionVersionsArgs = {
 
 export type QuerySectionsArgs = {
   templateId: Scalars['Int']['input'];
-};
-
-
-export type QuerySuperInspectPlanVersionArgs = {
-  modified?: InputMaybe<Scalars['String']['input']>;
-  planId: Scalars['Int']['input'];
 };
 
 
@@ -4844,7 +4832,6 @@ export type ResolversTypes = {
   GuidanceItem: ResolverTypeWrapper<GuidanceItem>;
   GuidanceSource: ResolverTypeWrapper<GuidanceSource>;
   GuidanceSourceType: GuidanceSourceType;
-  InitializePlanVersionOutput: ResolverTypeWrapper<InitializePlanVersionOutput>;
   Institution: ResolverTypeWrapper<Institution>;
   InstitutionInput: InstitutionInput;
   Int: ResolverTypeWrapper<Scalars['Int']['output']>;
@@ -5044,7 +5031,6 @@ export type ResolversParentTypes = {
   GuidanceGroupErrors: GuidanceGroupErrors;
   GuidanceItem: GuidanceItem;
   GuidanceSource: GuidanceSource;
-  InitializePlanVersionOutput: InitializePlanVersionOutput;
   Institution: Institution;
   InstitutionInput: InstitutionInput;
   Int: Scalars['Int']['output'];
@@ -5468,11 +5454,6 @@ export type GuidanceSourceResolvers<ContextType = MyContext, ParentType extends 
   type?: Resolver<ResolversTypes['GuidanceSourceType'], ParentType, ContextType>;
 };
 
-export type InitializePlanVersionOutputResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['InitializePlanVersionOutput'] = ResolversParentTypes['InitializePlanVersionOutput']> = {
-  count?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  planIds?: Resolver<Maybe<Array<ResolversTypes['Int']>>, ParentType, ContextType>;
-};
-
 export type InstitutionResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['Institution'] = ResolversParentTypes['Institution']> = {
   name?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   ror?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -5640,7 +5621,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   resendInviteToProjectCollaborator?: Resolver<Maybe<ResolversTypes['ProjectCollaborator']>, ParentType, ContextType, RequireFields<MutationResendInviteToProjectCollaboratorArgs, 'projectCollaboratorId'>>;
   setPrimaryUserEmail?: Resolver<Maybe<Array<Maybe<ResolversTypes['UserEmail']>>>, ParentType, ContextType, RequireFields<MutationSetPrimaryUserEmailArgs, 'email'>>;
   setUserOrcid?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationSetUserOrcidArgs, 'orcid'>>;
-  superInitializePlanVersions?: Resolver<ResolversTypes['InitializePlanVersionOutput'], ParentType, ContextType>;
+  superSyncPlanMaDMP?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationSuperSyncPlanMaDmpArgs, 'planId'>>;
   unpublishGuidanceGroup?: Resolver<ResolversTypes['GuidanceGroup'], ParentType, ContextType, RequireFields<MutationUnpublishGuidanceGroupArgs, 'guidanceGroupId'>>;
   updateAffiliation?: Resolver<Maybe<ResolversTypes['Affiliation']>, ParentType, ContextType, RequireFields<MutationUpdateAffiliationArgs, 'input'>>;
   updateAnswer?: Resolver<Maybe<ResolversTypes['Answer']>, ParentType, ContextType, RequireFields<MutationUpdateAnswerArgs, 'answerId'>>;
@@ -6134,7 +6115,6 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   section?: Resolver<Maybe<ResolversTypes['Section']>, ParentType, ContextType, RequireFields<QuerySectionArgs, 'sectionId'>>;
   sectionVersions?: Resolver<Maybe<Array<Maybe<ResolversTypes['VersionedSection']>>>, ParentType, ContextType, RequireFields<QuerySectionVersionsArgs, 'sectionId'>>;
   sections?: Resolver<Maybe<Array<Maybe<ResolversTypes['Section']>>>, ParentType, ContextType, RequireFields<QuerySectionsArgs, 'templateId'>>;
-  superInspectPlanVersion?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType, RequireFields<QuerySuperInspectPlanVersionArgs, 'planId'>>;
   tags?: Resolver<Array<ResolversTypes['Tag']>, ParentType, ContextType>;
   tagsBySectionId?: Resolver<Maybe<Array<Maybe<ResolversTypes['Tag']>>>, ParentType, ContextType, RequireFields<QueryTagsBySectionIdArgs, 'sectionId'>>;
   template?: Resolver<Maybe<ResolversTypes['Template']>, ParentType, ContextType, RequireFields<QueryTemplateArgs, 'templateId'>>;
@@ -6881,7 +6861,6 @@ export type Resolvers<ContextType = MyContext> = {
   GuidanceGroupErrors?: GuidanceGroupErrorsResolvers<ContextType>;
   GuidanceItem?: GuidanceItemResolvers<ContextType>;
   GuidanceSource?: GuidanceSourceResolvers<ContextType>;
-  InitializePlanVersionOutput?: InitializePlanVersionOutputResolvers<ContextType>;
   Institution?: InstitutionResolvers<ContextType>;
   ItemMatch?: ItemMatchResolvers<ContextType>;
   Language?: LanguageResolvers<ContextType>;

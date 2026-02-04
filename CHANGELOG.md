@@ -3,6 +3,10 @@
 ## v1.1.0
 
 ### Added
+- Added `processResult` handler to the Plan model to help generate DMP ids when they are missing
+- Added `saveMaDMPVersion` function to the `src/services/planService`. This service handles sending the SQS messages to the AWS SQS Queue to trigger the `generateMaDMPRecord` Lambda Function.
+- Added SQS Queue URL env variable to config files (also added to the ECS container definitions)
+- Added `@dmptool/utils` package
 - Added data-migration script to create new `planGuidance` JOIN table [#29]
 - Added a new method `searchManagedWithPublishedGuidance` to `Affiliation` model for managed Affiliations that have published guidance associated with them [#29]
 - Added `managedAffiliationsWithGuidance` query resolver to `Affiliation` resolvers [#29]
@@ -16,6 +20,9 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Started updating files to use JSDoc format
+- Updated `answer`, `funding`, `member`, `plan` and `project` resolvers to use the new `saveMaDMPVersion` function to update maDMP records.
+- Updated `superAdmin` resolver and replaced existing functions with one that allows us to force the recreation of a maDMP record for a specified plan id.
 - Upgraded to Apollo Server `5.4` and updates all `@aws-sdk` packages
 - Updated the `Plan` model's `create` function to auto-populate the `planGuidance` table when a plan is created [#29]
 - Updated related works endpoints to support related works project overview page.
@@ -31,6 +38,11 @@
 - Updates to appease newer version of eslint
 
 ### Removed
+- Removed `src/datasources/dynamo` data source. Writes to Dynamo are now being handled by the `generateMaDMPRecord` Lambda Function.
+- Removed `src/models/PlanVersion`
+- Removed the old `commonStandardService`. This functionality now lives in the `@dmptool/utils` package
+- Removed most functions from `src/datasources/dmphubAPI` data source that were atempting to modify dynamo records via the old DMP Hub API
+- Removed DMP endpoints from `dmphubAPI` datasource
 - Removed override for `fast-xml-parser` dependency
 - Removed override for `qs` dependency
 - Removed duplicative properties like `public id: number;` from classes in `models/RelatedWork`. They are inherited from `MySQLModel`.

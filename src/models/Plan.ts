@@ -1,35 +1,36 @@
 // Represents an entry from the projectPlans table
-
 import { generalConfig } from "../config/generalConfig";
 import { MyContext } from "../context";
-import {
-  getCurrentDate,
-  isNullOrUndefined,
-  randomHex,
-  valueIsEmpty
-} from "../utils/helpers";
+import { getCurrentDate, isNullOrUndefined, randomHex, valueIsEmpty } from "../utils/helpers";
 import { MySqlModel } from "./MySqlModel";
-import { addVersion, removeVersions, updateVersion } from "./PlanVersion";
-import { PlanGuidance } from "../models/Guidance";
-import { VersionedTemplate } from "../models/VersionedTemplate";
+import { PlanGuidance } from "./Guidance";
+import { VersionedTemplate } from "./VersionedTemplate";
 import { Project } from "./Project";
 import { Tag } from "./Tag";
 
 export const DEFAULT_TEMPORARY_DMP_ID_PREFIX = 'temp-dmpId-';
 
+/**
+ * Possible statuses for a plan.
+ */
 export enum PlanStatus {
   ARCHIVED = 'ARCHIVED',
   DRAFT = 'DRAFT',
   COMPLETE = 'COMPLETE',
 }
 
+/**
+ * Plan visibility options
+ */
 export enum PlanVisibility {
   ORGANIZATIONAL = 'ORGANIZATIONAL',
   PUBLIC = 'PUBLIC',
   PRIVATE = 'PRIVATE',
 }
 
-// A high level overview of a plan
+/**
+ * Class that represents a high-level overview of a plan.
+ */
 export class PlanSearchResult {
   public id: number;
   public createdBy: string;
@@ -68,7 +69,15 @@ export class PlanSearchResult {
     this.registered = options.registered;
   }
 
-  // Find all of the high level details about the plans for a project
+  /**
+   * Find high-level details about the plans for a project. This information is
+   * meant to supply an overview of the plans.
+   *
+   * @param reference The caller's reference string for logging purposes'
+   * @param context The Apollo context object
+   * @param projectId The ID of the project to return plans for
+   * @returns An array of PlanSearchResult objects
+   */
   static async findByProjectId(reference: string, context: MyContext, projectId: number): Promise<PlanSearchResult[]> {
     const sql = 'SELECT p.id, ' +
                 'CONCAT(cu.givenName, CONCAT(\' \', cu.surName)) createdBy, p.created, ' +
@@ -99,7 +108,11 @@ export class PlanSearchResult {
   }
 }
 
-// Represents a high level snapshot of the progress that has been made on a section of the plan
+/**
+ * Class that represents the progress of a plan section.
+ * This includes the total number of questions and the percentage of questions
+ * answered across all sections of the template.
+ */
 export class PlanSectionProgress {
   public versionedSectionId: number;
   public title: string;
@@ -117,7 +130,14 @@ export class PlanSectionProgress {
     this.tags = options.tags ?? [];
   }
 
-  // Return the progress information for sections of the plan
+  /**
+   * Return the progress information for the plan by section.
+   *
+   * @param reference The caller's reference string for logging purposes'
+   * @param context The Apollo context object
+   * @param planId The ID of the plan to return progress information for
+   * @returns The progress information for the section or an empty array if the section does not exist
+   */
   static async findByPlanId(reference: string, context: MyContext, planId: number): Promise<PlanSectionProgress[]> {
     const sql = `SELECT
       vs.id AS versionedSectionId,
@@ -168,6 +188,11 @@ export class PlanSectionProgress {
   }
 }
 
+/**
+ * Class that represents the overall progress of a plan.
+ * This includes the total number of questions and the percentage of questions
+ * answered across all sections of the template.
+ */
 export class PlanProgress {
   public totalQuestions: number;
   public answeredQuestions: number;
@@ -181,7 +206,14 @@ export class PlanProgress {
       : 0;
   }
 
-  // Return the overall progress information for a plan
+  /**
+   * Return the overall progress information for a plan
+   *
+   * @param reference The caller's reference string for logging purposes'
+   * @param context The Apollo context object
+   * @param planId The ID of the plan to return progress information for
+   * @returns The overall progress information for the plan or null if the plan does not exist
+   */
   static async findByPlanId(reference: string, context: MyContext, planId: number): Promise<PlanProgress> {
     const sql = `SELECT COUNT(DISTINCT vq.id) AS totalQuestions,
         COUNT(DISTINCT CASE
@@ -203,9 +235,12 @@ export class PlanProgress {
   }
 }
 
-// A Data management plan
+/**
+ * Class that represents a Plan/DMP
+ */
 export class Plan extends MySqlModel {
   public projectId: number;
+  public dmpId: string;
   public versionedTemplateId: number;
   public title: string;
   public status: PlanStatus;
@@ -214,7 +249,6 @@ export class Plan extends MySqlModel {
   public featured: boolean;
 
   // The following fields should only be set when the plan is published!
-  public dmpId: string;
   public registeredById: number;
   public registered: string;
 
@@ -237,7 +271,12 @@ export class Plan extends MySqlModel {
     this.registered = options.registered;
   }
 
-  // Generate a new DMP ID
+  /**
+   * Generate a new DMP ID for the plan.
+   *
+   * @param context The Apollo context object
+   * @returns The new DMP ID
+   */
   async generateDMPId(context: MyContext): Promise<string> {
     // If the Plan already has a DMP ID, just return it
     if (!valueIsEmpty(this.dmpId)) return this.dmpId;
@@ -257,6 +296,8 @@ export class Plan extends MySqlModel {
       id = randomHex(16);
       i++;
     }
+
+    context.logger.error('Unable to generate a unique DMP ID for the plan.');
     return `${DEFAULT_TEMPORARY_DMP_ID_PREFIX}${id}`;
   }
 
@@ -265,7 +306,9 @@ export class Plan extends MySqlModel {
     return !isNullOrUndefined(this.registered) || !isNullOrUndefined(this.registeredById);
   }
 
-  // Make sure the plan is valid
+  /**
+   * Check if the plan is valid. If it is not valid, add errors to the object.
+   */
   async isValid(): Promise<boolean> {
     await super.isValid();
 
@@ -285,12 +328,41 @@ export class Plan extends MySqlModel {
     return Object.keys(this.errors).length === 0;
   }
 
-  // Ensure data integrity
+  /**
+   * Prepare the plan for saving.
+   */
   prepForSave(): void {
     // Remove leading/trailing blank spaces
     this.title = this.title?.trim();
   }
 
+  /**
+   * Process the result of a query to the database.
+   *
+   * @param context The Apollo context object
+   * @param plan The Plan object to process
+   * @returns The processed Plan object
+   */
+  static async processResult(context: MyContext, plan: Plan): Promise<Plan> {
+    // Check to see it the plan has a `dmpId`. If not, it was probably recently
+    // migrated, so we need to assign a `dmpId` and send a request to generate the
+    // maDMP record.
+    if (isNullOrUndefined(plan.dmpId)) {
+      // Generate a new DMP ID
+      plan.dmpId = await plan.generateDMPId(context);
+      return await plan.update(context, true);
+    }
+
+    return new Plan(plan);
+  }
+
+  /**
+   * Publish the plan (register its DMP id with EZID/DataCite making it a DOI)
+   *
+   * @param context The Apollo context object
+   * @param visibility The visibility of the plan. Defaults to PRIVATE.
+   * @returns The updated Plan or the original Plan if something went wrong
+   */
   // Publish the plan (register a DOI)
   async publish(context: MyContext, visibility = PlanVisibility.PRIVATE): Promise<Plan> {
     if (this.id) {
@@ -302,9 +374,10 @@ export class Plan extends MySqlModel {
           this.visibility = visibility;
 
           // Update the plan
-          return await this.update(context);
-
-          // TODO: Eventually make a asyncronous call to EZID to register the DMP ID (DOI)
+          const updated = await this.update(context);
+          if (updated && !updated.hasErrors()) {
+            return new Plan(updated);
+          }
         } else {
           this.addError('general', 'The plan is already registered');
         }
@@ -314,7 +387,12 @@ export class Plan extends MySqlModel {
     return new Plan(this);
   }
 
-  //Create a new Plan
+  /**
+   * Create a new Plan and its initial maDMP record.
+   *
+   * @param context The Apollo context object
+   * @returns The new Plan or the original Plan if something went wrong
+   */
   async create(context: MyContext): Promise<Plan> {
     const reference = 'Plan.create';
 
@@ -328,7 +406,7 @@ export class Plan extends MySqlModel {
         this.title = project?.title;
       }
 
-      // First make sure the record is valid
+      // Make sure the record is valid
       if (await this.isValid()) {
         this.prepForSave();
 
@@ -339,9 +417,6 @@ export class Plan extends MySqlModel {
         if (newId) {
           const newPlan = await Plan.findById(reference, context, newId);
           if (newPlan) {
-            // Generate the version history of the DMP
-            await addVersion(context, newPlan, reference);
-
             // Auto-populate planGuidance with default affiliations
             await this.initializePlanGuidance(context, newId, this.versionedTemplateId);
 
@@ -357,8 +432,12 @@ export class Plan extends MySqlModel {
   }
 
   /**
- * Initialize plan guidance with default affiliations (template owner and user affiliation)
- */
+   * Initialize plan guidance with default affiliations (template owner and user affiliation)
+   *
+   * @param context The Apollo context object
+   * @param planId The ID of the newly created plan
+   * @param versionedTemplateId The ID of the associated versioned template
+   */
   private async initializePlanGuidance(
     context: MyContext,
     planId: number,
@@ -416,8 +495,14 @@ export class Plan extends MySqlModel {
     }
   }
 
-
-  //Update an existing Plan
+  /**
+   * Update the Plan and if appropriate, update the maDMP record.
+   *
+   * @param context The Apollo context object
+   * @param noTouch If true, do not update fields like modified timestamp and also
+   * skip updating the maDMP record
+   * @returns The updated Plan or the original Plan if something went wrong
+   */
   async update(context: MyContext, noTouch = false): Promise<Plan> {
     const reference = 'Plan.update';
 
@@ -426,16 +511,11 @@ export class Plan extends MySqlModel {
         this.prepForSave();
 
         // Update the plan
-        let updated = await Plan.update(context, Plan.tableName, this, reference, [], noTouch);
+        let updated = await Plan.update(context, Plan.tableName, this, reference, [], noTouch) as Plan;
         if (updated) {
           updated = new Plan(updated);
-          // Do not update any version info if the plan has not been modified or noTouch is true
-          if (!noTouch && updated && !updated.hasErrors()) {
-            // Update the version history of the DMP
-            updated = await updateVersion(context, this, reference);
-            if (updated && !updated.hasErrors()) {
-              return new Plan(updated);
-            }
+          if (updated && !updated.hasErrors()) {
+            return new Plan(updated);
           }
         }
       }
@@ -446,7 +526,12 @@ export class Plan extends MySqlModel {
     return new Plan(this);
   }
 
-  //Delete the Plan
+  /**
+   * Delete the Plan and all maDMP versions.
+   *
+   * @param context The Apollo context object
+   * @returns The deleted Plan or null if something went wrong
+   */
   async delete(context: MyContext): Promise<Plan | null> {
     const reference = 'Plan.delete';
     if (this.id) {
@@ -456,31 +541,57 @@ export class Plan extends MySqlModel {
         // Delete the plan
         const successfullyDeleted = await Plan.delete(context, Plan.tableName, this.id, reference);
         if (successfullyDeleted) {
-          return await removeVersions(context, this, reference);
+          return toDelete;
         }
       }
     }
     return null;
   }
 
-  // Find the plan by its id
+  /**
+   * Fetch the Plan by its id.
+   *
+   * @param reference The caller's reference string for logging purposes'
+   * @param context The Apollo context object
+   * @param planId The id of the Plan to fetch
+   * @returns The Plan object or null if it does not exist
+   */
   static async findById(reference: string, context: MyContext, planId: number): Promise<Plan | null> {
     const sql = `SELECT * FROM ${this.tableName} WHERE id = ?`;
     const results = await Plan.query(context, sql, [planId?.toString()], reference);
-    return Array.isArray(results) && results.length > 0 ? new Plan(results[0]) : null;
+    return Array.isArray(results) && results.length > 0 ? await Plan.processResult(context, results[0]) : null;
   }
 
-  // Find the plan by its DMP ID
+  /**
+   * Fetch the Plan by its DMP id.
+   *
+   * @param reference The caller's reference string for logging purposes'
+   * @param context The Apollo context object
+   * @param dmpId The DMP id of the Plan to fetch
+   * @returns The Plan object or null if it does not exist
+   */
   static async findByDMPId(reference: string, context: MyContext, dmpId: string): Promise<Plan | null> {
     const sql = `SELECT * FROM ${this.tableName} WHERE dmpId = ?`;
     const results = await Plan.query(context, sql, [dmpId?.toString()], reference);
-    return Array.isArray(results) && results.length > 0 ? new Plan(results[0]) : null;
+    return Array.isArray(results) && results.length > 0 ? await Plan.processResult(context, results[0]) : null;
   }
 
-  // Find all of the plans for a project
+  /**
+   * Fetch the Plans associated with a Project.
+   *
+   * @param reference The caller's reference string for logging purposes'
+   * @param context The Apollo context object
+   * @param projectId The id of the Project whose Plans we want to fetch
+   * @returns The Plan object or null if it does not exist
+   */
   static async findByProjectId(reference: string, context: MyContext, projectId: number): Promise<Plan[]> {
     const sql = `SELECT * FROM ${this.tableName} WHERE projectId = ?`;
     const results = await Plan.query(context, sql, [projectId?.toString()], reference);
-    return Array.isArray(results) ? results.map((result) => new Plan(result)) : [];
+
+    return Array.isArray(results)
+      ? await Promise.all(results.map(async (result) =>
+        await Plan.processResult(context, result)
+      ))
+      : [];
   }
 }

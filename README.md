@@ -178,10 +178,10 @@ flowchart LR;
 - Node.js v22.15 or higher
 - npm v11.3.0 or higher
 - docker v28.0 or higher
-- LocalStack free version
 
 If you will use the AWS infrastructure to generate maDMP metadata through Lambda Functions:
 - Python 3.13 or higher
+- LocalStack cli 4.13 or higher
 - awslocal cli 2.31 or higher
 
 ### Installation

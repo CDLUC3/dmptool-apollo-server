@@ -33,18 +33,15 @@
     "node": ">=22.15.0",
     "npm": ">=11.3.0"
   },
-  "overrides": {
-    "fast-xml-parser": "5.3.4"
-  },
   "dependencies": {
     "@apollo/datasource-rest": "6.4.1",
-    "@apollo/server": "5.2.0",
-    "@apollo/utils.keyvadapter": "3.1.0",
+    "@apollo/server": "5.4.0",
+    "@apollo/utils.keyvadapter": "4.0.1",
     "@as-integrations/express5": "1.1.2",
-    "@aws-sdk/client-dynamodb": "3.980.0",
-    "@aws-sdk/client-ssm": "3.980.0",
-    "@aws-sdk/credential-providers": "3.980.0",
-    "@aws-sdk/util-dynamodb": "3.980.0",
+    "@aws-sdk/client-dynamodb": "^3.983.0",
+    "@aws-sdk/client-ssm": "3.983.0",
+    "@aws-sdk/credential-providers": "3.983.0",
+    "@aws-sdk/util-dynamodb": "3.983.0",
     "@dmptool/types": "3.1.0",
     "@elastic/ecs-pino-format": "1.5.0",
     "@graphql-tools/merge": "9.1.7",

@@ -91,6 +91,7 @@ export const resolvers: Resolvers = {
                 created.addError('general', 'Unable to set the default contact');
               }
             }
+
             return created;
           }
         }

@@ -15,6 +15,8 @@ import { defaultLanguageId } from "../Language";
 import { generalConfig } from "../../config/generalConfig";
 import { getCurrentDate } from "../../utils/helpers";
 import * as PlanVersionModule from "../PlanVersion";
+import { PlanGuidance } from "../Guidance";
+import { VersionedTemplate } from "../VersionedTemplate";
 
 jest.mock('../../context.ts');
 
@@ -577,19 +579,23 @@ describe('create', () => {
   const originalInsert = Plan.insert;
   let insertQuery;
   let plan;
+  // Add planData definition here
+  const planData = {
+    projectId: casual.integer(1, 99),
+    versionedTemplateId: casual.integer(1, 99),
+    title: casual.sentence,
+    status: PlanStatus.DRAFT,
+    visibility: getRandomEnumValue(PlanVisibility),
+    languageId: defaultLanguageId,
+    featured: casual.boolean,
+  };
 
   beforeEach(() => {
     insertQuery = jest.fn();
     (Plan.insert as jest.Mock) = insertQuery;
 
     plan = new Plan({
-      projectId: casual.integer(1, 99),
-      versionedTemplateId: casual.integer(1, 99),
-      title: casual.sentence,
-      status: PlanStatus.DRAFT,
-      visibility: getRandomEnumValue(PlanVisibility),
-      languageId: defaultLanguageId,
-      featured: casual.boolean,
+      ...planData
     });
   });
 
@@ -618,6 +624,28 @@ describe('create', () => {
     expect(PlanVersionModule.addVersion).toHaveBeenCalledTimes(1);
     expect(Object.keys(result.errors).length).toBe(0);
     expect(result).toBeInstanceOf(Plan);
+  });
+
+  it('should add PlanGuidance entries for template owner and user affiliation', async () => {
+    const planGuidanceCreate = jest.spyOn(PlanGuidance.prototype, 'create').mockResolvedValue(undefined);
+    
+    // Mock VersionedTemplate to return an owner
+    const mockVersionedTemplate = { ownerId: 'https://ror.org/template-owner' };
+    (VersionedTemplate.findById as jest.Mock) = jest.fn().mockResolvedValue(mockVersionedTemplate);
+    
+    // Mock successful insert and findById
+    insertQuery.mockResolvedValueOnce(123);
+    const createdPlan = new Plan({ ...planData, id: 123 });
+    (Plan.findById as jest.Mock) = jest.fn().mockResolvedValueOnce(createdPlan);
+    (PlanVersionModule.addVersion as jest.Mock) = jest.fn().mockResolvedValueOnce(createdPlan);
+
+    const plan = new Plan(planData);
+    await plan.create(context);
+
+    // Should be called for both affiliations (owner and user)
+    expect(planGuidanceCreate).toHaveBeenCalledTimes(2);
+    const calls = planGuidanceCreate.mock.calls.map(call => call[0]);
+    expect(calls).toEqual([context, context]);
   });
 });
 

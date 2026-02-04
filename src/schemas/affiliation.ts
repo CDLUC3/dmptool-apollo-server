@@ -12,6 +12,8 @@ export const typeDefs = gql`
     affiliations(name: String!, funderOnly: Boolean, paginationOptions: PaginationOptions): AffiliationSearchResults
     "Returns a list of the top 20 funders ranked by popularity (nbr of plans) for the past year"
     popularFunders: [FunderPopularityResult]
+    "Perform a search for managed Affiliations with published guidance for a specific template"
+    managedAffiliationsWithGuidance(name: String, versionedTemplateId: Int!, paginationOptions: PaginationOptions): AffiliationSearchResults
   }
 
   extend type Mutation {
@@ -37,6 +39,8 @@ export const typeDefs = gql`
     types: [AffiliationType!]
     "Has an API that be used to search for project/award information"
     apiTarget: String
+    "The acronyms for the affiliation"
+    acronyms: [String!]
   }
 
   type AffiliationSearchResults implements PaginatedQueryResults {

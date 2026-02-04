@@ -7,6 +7,13 @@
 - Added `saveMaDMPVersion` function to the `src/services/planService`. This service handles sending the SQS messages to the AWS SQS Queue to trigger the `generateMaDMPRecord` Lambda Function.
 - Added SQS Queue URL env variable to config files (also added to the ECS container definitions)
 - Added `@dmptool/utils` package
+- Added data-migration script to create new `planGuidance` JOIN table [#29]
+- Added a new method `searchManagedWithPublishedGuidance` to `Affiliation` model for managed Affiliations that have published guidance associated with them [#29]
+- Added `managedAffiliationsWithGuidance` query resolver to `Affiliation` resolvers [#29]
+- Added `guidanceSourcesForPlans`, `addPlanGuidance` and `removePlanGuidance` to `guidance` resolvers [#29]
+- Added a new `PlanGuidance` model and schema to accommodate the new `planGuidance` table [#29]
+- Added `acronyms` to `AffiliationSearch` schema so that client can get shortened names of affiliations [#29]
+- Added new methods to `guidanceServices`: `groupGuidanceByTag`, `getGuidanceSourcesForPlan`, `getSectionTags`, `getSectionTagIds`, `getSectionTagsMap`, `addPlanGuidanceAffiliation` and `getAffiliationsWithGuidanceForTemplate` [#29]
 - Added override for the `fast-xml-parser` dependency
 - Added `ownerAffiliation` chained resolvers to `versionedQuestion` [#18]
 - added `@as-integrations/express5` for Apollo-Express integration
@@ -16,6 +23,8 @@
 - Started updating files to use JSDoc format
 - Updated `answer`, `funding`, `member`, `plan` and `project` resolvers to use the new `saveMaDMPVersion` function to update maDMP records.
 - Updated `superAdmin` resolver and replaced existing functions with one that allows us to force the recreation of a maDMP record for a specified plan id.
+- Upgraded to Apollo Server `5.4` and updates all `@aws-sdk` packages
+- Updated the `Plan` model's `create` function to auto-populate the `planGuidance` table when a plan is created [#29]
 - Updated related works endpoints to support related works project overview page.
 - Updated `findBestPracticeByTagIds` and `findByAffiliationAndTagIds` in `VersionedGuidance` to remove the use of `VersionedGuidanceTags` table, since there is not table with that name [#18]
 - Regenerated `src/types` using new `graphql-codegen` version
@@ -34,6 +43,7 @@
 - Removed the old `commonStandardService`. This functionality now lives in the `@dmptool/utils` package
 - Removed most functions from `src/datasources/dmphubAPI` data source that were atempting to modify dynamo records via the old DMP Hub API
 - Removed DMP endpoints from `dmphubAPI` datasource
+- Removed override for `fast-xml-parser` dependency
 - Removed override for `qs` dependency
 - Removed duplicative properties like `public id: number;` from classes in `models/RelatedWork`. They are inherited from `MySQLModel`.
 - removed Apollo config option to deal with flaw in Apollo4 `status400ForVariableCoercionErrors`

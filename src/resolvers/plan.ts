@@ -97,6 +97,7 @@ export const resolvers: Resolvers = {
               // Generate the initial maDMP version of the record
               await saveMaDMPVersion(reference, context, created.id, created.registered);
             }
+
             return created;
           }
         }

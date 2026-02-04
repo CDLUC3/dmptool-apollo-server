@@ -3,6 +3,8 @@ import { generalConfig } from "../config/generalConfig";
 import { MyContext } from "../context";
 import { getCurrentDate, isNullOrUndefined, randomHex, valueIsEmpty } from "../utils/helpers";
 import { MySqlModel } from "./MySqlModel";
+import { PlanGuidance } from "./Guidance";
+import { VersionedTemplate } from "./VersionedTemplate";
 import { Project } from "./Project";
 import { Tag } from "./Tag";
 
@@ -177,11 +179,11 @@ export class PlanSectionProgress {
     const results = await Plan.query(context, sql, [planId?.toString()], reference);
     return Array.isArray(results)
       ? results.map((entry) => {
-          if (entry.tags && typeof entry.tags === 'string') {
-            try { entry.tags = JSON.parse(entry.tags); } catch { entry.tags = []; }
-          }
-          return new PlanSectionProgress(entry);
-        })
+        if (entry.tags && typeof entry.tags === 'string') {
+          try { entry.tags = JSON.parse(entry.tags); } catch { entry.tags = []; }
+        }
+        return new PlanSectionProgress(entry);
+      })
       : [];
   }
 }
@@ -415,6 +417,9 @@ export class Plan extends MySqlModel {
         if (newId) {
           const newPlan = await Plan.findById(reference, context, newId);
           if (newPlan) {
+            // Auto-populate planGuidance with default affiliations
+            await this.initializePlanGuidance(context, newId, this.versionedTemplateId);
+
             return new Plan(newPlan);
           } else {
             this.addError('general', 'Unable to create your plan.');
@@ -424,6 +429,70 @@ export class Plan extends MySqlModel {
     }
     // Otherwise return as-is with all the errors
     return new Plan(this);
+  }
+
+  /**
+   * Initialize plan guidance with default affiliations (template owner and user affiliation)
+   *
+   * @param context The Apollo context object
+   * @param planId The ID of the newly created plan
+   * @param versionedTemplateId The ID of the associated versioned template
+   */
+  private async initializePlanGuidance(
+    context: MyContext,
+    planId: number,
+    versionedTemplateId: number
+  ): Promise<void> {
+    const reference = 'Plan.initializePlanGuidance';
+
+    try {
+      // Get the user ID from token
+      const userId = context.token?.id;
+      if (!userId) {
+        context.logger.warn({ planId }, 'No userId found in token, skipping planGuidance initialization');
+        return;
+      }
+
+      // Get template owner URI
+      const versionedTemplate = await VersionedTemplate.findById(reference, context, versionedTemplateId);
+      const templateOwnerUri = versionedTemplate?.ownerId;
+
+      // Get user's affiliation URI
+      const userAffiliationUri = context.token?.affiliationId;
+
+      const affiliationsToAdd = new Set<string>();
+
+      // Add template owner if exists
+      if (templateOwnerUri) {
+        affiliationsToAdd.add(templateOwnerUri);
+      }
+
+      // Add user affiliation if exists (Set automatically handles duplicates)
+      if (userAffiliationUri) {
+        affiliationsToAdd.add(userAffiliationUri);
+      }
+
+      // Create PlanGuidance records for each unique affiliation
+      for (const affiliationId of affiliationsToAdd) {
+        try {
+          const planGuidance = new PlanGuidance({
+            planId,
+            affiliationId,
+            userId
+          });
+          await planGuidance.create(context);
+        } catch (err) {
+          // Log but don't fail plan creation if guidance initialization fails
+          context.logger.error(
+            { err, planId, affiliationId, userId },
+            'Failed to create planGuidance record'
+          );
+        }
+      }
+    } catch (err) {
+      // Log but don't fail plan creation if guidance initialization fails
+      context.logger.error({ err, planId }, 'Failed to initialize plan guidance');
+    }
   }
 
   /**

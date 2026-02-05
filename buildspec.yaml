@@ -20,8 +20,8 @@ phases:
 
       # Install trivy for vulnerability scanning
       - echo "Installing Trivy..."
-      - wget https://github.com/aquasecurity/trivy/releases/download/v0.58.2/trivy_0.58.2_Linux-64bit.tar.gz
-      - tar -zxvf trivy_0.58.2_Linux-64bit.tar.gz
+      - wget "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+      - tar -zxvf "trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
       - mv trivy /usr/local/bin/
 
       # Fetch the ECR repository name

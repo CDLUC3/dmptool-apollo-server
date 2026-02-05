@@ -299,8 +299,8 @@ export class VersionedTemplate extends MySqlModel {
   // Check if any plans exist that are associated with any versionedTemplate for the given template
   static async hasAssociatedPlans(reference: string, context: MyContext, templateId: number): Promise<boolean> {
     const sql = 'SELECT p.id FROM plans AS p ' +
-      'JOIN versionedTemplates AS vt ON p.versionedTemplateId = vt.id ' +
-      'WHERE vt.templateId = ? LIMIT 1';
+                'JOIN versionedTemplates AS vt ON p.versionedTemplateId = vt.id ' +
+                'WHERE vt.templateId = ? LIMIT 1';
     const results = await VersionedTemplate.query(context, sql, [templateId.toString()], reference);
     // Explicitly handle null or non-array results
     if (!results || !Array.isArray(results)) {

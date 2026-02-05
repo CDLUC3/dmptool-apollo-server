@@ -1,0 +1,40 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "enabledManagers": [
+    "npm"
+  ],
+  "baseBranches": [
+    "development"
+  ],
+  "ignorePaths": [
+    ".github",
+    ".husky",
+    "data-migrations/**",
+    "docs/**",
+    "lambdas/**"
+  ],
+  "minimumReleaseAge": "3 days",
+  "abandonmentThreshold": "2 years",
+  "bumpVersion": "minor",
+  "schedule": ["* * * * 7"],
+  "packageRules": [
+    {
+      "matchPackagePatterns": ["^@dmptool/"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "rangeStrategy": "bump"
+    },
+    {
+      "matchPackagePatterns": ["^@aws-sdk/"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "rangeStrategy": "bump"
+    },
+    {
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": ["devDependencies (non-major)"]
+    }
+  ]
+}

@@ -37,25 +37,31 @@ phases:
       - CI=true
       - echo "production=false" >> .npmrc
 
-      # CI deletes the node_modules folder and installs the dependencies as defined in package-lock.json
-      - npm ci
+      # Run NPM audit to check for vulnerabilities
+      - echo "Running NPM audit..."
+      - npm audit --audit-level=high
 
-      # Generate all of the GraphQL schema types
-      - echo "Generating GraphQL types"
-      - npm run generate
+      # CI deletes the node_modules folder and installs the dependencies as defined in package-lock.json
+      - echo "Installing dependencies..."
+      - npm ci
 
       # Run the linter checks
       - echo "Running linter checks"
       - npm run lint
 
       # Run the tests
-      # TODO: ignore tests in relatedWorksTables.spec.ts
-      # - echo "Running tests"
-      # - npm run test
+      - echo "Running tests"
+      - npm run test
 
       # All is good so build the Docker image
-      - echo Building the Docker image...
+      - echo "Building the Docker image..."
       - docker build -f Dockerfile.aws -t $SHORT_ECR_URI:apollo-latest .
+
+      # Run Trivy on the new image to check for vulnerabilities
+      - echo "Running Trivy vulnerability scanner on the new image..."
+      - trivy image --exit-code 0 --severity HIGH,CRITICAL $SHORT_ECR_URI:apollo-latest
+
+      # Tag the image with the Git commit ID
       - docker tag $ECR_REPOSITORY_URI:apollo-latest $SHORT_ECR_URI:$IMAGE_TAG
   post_build:
     commands:

@@ -1,4 +1,5 @@
 import { verifyCriticalEnvVariable } from "../utils/helpers";
+import { EnvironmentEnum } from "@dmptool/utils";
 
 // Verify these critical variables on startup!
 verifyCriticalEnvVariable('DOMAIN');
@@ -44,4 +45,18 @@ export const generalConfig = {
 
   csrfLength: Number.parseInt(process.env.CSRF_LENGTH) || 32,
   csrfTTL: Number.parseInt(process.env.CSRF_TTL) || 3600, // Default is 1 hour
+}
+
+/**
+ * Converts the environment code to an EnvironmentEnum value.
+ */
+export const envAsEnumValue = (): EnvironmentEnum => {
+  switch (generalConfig.env) {
+    case 'stg':
+      return EnvironmentEnum.STG;
+    case 'prd':
+      return EnvironmentEnum.PRD;
+    default:
+      return EnvironmentEnum.DEV;
+  }
 }

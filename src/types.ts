@@ -395,6 +395,8 @@ export type AffiliationProvenance =
 /** Search result - An abbreviated version of an Affiliation */
 export type AffiliationSearch = {
   __typename?: 'AffiliationSearch';
+  /** The acronyms for the affiliation */
+  acronyms?: Maybe<Array<Scalars['String']['output']>>;
   /** Has an API that be used to search for project/award information */
   apiTarget?: Maybe<Scalars['String']['output']>;
   /** The official display name */
@@ -798,14 +800,46 @@ export type GuidanceGroupErrors = {
   name?: Maybe<Scalars['String']['output']>;
 };
 
-/** Output type for the initializePlanVersion mutation */
-export type InitializePlanVersionOutput = {
-  __typename?: 'InitializePlanVersionOutput';
-  /** The number of PlanVersion records that were created */
-  count: Scalars['Int']['output'];
-  /** The ids of the Plans that were processed */
-  planIds?: Maybe<Array<Scalars['Int']['output']>>;
+/** A single guidance item with its content */
+export type GuidanceItem = {
+  __typename?: 'GuidanceItem';
+  /** The guidance text content (HTML) */
+  guidanceText: Scalars['String']['output'];
+  /** Tag ID this guidance is associated with */
+  id?: Maybe<Scalars['Int']['output']>;
+  /** Title/name of the tag */
+  title?: Maybe<Scalars['String']['output']>;
 };
+
+/** A source of guidance (organization, best practice, etc.) */
+export type GuidanceSource = {
+  __typename?: 'GuidanceSource';
+  /** Whether this source has any guidance */
+  hasGuidance: Scalars['Boolean']['output'];
+  /** Unique identifier for this guidance source */
+  id: Scalars['String']['output'];
+  /** Guidance items from this source */
+  items: Array<GuidanceItem>;
+  /** Full label/name of the organization */
+  label: Scalars['String']['output'];
+  /** Organization URI (ROR ID) */
+  orgURI: Scalars['String']['output'];
+  /** Short name or acronym */
+  shortName: Scalars['String']['output'];
+  /** The type of guidance source */
+  type: GuidanceSourceType;
+};
+
+/** Types of guidance sources */
+export type GuidanceSourceType =
+  /** Best practice guidance from DMP Tool */
+  | 'BEST_PRACTICE'
+  /** Guidance from the template owner organization */
+  | 'TEMPLATE_OWNER'
+  /** Guidance from the user's affiliation */
+  | 'USER_AFFILIATION'
+  /** Guidance from user-selected organizations */
+  | 'USER_SELECTED';
 
 /** An institution of an author of a work */
 export type Institution = {
@@ -1006,6 +1040,8 @@ export type Mutation = {
   addPlan?: Maybe<Plan>;
   /** Add Funding information to a Plan */
   addPlanFunding?: Maybe<Plan>;
+  /** Add Plan Guidance affiliation for current user */
+  addPlanGuidance: PlanGuidance;
   /** Add a Member to a Plan */
   addPlanMember?: Maybe<PlanMember>;
   /** Create a project */
@@ -1080,6 +1116,8 @@ export type Mutation = {
   removeMetadataStandard?: Maybe<MetadataStandard>;
   /** Remove a Funding from a Plan */
   removePlanFunding?: Maybe<PlanFunding>;
+  /** Remove Plan Guidance affiliation for current user */
+  removePlanGuidance?: Maybe<PlanGuidance>;
   /** Remove a PlanMember from a Plan */
   removePlanMember?: Maybe<PlanMember>;
   /** Remove a ProjectCollaborator from a Plan */
@@ -1114,8 +1152,8 @@ export type Mutation = {
   setPrimaryUserEmail?: Maybe<Array<Maybe<UserEmail>>>;
   /** Set the user's ORCID */
   setUserOrcid?: Maybe<User>;
-  /** Initialize an PLanVersion record in the DynamoDB for all Plans that do not have one */
-  superInitializePlanVersions: InitializePlanVersionOutput;
+  /** Initialize a PLanVersion record in the DynamoDB for all Plans that do not have one */
+  superSyncPlanMaDMP: Scalars['Boolean']['output'];
   /** Unpublish a GuidanceGroup (sets active flag to false on current version) */
   unpublishGuidanceGroup: GuidanceGroup;
   /** Update an Affiliation */
@@ -1257,6 +1295,12 @@ export type MutationAddPlanArgs = {
 export type MutationAddPlanFundingArgs = {
   planId: Scalars['Int']['input'];
   projectFundingIds: Array<Scalars['Int']['input']>;
+};
+
+
+export type MutationAddPlanGuidanceArgs = {
+  affiliationId: Scalars['String']['input'];
+  planId: Scalars['Int']['input'];
 };
 
 
@@ -1467,6 +1511,12 @@ export type MutationRemovePlanFundingArgs = {
 };
 
 
+export type MutationRemovePlanGuidanceArgs = {
+  affiliationId: Scalars['String']['input'];
+  planId: Scalars['Int']['input'];
+};
+
+
 export type MutationRemovePlanMemberArgs = {
   planMemberId: Scalars['Int']['input'];
 };
@@ -1545,6 +1595,11 @@ export type MutationSetPrimaryUserEmailArgs = {
 
 export type MutationSetUserOrcidArgs = {
   orcid: Scalars['String']['input'];
+};
+
+
+export type MutationSuperSyncPlanMaDmpArgs = {
+  planId: Scalars['Int']['input'];
 };
 
 
@@ -2010,6 +2065,45 @@ export type PlanFundingErrors = {
   /** General error messages such as the object already exists */
   general?: Maybe<Scalars['String']['output']>;
   planId?: Maybe<Scalars['String']['output']>;
+};
+
+/** Guidance items for a plan and user */
+export type PlanGuidance = {
+  __typename?: 'PlanGuidance';
+  /** The affiliation the guidance is associated with */
+  affiliation?: Maybe<Affiliation>;
+  /** The id of the affiliation who has the guidance */
+  affiliationId: Scalars['String']['output'];
+  /** The timestamp when the Object was created */
+  created?: Maybe<Scalars['String']['output']>;
+  /** The user who created the Object */
+  createdById?: Maybe<Scalars['Int']['output']>;
+  /** Errors associated with the Object */
+  errors?: Maybe<PlanGuidanceErrors>;
+  /** The unique identifier for the Object */
+  id?: Maybe<Scalars['Int']['output']>;
+  /** The timestamp when the Object was last modified */
+  modified?: Maybe<Scalars['String']['output']>;
+  /** The user who last modified the Object */
+  modifiedById?: Maybe<Scalars['Int']['output']>;
+  /** The plan the guidance is associated with */
+  plan?: Maybe<Plan>;
+  /** The id of the plan */
+  planId: Scalars['Int']['output'];
+  /** The user who selected the guidance */
+  user?: Maybe<User>;
+  /** The id of the user in the plan who selected the guidance */
+  userId: Scalars['Int']['output'];
+};
+
+/** A collection of errors related to PlanGuidance */
+export type PlanGuidanceErrors = {
+  __typename?: 'PlanGuidanceErrors';
+  affiliationId?: Maybe<Scalars['String']['output']>;
+  /** General error messages */
+  general?: Maybe<Scalars['String']['output']>;
+  planId?: Maybe<Scalars['String']['output']>;
+  userId?: Maybe<Scalars['String']['output']>;
 };
 
 /** A Member associated with a plan */
@@ -2508,12 +2602,16 @@ export type Query = {
   guidanceGroup?: Maybe<GuidanceGroup>;
   /** Get all GuidanceGroups for the user's organization (or for a specified affiliationId if provided and permitted) */
   guidanceGroups: Array<GuidanceGroup>;
+  /** Get all guidance sources for a plan, optionally filtered by section */
+  guidanceSourcesForPlan: Array<GuidanceSource>;
   /** Get all of the supported Languages */
   languages?: Maybe<Array<Maybe<Language>>>;
   /** Fetch a specific license */
   license?: Maybe<License>;
   /** Return all licenses */
   licenses?: Maybe<Array<Maybe<License>>>;
+  /** Perform a search for managed Affiliations with published guidance for a specific template */
+  managedAffiliationsWithGuidance?: Maybe<AffiliationSearchResults>;
   /** Returns the currently logged in user's information */
   me?: Maybe<User>;
   /** Get the member role by it's id */
@@ -2610,8 +2708,6 @@ export type Query = {
   sectionVersions?: Maybe<Array<Maybe<VersionedSection>>>;
   /** Get the Sections that belong to the associated templateId */
   sections?: Maybe<Array<Maybe<Section>>>;
-  /** Fetch the DynamoDB PlanVersion record for a specific plan and version timestamp (leave blank for the latest) */
-  superInspectPlanVersion?: Maybe<Scalars['String']['output']>;
   /** Get all available tags to display */
   tags: Array<Tag>;
   tagsBySectionId?: Maybe<Array<Maybe<Tag>>>;
@@ -2725,8 +2821,22 @@ export type QueryGuidanceGroupsArgs = {
 };
 
 
+export type QueryGuidanceSourcesForPlanArgs = {
+  planId: Scalars['Int']['input'];
+  versionedQuestionId?: InputMaybe<Scalars['Int']['input']>;
+  versionedSectionId?: InputMaybe<Scalars['Int']['input']>;
+};
+
+
 export type QueryLicenseArgs = {
   uri: Scalars['String']['input'];
+};
+
+
+export type QueryManagedAffiliationsWithGuidanceArgs = {
+  name?: InputMaybe<Scalars['String']['input']>;
+  paginationOptions?: InputMaybe<PaginationOptions>;
+  versionedTemplateId: Scalars['Int']['input'];
 };
 
 
@@ -2955,12 +3065,6 @@ export type QuerySectionVersionsArgs = {
 
 export type QuerySectionsArgs = {
   templateId: Scalars['Int']['input'];
-};
-
-
-export type QuerySuperInspectPlanVersionArgs = {
-  modified?: InputMaybe<Scalars['String']['input']>;
-  planId: Scalars['Int']['input'];
 };
 
 
@@ -4733,7 +4837,9 @@ export type ResolversTypes = {
   GuidanceErrors: ResolverTypeWrapper<GuidanceErrors>;
   GuidanceGroup: ResolverTypeWrapper<GuidanceGroup>;
   GuidanceGroupErrors: ResolverTypeWrapper<GuidanceGroupErrors>;
-  InitializePlanVersionOutput: ResolverTypeWrapper<InitializePlanVersionOutput>;
+  GuidanceItem: ResolverTypeWrapper<GuidanceItem>;
+  GuidanceSource: ResolverTypeWrapper<GuidanceSource>;
+  GuidanceSourceType: GuidanceSourceType;
   Institution: ResolverTypeWrapper<Institution>;
   InstitutionInput: InstitutionInput;
   Int: ResolverTypeWrapper<Scalars['Int']['output']>;
@@ -4765,6 +4871,8 @@ export type ResolversTypes = {
   PlanFeedbackStatusEnum: PlanFeedbackStatusEnum;
   PlanFunding: ResolverTypeWrapper<PlanFunding>;
   PlanFundingErrors: ResolverTypeWrapper<PlanFundingErrors>;
+  PlanGuidance: ResolverTypeWrapper<PlanGuidance>;
+  PlanGuidanceErrors: ResolverTypeWrapper<PlanGuidanceErrors>;
   PlanMember: ResolverTypeWrapper<PlanMember>;
   PlanMemberErrors: ResolverTypeWrapper<PlanMemberErrors>;
   PlanProgress: ResolverTypeWrapper<PlanProgress>;
@@ -4929,7 +5037,8 @@ export type ResolversParentTypes = {
   GuidanceErrors: GuidanceErrors;
   GuidanceGroup: GuidanceGroup;
   GuidanceGroupErrors: GuidanceGroupErrors;
-  InitializePlanVersionOutput: InitializePlanVersionOutput;
+  GuidanceItem: GuidanceItem;
+  GuidanceSource: GuidanceSource;
   Institution: Institution;
   InstitutionInput: InstitutionInput;
   Int: Scalars['Int']['output'];
@@ -4957,6 +5066,8 @@ export type ResolversParentTypes = {
   PlanFeedbackErrors: PlanFeedbackErrors;
   PlanFunding: PlanFunding;
   PlanFundingErrors: PlanFundingErrors;
+  PlanGuidance: PlanGuidance;
+  PlanGuidanceErrors: PlanGuidanceErrors;
   PlanMember: PlanMember;
   PlanMemberErrors: PlanMemberErrors;
   PlanProgress: PlanProgress;
@@ -5127,6 +5238,7 @@ export type AffiliationLinkResolvers<ContextType = MyContext, ParentType extends
 };
 
 export type AffiliationSearchResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['AffiliationSearch'] = ResolversParentTypes['AffiliationSearch']> = {
+  acronyms?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
   apiTarget?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   displayName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   funder?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
@@ -5334,9 +5446,20 @@ export type GuidanceGroupErrorsResolvers<ContextType = MyContext, ParentType ext
   name?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 };
 
-export type InitializePlanVersionOutputResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['InitializePlanVersionOutput'] = ResolversParentTypes['InitializePlanVersionOutput']> = {
-  count?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  planIds?: Resolver<Maybe<Array<ResolversTypes['Int']>>, ParentType, ContextType>;
+export type GuidanceItemResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['GuidanceItem'] = ResolversParentTypes['GuidanceItem']> = {
+  guidanceText?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  title?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+};
+
+export type GuidanceSourceResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['GuidanceSource'] = ResolversParentTypes['GuidanceSource']> = {
+  hasGuidance?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  items?: Resolver<Array<ResolversTypes['GuidanceItem']>, ParentType, ContextType>;
+  label?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  orgURI?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  shortName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  type?: Resolver<ResolversTypes['GuidanceSourceType'], ParentType, ContextType>;
 };
 
 export type InstitutionResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['Institution'] = ResolversParentTypes['Institution']> = {
@@ -5450,6 +5573,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   addMetadataStandard?: Resolver<Maybe<ResolversTypes['MetadataStandard']>, ParentType, ContextType, RequireFields<MutationAddMetadataStandardArgs, 'input'>>;
   addPlan?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType, RequireFields<MutationAddPlanArgs, 'projectId' | 'versionedTemplateId'>>;
   addPlanFunding?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType, RequireFields<MutationAddPlanFundingArgs, 'planId' | 'projectFundingIds'>>;
+  addPlanGuidance?: Resolver<ResolversTypes['PlanGuidance'], ParentType, ContextType, RequireFields<MutationAddPlanGuidanceArgs, 'affiliationId' | 'planId'>>;
   addPlanMember?: Resolver<Maybe<ResolversTypes['PlanMember']>, ParentType, ContextType, RequireFields<MutationAddPlanMemberArgs, 'planId' | 'projectMemberId'>>;
   addProject?: Resolver<Maybe<ResolversTypes['Project']>, ParentType, ContextType, RequireFields<MutationAddProjectArgs, 'title'>>;
   addProjectCollaborator?: Resolver<Maybe<ResolversTypes['ProjectCollaborator']>, ParentType, ContextType, RequireFields<MutationAddProjectCollaboratorArgs, 'email' | 'projectId'>>;
@@ -5487,6 +5611,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   removeMemberRole?: Resolver<Maybe<ResolversTypes['MemberRole']>, ParentType, ContextType, RequireFields<MutationRemoveMemberRoleArgs, 'id'>>;
   removeMetadataStandard?: Resolver<Maybe<ResolversTypes['MetadataStandard']>, ParentType, ContextType, RequireFields<MutationRemoveMetadataStandardArgs, 'uri'>>;
   removePlanFunding?: Resolver<Maybe<ResolversTypes['PlanFunding']>, ParentType, ContextType, RequireFields<MutationRemovePlanFundingArgs, 'planFundingId'>>;
+  removePlanGuidance?: Resolver<Maybe<ResolversTypes['PlanGuidance']>, ParentType, ContextType, RequireFields<MutationRemovePlanGuidanceArgs, 'affiliationId' | 'planId'>>;
   removePlanMember?: Resolver<Maybe<ResolversTypes['PlanMember']>, ParentType, ContextType, RequireFields<MutationRemovePlanMemberArgs, 'planMemberId'>>;
   removeProjectCollaborator?: Resolver<Maybe<ResolversTypes['ProjectCollaborator']>, ParentType, ContextType, RequireFields<MutationRemoveProjectCollaboratorArgs, 'projectCollaboratorId'>>;
   removeProjectFunding?: Resolver<Maybe<ResolversTypes['ProjectFunding']>, ParentType, ContextType, RequireFields<MutationRemoveProjectFundingArgs, 'projectFundingId'>>;
@@ -5504,7 +5629,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   resendInviteToProjectCollaborator?: Resolver<Maybe<ResolversTypes['ProjectCollaborator']>, ParentType, ContextType, RequireFields<MutationResendInviteToProjectCollaboratorArgs, 'projectCollaboratorId'>>;
   setPrimaryUserEmail?: Resolver<Maybe<Array<Maybe<ResolversTypes['UserEmail']>>>, ParentType, ContextType, RequireFields<MutationSetPrimaryUserEmailArgs, 'email'>>;
   setUserOrcid?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationSetUserOrcidArgs, 'orcid'>>;
-  superInitializePlanVersions?: Resolver<ResolversTypes['InitializePlanVersionOutput'], ParentType, ContextType>;
+  superSyncPlanMaDMP?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationSuperSyncPlanMaDmpArgs, 'planId'>>;
   unpublishGuidanceGroup?: Resolver<ResolversTypes['GuidanceGroup'], ParentType, ContextType, RequireFields<MutationUnpublishGuidanceGroupArgs, 'guidanceGroupId'>>;
   updateAffiliation?: Resolver<Maybe<ResolversTypes['Affiliation']>, ParentType, ContextType, RequireFields<MutationUpdateAffiliationArgs, 'input'>>;
   updateAnswer?: Resolver<Maybe<ResolversTypes['Answer']>, ParentType, ContextType, RequireFields<MutationUpdateAnswerArgs, 'answerId'>>;
@@ -5669,6 +5794,28 @@ export type PlanFundingErrorsResolvers<ContextType = MyContext, ParentType exten
   ProjectFundingId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   general?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   planId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+};
+
+export type PlanGuidanceResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PlanGuidance'] = ResolversParentTypes['PlanGuidance']> = {
+  affiliation?: Resolver<Maybe<ResolversTypes['Affiliation']>, ParentType, ContextType>;
+  affiliationId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  createdById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  errors?: Resolver<Maybe<ResolversTypes['PlanGuidanceErrors']>, ParentType, ContextType>;
+  id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  plan?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType>;
+  planId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  user?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType>;
+  userId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+};
+
+export type PlanGuidanceErrorsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PlanGuidanceErrors'] = ResolversParentTypes['PlanGuidanceErrors']> = {
+  affiliationId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  general?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  planId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  userId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 };
 
 export type PlanMemberResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PlanMember'] = ResolversParentTypes['PlanMember']> = {
@@ -5924,9 +6071,11 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   guidanceByGroup?: Resolver<Array<ResolversTypes['Guidance']>, ParentType, ContextType, RequireFields<QueryGuidanceByGroupArgs, 'guidanceGroupId'>>;
   guidanceGroup?: Resolver<Maybe<ResolversTypes['GuidanceGroup']>, ParentType, ContextType, RequireFields<QueryGuidanceGroupArgs, 'guidanceGroupId'>>;
   guidanceGroups?: Resolver<Array<ResolversTypes['GuidanceGroup']>, ParentType, ContextType, Partial<QueryGuidanceGroupsArgs>>;
+  guidanceSourcesForPlan?: Resolver<Array<ResolversTypes['GuidanceSource']>, ParentType, ContextType, RequireFields<QueryGuidanceSourcesForPlanArgs, 'planId'>>;
   languages?: Resolver<Maybe<Array<Maybe<ResolversTypes['Language']>>>, ParentType, ContextType>;
   license?: Resolver<Maybe<ResolversTypes['License']>, ParentType, ContextType, RequireFields<QueryLicenseArgs, 'uri'>>;
   licenses?: Resolver<Maybe<Array<Maybe<ResolversTypes['License']>>>, ParentType, ContextType>;
+  managedAffiliationsWithGuidance?: Resolver<Maybe<ResolversTypes['AffiliationSearchResults']>, ParentType, ContextType, RequireFields<QueryManagedAffiliationsWithGuidanceArgs, 'versionedTemplateId'>>;
   me?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType>;
   memberRoleById?: Resolver<Maybe<ResolversTypes['MemberRole']>, ParentType, ContextType, RequireFields<QueryMemberRoleByIdArgs, 'memberRoleId'>>;
   memberRoleByURL?: Resolver<Maybe<ResolversTypes['MemberRole']>, ParentType, ContextType, RequireFields<QueryMemberRoleByUrlArgs, 'memberRoleURL'>>;
@@ -5975,7 +6124,6 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   section?: Resolver<Maybe<ResolversTypes['Section']>, ParentType, ContextType, RequireFields<QuerySectionArgs, 'sectionId'>>;
   sectionVersions?: Resolver<Maybe<Array<Maybe<ResolversTypes['VersionedSection']>>>, ParentType, ContextType, RequireFields<QuerySectionVersionsArgs, 'sectionId'>>;
   sections?: Resolver<Maybe<Array<Maybe<ResolversTypes['Section']>>>, ParentType, ContextType, RequireFields<QuerySectionsArgs, 'templateId'>>;
-  superInspectPlanVersion?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType, RequireFields<QuerySuperInspectPlanVersionArgs, 'planId'>>;
   tags?: Resolver<Array<ResolversTypes['Tag']>, ParentType, ContextType>;
   tagsBySectionId?: Resolver<Maybe<Array<Maybe<ResolversTypes['Tag']>>>, ParentType, ContextType, RequireFields<QueryTagsBySectionIdArgs, 'sectionId'>>;
   template?: Resolver<Maybe<ResolversTypes['Template']>, ParentType, ContextType, RequireFields<QueryTemplateArgs, 'templateId'>>;
@@ -6720,7 +6868,8 @@ export type Resolvers<ContextType = MyContext> = {
   GuidanceErrors?: GuidanceErrorsResolvers<ContextType>;
   GuidanceGroup?: GuidanceGroupResolvers<ContextType>;
   GuidanceGroupErrors?: GuidanceGroupErrorsResolvers<ContextType>;
-  InitializePlanVersionOutput?: InitializePlanVersionOutputResolvers<ContextType>;
+  GuidanceItem?: GuidanceItemResolvers<ContextType>;
+  GuidanceSource?: GuidanceSourceResolvers<ContextType>;
   Institution?: InstitutionResolvers<ContextType>;
   ItemMatch?: ItemMatchResolvers<ContextType>;
   Language?: LanguageResolvers<ContextType>;
@@ -6745,6 +6894,8 @@ export type Resolvers<ContextType = MyContext> = {
   PlanFeedbackErrors?: PlanFeedbackErrorsResolvers<ContextType>;
   PlanFunding?: PlanFundingResolvers<ContextType>;
   PlanFundingErrors?: PlanFundingErrorsResolvers<ContextType>;
+  PlanGuidance?: PlanGuidanceResolvers<ContextType>;
+  PlanGuidanceErrors?: PlanGuidanceErrorsResolvers<ContextType>;
   PlanMember?: PlanMemberResolvers<ContextType>;
   PlanMemberErrors?: PlanMemberErrorsResolvers<ContextType>;
   PlanProgress?: PlanProgressResolvers<ContextType>;

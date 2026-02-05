@@ -9,9 +9,9 @@ import { AuthenticationError, ForbiddenError, InternalServerError, NotFoundError
 import { hasPermissionOnProject } from '../services/projectService';
 import { GraphQLError } from 'graphql';
 import { Plan } from '../models/Plan';
-import { updateVersion } from '../models/PlanVersion';
 import { ProjectCollaboratorAccessLevel } from "../models/Collaborator";
 import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
+import { saveMaDMPVersion } from "../services/planService";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -140,11 +140,8 @@ export const resolvers: Resolvers = {
             if (updated && !updated.hasErrors()) {
               const plans = await Plan.findByProjectId(reference, context, funding.projectId);
               for (const plan of plans) {
-                // Version all of the plans (if any) and sync with the DMPHub
-                const planVersion = await updateVersion(context, plan, reference);
-                if (!planVersion || planVersion.hasErrors()) {
-                  updated.addError("general", "Unable to version the plans");
-                }
+                // Update the maDMP version of the Plan
+                await saveMaDMPVersion(reference, context, plan.id, plan.registered);
               }
             }
             return updated;
@@ -176,11 +173,8 @@ export const resolvers: Resolvers = {
             if (removed && !removed.hasErrors()) {
               const plans = await Plan.findByProjectId(reference, context, funding.projectId);
               for (const plan of plans) {
-                // Version all of the plans (if any) and sync with the DMPHub
-                const planVersion = await updateVersion(context, plan, reference);
-                if (!planVersion || planVersion.hasErrors()) {
-                  removed.addError("general", "Unable to version the plans");
-                }
+                // Update the maDMP version of the Plan
+                await saveMaDMPVersion(reference, context, plan.id, plan.registered);
               }
             }
             return removed;
@@ -244,11 +238,8 @@ export const resolvers: Resolvers = {
               returnedPlan.addError('general', failed);
             }
 
-            // Version the plan
-            const planVersion = await updateVersion(context, plan, reference);
-            if (!planVersion || planVersion.hasErrors()) {
-              context.logger.error(prepareObjectForLogs({ plan: plan.id }), `Unable to update version in ${reference}`);
-            }
+            // Update the maDMP version of the Plan
+            await saveMaDMPVersion(reference, context, returnedPlan.id, returnedPlan.registered);
 
             // We want to return the Plan and attach one set of errors for any failed fundings
             return returnedPlan;
@@ -328,12 +319,10 @@ export const resolvers: Resolvers = {
             context.logger.warn(`Plan funding update had issues: ${associationErrors.join(', ')}`);
           }
 
-          const planVersion = await updateVersion(context, plan, reference);
-          if (!planVersion || planVersion.hasErrors()) {
-            context.logger.error(prepareObjectForLogs({ plan: plan.id }), "Unable to update version");
-          }
+          // Update the maDMP version of the Plan
+          await saveMaDMPVersion(reference, context, plan.id, plan.registered);
 
-          return await PlanFunding.findByPlanId(reference, context, plan.id);;
+          return await PlanFunding.findByPlanId(reference, context, plan.id);
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();
       } catch (err) {
@@ -360,11 +349,8 @@ export const resolvers: Resolvers = {
             const deletedFunding = await funding.delete(context);
 
             if (deletedFunding && !deletedFunding.hasErrors()) {
-              // Version the plan
-              const planVersion = await updateVersion(context, plan, reference);
-              if (!planVersion || planVersion.hasErrors()) {
-                deletedFunding.addError("general", "Unable to version the plan");
-              }
+              // Update the maDMP version of the Plan
+              await saveMaDMPVersion(reference, context, plan.id, plan.registered);
             }
 
             return deletedFunding;

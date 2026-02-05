@@ -73,6 +73,32 @@ export const resolvers: Resolvers = {
         throw InternalServerError();
       }
     },
+
+    // Get the published templates that have visibility=PUBLIC, for the given search term, and exclude user's orgs
+    customizableTemplates: async (_, { term, paginationOptions }, context: MyContext): Promise<TemplateSearchResults> => {
+      const reference = 'customizableTemplates resolver';
+      try {
+        if (isAdmin(context.token)) {
+          const opts = !isNullOrUndefined(paginationOptions) && paginationOptions.type === PaginationType.OFFSET
+                      ? paginationOptions as PaginationOptionsForOffsets
+                      : { ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors;
+
+          return await TemplateSearchResult.searchForCustomizableTemplates(
+            reference,
+            context,
+            term,
+            opts,
+          );
+        }
+        // Unauthorized!
+        throw context?.token ? ForbiddenError() : AuthenticationError();
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    },
   },
 
   Mutation: {

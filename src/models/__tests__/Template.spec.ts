@@ -101,6 +101,90 @@ describe('TemplateSearchResult', () => {
       expect(result).toEqual([]);
     });
   });
+    describe('searchForCustomizableTemplates', () => {
+    it('returns the matching TemplateSearchResults with search term', async () => {
+      localPaginationQuery.mockResolvedValueOnce({ items: [templateSearchResult], totalCount: 1 });
+      const term = 'test';
+      const result = await TemplateSearchResult.searchForCustomizableTemplates('Test', context, term);
+      const sql = 'SELECT t.id, t.name, t.description, t.latestPublishVisibility, t.bestPractice, t.isDirty, ' +
+                          't.latestPublishVersion, t.latestPublishDate, t.ownerId, a.displayName, ' +
+                          't.createdById, TRIM(CONCAT(cu.givenName, CONCAT(\' \', cu.surName))) as createdByName, t.created, ' +
+                          't.modifiedById, TRIM(CONCAT(mu.givenName, CONCAT(\' \', mu.surName))) as modifiedByName, t.modified ' +
+                    'FROM templates t ' +
+                      'INNER JOIN affiliations a ON a.uri = t.ownerId ' +
+                      'INNER JOIN users cu ON cu.id = t.createdById ' +
+                      'INNER JOIN users mu ON mu.id = t.modifiedById';
+
+      const vals = [`%${term.toLowerCase()}%`, `%${term.toLowerCase()}%`, TemplateVisibility.PUBLIC, context.token?.affiliationId];
+      const whereFilters = [
+        't.latestPublishDate IS NOT NULL',
+        '(LOWER(t.name) LIKE ? OR LOWER(t.description) LIKE ?)',
+        't.latestPublishVisibility = ?',
+        't.ownerId <> ?'
+      ];
+
+      const sortFields = ["t.name", "t.created", "t.latestPublishVisibility", "t.bestPractice", "t.latestPublishDate"];
+      const opts = {
+        cursor: null,
+        limit: generalConfig.defaultSearchLimit,
+        sortField: 't.modified',
+        sortDir: 'DESC',
+        countField: 't.id',
+        cursorField: 't.id',
+        availableSortFields: sortFields,
+      };
+      expect(localPaginationQuery).toHaveBeenCalledTimes(1);
+      expect(localPaginationQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, '', vals, opts, 'Test')
+      expect(result.items).toEqual([templateSearchResult]);
+      expect(result.totalCount).toEqual(1);
+    });
+
+    it('returns the matching TemplateSearchResults without search term', async () => {
+      localPaginationQuery.mockResolvedValueOnce({ items: [templateSearchResult], totalCount: 1 });
+      const result = await TemplateSearchResult.searchForCustomizableTemplates('Test', context, '');
+      const sql = 'SELECT t.id, t.name, t.description, t.latestPublishVisibility, t.bestPractice, t.isDirty, ' +
+                          't.latestPublishVersion, t.latestPublishDate, t.ownerId, a.displayName, ' +
+                          't.createdById, TRIM(CONCAT(cu.givenName, CONCAT(\' \', cu.surName))) as createdByName, t.created, ' +
+                          't.modifiedById, TRIM(CONCAT(mu.givenName, CONCAT(\' \', mu.surName))) as modifiedByName, t.modified ' +
+                    'FROM templates t ' +
+                      'INNER JOIN affiliations a ON a.uri = t.ownerId ' +
+                      'INNER JOIN users cu ON cu.id = t.createdById ' +
+                      'INNER JOIN users mu ON mu.id = t.modifiedById';
+
+      // Empty string still adds the search filter with %% wildcards
+      const vals = ['%%', '%%', TemplateVisibility.PUBLIC, context.token?.affiliationId];
+      const whereFilters = [
+        't.latestPublishDate IS NOT NULL',
+        '(LOWER(t.name) LIKE ? OR LOWER(t.description) LIKE ?)',
+        't.latestPublishVisibility = ?',
+        't.ownerId <> ?'
+      ];
+
+      const sortFields = ["t.name", "t.created", "t.latestPublishVisibility", "t.bestPractice", "t.latestPublishDate"];
+      const opts = {
+        cursor: null,
+        limit: generalConfig.defaultSearchLimit,
+        sortField: 't.modified',
+        sortDir: 'DESC',
+        countField: 't.id',
+        cursorField: 't.id',
+        availableSortFields: sortFields,
+      };
+      expect(localPaginationQuery).toHaveBeenCalledTimes(1);
+      expect(localPaginationQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, '', vals, opts, 'Test')
+      expect(result.items).toEqual([templateSearchResult]);
+      expect(result.totalCount).toEqual(1);
+    });
+
+    it('returns an empty array if there are no matching TemplateSearchResults', async () => {
+      localPaginationQuery.mockResolvedValueOnce({ items: [], totalCount: 0 });
+
+      const result = await TemplateSearchResult.searchForCustomizableTemplates('Test', context, 'test');
+      expect(localPaginationQuery).toHaveBeenCalledTimes(1);
+      expect(result.items).toEqual([]);
+      expect(result.totalCount).toEqual(0);
+    });
+  });
 });
 
 describe('Template', () => {

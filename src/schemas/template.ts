@@ -6,6 +6,8 @@ export const typeDefs = gql`
     myTemplates(term: String, paginationOptions: PaginationOptions): TemplateSearchResults
     "Get the specified Template (user must be an Admin)"
     template(templateId: Int!): Template
+    "Search for Templates that are published, whose visibility is PUBLIC, excluding user org"
+    customizableTemplates(term: String, paginationOptions: PaginationOptions): TemplateSearchResults
   }
 
   extend type Mutation {

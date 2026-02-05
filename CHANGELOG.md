@@ -3,6 +3,8 @@
 ## v1.1.0
 
 ### Added
+- Added `customizableTemplates` search resolver, that returns published templates that are `PUBLIC`, excluding user's org [#44]
+- Added `searchForCustomizableTemplates` method to `Template` model and corresponding unit test [#44]
 - Added override for the `fast-xml-parser` dependency
 - Added `ownerAffiliation` chained resolvers to `versionedQuestion` [#18]
 - added `@as-integrations/express5` for Apollo-Express integration

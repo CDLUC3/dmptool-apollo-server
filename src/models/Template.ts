@@ -106,6 +106,77 @@ export class TemplateSearchResult {
     context.logger.debug(prepareObjectForLogs({ options, response }), reference);
     return response;
   }
+
+  // Find all of the published templates that have visibility=PUBLIC, for the given search term, and
+  // exclude the user's org
+  static async searchForCustomizableTemplates(
+    reference: string,
+    context: MyContext,
+    term: string,
+    options: PaginationOptions = Template.getDefaultPaginationOptions(),
+  ): Promise<PaginatedQueryResults<TemplateSearchResult>> {
+    // template should be published
+    const whereFilters = ['t.latestPublishDate IS NOT NULL'];    
+    const values: string[] = [];
+
+    // Handle the incoming search term
+    const searchTerm = (term ?? '').toLowerCase().trim();
+    if (!isNullOrUndefined(searchTerm)) {
+      whereFilters.push('(LOWER(t.name) LIKE ? OR LOWER(t.description) LIKE ?)');
+      values.push(`%${searchTerm}%`, `%${searchTerm}%`);
+    }
+
+    // Return only those public templates with visibility=PUBLIC
+    whereFilters.push('t.latestPublishVisibility = ?');
+    values.push(TemplateVisibility.PUBLIC);
+
+    // Exclude the user's affiliation
+    const userAffiliationId = context.token?.affiliationId;
+    if (userAffiliationId) {
+      whereFilters.push('t.ownerId <> ?');
+      values.push(userAffiliationId);
+    }
+
+    // Set the default sort field and order if none was provided
+    if (isNullOrUndefined(options.sortField)) options.sortField = 't.modified';
+    if (isNullOrUndefined(options.sortDir)) options.sortDir = 'DESC';
+
+    // Specify the fields available for sorting
+    options.availableSortFields = ['t.name', 't.created', 't.latestPublishVisibility', 't.bestPractice', 't.latestPublishDate'];
+    // Specify the field we want to use for the count
+    options.countField = 't.id';
+
+    // Determine the type of pagination we are using and then set any additional options we need
+    let opts;
+    if (options.type === PaginationType.OFFSET) {
+      opts = options as PaginationOptionsForOffsets;
+    } else {
+      opts = options as PaginationOptionsForCursors;
+      opts.cursorField = 't.id';
+    }
+
+    const sqlStatement = 'SELECT t.id, t.name, t.description, t.latestPublishVisibility, t.bestPractice, t.isDirty, ' +
+                                't.latestPublishVersion, t.latestPublishDate, t.ownerId, a.displayName, ' +
+                                't.createdById, TRIM(CONCAT(cu.givenName, CONCAT(\' \', cu.surName))) as createdByName, t.created, ' +
+                                't.modifiedById, TRIM(CONCAT(mu.givenName, CONCAT(\' \', mu.surName))) as modifiedByName, t.modified ' +
+                          'FROM templates t ' +
+                            'INNER JOIN affiliations a ON a.uri = t.ownerId ' +
+                            'INNER JOIN users cu ON cu.id = t.createdById ' +
+                            'INNER JOIN users mu ON mu.id = t.modifiedById';
+
+    const response: PaginatedQueryResults<TemplateSearchResult> = await Template.queryWithPagination(
+      context,
+      sqlStatement,
+      whereFilters,
+      '',
+      values,
+      opts,
+      reference,
+    )
+
+    context.logger.debug(prepareObjectForLogs({ options, response }), reference);
+    return response;
+  }
 }
 
 // A Template for creating a DMP

@@ -18,6 +18,12 @@ phases:
       # EnvironmentVariable config for the Pipeline action :(
       - export AWS_VERSION=$(aws --version)
 
+      # Install trivy for vulnerability scanning
+      - echo "Installing Trivy..."
+      - wget https://github.com/aquasecurity/trivy/releases/download/v0.58.2/trivy_0.58.2_Linux-64bit.tar.gz
+      - tar -zxvf trivy_0.58.2_Linux-64bit.tar.gz
+      - mv trivy /usr/local/bin/
+
       # Fetch the ECR repository name
       - echo $ECR_REPOSITORY_URI >> .ecr
       - export SHORT_ECR_URI=$(awk '{gsub("$ECR_REPOSITORY_NAME", "");print}' .ecr)
@@ -37,13 +43,13 @@ phases:
       - CI=true
       - echo "production=false" >> .npmrc
 
-      # Run NPM audit to check for vulnerabilities
-      - echo "Running NPM audit..."
-      - npm audit --audit-level=high
-
       # CI deletes the node_modules folder and installs the dependencies as defined in package-lock.json
       - echo "Installing dependencies..."
       - npm ci
+
+      # Run NPM audit to check for vulnerabilities
+      - echo "Running NPM audit..."
+      - npm audit --audit-level=high
 
       # Run the linter checks
       - echo "Running linter checks"
@@ -59,7 +65,7 @@ phases:
 
       # Run Trivy on the new image to check for vulnerabilities
       - echo "Running Trivy vulnerability scanner on the new image..."
-      - trivy image --exit-code 0 --severity HIGH,CRITICAL $SHORT_ECR_URI:apollo-latest
+      - trivy image --exit-code 1 --severity HIGH,CRITICAL $SHORT_ECR_URI:apollo-latest
 
       # Tag the image with the Git commit ID
       - docker tag $ECR_REPOSITORY_URI:apollo-latest $SHORT_ECR_URI:$IMAGE_TAG

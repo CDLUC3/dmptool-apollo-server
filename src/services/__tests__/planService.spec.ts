@@ -4,7 +4,8 @@ import {
 } from '../../__mocks__/context';
 import {
   ensureDefaultPlanContact,
-  updateMemberRoles
+  updateMemberRoles,
+  saveMaDMPVersion
 } from '../planService';
 import { MemberRole } from '../../models/MemberRole';
 import { logger } from '../../logger';
@@ -12,10 +13,11 @@ import { PlanMember, ProjectMember } from "../../models/Member";
 import casual from "casual";
 import { Project } from "../../models/Project";
 import { Plan } from "../../models/Plan";
+import { sendMessage } from '@dmptool/utils';
+import { awsConfig } from '../../config/awsConfig';
+import { generalConfig } from '../../config/generalConfig';
 
-jest.mock('../commonStandardService');
-jest.mock('../../datasources/dynamo');
-jest.mock('../../models/PlanVersion');
+jest.mock('@dmptool/utils');
 
 describe('planService', () => {
   let context: MyContext;
@@ -238,3 +240,132 @@ describe('ensureDefaultPlanContact', () => {
     PlanMember.findPrimaryContact = originalFindPrimaryContact;
   });
 });
+
+describe('saveMaDMPVersion', () => {
+  let context: MyContext;
+  const reference = 'test-reference';
+  const planId = 123;
+  const mockSendMessage = sendMessage as jest.MockedFunction<typeof sendMessage>;
+
+  beforeEach(async () => {
+    context = await buildMockContextWithToken(logger);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should send SQS message and return true when shouldDelete is true and plan is not registered', async () => {
+    mockSendMessage.mockResolvedValue({ status: 200, message: "Ok" });
+
+    const result = await saveMaDMPVersion(reference, context, planId, undefined, true);
+
+    expect(result).toBe(true);
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      context.logger,
+      awsConfig.sqs.generateMaDMPQueueUrl,
+      reference,
+      'generate_madmp_record',
+      {
+        Env: generalConfig.env,
+        jti: context.token.jti,
+        planId,
+        shouldTombstone: false,
+        shouldDelete: true
+      },
+      awsConfig.region,
+      process.env.NODE_ENV !== 'development'
+    );
+  });
+
+  it('should send SQS message with shouldTombstone when shouldDelete is true and plan is registered', async () => {
+    mockSendMessage.mockResolvedValue({ status: 200, message: "Ok" });
+    const registered = '2024-01-01';
+
+    const result = await saveMaDMPVersion(reference, context, planId, registered, true);
+
+    expect(result).toBe(true);
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      context.logger,
+      awsConfig.sqs.generateMaDMPQueueUrl,
+      reference,
+      'generate_madmp_record',
+      {
+        Env: generalConfig.env,
+        jti: context.token.jti,
+        planId,
+        shouldTombstone: true,
+        shouldDelete: false
+      },
+      awsConfig.region,
+      process.env.NODE_ENV !== 'development'
+    );
+  });
+
+  it('should send SQS message with shouldDelete and shouldTombstone false when shouldDelete is false', async () => {
+    mockSendMessage.mockResolvedValue({ status: 200, message: "Ok" });
+
+    const result = await saveMaDMPVersion(reference, context, planId, undefined, false);
+
+    expect(result).toBe(true);
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      context.logger,
+      awsConfig.sqs.generateMaDMPQueueUrl,
+      reference,
+      'generate_madmp_record',
+      {
+        Env: generalConfig.env,
+        jti: context.token.jti,
+        planId,
+        shouldTombstone: false,
+        shouldDelete: false
+      },
+      awsConfig.region,
+      process.env.NODE_ENV !== 'development'
+    );
+  });
+
+  it('should return false and log error when sendMessage fails', async () => {
+    mockSendMessage.mockResolvedValue({ status: 500, message: "Fail" });
+    const loggerErrorSpy = jest.spyOn(context.logger, 'error');
+
+    const result = await saveMaDMPVersion(reference, context, planId, undefined, false);
+
+    expect(result).toBe(false);
+    expect(loggerErrorSpy).toHaveBeenCalledWith(
+      {
+        jti: context.token.jti,
+        planId,
+        queueURL: awsConfig.sqs.generateMaDMPQueueUrl,
+        message: "Fail",
+        status: 500
+      },
+      'Unable to send a message to SQS to trigger generateMaDMPRecord Lambda function.'
+    );
+  });
+
+  it('should use default value false for shouldDelete when not provided', async () => {
+    mockSendMessage.mockResolvedValue({ status: 200, message: "Ok" });
+
+    const result = await saveMaDMPVersion(reference, context, planId, undefined);
+
+    expect(result).toBe(true);
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      context.logger,
+      awsConfig.sqs.generateMaDMPQueueUrl,
+      reference,
+      'generate_madmp_record',
+      {
+        Env: generalConfig.env,
+        jti: context.token.jti,
+        planId,
+        shouldTombstone: false,
+        shouldDelete: false
+      },
+      awsConfig.region,
+      process.env.NODE_ENV !== 'development'
+    );
+  });
+});
+
+

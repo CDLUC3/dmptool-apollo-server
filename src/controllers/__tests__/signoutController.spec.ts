@@ -47,7 +47,7 @@ describe('signoutController', () => {
   it('should signout successfully', async () => {
     (verifyAccessToken as jest.Mock).mockReturnValueOnce({ jti: mockRequest.auth.jti });
     (revokeRefreshToken as jest.Mock).mockResolvedValue(true);
-    (revokeAccessToken as jest.Mock);
+    (revokeAccessToken as jest.Mock).mockResolvedValue({});
     jest.spyOn(mockResponse, 'clearCookie');
 
     await signoutController(mockRequest as Request, mockResponse as Response);

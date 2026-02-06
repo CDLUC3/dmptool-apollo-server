@@ -124,7 +124,7 @@ export class Affiliation extends MySqlModel {
     try {
       const url = new URL(this.homepage);
       return url.hostname;
-    } catch (err) {
+    } catch {
       // It's not a URL so just return as is
       return this.homepage;
     }
@@ -388,7 +388,72 @@ export class AffiliationSearch {
     context.logger.debug(prepareObjectForLogs({ options, response }), reference);
     return response;
   }
+
+  // Search for managed Affiliations that have published guidance associated with them
+  // Filters by a list of affiliation URIs that have been pre-determined to have relevant guidance
+  static async searchManagedWithPublishedGuidance(
+    reference: string,
+    context: MyContext,
+    name?: string,
+    affiliationUris?: string[],
+    options: PaginationOptions = Affiliation.getDefaultPaginationOptions(),
+  ): Promise<PaginatedQueryResults<AffiliationSearch>> {
+    const whereFilters = [
+      'a.active = 1',
+      'a.managed = 1',
+    ];
+    const values = [];
+
+    // Filter by the provided affiliation URIs
+    if (affiliationUris && affiliationUris.length > 0) {
+      const uriPlaceholders = affiliationUris.map(() => '?').join(',');
+      whereFilters.push(`a.uri IN (${uriPlaceholders})`);
+      values.push(...affiliationUris);
+    }
+
+    // Handle the incoming search term
+    const searchTerm = (name ?? '').toLowerCase().trim();
+    if (!isNullOrUndefined(searchTerm) && searchTerm !== '') {
+      whereFilters.push('(LOWER(a.searchName) LIKE ?)');
+      values.push(`%${searchTerm}%`);
+    }
+
+    // Set the default sort field and order if none was provided
+    if (isNullOrUndefined(options.sortField)) options.sortField = 'a.displayName';
+    if (isNullOrUndefined(options.sortDir)) options.sortDir = 'ASC';
+
+    // Specify the fields available for sorting
+    options.availableSortFields = ['a.displayName', 'a.created'];
+    // Specify the field we want to use for the count
+    options.countField = 'a.id';
+
+    // Determine the type of pagination we are using
+    let opts;
+    if (options.type === PaginationType.OFFSET) {
+      opts = options as PaginationOptionsForOffsets;
+    } else {
+      opts = options as PaginationOptionsForCursors;
+      opts.cursorField = 'a.id';
+    }
+
+    // Simple query to get affiliations by URI
+    const sqlStatement = `SELECT a.* FROM affiliations a`;
+    const groupByClause = '';
+
+    const response: PaginatedQueryResults<AffiliationSearch> = await Affiliation.queryWithPagination(
+      context,
+      sqlStatement,
+      whereFilters,
+      groupByClause,
+      values,
+      opts,
+      reference,
+    );
+
+    return response;
+  }
 }
+
 
 // Funder popularity result based on the number of plans associated with the funder over the past year
 export class PopularFunder {
@@ -416,12 +481,12 @@ export class PopularFunder {
 
     // Get the top 5 funders based on the number of plans created in the past year
     const sql = 'SELECT a.id, a.uri, a.displayName, a.apiTarget, COUNT(p.id) AS nbrPlans ' +
-                'FROM affiliations a ' +
-                'LEFT JOIN projectFundings pf ON pf.affiliationId = a.uri ' +
-                'LEFT JOIN projects p ON p.id = pf.projectId ' +
-                'WHERE a.active = 1 AND a.funder = 1 AND p.isTestProject = 0 AND p.created BETWEEN ? AND ? ' +
-                'GROUP BY a.id, a.uri, a.displayName ' +
-                'ORDER BY nbrPlans DESC LIMIT 5';
+      'FROM affiliations a ' +
+      'LEFT JOIN projectFundings pf ON pf.affiliationId = a.uri ' +
+      'LEFT JOIN projects p ON p.id = pf.projectId ' +
+      'WHERE a.active = 1 AND a.funder = 1 AND p.isTestProject = 0 AND p.created BETWEEN ? AND ? ' +
+      'GROUP BY a.id, a.uri, a.displayName ' +
+      'ORDER BY nbrPlans DESC LIMIT 5';
     const results = await Affiliation.query(
       context,
       sql,

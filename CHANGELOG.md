@@ -1,10 +1,72 @@
 # DMP Tool Apollo Server Change Log
 
+## v1.1.0
+
+### Added
+- Added `processResult` handler to the Plan model to help generate DMP ids when they are missing
+- Added `saveMaDMPVersion` function to the `src/services/planService`. This service handles sending the SQS messages to the AWS SQS Queue to trigger the `generateMaDMPRecord` Lambda Function.
+- Added SQS Queue URL env variable to config files (also added to the ECS container definitions)
+- Added `@dmptool/utils` package
+- Added data-migration script to create new `planGuidance` JOIN table [#29]
+- Added a new method `searchManagedWithPublishedGuidance` to `Affiliation` model for managed Affiliations that have published guidance associated with them [#29]
+- Added `managedAffiliationsWithGuidance` query resolver to `Affiliation` resolvers [#29]
+- Added `guidanceSourcesForPlans`, `addPlanGuidance` and `removePlanGuidance` to `guidance` resolvers [#29]
+- Added a new `PlanGuidance` model and schema to accommodate the new `planGuidance` table [#29]
+- Added `acronyms` to `AffiliationSearch` schema so that client can get shortened names of affiliations [#29]
+- Added new methods to `guidanceServices`: `groupGuidanceByTag`, `getGuidanceSourcesForPlan`, `getSectionTags`, `getSectionTagIds`, `getSectionTagsMap`, `addPlanGuidanceAffiliation` and `getAffiliationsWithGuidanceForTemplate` [#29]
+- Added override for the `fast-xml-parser` dependency
+- Added `ownerAffiliation` chained resolvers to `versionedQuestion` [#18]
+- added `@as-integrations/express5` for Apollo-Express integration
+- added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
+
 ### Updated
+- Started updating files to use JSDoc format
+- Updated `answer`, `funding`, `member`, `plan` and `project` resolvers to use the new `saveMaDMPVersion` function to update maDMP records.
+- Updated `superAdmin` resolver and replaced existing functions with one that allows us to force the recreation of a maDMP record for a specified plan id.
+- Upgraded to Apollo Server `5.4` and updates all `@aws-sdk` packages
+- Updated the `Plan` model's `create` function to auto-populate the `planGuidance` table when a plan is created [#29]
+- Updated related works endpoints to support related works project overview page.
+- Updated `findBestPracticeByTagIds` and `findByAffiliationAndTagIds` in `VersionedGuidance` to remove the use of `VersionedGuidanceTags` table, since there is not table with that name [#18]
+- Regenerated `src/types` using new `graphql-codegen` version
+- Updated `tokenService` to use `uuid` instead of `uuidv4` package
+- Updated all calls to `logger.[level](null, 'message')` to `logger.[level]({}, 'message')` because new version of Pino doesn't allow null
+- Changed min node/npm versions in `package.json` (node `22.15`, npm `11.3`)
+- Updated CodeBuild env to use node `22`
+- Upgraded `graphql` to v `16.12.0`
+- Bumped `tsconfig` to `es2023`
+- Upgraded to `@keyv/redis` which required some changes to the `src/config/cacheConfig` and `src/datasources/cache.ts` files
+- Updates to appease newer version of eslint
+
+### Removed
+- Removed `src/datasources/dynamo` data source. Writes to Dynamo are now being handled by the `generateMaDMPRecord` Lambda Function.
+- Removed `src/models/PlanVersion`
+- Removed the old `commonStandardService`. This functionality now lives in the `@dmptool/utils` package
+- Removed most functions from `src/datasources/dmphubAPI` data source that were atempting to modify dynamo records via the old DMP Hub API
+- Removed DMP endpoints from `dmphubAPI` datasource
+- Removed override for `fast-xml-parser` dependency
+- Removed override for `qs` dependency
+- Removed duplicative properties like `public id: number;` from classes in `models/RelatedWork`. They are inherited from `MySQLModel`.
+- removed Apollo config option to deal with flaw in Apollo4 `status400ForVariableCoercionErrors`
+- Removed deprecated `@types/bcrypt` and `uuidv4` packages
+- Removed `ioredis` package
+
+## v1.0
+
+### Updated
+- Updated License resolver to remove pagination from `licenses` query. It now returns all licenses.
 - Updated tests and isValid functions on `Question`, `VersionedQuestion` and `Answer` to work with new version of `@dmptool/types` v2.0
 - Related works stored procedures so that they can insert existing related works and ground truth data.
 
 ### Added
+- Added unit tests for the license resolver
+- Added endpoint for returning summary stats for related works associated with a plan.
+- Added ability to manually add a related work via a DOI.
+- Added `findByURIs` methods to both `Repository` and `MetadataStandards` models [#572]
+- Added `repositoriesByURIs` and `metadataStandardsByURIs` resolvers to return matching repos to provided URIs [#572]
+- Added `hasAssociatedPlans` method to VersionedTemplate model to check if any plans are associated with a template
+- Added `deactivateByTemplateId` method to VersionedTemplate model to deactivate all versionedTemplates for a given template
+- Added unit tests for `hasAssociatedPlans` and `deactivateByTemplateId` methods in VersionedTemplate model
+- Added unit tests for `archiveTemplate` resolver in template resolver
 - Added `overrides` section to `package.json` for `qs` since `supertest` is still using old version
 - Added `slug` to tags array returned in `PlanSectionOverview`
 - Added new `ssoPassthruController` and `ssoCallbackController` stub controllers
@@ -23,6 +85,7 @@
 - Fixed relatedWorksTables.spec.ts tests.
 - Fixed a small data-migration issue related to using the wrong createdById
 - Updated `auth0/node-jws Improperly Verifies HMAC Signature` due to vulnerability
+
 ============================================================================
 prior to 2025-12-05
 
@@ -39,14 +102,16 @@ prior to 2025-12-05
 - Added `slug` to the `Tag` schema
 
 ### Updated
+- Updated `archiveTemplate` resolver to check for associated plans before deleting: if plans exist, unpublishes the template by clearing `latestPublishVersion` and `latestPublishDate`, setting `isDirty` to true, and deactivating all related versionedTemplates; if no plans exist, deletes the template as before
 - Added `description` column to `guidanceGroups` and `versionedGuidanceGroups` db tables [#528]
-  - Added `description` to `GuidanceGroup` model
-  - Fixed issue in `VersionedGuidance` model's `create` method to ignore `tagId` [#528]
-  - Added `user` chained resolver to `guidance` resolver [#528]
-  - Added `description` to `guidanceGroup` resolver, and added both `user` and `versionedGuidanceGroup` chained resolvers [#528]
-  - Updated `guidanceService` to get current tags for the guidance to add them to versionedGuidanceTags table [#528]
+- Added `description` to `GuidanceGroup` model
+- Fixed issue in `VersionedGuidance` model's `create` method to ignore `tagId` [#528]
+- Added `user` chained resolver to `guidance` resolver [#528]
+- Added `description` to `guidanceGroup` resolver, and added both `user` and `versionedGuidanceGroup` chained resolvers [#528]
+- Updated `guidanceService` to get current tags for the guidance to add them to versionedGuidanceTags table [#528]
 - Fixed an issue with the the `addProject` resolver not returning errors
 - Updated `planService` to save roles for the default plan member
+- Updated ORCID datasource so that the API and Auth URLs are independent: Removed `ORCID_BASE_URL` and replaced with `ORCID_API_BASE_URL`, `ORCID_AUTH_BASE_URL`
 - Updated the README to reflect recent changes
 - Updated dependencies: `@aws-sdk/client-dynamodb`, `@graphql-tools/merge`, `ts-jest` and `@eslint/js`
 - Updated the `myProjects` resolver to only return the projects the user owns or collaborates on

@@ -15,7 +15,7 @@ const mockPost = jest.spyOn(RESTDataSource.prototype as any, 'post');
 
 beforeEach(() => {
   // Set up nock to intercept the OAuth2 token request
-  nock(OrcidConfig.baseUrl)
+  nock(OrcidConfig.baseAuthUrl)
     .post(OrcidConfig.authPath)
     .reply(200, { access_token: 'test_token' });
 });
@@ -106,7 +106,7 @@ describe('OrcidAPI', () => {
       const context = await buildMockContextWithToken(logger);
       const orcid = "0000-0000-0000-0000";
       const mockPersonResponse = JSON.stringify({
-        "orcid-identifier": { path: `${OrcidConfig.baseUrl}/${orcid}` },
+        "orcid-identifier": { path: `${OrcidConfig.baseApiUrl}/${orcid}` },
         person: {
           name: {
             "given-names": { value: "Joe" },

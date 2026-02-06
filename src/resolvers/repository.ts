@@ -72,6 +72,21 @@ export const resolvers: Resolvers = {
         throw InternalServerError();
       }
     },
+
+    // Return repositories matching a list of unique URIs
+    repositoriesByURIs: async (_, { uris }, context: MyContext): Promise<Repository[]> => {
+      const reference = 'repositoriesByURIs resolver';
+      try {
+        if (isAuthorized(context.token)) {
+          return await Repository.findByURIs(reference, context, uris);
+        }
+        throw context?.token ? ForbiddenError() : AuthenticationError();
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    },
   },
 
   Mutation: {

@@ -1,13 +1,33 @@
 import { Buffer } from "buffer";
-import { AugmentedRequest, RESTDataSource } from "@apollo/datasource-rest";
+import {
+  AugmentedRequest,
+  RESTDataSource
+} from "@apollo/datasource-rest";
 import { logger, prepareObjectForLogs } from '../logger';
 import { DMPHubConfig } from '../config/dmpHubConfig';
 import { JWTAccessToken } from '../services/tokenService';
 import { MyContext } from "../context";
-import { GraphQLError } from "graphql";
-import { DMPCommonStandard, DMPCommonStandardContact, DMPCommonStandardContributor, DMPCommonStandardProject } from "../types/DMP";
+import { RDACommonStandardContact, RDACommonStandardContributor } from "@dmptool/utils";
 import { isNullOrUndefined } from "../utils/helpers";
-import {KeyvAdapter} from "@apollo/utils.keyvadapter";
+import { KeyvAdapter } from "@apollo/utils.keyvadapter";
+
+// This is a temporary type until the RDA Common Standard until we update the Awards
+// API to return the newer RDA Common Standard v1.2 format (with DMP Tool extensions).
+interface RDACommonStandardObsoleteProject {
+  title: string,
+  description?: string,
+  start?: string,
+  end?: string,
+  funding?: {
+    dmproadmap_project_number?: string
+    dmproadmap_opportunity_number?: string,
+    dmproadmap_award_amount?: number,
+    grant_id?: {
+      identifier: string,
+      type: string
+    }
+  }[]
+}
 
 // Singleton class that retrieves an Auth token from the API
 export class Authorizer extends RESTDataSource {
@@ -20,6 +40,7 @@ export class Authorizer extends RESTDataSource {
 
   private creds: string;
   private expiry: Date;
+  private initialized = false;
 
   constructor() {
     super();
@@ -28,8 +49,11 @@ export class Authorizer extends RESTDataSource {
     // Base64 encode the credentials for the auth request
     const hdr = `${DMPHubConfig.dmpHubClientId}:${DMPHubConfig.dmpHubClientSecret}`;
     this.creds = Buffer.from(hdr, 'binary').toString('base64');
+  }
 
-    this.authenticate();
+  // Release the instance of the Authorizer singleton
+  public static releaseInstance() {
+    Authorizer.#instance = undefined;
   }
 
   // Singleton function to ensure we aren't reauthenticating every time
@@ -41,27 +65,37 @@ export class Authorizer extends RESTDataSource {
     return Authorizer.#instance;
   }
 
+  // Initialize the Authorizer singleton
+  async init() {
+    if (!this.initialized) {
+      await this.authenticate();
+      this.initialized = true;
+    }
+  }
+
   // Call the authenticate method and set this class' expiry timestamp
   async authenticate() {
     const response = await this.post(`/oauth2/token`);
-
-    logger.info(`Authenticating with DMPHub`);
     this.oauth2Token = response.access_token;
+    logger.info(`Authenticating with DMPHub`);
+
     const currentDate = new Date();
     this.expiry = new Date(currentDate.getTime() + 600 * 1000);
   }
 
   // Check if the current token has expired
   hasExpired() {
-    const currentDate = new Date();
-    return currentDate >= this.expiry;
+    return new Date() >= this.expiry;
   }
 
   // Attach all of the necessary HTTP headers and the body prior to calling the token endpoint
   override willSendRequest(_path: string, request: AugmentedRequest) {
     request.headers['authorization'] =`Basic ${this.creds}`;
     request.headers['content-type'] = 'application/x-www-form-urlencoded';
-    request.body = `grant_type=client_credentials&scope=${this.baseURL}/${this.env}.read ${this.baseURL}/${this.env}.write`;
+    request.body =
+      `grant_type=client_credentials&scope=` +
+      `${this.baseURL}/${this.env}.read` +
+      `${this.baseURL}/${this.env}.write`;
   }
 }
 
@@ -71,155 +105,22 @@ export class Authorizer extends RESTDataSource {
 export class DMPHubAPI extends RESTDataSource {
   override baseURL = DMPHubConfig.dmpHubURL;
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  private cache: KeyvAdapter;
-  private token: JWTAccessToken;
   private authorizer: Authorizer;
 
   constructor(options: { cache: KeyvAdapter, token: JWTAccessToken }) {
     super(options);
 
-    this.token = options.token;
-    this.cache = options.cache;
     this.authorizer = Authorizer.instance;
   }
 
   // Add the Authorization token to the headers prior to the request
   override willSendRequest(_path: string, request: AugmentedRequest) {
-    // Check the current token's expiry. If it has expired re-authenticate
-    if (this.authorizer.hasExpired) {
-      this.authorizer.authenticate();
-    }
     request.headers['authorization'] = `Bearer ${this.authorizer.oauth2Token}`;
   };
 
   // Remove the protocol from the DMSP ID and encode it but preserve the `/` characters
   removeProtocol(id) {
     return id.toString().replace(/^(https?:\/\/|https?%3A%2F%2F)/i, '').replace(/%2F/g, '/');
-  }
-
-  // Fetch a single DMP from the DMPHub API
-  async getDMP(
-    context: MyContext,
-    dmp_id: string,
-    version = 'LATEST',
-    reference = 'dmphubAPI.getDMP'
-  ): Promise<DMPCommonStandard | null> {
-    try {
-      // If we don't have a cached version, call the API
-      const sanitizedDOI = encodeURI(this.removeProtocol(dmp_id));
-      const sanitizedVersion = `?version=${encodeURI(version)}`;
-      const path = `dmps/${sanitizedDOI}${sanitizedVersion}`;
-
-      context.logger.debug(`${reference} calling DMPHub Get: ${this.baseURL}/${path}`);
-      const response = await this.get(path);
-
-      if (response?.status === 200 && Array.isArray(response?.items) && response?.items?.length > 0) {
-        return response.items[0]?.dmp as DMPCommonStandard;
-      }
-
-      context.logger.error(
-        prepareObjectForLogs({ dmp_id, code: response?.status, errs: response?.errors }),
-        'Error retrieving DMP from DMPHub API'
-      );
-      return null;
-    } catch(err) {
-      context.logger.error(prepareObjectForLogs({ dmp_id, err }), 'Error calling DMPHub API getDMP');
-      throw(err);
-    }
-  }
-
-  // Create a new DMP in the DMPHub (will assign a DMP ID for us)
-  async createDMP(
-    context: MyContext,
-    dmp: DMPCommonStandard,
-    reference = 'dmphubAPI.createDMP'
-  ): Promise<DMPCommonStandard> {
-    try {
-      const path = `dmps`;
-      context.logger.debug(`${reference} calling DMPHub Create: ${this.baseURL}/${path}`);
-      const response = await this.post(path, { body: JSON.stringify({ dmp }) });
-      if (response?.status === 201 && Array.isArray(response?.items) && response?.items?.length > 0) {
-        return response.items[0]?.dmp as DMPCommonStandard;
-      }
-      return null;
-    } catch(err) {
-      context.logger.error(prepareObjectForLogs({ dmp, err }), 'Error calling DMPHub API createDMP');
-      throw(err);
-    }
-  }
-
-  // Update an existing DMP in the DMPHub
-  async updateDMP(
-    context: MyContext,
-    dmp: DMPCommonStandard,
-    reference = 'dmphubAPI.updateDMP'
-  ): Promise<DMPCommonStandard> {
-    try {
-      const path = `dmps/${encodeURI(this.removeProtocol(dmp.dmp_id.identifier))}`;
-      context.logger.debug(`${reference} calling DMPHub Update: ${this.baseURL}/${path}`);
-
-      const response = await this.put(path, { body: JSON.stringify({ dmp }) });
-      if (response?.status === 200 && Array.isArray(response?.items) && response?.items?.length > 0) {
-        return response.items[0]?.dmp as DMPCommonStandard;
-      }
-      return null;
-    } catch(err) {
-      context.logger.error(prepareObjectForLogs({ dmp, err }), 'Error calling DMPHub API updateDMP');
-      throw(err);
-    }
-  }
-
-  // Tombstone an existing DMP in the DMPHub
-  async tombstoneDMP(
-    context: MyContext,
-    dmp: DMPCommonStandard,
-    reference = 'dmphubAPI.tombstoneDMP'
-  ): Promise<DMPCommonStandard> {
-    try {
-      const path = `dmps/${encodeURI(this.removeProtocol(dmp.dmp_id.identifier))}`;
-      context.logger.debug(`${reference} calling DMPHub Tombstone: ${this.baseURL}/${path}`);
-
-      const response = await this.delete(path);
-      if (response?.status === 200 && Array.isArray(response?.items) && response?.items?.length > 0) {
-        return response.items[0]?.dmp as DMPCommonStandard;
-      }
-      return null;
-    } catch(err) {
-      context.logger.error(prepareObjectForLogs({ dmp, err }), 'Error calling DMPHub API tombstoneDMP');
-      throw(err);
-    }
-  }
-
-  // Validate the DMP JSON content against the RDA DMP Common Metadata Standard
-  async validateDMP(context: MyContext, dmp: DMPCommonStandard, reference = 'dmphubAPI.validate'): Promise<string[]> {
-    try {
-      // If we don't have a cached version, call the API
-      const path = `dmps/validate`;
-      context.logger.debug(`${reference} Calling DMPHub: ${this.baseURL}/${path}`);
-
-      const response = await this.post(path, { body: JSON.stringify({ dmp: dmp }) });
-      if (response?.status === 400 && Array.isArray(response?.errors) && response?.errors?.length > 0) {
-        return response.errors;
-      }
-      return [];
-    } catch(err) {
-      if (err instanceof GraphQLError) {
-        try {
-          // Try to parse out the errors and add them to the DMP
-          const body = err.extensions['response']['body'];
-          if (body['status'] === 400 && Array.isArray(body['errors']) && body['errors'].length > 0) {
-            return body.errors;
-          }
-        }
-        catch (e) {
-          return ['The resulting JSON from the DMP is not valid'];
-        }
-      }
-
-      context.logger.error(prepareObjectForLogs({ dmp, err }), 'Error calling DMPHub API validate');
-      throw(err);
-    }
   }
 
   /**
@@ -246,6 +147,8 @@ export class DMPHubAPI extends RESTDataSource {
     reference = 'dmphubAPI.getAwards'
   ): Promise<DMPHubAward[]> {
     try {
+      await this.authorizer.init();
+
       // Build query parameters
       const params = new URLSearchParams();
       if(!isNullOrUndefined(awardId)) {
@@ -291,7 +194,7 @@ export class DMPHubAPI extends RESTDataSource {
 // Types returned by DMPHubAPI awards endpoint
 // -----------------------------------------------------------------------------------------------
 export interface DMPHubAward {
-  project: DMPCommonStandardProject
-  contact: DMPCommonStandardContact
-  contributor: [DMPCommonStandardContributor]
+  project: RDACommonStandardObsoleteProject
+  contact: RDACommonStandardContact
+  contributor: [RDACommonStandardContributor]
 }

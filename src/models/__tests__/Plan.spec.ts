@@ -14,7 +14,8 @@ import {
 import { defaultLanguageId } from "../Language";
 import { generalConfig } from "../../config/generalConfig";
 import { getCurrentDate } from "../../utils/helpers";
-import * as PlanVersionModule from "../PlanVersion";
+import { PlanGuidance } from "../Guidance";
+import { VersionedTemplate } from "../VersionedTemplate";
 
 jest.mock('../../context.ts');
 
@@ -105,29 +106,29 @@ describe('PlanSearchResult.findByProjectId', () => {
     localQuery.mockResolvedValueOnce([planSearchResult]);
     const projectId = casual.integer(1, 99);
     const sql = 'SELECT p.id, ' +
-                'CONCAT(cu.givenName, CONCAT(\' \', cu.surName)) createdBy, p.created, ' +
-                'CONCAT(cm.givenName, CONCAT(\' \', cm.surName)) modifiedBy, p.modified, ' +
-                'p.versionedTemplateId, p.title, p.status, p.visibility, p.dmpId, ' +
-                'CONCAT(cr.givenName, CONCAT(\' \', cr.surName)) registeredBy, p.registered, p.featured, ' +
-                'GROUP_CONCAT(DISTINCT CONCAT(prc.givenName, CONCAT(\' \', prc.surName, ' +
-                  'CONCAT(\' (\', CONCAT(r.label, \')\'))))) members, ' +
-                'GROUP_CONCAT(DISTINCT fundings.name) funding ' +
-              'FROM plans p ' +
-                'LEFT JOIN users cu ON cu.id = p.createdById ' +
-                'LEFT JOIN users cm ON cm.id = p.modifiedById ' +
-                'LEFT JOIN users cr ON cr.id = p.registeredById ' +
-                'LEFT JOIN planMembers plc ON plc.planId = p.id ' +
-                  'LEFT JOIN projectMembers prc ON prc.id = plc.projectMemberId ' +
-                  'LEFT JOIN planMemberRoles plcr ON plc.id = plcr.planMemberId ' +
-                    'LEFT JOIN memberRoles r ON plcr.memberRoleId = r.id ' +
-                'LEFT JOIN planFundings ON planFundings.planId = p.id ' +
-                  'LEFT JOIN projectFundings ON projectFundings.id = planFundings.projectFundingId ' +
-                    'LEFT JOIN affiliations fundings ON projectFundings.affiliationId = fundings.uri ' +
-              'WHERE p.projectId = ? ' +
-              'GROUP BY p.id, cu.givenName, cu.surName, cm.givenName, cm.surName, ' +
-                'p.title, p.status, p.visibility, ' +
-                'p.dmpId, cr.givenName, cr.surName, p.registered, p.featured ' +
-              'ORDER BY p.created DESC;';
+      'CONCAT(cu.givenName, CONCAT(\' \', cu.surName)) createdBy, p.created, ' +
+      'CONCAT(cm.givenName, CONCAT(\' \', cm.surName)) modifiedBy, p.modified, ' +
+      'p.versionedTemplateId, p.title, p.status, p.visibility, p.dmpId, ' +
+      'CONCAT(cr.givenName, CONCAT(\' \', cr.surName)) registeredBy, p.registered, p.featured, ' +
+      'GROUP_CONCAT(DISTINCT CONCAT(prc.givenName, CONCAT(\' \', prc.surName, ' +
+      'CONCAT(\' (\', CONCAT(r.label, \')\'))))) members, ' +
+      'GROUP_CONCAT(DISTINCT fundings.name) funding ' +
+      'FROM plans p ' +
+      'LEFT JOIN users cu ON cu.id = p.createdById ' +
+      'LEFT JOIN users cm ON cm.id = p.modifiedById ' +
+      'LEFT JOIN users cr ON cr.id = p.registeredById ' +
+      'LEFT JOIN planMembers plc ON plc.planId = p.id ' +
+      'LEFT JOIN projectMembers prc ON prc.id = plc.projectMemberId ' +
+      'LEFT JOIN planMemberRoles plcr ON plc.id = plcr.planMemberId ' +
+      'LEFT JOIN memberRoles r ON plcr.memberRoleId = r.id ' +
+      'LEFT JOIN planFundings ON planFundings.planId = p.id ' +
+      'LEFT JOIN projectFundings ON projectFundings.id = planFundings.projectFundingId ' +
+      'LEFT JOIN affiliations fundings ON projectFundings.affiliationId = fundings.uri ' +
+      'WHERE p.projectId = ? ' +
+      'GROUP BY p.id, cu.givenName, cu.surName, cm.givenName, cm.surName, ' +
+      'p.title, p.status, p.visibility, ' +
+      'p.dmpId, cr.givenName, cr.surName, p.registered, p.featured ' +
+      'ORDER BY p.created DESC;';
 
     const result = await PlanSearchResult.findByProjectId('testing', context, projectId);
     expect(localQuery).toHaveBeenCalledTimes(1);
@@ -259,7 +260,7 @@ describe('PlanProgress', () => {
     expect(progress.totalQuestions).toEqual(progressData.totalQuestions);
     expect(progress.answeredQuestions).toEqual(progressData.answeredQuestions);
     expect(progress.percentComplete).toEqual(Math.round(
-        progressData.answeredQuestions / progressData.totalQuestions * 100));
+      progressData.answeredQuestions / progressData.totalQuestions * 100));
   });
 });
 
@@ -425,6 +426,87 @@ describe('Plan', () => {
   });
 });
 
+describe('Plan.processResult', () => {
+  let plan;
+  let mockGenerateDMPId;
+  let mockUpdate;
+
+  beforeEach(() => {
+    plan = new Plan({
+      id: casual.integer(1, 999),
+      projectId: casual.integer(1, 99),
+      versionedTemplateId: casual.integer(1, 99),
+      title: casual.sentence,
+      status: getRandomEnumValue(PlanStatus),
+      visibility: getRandomEnumValue(PlanVisibility),
+      languageId: defaultLanguageId,
+      featured: casual.boolean,
+      createdById: casual.integer(1, 99),
+      modifiedById: casual.integer(1, 99),
+      created: casual.date('YYYY-MM-DD'),
+      modified: casual.date('YYYY-MM-DD'),
+    });
+
+    mockGenerateDMPId = jest.fn();
+    mockUpdate = jest.fn();
+  });
+
+  it('should generate a dmpId and update the plan if dmpId is null', async () => {
+    plan.dmpId = null;
+    plan.generateDMPId = mockGenerateDMPId;
+    plan.update = mockUpdate;
+
+    const newDmpId = getMockDMPId();
+    const updatedPlan = new Plan({...plan, dmpId: newDmpId});
+
+    mockGenerateDMPId.mockResolvedValueOnce(newDmpId);
+    mockUpdate.mockResolvedValueOnce(updatedPlan);
+
+    const result = await Plan.processResult(context, plan);
+
+    expect(mockGenerateDMPId).toHaveBeenCalledTimes(1);
+    expect(mockGenerateDMPId).toHaveBeenCalledWith(context);
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
+    expect(mockUpdate).toHaveBeenCalledWith(context, true);
+    expect(result).toEqual(updatedPlan);
+  });
+
+  it('should generate a dmpId and update the plan if dmpId is undefined', async () => {
+    plan.dmpId = undefined;
+    plan.generateDMPId = mockGenerateDMPId;
+    plan.update = mockUpdate;
+
+    const newDmpId = getMockDMPId();
+    const updatedPlan = new Plan({...plan, dmpId: newDmpId});
+
+    mockGenerateDMPId.mockResolvedValueOnce(newDmpId);
+    mockUpdate.mockResolvedValueOnce(updatedPlan);
+
+    const result = await Plan.processResult(context, plan);
+
+    expect(mockGenerateDMPId).toHaveBeenCalledTimes(1);
+    expect(mockGenerateDMPId).toHaveBeenCalledWith(context);
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
+    expect(mockUpdate).toHaveBeenCalledWith(context, true);
+    expect(result).toEqual(updatedPlan);
+  });
+
+  it('should return a new Plan instance if dmpId already exists', async () => {
+    plan.dmpId = getMockDMPId();
+    plan.generateDMPId = mockGenerateDMPId;
+    plan.update = mockUpdate;
+
+    const result = await Plan.processResult(context, plan);
+
+    expect(mockGenerateDMPId).not.toHaveBeenCalled();
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(result).toBeInstanceOf(Plan);
+    expect(result.dmpId).toEqual(plan.dmpId);
+  });
+
+
+});
+
 describe('findBy Queries', () => {
   const originalQuery = Plan.query;
 
@@ -539,18 +621,11 @@ describe('publish', () => {
 
   it('returns the newly published Plan', async () => {
     updateQuery.mockResolvedValueOnce(plan);
-    const versionMock = jest.fn().mockResolvedValueOnce(plan);
-    (PlanVersionModule.updateVersion as jest.Mock) = versionMock;
 
     const result = await plan.publish(context);
-    const versionMockInput = versionMock.mock.calls[0][1] as Plan;
 
     expect(Object.keys(result.errors).length).toBe(0);
-    expect(PlanVersionModule.updateVersion).toHaveBeenCalledTimes(1);
-
     expect(result).toBeInstanceOf(Plan);
-    expect(versionMockInput.registered).toBeTruthy();
-    expect(versionMockInput.registeredById).toBeTruthy();
   });
 
   it('returns an error if the Plan is not valid', async () => {
@@ -577,19 +652,23 @@ describe('create', () => {
   const originalInsert = Plan.insert;
   let insertQuery;
   let plan;
+  // Add planData definition here
+  const planData = {
+    projectId: casual.integer(1, 99),
+    versionedTemplateId: casual.integer(1, 99),
+    title: casual.sentence,
+    status: PlanStatus.DRAFT,
+    visibility: getRandomEnumValue(PlanVisibility),
+    languageId: defaultLanguageId,
+    featured: casual.boolean,
+  };
 
   beforeEach(() => {
     insertQuery = jest.fn();
     (Plan.insert as jest.Mock) = insertQuery;
 
     plan = new Plan({
-      projectId: casual.integer(1, 99),
-      versionedTemplateId: casual.integer(1, 99),
-      title: casual.sentence,
-      status: PlanStatus.DRAFT,
-      visibility: getRandomEnumValue(PlanVisibility),
-      languageId: defaultLanguageId,
-      featured: casual.boolean,
+      ...planData
     });
   });
 
@@ -608,16 +687,34 @@ describe('create', () => {
     insertQuery.mockResolvedValueOnce(createdPlan.id);
     const mockFindById = jest.fn().mockResolvedValueOnce(createdPlan);
     (Plan.findById as jest.Mock) = mockFindById;
-    const versionMock = jest.fn().mockResolvedValueOnce(plan);
-    (PlanVersionModule.addVersion as jest.Mock) = versionMock;
 
     const result = await plan.create(context);
 
     expect(mockFindById).toHaveBeenCalledTimes(1);
     expect(insertQuery).toHaveBeenCalledTimes(1);
-    expect(PlanVersionModule.addVersion).toHaveBeenCalledTimes(1);
     expect(Object.keys(result.errors).length).toBe(0);
     expect(result).toBeInstanceOf(Plan);
+  });
+
+  it('should add PlanGuidance entries for template owner and user affiliation', async () => {
+    const planGuidanceCreate = jest.spyOn(PlanGuidance.prototype, 'create').mockResolvedValue(undefined);
+
+    // Mock VersionedTemplate to return an owner
+    const mockVersionedTemplate = { ownerId: 'https://ror.org/template-owner' };
+    (VersionedTemplate.findById as jest.Mock) = jest.fn().mockResolvedValue(mockVersionedTemplate);
+
+    // Mock successful insert and findById
+    insertQuery.mockResolvedValueOnce(123);
+    const createdPlan = new Plan({ ...planData, id: 123 });
+    (Plan.findById as jest.Mock) = jest.fn().mockResolvedValueOnce(createdPlan);
+
+    const plan = new Plan(planData);
+    await plan.create(context);
+
+    // Should be called for both affiliations (owner and user)
+    expect(planGuidanceCreate).toHaveBeenCalledTimes(2);
+    const calls = planGuidanceCreate.mock.calls.map(call => call[0]);
+    expect(calls).toEqual([context, context]);
   });
 });
 
@@ -671,8 +768,6 @@ describe('update', () => {
     localValidator.mockResolvedValue(true);
 
     updateQuery.mockResolvedValueOnce(plan);
-    const versionMock = jest.fn().mockResolvedValueOnce(plan);
-    (PlanVersionModule.updateVersion as jest.Mock) = versionMock;
 
     const result = await plan.update(context);
 
@@ -680,7 +775,6 @@ describe('update', () => {
     expect(updateQuery).toHaveBeenCalledTimes(1);
     expect(Object.keys(result.errors).length).toBe(0);
     expect(result).toBeInstanceOf(Plan);
-    expect(versionMock).toHaveBeenCalledTimes(1);
   });
 
   it('does not do any versioning if noTouch is true', async () => {
@@ -689,15 +783,12 @@ describe('update', () => {
     localValidator.mockResolvedValue(true);
 
     updateQuery.mockResolvedValueOnce(plan);
-    const versionMock = jest.fn().mockResolvedValueOnce(plan);
-    (PlanVersionModule.updateVersion as jest.Mock) = versionMock;
 
     const result = await plan.update(context, true);
     expect(localValidator).toHaveBeenCalledTimes(1);
     expect(updateQuery).toHaveBeenCalledTimes(1);
     expect(Object.keys(result.errors).length).toBe(0);
     expect(result).toBeInstanceOf(Plan);
-    expect(versionMock).toHaveBeenCalledTimes(0);
   });
 
   it('does not do any versioning if the Plan update failed', async () => {
@@ -706,15 +797,12 @@ describe('update', () => {
     localValidator.mockResolvedValue(true);
 
     updateQuery.mockResolvedValueOnce(null);
-    const versionMock = jest.fn().mockResolvedValueOnce(plan);
-    (PlanVersionModule.updateVersion as jest.Mock) = versionMock;
 
     const result = await plan.update(context);
     expect(localValidator).toHaveBeenCalledTimes(1);
     expect(updateQuery).toHaveBeenCalledTimes(1);
     expect(Object.keys(result.errors).length).toBe(0);
     expect(result).toBeInstanceOf(Plan);
-    expect(versionMock).toHaveBeenCalledTimes(0);
   });
 });
 
@@ -754,14 +842,10 @@ describe('delete', () => {
     (Plan.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(plan);
 
-    const versionMock = jest.fn().mockResolvedValueOnce(plan);
-    (PlanVersionModule.removeVersions as jest.Mock) = versionMock;
-
     const result = await plan.delete(context);
     expect(Object.keys(result.errors).length).toBe(0);
     expect(result).toBeInstanceOf(Plan);
     expect(deleteQuery).toHaveBeenCalledTimes(1);
     expect(mockFindById).toHaveBeenCalledTimes(1);
-    expect(versionMock).toHaveBeenCalledTimes(1);
   });
 });

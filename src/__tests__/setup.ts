@@ -1,3 +1,4 @@
+
 jest.mock('../logger', () => {
   const original = jest.requireActual('../logger') as typeof import('../logger');
 
@@ -30,18 +31,20 @@ jest.mock('../config/awsConfig', () => ({
     sesAccessSecret: '98765',
     sesBounceAddress: 'bounce@example.com',
     sesBouncedEmailBucket: 'my-test-bucket',
-    dynamoTableName: 'test-table',
-    dynamoMaxQueryAttempts: 3,
-    dynamoEndpoint: 'http://localhost:8000',
+    sqs: {
+      generateMaDMPQueueUrl: 'http://sqs.example.com/queue/generateMadmp'
+    }
   }
 }));
 
 jest.mock('../config/cacheConfig', () => ({
   cacheConfig: {
-    host: 'localhost',
-    port: '6379',
-    connectTimeout: 10000,
-    autoFailoverEnabled: 'false',
+    socket: {
+      host: 'localhost',
+      port: 6379,
+      connectTimeout: 10000,
+      reconnectStrategy: jest.fn(),
+    }
   },
 }));
 
@@ -67,7 +70,8 @@ jest.mock('../config/orcidConfig', () => ({
   OrcidConfig: {
     clientId: "DUMMY_CLIENT_ID",
     clientSecret: "DUMMY_CLIENT_SECRET",
-    baseUrl: "http://sandbox.orcid.org",
+    baseApiUrl: "http://pub.sandbox.orcid.org/",
+    baseAuthUrl: "http://sandbox.orcid.org/",
     authPath: "/oauth/token",
     apiPath: "/v3.0/",
     readOnlyScope: "/read-public",
@@ -96,5 +100,6 @@ jest.mock('../config/generalConfig', () => ({
     jwtRefreshSecret: 'testJwtRefreshSecret',
     jwtRefreshTTL: 500,
     hashTokenSecret: 'testTokenSecret',
-  }
+  },
+  envAsEnumValue: () => 'dev'
 }));

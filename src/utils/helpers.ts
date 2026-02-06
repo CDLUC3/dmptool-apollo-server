@@ -184,7 +184,7 @@ export function randomHex(size: number): string {
 export function normaliseDateTime(date: string | null): string {
   try {
     return isNullOrUndefined(date) ? null : formatISO9075(new Date(date));
-  } catch (e) {
+  } catch {
     // value wasn't a date so return null
     return null;
   }

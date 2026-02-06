@@ -2,96 +2,64 @@ import { Cache } from '../cache';
 import Keyv from 'keyv';
 import KeyvRedis from '@keyv/redis';
 import { KeyvAdapter } from '@apollo/utils.keyvadapter';
-import { cacheConfig } from '../../config/cacheConfig';
-import Redis from 'ioredis';
 import { logger } from "../../logger";
 
-jest.mock('ioredis', () => (
-  jest.fn(() => {
-    return {
-      Cluster: jest.fn(() => {
-        return {
-          __esModules: true
-        };
-      }),
-    };
-  })
-));
-
 jest.mock('keyv');
-jest.mock('ioredis');
 jest.mock('@keyv/redis');
 jest.mock('@apollo/utils.keyvadapter');
 
 describe('Cache', () => {
-  let mockKeyvInstance;
-
   beforeEach(() => {
     jest.clearAllMocks();
-
-    mockKeyvInstance = { on: jest.fn() };
-
-    // Mock KeyvAdapter and Keyv
-    (KeyvAdapter as jest.Mock).mockImplementation(() => ({ }));
-    (Keyv as jest.Mock).mockImplementation(() => mockKeyvInstance);
   });
 
   it('should create a Redis cluster and initialize KeyvAdapter', () => {
     Cache.getInstance();
 
-    expect(Keyv).toHaveBeenCalledWith(expect.any(KeyvRedis));
-    expect(KeyvAdapter).toHaveBeenCalledWith(mockKeyvInstance, { disableBatchReads: true });
-    Cache.removeInstance();
-  });
-
-  it('should create a Redis cluster with autoFailover when the env is not test or development', () => {
-    process.env.NODE_ENV = 'test-production';
-    cacheConfig.autoFailoverEnabled = 'true';
-
-    Cache.getInstance();
-    expect(Redis).toHaveBeenCalledWith({
-      ...cacheConfig,
-      tls: {},
-    });
-    Cache.removeInstance();
-    process.env.NODE_ENV = 'test'; // Reset NODE_ENV to original value
-  });
-
-  it('should create a Redis cluster without autoFailover when the env is not test or development', () => {
-    process.env.NODE_ENV = 'test-production';
-    cacheConfig.autoFailoverEnabled = 'false';
-
-    Cache.getInstance();
-    // Expect ioredis to have been initialized with autoFailover disabled
-    expect(Redis).toHaveBeenCalledWith({
-      ...cacheConfig,
-      tls: {},
-      reconnectOnError: expect.any(Function),
-    });
-    Cache.removeInstance();
-    // Reset NODE_ENV to original value
-    process.env.NODE_ENV = 'test';
+    expect(KeyvRedis).toHaveBeenCalledWith(
+      expect.objectContaining({
+        socket: expect.objectContaining({
+          host: 'localhost',
+          port: 6379,
+          connectTimeout: 10000,
+          reconnectStrategy: expect.any(Function),
+        })
+      }),
+      {
+        throwOnConnectError: true
+      }
+    );
+    expect(Keyv).toHaveBeenCalledWith(
+      expect.objectContaining({ store: expect.any(KeyvRedis) }),
+    );
+    expect(KeyvAdapter).toHaveBeenCalledWith(expect.any(Keyv), { disableBatchReads: true });
+    Cache.destroy();
   });
 
   it('should log when Redis connection is established, encounters an error, or is closed', () => {
-    const mockError = new Error('Connection error');
+    const onSpy = jest.spyOn(Keyv.prototype, 'on');
+
+    // Ensure event handlers were attached to the Keyv instance
     Cache.getInstance();
+    expect(onSpy).toHaveBeenCalledWith('connect', expect.any(Function))
+    expect(onSpy).toHaveBeenCalledWith('error', expect.any(Function))
+    expect(onSpy).toHaveBeenCalledWith('close', expect.any(Function))
 
-    // Simulate connection established
-    const connectCallback = mockKeyvInstance.on.mock.calls.find(call => call[0] === 'connect')[1];
+    const connectCallback = onSpy.mock.calls.find(call => call[0] === 'connect')[1];
     connectCallback();
-    expect(logger.info).toHaveBeenCalledWith(null, 'Redis connection established');
+    expect(logger.info).toHaveBeenCalledWith({}, 'Redis connection established');
 
-    // Simulate connection error
-    const errorCallback = mockKeyvInstance.on.mock.calls.find(call => call[0] === 'error')[1];
+    const errorCallback = onSpy.mock.calls.find(call => call[0] === 'error')?.[1];
+    const mockError = new Error('Test Error');
     errorCallback(mockError);
-    expect(logger.error).toHaveBeenCalledWith(mockError, 'Redis connection error - Connection error');
+    expect(logger.error).toHaveBeenCalledWith(mockError, 'Redis connection error - Test Error');
 
-    // Simulate connection closed
-    const closeCallback = mockKeyvInstance.on.mock.calls.find(call => call[0] === 'close')[1];
+    const closeCallback = onSpy.mock.calls.find(call => call[0] === 'close')?.[1];
     closeCallback();
-    expect(logger.info).toHaveBeenCalledWith(null, 'Redis connection closed');
-    Cache.removeInstance();
+    expect(logger.info).toHaveBeenCalledWith({}, 'Redis connection closed');
+
+    onSpy.mockRestore();
+    Cache.destroy();
   });
 
   it('should follow the singleton pattern', () => {
@@ -100,7 +68,6 @@ describe('Cache', () => {
 
     // Ensure that both instances are the same (singleton)
     expect(instance1).toBe(instance2);
-    expect(Keyv).toHaveBeenCalledTimes(1);
-    Cache.removeInstance();
+    Cache.destroy();
   });
 });

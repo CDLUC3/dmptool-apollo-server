@@ -2,7 +2,7 @@
 
 # Configuration
 ENDPOINT="http://localhost:9200"
-INDEX_NAME="re3data-idx"
+INDEX_NAME="re3data-idx1"
 ALIAS_NAME="re3data"
 
 echo "Deleting existing index (if it exists) to start fresh..."

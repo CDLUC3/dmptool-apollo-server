@@ -313,6 +313,26 @@ describe('VersionedTemplate', () => {
       expect(result).toEqual(versionedTemplate);
     });
 
+    it('findActiveByTemplateId returns the VersionedTemplate', async () => {
+      localQuery.mockResolvedValueOnce([versionedTemplate]);
+      const id = versionedTemplate.id;
+      const result = await VersionedTemplate.findActiveByTemplateId('Test', context, id);
+      const expectedSql = 'SELECT * FROM versionedTemplates WHERE templateId = ? AND active = 1 ORDER BY modified DESC';
+      expect(localQuery).toHaveBeenCalledTimes(1);
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'Test')
+      expect(result).toEqual(versionedTemplate);
+      expect(result).toBeInstanceOf(VersionedTemplate);
+      expect(Object.keys(result.errors).length).toBe(0);
+    });
+
+    it('findActiveByTemplateId returns undefined if there is no VersionedTemplate', async () => {
+      localQuery.mockResolvedValueOnce([]);
+      const id = versionedTemplate.id;
+      const result = await VersionedTemplate.findActiveByTemplateId('Test', context, id);
+      expect(localQuery).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(undefined);
+    });
+
     it('findVersionedTemplateById returns null if there is no VersionedTemplate', async () => {
       localQuery.mockResolvedValueOnce([]);
 

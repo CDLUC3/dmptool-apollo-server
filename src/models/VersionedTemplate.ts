@@ -253,6 +253,13 @@ export class VersionedTemplate extends MySqlModel {
     return Array.isArray(results) ? results : [];
   }
 
+  // Find the latest active version of a template
+  static async findActiveByTemplateId(reference: string, context: MyContext, templateId: number): Promise<VersionedTemplate> {
+    const sql = 'SELECT * FROM versionedTemplates WHERE templateId = ? AND active = 1 ORDER BY modified DESC';
+    const results = await VersionedTemplate.query(context, sql, [templateId.toString()], reference);
+    return Array.isArray(results) ? new VersionedTemplate(results[0]) : undefined;
+  }
+
   static async getFilterMetadata(reference: string, context: MyContext) {
     const [availableAffiliations, hasBestPractice] = await Promise.all([
       this.getAvailableOwners(reference, context),

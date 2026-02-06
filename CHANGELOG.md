@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added `findActiveByTemplateId` query to `VersionedTemplate` model
 - Added `processResult` handler to the Plan model to help generate DMP ids when they are missing
 - Added `saveMaDMPVersion` function to the `src/services/planService`. This service handles sending the SQS messages to the AWS SQS Queue to trigger the `generateMaDMPRecord` Lambda Function.
 - Added SQS Queue URL env variable to config files (also added to the ECS container definitions)

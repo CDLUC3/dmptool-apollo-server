@@ -8,7 +8,7 @@ networks:
     driver: bridge
 
 services:
-  # The prior database used by the Apollo server
+  # The database used by the Apollo server
   mysql:
     image: mysql:latest
     container_name: apollo-mysql

@@ -1,10 +1,8 @@
-/* eslint-disable */
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-nocheck
-/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 import { DOMParser } from 'xmldom';
 import * as xpath from 'xpath';
 import { Client } from '@opensearch-project/opensearch';
+import yargs from 'yargs';
+import { hideBin } from 'yargs/helpers';
 
 // --- Configuration ---
 const RE3DATA_API_BASE = process.env.RE3DATA_API_BASE || 'https://www.re3data.org/api/v1';
@@ -17,7 +15,7 @@ const DEFAULT_OPENSEARCH = {
 };
 
 // Allow overrides from CLI args
-const argv = require('yargs')
+const argv = yargs(hideBin(process.argv))
   .option('limit', { type: 'number', description: 'Limit number of repositories to process' })
   .option('batch-size', { type: 'number', description: 'Bulk batch size for OpenSearch' })
   .option('index', { type: 'string', description: 'OpenSearch index name prefix (e.g. re3data-idx)' })
@@ -26,7 +24,7 @@ const argv = require('yargs')
   .option('verbose', { type: 'boolean', description: 'Verbose logging', default: false })
   .option('alias', { type: 'string', description: 'OpenSearch alias to swap (default: re3data)', default: process.env.OPENSEARCH_ALIAS || 're3data' })
   .help()
-  .argv;
+  .parseSync();
 
 const OPENSEARCH_CONFIG = {
   node: argv.node || DEFAULT_OPENSEARCH.node,
@@ -40,7 +38,7 @@ const DRY_RUN = Boolean(argv['dry-run']);
 const VERBOSE = Boolean(argv.verbose);
 
 const client = new Client({ node: OPENSEARCH_CONFIG.node });
-const ns = { r3d: 'http://www.re3data.org/schema/2-2' };
+const ns = { r3d: 'https://www.re3data.org/schema/2-2' };
 
 const getText = (node: Node, path: string): string => {
   const select = xpath.useNamespaces(ns);
@@ -53,7 +51,7 @@ const getAllText = (node: Node, path: string): string[] => {
   try {
     const results = select(path, node) as Node[];
     return results.map(n => n.textContent || '').filter(s => s.trim() !== '');
-  } catch (e) {
+  } catch {
     return [];
   }
 };
@@ -123,13 +121,16 @@ const INDEX_BODY = {
 
 async function listIndicesWithPrefix(prefix: string): Promise<string[]> {
   try {
-    const res: any = await client.cat.indices({ index: `${prefix}*`, format: 'json' });
-    // res.body may be array or res directly
-    const body = res && (res.body || res);
+    const res = await client.cat.indices({ index: `${prefix}*`, format: 'json' });
+    const body = (res && ((res as unknown) as { body?: unknown }).body) ?? res;
     if (!Array.isArray(body)) return [];
-    return body.map((row: any) => row.index || row['i'] || Object.values(row)[2]).filter(Boolean);
+    return (body as unknown[])
+      .map(row => {
+        const r = row as Record<string, unknown>;
+        return (r.index as string) ?? (r['i'] as string) ?? Object.values(r)[2];
+      })
+      .filter(Boolean) as string[];
   } catch (err) {
-    // If there are no indices matching, the cat API may still return an error; treat as empty
     if (VERBOSE) console.warn('No existing indices found or error listing indices:', err);
     return [];
   }
@@ -159,12 +160,12 @@ async function createIndexIfMissing(indexName: string) {
   try {
     // create index with mappings
     if (VERBOSE) console.log(`Creating index ${indexName} with mappings...`);
-    const res = await client.indices.create({ index: indexName, body: INDEX_BODY as any });
-    if (VERBOSE) console.log('Create index response:', (res as any).body || res);
+    const res = await client.indices.create({ index: indexName, body: (INDEX_BODY as unknown) as Record<string, unknown> });
+    if (VERBOSE) console.log('Create index response:', ((res as unknown) as { body?: unknown }).body || res);
     return true;
-  } catch (err: any) {
+  } catch (err: unknown) {
     // If already exists, that's ok
-    const msg = err && (err.body && err.body.error ? JSON.stringify(err.body.error) : String(err));
+    const msg = err && (((err as unknown) as { body?: unknown }).body ? JSON.stringify(((err as unknown) as { body: unknown }).body) : String(err));
     if (msg && msg.includes('resource_already_exists_exception')) {
       if (VERBOSE) console.log(`Index ${indexName} already exists, proceeding.`);
       return true;
@@ -178,16 +179,17 @@ async function swapAliasToNewIndex(alias: string, newIndex: string, prefix: stri
   // find current indices for alias
   let currentIndices: string[] = [];
   try {
-    const res: any = await client.indices.getAlias({ name: alias });
-    const body = res && (res.body || res);
-    currentIndices = Object.keys(body || {});
-  } catch (err: any) {
-    // if alias not found, proceed with adding
-    if (VERBOSE) console.log(`Alias ${alias} not found or error retrieving alias info:`, err && err.statusCode ? `status ${err.statusCode}` : err);
+    const res = await client.indices.getAlias({ name: alias });
+    const body = ((res as unknown) as { body?: unknown }).body ?? res;
+    if (body && typeof body === 'object') {
+      currentIndices = Object.keys(body as Record<string, unknown>);
+    }
+  } catch (err) {
+    if (VERBOSE) console.log(`Alias ${alias} not found or error retrieving alias info:`, err);
     currentIndices = [];
   }
 
-  const actions: any[] = [];
+  const actions: Record<string, unknown>[] = [];
   // remove alias from current indices (but only those that match the prefix pattern)
   currentIndices.forEach(idx => {
     if (idx !== newIndex && idx.startsWith(prefix)) {
@@ -209,8 +211,8 @@ async function swapAliasToNewIndex(alias: string, newIndex: string, prefix: stri
   }
 
   if (VERBOSE) console.log('Updating alias atomically with actions:', JSON.stringify(actions));
-  const r: any = await client.indices.updateAliases({ body: { actions } });
-  if (VERBOSE) console.log('Alias update response:', r && (r.body || r));
+  const r = await client.indices.updateAliases({ body: { actions } });
+  if (VERBOSE) console.log('Alias update response:', ((r as unknown) as { body?: unknown }).body || r);
 
   // cleanup old indices that match prefix and are not the new index
   const existing = await listIndicesWithPrefix(prefix);
@@ -218,8 +220,8 @@ async function swapAliasToNewIndex(alias: string, newIndex: string, prefix: stri
   for (const idx of toDelete) {
     try {
       if (VERBOSE) console.log(`Deleting old index ${idx}...`);
-      const resp: any = await client.indices.delete({ index: idx });
-      if (VERBOSE) console.log('Delete response:', resp && (resp.body || resp));
+      const resp = await client.indices.delete({ index: idx });
+      if (VERBOSE) console.log('Delete response:', ((resp as unknown) as { body?: unknown }).body || resp);
     } catch (err) {
       console.warn(`Failed to delete old index ${idx}:`, err instanceof Error ? err.message : err);
     }
@@ -265,7 +267,7 @@ async function syncRe3Data() {
       repoIds.splice(argv.limit);
     }
 
-    let currentBatch: any[] = [];
+    let currentBatch: unknown[] = [];
     let successCount = 0;
     let failedCount = 0;
 
@@ -337,22 +339,22 @@ async function syncRe3Data() {
             const result = await client.bulk({ body: currentBatch });
 
             // OpenSearch client response structure may vary; prefer checking .body
-            const resBody: any = (result as any).body || result;
-            if (VERBOSE) console.log('Bulk response status:', resBody && resBody.items ? `${resBody.items.length} items` : JSON.stringify(resBody).slice(0, 200));
-            if (resBody.errors) {
+            interface BulkResponse { items?: unknown[]; errors?: boolean }
+            const resBody = ((result as unknown) as { body?: BulkResponse }).body ?? (result as unknown as BulkResponse);
+            const items = (resBody && typeof resBody === 'object' && Array.isArray((resBody as BulkResponse).items) ? (resBody as BulkResponse).items as unknown[] : []);
+            if (VERBOSE) console.log('Bulk response status:', Array.isArray(items) ? `${items.length} items` : JSON.stringify(resBody).slice(0, 200));
+            if (resBody && typeof resBody === 'object' && (resBody as BulkResponse).errors) {
               console.error('Bulk indexing reported errors');
-              // find items with errors and log up to 10
-              const items = resBody.items || [];
               const errored = items
-                .map((it: any, idx: number) => ({ it, idx }))
-                .filter((x: any) => {
-                  const op: any = Object.values(x.it)[0];
-                  return op && op.error;
+                .map((it, idx) => ({ it, idx }))
+                .filter(x => {
+                  const op = Object.values(x.it as Record<string, unknown>)[0] as Record<string, unknown> | undefined;
+                  return !!(op && 'error' in op);
                 });
               console.error(`Bulk errors count: ${errored.length}`);
-              errored.slice(0, 10).forEach((e: any) => {
-                const op: any = Object.values(e.it)[0];
-                console.error('Item error:', { id: (op && op._id) || null, error: (op && op.error) || null });
+              errored.slice(0, 10).forEach(e => {
+                const op = Object.values(e.it as Record<string, unknown>)[0] as Record<string, unknown> | undefined;
+                console.error('Item error:', { id: op ? (op['_id'] ?? null) : null, error: op ? (op['error'] ?? null) : null });
               });
             } else if (VERBOSE) {
               console.log('Bulk index successful for this batch');
@@ -395,7 +397,7 @@ async function syncRe3Data() {
     console.log('Script finished normally.');
     // explicit exit to ensure consistent CLI behavior
     process.exit(0);
-  } catch (err) {
+  } catch {
     console.error('Script finished with errors. See logs above.');
     process.exit(1);
   }

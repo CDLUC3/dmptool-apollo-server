@@ -18,7 +18,8 @@
     "trivy-high": "sh ./src/scripts/trivy-high.sh",
     "trivy-med": "sh ./src/scripts/trivy-med.sh",
     "trivy-all": "npm run trivy-high && npm run trivy-med",
-    "init-localstack": "localstack-setup/init-aws.sh"
+    "init-localstack": "localstack-setup/init-aws.sh",
+    "re3data:sync": "ts-node ./data-migrations/re3data-os-populate.ts"
   },
   "compilerOptions": {
     "sourceMap": true

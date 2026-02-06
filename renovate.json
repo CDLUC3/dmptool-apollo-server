@@ -4,7 +4,10 @@
     "config:recommended"
   ],
   "enabledManagers": [
-    "npm"
+    "npm",
+    "nvm",
+    "docker-compose",
+    "dockerfile"
   ],
   "baseBranches": [
     "development"
@@ -20,6 +23,6 @@
   "abandonmentThreshold": "2 years",
   "bumpVersion": "minor",
   "schedule": [
-    "* * * * 7"
+    "* 0-2 * * 0,3"
   ]
 }

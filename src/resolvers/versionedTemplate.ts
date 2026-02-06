@@ -1,9 +1,12 @@
 import {
   PublishedTemplateSearchResults,
   PublishedTemplateMetaDataResults,
-  Resolvers
+  Resolvers, CustomizableTemplateSearchResults
 } from "../types";
-import { VersionedTemplate, VersionedTemplateSearchResult } from "../models/VersionedTemplate";
+import {
+  CustomizableTemplateSearchResult,
+  VersionedTemplate, VersionedTemplateSearchResult
+} from "../models/VersionedTemplate";
 import { User } from '../models/User';
 import { MyContext } from "../context";
 import { Template } from "../models/Template";
@@ -98,6 +101,48 @@ export const resolvers: Resolvers = {
         throw InternalServerError();
       }
     },
+
+    /**
+     * Fetch all customizable funder templates (publicly visible and published)
+     * including information about the user's current customization if applicable.
+     *
+     * @param _ The Apollo parent object (not applicable here)
+     * @param term The search term
+     * @param status Filter for the customization status
+     * @param migrationStatus Filter for the migration status
+     * @param paginationOptions Pagination options
+     * @param context
+     */
+    customizableTemplates: async (
+      _,
+      { term, status, migrationStatus, paginationOptions },
+      context: MyContext
+    ): Promise<CustomizableTemplateSearchResults> => {
+      const reference = "customizableTemplates";
+      try {
+        if (isAdmin(context.token)) {
+          const opts = !isNullOrUndefined(paginationOptions) && paginationOptions.type === PaginationType.OFFSET
+            ? paginationOptions as PaginationOptionsForOffsets
+            : { ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors;
+
+          return await CustomizableTemplateSearchResult.search(
+            reference,
+            context,
+            term,
+            status,
+            migrationStatus,
+            opts
+          );
+        }
+        // Unauthorized!
+        throw context?.token ? ForbiddenError() : AuthenticationError();
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    }
   },
 
   VersionedTemplate: {

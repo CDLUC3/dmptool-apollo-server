@@ -1,13 +1,30 @@
 import casual from 'casual';
 import { TemplateVisibility } from "../Template";
-import { TemplateVersionType, VersionedTemplate, VersionedTemplateSearchResult } from '../VersionedTemplate';
+import {
+  TemplateVersionType,
+  VersionedTemplate,
+  VersionedTemplateSearchResult,
+  CustomizableTemplateSearchResult
+} from '../VersionedTemplate';
 import { buildMockContextWithToken } from '../../__mocks__/context';
 import { defaultLanguageId } from '../Language';
 import { getRandomEnumValue } from '../../__tests__/helpers';
 import { generalConfig } from '../../config/generalConfig';
 import { logger } from "../../logger";
+import {
+  PaginationOptions,
+  PaginationOptionsForOffsets,
+  PaginationOptionsForCursors,
+  PaginationType,
+  PaginatedQueryResults
+} from '../../types/general';
+import {
+  TemplateCustomizationStatus,
+  TemplateCustomizationMigrationStatus
+} from '../TemplateCustomization';
 
 jest.mock('../../context.ts');
+jest.mock('../../logger');
 
 let context;
 
@@ -137,6 +154,333 @@ describe('VersionedTemplateSearchResult', () => {
   });
 });
 
+describe('CustomizableTemplateSearchResult', () => {
+  const originalQuery = VersionedTemplate.queryWithPagination;
+  const originalGetDefaultPaginationOptions = VersionedTemplate.getDefaultPaginationOptions;
+
+  let localPaginationQuery;
+  let localGetDefaultPaginationOptions;
+  let context;
+  let customizableTemplateSearchResult;
+
+  beforeEach(async () => {
+    jest.resetAllMocks();
+
+    localPaginationQuery = jest.fn();
+    (VersionedTemplate.queryWithPagination as jest.Mock) = localPaginationQuery;
+
+    localGetDefaultPaginationOptions = jest.fn();
+    (VersionedTemplate.getDefaultPaginationOptions as jest.Mock) = localGetDefaultPaginationOptions;
+
+    context = await buildMockContextWithToken(logger);
+    context.token.affiliationId = 'test-affiliation-123';
+
+    customizableTemplateSearchResult = new CustomizableTemplateSearchResult({
+      versionedTemplateId: casual.integer(1, 999),
+      templateCustomizationId: casual.integer(1, 999),
+      affiliationId: 'test-affiliation-123',
+      affiliationName: casual.company_name,
+      name: casual.sentence,
+      version: `v${casual.integer(1, 9)}`,
+      description: casual.sentences(3),
+      status: TemplateCustomizationStatus.DRAFT,
+      migrationStatus: TemplateCustomizationMigrationStatus.OK,
+      lastCustomizedById: casual.integer(1, 999),
+      lastCustomizedByName: casual.name,
+      lastCustomized: casual.date('YYYY-MM-DDTHH:mm:ssZ'),
+    });
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+    VersionedTemplate.queryWithPagination = originalQuery;
+    VersionedTemplate.getDefaultPaginationOptions = originalGetDefaultPaginationOptions;
+  });
+
+  describe('search', () => {
+    it('returns matching CustomizableTemplateSearchResults with no filters', async () => {
+      const mockOptions: PaginationOptions = {
+        type: PaginationType.CURSOR,
+        sortField: 'tc.modified',
+        sortDir: 'DESC',
+        availableSortFields: ['vt.name', 'a.name', 'vt.created', 'vt.bestPractice',
+          'tc.status', 'tc.migrationStatus', 'tc.modified'],
+        countField: 'vt.id',
+      };
+      localGetDefaultPaginationOptions.mockReturnValue(mockOptions);
+
+      const mockResponse: PaginatedQueryResults<CustomizableTemplateSearchResult> = {
+        items: [customizableTemplateSearchResult],
+        hasNextPage: false,
+        hasPreviousPage: false,
+        totalCount: 1,
+        limit: 20
+      };
+      localPaginationQuery.mockResolvedValueOnce(mockResponse);
+
+      const result = await CustomizableTemplateSearchResult.search('Test', context);
+
+      const expectedSql = `
+      SELECT vt.id AS versionedTemplateId, vt.name, vt.version, vt.description,
+        a.uri AS affiliationId, a.name AS affiliationName,
+        tc.id AS templateCustomizationId, tc.status, tc.migrationStatus, tc.isDirty,
+        tc.modifiedById AS lastCustomizedById, tc.modified AS lastCustomized,
+        CONCAT(u.givenName, ' ', u.surName) AS lastCustomizedByName
+      FROM versionedTemplates vt
+      JOIN affiliations a ON a.uri = vt.ownerId
+      LEFT JOIN templateCustomizations tc ON tc.versionedTemplateId = vt.id
+        LEFT JOIN users u ON u.id = tc.modifiedById
+    `;
+      const whereFilters = [
+        "vt.active = 1 AND vt.versionType = 'PUBLISHED' AND vt.visibility = 'PUBLIC'",
+        "(LOWER(vt.name) LIKE ? OR LOWER(vt.description) LIKE ?)",
+        'tc.affiliationId = ?'
+      ];
+      const vals = ['%%', '%%', 'test-affiliation-123'];
+
+      const expectedOpts = {
+        ...mockOptions,
+        sortField: 'tc.modified',
+        sortDir: 'DESC',
+        cursorField: 'vt.id',
+      };
+
+      expect(localPaginationQuery).toHaveBeenCalledTimes(1);
+      expect(localPaginationQuery).toHaveBeenCalledWith(context, expectedSql, whereFilters, '', vals, expectedOpts, 'Test');
+      expect(result).toEqual(mockResponse);
+    });
+
+    it('returns matching CustomizableTemplateSearchResults with search term filter', async () => {
+      const mockOptions: PaginationOptions = {
+        type: PaginationType.CURSOR,
+        sortField: 'tc.modified',
+        sortDir: 'DESC',
+      };
+      localGetDefaultPaginationOptions.mockReturnValue(mockOptions);
+
+      const mockResponse: PaginatedQueryResults<CustomizableTemplateSearchResult> = {
+        items: [customizableTemplateSearchResult],
+        hasNextPage: false,
+        hasPreviousPage: false,
+        totalCount: 1,
+        limit: 20
+      };
+      localPaginationQuery.mockResolvedValueOnce(mockResponse);
+
+      const searchTerm = 'test template';
+      const result = await CustomizableTemplateSearchResult.search('Test', context, searchTerm);
+
+      const whereFilters = [
+        "vt.active = 1 AND vt.versionType = 'PUBLISHED' AND vt.visibility = 'PUBLIC'",
+        '(LOWER(vt.name) LIKE ? OR LOWER(vt.description) LIKE ?)',
+        'tc.affiliationId = ?'
+      ];
+      const vals = ['%test template%', '%test template%', 'test-affiliation-123'];
+
+      expect(localPaginationQuery).toHaveBeenCalledTimes(1);
+      expect(localPaginationQuery.mock.calls[0][2]).toEqual(whereFilters);
+      expect(localPaginationQuery.mock.calls[0][4]).toEqual(vals);
+      expect(result).toEqual(mockResponse);
+    });
+
+    it('returns matching CustomizableTemplateSearchResults with status filter', async () => {
+      const mockOptions: PaginationOptions = {
+        type: PaginationType.CURSOR,
+        sortField: 'tc.modified',
+        sortDir: 'DESC',
+      };
+      localGetDefaultPaginationOptions.mockReturnValue(mockOptions);
+
+      const mockResponse: PaginatedQueryResults<CustomizableTemplateSearchResult> = {
+        items: [customizableTemplateSearchResult],
+        hasNextPage: false,
+        hasPreviousPage: false,
+        totalCount: 1,
+        limit: 20
+      };
+      localPaginationQuery.mockResolvedValueOnce(mockResponse);
+
+      const status = TemplateCustomizationStatus.PUBLISHED;
+      const result = await CustomizableTemplateSearchResult.search('Test', context, undefined, status);
+
+      const whereFilters = [
+        "vt.active = 1 AND vt.versionType = 'PUBLISHED' AND vt.visibility = 'PUBLIC'",
+        "(LOWER(vt.name) LIKE ? OR LOWER(vt.description) LIKE ?)",
+        'tc.status = ?',
+        'tc.affiliationId = ?'
+      ];
+      const vals = ['%%', '%%', status, 'test-affiliation-123'];
+
+      expect(localPaginationQuery).toHaveBeenCalledTimes(1);
+      expect(localPaginationQuery.mock.calls[0][2]).toEqual(whereFilters);
+      expect(localPaginationQuery.mock.calls[0][4]).toEqual(vals);
+      expect(result).toEqual(mockResponse);
+    });
+
+    it('returns matching CustomizableTemplateSearchResults with migrationStatus filter', async () => {
+      const mockOptions: PaginationOptions = {
+        type: PaginationType.CURSOR,
+        sortField: 'tc.modified',
+        sortDir: 'DESC',
+      };
+      localGetDefaultPaginationOptions.mockReturnValue(mockOptions);
+
+      const mockResponse: PaginatedQueryResults<CustomizableTemplateSearchResult> = {
+        items: [customizableTemplateSearchResult],
+        hasNextPage: false,
+        hasPreviousPage: false,
+        totalCount: 1,
+        limit: 20
+      };
+      localPaginationQuery.mockResolvedValueOnce(mockResponse);
+
+      const migrationStatus = TemplateCustomizationMigrationStatus.STALE;
+      const result = await CustomizableTemplateSearchResult.search('Test', context, undefined, undefined, migrationStatus);
+
+      const whereFilters = [
+        "vt.active = 1 AND vt.versionType = 'PUBLISHED' AND vt.visibility = 'PUBLIC'",
+        "(LOWER(vt.name) LIKE ? OR LOWER(vt.description) LIKE ?)",
+        'tc.migrationStatus = ?',
+        'tc.affiliationId = ?'
+      ];
+      const vals = ['%%', '%%', migrationStatus, 'test-affiliation-123'];
+
+      expect(localPaginationQuery).toHaveBeenCalledTimes(1);
+      expect(localPaginationQuery.mock.calls[0][2]).toEqual(whereFilters);
+      expect(localPaginationQuery.mock.calls[0][4]).toEqual(vals);
+      expect(result).toEqual(mockResponse);
+    });
+
+    it('returns matching CustomizableTemplateSearchResults with all filters', async () => {
+      const mockOptions: PaginationOptions = {
+        type: PaginationType.CURSOR,
+        sortField: 'tc.modified',
+        sortDir: 'DESC',
+      };
+      localGetDefaultPaginationOptions.mockReturnValue(mockOptions);
+
+      const mockResponse: PaginatedQueryResults<CustomizableTemplateSearchResult> = {
+        items: [customizableTemplateSearchResult],
+        hasNextPage: false,
+        hasPreviousPage: false,
+        totalCount: 1,
+        limit: 20
+      };
+      localPaginationQuery.mockResolvedValueOnce(mockResponse);
+
+      const searchTerm = 'template search';
+      const status = TemplateCustomizationStatus.DRAFT;
+      const migrationStatus = TemplateCustomizationMigrationStatus.ORPHANED;
+
+      const result = await CustomizableTemplateSearchResult.search('Test', context, searchTerm, status, migrationStatus);
+
+      const whereFilters = [
+        "vt.active = 1 AND vt.versionType = 'PUBLISHED' AND vt.visibility = 'PUBLIC'",
+        '(LOWER(vt.name) LIKE ? OR LOWER(vt.description) LIKE ?)',
+        'tc.status = ?',
+        'tc.migrationStatus = ?',
+        'tc.affiliationId = ?'
+      ];
+      const vals = ['%template search%', '%template search%', status, migrationStatus, 'test-affiliation-123'];
+
+      expect(localPaginationQuery).toHaveBeenCalledTimes(1);
+      expect(localPaginationQuery.mock.calls[0][2]).toEqual(whereFilters);
+      expect(localPaginationQuery.mock.calls[0][4]).toEqual(vals);
+      expect(result).toEqual(mockResponse);
+    });
+
+    it('uses cursor-based pagination when type is CURSOR', async () => {
+      const mockOptions: PaginationOptionsForCursors = {
+        type: PaginationType.CURSOR,
+        sortField: null,
+        sortDir: null,
+        cursor: 'test-cursor',
+      };
+      localGetDefaultPaginationOptions.mockReturnValue(mockOptions);
+
+      const mockResponse: PaginatedQueryResults<CustomizableTemplateSearchResult> = {
+        items: [customizableTemplateSearchResult],
+        hasNextPage: true,
+        hasPreviousPage: false,
+        totalCount: 10,
+        limit: 20
+      };
+      localPaginationQuery.mockResolvedValueOnce(mockResponse);
+
+      const result = await CustomizableTemplateSearchResult.search('Test', context, undefined, undefined, undefined, mockOptions);
+
+      const expectedOpts: PaginationOptionsForCursors = {
+        ...mockOptions,
+        sortField: 'tc.modified',
+        sortDir: 'DESC',
+        availableSortFields: ['vt.name', 'a.name', 'vt.created', 'vt.bestPractice', 'tc.status', 'tc.migrationStatus', 'tc.modified'],
+        countField: 'vt.id',
+        cursorField: 'vt.id',
+      };
+
+      expect(localPaginationQuery).toHaveBeenCalledTimes(1);
+      expect(localPaginationQuery.mock.calls[0][5]).toEqual(expectedOpts);
+      expect(result).toEqual(mockResponse);
+    });
+
+    it('uses offset-based pagination when type is OFFSET', async () => {
+      const mockOptions: PaginationOptionsForOffsets = {
+        type: PaginationType.OFFSET,
+        sortField: 'vt.name',
+        sortDir: 'ASC',
+        offset: 10,
+        limit: 20,
+      };
+      localGetDefaultPaginationOptions.mockReturnValue(mockOptions);
+
+      const mockResponse: PaginatedQueryResults<CustomizableTemplateSearchResult> = {
+        items: [customizableTemplateSearchResult],
+        hasNextPage: true,
+        hasPreviousPage: true,
+        totalCount: 50,
+        limit: 20
+      };
+      localPaginationQuery.mockResolvedValueOnce(mockResponse);
+
+      const result = await CustomizableTemplateSearchResult.search('Test', context, undefined, undefined, undefined, mockOptions);
+
+      const expectedOpts: PaginationOptionsForOffsets = {
+        ...mockOptions,
+        availableSortFields: ['vt.name', 'a.name', 'vt.created', 'vt.bestPractice', 'tc.status', 'tc.migrationStatus', 'tc.modified'],
+        countField: 'vt.id',
+      };
+
+      expect(localPaginationQuery).toHaveBeenCalledTimes(1);
+      expect(localPaginationQuery.mock.calls[0][5]).toEqual(expectedOpts);
+      expect(result).toEqual(mockResponse);
+    });
+
+    it('returns empty results when no templates match', async () => {
+      const mockOptions: PaginationOptions = {
+        type: PaginationType.CURSOR,
+      };
+      localGetDefaultPaginationOptions.mockReturnValue(mockOptions);
+
+      const mockResponse: PaginatedQueryResults<CustomizableTemplateSearchResult> = {
+        items: [],
+        hasNextPage: false,
+        hasPreviousPage: false,
+        totalCount: 0,
+        limit: 20
+      };
+      localPaginationQuery.mockResolvedValueOnce(mockResponse);
+
+      const result = await CustomizableTemplateSearchResult.search('Test', context, 'nonexistent');
+
+      expect(localPaginationQuery).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(mockResponse);
+      expect(result.items).toEqual([]);
+      expect(result.totalCount).toBe(0);
+    });
+  });
+})
+
+
 describe('VersionedTemplate', () => {
   let templateId;
   let ownerId;
@@ -146,13 +490,25 @@ describe('VersionedTemplate', () => {
   let versioned;
 
   beforeEach(() => {
+    jest.clearAllMocks();
+
     templateId = casual.integer(1, 999);
     ownerId = casual.url;
     version = casual.word;
     name = casual.sentence;
     versionedById = casual.integer(1, 999);
 
-    versioned = new VersionedTemplate({ templateId, version, name, ownerId, versionedById });
+    versioned = new VersionedTemplate({
+      templateId,
+      version,
+      name,
+      ownerId,
+      versionedById,
+      created: casual.date('YYYY-MM-DD HH:mm:ss'),
+      createdById: casual.integer(1, 999),
+      modified: casual.date('YYYY-MM-DD HH:mm:ss'),
+      modifiedById: casual.integer(1, 999),
+    });
   });
 
   it('constructor should initialize as expected', () => {

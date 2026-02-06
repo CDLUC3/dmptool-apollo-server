@@ -14,6 +14,10 @@ import * as templateService from "../../services/templateService";
 jest.mock('../../context.ts');
 jest.mock('../../datasources/cache');
 jest.mock('../../services/emailService');
+jest.mock('../../services/templateCustomizationService', () => ({
+  handleFunderTemplateRepublication: jest.fn(),
+  handleFunderTemplateArchive: jest.fn(),
+}));
 
 let testServer: ApolloServer;
 let affiliationId: string;

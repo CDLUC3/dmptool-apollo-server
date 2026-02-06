@@ -605,6 +605,56 @@ export type ContentMatch = {
   titleHighlight?: Maybe<Scalars['String']['output']>;
 };
 
+export type CustomizableTemplateSearchResult = {
+  __typename?: 'CustomizableTemplateSearchResult';
+  /** Template affiliation uri */
+  affiliationId: Scalars['String']['output'];
+  /** Template affiliation name */
+  affiliationName: Scalars['String']['output'];
+  /** The description of the published template */
+  description?: Maybe<Scalars['String']['output']>;
+  /** Whether the customization has unpublished changes (if applicable) */
+  isDirty?: Maybe<Scalars['Boolean']['output']>;
+  /** The timestamp when the customization was last modified (if applicable) */
+  lastCustomized?: Maybe<Scalars['String']['output']>;
+  /** The id of the user who customized the template (if applicable) */
+  lastCustomizedById?: Maybe<Scalars['Int']['output']>;
+  /** The name of the user who last modified the customization (if applicable) */
+  lastCustomizedByName?: Maybe<Scalars['String']['output']>;
+  /** The status of the customization with regard to the published template (if applicable) */
+  migrationStatus?: Maybe<TemplateCustomizationMigrationStatus>;
+  /** The name of the published template */
+  name: Scalars['String']['output'];
+  /** The status of the customization (if applicable) */
+  status?: Maybe<TemplateCustomizationStatus>;
+  /** The id of the template customization (undefined means the template has not been customized yet) */
+  templateCustomizationId?: Maybe<Scalars['Int']['output']>;
+  /** The version number of the published template */
+  version: Scalars['String']['output'];
+  /** The id of the published template */
+  versionedTemplateId: Scalars['Int']['output'];
+};
+
+export type CustomizableTemplateSearchResults = PaginatedQueryResults & {
+  __typename?: 'CustomizableTemplateSearchResults';
+  /** The sortFields that are available for this query (for standard offset pagination only!) */
+  availableSortFields?: Maybe<Array<Maybe<Scalars['String']['output']>>>;
+  /** The current offset of the results (for standard offset pagination) */
+  currentOffset?: Maybe<Scalars['Int']['output']>;
+  /** Whether or not there is a next page */
+  hasNextPage?: Maybe<Scalars['Boolean']['output']>;
+  /** Whether or not there is a previous page */
+  hasPreviousPage?: Maybe<Scalars['Boolean']['output']>;
+  /** The CustomizableTemplateSearchResult that match the search criteria */
+  items?: Maybe<Array<Maybe<CustomizableTemplateSearchResult>>>;
+  /** The number of items returned */
+  limit?: Maybe<Scalars['Int']['output']>;
+  /** The cursor to use for the next page of results (for infinite scroll/load more) */
+  nextCursor?: Maybe<Scalars['String']['output']>;
+  /** The total number of possible items */
+  totalCount?: Maybe<Scalars['Int']['output']>;
+};
+
 export type DoiMatch = {
   __typename?: 'DoiMatch';
   /** Indicates whether the work's DOI was found on a funder award page associated with the plan */
@@ -2586,6 +2636,8 @@ export type Query = {
   bestPracticeSections?: Maybe<Array<Maybe<VersionedSection>>>;
   /** Get all of the research domains related to the specified top level domain (more nuanced ones) */
   childResearchDomains?: Maybe<Array<Maybe<ResearchDomain>>>;
+  /** Get all of the customizable templates for the current user's affiliation (user must be an Admin) */
+  customizableTemplates?: Maybe<CustomizableTemplateSearchResults>;
   /** Get all of the research output types */
   defaultResearchOutputTypes?: Maybe<Array<Maybe<ResearchOutputType>>>;
   /** Search for a User to add as a collaborator */
@@ -2777,6 +2829,14 @@ export type QueryBestPracticeGuidanceArgs = {
 
 export type QueryChildResearchDomainsArgs = {
   parentResearchDomainId: Scalars['Int']['input'];
+};
+
+
+export type QueryCustomizableTemplatesArgs = {
+  migrationStatus?: InputMaybe<Scalars['String']['input']>;
+  paginationOptions?: InputMaybe<PaginationOptions>;
+  status?: InputMaybe<Scalars['String']['input']>;
+  term?: InputMaybe<Scalars['String']['input']>;
 };
 
 
@@ -3729,6 +3789,24 @@ export type TemplateCollaboratorErrors = {
   templateId?: Maybe<Scalars['String']['output']>;
   userId?: Maybe<Scalars['String']['output']>;
 };
+
+/** The status of a Template Customization with regard to the funder template */
+export type TemplateCustomizationMigrationStatus =
+  /** The customization is tracking the published version of the funder template */
+  | 'OK'
+  /** The customization is tracking a funder template that is no longer published */
+  | 'ORPHANED'
+  /** The customization is tracking an unpublished version of the funder template */
+  | 'STALE';
+
+/** The status of a Template Customization */
+export type TemplateCustomizationStatus =
+  /** The customization has been archived */
+  | 'ARCHIVED'
+  /** The customization is not currently published */
+  | 'DRAFT'
+  /** The customization is published and can be used by researchers */
+  | 'PUBLISHED';
 
 /** A collection of errors related to the Template */
 export type TemplateErrors = {
@@ -4766,6 +4844,7 @@ export type ResolversInterfaceTypes<_RefType extends Record<string, unknown>> = 
   PaginatedQueryResults:
     | ( AffiliationSearchResults )
     | ( CollaboratorSearchResults )
+    | ( CustomizableTemplateSearchResults )
     | ( MetadataStandardSearchResults )
     | ( ProjectSearchResults )
     | ( PublishedTemplateSearchResults )
@@ -4812,6 +4891,8 @@ export type ResolversTypes = {
   CollaboratorSearchResult: ResolverTypeWrapper<CollaboratorSearchResult>;
   CollaboratorSearchResults: ResolverTypeWrapper<CollaboratorSearchResults>;
   ContentMatch: ResolverTypeWrapper<ContentMatch>;
+  CustomizableTemplateSearchResult: ResolverTypeWrapper<CustomizableTemplateSearchResult>;
+  CustomizableTemplateSearchResults: ResolverTypeWrapper<CustomizableTemplateSearchResults>;
   DateTimeISO: ResolverTypeWrapper<Scalars['DateTimeISO']['output']>;
   DmspId: ResolverTypeWrapper<Scalars['DmspId']['output']>;
   DoiMatch: ResolverTypeWrapper<DoiMatch>;
@@ -4930,6 +5011,8 @@ export type ResolversTypes = {
   Template: ResolverTypeWrapper<Template>;
   TemplateCollaborator: ResolverTypeWrapper<TemplateCollaborator>;
   TemplateCollaboratorErrors: ResolverTypeWrapper<TemplateCollaboratorErrors>;
+  TemplateCustomizationMigrationStatus: TemplateCustomizationMigrationStatus;
+  TemplateCustomizationStatus: TemplateCustomizationStatus;
   TemplateErrors: ResolverTypeWrapper<TemplateErrors>;
   TemplateSearchResult: ResolverTypeWrapper<TemplateSearchResult>;
   TemplateSearchResults: ResolverTypeWrapper<TemplateSearchResults>;
@@ -5012,6 +5095,8 @@ export type ResolversParentTypes = {
   CollaboratorSearchResult: CollaboratorSearchResult;
   CollaboratorSearchResults: CollaboratorSearchResults;
   ContentMatch: ContentMatch;
+  CustomizableTemplateSearchResult: CustomizableTemplateSearchResult;
+  CustomizableTemplateSearchResults: CustomizableTemplateSearchResults;
   DateTimeISO: Scalars['DateTimeISO']['output'];
   DmspId: Scalars['DmspId']['output'];
   DoiMatch: DoiMatch;
@@ -5326,6 +5411,34 @@ export type ContentMatchResolvers<ContextType = MyContext, ParentType extends Re
   abstractHighlights?: Resolver<Array<ResolversTypes['String']>, ParentType, ContextType>;
   score?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   titleHighlight?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+};
+
+export type CustomizableTemplateSearchResultResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['CustomizableTemplateSearchResult'] = ResolversParentTypes['CustomizableTemplateSearchResult']> = {
+  affiliationId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  affiliationName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  description?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  isDirty?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
+  lastCustomized?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  lastCustomizedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  lastCustomizedByName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  migrationStatus?: Resolver<Maybe<ResolversTypes['TemplateCustomizationMigrationStatus']>, ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  status?: Resolver<Maybe<ResolversTypes['TemplateCustomizationStatus']>, ParentType, ContextType>;
+  templateCustomizationId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  version?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  versionedTemplateId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+};
+
+export type CustomizableTemplateSearchResultsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['CustomizableTemplateSearchResults'] = ResolversParentTypes['CustomizableTemplateSearchResults']> = {
+  availableSortFields?: Resolver<Maybe<Array<Maybe<ResolversTypes['String']>>>, ParentType, ContextType>;
+  currentOffset?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  hasNextPage?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
+  hasPreviousPage?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
+  items?: Resolver<Maybe<Array<Maybe<ResolversTypes['CustomizableTemplateSearchResult']>>>, ParentType, ContextType>;
+  limit?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  nextCursor?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  totalCount?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
 export interface DateTimeIsoScalarConfig extends GraphQLScalarTypeConfig<ResolversTypes['DateTimeISO'], any> {
@@ -5683,7 +5796,7 @@ export interface OrcidScalarConfig extends GraphQLScalarTypeConfig<ResolversType
 }
 
 export type PaginatedQueryResultsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PaginatedQueryResults'] = ResolversParentTypes['PaginatedQueryResults']> = {
-  __resolveType: TypeResolveFn<'AffiliationSearchResults' | 'CollaboratorSearchResults' | 'MetadataStandardSearchResults' | 'ProjectSearchResults' | 'PublishedTemplateSearchResults' | 'RelatedWorkSearchResults' | 'RepositorySearchResults' | 'ResearchDomainSearchResults' | 'TemplateSearchResults' | 'UserSearchResults' | 'VersionedSectionSearchResults', ParentType, ContextType>;
+  __resolveType: TypeResolveFn<'AffiliationSearchResults' | 'CollaboratorSearchResults' | 'CustomizableTemplateSearchResults' | 'MetadataStandardSearchResults' | 'ProjectSearchResults' | 'PublishedTemplateSearchResults' | 'RelatedWorkSearchResults' | 'RepositorySearchResults' | 'ResearchDomainSearchResults' | 'TemplateSearchResults' | 'UserSearchResults' | 'VersionedSectionSearchResults', ParentType, ContextType>;
 };
 
 export type PlanResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['Plan'] = ResolversParentTypes['Plan']> = {
@@ -6055,6 +6168,7 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   bestPracticeGuidance?: Resolver<Array<ResolversTypes['VersionedGuidance']>, ParentType, ContextType, RequireFields<QueryBestPracticeGuidanceArgs, 'tagIds'>>;
   bestPracticeSections?: Resolver<Maybe<Array<Maybe<ResolversTypes['VersionedSection']>>>, ParentType, ContextType>;
   childResearchDomains?: Resolver<Maybe<Array<Maybe<ResolversTypes['ResearchDomain']>>>, ParentType, ContextType, RequireFields<QueryChildResearchDomainsArgs, 'parentResearchDomainId'>>;
+  customizableTemplates?: Resolver<Maybe<ResolversTypes['CustomizableTemplateSearchResults']>, ParentType, ContextType, Partial<QueryCustomizableTemplatesArgs>>;
   defaultResearchOutputTypes?: Resolver<Maybe<Array<Maybe<ResolversTypes['ResearchOutputType']>>>, ParentType, ContextType>;
   findCollaborator?: Resolver<Maybe<ResolversTypes['CollaboratorSearchResults']>, ParentType, ContextType, RequireFields<QueryFindCollaboratorArgs, 'term'>>;
   findWorkByIdentifier?: Resolver<Maybe<ResolversTypes['RelatedWorkSearchResults']>, ParentType, ContextType, Partial<QueryFindWorkByIdentifierArgs>>;
@@ -6845,6 +6959,8 @@ export type Resolvers<ContextType = MyContext> = {
   CollaboratorSearchResult?: CollaboratorSearchResultResolvers<ContextType>;
   CollaboratorSearchResults?: CollaboratorSearchResultsResolvers<ContextType>;
   ContentMatch?: ContentMatchResolvers<ContextType>;
+  CustomizableTemplateSearchResult?: CustomizableTemplateSearchResultResolvers<ContextType>;
+  CustomizableTemplateSearchResults?: CustomizableTemplateSearchResultsResolvers<ContextType>;
   DateTimeISO?: GraphQLScalarType;
   DmspId?: GraphQLScalarType;
   DoiMatch?: DoiMatchResolvers<ContextType>;

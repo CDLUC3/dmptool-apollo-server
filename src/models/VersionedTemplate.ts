@@ -3,6 +3,7 @@ import { MySqlModel } from './MySqlModel';
 import { MyContext } from '../context';
 import { defaultLanguageId } from "./Language";
 import {
+  PaginationOptions,
   PaginatedQueryResults,
   TemplateQueryOptions,
   PaginationOptionsForCursors,
@@ -11,6 +12,10 @@ import {
 } from "../types/general";
 import { prepareObjectForLogs } from "../logger";
 import { isNullOrUndefined } from "../utils/helpers";
+import {
+  TemplateCustomizationStatus,
+  TemplateCustomizationMigrationStatus
+} from "./TemplateCustomization";
 
 export enum TemplateVersionType {
   DRAFT = 'DRAFT',
@@ -141,6 +146,136 @@ export class VersionedTemplateSearchResult {
   }
 }
 
+/**
+ * High-level details about a template that can be customized by a user. including
+ * information about the current customization if applicable
+ */
+export class CustomizableTemplateSearchResult {
+  public versionedTemplateId: number;
+  public templateCustomizationId: number;
+  public affiliationId: string;
+  public affiliationName: string;
+  public name: string;
+  public version: string;
+  public description?: string;
+  public isDirty: boolean;
+  public status: TemplateCustomizationStatus;
+  public migrationStatus: TemplateCustomizationMigrationStatus;
+  public lastCustomizedById: number;
+  public lastCustomizedByName: string;
+  public lastCustomized: string;
+
+  constructor(options) {
+    this.versionedTemplateId = options.versionedTemplateId;
+    this.templateCustomizationId = options.templateCustomizationId;
+    this.affiliationId = options.affiliationId;
+    this.affiliationName = options.affiliationName;
+    this.name = options.name;
+    this.version = options.version;
+    this.description = options.description;
+    this.isDirty = options.isDirty;
+    this.status = options.status;
+    this.migrationStatus = TemplateCustomizationStatus[options.migrationStatus];
+    this.lastCustomizedById = TemplateCustomizationMigrationStatus[options.lastCustomizedById];
+    this.lastCustomizedByName = options.lastCustomizedByName;
+    this.lastCustomized = options.lastCustomized;
+  }
+
+  /**
+   * Find all customizable templates for the given user.
+   *
+   * @param reference The reference string to use for logging
+   * @param context The user's context
+   * @param term The search term to use for filtering the results
+   * @param status The status to filter by (optional)
+   * @param migrationStatus The migration status to filter by (optional)
+   * @param options Pagination options
+   * @returns A paginated list of customizable templates
+   */
+  static async search(
+    reference: string,
+    context: MyContext,
+    term?: string,
+    status?: string,
+    migrationStatus?: string,
+    options: PaginationOptions = VersionedTemplate.getDefaultPaginationOptions(),
+  ): Promise<PaginatedQueryResults<CustomizableTemplateSearchResult>> {
+    // Versioned templates must be published and publicly visible
+    const whereFilters = [
+      "vt.active = 1 AND vt.versionType = 'PUBLISHED' AND vt.visibility = 'PUBLIC'"
+    ];
+    const values: string[] = [];
+
+    // Handle the incoming search term
+    const searchTerm = (term ?? '').toLowerCase().trim();
+    if (!isNullOrUndefined(searchTerm)) {
+      whereFilters.push('(LOWER(vt.name) LIKE ? OR LOWER(vt.description) LIKE ?)');
+      values.push(`%${searchTerm}%`, `%${searchTerm}%`);
+    }
+
+    // Handle any filtering
+    if (status) {
+      whereFilters.push('tc.status = ?');
+      values.push(status);
+    }
+    if (migrationStatus) {
+      whereFilters.push('tc.migrationStatus = ?');
+      values.push(migrationStatus);
+    }
+
+    // Only include template customizations belonging to the user's affiliation'
+    const userAffiliationId = context.token?.affiliationId;
+    if (userAffiliationId) {
+      whereFilters.push('tc.affiliationId = ?');
+      values.push(userAffiliationId);
+    }
+
+    // Set the default sort field and order if none was provided
+    if (isNullOrUndefined(options.sortField)) options.sortField = 'tc.modified';
+    if (isNullOrUndefined(options.sortDir)) options.sortDir = 'DESC';
+
+    // Specify the fields available for sorting
+    options.availableSortFields = ['vt.name', 'a.name', 'vt.created',
+      'vt.bestPractice', 'tc.status', 'tc.migrationStatus', 'tc.modified'];
+    // Specify the field we want to use for the count
+    options.countField = 'vt.id';
+
+    // Determine the type of pagination we are using and then set any additional options we need
+    let opts;
+    if (options.type === PaginationType.OFFSET) {
+      opts = options as PaginationOptionsForOffsets;
+    } else {
+      opts = options as PaginationOptionsForCursors;
+      opts.cursorField = 'vt.id';
+    }
+
+    const sqlStatement = `
+      SELECT vt.id AS versionedTemplateId, vt.name, vt.version, vt.description,
+        a.uri AS affiliationId, a.name AS affiliationName,
+        tc.id AS templateCustomizationId, tc.status, tc.migrationStatus, tc.isDirty,
+        tc.modifiedById AS lastCustomizedById, tc.modified AS lastCustomized,
+        CONCAT(u.givenName, ' ', u.surName) AS lastCustomizedByName
+      FROM versionedTemplates vt
+      JOIN affiliations a ON a.uri = vt.ownerId
+      LEFT JOIN templateCustomizations tc ON tc.versionedTemplateId = vt.id
+        LEFT JOIN users u ON u.id = tc.modifiedById
+    `;
+
+    const response: PaginatedQueryResults<CustomizableTemplateSearchResult> = await VersionedTemplate.queryWithPagination(
+      context,
+      sqlStatement,
+      whereFilters,
+      '',
+      values,
+      opts,
+      reference,
+    )
+
+    context.logger.debug(prepareObjectForLogs({ options, response }), reference);
+    return response;
+  }
+}
+
 // A Snapshot/Version of a Template
 export class VersionedTemplate extends MySqlModel {
   public templateId: number;
@@ -257,7 +392,7 @@ export class VersionedTemplate extends MySqlModel {
   static async findActiveByTemplateId(reference: string, context: MyContext, templateId: number): Promise<VersionedTemplate> {
     const sql = 'SELECT * FROM versionedTemplates WHERE templateId = ? AND active = 1 ORDER BY modified DESC';
     const results = await VersionedTemplate.query(context, sql, [templateId.toString()], reference);
-    return Array.isArray(results) ? new VersionedTemplate(results[0]) : undefined;
+    return Array.isArray(results) && results.length > 0 ? new VersionedTemplate(results[0]) : undefined;
   }
 
   static async getFilterMetadata(reference: string, context: MyContext) {

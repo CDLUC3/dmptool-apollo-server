@@ -1,8 +1,8 @@
 import { MySqlModel } from "./MySqlModel";
 import { VersionedTemplateCustomization } from "./VersionedTemplateCustomization";
 import { VersionedTemplate } from "./VersionedTemplate";
-import { Template } from "./Template";
 import { MyContext } from "../context";
+import { isNullOrUndefined } from "../utils/helpers";
 
 /**
  * The status of the customization.
@@ -10,7 +10,7 @@ import { MyContext } from "../context";
  *  - PUBLISHED: The customization has been published and is available to users.
  *  - ARCHIVED: The customization has been archived and is no longer available to users.
  */
-export enum TemplateStatus {
+export enum TemplateCustomizationStatus {
   DRAFT = 'DRAFT',
   PUBLISHED = 'PUBLISHED',
   ARCHIVED = 'ARCHIVED'
@@ -22,7 +22,7 @@ export enum TemplateStatus {
  *  - STALE: The funder has published a newer version of the template.
  *  - ORPHANED: The funder template is no longer available.
  */
-export enum TemplateMigrationStatus {
+export enum TemplateCustomizationMigrationStatus {
   OK = 'OK',
   STALE = 'STALE',
   ORPHANED = 'ORPHANED'
@@ -72,9 +72,9 @@ export class TemplateCustomization extends MySqlModel {
   // Pointer to the current published version of the funder template
   public currentVersionedTemplateId: number;
   // The status of the customization
-  public status: TemplateStatus;
+  public status: TemplateCustomizationStatus;
   // The status of the customizations with regard to the base template
-  public migrationStatus: TemplateMigrationStatus;
+  public migrationStatus: TemplateCustomizationMigrationStatus;
   // Pointer to the current published version of this customization
   public latestPublishedVersionId: number;
   // The date this customization was last published
@@ -91,8 +91,8 @@ export class TemplateCustomization extends MySqlModel {
     this.affiliationId = options.affiliationId;
     this.templateId = options.templateId;
     this.currentVersionedTemplateId = options.currentVersionedTemplateId;
-    this.status = options.status ?? TemplateStatus.DRAFT;
-    this.migrationStatus = options.migrationStatus ?? TemplateMigrationStatus.OK;
+    this.status = options.status ?? TemplateCustomizationStatus.DRAFT;
+    this.migrationStatus = options.migrationStatus ?? TemplateCustomizationMigrationStatus.OK;
     this.latestPublishedVersionId = options.latestPublishedVersionId;
     this.latestPublishedDate = options.latestPublishedDate;
     this.isDirty = options.isDirty ?? false;
@@ -107,23 +107,17 @@ export class TemplateCustomization extends MySqlModel {
   async isValid(): Promise<boolean> {
     await super.isValid();
 
-    if (!this.affiliationId) {
+    if (isNullOrUndefined(this.affiliationId)) {
       this.addError('affiliationId', 'Affiliation can\'t be blank');
     }
-    if (this.templateId === null) {
+    if (isNullOrUndefined(this.templateId)) {
       this.addError('templateId','Template can\'t be blank');
     }
-    if (!this.currentVersionedTemplateId) {
+    if (isNullOrUndefined(this.currentVersionedTemplateId)) {
       this.addError(
         'currentVersionedTemplateId',
         'Current template version can\'t be blank'
       );
-    }
-    if (!this.status) {
-      this.addError('status','Status can\'t be blank');
-    }
-    if (!this.migrationStatus) {
-      this.addError('migrationStatus','Migration status can\'t be blank');
     }
 
     return Object.keys(this.errors).length === 0;
@@ -155,12 +149,12 @@ export class TemplateCustomization extends MySqlModel {
 
     if (!tmplt) {
       // There is no current published version of the funder template
-      this.migrationStatus = TemplateMigrationStatus.ORPHANED;
+      this.migrationStatus = TemplateCustomizationMigrationStatus.ORPHANED;
       return true;
 
     } else if (this.currentVersionedTemplateId !== tmplt.id) {
       // The funder template has changed since the customization was last published
-      this.migrationStatus = TemplateMigrationStatus.STALE;
+      this.migrationStatus = TemplateCustomizationMigrationStatus.STALE;
       return true;
     }
 
@@ -213,7 +207,7 @@ export class TemplateCustomization extends MySqlModel {
 
           if (created) {
             // Update the status of the customization to reflect the change
-            this.status = TemplateStatus.PUBLISHED;
+            this.status = TemplateCustomizationStatus.PUBLISHED;
             this.isDirty = false;
             this.latestPublishedVersionId = created.id;
             this.latestPublishedDate = created.created;
@@ -258,16 +252,17 @@ export class TemplateCustomization extends MySqlModel {
             this.addError('general', 'Unable to unpublish');
           } else {
             // Update the status of the customization to reflect the change
-            this.status = TemplateStatus.DRAFT;
+            this.status = TemplateCustomizationStatus.DRAFT;
             this.isDirty = false;
             this.latestPublishedVersionId = undefined;
             this.latestPublishedDate = undefined;
             const published: TemplateCustomization = await this.update(context);
 
-            if (!published) {
-              this.addError('general', 'Unable to publish the customization');
+            if (published) {
+              return published;
             }
-            return published;
+
+            this.addError('general', 'Unable to publish the customization');
           }
         }
       }
@@ -327,11 +322,11 @@ export class TemplateCustomization extends MySqlModel {
       // Make sure the record is valid
       if (await this.isValid()) {
         // Set the isDirty flag if the customization is published
-        if (this.latestPublishedVersionId && noTouch !== true) {
+        if (this.latestPublishedVersionId && !noTouch) {
           this.isDirty = true;
         }
 
-        await Template.update(
+        await TemplateCustomization.update(
           context,
           TemplateCustomization.tableName,
           this,
@@ -434,5 +429,50 @@ export class TemplateCustomization extends MySqlModel {
     // customization was last published.
     const templateCustomization = new TemplateCustomization(results[0]);
     return await templateCustomization.processResult(reference, context);
+  }
+
+  /**
+   * Find all the customizations for a given funder template
+   *
+   * @param reference The reference to use for logging errors.
+   * @param context The Apollo context.
+   * @param templateId The template id.
+   * @returns The Template customizations.
+   */
+  static async findByTemplateId(
+    reference: string,
+    context: MyContext,
+    templateId: number
+  ): Promise<TemplateCustomization[]> {
+    const results = await TemplateCustomization.query(
+      context,
+      `SELECT * FROM ${TemplateCustomization.tableName} WHERE templateId = ?`,
+      [templateId?.toString()],
+      reference
+    )
+    return Array.isArray(results) ? results.map(c => new TemplateCustomization(c)) : [];
+  }
+
+  /**
+   * Find all the customizations for a given published version of a funder template
+   *
+   * @param reference The reference to use for logging errors.
+   * @param context The Apollo context.
+   * @param versionedTemplateId The versioned template id.
+   * @returns The Template customizations.
+   */
+  static async findByVersionedTemplateId(
+    reference: string,
+    context: MyContext,
+    versionedTemplateId: number
+  ): Promise<TemplateCustomization[]> {
+    const results = await TemplateCustomization.query(
+      context,
+      `SELECT * FROM ${TemplateCustomization.tableName}
+         WHERE currentVersionedTemplateId = ?`,
+      [versionedTemplateId?.toString()],
+      reference
+    )
+    return Array.isArray(results) ? results.map(c => new TemplateCustomization(c)) : [];
   }
 }

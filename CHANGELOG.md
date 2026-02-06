@@ -3,7 +3,11 @@
 ## v1.1.0
 
 ### Added
+- Added `customizableTemplates` query and `CustomizableTemplateSearchResult` to the `versionedTemplate` schema and resolver
+- Added `TemplateCustomization` model
+- Added `templateCustomizationService` which handles updating the status of `templateCustomizations` when the customized template is archived or republished
 - Added `findActiveByTemplateId` query to `VersionedTemplate` model
+- Added `VersionedTemplateSearchResult` to `VersionedTemplate` model
 - Added `processResult` handler to the Plan model to help generate DMP ids when they are missing
 - Added `saveMaDMPVersion` function to the `src/services/planService`. This service handles sending the SQS messages to the AWS SQS Queue to trigger the `generateMaDMPRecord` Lambda Function.
 - Added SQS Queue URL env variable to config files (also added to the ECS container definitions)

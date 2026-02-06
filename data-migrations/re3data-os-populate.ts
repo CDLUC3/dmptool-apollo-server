@@ -19,6 +19,13 @@ const getText = (node: Node, path: string): string => {
   return result ? result.textContent || '' : '';
 };
 
+// Helper to get multiple values as an array (for keywords, subjects, etc.)
+const getAllText = (node: Node, path: string): string[] => {
+  const select = xpath.useNamespaces(ns);
+  const results = select(path, node) as Node[];
+  return results.map(n => n.textContent || '').filter(s => s.trim() !== '');
+};
+
 async function syncRe3Data() {
   try {
     console.log("Fetching repository list...");
@@ -45,17 +52,45 @@ async function syncRe3Data() {
 
         const repoDoc = new DOMParser().parseFromString(detailXml);
 
+
         const repositoryData = {
+          // Mapping to your specific OpenSearch schema
           id: id,
           name: getText(repoDoc, "//r3d:repositoryName"),
-          // additional_names: (xpath.select("//r3d:additionalName", repoDoc) as Node[]).map(n => n.textContent),
-          uri: getText(repoDoc, "//r3d:repositoryURL"),
           description: getText(repoDoc, "//r3d:description"),
-          doi: getText(repoDoc, "//r3d:repositoryIdentifier[@repositoryIdentifierType='DOI']"),
-          provider_types: (xpath.select("//r3d:providerType", repoDoc) as Node[]).map(n => n.textContent),
-          subjects: (xpath.select("//r3d:subject", repoDoc) as Node[]).map(n => n.textContent),
-          keywords: (xpath.select("//r3d:keyword", repoDoc) as Node[]).map(n => n.textContent),
+          homepage: getText(repoDoc, "//r3d:repositoryURL"),
+          contact: getText(repoDoc, "//r3d:repositoryContact"),
+          uri: getText(repoDoc, "//r3d:repositoryIdentifier"),
+
+          // Array types for multi-value keywords/subjects
+          types: getAllText(repoDoc, "//r3d:type"),
+          subjects: getAllText(repoDoc, "//r3d:subject"),
+          provider_types: getAllText(repoDoc, "//r3d:providerType"),
+          keywords: getAllText(repoDoc, "//r3d:keyword"),
+
+          // New specific fields from XML attributes/nested tags
+          // 1. Access: Combine Type and Restrictions (e.g., "restricted (registration)")
+          access: (() => {
+            const type = getText(repoDoc, "//r3d:databaseAccess/r3d:databaseAccessType");
+            const restrictions = getAllText(repoDoc, "//r3d:databaseAccess/r3d:databaseAccessRestriction");
+            return restrictions.length > 0 ? `${type} (${restrictions.join(', ')})` : type;
+          })(),
+          pid_system: getAllText(repoDoc, "//r3d:pidSystem"),
+          policies: getAllText(repoDoc, "//r3d:policy/r3d:policyName"),
+          upload_types: getAllText(repoDoc, "//r3d:dataUpload/r3d:dataUploadType"),
+
+          // Extract certificates (e.g., CoreTrustSeal, WDS)
+          certificates: getAllText(repoDoc, "//r3d:certificate"),
+
+          // Extract software (e.g., DataVerse, DSpace, CKAN)
+          software: getAllText(repoDoc, "//r3d:software/r3d:softwareName"),
+
+          // Dates
+          created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
+
+          // Note: 'search_all' is handled by OpenSearch server-side via copy_to,
+          // so we don't need to send it in the JSON payload.
         };
 
         currentBatch.push({ index: { _index: OPENSEARCH_CONFIG.index, _id: id } });

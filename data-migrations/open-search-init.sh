@@ -46,6 +46,8 @@ curl -X PUT "$ENDPOINT/$INDEX_NAME" \
       "pid_system": { "type": "keyword" },
       "policies": { "type": "keyword" },
       "upload_types": { "type": "keyword" },
+      "certificates": { "type": "keyword", "copy_to": "search_all" },
+      "software": { "type": "keyword", "copy_to": "search_all" },
       "created_at": { "type": "date" },
       "updated_at": { "type": "date" },
       "search_all": { "type": "text" }

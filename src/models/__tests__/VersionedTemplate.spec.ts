@@ -159,6 +159,7 @@ describe('CustomizableTemplateSearchResult', () => {
   const originalGetDefaultPaginationOptions = VersionedTemplate.getDefaultPaginationOptions;
 
   let localPaginationQuery;
+  let localCountQuery;
   let localGetDefaultPaginationOptions;
   let context;
   let customizableTemplateSearchResult;
@@ -168,6 +169,9 @@ describe('CustomizableTemplateSearchResult', () => {
 
     localPaginationQuery = jest.fn();
     (VersionedTemplate.queryWithPagination as jest.Mock) = localPaginationQuery;
+
+    localCountQuery = jest.fn();
+    (VersionedTemplate.query as jest.Mock) = localCountQuery;
 
     localGetDefaultPaginationOptions = jest.fn();
     (VersionedTemplate.getDefaultPaginationOptions as jest.Mock) = localGetDefaultPaginationOptions;
@@ -201,10 +205,10 @@ describe('CustomizableTemplateSearchResult', () => {
     it('returns matching CustomizableTemplateSearchResults with no filters', async () => {
       const mockOptions: PaginationOptions = {
         type: PaginationType.CURSOR,
-        sortField: 'tc.modified',
+        sortField: 'tc_sub.lastCustomized',
         sortDir: 'DESC',
         availableSortFields: ['vt.name', 'a.name', 'vt.created', 'vt.bestPractice',
-          'tc.status', 'tc.migrationStatus', 'tc.modified'],
+          'tc_sub.status', 'tc_sub.migrationStatus', 'tc_sub.lastCustomized'],
         countField: 'vt.id',
       };
       localGetDefaultPaginationOptions.mockReturnValue(mockOptions);
@@ -220,40 +224,30 @@ describe('CustomizableTemplateSearchResult', () => {
 
       const result = await CustomizableTemplateSearchResult.search('Test', context);
 
-      const expectedSql = `
-      SELECT vt.id AS versionedTemplateId, vt.name, vt.version, vt.description,
-        a.uri AS affiliationId, a.name AS affiliationName,
-        tc.id AS templateCustomizationId, tc.status, tc.migrationStatus, tc.isDirty,
-        tc.modifiedById AS lastCustomizedById, tc.modified AS lastCustomized,
-        CONCAT(u.givenName, ' ', u.surName) AS lastCustomizedByName
-      FROM versionedTemplates vt
-      JOIN affiliations a ON a.uri = vt.ownerId
-      LEFT JOIN templateCustomizations tc ON tc.versionedTemplateId = vt.id
-        LEFT JOIN users u ON u.id = tc.modifiedById
-    `;
       const whereFilters = [
         "vt.active = 1 AND vt.versionType = 'PUBLISHED' AND vt.visibility = 'PUBLIC'",
-        "(LOWER(vt.name) LIKE ? OR LOWER(vt.description) LIKE ?)",
-        'tc.affiliationId = ?'
+        "(LOWER(vt.name) LIKE ? OR LOWER(vt.description) LIKE ?)"
       ];
-      const vals = ['%%', '%%', 'test-affiliation-123'];
+      const vals = ['%%', '%%'];
 
       const expectedOpts = {
         ...mockOptions,
-        sortField: 'tc.modified',
+        sortField: 'tc_sub.lastCustomized',
         sortDir: 'DESC',
         cursorField: 'vt.id',
       };
 
       expect(localPaginationQuery).toHaveBeenCalledTimes(1);
-      expect(localPaginationQuery).toHaveBeenCalledWith(context, expectedSql, whereFilters, '', vals, expectedOpts, 'Test');
+      expect(localPaginationQuery).toHaveBeenCalledWith(context, expect.any(String), whereFilters, '', vals, expectedOpts, 'Test', false);
+      expect(localCountQuery).toHaveBeenCalledTimes(1);
+      expect(localCountQuery).toHaveBeenCalledWith(context, expect.any(String), vals, 'Test');
       expect(result).toEqual(mockResponse);
     });
 
     it('returns matching CustomizableTemplateSearchResults with search term filter', async () => {
       const mockOptions: PaginationOptions = {
         type: PaginationType.CURSOR,
-        sortField: 'tc.modified',
+        sortField: 'tc_sub.lastCustomized',
         sortDir: 'DESC',
       };
       localGetDefaultPaginationOptions.mockReturnValue(mockOptions);
@@ -272,10 +266,9 @@ describe('CustomizableTemplateSearchResult', () => {
 
       const whereFilters = [
         "vt.active = 1 AND vt.versionType = 'PUBLISHED' AND vt.visibility = 'PUBLIC'",
-        '(LOWER(vt.name) LIKE ? OR LOWER(vt.description) LIKE ?)',
-        'tc.affiliationId = ?'
+        '(LOWER(vt.name) LIKE ? OR LOWER(vt.description) LIKE ?)'
       ];
-      const vals = ['%test template%', '%test template%', 'test-affiliation-123'];
+      const vals = ['%test template%', '%test template%'];
 
       expect(localPaginationQuery).toHaveBeenCalledTimes(1);
       expect(localPaginationQuery.mock.calls[0][2]).toEqual(whereFilters);
@@ -286,7 +279,7 @@ describe('CustomizableTemplateSearchResult', () => {
     it('returns matching CustomizableTemplateSearchResults with status filter', async () => {
       const mockOptions: PaginationOptions = {
         type: PaginationType.CURSOR,
-        sortField: 'tc.modified',
+        sortField: 'tc_sub.lastCustomized',
         sortDir: 'DESC',
       };
       localGetDefaultPaginationOptions.mockReturnValue(mockOptions);
@@ -306,10 +299,9 @@ describe('CustomizableTemplateSearchResult', () => {
       const whereFilters = [
         "vt.active = 1 AND vt.versionType = 'PUBLISHED' AND vt.visibility = 'PUBLIC'",
         "(LOWER(vt.name) LIKE ? OR LOWER(vt.description) LIKE ?)",
-        'tc.status = ?',
-        'tc.affiliationId = ?'
+        'tc_sub.status = ?',
       ];
-      const vals = ['%%', '%%', status, 'test-affiliation-123'];
+      const vals = ['%%', '%%', status];
 
       expect(localPaginationQuery).toHaveBeenCalledTimes(1);
       expect(localPaginationQuery.mock.calls[0][2]).toEqual(whereFilters);
@@ -320,7 +312,7 @@ describe('CustomizableTemplateSearchResult', () => {
     it('returns matching CustomizableTemplateSearchResults with migrationStatus filter', async () => {
       const mockOptions: PaginationOptions = {
         type: PaginationType.CURSOR,
-        sortField: 'tc.modified',
+        sortField: 'tc_sub.lastCustomized',
         sortDir: 'DESC',
       };
       localGetDefaultPaginationOptions.mockReturnValue(mockOptions);
@@ -340,10 +332,9 @@ describe('CustomizableTemplateSearchResult', () => {
       const whereFilters = [
         "vt.active = 1 AND vt.versionType = 'PUBLISHED' AND vt.visibility = 'PUBLIC'",
         "(LOWER(vt.name) LIKE ? OR LOWER(vt.description) LIKE ?)",
-        'tc.migrationStatus = ?',
-        'tc.affiliationId = ?'
+        'tc_sub.migrationStatus = ?',
       ];
-      const vals = ['%%', '%%', migrationStatus, 'test-affiliation-123'];
+      const vals = ['%%', '%%', migrationStatus];
 
       expect(localPaginationQuery).toHaveBeenCalledTimes(1);
       expect(localPaginationQuery.mock.calls[0][2]).toEqual(whereFilters);
@@ -354,7 +345,7 @@ describe('CustomizableTemplateSearchResult', () => {
     it('returns matching CustomizableTemplateSearchResults with all filters', async () => {
       const mockOptions: PaginationOptions = {
         type: PaginationType.CURSOR,
-        sortField: 'tc.modified',
+        sortField: 'tc_sub.lastCustomized',
         sortDir: 'DESC',
       };
       localGetDefaultPaginationOptions.mockReturnValue(mockOptions);
@@ -377,11 +368,10 @@ describe('CustomizableTemplateSearchResult', () => {
       const whereFilters = [
         "vt.active = 1 AND vt.versionType = 'PUBLISHED' AND vt.visibility = 'PUBLIC'",
         '(LOWER(vt.name) LIKE ? OR LOWER(vt.description) LIKE ?)',
-        'tc.status = ?',
-        'tc.migrationStatus = ?',
-        'tc.affiliationId = ?'
+        'tc_sub.status = ?',
+        'tc_sub.migrationStatus = ?'
       ];
-      const vals = ['%template search%', '%template search%', status, migrationStatus, 'test-affiliation-123'];
+      const vals = ['%template search%', '%template search%', status, migrationStatus];
 
       expect(localPaginationQuery).toHaveBeenCalledTimes(1);
       expect(localPaginationQuery.mock.calls[0][2]).toEqual(whereFilters);
@@ -411,9 +401,10 @@ describe('CustomizableTemplateSearchResult', () => {
 
       const expectedOpts: PaginationOptionsForCursors = {
         ...mockOptions,
-        sortField: 'tc.modified',
+        sortField: 'tc_sub.lastCustomized',
         sortDir: 'DESC',
-        availableSortFields: ['vt.name', 'a.name', 'vt.created', 'vt.bestPractice', 'tc.status', 'tc.migrationStatus', 'tc.modified'],
+        availableSortFields: ['vt.name', 'a.name', 'vt.created', 'vt.bestPractice', 'tc_sub.status',
+          'tc_sub.migrationStatus', 'tc_sub.lastCustomized'],
         countField: 'vt.id',
         cursorField: 'vt.id',
       };
@@ -446,7 +437,8 @@ describe('CustomizableTemplateSearchResult', () => {
 
       const expectedOpts: PaginationOptionsForOffsets = {
         ...mockOptions,
-        availableSortFields: ['vt.name', 'a.name', 'vt.created', 'vt.bestPractice', 'tc.status', 'tc.migrationStatus', 'tc.modified'],
+        availableSortFields: ['vt.name', 'a.name', 'vt.created', 'vt.bestPractice', 'tc_sub.status',
+          'tc_sub.migrationStatus', 'tc_sub.lastCustomized'],
         countField: 'vt.id',
       };
 

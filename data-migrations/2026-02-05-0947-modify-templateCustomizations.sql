@@ -3,7 +3,7 @@ ALTER TABLE templateCustomizations
   ADD COLUMN currentVersionedTemplateId INT UNSIGNED NOT NULL AFTER templateId,
   ADD COLUMN latestPublishedVersionId INT UNSIGNED DEFAULT NULL AFTER migrationStatus,
   ADD COLUMN latestPublishedDate timestamp NULL DEFAULT NULL AFTER latestPublishedVersionId,
-  ADD COLUMN isDirty TINYINT(1) NOT NULL DEFAULT '1',
+  ADD COLUMN isDirty TINYINT(1) NOT NULL DEFAULT '1' AFTER migrationStatus,
 
   ADD CONSTRAINT `fk_templateCust_vtemplateId` FOREIGN KEY (`currentVersionedTemplateId`)
     REFERENCES `versionedTemplates` (`id`),

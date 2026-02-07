@@ -215,28 +215,25 @@ export class CustomizableTemplateSearchResult {
 
     // Handle any filtering
     if (status) {
-      whereFilters.push('tc.status = ?');
+      whereFilters.push('tc_sub.status = ?');
       values.push(status);
     }
     if (migrationStatus) {
-      whereFilters.push('tc.migrationStatus = ?');
+      whereFilters.push('tc_sub.migrationStatus = ?');
       values.push(migrationStatus);
     }
 
-    // Only include template customizations belonging to the user's affiliation'
+    // Only include template customizations belonging to the user's affiliation
+    // see this embedded in the subquery below
     const userAffiliationId = context.token?.affiliationId;
-    if (userAffiliationId) {
-      whereFilters.push('tc.affiliationId = ?');
-      values.push(userAffiliationId);
-    }
 
     // Set the default sort field and order if none was provided
-    if (isNullOrUndefined(options.sortField)) options.sortField = 'tc.modified';
+    if (isNullOrUndefined(options.sortField)) options.sortField = 'tc_sub.lastCustomized';
     if (isNullOrUndefined(options.sortDir)) options.sortDir = 'DESC';
 
     // Specify the fields available for sorting
     options.availableSortFields = ['vt.name', 'a.name', 'vt.created',
-      'vt.bestPractice', 'tc.status', 'tc.migrationStatus', 'tc.modified'];
+      'vt.bestPractice', 'tc_sub.status', 'tc_sub.migrationStatus', 'tc_sub.lastCustomized'];
     // Specify the field we want to use for the count
     options.countField = 'vt.id';
 
@@ -252,13 +249,21 @@ export class CustomizableTemplateSearchResult {
     const sqlStatement = `
       SELECT vt.id AS versionedTemplateId, vt.name, vt.version, vt.description,
         a.uri AS affiliationId, a.name AS affiliationName,
-        tc.id AS templateCustomizationId, tc.status, tc.migrationStatus, tc.isDirty,
-        tc.modifiedById AS lastCustomizedById, tc.modified AS lastCustomized,
-        CONCAT(u.givenName, ' ', u.surName) AS lastCustomizedByName
+        tc_sub.templateCustomizationId, tc_sub.status, tc_sub.migrationStatus,
+        tc_sub.isDirty, tc_sub.lastCustomizedById, tc_sub.lastCustomizedByName,
+        tc_sub.lastCustomized
       FROM versionedTemplates vt
-      JOIN affiliations a ON a.uri = vt.ownerId
-      LEFT JOIN templateCustomizations tc ON tc.versionedTemplateId = vt.id
-        LEFT JOIN users u ON u.id = tc.modifiedById
+        JOIN affiliations a ON a.uri = vt.ownerId
+        LEFT JOIN (
+          SELECT
+            tc.id AS templateCustomizationId, tc.status, tc.migrationStatus,
+            tc.isDirty, tc.modifiedById AS lastCustomizedById,
+            tc.modified AS lastCustomized, tc.currentVersionedTemplateId,
+            CONCAT(u.givenName, ' ', u.surName) AS lastCustomizedByName
+          FROM templateCustomizations tc
+            LEFT JOIN users u ON u.id = tc.modifiedById
+          WHERE tc.affiliationId = '${userAffiliationId}'
+        ) AS tc_sub ON tc_sub.currentVersionedTemplateId = vt.id
     `;
 
     const response: PaginatedQueryResults<CustomizableTemplateSearchResult> = await VersionedTemplate.queryWithPagination(
@@ -269,7 +274,22 @@ export class CustomizableTemplateSearchResult {
       values,
       opts,
       reference,
+      false
     )
+
+    // Get our own total count because the one in MySQLModel doesn't work for
+    // queries where the last FROM clause is a subquery
+    const countResponse = await VersionedTemplate.query(
+      context,
+      `SELECT COUNT(*) AS count
+       FROM versionedTemplates vt
+       WHERE ${whereFilters.join(' AND ')}`,
+      values,
+      reference
+    );
+    if (Array.isArray(countResponse) && countResponse.length > 0) {
+      response.totalCount = countResponse[0]?.count ?? 0;
+    }
 
     context.logger.debug(prepareObjectForLogs({ options, response }), reference);
     return response;

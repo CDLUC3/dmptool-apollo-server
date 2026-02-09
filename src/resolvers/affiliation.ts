@@ -51,6 +51,8 @@ export const resolvers: Resolvers = {
           versionedTemplateId
         );
 
+        console.log("****Affiliation URIS", affiliationUris);
+
         // If no affiliations have guidance, return empty results
         if (affiliationUris.length === 0) {
           return {
@@ -67,9 +69,9 @@ export const resolvers: Resolvers = {
 
         // Search for affiliations matching the URIs and name filter
         return await AffiliationSearch.searchManagedWithPublishedGuidance(
-          reference, 
-          context, 
-          name, 
+          reference,
+          context,
+          name,
           affiliationUris,
           opts
         );

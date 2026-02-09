@@ -1,5 +1,5 @@
 import { createOpenSearchClient } from '../../datasources/openSearch';
-import { openSearchFindWorkByIdentifier } from '../openSearchService';
+import { OpenSearchService } from '../openSearchService';
 import { MyContext } from '../../context';
 import { GraphQLError } from 'graphql';
 
@@ -8,23 +8,25 @@ jest.mock('../../config', () => ({
   awsConfig: { opensearch: {} },
 }));
 
-describe('openSearchFindWorkByIdentifier', () => {
+describe('OpenSearchService', () => {
   const mockContext = {
     logger: { error: jest.fn() },
   } as unknown as MyContext;
 
   const mockSearch = jest.fn();
+  let service: OpenSearchService;
 
   beforeEach(() => {
     jest.clearAllMocks();
     (createOpenSearchClient as jest.Mock).mockReturnValue({ search: mockSearch });
+    service = new OpenSearchService();
   });
 
   test.each([null, undefined, '', '   '])('Returns empty array if DOI is invalid: "%s"', async (doi) => {
-    const result = await openSearchFindWorkByIdentifier('reference', mockContext, doi, 10);
+    const result = await service.findWorkByIdentifier('reference', mockContext, doi, 10);
 
     expect(result).toEqual([]);
-    expect(createOpenSearchClient).not.toHaveBeenCalled();
+    expect(mockSearch).not.toHaveBeenCalled();
   });
 
   test('Returns converted works when OpenSearch returns hits', async () => {
@@ -81,7 +83,7 @@ describe('openSearchFindWorkByIdentifier', () => {
       },
     });
 
-    const result = await openSearchFindWorkByIdentifier('reference', mockContext, '10.1234/doi', 5);
+    const result = await service.findWorkByIdentifier('reference', mockContext, '10.1234/doi', 5);
     expect(mockSearch).toHaveBeenCalledWith({
       index: 'works-index',
       body: {
@@ -140,7 +142,7 @@ describe('openSearchFindWorkByIdentifier', () => {
     const error = new Error('Connection failed');
     mockSearch.mockRejectedValue(error);
 
-    const call = openSearchFindWorkByIdentifier('reference', mockContext, '10.1234/valid-doi', 10);
+    const call = service.findWorkByIdentifier('reference', mockContext, '10.1234/valid-doi', 10);
     await expect(call).rejects.toThrow('Service temporarily unavailable');
     await expect(call).rejects.toBeInstanceOf(GraphQLError);
 
@@ -160,7 +162,7 @@ describe('openSearchFindWorkByIdentifier', () => {
 
   test('Logs and rethrows if response structure is invalid', async () => {
     mockSearch.mockResolvedValue({ body: {} });
-    await expect(openSearchFindWorkByIdentifier('reference', mockContext, '10.1234/valid-doi', 10)).rejects.toThrow();
+    await expect(service.findWorkByIdentifier('reference', mockContext, '10.1234/valid-doi', 10)).rejects.toThrow();
 
     expect(mockContext.logger.error).toHaveBeenCalledWith(
       expect.any(Object),

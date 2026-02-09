@@ -1,3 +1,4 @@
+import { Client } from "@opensearch-project/opensearch";
 import { MyContext } from '../context';
 import { OpenSearchWork, WorkType } from '../types';
 import { awsConfig } from '../config/awsConfig';
@@ -28,6 +29,10 @@ interface OpenSearchWorkRecord {
   funders: { name?: string; ror?: string }[];
   awards: { award_id?: string }[];
   source: { name: string; url?: string };
+}
+
+interface OpenSearchHit {
+  _source: OpenSearchWorkRecord;
 }
 
 export function convertWorkToCamelCase(work: OpenSearchWorkRecord): OpenSearchWork {
@@ -71,61 +76,75 @@ export function convertWorkToCamelCase(work: OpenSearchWorkRecord): OpenSearchWo
   };
 }
 
-export const openSearchFindWorkByIdentifier = async (reference: string, context: MyContext, doi: string | null | undefined, maxResults: number): Promise<OpenSearchWork[]> => {
-  // If doi is empty, whitespace, null or undefined return no results
-  if (!doi?.trim()) {
-    return [];
+export class OpenSearchService {
+  private client: Client;
+
+  constructor() {
+    this.client = createOpenSearchClient(awsConfig.opensearch as OpenSearchConfig);
   }
 
-  // Fetch data from OpenSearch
-  let response;
-  try {
-    const client = createOpenSearchClient(awsConfig.opensearch as OpenSearchConfig);
-    response = await client.search({
-      index: 'works-index',
-      body: {
-        size: maxResults,
-        query: {
-          ids: {
-            values: [doi],
+  public async findWorkByIdentifier(reference: string, context: MyContext, doi: string | null | undefined, maxResults: number): Promise<OpenSearchWork[]> {
+    // If doi is empty, whitespace, null or undefined return no results
+    if (!doi?.trim()) {
+      return [];
+    }
+
+    // Fetch data from OpenSearch
+    let response;
+    try {
+      response = await this.client.search({
+        index: 'works-index',
+        body: {
+          size: maxResults,
+          query: {
+            ids: {
+              values: [doi],
+            },
           },
         },
-      },
-    });
-  } catch (err) {
-    context.logger.error(prepareObjectForLogs(err), `Error fetching works with DOI ${doi} from OpenSearch domain in ${reference}`);
+      });
+    } catch (err) {
+      context.logger.error(prepareObjectForLogs(err), `Error fetching works with DOI ${doi} from OpenSearch domain in ${reference}`);
 
-    throw new GraphQLError("Service temporarily unavailable", {
-      extensions: {
-        code: "SERVICE_UNAVAILABLE",
-        service: "opensearch",
-        details: "We are having trouble connecting to the search service, if the error persists please report the error."
-      }
-    });
+      throw new GraphQLError("Service temporarily unavailable", {
+        extensions: {
+          code: "SERVICE_UNAVAILABLE",
+          service: "opensearch",
+          details: "We are having trouble connecting to the search service, if the error persists please report the error."
+        }
+      });
+    }
+
+    // Convert response from snake case to camel case
+    try {
+      // Could be cleaner to use the 'camelcase-keys' package, however, it is only
+      // provided as an esm module
+      //
+      // import camelcaseKeys from 'camelcase-keys';
+      // return camelcaseKeys(hit._source, {
+      //  deep: true,
+      // }) as OpenSearchWork;
+
+      return response.body.hits.hits.map((hit: OpenSearchHit) => {
+        return convertWorkToCamelCase(hit._source);
+      });
+    } catch (err) {
+      context.logger.error(prepareObjectForLogs(err), `Error converting OpenSearch response into OpenSearchWorkRecord in ${reference}`);
+
+      throw new GraphQLError("Unexpected response format from search service.", {
+        extensions: {
+          code: "INTERNAL_SERVER_ERROR",
+          service: "opensearch",
+          details: "Unexpected response format from search service."
+        }
+      });
+    }
   }
+}
 
-  // Convert response from snake case to camel case
-  try {
-    // Could be cleaner to use the 'camelcase-keys' package, however, it is only
-    // provided as an esm module
-    //
-    // import camelcaseKeys from 'camelcase-keys';
-    // return camelcaseKeys(hit._source, {
-    //  deep: true,
-    // }) as OpenSearchWork;
+// Singleton instance
+const openSearchService = new OpenSearchService();
 
-    return response.body.hits.hits.map((hit) => {
-      return convertWorkToCamelCase(hit._source as OpenSearchWorkRecord);
-    });
-  } catch (err) {
-    context.logger.error(prepareObjectForLogs(err), `Error converting OpenSearch response into OpenSearchWorkRecord in ${reference}`);
-
-    throw new GraphQLError("Unexpected response format from search service.", {
-      extensions: {
-        code: "INTERNAL_SERVER_ERROR",
-        service: "opensearch",
-        details: "Unexpected response format from search service."
-      }
-    });
-  }
-};
+// Export wrapper for backward compatibility
+export const openSearchFindWorkByIdentifier = (reference: string, context: MyContext, doi: string | null | undefined, maxResults: number) =>
+  openSearchService.findWorkByIdentifier(reference, context, doi, maxResults);

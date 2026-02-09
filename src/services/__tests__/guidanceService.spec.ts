@@ -415,7 +415,7 @@ describe("getAffiliationsWithGuidanceForTemplate", () => {
     expect(result).toEqual([]);
   });
 
-  it("returns template owner URI if template has section guidance", async () => {
+  it("returns all affiliations with associated section tag guidance", async () => {
     const mockTemplate = { id: 1, ownerId: "https://ror.org/021nxhr62" };
     (VersionedTemplate.findById as jest.Mock).mockResolvedValue(mockTemplate);
     
@@ -447,7 +447,7 @@ describe("getAffiliationsWithGuidanceForTemplate", () => {
     expect(result).toEqual(["https://ror.org/021nxhr62"]);
   });
 
-  it("returns template owner URI if they have tag-based guidance", async () => {
+  it("returns ALL affiliations that have the correct tag-based guidance", async () => {
     const mockTemplate = { id: 1, ownerId: "https://ror.org/021nxhr62" };
     (VersionedTemplate.findById as jest.Mock).mockResolvedValue(mockTemplate);
     
@@ -455,7 +455,11 @@ describe("getAffiliationsWithGuidanceForTemplate", () => {
     (Affiliation.query as jest.Mock)
       .mockResolvedValueOnce([{ count: 0 }]) // sections check
       .mockResolvedValueOnce([{ count: 0 }]) // questions check
-      .mockResolvedValueOnce([{ count: 2 }]); // template owner tag-based guidance check
+      .mockResolvedValueOnce([ // affiliations with tag-based guidance
+        { affiliationId: "https://ror.org/021nxhr62" }, // CDL
+        { affiliationId: "https://ror.org/01cwqze88" }, // NSF
+        { affiliationId: "https://ror.org/03yrm5c26" }  // NIH
+      ]);
     
     // Mock getSectionTagIds returning tag IDs
     (PlanGuidance.query as jest.Mock).mockResolvedValue([
@@ -465,61 +469,11 @@ describe("getAffiliationsWithGuidanceForTemplate", () => {
     
     const result = await guidanceService.getAffiliationsWithGuidanceForTemplate(context, 1);
     
-    expect(result).toEqual(["https://ror.org/021nxhr62"]);
-  });
-
-  it("returns user affiliation URI if they have tag-based guidance", async () => {
-    const mockTemplate = { id: 1, ownerId: "https://ror.org/021nxhr62" };
-    const userContext = { 
-      ...context, 
-      token: { ...context.token, affiliationId: "https://ror.org/03yrm5c26" } 
-    };
-    
-    (VersionedTemplate.findById as jest.Mock).mockResolvedValue(mockTemplate);
-    
-    // Mock Affiliation.query calls in sequence
-    (Affiliation.query as jest.Mock)
-      .mockResolvedValueOnce([{ count: 0 }]) // sections check
-      .mockResolvedValueOnce([{ count: 0 }]) // questions check
-      .mockResolvedValueOnce([{ count: 0 }]) // template owner tag-based guidance check
-      .mockResolvedValueOnce([{ count: 1 }]); // user affiliation tag-based guidance check
-    
-    // Mock getSectionTagIds returning tag IDs
-    (PlanGuidance.query as jest.Mock).mockResolvedValue([
-      { tagId: 1 }
+    expect(result).toEqual([
+      "https://ror.org/021nxhr62",
+      "https://ror.org/01cwqze88",
+      "https://ror.org/03yrm5c26"
     ]);
-    
-    const result = await guidanceService.getAffiliationsWithGuidanceForTemplate(userContext, 1);
-    
-    expect(result).toContain("https://ror.org/03yrm5c26");
-  });
-
-  it("returns both template owner and user affiliation if both have guidance", async () => {
-    const mockTemplate = { id: 1, ownerId: "https://ror.org/021nxhr62" };
-    const userContext = { 
-      ...context, 
-      token: { ...context.token, affiliationId: "https://ror.org/03yrm5c26" } 
-    };
-    
-    (VersionedTemplate.findById as jest.Mock).mockResolvedValue(mockTemplate);
-    
-    // Mock Affiliation.query calls in sequence
-    (Affiliation.query as jest.Mock)
-      .mockResolvedValueOnce([{ count: 1 }]) // sections check - has guidance
-      .mockResolvedValueOnce([{ count: 0 }]) // questions check
-      .mockResolvedValueOnce([{ count: 1 }]) // template owner tag-based guidance check
-      .mockResolvedValueOnce([{ count: 1 }]); // user affiliation tag-based guidance check
-    
-    // Mock getSectionTagIds returning tag IDs
-    (PlanGuidance.query as jest.Mock).mockResolvedValue([
-      { tagId: 1 }
-    ]);
-    
-    const result = await guidanceService.getAffiliationsWithGuidanceForTemplate(userContext, 1);
-    
-    expect(result).toHaveLength(2);
-    expect(result).toContain("https://ror.org/021nxhr62");
-    expect(result).toContain("https://ror.org/03yrm5c26");
   });
 
   it("does not duplicate template owner URI if they match user affiliation", async () => {

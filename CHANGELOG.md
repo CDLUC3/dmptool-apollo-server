@@ -20,6 +20,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Removed the template owner and user affiliation id filters from `getAffiliationsWithGuidanceForTemplate` so that the search returns ALL affiliations with guidance for the associated section tags [#29]
 - Started updating files to use JSDoc format
 - Updated `answer`, `funding`, `member`, `plan` and `project` resolvers to use the new `saveMaDMPVersion` function to update maDMP records.
 - Updated `superAdmin` resolver and replaced existing functions with one that allows us to force the recreation of a maDMP record for a specified plan id.

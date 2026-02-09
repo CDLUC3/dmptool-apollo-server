@@ -35,10 +35,11 @@ export interface GuidanceSource {
   items: GuidanceItem[];
   hasGuidance: boolean;
 }
-interface TagRow {
-  id: number;
-  name: string
+interface TagRow { 
+  id: number; 
+  name: string 
 };
+
 
 // Check if the user has permission to access the GuidanceGroup
 export const hasPermissionOnGuidanceGroup = async (

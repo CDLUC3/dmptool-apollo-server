@@ -76,6 +76,75 @@ export function convertWorkToCamelCase(work: OpenSearchWorkRecord): OpenSearchWo
   };
 }
 
+interface OpenSearchRe3DataRecord {
+  id: string;
+  name: string;
+  description?: string;
+  homepage?: string;
+  contact?: string;
+  uri?: string;
+  types?: string[];
+  subjects?: string[];
+  provider_types?: string[];
+  keywords?: string[];
+  access?: string;
+  pid_system?: string[];
+  policies?: string[];
+  upload_types?: string[];
+  certificates?: string[];
+  software?: string[];
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface OpenSearchRe3Data {
+  id: string;
+  name: string;
+  description?: string;
+  homepage?: string;
+  contact?: string;
+  uri?: string;
+  types?: string[];
+  subjects?: string[];
+  providerTypes?: string[];
+  keywords?: string[];
+  access?: string;
+  pidSystem?: string[];
+  policies?: string[];
+  uploadTypes?: string[];
+  certificates?: string[];
+  software?: string[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+interface OpenSearchRe3DataHit {
+  _source: OpenSearchRe3DataRecord;
+}
+
+export function convertRe3DataToCamelCase(record: OpenSearchRe3DataRecord): OpenSearchRe3Data {
+  return {
+    id: record.id,
+    name: record.name,
+    description: record.description,
+    homepage: record.homepage,
+    contact: record.contact,
+    uri: record.uri,
+    types: record.types || [],
+    subjects: record.subjects || [],
+    providerTypes: record.provider_types || [],
+    keywords: record.keywords || [],
+    access: record.access,
+    pidSystem: record.pid_system || [],
+    policies: record.policies || [],
+    uploadTypes: record.upload_types || [],
+    certificates: record.certificates || [],
+    software: record.software || [],
+    createdAt: record.created_at,
+    updatedAt: record.updated_at,
+  };
+}
+
 export class OpenSearchService {
   private client: Client;
 
@@ -90,7 +159,7 @@ export class OpenSearchService {
     }
 
     // Fetch data from OpenSearch
-    let response;
+    let response: unknown;
     try {
       response = await this.client.search({
         index: 'works-index',
@@ -125,11 +194,83 @@ export class OpenSearchService {
       //  deep: true,
       // }) as OpenSearchWork;
 
-      return response.body.hits.hits.map((hit: OpenSearchHit) => {
+      const body = (response as { body: { hits: { hits: OpenSearchHit[] } } }).body;
+      return body.hits.hits.map((hit: OpenSearchHit) => {
         return convertWorkToCamelCase(hit._source);
       });
     } catch (err) {
       context.logger.error(prepareObjectForLogs(err), `Error converting OpenSearch response into OpenSearchWorkRecord in ${reference}`);
+
+      throw new GraphQLError("Unexpected response format from search service.", {
+        extensions: {
+          code: "INTERNAL_SERVER_ERROR",
+          service: "opensearch",
+          details: "Unexpected response format from search service."
+        }
+      });
+    }
+  }
+
+  public async findRe3Data(term: string | null | undefined, context: MyContext, subject: string | null | undefined, type: string | null | undefined, maxResults: number): Promise<OpenSearchRe3Data[]> {
+    const must: Record<string, unknown>[] = [];
+    const filter: Record<string, unknown>[] = [];
+
+    if (term?.trim()) {
+      must.push({
+        multi_match: {
+          query: term,
+          fields: ['name^2', 'description', 'keywords', 'subjects', 'types', 'search_all'],
+        },
+      });
+    } else {
+      must.push({ match_all: {} });
+    }
+
+    if (subject?.trim()) {
+      filter.push({
+        term: { subjects: subject },
+      });
+    }
+
+    if (type?.trim()) {
+      filter.push({
+        term: { types: type },
+      });
+    }
+
+    let response: unknown;
+    try {
+      response = await this.client.search({
+        index: 're3data',
+        body: {
+          size: maxResults,
+          query: {
+            bool: {
+              must,
+              filter,
+            },
+          },
+        },
+      });
+    } catch (err) {
+      context.logger.error(prepareObjectForLogs(err), `Error fetching re3data from OpenSearch`);
+
+      throw new GraphQLError("Service temporarily unavailable", {
+        extensions: {
+          code: "SERVICE_UNAVAILABLE",
+          service: "opensearch",
+          details: "We are having trouble connecting to the search service, if the error persists please report the error."
+        }
+      });
+    }
+
+    try {
+      const body = (response as { body: { hits: { hits: OpenSearchRe3DataHit[] } } }).body;
+      return body.hits.hits.map((hit: OpenSearchRe3DataHit) => {
+        return convertRe3DataToCamelCase(hit._source);
+      });
+    } catch (err) {
+      context.logger.error(prepareObjectForLogs(err), `Error converting OpenSearch response into OpenSearchRe3Data`);
 
       throw new GraphQLError("Unexpected response format from search service.", {
         extensions: {
@@ -148,3 +289,6 @@ const openSearchService = new OpenSearchService();
 // Export wrapper for backward compatibility
 export const openSearchFindWorkByIdentifier = (reference: string, context: MyContext, doi: string | null | undefined, maxResults: number) =>
   openSearchService.findWorkByIdentifier(reference, context, doi, maxResults);
+
+export const openSearchFindRe3Data = (term: string | null | undefined, context: MyContext, subject: string | null | undefined, type: string | null | undefined, maxResults: number) =>
+  openSearchService.findRe3Data(term, context, subject, type, maxResults);

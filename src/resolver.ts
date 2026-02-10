@@ -22,7 +22,6 @@ import { resolvers as planResolvers } from './resolvers/plan';
 import { resolvers as projectResolvers } from './resolvers/project';
 import { resolvers as questionResolvers } from './resolvers/question';
 import { resolvers as questionConditionResolvers } from './resolvers/questionCondition';
-import { resolvers as templateResolvers } from './resolvers/template';
 import { resolvers as relatedWorkResolvers } from './resolvers/relatedWork';
 import { resolvers as repositoryResolvers } from './resolvers/repository';
 import { resolvers as researchDomainResolvers } from './resolvers/researchDomain';
@@ -30,6 +29,8 @@ import { resolvers as researchOutputResolvers } from './resolvers/researchOutput
 import { resolvers as sectionResolvers } from './resolvers/section';
 import { resolvers as superAdminResolvers } from './resolvers/superAdmin';
 import { resolvers as tagResolvers } from './resolvers/tag';
+import { resolvers as templateResolvers } from './resolvers/template';
+import { resolvers as templateCustomizationResolvers } from './resolvers/templateCustomization';
 import { resolvers as userResolvers } from './resolvers/user';
 import { resolvers as versionedGuidanceResolvers } from './resolvers/versionedGuidance';
 import { resolvers as versionedQuestionResolvers } from './resolvers/versionedQuestion';
@@ -67,10 +68,11 @@ export const resolvers: IResolvers = mergeResolvers([
   repositoryResolvers,
   researchDomainResolvers,
   researchOutputResolvers,
-  templateResolvers,
   sectionResolvers,
   superAdminResolvers,
   tagResolvers,
+  templateResolvers,
+  templateCustomizationResolvers,
   userResolvers,
   versionedGuidanceResolvers,
   versionedQuestionResolvers,

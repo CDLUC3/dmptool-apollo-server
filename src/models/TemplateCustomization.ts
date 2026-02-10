@@ -1,6 +1,5 @@
 import { MySqlModel } from "./MySqlModel";
 import { VersionedTemplateCustomization } from "./VersionedTemplateCustomization";
-import { VersionedTemplate } from "./VersionedTemplate";
 import { MyContext } from "../context";
 import { isNullOrUndefined } from "../utils/helpers";
 
@@ -124,98 +123,39 @@ export class TemplateCustomization extends MySqlModel {
   }
 
   /**
-   * Check the funder template to see if the latest published version differs from
-   * the currentVersionedTemplateId. If so, set the migrationStatus to STALE.
-   *
-   * If the funder template is no longer available, set the migrationStatus to ORPHANED.
-   *
-   * @param reference The reference to use for logging errors.
-   * @param context The Apollo context.
-   * @returns true if the funder template has changed since the customization
-   * was created, false otherwise.
-   */
-  async checkForDrift(
-    reference: string,
-    context: MyContext,
-  ): Promise<boolean> {
-    // There is nothing to check if this hasn't been published
-    if (!this.latestPublishedVersionId) return false;
-
-    const tmplt: VersionedTemplate = await VersionedTemplate.findActiveByTemplateId(
-      reference,
-      context,
-      this.templateId
-    );
-
-    if (!tmplt) {
-      // There is no current published version of the funder template
-      this.migrationStatus = TemplateCustomizationMigrationStatus.ORPHANED;
-      return true;
-
-    } else if (this.currentVersionedTemplateId !== tmplt.id) {
-      // The funder template has changed since the customization was last published
-      this.migrationStatus = TemplateCustomizationMigrationStatus.STALE;
-      return true;
-    }
-
-    return false;
-  }
-
-  /**
-   * Process the result from the database
-   *
-   * @param reference The reference to use for logging errors.
-   * @param context The Apollo context.
-   * @returns The Template customization.
-   */
-  async processResult(reference: string, context: MyContext): Promise<TemplateCustomization> {
-    // Check the current status of the funder template to see if it has changed
-    // since the customization was last published.
-    await this.checkForDrift(reference, context);
-
-    return new TemplateCustomization(this);
-  }
-
-  /**
    * Publish the customization
    *
    * @param context The Apollo context.
    * @returns The published Template customization.
    */
   async publish(context: MyContext): Promise<TemplateCustomization> {
-    const ref = 'TemplateCustomization.publish';
     if (!this.id) {
       // Cannot publish it if it hasn't been saved yet!
       this.addError('general', 'Customization has never been saved');
     } else {
       // Make sure the record is valid
       if (await this.isValid()) {
-        // Check to make sure the funder template hasn't changed
-        if (await this.checkForDrift(ref, context)) {
-          this.addError('general', 'Funder template has changed');
-        } else {
-          // Create a new published version of the customization
-          const newVersion = new VersionedTemplateCustomization(
-            {
-              affiliationId: this.affiliationId,
-              templateCustomizationId: this.id,
-              versionedTemplateId: this.currentVersionedTemplateId,
-              active: true
-            }
-          )
-          const created: VersionedTemplateCustomization = await newVersion.create(context);
+        // Create a new published version of the customization
+        const newVersion = new VersionedTemplateCustomization(
+          {
+            affiliationId: this.affiliationId,
+            templateCustomizationId: this.id,
+            versionedTemplateId: this.currentVersionedTemplateId,
+            active: true
+          }
+        )
+        const created: VersionedTemplateCustomization = await newVersion.create(context);
 
-          if (created) {
-            // Update the status of the customization to reflect the change
-            this.status = TemplateCustomizationStatus.PUBLISHED;
-            this.isDirty = false;
-            this.latestPublishedVersionId = created.id;
-            this.latestPublishedDate = created.created;
-            const published: TemplateCustomization = await this.update(context);
+        if (created) {
+          // Update the status of the customization to reflect the change
+          this.status = TemplateCustomizationStatus.PUBLISHED;
+          this.isDirty = false;
+          this.latestPublishedVersionId = created.id;
+          this.latestPublishedDate = created.created;
+          const published: TemplateCustomization = await this.update(context);
 
-            if (!published) {
-              this.addError('general', 'Unable to publish');
-            }
+          if (!published) {
+            this.addError('general', 'Unable to publish');
           }
         }
       }
@@ -338,7 +278,7 @@ export class TemplateCustomization extends MySqlModel {
       }
     }
 
-    return await this.processResult(ref, context);
+    return this;
   }
 
   /**
@@ -371,7 +311,7 @@ export class TemplateCustomization extends MySqlModel {
     if (!this.hasErrors()) {
       this.addError('general', 'Failed to archive customization');
     }
-    return await this.processResult(ref, context);
+    return this;
   }
 
   /**
@@ -393,12 +333,7 @@ export class TemplateCustomization extends MySqlModel {
       [templateCustomizationId?.toString()],
       reference
     );
-    if (!Array.isArray(results) || results.length === 0) return undefined;
-
-    // Check to see if there's been drift in the funder template since the
-    // customization was last published.
-    const templateCustomization = new TemplateCustomization(results[0]);
-    return await templateCustomization.processResult(reference, context);
+    return Array.isArray(results) && results.length > 0 ? results[0] : undefined;
   }
 
   /**
@@ -423,12 +358,7 @@ export class TemplateCustomization extends MySqlModel {
       [affiliationId, templateId?.toString()],
       reference
     );
-    if (!Array.isArray(results) || results.length === 0) return undefined;
-
-    // Check to see if there's been drift in the funder template since the
-    // customization was last published.
-    const templateCustomization = new TemplateCustomization(results[0]);
-    return await templateCustomization.processResult(reference, context);
+    return Array.isArray(results) && results.length > 0 ? results[0] : undefined;
   }
 
   /**

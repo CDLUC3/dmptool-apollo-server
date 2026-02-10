@@ -103,30 +103,35 @@ export const typeDefs = gql`
   type CustomizableTemplateSearchResult {
     "The id of the published template"
     versionedTemplateId: Int!
-    "Template affiliation uri"
-    affiliationId: String!
-    "Template affiliation name"
-    affiliationName: String!
+    "The affiliation uri that owns the published template"
+    versionedTemplateAffiliationId: String!
+    "The affiliation name that owns the published template"
+    versionedTemplateAffiliationName: String!
     "The name of the published template"
-    name: String!
+    versionedTemplateName: String!
     "The version number of the published template"
-    version: String!
+    versionedTemplateVersion: String!
     "The description of the published template"
-    description: String
+    versionedTemplateDescription: String
+    "Whether the published template is a best practice template"
+    versionedTemplateBestPractice: Boolean!
+    "The timestamp when the published template was last modified"
+    versionedTemplateLastModified: String!
+
     "The id of the template customization (undefined means the template has not been customized yet)"
-    templateCustomizationId: Int
+    customizationId: Int
     "Whether the customization has unpublished changes (if applicable)"
-    isDirty: Boolean
+    customizationIsDirty: Boolean
     "The status of the customization (if applicable)"
-    status: TemplateCustomizationStatus
+    customizationStatus: TemplateCustomizationStatus
     "The status of the customization with regard to the published template (if applicable)"
-    migrationStatus: TemplateCustomizationMigrationStatus
+    customizationMigrationStatus: TemplateCustomizationMigrationStatus
     "The id of the user who customized the template (if applicable)"
-    lastCustomizedById: Int
+    customizationLastCustomizedById: Int
     "The name of the user who last modified the customization (if applicable)"
-    lastCustomizedByName: String
+    customizationLastCustomizedByName: String
     "The timestamp when the customization was last modified (if applicable)"
-    lastCustomized: String
+    customizationLastCustomized: String
   }
 
   "A snapshot of a Template when it became published. DMPs are created from published templates"

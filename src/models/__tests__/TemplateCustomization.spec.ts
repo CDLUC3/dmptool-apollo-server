@@ -12,8 +12,13 @@ describe('TemplateCustomization', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+
     mockContext = {} as MyContext;
   });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  })
 
   describe('isValid()', () => {
     it('should return true when all required fields are present', async () => {
@@ -123,125 +128,6 @@ describe('TemplateCustomization', () => {
     });
   });
 
-  describe('checkForDrift()', () => {
-    it('should return false when latestPublishedVersionId is not set', async () => {
-      const customization = new TemplateCustomization({
-        affiliationId: 'affil-123',
-        templateId: 1,
-        currentVersionedTemplateId: 10,
-        latestPublishedVersionId: null,
-        migrationStatus: 'UP_TO_DATE',
-        errors: {}
-      });
-
-      const spy = jest.spyOn(VersionedTemplate, 'findActiveByTemplateId').mockResolvedValue(null);
-
-      const hasDrift = await customization.checkForDrift('test-ref', mockContext);
-
-      expect(hasDrift).toBe(false);
-      expect(spy).not.toHaveBeenCalled();
-    });
-
-    it('should set migrationStatus to ORPHANED when template is not found', async () => {
-      const customization = new TemplateCustomization({
-        affiliationId: 'affil-123',
-        templateId: 1,
-        currentVersionedTemplateId: 10,
-        latestPublishedVersionId: 5,
-        migrationStatus: 'UP_TO_DATE',
-        errors: {}
-      });
-
-      const findSpy = jest.spyOn(VersionedTemplate, 'findActiveByTemplateId').mockResolvedValue(null);
-
-      const hasDrift = await customization.checkForDrift('test-ref', mockContext);
-
-      expect(hasDrift).toBe(true);
-      expect(customization.migrationStatus).toBe(TemplateCustomizationMigrationStatus.ORPHANED);
-      expect(findSpy).toHaveBeenCalledWith('test-ref', mockContext, 1);
-    });
-
-    it('should set migrationStatus to STALE when template version differs', async () => {
-      const customization = new TemplateCustomization({
-        affiliationId: 'affil-123',
-        templateId: 1,
-        currentVersionedTemplateId: 10,
-        latestPublishedVersionId: 5,
-        migrationStatus: 'UP_TO_DATE',
-        errors: {}
-      });
-
-      const mockTemplate = { id: 15 } as undefined as VersionedTemplate;
-      const findSpy = jest.spyOn(VersionedTemplate, 'findActiveByTemplateId').mockResolvedValue(mockTemplate);
-
-      const hasDrift = await customization.checkForDrift('test-ref', mockContext);
-
-      expect(hasDrift).toBe(true);
-      expect(customization.migrationStatus).toBe(TemplateCustomizationMigrationStatus.STALE);
-      expect(findSpy).toHaveBeenCalledWith('test-ref', mockContext, 1);
-    });
-
-    it('should return false when template version matches', async () => {
-      const customization = new TemplateCustomization({
-        affiliationId: 'affil-123',
-        templateId: 1,
-        currentVersionedTemplateId: 10,
-        latestPublishedVersionId: 5,
-        migrationStatus: 'UP_TO_DATE',
-        errors: {}
-      });
-
-      const mockTemplate = { id: 10 } as undefined as VersionedTemplate;
-      const findSpy = jest.spyOn(VersionedTemplate, 'findActiveByTemplateId').mockResolvedValue(mockTemplate);
-
-      const hasDrift = await customization.checkForDrift('test-ref', mockContext);
-
-      expect(hasDrift).toBe(false);
-      expect(customization.migrationStatus).toBe('UP_TO_DATE');
-      expect(findSpy).toHaveBeenCalledWith('test-ref', mockContext, 1);
-    });
-  });
-
-  describe('processResult()', () => {
-    it('should call checkForDrift and return new TemplateCustomization instance', async () => {
-      const customization = new TemplateCustomization({
-        affiliationId: 'affil-123',
-        templateId: 1,
-        currentVersionedTemplateId: 10,
-        latestPublishedVersionId: 5,
-        migrationStatus: 'UP_TO_DATE',
-        errors: {}
-      });
-
-      const mockTemplate = { id: 10 } as undefined as VersionedTemplate;
-      const findSpy = jest.spyOn(VersionedTemplate, 'findActiveByTemplateId').mockResolvedValue(mockTemplate);
-
-      const result = await customization.processResult('test-ref', mockContext);
-
-      expect(findSpy).toHaveBeenCalledWith('test-ref', mockContext, 1);
-      expect(result).toBeInstanceOf(TemplateCustomization);
-      expect(result.affiliationId).toBe('affil-123');
-    });
-
-    it('should update migrationStatus when drift is detected', async () => {
-      const customization = new TemplateCustomization({
-        affiliationId: 'affil-123',
-        templateId: 1,
-        currentVersionedTemplateId: 10,
-        latestPublishedVersionId: 5,
-        migrationStatus: 'UP_TO_DATE',
-        errors: {}
-      });
-
-      const mockTemplate = { id: 15 } as undefined as VersionedTemplate;
-      jest.spyOn(VersionedTemplate, 'findActiveByTemplateId').mockResolvedValue(mockTemplate);
-
-      const result = await customization.processResult('test-ref', mockContext);
-
-      expect(result.migrationStatus).toBe(TemplateCustomizationMigrationStatus.STALE);
-    });
-  });
-
   describe('publish()', () => {
     it('should add error when id is not set', async () => {
       const customization = new TemplateCustomization({
@@ -291,7 +177,7 @@ describe('TemplateCustomization', () => {
 
       const result = await customization.publish(mockContext);
 
-      expect(result.errors.general).toBe('Funder template has changed');
+      expect(result.errors.general).toBe('Unable to publish');
     });
 
     it('should add error when versioned customization creation fails', async () => {
@@ -599,24 +485,6 @@ describe('TemplateCustomization', () => {
       expect(result.errors.general).toBe('Customization has never been saved');
     });
 
-    it('should call processResult when validation fails', async () => {
-      const customization = new TemplateCustomization({
-        id: 1,
-        affiliationId: null,
-        templateId: 1,
-        currentVersionedTemplateId: 10,
-        status: 'ACTIVE',
-        migrationStatus: 'UP_TO_DATE',
-        errors: {}
-      });
-
-      customization.processResult = jest.fn().mockResolvedValue(customization);
-
-      await customization.update(mockContext);
-
-      expect(customization.processResult).toHaveBeenCalledWith('TemplateCustomization.update', mockContext);
-    });
-
     it('should set isDirty to true when published and noTouch is false', async () => {
       const customization = new TemplateCustomization({
         id: 1,
@@ -732,7 +600,6 @@ describe('TemplateCustomization', () => {
       const mockOriginal = new TemplateCustomization(customization);
       jest.spyOn(TemplateCustomization, 'findById').mockResolvedValue(mockOriginal);
       const deleteSpy = jest.spyOn(TemplateCustomization, 'delete').mockResolvedValue(false);
-      customization.processResult = jest.fn().mockResolvedValue(customization);
 
       await customization.delete(mockContext);
 
@@ -743,7 +610,6 @@ describe('TemplateCustomization', () => {
         'TemplateCustomization.delete'
       );
       expect(customization.errors.general).toBe('Failed to archive customization');
-      expect(customization.processResult).toHaveBeenCalledWith('TemplateCustomization.delete', mockContext);
     });
 
     it('should successfully delete customization', async () => {
@@ -768,12 +634,13 @@ describe('TemplateCustomization', () => {
     });
   });
 
-  describe.skip('static findById()', () => {
+  describe('static findById()', () => {
     it('should return undefined when no results are found', async () => {
       const querySpy = jest.spyOn(TemplateCustomization, 'query').mockResolvedValue([]);
-      jest.spyOn(TemplateCustomization.prototype, 'processResult');
 
       const result = await TemplateCustomization.findById('test-ref', mockContext, 123);
+
+console.log(TemplateCustomization)
 
       expect(querySpy).toHaveBeenCalledWith(
         mockContext,
@@ -792,7 +659,7 @@ describe('TemplateCustomization', () => {
       expect(result).toBeUndefined();
     });
 
-    it('should return customization and call processResult when found', async () => {
+    it('should return customization when found', async () => {
       const mockData = {
         id: 123,
         affiliationId: 'affil-123',
@@ -801,10 +668,8 @@ describe('TemplateCustomization', () => {
         status: 'ACTIVE',
         migrationStatus: 'UP_TO_DATE'
       };
-      const mockProcessedCustomization = new TemplateCustomization(mockData);
 
       const querySpy = jest.spyOn(TemplateCustomization, 'query').mockResolvedValue([mockData]);
-      const procSpy = jest.spyOn(TemplateCustomization.prototype, 'processResult').mockResolvedValue(mockProcessedCustomization);
 
       const result = await TemplateCustomization.findById('test-ref', mockContext, 123);
 
@@ -814,12 +679,11 @@ describe('TemplateCustomization', () => {
         ['123'],
         'test-ref'
       );
-      expect(procSpy).toHaveBeenCalledWith('test-ref', mockContext);
-      expect(result).toBe(mockProcessedCustomization);
+      expect(result.id).toEqual(mockData.id);
     });
   });
 
-  describe.skip('static findByAffiliationAndTemplate()', () => {
+  describe('static findByAffiliationAndTemplate()', () => {
     it('should return undefined when no results are found', async () => {
       const querySpy = jest.spyOn(TemplateCustomization, 'query').mockResolvedValue([]);
 
@@ -843,7 +707,7 @@ describe('TemplateCustomization', () => {
       expect(result).toBeUndefined();
     });
 
-    it('should return customization and call processResult when found', async () => {
+    it('should return customization when found', async () => {
       const mockData = {
         id: 123,
         affiliationId: 'affil-123',
@@ -852,10 +716,8 @@ describe('TemplateCustomization', () => {
         status: 'ACTIVE',
         migrationStatus: 'UP_TO_DATE'
       };
-      const mockProcessedCustomization = new TemplateCustomization(mockData);
 
       const querySpy = jest.spyOn(TemplateCustomization, 'query').mockResolvedValue([mockData]);
-      const procSpy = jest.spyOn(TemplateCustomization.prototype, 'processResult').mockResolvedValue(mockProcessedCustomization);
 
       const result = await TemplateCustomization.findByAffiliationAndTemplate('test-ref', mockContext, 'affil-123', 1);
 
@@ -866,8 +728,7 @@ describe('TemplateCustomization', () => {
         ['affil-123', '1'],
         'test-ref'
       );
-      expect(procSpy).toHaveBeenCalledWith('test-ref', mockContext);
-      expect(result).toBe(mockProcessedCustomization);
+      expect(result.id).toEqual(mockData.id);
     });
   });
 

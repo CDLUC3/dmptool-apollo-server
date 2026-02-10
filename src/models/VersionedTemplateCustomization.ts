@@ -20,8 +20,7 @@ export class VersionedTemplateCustomization extends MySqlModel {
   static tableName = 'versionedTemplateCustomizations';
 
   constructor(options) {
-    super(options.id, options.created, options.createdById, options.modified,
-      options.modifiedById, options.errors);
+    super(options.id, options.created, options.createdById, options.modified, options.modifiedById, options.errors);
 
     this.affiliationId = options.affiliationId;
     this.templateCustomizationId = options.templateCustomizationId;
@@ -94,6 +93,7 @@ export class VersionedTemplateCustomization extends MySqlModel {
         }
       }
     }
+
     // Otherwise return as-is with all the errors
     return new VersionedTemplateCustomization(this);
   }
@@ -150,9 +150,9 @@ export class VersionedTemplateCustomization extends MySqlModel {
       `UPDATE * ${VersionedTemplateCustomization.tableName} SET active = 0
         WHERE id != ? AND templateCustomizationId = ? AND versionedTemplateId = ?`,
       [
-        this.id?.toString(),
-        this.templateCustomizationId?.toString(),
-        this.versionedTemplateId?.toString()
+        this.id.toString(),
+        this.templateCustomizationId.toString(),
+        this.versionedTemplateId.toString()
       ],
       reference
     );
@@ -160,7 +160,7 @@ export class VersionedTemplateCustomization extends MySqlModel {
   }
 
   /**
-   * Find the version by it's id
+   * Find the version by its id
    *
    * @param reference The reference to use for logging errors.
    * @param context The Apollo context.
@@ -202,7 +202,7 @@ export class VersionedTemplateCustomization extends MySqlModel {
       context,
       `SELECT * FROM ${VersionedTemplateCustomization.tableName}
          WHERE affiliationId = ? AND templateId = ?`,
-      [templateCustomizationId.toString(), versionedTemplateId?.toString()],
+      [templateCustomizationId.toString(), versionedTemplateId.toString()],
       reference
     );
     return Array.isArray(results) && results.length > 0

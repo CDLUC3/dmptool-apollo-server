@@ -3,6 +3,75 @@ import {
   TemplateCustomization,
   TemplateCustomizationMigrationStatus
 } from "../models/TemplateCustomization";
+import { VersionedTemplate } from "../models/VersionedTemplate";
+import { isSuperAdmin } from "./authService";
+
+/**
+ * Check if the user has permission to edit the template customization.
+ *
+ * @param context The apollo context object.
+ * @param templateCustomization The template customization to check.
+ * @returns true if the user has permission to edit the template customization.
+ */
+export const hasPermissionOnTemplateCustomization = (
+  context: MyContext,
+  templateCustomization: TemplateCustomization
+): boolean => {
+  if (!context || !context.token || !templateCustomization) return false;
+
+  // If the user is a super admin they have access
+  if (isSuperAdmin(context.token)) return true;
+
+  // If the current user belongs to the same affiliation
+  if (context.token?.affiliationId === templateCustomization?.affiliationId) {
+    return true;
+  }
+}
+
+/**
+ * Check the customization to see if the latest published version of the funder
+ * template differs from the currentVersionedTemplateId. If so, set the
+ * migrationStatus to STALE.
+ *
+ * If the funder template is no longer available, set the migrationStatus to ORPHANED.
+ *
+ * @param reference The reference to use for logging errors.
+ * @param context The Apollo context.
+ * @param templateCustomization The customization to check.
+ * @returns the updated customization.
+ */
+export const checkForFunderTemplateDrift = async (
+  reference: string,
+  context: MyContext,
+  templateCustomization: TemplateCustomization
+): Promise<TemplateCustomization> => {
+  const currentVersion: VersionedTemplate = await VersionedTemplate.findActiveByTemplateId(
+    reference,
+    context,
+    templateCustomization.templateId
+  );
+
+  if (!currentVersion) {
+    // There is no current published version of the funder template
+    templateCustomization.migrationStatus = TemplateCustomizationMigrationStatus.ORPHANED;
+    templateCustomization.addError(
+      'general',
+      'Funder template is no longer available.'
+    );
+
+  } else if (templateCustomization.currentVersionedTemplateId !== currentVersion.id) {
+    // The funder template has changed since the customization was last published
+    templateCustomization.currentVersionedTemplateId = currentVersion.id;
+    templateCustomization.migrationStatus = TemplateCustomizationMigrationStatus.STALE;
+    templateCustomization.addError(
+      'general',
+      'Funder template has changed since customization was last published.'
+    );
+
+    // TODO: Process all of the section and question customizations
+  }
+  return templateCustomization;
+}
 
 /**
  * Check for customizations that will be impacted by the republication of a
@@ -36,6 +105,8 @@ export const handleFunderTemplateRepublication = async (
       // Mark all impacted customizations as stale
       customization.migrationStatus = TemplateCustomizationMigrationStatus.STALE;
       await customization.update(context, true);
+
+      // TODO: Process all of the section and question customizations
     }
     return customizations.length;
   }

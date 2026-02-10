@@ -45,9 +45,7 @@ beforeEach(async () => {
   jest.resetAllMocks();
 
   // Initialize the Apollo server
-  testServer = new ApolloServer({
-    typeDefs, resolvers
-  });
+  testServer = new ApolloServer({ typeDefs, resolvers });
 
   affiliationId = casual.url;
   templateId = casual.integer(1, 999);

@@ -4,7 +4,7 @@
 
 ### Added
 - Added `customizableTemplates` query and `CustomizableTemplateSearchResult` to the `versionedTemplate` schema and resolver
-- Added `TemplateCustomization` model
+- Added `TemplateCustomization` model resolver and schema
 - Added `templateCustomizationService` which handles updating the status of `templateCustomizations` when the customized template is archived or republished
 - Added `findActiveByTemplateId` query to `VersionedTemplate` model
 - Added `VersionedTemplateSearchResult` to `VersionedTemplate` model

@@ -14,7 +14,7 @@ services:
     container_name: apollo-mysql
     ports:
       - "3307:3306"
-      - "3306:3306"
+      # - "3306:3306"
     expose:
       - 3307
     environment:

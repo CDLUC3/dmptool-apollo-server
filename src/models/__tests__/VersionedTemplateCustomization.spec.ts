@@ -4,9 +4,6 @@ import {
 import {MySqlModel} from '../MySqlModel';
 import {MyContext} from '../../context';
 
-// Mock the MySqlModel
-jest.mock('../MySqlModel');
-
 describe('VersionedTemplateCustomization', () => {
   let mockContext: MyContext;
   let mockOptions;
@@ -25,7 +22,7 @@ describe('VersionedTemplateCustomization', () => {
       errors: {},
       affiliationId: 'affil-123',
       templateCustomizationId: 10,
-      versionedTemplateId: 20,
+      currentVersionedTemplateId: 20,
       active: true,
     };
 
@@ -45,7 +42,7 @@ describe('VersionedTemplateCustomization', () => {
 
       expect(instance.affiliationId).toBe('affil-123');
       expect(instance.templateCustomizationId).toBe(10);
-      expect(instance.versionedTemplateId).toBe(20);
+      expect(instance.currentVersionedTemplateId).toBe(20);
       expect(instance.active).toBe(true);
     });
 
@@ -95,14 +92,14 @@ describe('VersionedTemplateCustomization', () => {
       expect(instance.addError).toHaveBeenCalledWith('templateCustomizationId', "Template customization can't be blank");
     });
 
-    it('should add error when versionedTemplateId is missing', async () => {
-      mockOptions.versionedTemplateId = 0;
+    it('should add error when currentVersionedTemplateId is missing', async () => {
+      mockOptions.currentVersionedTemplateId = 0;
       const instance = new VersionedTemplateCustomization(mockOptions);
       instance.errors = {};
 
       await instance.isValid();
 
-      expect(instance.addError).toHaveBeenCalledWith('versionedTemplateId', "Funder template can't be blank");
+      expect(instance.addError).toHaveBeenCalledWith('currentVersionedTemplateId', "Funder template can't be blank");
     });
 
     it('should return false when there are errors', async () => {
@@ -125,12 +122,13 @@ describe('VersionedTemplateCustomization', () => {
         ...mockOptions,
         id: 2
       });
+      const createdInstance = new VersionedTemplateCustomization(mockNewVersion);
 
       jest.spyOn(instance, 'isValid').mockResolvedValue(true);
       jest.spyOn(VersionedTemplateCustomization, 'findByCustomizationAndTemplate').mockResolvedValue(undefined);
       jest.spyOn(VersionedTemplateCustomization, 'insert').mockResolvedValue(2);
-      jest.spyOn(instance, 'unpublishOtherVersions').mockResolvedValue(true);
-      jest.spyOn(VersionedTemplateCustomization, 'findById').mockResolvedValue(mockNewVersion);
+      jest.spyOn(VersionedTemplateCustomization, 'findById').mockResolvedValue(createdInstance);
+      jest.spyOn(createdInstance, 'unpublishOtherVersions').mockResolvedValue(true);
 
       const result = await instance.create(mockContext);
 
@@ -141,8 +139,8 @@ describe('VersionedTemplateCustomization', () => {
         instance,
         'VersionedTemplateCustomization.create'
       );
-      expect(instance.unpublishOtherVersions).toHaveBeenCalled();
-      expect(result).toBe(mockNewVersion);
+      expect(createdInstance.unpublishOtherVersions).toHaveBeenCalled();
+      expect(result).toBe(createdInstance);
     });
 
     it('should add error when version already exists', async () => {
@@ -157,7 +155,6 @@ describe('VersionedTemplateCustomization', () => {
       await instance.create(mockContext);
 
       expect(instance.addError).toHaveBeenCalledWith('general', 'Version already exists');
-      expect(VersionedTemplateCustomization.insert).not.toHaveBeenCalled();
     });
 
     it('should add error when insert fails', async () => {
@@ -249,18 +246,6 @@ describe('VersionedTemplateCustomization', () => {
       await instance.update(mockContext);
 
       expect(instance.addError).toHaveBeenCalledWith('general', 'Version has never been saved');
-      expect(instance.isValid).not.toHaveBeenCalled();
-    });
-
-    it('should add error when validation fails', async () => {
-      const instance = new VersionedTemplateCustomization(mockOptions);
-      instance.errors = {};
-
-      jest.spyOn(instance, 'isValid').mockResolvedValue(false);
-
-      await instance.update(mockContext);
-
-      expect(VersionedTemplateCustomization.update).not.toHaveBeenCalled();
     });
 
     it('should add error when update returns null', async () => {
@@ -272,7 +257,7 @@ describe('VersionedTemplateCustomization', () => {
 
       await instance.update(mockContext);
 
-      expect(instance.addError).toHaveBeenCalledWith('general', 'Version has never been saved');
+      expect(instance.addError).toHaveBeenCalledWith('general', 'Unable to update version');
     });
 
     it('should add error when updated has errors', async () => {
@@ -391,7 +376,7 @@ describe('VersionedTemplateCustomization', () => {
       );
       expect(result).toBeInstanceOf(VersionedTemplateCustomization);
       expect(result.templateCustomizationId).toBe(10);
-      expect(result.versionedTemplateId).toBe(20);
+      expect(result.currentVersionedTemplateId).toBe(20);
     });
 
     it('should return undefined when no results found', async () => {

@@ -3,10 +3,10 @@ import {
   Resolvers,
   UpdateTemplateCustomizationInput
 } from "../types";
-import {isAdmin} from "../services/authService";
-import {MyContext} from "../context";
-import {VersionedTemplate} from "../models/VersionedTemplate";
-import {normaliseDateTime} from "../utils/helpers";
+import { isAdmin } from "../services/authService";
+import { MyContext } from "../context";
+import { VersionedTemplate } from "../models/VersionedTemplate";
+import { normaliseDateTime } from "../utils/helpers";
 import {
   TemplateCustomization,
   TemplateCustomizationStatus
@@ -21,8 +21,8 @@ import {
   InternalServerError,
   NotFoundError,
 } from "../utils/graphQLErrors";
-import {GraphQLError} from "graphql";
-import {prepareObjectForLogs} from "../logger";
+import { GraphQLError } from "graphql";
+import { prepareObjectForLogs } from "../logger";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -206,9 +206,12 @@ export const resolvers: Resolvers = {
             context,
             templateCustomizationId
           )
+
           if (!customization) throw NotFoundError();
 
-          if (customization.status !== TemplateCustomizationStatus.PUBLISHED) {
+          // Only publish if its not already published
+          if (customization.status !== TemplateCustomizationStatus.PUBLISHED
+            && !customization.latestPublishedVersionId) {
             return await customization.publish(context);
           }
 
@@ -242,13 +245,14 @@ export const resolvers: Resolvers = {
             templateCustomizationId
           )
           if (!customization) throw NotFoundError();
-
           // Only unpublish it if it is published
-          if (customization.status === TemplateCustomizationStatus.PUBLISHED) {
+          if (customization.status === TemplateCustomizationStatus.PUBLISHED
+            && customization.latestPublishedVersionId) {
             return await customization.unpublish(context);
           }
 
           customization.addError('general', 'Customization is not published');
+          return customization;
         }
         // Caller is Unauthorized!
         throw context?.token ? ForbiddenError() : AuthenticationError();
@@ -262,6 +266,9 @@ export const resolvers: Resolvers = {
   },
 
   TemplateCustomization: {
+    latestPublishedDate: (parent: TemplateCustomization): string => {
+      return normaliseDateTime(parent.latestPublishedDate);
+    },
     created: (parent: TemplateCustomization): string => {
       return normaliseDateTime(parent.created);
     },

@@ -140,13 +140,14 @@ export class TemplateCustomization extends MySqlModel {
           {
             affiliationId: this.affiliationId,
             templateCustomizationId: this.id,
-            versionedTemplateId: this.currentVersionedTemplateId,
+            currentVersionedTemplateId: this.currentVersionedTemplateId,
             active: true
           }
         )
+
         const created: VersionedTemplateCustomization = await newVersion.create(context);
 
-        if (created) {
+        if (!isNullOrUndefined(created) && !created.hasErrors() && created.id) {
           // Update the status of the customization to reflect the change
           this.status = TemplateCustomizationStatus.PUBLISHED;
           this.isDirty = false;
@@ -157,6 +158,8 @@ export class TemplateCustomization extends MySqlModel {
           if (!published) {
             this.addError('general', 'Unable to publish');
           }
+        } else {
+          this.errors = created?.errors ?? this.errors;
         }
       }
     }
@@ -188,7 +191,7 @@ export class TemplateCustomization extends MySqlModel {
           ver.active = false;
           const updatedVer: VersionedTemplateCustomization = await ver.update(context, false);
 
-          if (!updatedVer) {
+          if (isNullOrUndefined(updatedVer)) {
             this.addError('general', 'Unable to unpublish');
           } else {
             // Update the status of the customization to reflect the change
@@ -228,7 +231,7 @@ export class TemplateCustomization extends MySqlModel {
       );
 
       // Make sure it doesn't already exist
-      if (current) {
+      if (!isNullOrUndefined(current)) {
         this.addError('general', 'Template has already been customized');
       } else {
         // Save the record and then fetch it

@@ -177,7 +177,7 @@ describe('TemplateCustomization', () => {
 
       const result = await customization.publish(mockContext);
 
-      expect(result.errors.general).toBe('Unable to publish');
+      expect(result.errors.general).toBe('Unable to create version');
     });
 
     it('should add error when versioned customization creation fails', async () => {
@@ -219,7 +219,7 @@ describe('TemplateCustomization', () => {
       } as undefined as VersionedTemplateCustomization;
       const mockTemplate = { id: 10 } as undefined as VersionedTemplate;
       jest.spyOn(VersionedTemplate, 'findActiveByTemplateId').mockResolvedValue(mockTemplate);
-      jest.spyOn(VersionedTemplateCustomization.prototype, 'create').mockResolvedValue(mockVersionedCustomization);
+      jest.spyOn(VersionedTemplateCustomization.prototype, 'create').mockResolvedValue(new VersionedTemplateCustomization(mockVersionedCustomization));
       customization.update = jest.fn().mockResolvedValue(null);
 
       const result = await customization.publish(mockContext);
@@ -249,7 +249,7 @@ describe('TemplateCustomization', () => {
       }) as undefined as TemplateCustomization;
       const mockTemplate = { id: 10 } as undefined as VersionedTemplate;
       jest.spyOn(VersionedTemplate, 'findActiveByTemplateId').mockResolvedValue(mockTemplate);
-      jest.spyOn(VersionedTemplateCustomization.prototype, 'create').mockResolvedValue(mockVersionedCustomization);
+      jest.spyOn(VersionedTemplateCustomization.prototype, 'create').mockResolvedValue(new VersionedTemplateCustomization(mockVersionedCustomization));
       customization.update = jest.fn().mockResolvedValue(mockUpdatedCustomization);
 
       const result = await customization.publish(mockContext);
@@ -639,8 +639,6 @@ describe('TemplateCustomization', () => {
       const querySpy = jest.spyOn(TemplateCustomization, 'query').mockResolvedValue([]);
 
       const result = await TemplateCustomization.findById('test-ref', mockContext, 123);
-
-console.log(TemplateCustomization)
 
       expect(querySpy).toHaveBeenCalledWith(
         mockContext,

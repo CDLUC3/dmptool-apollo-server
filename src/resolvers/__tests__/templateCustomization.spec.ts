@@ -94,7 +94,7 @@ describe('templateCustomization resolvers', () => {
       migrationStatus: TemplateCustomizationMigrationStatus.OK,
       isDirty: false,
       latestPublishedDate: new Date('2023-01-01').toISOString(),
-      latestPublishedVersion: 12,
+      latestPublishedVersionId: 12,
       created: new Date('2023-01-01').toISOString(),
       modified: new Date('2023-01-02').toISOString(),
       errors: null,
@@ -641,11 +641,12 @@ describe('templateCustomization resolvers', () => {
       (TemplateCustomization.findById as jest.Mock) = jest.fn().mockResolvedValue(mockCustomization);
       const unpublishedCustomization = {
         ...mockCustomization,
-        status: TemplateCustomizationStatus.DRAFT
+        status: TemplateCustomizationStatus.PUBLISHED,
+        latestPublishedVersionId: mockCustomization.id
       };
       mockCustomization.unpublish.mockResolvedValue(unpublishedCustomization);
 
-      const input = {templateCustomizationId: 1};
+      const input = { templateCustomizationId: 1 };
       const result = await executeQuery(query, input, adminToken);
 
       expect(result.body.kind).toEqual('single');
@@ -663,11 +664,11 @@ describe('templateCustomization resolvers', () => {
       };
       (TemplateCustomization.findById as jest.Mock) = jest.fn().mockResolvedValue(draftCustomization);
 
-      const input = {templateCustomizationId: 1};
+      const input = { templateCustomizationId: 1 };
       const result = await executeQuery(query, input, adminToken);
 
       expect(result.body.kind).toEqual('single');
-      expect(result.body.singleResult.errors).toBeDefined();
+      expect(result.body.singleResult.errors).toBeUndefined();
       expect(draftCustomization.addError).toHaveBeenCalledWith('general', 'Customization is not published');
       expect(draftCustomization.unpublish).not.toHaveBeenCalled();
     });
@@ -676,7 +677,7 @@ describe('templateCustomization resolvers', () => {
       mockIsAdmin.mockReturnValue(true);
       (TemplateCustomization.findById as jest.Mock) = jest.fn().mockResolvedValue(null);
 
-      const input = {templateCustomizationId: 1};
+      const input = { templateCustomizationId: 1 };
       const result = await executeQuery(query, input, adminToken);
 
       expect(result.body.kind).toEqual('single');
@@ -687,7 +688,7 @@ describe('templateCustomization resolvers', () => {
     it('should throw ForbiddenError when user is not admin but has token', async () => {
       mockIsAdmin.mockReturnValue(false);
 
-      const input = {templateCustomizationId: 1};
+      const input = { templateCustomizationId: 1 };
       const result = await executeQuery(query, input, adminToken);
 
       expect(result.body.kind).toEqual('single');
@@ -699,7 +700,7 @@ describe('templateCustomization resolvers', () => {
       mockIsAdmin.mockReturnValue(false);
       mockContext.token = null;
 
-      const vars = {templateCustomizationId: 1};
+      const vars = { templateCustomizationId: 1 };
       const result = await executeQuery(query, vars, null);
 
       expect(result.body.kind).toEqual('single');
@@ -712,7 +713,7 @@ describe('templateCustomization resolvers', () => {
       const unexpectedError = new Error('Unexpected');
       (TemplateCustomization.findById as jest.Mock) = jest.fn().mockRejectedValue(unexpectedError);
 
-      const vars = {templateCustomizationId: 1};
+      const vars = { templateCustomizationId: 1 };
       const result = await executeQuery(query, vars, adminToken);
 
       expect(result.body.kind).toEqual('single');
@@ -720,6 +721,4 @@ describe('templateCustomization resolvers', () => {
       expect(result.body.singleResult.errors[0].message).toEqual('Something went wrong');
     });
   });
-
-
 });

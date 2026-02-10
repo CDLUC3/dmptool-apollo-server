@@ -1,5 +1,6 @@
 import { MySqlModel } from "./MySqlModel";
 import { MyContext } from "../context";
+import {isNullOrUndefined} from "../utils/helpers";
 
 /**
  * A snapshot version of the affiliation's customizations to a funder template
@@ -13,7 +14,7 @@ export class VersionedTemplateCustomization extends MySqlModel {
   // Pointer to the base customization object
   public templateCustomizationId: number;
   // Pointer to the published version template that this object tracks
-  public versionedTemplateId: number;
+  public currentVersionedTemplateId: number;
   // Whether this version is currently published
   public active: boolean;
 
@@ -24,7 +25,7 @@ export class VersionedTemplateCustomization extends MySqlModel {
 
     this.affiliationId = options.affiliationId;
     this.templateCustomizationId = options.templateCustomizationId;
-    this.versionedTemplateId = options.versionedTemplateId;
+    this.currentVersionedTemplateId = options.currentVersionedTemplateId;
     this.active = options.active ?? false;
   }
 
@@ -43,8 +44,8 @@ export class VersionedTemplateCustomization extends MySqlModel {
     if (this.templateCustomizationId === null) {
       this.addError('templateCustomizationId','Template customization can\'t be blank');
     }
-    if (!this.versionedTemplateId) {
-      this.addError('versionedTemplateId', 'Funder template can\'t be blank');
+    if (!this.currentVersionedTemplateId) {
+      this.addError('currentVersionedTemplateId', 'Funder template can\'t be blank');
     }
 
     return Object.keys(this.errors).length === 0;
@@ -65,11 +66,11 @@ export class VersionedTemplateCustomization extends MySqlModel {
         ref,
         context,
         this.templateCustomizationId,
-        this.versionedTemplateId
+        this.currentVersionedTemplateId
       );
 
       // Make sure it doesn't already exist
-      if (current) {
+      if (!isNullOrUndefined(current)) {
         this.addError('general', 'Version already exists');
       } else {
         // Set the active flag to true by default.
@@ -84,10 +85,20 @@ export class VersionedTemplateCustomization extends MySqlModel {
         );
 
         if (newId) {
-          // Unpublish all other versions of the customization.
-          await this.unpublishOtherVersions(ref, context)
+          const created: VersionedTemplateCustomization = await VersionedTemplateCustomization.findById(
+            ref,
+            context,
+            newId
+          );
 
-          return await VersionedTemplateCustomization.findById(ref, context, newId);
+          if (!isNullOrUndefined(created) && !isNullOrUndefined(created.id)) {
+            // Unpublish all other versions of the customization.
+            await created.unpublishOtherVersions(ref, context)
+
+            return created;
+          } else {
+            this.addError('general', 'Unable to load newly created version');
+          }
         } else {
           this.addError('general', 'Unable to create version');
         }
@@ -123,14 +134,13 @@ export class VersionedTemplateCustomization extends MySqlModel {
           noTouch
         ) as VersionedTemplateCustomization;
 
-        if (updated && !updated.hasErrors()) {
+        if (!isNullOrUndefined(updated) && !updated.hasErrors()) {
           return await VersionedTemplateCustomization.findById(ref, context, this.id);
         } else {
           this.addError('general', 'Unable to update version');
         }
       }
     }
-
     return new VersionedTemplateCustomization(this);
   }
 
@@ -152,7 +162,7 @@ export class VersionedTemplateCustomization extends MySqlModel {
       [
         this.id.toString(),
         this.templateCustomizationId.toString(),
-        this.versionedTemplateId.toString()
+        this.currentVersionedTemplateId.toString()
       ],
       reference
     );
@@ -201,7 +211,8 @@ export class VersionedTemplateCustomization extends MySqlModel {
     const results = await VersionedTemplateCustomization.query(
       context,
       `SELECT * FROM ${VersionedTemplateCustomization.tableName}
-         WHERE affiliationId = ? AND templateId = ?`,
+         WHERE templateCustomizationId = ? AND currentVersionedTemplateId = ?
+         AND active = 1`,
       [templateCustomizationId.toString(), versionedTemplateId.toString()],
       reference
     );

@@ -19,4 +19,11 @@ ALTER TABLE templateCustomizations
 ALTER TABLE versionedTemplateCustomizations
   DROP FOREIGN KEY fk_vTemplateCust_priorId,
   DROP COLUMN priorVersionedTemplateId,
-  DROP COLUMN status;
+  DROP COLUMN status,
+
+  -- Recreate uniqueness constraint (must recreate the affiliationId foreign key too)
+  DROP FOREIGN KEY `fk_vTemplateCust_affiliationId`,
+  DROP INDEX `unique_vTemplateCusts`,
+  ADD UNIQUE KEY `unique_vTemplateCusts` (`active`,`templateCustomizationId`),
+  ADD CONSTRAINT `fk_vTemplateCust_affiliationId2`
+    FOREIGN KEY (`affiliationId`) REFERENCES `affiliations` (`uri`);

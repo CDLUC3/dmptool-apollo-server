@@ -18,6 +18,12 @@ phases:
       # EnvironmentVariable config for the Pipeline action :(
       - export AWS_VERSION=$(aws --version)
 
+      # Install trivy for vulnerability scanning
+      - echo "Installing Trivy..."
+      - wget "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+      - tar -zxvf "trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+      - mv trivy /usr/local/bin/
+
       # Fetch the ECR repository name
       - echo $ECR_REPOSITORY_URI >> .ecr
       - export SHORT_ECR_URI=$(awk '{gsub("$ECR_REPOSITORY_NAME", "");print}' .ecr)
@@ -38,24 +44,30 @@ phases:
       - echo "production=false" >> .npmrc
 
       # CI deletes the node_modules folder and installs the dependencies as defined in package-lock.json
+      - echo "Installing dependencies..."
       - npm ci
 
-      # Generate all of the GraphQL schema types
-      - echo "Generating GraphQL types"
-      - npm run generate
+      # Run NPM audit to check for vulnerabilities
+      - echo "Running NPM audit..."
+      - npm audit --audit-level=high
 
       # Run the linter checks
       - echo "Running linter checks"
       - npm run lint
 
       # Run the tests
-      # TODO: ignore tests in relatedWorksTables.spec.ts
-      # - echo "Running tests"
-      # - npm run test
+      - echo "Running tests"
+      - npm run test-no-db
 
       # All is good so build the Docker image
-      - echo Building the Docker image...
+      - echo "Building the Docker image..."
       - docker build -f Dockerfile.aws -t $SHORT_ECR_URI:apollo-latest .
+
+      # Run Trivy on the new image to check for vulnerabilities
+      - echo "Running Trivy vulnerability scanner on the new image..."
+      - trivy image --exit-code 1 --severity HIGH,CRITICAL $SHORT_ECR_URI:apollo-latest
+
+      # Tag the image with the Git commit ID
       - docker tag $ECR_REPOSITORY_URI:apollo-latest $SHORT_ECR_URI:$IMAGE_TAG
   post_build:
     commands:

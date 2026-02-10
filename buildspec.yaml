@@ -20,7 +20,7 @@ phases:
 
       # Install trivy for vulnerability scanning
       - echo "Installing Trivy..."
-      - wget "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+      - wget -q "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
       - tar -zxvf "trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
       - mv trivy /usr/local/bin/
 

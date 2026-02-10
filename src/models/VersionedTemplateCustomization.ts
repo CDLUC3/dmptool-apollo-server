@@ -38,13 +38,13 @@ export class VersionedTemplateCustomization extends MySqlModel {
   async isValid(): Promise<boolean> {
     await super.isValid();
 
-    if (!this.affiliationId) {
+    if (isNullOrUndefined(this.affiliationId)) {
       this.addError('affiliationId', 'Affiliation can\'t be blank');
     }
-    if (this.templateCustomizationId === null) {
+    if (isNullOrUndefined(this.templateCustomizationId)) {
       this.addError('templateCustomizationId','Template customization can\'t be blank');
     }
-    if (!this.currentVersionedTemplateId) {
+    if (isNullOrUndefined(this.currentVersionedTemplateId)) {
       this.addError('currentVersionedTemplateId', 'Funder template can\'t be blank');
     }
 
@@ -157,7 +157,7 @@ export class VersionedTemplateCustomization extends MySqlModel {
   ): Promise<boolean> {
     const results = await VersionedTemplateCustomization.query(
       context,
-      `UPDATE * ${VersionedTemplateCustomization.tableName} SET active = 0
+      `UPDATE ${VersionedTemplateCustomization.tableName} SET active = 0
         WHERE id != ? AND templateCustomizationId = ? AND versionedTemplateId = ?`,
       [
         this.id.toString(),

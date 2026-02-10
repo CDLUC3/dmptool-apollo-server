@@ -1,8 +1,8 @@
 import {
   VersionedTemplateCustomization
 } from '../VersionedTemplateCustomization';
-import {MySqlModel} from '../MySqlModel';
-import {MyContext} from '../../context';
+import { MySqlModel } from '../MySqlModel';
+import { MyContext } from '../../context';
 
 describe('VersionedTemplateCustomization', () => {
   let mockContext: MyContext;
@@ -73,7 +73,7 @@ describe('VersionedTemplateCustomization', () => {
     });
 
     it('should add error when affiliationId is missing', async () => {
-      mockOptions.affiliationId = '';
+      mockOptions.affiliationId = undefined;
       const instance = new VersionedTemplateCustomization(mockOptions);
       instance.errors = {};
 
@@ -93,7 +93,7 @@ describe('VersionedTemplateCustomization', () => {
     });
 
     it('should add error when currentVersionedTemplateId is missing', async () => {
-      mockOptions.currentVersionedTemplateId = 0;
+      mockOptions.currentVersionedTemplateId = null;
       const instance = new VersionedTemplateCustomization(mockOptions);
       instance.errors = {};
 
@@ -289,7 +289,7 @@ describe('VersionedTemplateCustomization', () => {
 
       expect(VersionedTemplateCustomization.query).toHaveBeenCalledWith(
         mockContext,
-        expect.stringContaining('UPDATE * versionedTemplateCustomizations SET active = 0'),
+        expect.stringContaining('UPDATE versionedTemplateCustomizations SET active = 0'),
         ['1', '10', '20'],
         'test-ref'
       );

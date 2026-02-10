@@ -102,6 +102,9 @@ describe('templateCustomization resolvers', () => {
       create: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
+      publish: jest.fn(),
+      unpublish: jest.fn(),
+      addError: jest.fn(),
     };
 
     mockVersionedTemplate = {
@@ -509,4 +512,214 @@ describe('templateCustomization resolvers', () => {
       expect(result.body.singleResult.errors[0].message).toEqual('Something went wrong');
     });
   });
+
+  describe('Mutation.publishTemplateCustomization', () => {
+    beforeEach(() => {
+      query = `
+        mutation publishTemplateCustomization($templateCustomizationId: Int!) {
+          publishTemplateCustomization(templateCustomizationId: $templateCustomizationId) {
+            id
+            affiliationId
+            currentVersionedTemplateId
+            status
+            migrationStatus
+            isDirty
+            latestPublishedDate
+            errors {
+              general
+            }
+          }
+        }
+      `;
+    });
+
+    it('should publish template customization successfully when status is DRAFT', async () => {
+      mockIsAdmin.mockReturnValue(true);
+      const draftCustomization = {
+        ...mockCustomization,
+        status: TemplateCustomizationStatus.DRAFT
+      };
+      (TemplateCustomization.findById as jest.Mock) = jest.fn().mockResolvedValue(draftCustomization);
+      draftCustomization.publish.mockResolvedValue(mockCustomization);
+
+      const input = {templateCustomizationId: 1};
+      const result = await executeQuery(query, input, adminToken);
+
+      expect(result.body.kind).toEqual('single');
+      expect(result.body.singleResult.errors).toBeUndefined();
+      expect(result.body.singleResult.data.publishTemplateCustomization).toBeTruthy();
+      expect(result.body.singleResult.data.publishTemplateCustomization.id).toEqual(mockCustomization.id);
+      expect(draftCustomization.publish).toHaveBeenCalledWith(expect.any(Object));
+    });
+
+    it('should add error when customization is already published', async () => {
+      mockIsAdmin.mockReturnValue(true);
+      (TemplateCustomization.findById as jest.Mock) = jest.fn().mockResolvedValue(mockCustomization);
+      mockCustomization.publish.mockResolvedValue(mockCustomization);
+
+      const input = {templateCustomizationId: 1};
+      const result = await executeQuery(query, input, adminToken);
+
+      expect(result.body.kind).toEqual('single');
+      expect(result.body.singleResult.errors).toBeUndefined();
+      expect(result.body.singleResult.data.publishTemplateCustomization).toBeTruthy();
+      expect(mockCustomization.addError).toHaveBeenCalledWith('general', 'Customization is already published');
+      expect(mockCustomization.publish).toHaveBeenCalledWith(expect.any(Object));
+    });
+
+    it('should throw NotFoundError when customization does not exist', async () => {
+      mockIsAdmin.mockReturnValue(true);
+      (TemplateCustomization.findById as jest.Mock) = jest.fn().mockResolvedValue(null);
+
+      const input = {templateCustomizationId: 1};
+      const result = await executeQuery(query, input, adminToken);
+
+      expect(result.body.kind).toEqual('single');
+      expect(result.body.singleResult.errors).toBeDefined();
+      expect(result.body.singleResult.errors[0].message).toEqual('Not Found');
+    });
+
+    it('should throw ForbiddenError when user is not admin but has token', async () => {
+      mockIsAdmin.mockReturnValue(false);
+
+      const input = {templateCustomizationId: 1};
+      const result = await executeQuery(query, input, adminToken);
+
+      expect(result.body.kind).toEqual('single');
+      expect(result.body.singleResult.errors).toBeDefined();
+      expect(result.body.singleResult.errors[0].message).toEqual('Forbidden');
+    });
+
+    it('should throw AuthenticationError when user has no token', async () => {
+      mockIsAdmin.mockReturnValue(false);
+      mockContext.token = null;
+
+      const vars = {templateCustomizationId: 1};
+      const result = await executeQuery(query, vars, null);
+
+      expect(result.body.kind).toEqual('single');
+      expect(result.body.singleResult.errors).toBeDefined();
+      expect(result.body.singleResult.errors[0].message).toEqual('Unauthorized');
+    });
+
+    it('should throw InternalServerError on unexpected error', async () => {
+      mockIsAdmin.mockReturnValue(true);
+      const unexpectedError = new Error('Unexpected');
+      (TemplateCustomization.findById as jest.Mock) = jest.fn().mockRejectedValue(unexpectedError);
+
+      const vars = {templateCustomizationId: 1};
+      const result = await executeQuery(query, vars, adminToken);
+
+      expect(result.body.kind).toEqual('single');
+      expect(result.body.singleResult.errors).toBeDefined();
+      expect(result.body.singleResult.errors[0].message).toEqual('Something went wrong');
+    });
+  });
+
+  describe('Mutation.unpublishTemplateCustomization', () => {
+    beforeEach(() => {
+      query = `
+        mutation unpublishTemplateCustomization($templateCustomizationId: Int!) {
+          unpublishTemplateCustomization(templateCustomizationId: $templateCustomizationId) {
+            id
+            affiliationId
+            currentVersionedTemplateId
+            status
+            migrationStatus
+            isDirty
+            latestPublishedDate
+            errors {
+              general
+            }
+          }
+        }
+      `;
+    });
+
+    it('should unpublish template customization successfully when status is PUBLISHED', async () => {
+      mockIsAdmin.mockReturnValue(true);
+      (TemplateCustomization.findById as jest.Mock) = jest.fn().mockResolvedValue(mockCustomization);
+      const unpublishedCustomization = {
+        ...mockCustomization,
+        status: TemplateCustomizationStatus.DRAFT
+      };
+      mockCustomization.unpublish.mockResolvedValue(unpublishedCustomization);
+
+      const input = {templateCustomizationId: 1};
+      const result = await executeQuery(query, input, adminToken);
+
+      expect(result.body.kind).toEqual('single');
+      expect(result.body.singleResult.errors).toBeUndefined();
+      expect(result.body.singleResult.data.unpublishTemplateCustomization).toBeTruthy();
+      expect(result.body.singleResult.data.unpublishTemplateCustomization.id).toEqual(mockCustomization.id);
+      expect(mockCustomization.unpublish).toHaveBeenCalledWith(expect.any(Object));
+    });
+
+    it('should add error when customization is not published', async () => {
+      mockIsAdmin.mockReturnValue(true);
+      const draftCustomization = {
+        ...mockCustomization,
+        status: TemplateCustomizationStatus.DRAFT
+      };
+      (TemplateCustomization.findById as jest.Mock) = jest.fn().mockResolvedValue(draftCustomization);
+
+      const input = {templateCustomizationId: 1};
+      const result = await executeQuery(query, input, adminToken);
+
+      expect(result.body.kind).toEqual('single');
+      expect(result.body.singleResult.errors).toBeDefined();
+      expect(draftCustomization.addError).toHaveBeenCalledWith('general', 'Customization is not published');
+      expect(draftCustomization.unpublish).not.toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundError when customization does not exist', async () => {
+      mockIsAdmin.mockReturnValue(true);
+      (TemplateCustomization.findById as jest.Mock) = jest.fn().mockResolvedValue(null);
+
+      const input = {templateCustomizationId: 1};
+      const result = await executeQuery(query, input, adminToken);
+
+      expect(result.body.kind).toEqual('single');
+      expect(result.body.singleResult.errors).toBeDefined();
+      expect(result.body.singleResult.errors[0].message).toEqual('Not Found');
+    });
+
+    it('should throw ForbiddenError when user is not admin but has token', async () => {
+      mockIsAdmin.mockReturnValue(false);
+
+      const input = {templateCustomizationId: 1};
+      const result = await executeQuery(query, input, adminToken);
+
+      expect(result.body.kind).toEqual('single');
+      expect(result.body.singleResult.errors).toBeDefined();
+      expect(result.body.singleResult.errors[0].message).toEqual('Forbidden');
+    });
+
+    it('should throw AuthenticationError when user has no token', async () => {
+      mockIsAdmin.mockReturnValue(false);
+      mockContext.token = null;
+
+      const vars = {templateCustomizationId: 1};
+      const result = await executeQuery(query, vars, null);
+
+      expect(result.body.kind).toEqual('single');
+      expect(result.body.singleResult.errors).toBeDefined();
+      expect(result.body.singleResult.errors[0].message).toEqual('Unauthorized');
+    });
+
+    it('should throw InternalServerError on unexpected error', async () => {
+      mockIsAdmin.mockReturnValue(true);
+      const unexpectedError = new Error('Unexpected');
+      (TemplateCustomization.findById as jest.Mock) = jest.fn().mockRejectedValue(unexpectedError);
+
+      const vars = {templateCustomizationId: 1};
+      const result = await executeQuery(query, vars, adminToken);
+
+      expect(result.body.kind).toEqual('single');
+      expect(result.body.singleResult.errors).toBeDefined();
+      expect(result.body.singleResult.errors[0].message).toEqual('Something went wrong');
+    });
+  });
+
+
 });

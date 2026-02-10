@@ -1160,6 +1160,8 @@ export type Mutation = {
   publishGuidanceGroup: GuidanceGroup;
   /** Publish a plan (changes status to PUBLISHED) */
   publishPlan?: Maybe<Plan>;
+  /** Publish a customization (user must be an Admin) */
+  publishTemplateCustomization: TemplateCustomization;
   /** Delete an Affiliation (only applicable to AffiliationProvenance == DMPTOOL) */
   removeAffiliation?: Maybe<Affiliation>;
   /** Remove answer comment */
@@ -1220,6 +1222,8 @@ export type Mutation = {
   superSyncPlanMaDMP: Scalars['Boolean']['output'];
   /** Unpublish a GuidanceGroup (sets active flag to false on current version) */
   unpublishGuidanceGroup: GuidanceGroup;
+  /** Unpublish a customization (user must be an Admin) */
+  unpublishTemplateCustomization: TemplateCustomization;
   /** Update an Affiliation */
   updateAffiliation?: Maybe<Affiliation>;
   /** Edit an answer */
@@ -1535,6 +1539,11 @@ export type MutationPublishPlanArgs = {
 };
 
 
+export type MutationPublishTemplateCustomizationArgs = {
+  templateCustomizationId: Scalars['Int']['input'];
+};
+
+
 export type MutationRemoveAffiliationArgs = {
   affiliationId: Scalars['Int']['input'];
 };
@@ -1681,6 +1690,11 @@ export type MutationSuperSyncPlanMaDmpArgs = {
 
 export type MutationUnpublishGuidanceGroupArgs = {
   guidanceGroupId: Scalars['Int']['input'];
+};
+
+
+export type MutationUnpublishTemplateCustomizationArgs = {
+  templateCustomizationId: Scalars['Int']['input'];
 };
 
 
@@ -3846,7 +3860,7 @@ export type TemplateCustomization = {
   /** Whether the customization has been modified since it was last published */
   isDirty: Scalars['Boolean']['output'];
   /** The date this customization was last published */
-  latestPublishedDate: Scalars['String']['output'];
+  latestPublishedDate?: Maybe<Scalars['String']['output']>;
   /** The status of the customizations with regard to the base template */
   migrationStatus: TemplateCustomizationMigrationStatus;
   /** The timestamp when the Object was last modifed */
@@ -5790,6 +5804,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   projectImport?: Resolver<Maybe<ResolversTypes['Project']>, ParentType, ContextType, Partial<MutationProjectImportArgs>>;
   publishGuidanceGroup?: Resolver<ResolversTypes['GuidanceGroup'], ParentType, ContextType, RequireFields<MutationPublishGuidanceGroupArgs, 'guidanceGroupId'>>;
   publishPlan?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType, RequireFields<MutationPublishPlanArgs, 'planId'>>;
+  publishTemplateCustomization?: Resolver<ResolversTypes['TemplateCustomization'], ParentType, ContextType, RequireFields<MutationPublishTemplateCustomizationArgs, 'templateCustomizationId'>>;
   removeAffiliation?: Resolver<Maybe<ResolversTypes['Affiliation']>, ParentType, ContextType, RequireFields<MutationRemoveAffiliationArgs, 'affiliationId'>>;
   removeAnswerComment?: Resolver<Maybe<ResolversTypes['AnswerComment']>, ParentType, ContextType, RequireFields<MutationRemoveAnswerCommentArgs, 'answerCommentId' | 'answerId'>>;
   removeFeedbackComment?: Resolver<Maybe<ResolversTypes['PlanFeedbackComment']>, ParentType, ContextType, RequireFields<MutationRemoveFeedbackCommentArgs, 'planFeedbackCommentId' | 'planId'>>;
@@ -5820,6 +5835,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   setUserOrcid?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationSetUserOrcidArgs, 'orcid'>>;
   superSyncPlanMaDMP?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationSuperSyncPlanMaDmpArgs, 'planId'>>;
   unpublishGuidanceGroup?: Resolver<ResolversTypes['GuidanceGroup'], ParentType, ContextType, RequireFields<MutationUnpublishGuidanceGroupArgs, 'guidanceGroupId'>>;
+  unpublishTemplateCustomization?: Resolver<ResolversTypes['TemplateCustomization'], ParentType, ContextType, RequireFields<MutationUnpublishTemplateCustomizationArgs, 'templateCustomizationId'>>;
   updateAffiliation?: Resolver<Maybe<ResolversTypes['Affiliation']>, ParentType, ContextType, RequireFields<MutationUpdateAffiliationArgs, 'input'>>;
   updateAnswer?: Resolver<Maybe<ResolversTypes['Answer']>, ParentType, ContextType, RequireFields<MutationUpdateAnswerArgs, 'answerId'>>;
   updateAnswerComment?: Resolver<Maybe<ResolversTypes['AnswerComment']>, ParentType, ContextType, RequireFields<MutationUpdateAnswerCommentArgs, 'answerCommentId' | 'answerId' | 'commentText'>>;
@@ -6639,7 +6655,7 @@ export type TemplateCustomizationResolvers<ContextType = MyContext, ParentType e
   errors?: Resolver<Maybe<ResolversTypes['TemplateErrors']>, ParentType, ContextType>;
   id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   isDirty?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
-  latestPublishedDate?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  latestPublishedDate?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   migrationStatus?: Resolver<ResolversTypes['TemplateCustomizationMigrationStatus'], ParentType, ContextType>;
   modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;

@@ -13,6 +13,10 @@ export const typeDefs = gql`
     updateTemplateCustomization(input: UpdateTemplateCustomizationInput!): TemplateCustomization!
     "Remove a customization (user must be an Admin)"
     removeTemplateCustomization(templateCustomizationId: Int!): TemplateCustomization!
+    "Publish a customization (user must be an Admin)"
+    publishTemplateCustomization(templateCustomizationId: Int!): TemplateCustomization!
+    "Unpublish a customization (user must be an Admin)"
+    unpublishTemplateCustomization(templateCustomizationId: Int!): TemplateCustomization!
   }
 
   "The status of a Template Customization"
@@ -59,7 +63,7 @@ export const typeDefs = gql`
     "The status of the customizations with regard to the base template"
     migrationStatus: TemplateCustomizationMigrationStatus!
     "The date this customization was last published"
-    latestPublishedDate: String!
+    latestPublishedDate: String
     "Whether the customization has been modified since it was last published"
     isDirty: Boolean!
   }

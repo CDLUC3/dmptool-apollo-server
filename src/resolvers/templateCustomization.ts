@@ -3,10 +3,10 @@ import {
   Resolvers,
   UpdateTemplateCustomizationInput
 } from "../types";
-import { isAdmin } from "../services/authService";
-import { MyContext } from "../context";
-import { VersionedTemplate } from "../models/VersionedTemplate";
-import { normaliseDateTime } from "../utils/helpers";
+import {isAdmin} from "../services/authService";
+import {MyContext} from "../context";
+import {VersionedTemplate} from "../models/VersionedTemplate";
+import {normaliseDateTime} from "../utils/helpers";
 import {
   TemplateCustomization,
   TemplateCustomizationStatus
@@ -21,8 +21,8 @@ import {
   InternalServerError,
   NotFoundError,
 } from "../utils/graphQLErrors";
-import { GraphQLError } from "graphql";
-import { prepareObjectForLogs } from "../logger";
+import {GraphQLError} from "graphql";
+import {prepareObjectForLogs} from "../logger";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -166,7 +166,7 @@ export const resolvers: Resolvers = {
       { templateCustomizationId }: { templateCustomizationId: number },
       context: MyContext
     ): Promise<TemplateCustomization> => {
-      const reference = 'archiveTemplateCustomization resolver';
+      const reference = 'removeTemplateCustomization resolver';
 
       try {
         // Only Admins can delete a template customization
@@ -179,6 +179,76 @@ export const resolvers: Resolvers = {
           if (!customization) throw NotFoundError();
 
           return await customization.delete(context);
+        }
+        // Caller is Unauthorized!
+        throw context?.token ? ForbiddenError() : AuthenticationError();
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    },
+
+    // Publish the customization of the funder template (must be an admin)
+    publishTemplateCustomization: async (
+      _: Record<PropertyKey, never>,
+      { templateCustomizationId }: { templateCustomizationId: number },
+      context: MyContext
+    ): Promise<TemplateCustomization> => {
+      const reference = 'publishTemplateCustomization resolver';
+
+      try {
+        // Only Admins can delete a template customization
+        if (isAdmin(context.token)) {
+          const customization: TemplateCustomization = await TemplateCustomization.findById(
+            reference,
+            context,
+            templateCustomizationId
+          )
+          if (!customization) throw NotFoundError();
+
+          if (customization.status !== TemplateCustomizationStatus.PUBLISHED) {
+            return await customization.publish(context);
+          }
+
+          customization.addError('general', 'Customization is already published');
+          return await customization.publish(context);
+        }
+        // Caller is Unauthorized!
+        throw context?.token ? ForbiddenError() : AuthenticationError();
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    },
+
+    // Unpublish the customization of the funder template (must be an admin)
+    unpublishTemplateCustomization: async (
+      _: Record<PropertyKey, never>,
+      { templateCustomizationId }: { templateCustomizationId: number },
+      context: MyContext
+    ): Promise<TemplateCustomization> => {
+      const reference = 'unpublishTemplateCustomization resolver';
+
+      try {
+        // Only Admins can delete a template customization
+        if (isAdmin(context.token)) {
+          const customization: TemplateCustomization = await TemplateCustomization.findById(
+            reference,
+            context,
+            templateCustomizationId
+          )
+          if (!customization) throw NotFoundError();
+
+          // Only unpublish it if it is published
+          if (customization.status === TemplateCustomizationStatus.PUBLISHED) {
+            return await customization.unpublish(context);
+          }
+
+          customization.addError('general', 'Customization is not published');
         }
         // Caller is Unauthorized!
         throw context?.token ? ForbiddenError() : AuthenticationError();

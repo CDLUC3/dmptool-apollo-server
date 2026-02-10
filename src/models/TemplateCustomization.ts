@@ -333,7 +333,7 @@ export class TemplateCustomization extends MySqlModel {
       [templateCustomizationId?.toString()],
       reference
     );
-    return Array.isArray(results) && results.length > 0 ? results[0] : undefined;
+    return Array.isArray(results) && results.length > 0 ? new TemplateCustomization(results[0]) : undefined;
   }
 
   /**
@@ -358,7 +358,7 @@ export class TemplateCustomization extends MySqlModel {
       [affiliationId, templateId?.toString()],
       reference
     );
-    return Array.isArray(results) && results.length > 0 ? results[0] : undefined;
+    return Array.isArray(results) && results.length > 0 ? new TemplateCustomization(results[0]) : undefined;
   }
 
   /**

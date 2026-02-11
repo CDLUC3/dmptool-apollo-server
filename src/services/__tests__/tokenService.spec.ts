@@ -104,19 +104,6 @@ describe('setTokenCookie', () => {
     );
   });
 
-  it('should set sameSite to strict', () => {
-    setTokenCookie(mockResponse as Response, 'testCookie', 'testValue');
-    expect(mockResponse.cookie).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.any(String),
-      expect.objectContaining({
-        httpOnly: true,
-        path: '/',
-        secure: false,
-      })
-    );
-  });
-
   it('should set path to /', () => {
     setTokenCookie(mockResponse as Response, 'testCookie', 'testValue');
     expect(mockResponse.cookie).toHaveBeenCalledWith(

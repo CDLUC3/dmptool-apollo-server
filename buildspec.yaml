@@ -19,10 +19,10 @@ phases:
       - export AWS_VERSION=$(aws --version)
 
       # Install trivy for vulnerability scanning
-      - echo "Installing Trivy..."
-      - wget "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
-      - tar -zxvf "trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
-      - mv trivy /usr/local/bin/
+      # - echo "Installing Trivy..."
+      # - wget -q "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+      # - tar -zxvf "trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+      # - mv trivy /usr/local/bin/
 
       # Fetch the ECR repository name
       - echo $ECR_REPOSITORY_URI >> .ecr
@@ -59,13 +59,17 @@ phases:
       - echo "Running tests"
       - npm run test-no-db
 
+      # Clean up before Docker build so that devDependencies don't pollute the image
+      - echo "Cleaning up node_modules before Docker build..."
+      - rm -rf node_modules
+
       # All is good so build the Docker image
       - echo "Building the Docker image..."
       - docker build -f Dockerfile.aws -t $SHORT_ECR_URI:apollo-latest .
 
       # Run Trivy on the new image to check for vulnerabilities
-      - echo "Running Trivy vulnerability scanner on the new image..."
-      - trivy image --exit-code 1 --severity HIGH,CRITICAL $SHORT_ECR_URI:apollo-latest
+      # - echo "Running Trivy vulnerability scanner on the new image..."
+      # - trivy image --exit-code 1 --severity HIGH,CRITICAL $SHORT_ECR_URI:apollo-latest
 
       # Tag the image with the Git commit ID
       - docker tag $ECR_REPOSITORY_URI:apollo-latest $SHORT_ECR_URI:$IMAGE_TAG

@@ -33,6 +33,9 @@ RUN npm run build
 
 # Prune node_modules to only production-ready ones AFTER build
 RUN npm prune --omit=dev && npm cache clean --force
+# We don't need the package files now that the code is compiled and it just messes
+# up the Trivy scans
+RUN rm package-lock.json && rm package.json
 
 # Remove all unecessary test and mock files from the distribution
 RUN rm -rf dist/__tests__ \

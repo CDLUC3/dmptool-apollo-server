@@ -7,52 +7,36 @@ import { OrcidConfig } from "../config/orcidConfig";
 
 // Singleton class that retrieves an Auth token from the API
 export class Authorizer extends RESTDataSource {
-  static #instance: Authorizer;
-
   override baseURL = OrcidConfig.baseAuthUrl;
 
-  public oauth2Token: string;
+  public oauth2Token?: string; // Made optional/nullable
   public scope: string;
 
   private creds: string;
-  private expiry: Date;
+  private expiry?: Date;
 
   constructor(scope?: string) {
     super();
 
     this.creds = `client_id=${OrcidConfig.clientId}&client_secret=${OrcidConfig.clientSecret}`;
     this.scope = scope ?? OrcidConfig.readOnlyScope;
-    this.authenticate();
-  }
-
-  // Singleton function to ensure we aren't reauthenticating every time
-  public static get instance(): Authorizer {
-    if (!Authorizer.#instance) {
-      Authorizer.#instance = new Authorizer();
-    }
-
-    return Authorizer.#instance;
-  }
-
-  // Release the instance of the Authorizer singleton
-  public static releaseInstance() {
-    Authorizer.#instance = undefined;
   }
 
   // Call the authenticate method and set this class' expiry timestamp
   async authenticate() {
-    const response = await this.post(OrcidConfig.authPath);
-
     logger.info(`Authenticating with ORCID API`);
+    const response = await this.post(OrcidConfig.authPath);
     this.oauth2Token = response.access_token;
+
     const currentDate = new Date();
+    // 10 minutes expiry
     this.expiry = new Date(currentDate.getTime() + 600 * 1000);
   }
 
   // Check if the current token has expired
   hasExpired() {
-    const currentDate = new Date();
-    return currentDate >= this.expiry;
+    if (!this.expiry) return true;
+    return new Date() >= this.expiry;
   }
 
   // Attach all of the necessary HTTP headers and the body prior to calling the token endpoint
@@ -68,18 +52,19 @@ export class OrcidAPI extends RESTDataSource {
 
   private authorizer: Authorizer;
 
-  constructor(options: { cache: KeyvAdapter }) {
+  constructor(options: { cache: KeyvAdapter, authorizer?: Authorizer }) {
     super(options);
 
-    this.authorizer = Authorizer.instance;
+    this.authorizer = options.authorizer ?? new Authorizer();
   }
 
   // Add the Authorization token to the headers prior to the request
   override async willSendRequest(_path: string, request: AugmentedRequest) {
     // Check the current token's expiry. If it has expired re-authenticate
-    if (isNullOrUndefined(this.authorizer.oauth2Token) || this.authorizer.hasExpired) {
+    if (!this.authorizer.oauth2Token || this.authorizer.hasExpired()) {
       await this.authorizer.authenticate();
     }
+
     request.headers['authorization'] = `Bearer ${this.authorizer.oauth2Token}`;
     request.headers['accept'] = 'application/orcid+json';
     request.headers['content-type'] = 'application/orcid+json';

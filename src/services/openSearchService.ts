@@ -4,6 +4,11 @@ import { OpenSearchWork, WorkType } from '../types';
 import { awsConfig } from '../config/awsConfig';
 import { prepareObjectForLogs } from '../logger';
 import { createOpenSearchClient, OpenSearchConfig } from "../datasources/openSearch";
+import {
+  OpenSearchRe3DataRecord,
+  Re3DataRepositoryRecord,
+  convertRe3DataToCamelCase,
+} from '../types/repository';
 import { GraphQLError } from "graphql";
 
 
@@ -76,74 +81,10 @@ export function convertWorkToCamelCase(work: OpenSearchWorkRecord): OpenSearchWo
   };
 }
 
-interface OpenSearchRe3DataRecord {
-  id: string;
-  name: string;
-  description?: string;
-  homepage?: string;
-  contact?: string;
-  uri?: string;
-  types?: string[];
-  subjects?: string[];
-  provider_types?: string[];
-  keywords?: string[];
-  access?: string;
-  pid_system?: string[];
-  policies?: string[];
-  upload_types?: string[];
-  certificates?: string[];
-  software?: string[];
-  created_at?: string;
-  updated_at?: string;
-}
-
-export interface OpenSearchRe3Data {
-  id: string;
-  name: string;
-  description?: string;
-  homepage?: string;
-  contact?: string;
-  uri?: string;
-  types?: string[];
-  subjects?: string[];
-  providerTypes?: string[];
-  keywords?: string[];
-  access?: string;
-  pidSystem?: string[];
-  policies?: string[];
-  uploadTypes?: string[];
-  certificates?: string[];
-  software?: string[];
-  createdAt?: string;
-  updatedAt?: string;
-}
-
 interface OpenSearchRe3DataHit {
   _source: OpenSearchRe3DataRecord;
 }
 
-export function convertRe3DataToCamelCase(record: OpenSearchRe3DataRecord): OpenSearchRe3Data {
-  return {
-    id: record.id,
-    name: record.name,
-    description: record.description,
-    homepage: record.homepage,
-    contact: record.contact,
-    uri: record.uri,
-    types: record.types || [],
-    subjects: record.subjects || [],
-    providerTypes: record.provider_types || [],
-    keywords: record.keywords || [],
-    access: record.access,
-    pidSystem: record.pid_system || [],
-    policies: record.policies || [],
-    uploadTypes: record.upload_types || [],
-    certificates: record.certificates || [],
-    software: record.software || [],
-    createdAt: record.created_at,
-    updatedAt: record.updated_at,
-  };
-}
 
 export class OpenSearchService {
   private client: Client;
@@ -211,7 +152,7 @@ export class OpenSearchService {
     }
   }
 
-  public async findRe3Data(term: string | null | undefined, context: MyContext, subject: string | null | undefined, type: string | null | undefined, maxResults: number): Promise<OpenSearchRe3Data[]> {
+  public async findRe3Data(term: string | null | undefined, context: MyContext, subject: string | null | undefined, type: string | null | undefined, maxResults: number): Promise<Re3DataRepositoryRecord[]> {
     const must: Record<string, unknown>[] = [];
     const filter: Record<string, unknown>[] = [];
 

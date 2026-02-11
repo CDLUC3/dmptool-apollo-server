@@ -2,26 +2,33 @@ import gql from 'graphql-tag';
 
 export const typeDefs = gql`
   extend type Query {
-    "Search for a repository"
+    "Search for repositories from custom database and re3data combined"
     repositories(input: RepositorySearchInput!): RepositorySearchResults
-    "Fetch a specific repository"
-    repository(uri: String!): Repository
+    "Fetch a specific custom repository"
+    repository(uri: String!): CustomRepository
     "return all distinct subject area keywords across all repositories"
     repositorySubjectAreas: [String!]
     "return all repositories whose unique uri values are provided"
-    repositoriesByURIs(uris: [String!]!): [Repository!]
+    repositoriesByURIs(uris: [String!]!): [CustomRepository!]
   }
 
   extend type Mutation {
     "Add a new Repository"
-    addRepository(input: AddRepositoryInput): Repository
+    addRepository(input: AddRepositoryInput): CustomRepository
     "Update a Repository record"
-    updateRepository(input: UpdateRepositoryInput): Repository
+    updateRepository(input: UpdateRepositoryInput): CustomRepository
     "Delete a Repository"
-    removeRepository(repositoryId: Int!): Repository
+    removeRepository(repositoryId: Int!): CustomRepository
 
     "Merge two repositories"
-    mergeRepositories(repositoryToKeepId: Int!, repositoryToRemoveId: Int!): Repository
+    mergeRepositories(repositoryToKeepId: Int!, repositoryToRemoveId: Int!): CustomRepository
+  }
+
+  enum RepositorySource {
+    "A custom repository managed in this system"
+    CUSTOM
+    "A preset repository from re3data"
+    RE3DATA
   }
 
   enum RepositoryType {
@@ -41,8 +48,8 @@ export const typeDefs = gql`
     MULTI_DISCIPLINARY
   }
 
-  "A repository where research outputs are preserved"
-  type Repository {
+  "A custom repository where research outputs are preserved (database-backed)"
+  type CustomRepository {
     "The unique identifer for the Object"
     id: Int
     "The user who created the Object"
@@ -70,7 +77,54 @@ export const typeDefs = gql`
     keywords: [String!]
     "The Categories/Types of the repository"
     repositoryTypes: [RepositoryType!]
+    "The source of this repository"
+    source: RepositorySource!
   }
+
+  "A preset repository from re3data (external source)"
+  type Re3DataRepository {
+    "The unique identifier from re3data"
+    id: String!
+    "The name of the repository"
+    name: String!
+    "A description of the repository"
+    description: String
+    "The homepage URL"
+    homepage: String
+    "Contact information"
+    contact: String
+    "The taxonomy URL of the repository"
+    uri: String
+    "Types of repository (e.g. disciplinary, generalist)"
+    types: [String!]
+    "Subject areas covered by the repository"
+    subjects: [String!]
+    "Provider types"
+    providerTypes: [String!]
+    "Keywords to assist in finding the repository"
+    keywords: [String!]
+    "Access restrictions"
+    access: String
+    "Persistent identifier systems supported"
+    pidSystem: [String!]
+    "Data policies"
+    policies: [String!]
+    "Upload types supported"
+    uploadTypes: [String!]
+    "Certifications held"
+    certificates: [String!]
+    "Software used"
+    software: [String!]
+    "When the repository record was created"
+    createdAt: String
+    "When the repository record was last updated"
+    updatedAt: String
+    "The source of this repository"
+    source: RepositorySource!
+  }
+
+  "Union type for repository search results (can be custom or re3data)"
+  union Repository = CustomRepository | Re3DataRepository
 
   type RepositorySearchResults implements PaginatedQueryResults {
     "The Repository search results that match the search criteria"
@@ -108,12 +162,14 @@ export const typeDefs = gql`
   input RepositorySearchInput {
     "The search term"
     term: String
-    "The repository category/type"
+    "The repository category/type (for custom repositories)"
     repositoryType: RepositoryType
-    "The research domain associated with the repository"
+    "The research domain associated with the repository (for custom repositories)"
     researchDomainId: Int
     "The subject area keyword associated with the repository"
     keyword: String
+    "The subject area from re3data (for re3data repositories)"
+    subject: String
     "The pagination options"
     paginationOptions: PaginationOptions
   }

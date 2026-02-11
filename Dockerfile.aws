@@ -32,7 +32,7 @@ COPY . .
 RUN npm run build
 
 # Prune node_modules to only production-ready ones AFTER build
-RUN npm prune --omit=dev
+RUN npm prune --omit=dev && npm cache clean --force
 
 # Remove all unecessary test and mock files from the distribution
 RUN rm -rf dist/__tests__ \

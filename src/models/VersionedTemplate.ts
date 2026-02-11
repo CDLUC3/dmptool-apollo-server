@@ -256,13 +256,7 @@ export class CustomizableTemplateSearchResult {
       opts.cursorField = 'vt.id';
     }
 
-    const sqlStatement = `
-      SELECT vt.id AS versionedTemplateId, vt.name, vt.version, vt.description,
-             vt.bestPractice, vt.modified AS lastModified,
-             a.uri AS affiliationId, a.name AS affiliationName,
-             tc_sub.templateCustomizationId, tc_sub.status, tc_sub.migrationStatus,
-             tc_sub.isDirty, tc_sub.lastCustomizedById, tc_sub.lastCustomizedByName,
-             tc_sub.lastCustomized
+    const fromClause = `
       FROM versionedTemplates vt
         JOIN affiliations a ON a.uri = vt.ownerId
         LEFT JOIN (
@@ -277,6 +271,16 @@ export class CustomizableTemplateSearchResult {
         ) AS tc_sub ON tc_sub.currentVersionedTemplateId = vt.id
     `;
 
+    const sqlStatement = `
+      SELECT vt.id AS versionedTemplateId, vt.name, vt.version, vt.description,
+             vt.bestPractice, vt.modified AS lastModified,
+             a.uri AS affiliationId, a.name AS affiliationName,
+             tc_sub.templateCustomizationId, tc_sub.status, tc_sub.migrationStatus,
+             tc_sub.isDirty, tc_sub.lastCustomizedById, tc_sub.lastCustomizedByName,
+             tc_sub.lastCustomized
+      ${fromClause}
+    `;
+
     const response: PaginatedQueryResults<CustomizableTemplateSearchResult> = await VersionedTemplate.queryWithPagination(
       context,
       sqlStatement,
@@ -287,15 +291,13 @@ export class CustomizableTemplateSearchResult {
       reference,
       false
     )
+    let items = response.items.map(row => new CustomizableTemplateSearchResult(row));
 
     // Get our own total count because the one in MySQLModel doesn't work for
     // queries where the last FROM clause is a subquery
     const countResponse = await VersionedTemplate.query(
       context,
-      `SELECT COUNT(*) AS count
-       FROM versionedTemplates vt
-         JOIN affiliations a ON a.uri = vt.ownerId
-       WHERE ${whereFilters.join(' AND ')}`,
+      `SELECT COUNT(vt.id) AS count ${fromClause} WHERE ${whereFilters.join(' AND ')}`,
       values,
       reference
     );
@@ -303,38 +305,51 @@ export class CustomizableTemplateSearchResult {
       response.totalCount = countResponse[0]?.count ?? 0;
     }
 
-    // We now need to do a pass to find any orphaned customizations
-    const orphanSql = `
-      SELECT vt.id AS versionedTemplateId, vt.name, vt.version, vt.description,
-             vt.bestPractice, vt.modified AS lastModified,
-             a.uri AS affiliationId, a.name AS affiliationName,
-             tc.id AS templateCustomizationId, tc.status, tc.migrationStatus,
-             tc.isDirty, tc.modifiedById AS lastCustomizedById,
-             CONCAT(u.givenName, ' ', u.surname) AS lastCustomizedByName,
-             tc.modified AS lastCustomized
-      FROM templateCustomizations tc
-        JOIN users u ON tc.modifiedById = u.id
-        JOIN versionedTemplates vt ON vt.id = tc.currentVersionedTemplateId
-            JOIN affiliations a ON a.uri = vt.ownerId
-      WHERE tc.affiliationId = '${userAffiliationId}'
-        AND tc.migrationStatus = 'ORPHANED'
-    `;
-    const orphanResponse = await VersionedTemplate.query(context, orphanSql, [], reference);
-    // If any orphaned customizations were found, add them to the response
-    if (Array.isArray(orphanResponse) && orphanResponse.length > 0) {
-      response.items = response.items.concat(
-        orphanResponse.map(row => new CustomizableTemplateSearchResult(row))
-      );
-      response.totalCount += orphanResponse.length;
+    if (!isNullOrUndefined(migrationStatus) && migrationStatus === TemplateCustomizationMigrationStatus.ORPHANED) {
+      // We now need to do a pass to find any orphaned customizations
+      const orphanSql = `
+        SELECT vt.id                               AS versionedTemplateId,
+               vt.name,
+               vt.version,
+               vt.description,
+               vt.bestPractice,
+               vt.modified                         AS lastModified,
+               a.uri                               AS affiliationId,
+               a.name                              AS affiliationName,
+               tc.id                               AS templateCustomizationId,
+               tc.status,
+               tc.migrationStatus,
+               tc.isDirty,
+               tc.modifiedById                     AS lastCustomizedById,
+               CONCAT(u.givenName, ' ', u.surname) AS lastCustomizedByName,
+               tc.modified                         AS lastCustomized
+        FROM templateCustomizations tc
+               JOIN users u ON tc.modifiedById = u.id
+               JOIN versionedTemplates vt
+                    ON vt.id = tc.currentVersionedTemplateId
+               JOIN affiliations a ON a.uri = vt.ownerId
+        WHERE tc.affiliationId = '${userAffiliationId}'
+          AND tc.migrationStatus = 'ORPHANED'
+      `;
+      const orphanResponse = await VersionedTemplate.query(context, orphanSql, [], reference);
+      // If any orphaned customizations were found, add them to the response
+      if (Array.isArray(orphanResponse) && orphanResponse.length > 0) {
+        items = items.concat(
+          orphanResponse.map(row => new CustomizableTemplateSearchResult(row))
+        );
+        response.totalCount += orphanResponse.length;
+      }
     }
 
     // Sort the response items by the requested sort field and sort direction
-    response.items.sort((a, b) => {
+    items.sort((a, b) => {
       const aVal = a[options.sortField];
       const bVal = b[options.sortField];
       const comparison = aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
       return options.sortDir === 'DESC' ? -comparison : comparison;
     });
+
+    response.items = items;
 
     context.logger.debug(prepareObjectForLogs({ options, response }), reference);
     return response;

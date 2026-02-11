@@ -227,7 +227,7 @@ describe('CustomizableTemplateSearchResult', () => {
       const whereFilters = [
         "vt.active = 1 AND vt.versionType = 'PUBLISHED' AND vt.visibility = 'PUBLIC'",
         "(LOWER(vt.name) LIKE ? OR LOWER(vt.description) LIKE ?)",
-        "vt.ownerId != a.uri",
+        "vt.ownerId != ?",
       ];
       const vals = ['%%', '%%', 'test-affiliation-123'];
 
@@ -240,7 +240,7 @@ describe('CustomizableTemplateSearchResult', () => {
 
       expect(localPaginationQuery).toHaveBeenCalledTimes(1);
       expect(localPaginationQuery).toHaveBeenCalledWith(context, expect.any(String), whereFilters, '', vals, expectedOpts, 'Test', false);
-      expect(localCountQuery).toHaveBeenCalledTimes(2);
+      expect(localCountQuery).toHaveBeenCalledTimes(1);
       expect(localCountQuery).toHaveBeenCalledWith(context, expect.any(String), vals, 'Test');
       expect(result).toEqual(mockResponse);
     });
@@ -268,7 +268,7 @@ describe('CustomizableTemplateSearchResult', () => {
       const whereFilters = [
         "vt.active = 1 AND vt.versionType = 'PUBLISHED' AND vt.visibility = 'PUBLIC'",
         '(LOWER(vt.name) LIKE ? OR LOWER(vt.description) LIKE ?)',
-        "vt.ownerId != a.uri",
+        "vt.ownerId != ?",
       ];
       const vals = ['%test template%', '%test template%', 'test-affiliation-123'];
 
@@ -302,7 +302,7 @@ describe('CustomizableTemplateSearchResult', () => {
         "vt.active = 1 AND vt.versionType = 'PUBLISHED' AND vt.visibility = 'PUBLIC'",
         "(LOWER(vt.name) LIKE ? OR LOWER(vt.description) LIKE ?)",
         'tc_sub.status = ?',
-        "vt.ownerId != a.uri",
+        "vt.ownerId != ?",
       ];
       const vals = ['%%', '%%', status, 'test-affiliation-123'];
 
@@ -336,7 +336,7 @@ describe('CustomizableTemplateSearchResult', () => {
         "vt.active = 1 AND vt.versionType = 'PUBLISHED' AND vt.visibility = 'PUBLIC'",
         "(LOWER(vt.name) LIKE ? OR LOWER(vt.description) LIKE ?)",
         'tc_sub.migrationStatus = ?',
-        "vt.ownerId != a.uri",
+        "vt.ownerId != ?",
       ];
       const vals = ['%%', '%%', migrationStatus, 'test-affiliation-123'];
 
@@ -374,7 +374,7 @@ describe('CustomizableTemplateSearchResult', () => {
         '(LOWER(vt.name) LIKE ? OR LOWER(vt.description) LIKE ?)',
         'tc_sub.status = ?',
         'tc_sub.migrationStatus = ?',
-        "vt.ownerId != a.uri",
+        "vt.ownerId != ?",
       ];
       const vals = ['%template search%', '%template search%', status, migrationStatus, 'test-affiliation-123'];
 

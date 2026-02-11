@@ -25,6 +25,7 @@ import { typeDefs as sectionTypeDefs } from './schemas/section';
 import { typeDefs as superAdminTypeDefs } from './schemas/superAdmin';
 import { typeDefs as tagTypeDefs } from './schemas/tag';
 import { typeDefs as templateTypeDefs } from './schemas/template';
+import { typeDefs as templateCustomizationTypeDefs } from './schemas/templateCustomization';
 import { typeDefs as userTypeDefs } from './schemas/user';
 import { typeDefs as versionedQuestionTypeDefs } from './schemas/versionedQuestion';
 import { typeDefs as versionedGuidanceTypeDefs } from './schemas/versionedGuidance';
@@ -59,6 +60,7 @@ export const typeDefs = mergeTypeDefs([
   superAdminTypeDefs,
   tagTypeDefs,
   templateTypeDefs,
+  templateCustomizationTypeDefs,
   userTypeDefs,
   versionedGuidanceTypeDefs,
   versionedQuestionTypeDefs,

@@ -202,6 +202,12 @@ export type AddSectionInput = {
   templateId: Scalars['Int']['input'];
 };
 
+/** Input parameters for adding a new Template Customization */
+export type AddTemplateCustomizationInput = {
+  status: TemplateCustomizationStatus;
+  versionedTemplateId: Scalars['Int']['input'];
+};
+
 /** A respresentation of an institution, organization or company */
 export type Affiliation = {
   __typename?: 'Affiliation';
@@ -603,6 +609,60 @@ export type ContentMatch = {
   score: Scalars['Float']['output'];
   /** Highlighted title showing relevant matched terms */
   titleHighlight?: Maybe<Scalars['String']['output']>;
+};
+
+export type CustomizableTemplateSearchResult = {
+  __typename?: 'CustomizableTemplateSearchResult';
+  /** The id of the template customization (undefined means the template has not been customized yet) */
+  customizationId?: Maybe<Scalars['Int']['output']>;
+  /** Whether the customization has unpublished changes (if applicable) */
+  customizationIsDirty?: Maybe<Scalars['Boolean']['output']>;
+  /** The timestamp when the customization was last modified (if applicable) */
+  customizationLastCustomized?: Maybe<Scalars['String']['output']>;
+  /** The id of the user who customized the template (if applicable) */
+  customizationLastCustomizedById?: Maybe<Scalars['Int']['output']>;
+  /** The name of the user who last modified the customization (if applicable) */
+  customizationLastCustomizedByName?: Maybe<Scalars['String']['output']>;
+  /** The status of the customization with regard to the published template (if applicable) */
+  customizationMigrationStatus?: Maybe<TemplateCustomizationMigrationStatus>;
+  /** The status of the customization (if applicable) */
+  customizationStatus?: Maybe<TemplateCustomizationStatus>;
+  /** The affiliation uri that owns the published template */
+  versionedTemplateAffiliationId: Scalars['String']['output'];
+  /** The affiliation name that owns the published template */
+  versionedTemplateAffiliationName: Scalars['String']['output'];
+  /** Whether the published template is a best practice template */
+  versionedTemplateBestPractice: Scalars['Boolean']['output'];
+  /** The description of the published template */
+  versionedTemplateDescription?: Maybe<Scalars['String']['output']>;
+  /** The id of the published template */
+  versionedTemplateId: Scalars['Int']['output'];
+  /** The timestamp when the published template was last modified */
+  versionedTemplateLastModified: Scalars['String']['output'];
+  /** The name of the published template */
+  versionedTemplateName: Scalars['String']['output'];
+  /** The version number of the published template */
+  versionedTemplateVersion: Scalars['String']['output'];
+};
+
+export type CustomizableTemplateSearchResults = PaginatedQueryResults & {
+  __typename?: 'CustomizableTemplateSearchResults';
+  /** The sortFields that are available for this query (for standard offset pagination only!) */
+  availableSortFields?: Maybe<Array<Maybe<Scalars['String']['output']>>>;
+  /** The current offset of the results (for standard offset pagination) */
+  currentOffset?: Maybe<Scalars['Int']['output']>;
+  /** Whether or not there is a next page */
+  hasNextPage?: Maybe<Scalars['Boolean']['output']>;
+  /** Whether or not there is a previous page */
+  hasPreviousPage?: Maybe<Scalars['Boolean']['output']>;
+  /** The CustomizableTemplateSearchResult that match the search criteria */
+  items?: Maybe<Array<Maybe<CustomizableTemplateSearchResult>>>;
+  /** The number of items returned */
+  limit?: Maybe<Scalars['Int']['output']>;
+  /** The cursor to use for the next page of results (for infinite scroll/load more) */
+  nextCursor?: Maybe<Scalars['String']['output']>;
+  /** The total number of possible items */
+  totalCount?: Maybe<Scalars['Int']['output']>;
 };
 
 export type DoiMatch = {
@@ -1070,6 +1130,8 @@ export type Mutation = {
   addTemplate?: Maybe<Template>;
   /** Add a collaborator to a Template */
   addTemplateCollaborator?: Maybe<TemplateCollaborator>;
+  /** Add a new customization to a funder template (user must be an Admin) */
+  addTemplateCustomization: TemplateCustomization;
   /** Add an email address for the current user */
   addUserEmail?: Maybe<UserEmail>;
   /** Archive a plan */
@@ -1098,6 +1160,8 @@ export type Mutation = {
   publishGuidanceGroup: GuidanceGroup;
   /** Publish a plan (changes status to PUBLISHED) */
   publishPlan?: Maybe<Plan>;
+  /** Publish a customization (user must be an Admin) */
+  publishTemplateCustomization: TemplateCustomization;
   /** Delete an Affiliation (only applicable to AffiliationProvenance == DMPTOOL) */
   removeAffiliation?: Maybe<Affiliation>;
   /** Remove answer comment */
@@ -1140,6 +1204,8 @@ export type Mutation = {
   removeTag?: Maybe<Tag>;
   /** Remove a TemplateCollaborator from a Template */
   removeTemplateCollaborator?: Maybe<TemplateCollaborator>;
+  /** Remove a customization (user must be an Admin) */
+  removeTemplateCustomization: TemplateCustomization;
   /** Anonymize the current user's account (essentially deletes their account without orphaning things) */
   removeUser?: Maybe<User>;
   /** Remove an email address from the current user */
@@ -1156,6 +1222,8 @@ export type Mutation = {
   superSyncPlanMaDMP: Scalars['Boolean']['output'];
   /** Unpublish a GuidanceGroup (sets active flag to false on current version) */
   unpublishGuidanceGroup: GuidanceGroup;
+  /** Unpublish a customization (user must be an Admin) */
+  unpublishTemplateCustomization: TemplateCustomization;
   /** Update an Affiliation */
   updateAffiliation?: Maybe<Affiliation>;
   /** Edit an answer */
@@ -1212,6 +1280,8 @@ export type Mutation = {
   updateTag?: Maybe<Tag>;
   /** Update a Template */
   updateTemplate?: Maybe<Template>;
+  /** Update a customization (user must be an Admin) */
+  updateTemplateCustomization: TemplateCustomization;
   /** Update the current user's email notifications */
   updateUserNotifications?: Maybe<User>;
   /** Update the current user's information */
@@ -1383,6 +1453,11 @@ export type MutationAddTemplateCollaboratorArgs = {
 };
 
 
+export type MutationAddTemplateCustomizationArgs = {
+  input: AddTemplateCustomizationInput;
+};
+
+
 export type MutationAddUserEmailArgs = {
   email: Scalars['String']['input'];
   isPrimary: Scalars['Boolean']['input'];
@@ -1461,6 +1536,11 @@ export type MutationPublishGuidanceGroupArgs = {
 export type MutationPublishPlanArgs = {
   planId: Scalars['Int']['input'];
   visibility?: InputMaybe<PlanVisibility>;
+};
+
+
+export type MutationPublishTemplateCustomizationArgs = {
+  templateCustomizationId: Scalars['Int']['input'];
 };
 
 
@@ -1573,6 +1653,11 @@ export type MutationRemoveTemplateCollaboratorArgs = {
 };
 
 
+export type MutationRemoveTemplateCustomizationArgs = {
+  templateCustomizationId: Scalars['Int']['input'];
+};
+
+
 export type MutationRemoveUserEmailArgs = {
   email: Scalars['String']['input'];
 };
@@ -1605,6 +1690,11 @@ export type MutationSuperSyncPlanMaDmpArgs = {
 
 export type MutationUnpublishGuidanceGroupArgs = {
   guidanceGroupId: Scalars['Int']['input'];
+};
+
+
+export type MutationUnpublishTemplateCustomizationArgs = {
+  templateCustomizationId: Scalars['Int']['input'];
 };
 
 
@@ -1774,6 +1864,11 @@ export type MutationUpdateTemplateArgs = {
   bestPractice?: InputMaybe<Scalars['Boolean']['input']>;
   name: Scalars['String']['input'];
   templateId: Scalars['Int']['input'];
+};
+
+
+export type MutationUpdateTemplateCustomizationArgs = {
+  input: UpdateTemplateCustomizationInput;
 };
 
 
@@ -2586,6 +2681,8 @@ export type Query = {
   bestPracticeSections?: Maybe<Array<Maybe<VersionedSection>>>;
   /** Get all of the research domains related to the specified top level domain (more nuanced ones) */
   childResearchDomains?: Maybe<Array<Maybe<ResearchDomain>>>;
+  /** Get all of the customizable templates for the current user's affiliation (user must be an Admin) */
+  customizableTemplates?: Maybe<CustomizableTemplateSearchResults>;
   /** Get all of the research output types */
   defaultResearchOutputTypes?: Maybe<Array<Maybe<ResearchOutputType>>>;
   /** Search for a User to add as a collaborator */
@@ -2713,6 +2810,8 @@ export type Query = {
   template?: Maybe<Template>;
   /** Get all of the Users that belong to another affiliation that can edit the Template */
   templateCollaborators?: Maybe<Array<Maybe<TemplateCollaborator>>>;
+  /** Get the specified customization (user must be an Admin) */
+  templateCustomization?: Maybe<TemplateCustomization>;
   /** Get all of the VersionedTemplate for the specified Template (a.k. the Template history) */
   templateVersions?: Maybe<Array<Maybe<VersionedTemplate>>>;
   /** Get all of the top level research domains (the most generic ones) */
@@ -2777,6 +2876,14 @@ export type QueryBestPracticeGuidanceArgs = {
 
 export type QueryChildResearchDomainsArgs = {
   parentResearchDomainId: Scalars['Int']['input'];
+};
+
+
+export type QueryCustomizableTemplatesArgs = {
+  migrationStatus?: InputMaybe<Scalars['String']['input']>;
+  paginationOptions?: InputMaybe<PaginationOptions>;
+  status?: InputMaybe<Scalars['String']['input']>;
+  term?: InputMaybe<Scalars['String']['input']>;
 };
 
 
@@ -3072,6 +3179,11 @@ export type QueryTemplateArgs = {
 
 export type QueryTemplateCollaboratorsArgs = {
   templateId: Scalars['Int']['input'];
+};
+
+
+export type QueryTemplateCustomizationArgs = {
+  templateCustomizationId: Scalars['Int']['input'];
 };
 
 
@@ -3730,6 +3842,53 @@ export type TemplateCollaboratorErrors = {
   userId?: Maybe<Scalars['String']['output']>;
 };
 
+/** A Customization of a funder template */
+export type TemplateCustomization = {
+  __typename?: 'TemplateCustomization';
+  /** The affiliation that the customization belongs to */
+  affiliationId: Scalars['String']['output'];
+  /** The timestamp when the Object was created */
+  created?: Maybe<Scalars['String']['output']>;
+  /** The user who created the Object */
+  createdById?: Maybe<Scalars['Int']['output']>;
+  /** The current published version of the base funder template */
+  currentVersionedTemplateId: Scalars['Int']['output'];
+  /** Errors associated with the Object */
+  errors?: Maybe<TemplateErrors>;
+  /** The unique identifier for the Object */
+  id?: Maybe<Scalars['Int']['output']>;
+  /** Whether the customization has been modified since it was last published */
+  isDirty: Scalars['Boolean']['output'];
+  /** The date this customization was last published */
+  latestPublishedDate?: Maybe<Scalars['String']['output']>;
+  /** The status of the customizations with regard to the base template */
+  migrationStatus: TemplateCustomizationMigrationStatus;
+  /** The timestamp when the Object was last modifed */
+  modified?: Maybe<Scalars['String']['output']>;
+  /** The user who last modified the Object */
+  modifiedById?: Maybe<Scalars['Int']['output']>;
+  /** The status of the customization */
+  status: TemplateCustomizationStatus;
+};
+
+/** The status of a Template Customization with regard to the funder template */
+export type TemplateCustomizationMigrationStatus =
+  /** The customization is tracking the published version of the funder template */
+  | 'OK'
+  /** The customization is tracking a funder template that is no longer published */
+  | 'ORPHANED'
+  /** The customization is tracking an unpublished version of the funder template */
+  | 'STALE';
+
+/** The status of a Template Customization */
+export type TemplateCustomizationStatus =
+  /** The customization has been archived */
+  | 'ARCHIVED'
+  /** The customization is not currently published */
+  | 'DRAFT'
+  /** The customization is published and can be used by researchers */
+  | 'PUBLISHED';
+
 /** A collection of errors related to the Template */
 export type TemplateErrors = {
   __typename?: 'TemplateErrors';
@@ -3987,6 +4146,13 @@ export type UpdateSectionInput = {
   sectionId: Scalars['Int']['input'];
   /** The Tags associated with this section. A section might not have any tags */
   tags?: InputMaybe<Array<TagInput>>;
+};
+
+/** Input parameters for updating a Template Customization */
+export type UpdateTemplateCustomizationInput = {
+  status?: InputMaybe<TemplateCustomizationStatus>;
+  templateCustomizationId: Scalars['Int']['input'];
+  versionedTemplateId: Scalars['Int']['input'];
 };
 
 export type UpdateUserNotificationsInput = {
@@ -4766,6 +4932,7 @@ export type ResolversInterfaceTypes<_RefType extends Record<string, unknown>> = 
   PaginatedQueryResults:
     | ( AffiliationSearchResults )
     | ( CollaboratorSearchResults )
+    | ( CustomizableTemplateSearchResults )
     | ( MetadataStandardSearchResults )
     | ( ProjectSearchResults )
     | ( PublishedTemplateSearchResults )
@@ -4790,6 +4957,7 @@ export type ResolversTypes = {
   AddRelatedWorkManualInput: AddRelatedWorkManualInput;
   AddRepositoryInput: AddRepositoryInput;
   AddSectionInput: AddSectionInput;
+  AddTemplateCustomizationInput: AddTemplateCustomizationInput;
   Affiliation: ResolverTypeWrapper<Affiliation>;
   AffiliationEmailDomain: ResolverTypeWrapper<AffiliationEmailDomain>;
   AffiliationEmailDomainInput: AffiliationEmailDomainInput;
@@ -4812,6 +4980,8 @@ export type ResolversTypes = {
   CollaboratorSearchResult: ResolverTypeWrapper<CollaboratorSearchResult>;
   CollaboratorSearchResults: ResolverTypeWrapper<CollaboratorSearchResults>;
   ContentMatch: ResolverTypeWrapper<ContentMatch>;
+  CustomizableTemplateSearchResult: ResolverTypeWrapper<CustomizableTemplateSearchResult>;
+  CustomizableTemplateSearchResults: ResolverTypeWrapper<CustomizableTemplateSearchResults>;
   DateTimeISO: ResolverTypeWrapper<Scalars['DateTimeISO']['output']>;
   DmspId: ResolverTypeWrapper<Scalars['DmspId']['output']>;
   DoiMatch: ResolverTypeWrapper<DoiMatch>;
@@ -4930,6 +5100,9 @@ export type ResolversTypes = {
   Template: ResolverTypeWrapper<Template>;
   TemplateCollaborator: ResolverTypeWrapper<TemplateCollaborator>;
   TemplateCollaboratorErrors: ResolverTypeWrapper<TemplateCollaboratorErrors>;
+  TemplateCustomization: ResolverTypeWrapper<TemplateCustomization>;
+  TemplateCustomizationMigrationStatus: TemplateCustomizationMigrationStatus;
+  TemplateCustomizationStatus: TemplateCustomizationStatus;
   TemplateErrors: ResolverTypeWrapper<TemplateErrors>;
   TemplateSearchResult: ResolverTypeWrapper<TemplateSearchResult>;
   TemplateSearchResults: ResolverTypeWrapper<TemplateSearchResults>;
@@ -4948,6 +5121,7 @@ export type ResolversTypes = {
   UpdateRelatedWorkStatusInput: UpdateRelatedWorkStatusInput;
   UpdateRepositoryInput: UpdateRepositoryInput;
   UpdateSectionInput: UpdateSectionInput;
+  UpdateTemplateCustomizationInput: UpdateTemplateCustomizationInput;
   UpdateUserNotificationsInput: UpdateUserNotificationsInput;
   UpdateUserProfileInput: UpdateUserProfileInput;
   UpsertRelatedWorkInput: UpsertRelatedWorkInput;
@@ -4992,6 +5166,7 @@ export type ResolversParentTypes = {
   AddRelatedWorkManualInput: AddRelatedWorkManualInput;
   AddRepositoryInput: AddRepositoryInput;
   AddSectionInput: AddSectionInput;
+  AddTemplateCustomizationInput: AddTemplateCustomizationInput;
   Affiliation: Affiliation;
   AffiliationEmailDomain: AffiliationEmailDomain;
   AffiliationEmailDomainInput: AffiliationEmailDomainInput;
@@ -5012,6 +5187,8 @@ export type ResolversParentTypes = {
   CollaboratorSearchResult: CollaboratorSearchResult;
   CollaboratorSearchResults: CollaboratorSearchResults;
   ContentMatch: ContentMatch;
+  CustomizableTemplateSearchResult: CustomizableTemplateSearchResult;
+  CustomizableTemplateSearchResults: CustomizableTemplateSearchResults;
   DateTimeISO: Scalars['DateTimeISO']['output'];
   DmspId: Scalars['DmspId']['output'];
   DoiMatch: DoiMatch;
@@ -5113,6 +5290,7 @@ export type ResolversParentTypes = {
   Template: Template;
   TemplateCollaborator: TemplateCollaborator;
   TemplateCollaboratorErrors: TemplateCollaboratorErrors;
+  TemplateCustomization: TemplateCustomization;
   TemplateErrors: TemplateErrors;
   TemplateSearchResult: TemplateSearchResult;
   TemplateSearchResults: TemplateSearchResults;
@@ -5129,6 +5307,7 @@ export type ResolversParentTypes = {
   UpdateRelatedWorkStatusInput: UpdateRelatedWorkStatusInput;
   UpdateRepositoryInput: UpdateRepositoryInput;
   UpdateSectionInput: UpdateSectionInput;
+  UpdateTemplateCustomizationInput: UpdateTemplateCustomizationInput;
   UpdateUserNotificationsInput: UpdateUserNotificationsInput;
   UpdateUserProfileInput: UpdateUserProfileInput;
   UpsertRelatedWorkInput: UpsertRelatedWorkInput;
@@ -5326,6 +5505,36 @@ export type ContentMatchResolvers<ContextType = MyContext, ParentType extends Re
   abstractHighlights?: Resolver<Array<ResolversTypes['String']>, ParentType, ContextType>;
   score?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   titleHighlight?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+};
+
+export type CustomizableTemplateSearchResultResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['CustomizableTemplateSearchResult'] = ResolversParentTypes['CustomizableTemplateSearchResult']> = {
+  customizationId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  customizationIsDirty?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
+  customizationLastCustomized?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  customizationLastCustomizedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  customizationLastCustomizedByName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  customizationMigrationStatus?: Resolver<Maybe<ResolversTypes['TemplateCustomizationMigrationStatus']>, ParentType, ContextType>;
+  customizationStatus?: Resolver<Maybe<ResolversTypes['TemplateCustomizationStatus']>, ParentType, ContextType>;
+  versionedTemplateAffiliationId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  versionedTemplateAffiliationName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  versionedTemplateBestPractice?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  versionedTemplateDescription?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  versionedTemplateId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  versionedTemplateLastModified?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  versionedTemplateName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  versionedTemplateVersion?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+};
+
+export type CustomizableTemplateSearchResultsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['CustomizableTemplateSearchResults'] = ResolversParentTypes['CustomizableTemplateSearchResults']> = {
+  availableSortFields?: Resolver<Maybe<Array<Maybe<ResolversTypes['String']>>>, ParentType, ContextType>;
+  currentOffset?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  hasNextPage?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
+  hasPreviousPage?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
+  items?: Resolver<Maybe<Array<Maybe<ResolversTypes['CustomizableTemplateSearchResult']>>>, ParentType, ContextType>;
+  limit?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  nextCursor?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  totalCount?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
 export interface DateTimeIsoScalarConfig extends GraphQLScalarTypeConfig<ResolversTypes['DateTimeISO'], any> {
@@ -5580,6 +5789,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   addTag?: Resolver<Maybe<ResolversTypes['Tag']>, ParentType, ContextType, RequireFields<MutationAddTagArgs, 'name'>>;
   addTemplate?: Resolver<Maybe<ResolversTypes['Template']>, ParentType, ContextType, RequireFields<MutationAddTemplateArgs, 'name'>>;
   addTemplateCollaborator?: Resolver<Maybe<ResolversTypes['TemplateCollaborator']>, ParentType, ContextType, RequireFields<MutationAddTemplateCollaboratorArgs, 'email' | 'templateId'>>;
+  addTemplateCustomization?: Resolver<ResolversTypes['TemplateCustomization'], ParentType, ContextType, RequireFields<MutationAddTemplateCustomizationArgs, 'input'>>;
   addUserEmail?: Resolver<Maybe<ResolversTypes['UserEmail']>, ParentType, ContextType, RequireFields<MutationAddUserEmailArgs, 'email' | 'isPrimary'>>;
   archivePlan?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType, RequireFields<MutationArchivePlanArgs, 'planId'>>;
   archiveProject?: Resolver<Maybe<ResolversTypes['Project']>, ParentType, ContextType, RequireFields<MutationArchiveProjectArgs, 'projectId'>>;
@@ -5594,6 +5804,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   projectImport?: Resolver<Maybe<ResolversTypes['Project']>, ParentType, ContextType, Partial<MutationProjectImportArgs>>;
   publishGuidanceGroup?: Resolver<ResolversTypes['GuidanceGroup'], ParentType, ContextType, RequireFields<MutationPublishGuidanceGroupArgs, 'guidanceGroupId'>>;
   publishPlan?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType, RequireFields<MutationPublishPlanArgs, 'planId'>>;
+  publishTemplateCustomization?: Resolver<ResolversTypes['TemplateCustomization'], ParentType, ContextType, RequireFields<MutationPublishTemplateCustomizationArgs, 'templateCustomizationId'>>;
   removeAffiliation?: Resolver<Maybe<ResolversTypes['Affiliation']>, ParentType, ContextType, RequireFields<MutationRemoveAffiliationArgs, 'affiliationId'>>;
   removeAnswerComment?: Resolver<Maybe<ResolversTypes['AnswerComment']>, ParentType, ContextType, RequireFields<MutationRemoveAnswerCommentArgs, 'answerCommentId' | 'answerId'>>;
   removeFeedbackComment?: Resolver<Maybe<ResolversTypes['PlanFeedbackComment']>, ParentType, ContextType, RequireFields<MutationRemoveFeedbackCommentArgs, 'planFeedbackCommentId' | 'planId'>>;
@@ -5615,6 +5826,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   removeSection?: Resolver<ResolversTypes['Section'], ParentType, ContextType, RequireFields<MutationRemoveSectionArgs, 'sectionId'>>;
   removeTag?: Resolver<Maybe<ResolversTypes['Tag']>, ParentType, ContextType, RequireFields<MutationRemoveTagArgs, 'tagId'>>;
   removeTemplateCollaborator?: Resolver<Maybe<ResolversTypes['TemplateCollaborator']>, ParentType, ContextType, RequireFields<MutationRemoveTemplateCollaboratorArgs, 'email' | 'templateId'>>;
+  removeTemplateCustomization?: Resolver<ResolversTypes['TemplateCustomization'], ParentType, ContextType, RequireFields<MutationRemoveTemplateCustomizationArgs, 'templateCustomizationId'>>;
   removeUser?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType>;
   removeUserEmail?: Resolver<Maybe<ResolversTypes['UserEmail']>, ParentType, ContextType, RequireFields<MutationRemoveUserEmailArgs, 'email'>>;
   requestFeedback?: Resolver<Maybe<ResolversTypes['PlanFeedback']>, ParentType, ContextType, RequireFields<MutationRequestFeedbackArgs, 'planId'>>;
@@ -5623,6 +5835,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   setUserOrcid?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationSetUserOrcidArgs, 'orcid'>>;
   superSyncPlanMaDMP?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationSuperSyncPlanMaDmpArgs, 'planId'>>;
   unpublishGuidanceGroup?: Resolver<ResolversTypes['GuidanceGroup'], ParentType, ContextType, RequireFields<MutationUnpublishGuidanceGroupArgs, 'guidanceGroupId'>>;
+  unpublishTemplateCustomization?: Resolver<ResolversTypes['TemplateCustomization'], ParentType, ContextType, RequireFields<MutationUnpublishTemplateCustomizationArgs, 'templateCustomizationId'>>;
   updateAffiliation?: Resolver<Maybe<ResolversTypes['Affiliation']>, ParentType, ContextType, RequireFields<MutationUpdateAffiliationArgs, 'input'>>;
   updateAnswer?: Resolver<Maybe<ResolversTypes['Answer']>, ParentType, ContextType, RequireFields<MutationUpdateAnswerArgs, 'answerId'>>;
   updateAnswerComment?: Resolver<Maybe<ResolversTypes['AnswerComment']>, ParentType, ContextType, RequireFields<MutationUpdateAnswerCommentArgs, 'answerCommentId' | 'answerId' | 'commentText'>>;
@@ -5651,6 +5864,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   updateSectionDisplayOrder?: Resolver<ResolversTypes['ReorderSectionsResult'], ParentType, ContextType, RequireFields<MutationUpdateSectionDisplayOrderArgs, 'newDisplayOrder' | 'sectionId'>>;
   updateTag?: Resolver<Maybe<ResolversTypes['Tag']>, ParentType, ContextType, RequireFields<MutationUpdateTagArgs, 'name' | 'tagId'>>;
   updateTemplate?: Resolver<Maybe<ResolversTypes['Template']>, ParentType, ContextType, RequireFields<MutationUpdateTemplateArgs, 'name' | 'templateId'>>;
+  updateTemplateCustomization?: Resolver<ResolversTypes['TemplateCustomization'], ParentType, ContextType, RequireFields<MutationUpdateTemplateCustomizationArgs, 'input'>>;
   updateUserNotifications?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationUpdateUserNotificationsArgs, 'input'>>;
   updateUserProfile?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationUpdateUserProfileArgs, 'input'>>;
   uploadPlan?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType, RequireFields<MutationUploadPlanArgs, 'projectId'>>;
@@ -5683,7 +5897,7 @@ export interface OrcidScalarConfig extends GraphQLScalarTypeConfig<ResolversType
 }
 
 export type PaginatedQueryResultsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PaginatedQueryResults'] = ResolversParentTypes['PaginatedQueryResults']> = {
-  __resolveType: TypeResolveFn<'AffiliationSearchResults' | 'CollaboratorSearchResults' | 'MetadataStandardSearchResults' | 'ProjectSearchResults' | 'PublishedTemplateSearchResults' | 'RelatedWorkSearchResults' | 'RepositorySearchResults' | 'ResearchDomainSearchResults' | 'TemplateSearchResults' | 'UserSearchResults' | 'VersionedSectionSearchResults', ParentType, ContextType>;
+  __resolveType: TypeResolveFn<'AffiliationSearchResults' | 'CollaboratorSearchResults' | 'CustomizableTemplateSearchResults' | 'MetadataStandardSearchResults' | 'ProjectSearchResults' | 'PublishedTemplateSearchResults' | 'RelatedWorkSearchResults' | 'RepositorySearchResults' | 'ResearchDomainSearchResults' | 'TemplateSearchResults' | 'UserSearchResults' | 'VersionedSectionSearchResults', ParentType, ContextType>;
 };
 
 export type PlanResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['Plan'] = ResolversParentTypes['Plan']> = {
@@ -6055,6 +6269,7 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   bestPracticeGuidance?: Resolver<Array<ResolversTypes['VersionedGuidance']>, ParentType, ContextType, RequireFields<QueryBestPracticeGuidanceArgs, 'tagIds'>>;
   bestPracticeSections?: Resolver<Maybe<Array<Maybe<ResolversTypes['VersionedSection']>>>, ParentType, ContextType>;
   childResearchDomains?: Resolver<Maybe<Array<Maybe<ResolversTypes['ResearchDomain']>>>, ParentType, ContextType, RequireFields<QueryChildResearchDomainsArgs, 'parentResearchDomainId'>>;
+  customizableTemplates?: Resolver<Maybe<ResolversTypes['CustomizableTemplateSearchResults']>, ParentType, ContextType, Partial<QueryCustomizableTemplatesArgs>>;
   defaultResearchOutputTypes?: Resolver<Maybe<Array<Maybe<ResolversTypes['ResearchOutputType']>>>, ParentType, ContextType>;
   findCollaborator?: Resolver<Maybe<ResolversTypes['CollaboratorSearchResults']>, ParentType, ContextType, RequireFields<QueryFindCollaboratorArgs, 'term'>>;
   findWorkByIdentifier?: Resolver<Maybe<ResolversTypes['RelatedWorkSearchResults']>, ParentType, ContextType, Partial<QueryFindWorkByIdentifierArgs>>;
@@ -6119,6 +6334,7 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   tagsBySectionId?: Resolver<Maybe<Array<Maybe<ResolversTypes['Tag']>>>, ParentType, ContextType, RequireFields<QueryTagsBySectionIdArgs, 'sectionId'>>;
   template?: Resolver<Maybe<ResolversTypes['Template']>, ParentType, ContextType, RequireFields<QueryTemplateArgs, 'templateId'>>;
   templateCollaborators?: Resolver<Maybe<Array<Maybe<ResolversTypes['TemplateCollaborator']>>>, ParentType, ContextType, RequireFields<QueryTemplateCollaboratorsArgs, 'templateId'>>;
+  templateCustomization?: Resolver<Maybe<ResolversTypes['TemplateCustomization']>, ParentType, ContextType, RequireFields<QueryTemplateCustomizationArgs, 'templateCustomizationId'>>;
   templateVersions?: Resolver<Maybe<Array<Maybe<ResolversTypes['VersionedTemplate']>>>, ParentType, ContextType, RequireFields<QueryTemplateVersionsArgs, 'templateId'>>;
   topLevelResearchDomains?: Resolver<Maybe<Array<Maybe<ResolversTypes['ResearchDomain']>>>, ParentType, ContextType>;
   user?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<QueryUserArgs, 'userId'>>;
@@ -6429,6 +6645,21 @@ export type TemplateCollaboratorErrorsResolvers<ContextType = MyContext, ParentT
   invitedById?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   templateId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   userId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+};
+
+export type TemplateCustomizationResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['TemplateCustomization'] = ResolversParentTypes['TemplateCustomization']> = {
+  affiliationId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  createdById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  currentVersionedTemplateId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  errors?: Resolver<Maybe<ResolversTypes['TemplateErrors']>, ParentType, ContextType>;
+  id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  isDirty?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  latestPublishedDate?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  migrationStatus?: Resolver<ResolversTypes['TemplateCustomizationMigrationStatus'], ParentType, ContextType>;
+  modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  status?: Resolver<ResolversTypes['TemplateCustomizationStatus'], ParentType, ContextType>;
 };
 
 export type TemplateErrorsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['TemplateErrors'] = ResolversParentTypes['TemplateErrors']> = {
@@ -6845,6 +7076,8 @@ export type Resolvers<ContextType = MyContext> = {
   CollaboratorSearchResult?: CollaboratorSearchResultResolvers<ContextType>;
   CollaboratorSearchResults?: CollaboratorSearchResultsResolvers<ContextType>;
   ContentMatch?: ContentMatchResolvers<ContextType>;
+  CustomizableTemplateSearchResult?: CustomizableTemplateSearchResultResolvers<ContextType>;
+  CustomizableTemplateSearchResults?: CustomizableTemplateSearchResultsResolvers<ContextType>;
   DateTimeISO?: GraphQLScalarType;
   DmspId?: GraphQLScalarType;
   DoiMatch?: DoiMatchResolvers<ContextType>;
@@ -6934,6 +7167,7 @@ export type Resolvers<ContextType = MyContext> = {
   Template?: TemplateResolvers<ContextType>;
   TemplateCollaborator?: TemplateCollaboratorResolvers<ContextType>;
   TemplateCollaboratorErrors?: TemplateCollaboratorErrorsResolvers<ContextType>;
+  TemplateCustomization?: TemplateCustomizationResolvers<ContextType>;
   TemplateErrors?: TemplateErrorsResolvers<ContextType>;
   TemplateSearchResult?: TemplateSearchResultResolvers<ContextType>;
   TemplateSearchResults?: TemplateSearchResultsResolvers<ContextType>;

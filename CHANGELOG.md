@@ -3,6 +3,11 @@
 ## v1.1.0
 
 ### Added
+- Added `customizableTemplates` query and `CustomizableTemplateSearchResult` to the `versionedTemplate` schema and resolver
+- Added `TemplateCustomization` model resolver and schema
+- Added `templateCustomizationService` which handles updating the status of `templateCustomizations` when the customized template is archived or republished
+- Added `findActiveByTemplateId` query to `VersionedTemplate` model
+- Added `VersionedTemplateSearchResult` to `VersionedTemplate` model
 - Added `renovate.json` config file
 - Added `.nvmrc` file
 - Added `processResult` handler to the Plan model to help generate DMP ids when they are missing

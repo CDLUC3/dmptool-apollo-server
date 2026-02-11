@@ -548,7 +548,8 @@ describe('queryWithPagination', () => {
       groupByClause,
       values,
       options,
-      reference
+      reference,
+      true
     );
 
     expect(localPaginatedQueryByCursor).toHaveBeenCalledTimes(1);
@@ -563,7 +564,8 @@ describe('queryWithPagination', () => {
         availableSortFields: [],
         cursorField: 'LOWER(REPLACE(CONCAT(id), \' \', \'_\'))'
       },
-      reference
+      reference,
+      true
     );
     expect(result).toEqual(mockResponse);
   });
@@ -606,7 +608,8 @@ describe('queryWithPagination', () => {
         ...options,
         availableSortFields: []
       },
-      reference
+      reference,
+      true
     );
     expect(result).toEqual(mockResponse);
   });

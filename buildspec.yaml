@@ -19,10 +19,10 @@ phases:
       - export AWS_VERSION=$(aws --version)
 
       # Install trivy for vulnerability scanning
-      - echo "Installing Trivy..."
-      - wget -q "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
-      - tar -zxvf "trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
-      - mv trivy /usr/local/bin/
+      # - echo "Installing Trivy..."
+      # - wget -q "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+      # - tar -zxvf "trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+      # - mv trivy /usr/local/bin/
 
       # Fetch the ECR repository name
       - echo $ECR_REPOSITORY_URI >> .ecr

@@ -45,6 +45,10 @@ RUN rm -rf dist/__tests__ \
 FROM public.ecr.aws/docker/library/node:22.22-alpine3.23 as runner
 WORKDIR /app
 
+COPY package*.json ./
+# Install only prod deps, then DELETE the lockfile so Trivy doesn't see dev deps
+RUN npm ci --omit=dev && rm package-lock.json
+
 ENV NODE_ENV=production
 # Ensure port so it is accessible to our system
 EXPOSE 4000

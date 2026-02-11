@@ -22,6 +22,7 @@ export class Repository extends MySqlModel {
   public uri: string;
   public description?: string;
   public website?: string;
+  public re3dataId?: string;
   public researchDomains: ResearchDomain[];
   public repositoryTypes: RepositoryType[];
   public keywords: string[];
@@ -36,6 +37,7 @@ export class Repository extends MySqlModel {
     this.uri = options.uri;
     this.description = options.description;
     this.website = options.website;
+    this.re3dataId = options.re3dataId;
     this.researchDomains = options.researchDomains ?? [];
     this.repositoryTypes = options.repositoryTypes ?? [];
     this.keywords = options.keywords ?? [];

@@ -173,6 +173,8 @@ export type AddRepositoryInput = {
   keywords?: InputMaybe<Array<Scalars['String']['input']>>;
   /** The name of the repository */
   name: Scalars['String']['input'];
+  /** The re3data identifier if this is a local copy of re3data information (e.g. 'r3d100014782') */
+  re3dataId?: InputMaybe<Scalars['String']['input']>;
   /** The Categories/Types of the repository */
   repositoryTypes?: InputMaybe<Array<Scalars['String']['input']>>;
   /** Research domains associated with the repository */
@@ -627,6 +629,8 @@ export type CustomRepository = {
   modifiedById?: Maybe<Scalars['Int']['output']>;
   /** The name of the repository */
   name: Scalars['String']['output'];
+  /** The re3data identifier if this is a local copy of re3data information (e.g. 'r3d100014782') */
+  re3dataId?: Maybe<Scalars['String']['output']>;
   /** The Categories/Types of the repository */
   repositoryTypes?: Maybe<Array<Scalars['String']['output']>>;
   /** Research domains associated with the repository */
@@ -3454,6 +3458,7 @@ export type RepositoryErrors = {
   general?: Maybe<Scalars['String']['output']>;
   keywords?: Maybe<Scalars['String']['output']>;
   name?: Maybe<Scalars['String']['output']>;
+  re3dataId?: Maybe<Scalars['String']['output']>;
   repositoryTypes?: Maybe<Scalars['String']['output']>;
   researchDomainIds?: Maybe<Scalars['String']['output']>;
   uri?: Maybe<Scalars['String']['output']>;
@@ -4022,6 +4027,8 @@ export type UpdateRepositoryInput = {
   keywords?: InputMaybe<Array<Scalars['String']['input']>>;
   /** The name of the repository */
   name: Scalars['String']['input'];
+  /** The re3data identifier if this is a local copy of re3data information (e.g. 'r3d100014782') */
+  re3dataId?: InputMaybe<Scalars['String']['input']>;
   /** The Categories/Types of the repository */
   repositoryTypes?: InputMaybe<Array<Scalars['String']['input']>>;
   /** Research domains associated with the repository */
@@ -5411,6 +5418,7 @@ export type CustomRepositoryResolvers<ContextType = MyContext, ParentType extend
   modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  re3dataId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   repositoryTypes?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
   researchDomains?: Resolver<Maybe<Array<ResolversTypes['ResearchDomain']>>, ParentType, ContextType>;
   source?: Resolver<ResolversTypes['RepositorySource'], ParentType, ContextType>;
@@ -6367,6 +6375,7 @@ export type RepositoryErrorsResolvers<ContextType = MyContext, ParentType extend
   general?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   keywords?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   name?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  re3dataId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   repositoryTypes?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   researchDomainIds?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   uri?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;

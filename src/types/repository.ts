@@ -10,6 +10,7 @@ export interface CustomRepositoryRecord {
   uri?: string;
   description?: string;
   website?: string;
+  re3dataId?: string;
   keywords?: string[];
   repositoryTypes?: string[];
   createdById?: number;

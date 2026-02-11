@@ -71,6 +71,8 @@ export const typeDefs = gql`
     description: String
     "The website URL"
     website: String
+    "The re3data identifier if this is a local copy of re3data information (e.g. 'r3d100014782')"
+    re3dataId: String
     "Research domains associated with the repository"
     researchDomains: [ResearchDomain!]
     "Keywords to assist in finding the repository"
@@ -158,6 +160,7 @@ export const typeDefs = gql`
     uri: String
     description: String
     website: String
+    re3dataId: String
     researchDomainIds: String
     keywords: String
     repositoryTypes: String
@@ -193,6 +196,8 @@ export const typeDefs = gql`
     repositoryTypes: [String!]
     "The taxonomy URL (do not make this up! should resolve to an HTML/JSON representation of the object)"
     uri: String
+    "The re3data identifier if this is a local copy of re3data information (e.g. 'r3d100014782')"
+    re3dataId: String
   }
 
   input UpdateRepositoryInput {
@@ -210,5 +215,7 @@ export const typeDefs = gql`
     keywords: [String!]
     "The Categories/Types of the repository"
     repositoryTypes: [String!]
+    "The re3data identifier if this is a local copy of re3data information (e.g. 'r3d100014782')"
+    re3dataId: String
   }
 `;

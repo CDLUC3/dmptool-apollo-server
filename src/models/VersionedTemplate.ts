@@ -230,7 +230,7 @@ export class CustomizableTemplateSearchResult {
     }
 
     // We don't want to see templates that belong to the user's affiliation
-    whereFilters.push('vt.ownerId != a.uri');
+    whereFilters.push('vt.ownerId != ?');
     values.push(context.token?.affiliationId);
 
     // Only include template customizations belonging to the user's affiliation

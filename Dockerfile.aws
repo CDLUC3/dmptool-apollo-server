@@ -54,7 +54,6 @@ RUN apk add --no-cache bash
 # Only copy the compiled code and the pruned node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./package.json
 
 # Start the application
 CMD ["node", "dist/index.js"]

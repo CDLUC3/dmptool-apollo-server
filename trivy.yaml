@@ -1,0 +1,6 @@
+pkg:
+  include-dev-deps: false       # Skip scanning devDependencies
+
+vulnerability:
+  ignore-unfixed: true          # Automatically ignore CVEs that don't have a fix yet
+  

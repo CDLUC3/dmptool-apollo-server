@@ -308,10 +308,12 @@ export class CustomizableTemplateSearchResult {
       SELECT vt.id AS versionedTemplateId, vt.name, vt.version, vt.description,
              vt.bestPractice, vt.modified AS lastModified,
              a.uri AS affiliationId, a.name AS affiliationName,
-             tc.templateCustomizationId, tc.status, tc.migrationStatus,
-             tc.isDirty, tc.lastCustomizedById, tc.lastCustomizedByName,
-             tc.lastCustomized
+             tc.id AS templateCustomizationId, tc.status, tc.migrationStatus,
+             tc.isDirty, tc.modifiedById AS lastCustomizedById,
+             CONCAT(u.givenName, ' ', u.surname) AS lastCustomizedByName,
+             tc.modified AS lastCustomized
       FROM templateCustomizations tc
+        JOIN users u ON tc.modifiedById = u.id
         JOIN versionedTemplates vt ON vt.id = tc.currentVersionedTemplateId
             JOIN affiliations a ON a.uri = vt.ownerId
       WHERE tc.affiliationId = '${userAffiliationId}'

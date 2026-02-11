@@ -364,7 +364,7 @@ describe('TemplateCustomization', () => {
 
       const result = await customization.unpublish(mockContext);
 
-      expect(result.errors.general).toBe('Unable to publish the customization');
+      expect(result.errors.general).toBe('Unable to unpublish the customization');
     });
 
     it('should successfully unpublish customization', async () => {

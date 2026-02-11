@@ -205,7 +205,7 @@ export class TemplateCustomization extends MySqlModel {
               return published;
             }
 
-            this.addError('general', 'Unable to publish the customization');
+            this.addError('general', 'Unable to unpublish the customization');
           }
         }
       }

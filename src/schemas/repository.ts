@@ -50,8 +50,8 @@ export const typeDefs = gql`
 
   "A custom repository where research outputs are preserved (database-backed)"
   type CustomRepository {
-    "The unique identifer for the Object"
-    id: Int
+    "The unique identifer for the Object (returns as String for compatibility with Re3DataRepository)"
+    id: String!
     "The user who created the Object"
     createdById: Int
     "The timestamp when the Object was created"
@@ -66,7 +66,7 @@ export const typeDefs = gql`
     "The name of the repository"
     name: String!
     "The taxonomy URL of the repository"
-    uri: String!
+    uri: String
     "A description of the repository"
     description: String
     "The website URL"
@@ -75,8 +75,10 @@ export const typeDefs = gql`
     researchDomains: [ResearchDomain!]
     "Keywords to assist in finding the repository"
     keywords: [String!]
+    "The Categories/Types of the repository (aliases to repositoryTypes for backwards compatibility)"
+    types: [String!]
     "The Categories/Types of the repository"
-    repositoryTypes: [RepositoryType!]
+    repositoryTypes: [String!]
     "The source of this repository"
     source: RepositorySource!
   }
@@ -95,8 +97,10 @@ export const typeDefs = gql`
     contact: String
     "The taxonomy URL of the repository"
     uri: String
-    "Types of repository (e.g. disciplinary, generalist)"
+    "The Categories/Types of the repository (compatible with CustomRepository)"
     types: [String!]
+    "The Categories/Types of the repository (alias for types field)"
+    repositoryTypes: [String!]
     "Subject areas covered by the repository"
     subjects: [String!]
     "Provider types"

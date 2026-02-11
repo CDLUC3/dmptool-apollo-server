@@ -55,18 +55,14 @@ export const resolvers: Resolvers = {
             opts,
           );
 
-          // Add source field to all items for GraphQL type resolution
-          const itemsWithSource = (results.items || []).map((item) => ({
-            ...item,
-            source: isCustomRepository(item)
-              ? RepositorySourceType.CUSTOM
-              : RepositorySourceType.RE3DATA,
-          }));
-
+          // Cast results to RepositorySearchResults
+          // items array contains Repository model instances or Re3DataRepositoryRecord objects
+          // which will be resolved to proper GraphQL types by field resolvers
           return {
             ...results,
-            items: itemsWithSource as any,
-          };
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            items: results.items as any,
+          } as RepositorySearchResults;
         }
         // Unauthorized access
         throw context?.token ? ForbiddenError() : AuthenticationError();
@@ -87,7 +83,9 @@ export const resolvers: Resolvers = {
       try {
         if (isAuthorized(context.token)) {
           const repo = await Repository.findByURI(reference, context, uri);
-          return repo ? { ...repo, source: RepositorySourceType.CUSTOM } : null;
+          // Field resolvers will add the source field
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          return repo as any;
         }
         // Unauthorized access
         throw context?.token ? ForbiddenError() : AuthenticationError();
@@ -131,10 +129,9 @@ export const resolvers: Resolvers = {
       try {
         if (isAuthorized(context.token)) {
           const repos = await Repository.findByURIs(reference, context, uris);
-          return repos.map((repo) => ({
-            ...repo,
-            source: RepositorySourceType.CUSTOM,
-          }));
+          // Field resolvers will add the source field
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          return repos as any;
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();
       } catch (err) {
@@ -198,7 +195,9 @@ export const resolvers: Resolvers = {
           const result = created.hasErrors()
             ? created
             : await Repository.findById(reference, context, created.id);
-          return { ...result, source: RepositorySourceType.CUSTOM };
+          // Field resolvers will add the source field
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          return result as any;
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();
       } catch (err) {
@@ -312,10 +311,13 @@ export const resolvers: Resolvers = {
             const result = updated.hasErrors()
               ? updated
               : await Repository.findById(reference, context, repo.id);
-            return { ...result, source: RepositorySourceType.CUSTOM };
+            // Field resolvers will add the source field
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            return result as any;
           }
           // Otherwise there were errors so return the object with errors
-          return { ...updated, source: RepositorySourceType.CUSTOM };
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          return updated as any;
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();
       } catch (err) {
@@ -357,7 +359,9 @@ export const resolvers: Resolvers = {
 
             // No need to remove the related research domain associations the DB will cascade the deletion
             const result = repo.hasErrors() ? repo : deleted;
-            return { ...result, source: RepositorySourceType.CUSTOM };
+            // Field resolvers will add the source field
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            return result as any;
           } catch (err) {
             context.logger.error(
               prepareObjectForLogs(err),
@@ -448,7 +452,9 @@ export const resolvers: Resolvers = {
 
           // Delete the one we want to remove
           await toRemove.delete(context);
-          return { ...toKeep, source: RepositorySourceType.CUSTOM };
+          // Field resolvers will add the source field
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          return toKeep as any;
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();
       } catch (err) {
@@ -478,15 +484,29 @@ export const resolvers: Resolvers = {
 
   CustomRepository: {
     source: () => RepositorySourceType.CUSTOM,
+    // Convert numeric ID to string for compatibility with Re3DataRepository
+    id: (parent) => {
+      return String(parent.id);
+    },
+    // Alias types to repositoryTypes for compatibility with Re3DataRepository
+    types: (parent) => {
+      return parent.repositoryTypes || [];
+    },
+    repositoryTypes: (parent) => {
+      return parent.repositoryTypes || [];
+    },
     researchDomains: async (
       parent,
       _,
       context: MyContext,
     ) => {
+      // parent.id is the original numeric ID from the database
+      // Convert to number in case it's already been stringified
+      const repoId = typeof parent.id === 'number' ? parent.id : parseInt(parent.id, 10);
       return await ResearchDomain.findByRepositoryId(
         'Chained CustomRepository.researchDomains',
         context,
-        parent.id,
+        repoId,
       );
     },
     created: (parent) => {
@@ -499,6 +519,13 @@ export const resolvers: Resolvers = {
 
   Re3DataRepository: {
     source: () => RepositorySourceType.RE3DATA,
+    // Alias repositoryTypes to types for compatibility with CustomRepository
+    repositoryTypes: (parent) => {
+      return parent.types || [];
+    },
+    types: (parent) => {
+      return parent.types || [];
+    },
   },
 };
 

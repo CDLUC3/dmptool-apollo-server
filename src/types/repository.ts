@@ -1,5 +1,25 @@
 /**
  * ============================================
+ * CUSTOM REPOSITORY TYPES (Database)
+ * ============================================
+ */
+
+export interface CustomRepositoryRecord {
+  id: number | string;
+  name: string;
+  uri?: string;
+  description?: string;
+  website?: string;
+  keywords?: string[];
+  repositoryTypes?: string[];
+  createdById?: number;
+  created?: string;
+  modifiedById?: number;
+  modified?: string;
+}
+
+/**
+ * ============================================
  * RE3DATA REPOSITORY TYPES (OpenSearch/External)
  * ============================================
  */
@@ -125,12 +145,15 @@ export function isRe3DataRepository(
  */
 export function isCustomRepository(
   repo: unknown,
-): repo is any {
+): repo is CustomRepositoryRecord {
   return (
     repo !== null
     && typeof repo === 'object'
     && 'id' in repo
-    && typeof (repo as { id: unknown }).id === 'number'
+    && (typeof (repo as { id: unknown }).id === 'number'
+      || (typeof (repo as { id: unknown }).id === 'string'
+        && !isNaN(Number((repo as { id: unknown }).id))))
+    && !('homepage' in repo) // re3data has homepage, custom doesn't
   );
 }
 

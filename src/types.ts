@@ -617,8 +617,8 @@ export type CustomRepository = {
   description?: Maybe<Scalars['String']['output']>;
   /** Errors associated with the Object */
   errors?: Maybe<RepositoryErrors>;
-  /** The unique identifer for the Object */
-  id?: Maybe<Scalars['Int']['output']>;
+  /** The unique identifer for the Object (returns as String for compatibility with Re3DataRepository) */
+  id: Scalars['String']['output'];
   /** Keywords to assist in finding the repository */
   keywords?: Maybe<Array<Scalars['String']['output']>>;
   /** The timestamp when the Object was last modifed */
@@ -628,13 +628,15 @@ export type CustomRepository = {
   /** The name of the repository */
   name: Scalars['String']['output'];
   /** The Categories/Types of the repository */
-  repositoryTypes?: Maybe<Array<RepositoryType>>;
+  repositoryTypes?: Maybe<Array<Scalars['String']['output']>>;
   /** Research domains associated with the repository */
   researchDomains?: Maybe<Array<ResearchDomain>>;
   /** The source of this repository */
   source: RepositorySource;
+  /** The Categories/Types of the repository (aliases to repositoryTypes for backwards compatibility) */
+  types?: Maybe<Array<Scalars['String']['output']>>;
   /** The taxonomy URL of the repository */
-  uri: Scalars['String']['output'];
+  uri?: Maybe<Scalars['String']['output']>;
   /** The website URL */
   website?: Maybe<Scalars['String']['output']>;
 };
@@ -3279,13 +3281,15 @@ export type Re3DataRepository = {
   policies?: Maybe<Array<Scalars['String']['output']>>;
   /** Provider types */
   providerTypes?: Maybe<Array<Scalars['String']['output']>>;
+  /** The Categories/Types of the repository (alias for types field) */
+  repositoryTypes?: Maybe<Array<Scalars['String']['output']>>;
   /** Software used */
   software?: Maybe<Array<Scalars['String']['output']>>;
   /** The source of this repository */
   source: RepositorySource;
   /** Subject areas covered by the repository */
   subjects?: Maybe<Array<Scalars['String']['output']>>;
-  /** Types of repository (e.g. disciplinary, generalist) */
+  /** The Categories/Types of the repository (compatible with CustomRepository) */
   types?: Maybe<Array<Scalars['String']['output']>>;
   /** When the repository record was last updated */
   updatedAt?: Maybe<Scalars['String']['output']>;
@@ -5402,15 +5406,16 @@ export type CustomRepositoryResolvers<ContextType = MyContext, ParentType extend
   createdById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   description?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   errors?: Resolver<Maybe<ResolversTypes['RepositoryErrors']>, ParentType, ContextType>;
-  id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   keywords?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
   modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  repositoryTypes?: Resolver<Maybe<Array<ResolversTypes['RepositoryType']>>, ParentType, ContextType>;
+  repositoryTypes?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
   researchDomains?: Resolver<Maybe<Array<ResolversTypes['ResearchDomain']>>, ParentType, ContextType>;
   source?: Resolver<ResolversTypes['RepositorySource'], ParentType, ContextType>;
-  uri?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  types?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
+  uri?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   website?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
@@ -6285,6 +6290,7 @@ export type Re3DataRepositoryResolvers<ContextType = MyContext, ParentType exten
   pidSystem?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
   policies?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
   providerTypes?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
+  repositoryTypes?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
   software?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
   source?: Resolver<ResolversTypes['RepositorySource'], ParentType, ContextType>;
   subjects?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;

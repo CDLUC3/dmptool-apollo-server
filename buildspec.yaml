@@ -59,6 +59,10 @@ phases:
       - echo "Running tests"
       - npm run test-no-db
 
+      # Clean up before Docker build so that devDependencies don't pollute the image
+      - echo "Cleaning up node_modules before Docker build..."
+      - rm -rf node_modules
+
       # All is good so build the Docker image
       - echo "Building the Docker image..."
       - docker build -f Dockerfile.aws -t $SHORT_ECR_URI:apollo-latest .

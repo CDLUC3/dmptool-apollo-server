@@ -3,6 +3,8 @@
 ## v1.1.0
 
 ### Added
+- Added `renovate.json` config file
+- Added `.nvmrc` file
 - Added `processResult` handler to the Plan model to help generate DMP ids when they are missing
 - Added `saveMaDMPVersion` function to the `src/services/planService`. This service handles sending the SQS messages to the AWS SQS Queue to trigger the `generateMaDMPRecord` Lambda Function.
 - Added SQS Queue URL env variable to config files (also added to the ECS container definitions)
@@ -21,6 +23,8 @@
 
 ### Updated
 - Removed the template owner and user affiliation id filters from `getAffiliationsWithGuidanceForTemplate` so that the search returns ALL affiliations with guidance for the associated section tags [#29]
+- Updated `buildspec.yaml` to run `trivy` scans, unit tests and `npm audit`
+- Unpegged dependencies in `package.json`
 - Started updating files to use JSDoc format
 - Updated `answer`, `funding`, `member`, `plan` and `project` resolvers to use the new `saveMaDMPVersion` function to update maDMP records.
 - Updated `superAdmin` resolver and replaced existing functions with one that allows us to force the recreation of a maDMP record for a specified plan id.

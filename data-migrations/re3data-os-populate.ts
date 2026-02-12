@@ -300,7 +300,11 @@ async function syncRe3Data() {
           uri: getText(repoDoc, "//r3d:repositoryIdentifier"),
 
           types: getAllText(repoDoc, "//r3d:type"),
-          subjects: getAllText(repoDoc, "//r3d:subject"),
+          // Normalize subjects: remove any leading numbers and whitespace (e.g. "3 Natural Sciences" -> "Natural Sciences")
+          subjects: getAllText(repoDoc, "//r3d:subject")
+            .map(s => s.replace(/^\s*\d+\s*/, '').trim())
+            .filter(s => s !== ''),
+
           provider_types: getAllText(repoDoc, "//r3d:providerType"),
           keywords: getAllText(repoDoc, "//r3d:keyword"),
 

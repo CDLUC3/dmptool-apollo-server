@@ -1,4 +1,4 @@
-import { DOMParser } from 'xmldom';
+import { DOMParser } from '@xmldom/xmldom';
 import * as xpath from 'xpath';
 import { Client } from '@opensearch-project/opensearch';
 import yargs from 'yargs';
@@ -38,7 +38,7 @@ const DRY_RUN = Boolean(argv['dry-run']);
 const VERBOSE = Boolean(argv.verbose);
 
 const client = new Client({ node: OPENSEARCH_CONFIG.node });
-const ns = { r3d: 'https://www.re3data.org/schema/2-2' };
+const ns = { r3d: 'http://www.re3data.org/schema/2-2' };
 
 const getText = (node: Node, path: string): string => {
   const select = xpath.useNamespaces(ns);
@@ -293,32 +293,32 @@ async function syncRe3Data() {
 
         const repositoryData = {
           id: id,
-          name: getText(repoDoc, "//r3d:repositoryName"),
-          description: getText(repoDoc, "//r3d:description"),
-          homepage: getText(repoDoc, "//r3d:repositoryURL"),
-          contact: getText(repoDoc, "//r3d:repositoryContact"),
-          uri: getText(repoDoc, "//r3d:repositoryIdentifier"),
+          name: getText(repoDoc, "//r3d:repository/r3d:repositoryName"),
+          description: getText(repoDoc, "//r3d:repository/r3d:description"),
+          homepage: getText(repoDoc, "//r3d:repository/r3d:repositoryURL"),
+          contact: getText(repoDoc, "//r3d:repository/r3d:repositoryContact"),
+          uri: getText(repoDoc, "//r3d:repository/r3d:repositoryIdentifier"),
 
-          types: getAllText(repoDoc, "//r3d:type"),
+          types: getAllText(repoDoc, "//r3d:repository/r3d:type"),
           // Normalize subjects: remove any leading numbers and whitespace (e.g. "3 Natural Sciences" -> "Natural Sciences")
-          subjects: getAllText(repoDoc, "//r3d:subject")
+          subjects: getAllText(repoDoc, "//r3d:repository/r3d:subject")
             .map(s => s.replace(/^\s*\d+\s*/, '').trim())
             .filter(s => s !== ''),
 
-          provider_types: getAllText(repoDoc, "//r3d:providerType"),
-          keywords: getAllText(repoDoc, "//r3d:keyword"),
+          provider_types: getAllText(repoDoc, "//r3d:repository/r3d:providerType"),
+          keywords: getAllText(repoDoc, "//r3d:repository/r3d:keyword"),
 
           access: (() => {
-            const type = getText(repoDoc, "//r3d:databaseAccess/r3d:databaseAccessType");
-            const restrictions = getAllText(repoDoc, "//r3d:databaseAccess/r3d:databaseAccessRestriction");
+            const type = getText(repoDoc, "//r3d:repository/r3d:databaseAccess/r3d:databaseAccessType");
+            const restrictions = getAllText(repoDoc, "//r3d:repository/r3d:databaseAccess/r3d:databaseAccessRestriction");
             return restrictions.length > 0 ? `${type} (${restrictions.join(', ')})` : type;
           })(),
-          pid_system: getAllText(repoDoc, "//r3d:pidSystem"),
-          policies: getAllText(repoDoc, "//r3d:policy/r3d:policyName"),
-          upload_types: getAllText(repoDoc, "//r3d:dataUpload/r3d:dataUploadType"),
+          pid_system: getAllText(repoDoc, "//r3d:repository/r3d:pidSystem"),
+          policies: getAllText(repoDoc, "//r3d:repository/r3d:policy/r3d:policyName"),
+          upload_types: getAllText(repoDoc, "//r3d:repository/r3d:dataUpload/r3d:dataUploadType"),
 
-          certificates: getAllText(repoDoc, "//r3d:certificate"),
-          software: getAllText(repoDoc, "//r3d:software/r3d:softwareName"),
+          certificates: getAllText(repoDoc, "//r3d:repository/r3d:certificate"),
+          software: getAllText(repoDoc, "//r3d:repository/r3d:software/r3d:softwareName"),
 
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()

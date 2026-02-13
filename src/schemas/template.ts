@@ -10,7 +10,7 @@ export const typeDefs = gql`
 
   extend type Mutation {
     "Create a new Template. Leave the 'copyFromTemplateId' blank to create a new template from scratch"
-    addTemplate(name: String!, copyFromTemplateId: Int): Template
+    addTemplate(name: String!, copyFromTemplateId: Int, copyFromVersionedTemplateId: Int): Template
     "Update a Template"
     updateTemplate(templateId: Int!, name: String!, bestPractice: Boolean): Template
     "Archive a Template (unpublishes any associated PublishedTemplate"
@@ -50,6 +50,8 @@ export const typeDefs = gql`
     ownerId: String
     "The display name of the affiliation that owns the Template"
     ownerDisplayName: String
+    "versionedTemplateId of the template"
+    latestVersionedTemplateId: Int
     "The id of the person who created the template"
     createdById: Int
     "the name of the person who created the template"
@@ -101,6 +103,8 @@ export const typeDefs = gql`
 
     "The template that this one was derived from"
     sourceTemplateId: Int
+    "The versioned template that this one was derived from"
+    sourceVersionedTemplateId: Int
     "The name/title of the template"
     name: String!
     "A description of the purpose of the template"
@@ -134,6 +138,7 @@ export const typeDefs = gql`
     general: String
 
     sourceTemplateId: String
+    sourceVersionedTemplateId: String
     name: String
     description: String
     ownerId: String

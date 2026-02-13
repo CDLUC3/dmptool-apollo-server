@@ -3,7 +3,9 @@ import { Template, TemplateSearchResult, TemplateVisibility } from "../models/Te
 import { Affiliation } from "../models/Affiliation";
 import { TemplateCollaborator } from "../models/Collaborator";
 import { Section } from "../models/Section";
-import { Question } from '../models/Question';
+import { Question } from "../models/Question";
+import { VersionedSection } from '../models/VersionedSection';
+import { VersionedQuestion } from "../models/VersionedQuestion";
 import { User, UserRole } from '../models/User';
 import { MyContext } from "../context";
 import { cloneTemplate, generateTemplateVersion, hasPermissionOnTemplate } from "../services/templateService";
@@ -78,19 +80,68 @@ export const resolvers: Resolvers = {
   },
 
   Mutation: {
-    // Add a new template by copying an existing one or starting from scratch (copyFromTemplateId left blank).
+    // Add a new template by copying an existing one or starting from scratch.
+    //    - copyFromTemplateId: Copy from working template (must be owned by admin)
+    //    - copyFromVersionedTemplateId: Copy from published version (any published template)
     //    - called by the Template Builder - prior template selection page AND the initial page
-    addTemplate: async (_, { name, copyFromTemplateId }, context: MyContext): Promise<Template> => {
+    addTemplate: async (_, { name, copyFromTemplateId, copyFromVersionedTemplateId }, context: MyContext): Promise<Template> => {
       const reference = 'addTemplate resolver';
       try {
         if (isAdmin(context.token)) {
           let template: Template;
-          if (copyFromTemplateId) {
-            // Fetch the Template we are cloning
-            const original = await Template.findById(reference, context, copyFromTemplateId);
-            template = cloneTemplate(context.token?.id, context.token.affiliationId, original);
-            template.name = name;
+          let adminOwnsTemplate = false;
+          let sourceTemplateId: number;
+
+          // Validate that only one copy source is provided
+          if (copyFromTemplateId && copyFromVersionedTemplateId) {
+            template = new Template({ name, ownerId: context.token.affiliationId });
+            template.addError('general', 'Cannot specify both copyFromTemplateId and copyFromVersionedTemplateId');
+            return template;
           }
+
+          if (copyFromTemplateId) {
+            // Copy from a working template (must be owned by admin)
+            const originalTemplate = await Template.findById(reference, context, copyFromTemplateId);
+            
+            if (originalTemplate) {
+              // Check if the admin owns this template
+              if (originalTemplate.ownerId === context.token.affiliationId) {
+                adminOwnsTemplate = true;
+                sourceTemplateId = copyFromTemplateId;
+                template = cloneTemplate(context.token?.id, context.token.affiliationId, originalTemplate);
+                template.name = name;
+                template.sourceTemplateId = copyFromTemplateId;
+                template.sourceVersionedTemplateId = null;
+              } else {
+                // Admin doesn't own this template, cannot copy from working version
+                template = new Template({ name, ownerId: context.token.affiliationId });
+                template.addError('general', 'You do not have permission to copy from this template. Use the published version instead.');
+                return template;
+              }
+            } else {
+              // Template not found
+              template = new Template({ name, ownerId: context.token.affiliationId });
+              template.addError('general', 'Template not found');
+              return template;
+            }
+          } else if (copyFromVersionedTemplateId) {
+            // Copy from a published versioned template (any published template)
+            const versionedTemplate = await VersionedTemplate.findById(reference, context, copyFromVersionedTemplateId);
+            
+            if (versionedTemplate) {
+              adminOwnsTemplate = false; // Always copy from versioned tables
+              template = cloneTemplate(context.token?.id, context.token.affiliationId, versionedTemplate);
+              template.name = name;
+              template.sourceTemplateId = null;
+              template.sourceVersionedTemplateId = copyFromVersionedTemplateId;
+            } else {
+              // Versioned template not found
+              template = new Template({ name, ownerId: context.token.affiliationId });
+              template.addError('general', 'Published template version not found');
+              return template;
+            }
+          }
+
           if (!template) {
             // Create a new blank template
             template = new Template({ name, ownerId: context.token.affiliationId });
@@ -105,42 +156,71 @@ export const resolvers: Resolvers = {
             template.addError('general', 'Unable to create Template');
           }
 
-          if (templateId && copyFromTemplateId && !newTemplate.hasErrors()) {
-            // Fetch and copy sections to sections table for new template
-            const sections = await Section.findByTemplateId(reference, context, copyFromTemplateId);
+          if (templateId && (copyFromTemplateId || copyFromVersionedTemplateId) && !newTemplate.hasErrors()) {
+            if (adminOwnsTemplate) {
+              // Copy from working tables (templates, sections, questions)
+              const sections = await Section.findByTemplateId(reference, context, sourceTemplateId);
 
-            for (const section of sections) {
-              const sectionId = section.id;
-              const newSection = cloneSection(context.token?.id, templateId, section);
-              if (newSection && !newSection.hasErrors()) {
-                const createdSection = await newSection.create(context, templateId);
+              for (const section of sections) {
+                const sectionId = section.id;
+                const newSection = cloneSection(context.token?.id, templateId, section);
+                if (newSection && !newSection.hasErrors()) {
+                  const createdSection = await newSection.create(context, templateId);
+                  const createdSectionId = createdSection.id;
 
-                const createdSectionId = createdSection.id;
+                  // Fetch and copy all related questions from questions table
+                  const questions = await Question.findBySectionId(reference, context, sectionId);
 
-                //Fetch and copy all related questions to copy to questions table for new template
-                const questions = await Question.findBySectionId(
-                  reference,
-                  context,
-                  sectionId //original sectionId since we are copying to the questions table, not versionedQuestions table
-                );
-
-                for (const q of questions) {
-                  const question = cloneQuestion(context.token?.id, templateId, createdSectionId, q);
-                  if (question) {
-                    const newQuestion = await question.create(context);
-                    if (newQuestion && newQuestion.hasErrors()) {
-                      context.logger.error(`${reference} failed to clone question`);
-                      newTemplate.addError('questions', 'Created Template but unable to clone all questions');
+                  for (const q of questions) {
+                    const question = cloneQuestion(context.token?.id, templateId, createdSectionId, q);
+                    if (question) {
+                      const newQuestion = await question.create(context);
+                      if (newQuestion && newQuestion.hasErrors()) {
+                        context.logger.error(`${reference} failed to clone question`);
+                        newTemplate.addError('questions', 'Created Template but unable to clone all questions');
+                      }
                     }
                   }
+                } else {
+                  context.logger.error(`${reference} failed to clone section`);
+                  newTemplate.addError('sections', 'Created Template but unable to clone all sections');
                 }
-              } else {
-                context.logger.error(`${reference} failed to clone section`);
-                newTemplate.addError('sections', 'Created Template but unable to clone all sections');
+              }
+            } else {
+              // Copy from published/versioned tables (versionedTemplates, versionedSections, versionedQuestions)
+              const versionedSections = await VersionedSection.findByTemplateId(reference, context, copyFromVersionedTemplateId);
+
+              for (const versionedSection of versionedSections) {
+                const versionedSectionId = versionedSection.id;
+                const section = cloneSection(context.token?.id, templateId, versionedSection);
+                if (section && !section.hasErrors()) {
+                  const newSection = await section.create(context, templateId);
+                  const sectionId = newSection.id;
+
+                  // Fetch and copy all related versionedQuestions to questions table
+                  const versionedQuestions = await VersionedQuestion.findByVersionedSectionId(
+                    reference,
+                    context,
+                    versionedSectionId
+                  );
+
+                  for (const versionedQuestion of versionedQuestions) {
+                    const question = await cloneQuestion(context.token?.id, templateId, sectionId, versionedQuestion);
+                    if (question) {
+                      const newQuestion = await question.create(context);
+                      if (newQuestion && newQuestion.hasErrors()) {
+                        context.logger.error(`${reference} failed to clone question`);
+                        newTemplate.addError('questions', 'Created Template but unable to clone all questions');
+                      }
+                    }
+                  }
+                } else {
+                  context.logger.error(`${reference} failed to clone section`);
+                  newTemplate.addError('sections', 'Created Template but unable to clone all sections');
+                }
               }
             }
           }
-
 
           return newTemplate;
         }
@@ -314,6 +394,17 @@ export const resolvers: Resolvers = {
       if (parent.ownerId) {
         const owner = await Affiliation.findByURI('TemplateSearchResult.owner', context, parent.ownerId);
         return owner?.displayName || null;
+      }
+      return null;
+    },
+    latestVersionedTemplateId: async (parent: TemplateSearchResult, _, context: MyContext): Promise<number | null> => {
+      if (parent.id && parent.latestPublishVersion) {
+        const versionedTemplate = await VersionedTemplate.findActiveByTemplateId(
+          'TemplateSearchResult.latestVersionedTemplateId',
+          context,
+          parent.id
+        );
+        return versionedTemplate?.id || null;
       }
       return null;
     },

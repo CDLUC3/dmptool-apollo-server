@@ -10,10 +10,6 @@ Why blue-green?
 - Zero-downtime swaps: the alias is updated atomically so consumers using the alias see no partial data.
 - Allows a safe full reindex and then swap when ready.
 
-Location
-- Script: `data-migrations/re3data-os-populate.ts`
-- Mapping reference: `data-migrations/open-search-init.sh` (the script uses the same mappings/settings).
-
 Key behaviors
 - Creates a new index using the configured prefix and the next numeric suffix.
 - Indexes documents in bulk.
@@ -54,7 +50,7 @@ Output will include a selected new index name and alias actions (e.g., remove ol
 
 ```bash
 # Note: Ensure OPENSEARCH_NODE is reachable and writable. This will create an index and delete old ones.
-npm run re3data:sync -- --limit=0 --batch-size=200 --node=http://localhost:9200 --index=re3data-idx --alias=re3data
+npm run re3data:sync -- --limit=0 --node=http://localhost:9200 --index=re3data-idx --alias=re3data
 ```
 
 - `--limit=0` means no artificial limit — the script will process all repositories returned by the API. Use caution when running without `--dry-run`.

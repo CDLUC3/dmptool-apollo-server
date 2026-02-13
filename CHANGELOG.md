@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added new field, `sourceVersionedTemplateId` field to `templates` table so we can track the source when cloned from a `versionedTemplates` record [#1006]
 - Added `customizableTemplates` query and `CustomizableTemplateSearchResult` to the `versionedTemplate` schema and resolver
 - Added `TemplateCustomization` model resolver and schema
 - Added `templateCustomizationService` which handles updating the status of `templateCustomizations` when the customized template is archived or republished

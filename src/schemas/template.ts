@@ -50,8 +50,6 @@ export const typeDefs = gql`
     ownerId: String
     "The display name of the affiliation that owns the Template"
     ownerDisplayName: String
-    "versionedTemplateId of the template"
-    latestVersionedTemplateId: Int
     "The id of the person who created the template"
     createdById: Int
     "the name of the person who created the template"

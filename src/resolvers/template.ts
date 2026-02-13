@@ -112,12 +112,7 @@ export const resolvers: Resolvers = {
                 template.name = name;
                 template.sourceTemplateId = copyFromTemplateId;
                 template.sourceVersionedTemplateId = null;
-              } else {
-                // Admin doesn't own this template, cannot copy from working version
-                template = new Template({ name, ownerId: context.token.affiliationId });
-                template.addError('general', 'You do not have permission to copy from this template. Use the published version instead.');
-                return template;
-              }
+              } 
             } else {
               // Template not found
               template = new Template({ name, ownerId: context.token.affiliationId });
@@ -394,17 +389,6 @@ export const resolvers: Resolvers = {
       if (parent.ownerId) {
         const owner = await Affiliation.findByURI('TemplateSearchResult.owner', context, parent.ownerId);
         return owner?.displayName || null;
-      }
-      return null;
-    },
-    latestVersionedTemplateId: async (parent: TemplateSearchResult, _, context: MyContext): Promise<number | null> => {
-      if (parent.id && parent.latestPublishVersion) {
-        const versionedTemplate = await VersionedTemplate.findActiveByTemplateId(
-          'TemplateSearchResult.latestVersionedTemplateId',
-          context,
-          parent.id
-        );
-        return versionedTemplate?.id || null;
       }
       return null;
     },

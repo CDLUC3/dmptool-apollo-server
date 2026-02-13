@@ -3932,8 +3932,6 @@ export type TemplateSearchResult = {
   latestPublishVersion?: Maybe<Scalars['String']['output']>;
   /** Visibility set for the last published template */
   latestPublishVisibility?: Maybe<TemplateVisibility>;
-  /** versionedTemplateId of the template */
-  latestVersionedTemplateId?: Maybe<Scalars['Int']['output']>;
   /** The timestamp when the Template was last modified */
   modified?: Maybe<Scalars['String']['output']>;
   /** The id of the person who last modified the template */
@@ -6694,7 +6692,6 @@ export type TemplateSearchResultResolvers<ContextType = MyContext, ParentType ex
   latestPublishDate?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   latestPublishVersion?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   latestPublishVisibility?: Resolver<Maybe<ResolversTypes['TemplateVisibility']>, ParentType, ContextType>;
-  latestVersionedTemplateId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   modifiedByName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;

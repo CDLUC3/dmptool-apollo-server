@@ -145,6 +145,31 @@ export const resolvers: Resolvers = {
       }
     },
 
+    // Return re3data repositories matching a list of unique URIs
+    re3byURIs: async (_, { uris }, context: MyContext) => {
+      const reference = 're3byURIs resolver';
+      try {
+        if (isAuthorized(context.token)) {
+          const repos = await RepositoryService.searchRe3DataByURIs(
+            reference,
+            context,
+            uris,
+          );
+          // Field resolvers will add the source field
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          return repos as any;
+        }
+        throw context?.token ? ForbiddenError() : AuthenticationError();
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+        context.logger.error(
+          prepareObjectForLogs(err),
+          `Failure in ${reference}`,
+        );
+        throw InternalServerError();
+      }
+    },
+
     // Return all distinct subject strings from re3data with optional counts
     re3SubjectList: async (_, { input }, context: MyContext) => {
       const reference = 're3SubjectList resolver';

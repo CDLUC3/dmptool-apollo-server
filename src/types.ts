@@ -2720,6 +2720,8 @@ export type Query = {
   questions?: Maybe<Array<Maybe<Question>>>;
   /** return all distinct subject strings from re3data with optional counts */
   re3SubjectList: Re3SubjectListResults;
+  /** return all re3data repositories whose unique uri values are provided */
+  re3byURIs?: Maybe<Array<Re3DataRepository>>;
   /** Return the recommended Licenses */
   recommendedLicenses?: Maybe<Array<Maybe<License>>>;
   /** Get all of the related works for a project or plan */
@@ -3036,6 +3038,11 @@ export type QueryQuestionsArgs = {
 
 export type QueryRe3SubjectListArgs = {
   input?: InputMaybe<Re3SubjectListInput>;
+};
+
+
+export type QueryRe3byUrIsArgs = {
+  uris: Array<Scalars['String']['input']>;
 };
 
 
@@ -6240,6 +6247,7 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   questionConditions?: Resolver<Maybe<Array<Maybe<ResolversTypes['QuestionCondition']>>>, ParentType, ContextType, RequireFields<QueryQuestionConditionsArgs, 'questionId'>>;
   questions?: Resolver<Maybe<Array<Maybe<ResolversTypes['Question']>>>, ParentType, ContextType, RequireFields<QueryQuestionsArgs, 'sectionId'>>;
   re3SubjectList?: Resolver<ResolversTypes['Re3SubjectListResults'], ParentType, ContextType, Partial<QueryRe3SubjectListArgs>>;
+  re3byURIs?: Resolver<Maybe<Array<ResolversTypes['Re3DataRepository']>>, ParentType, ContextType, RequireFields<QueryRe3byUrIsArgs, 'uris'>>;
   recommendedLicenses?: Resolver<Maybe<Array<Maybe<ResolversTypes['License']>>>, ParentType, ContextType, RequireFields<QueryRecommendedLicensesArgs, 'recommended'>>;
   relatedWorks?: Resolver<Maybe<ResolversTypes['RelatedWorkSearchResults']>, ParentType, ContextType, RequireFields<QueryRelatedWorksArgs, 'id' | 'idType'>>;
   relatedWorksByPlanStats?: Resolver<Maybe<ResolversTypes['RelatedWorkStatsResults']>, ParentType, ContextType, RequireFields<QueryRelatedWorksByPlanStatsArgs, 'planId'>>;

@@ -223,6 +223,55 @@ export class OpenSearchService {
     }
   }
 
+  public async findRe3DataByURIs(context: MyContext, uris: string[]): Promise<Re3DataRepositoryRecord[]> {
+    // If no URIs provided, return empty array
+    if (!uris || uris.length === 0) {
+      return [];
+    }
+
+    let response: unknown;
+    try {
+      response = await this.client.search({
+        index: 're3data',
+        body: {
+          size: uris.length,
+          query: {
+            terms: {
+              uri: uris,
+            },
+          },
+        },
+      });
+    } catch (err) {
+      context.logger.error(prepareObjectForLogs(err), `Error fetching re3data repositories by URIs from OpenSearch`);
+
+      throw new GraphQLError("Service temporarily unavailable", {
+        extensions: {
+          code: "SERVICE_UNAVAILABLE",
+          service: "opensearch",
+          details: "We are having trouble connecting to the search service, if the error persists please report the error."
+        }
+      });
+    }
+
+    try {
+      const body = (response as { body: { hits: { hits: OpenSearchRe3DataHit[] } } }).body;
+      return body.hits.hits.map((hit: OpenSearchRe3DataHit) => {
+        return convertRe3DataToCamelCase(hit._source);
+      });
+    } catch (err) {
+      context.logger.error(prepareObjectForLogs(err), `Error converting OpenSearch response for re3data by URIs`);
+
+      throw new GraphQLError("Unexpected response format from search service.", {
+        extensions: {
+          code: "INTERNAL_SERVER_ERROR",
+          service: "opensearch",
+          details: "Unexpected response format from search service."
+        }
+      });
+    }
+  }
+
   public async findRe3DataSubjects(context: MyContext, includeCount: boolean, maxResults: number): Promise<{ subject: string; count?: number }[]> {
     let response: unknown;
     try {
@@ -301,6 +350,9 @@ export const openSearchFindWorkByIdentifier = (reference: string, context: MyCon
 
 export const openSearchFindRe3Data = (term: string | null | undefined, context: MyContext, subject: string | null | undefined, type: string | null | undefined, maxResults: number) =>
   openSearchService.findRe3Data(term, context, subject, type, maxResults);
+
+export const openSearchFindRe3DataByURIs = (context: MyContext, uris: string[]) =>
+  openSearchService.findRe3DataByURIs(context, uris);
 
 export const openSearchFindRe3DataSubjects = (context: MyContext, includeCount: boolean, maxResults: number) =>
   openSearchService.findRe3DataSubjects(context, includeCount, maxResults);

@@ -10,6 +10,8 @@ export const typeDefs = gql`
     repositorySubjectAreas: [String!]
     "return all repositories whose unique uri values are provided"
     repositoriesByURIs(uris: [String!]!): [CustomRepository!]
+    "return all re3data repositories whose unique uri values are provided"
+    re3byURIs(uris: [String!]!): [Re3DataRepository!]
     "return all distinct subject strings from re3data with optional counts"
     re3SubjectList(input: Re3SubjectListInput): Re3SubjectListResults!
   }

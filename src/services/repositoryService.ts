@@ -8,7 +8,7 @@ import {
   PaginatedQueryResults,
   PaginationOptions,
 } from '../types/general';
-import { openSearchFindRe3Data } from './openSearchService';
+import { openSearchFindRe3Data, openSearchFindRe3DataByURIs } from './openSearchService';
 
 /**
  * RepositoryService
@@ -78,6 +78,28 @@ export const RepositoryService = {
         `Error in RepositoryService.searchCombined`,
       );
       throw err;
+    }
+  },
+
+  /**
+   * Search re3data repositories by their URIs
+   *
+   * Fetches re3data repositories from OpenSearch using provided URIs.
+   * Returns an array of Re3DataRepositoryRecord objects.
+   */
+  async searchRe3DataByURIs(
+    reference: string,
+    context: MyContext,
+    uris: string[],
+  ): Promise<Re3DataRepositoryRecord[]> {
+    try {
+      return await openSearchFindRe3DataByURIs(context, uris);
+    } catch (err) {
+      context.logger.warn(
+        prepareObjectForLogs(err),
+        `Re3data by URIs search failed in ${reference}`,
+      );
+      return [];
     }
   },
 };

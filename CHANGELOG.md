@@ -60,6 +60,8 @@
 - Removed deprecated `@types/bcrypt` and `uuidv4` packages
 - Removed `ioredis` package
 
+### Fixed
+- Fixed issue with templates not cloning with sections and questions by updating the `addTemplate` mutation to clone from non-versioned template, section and question [#1006]
 ## v1.0
 
 ### Updated

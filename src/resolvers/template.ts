@@ -3,8 +3,7 @@ import { Template, TemplateSearchResult, TemplateVisibility } from "../models/Te
 import { Affiliation } from "../models/Affiliation";
 import { TemplateCollaborator } from "../models/Collaborator";
 import { Section } from "../models/Section";
-import { VersionedSection } from '../models/VersionedSection';
-import { VersionedQuestion } from "../models/VersionedQuestion";
+import { Question } from '../models/Question';
 import { User, UserRole } from '../models/User';
 import { MyContext } from "../context";
 import { cloneTemplate, generateTemplateVersion, hasPermissionOnTemplate } from "../services/templateService";
@@ -87,8 +86,8 @@ export const resolvers: Resolvers = {
         if (isAdmin(context.token)) {
           let template: Template;
           if (copyFromTemplateId) {
-            // Fetch the VersionedTemplate we are cloning
-            const original = await VersionedTemplate.findVersionedTemplateById(reference, context, copyFromTemplateId);
+            // Fetch the Template we are cloning
+            const original = await Template.findById(reference, context, copyFromTemplateId);
             template = cloneTemplate(context.token?.id, context.token.affiliationId, original);
             template.name = name;
           }
@@ -107,23 +106,26 @@ export const resolvers: Resolvers = {
           }
 
           if (templateId && copyFromTemplateId && !newTemplate.hasErrors()) {
-            // Fetch and copy versionedSections to sections table for new template
-            const versionedSections = await VersionedSection.findByTemplateId(reference, context, copyFromTemplateId);
-            for (const versionedSection of versionedSections) {
-              const versionedSectionId = versionedSection.id;
-              const section = cloneSection(context.token?.id, templateId, versionedSection)
-              if (section && !section.hasErrors()) {
-                const newSection = await section.create(context, templateId);
-                const sectionId = newSection.id;
+            // Fetch and copy sections to sections table for new template
+            const sections = await Section.findByTemplateId(reference, context, copyFromTemplateId);
 
-                //Fetch and copy all related versionedQuestions to copy to questions table for new template
-                const versionedQuestions = await VersionedQuestion.findByVersionedSectionId(
+            for (const section of sections) {
+              const sectionId = section.id;
+              const newSection = cloneSection(context.token?.id, templateId, section);
+              if (newSection && !newSection.hasErrors()) {
+                const createdSection = await newSection.create(context, templateId);
+
+                const createdSectionId = createdSection.id;
+
+                //Fetch and copy all related questions to copy to questions table for new template
+                const questions = await Question.findBySectionId(
                   reference,
                   context,
-                  versionedSectionId
+                  sectionId //original sectionId since we are copying to the questions table, not versionedQuestions table
                 );
-                for (const versionedQuestion of versionedQuestions) {
-                  const question = await cloneQuestion(context.token?.id, templateId, sectionId, versionedQuestion);
+
+                for (const q of questions) {
+                  const question = cloneQuestion(context.token?.id, templateId, createdSectionId, q);
                   if (question) {
                     const newQuestion = await question.create(context);
                     if (newQuestion && newQuestion.hasErrors()) {

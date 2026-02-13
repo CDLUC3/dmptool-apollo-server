@@ -267,7 +267,7 @@ export class CustomizableTemplateSearchResult {
             CONCAT(u.givenName, ' ', u.surName) AS lastCustomizedByName
           FROM templateCustomizations tc
             LEFT JOIN users u ON u.id = tc.modifiedById
-          WHERE tc.affiliationId = '${userAffiliationId}'
+          WHERE tc.affiliationId = '${userAffiliationId}' AND tc.migrationStatus = 'OK'
         ) AS tc_sub ON tc_sub.currentVersionedTemplateId = vt.id
     `;
 
@@ -306,7 +306,7 @@ export class CustomizableTemplateSearchResult {
     }
 
     if (!isNullOrUndefined(migrationStatus) && migrationStatus === TemplateCustomizationMigrationStatus.ORPHANED) {
-      // We now need to do a pass to find any orphaned customizations
+      // We now need to do a pass to find any orphaned or stale customizations
       const orphanSql = `
         SELECT vt.id                               AS versionedTemplateId,
                vt.name,
@@ -329,7 +329,7 @@ export class CustomizableTemplateSearchResult {
                     ON vt.id = tc.currentVersionedTemplateId
                JOIN affiliations a ON a.uri = vt.ownerId
         WHERE tc.affiliationId = '${userAffiliationId}'
-          AND tc.migrationStatus = 'ORPHANED'
+          AND tc.migrationStatus IN ('ORPHANED', 'STALE')
       `;
       const orphanResponse = await VersionedTemplate.query(context, orphanSql, [], reference);
       // If any orphaned customizations were found, add them to the response
@@ -468,7 +468,14 @@ export class VersionedTemplate extends MySqlModel {
     return Array.isArray(results) ? results : [];
   }
 
-  // Find the latest active version of a template
+  /**
+   * Find the latest active version of a template
+   *
+   * @param reference The reference string to use for logging
+   * @param context The Apollo context'
+   * @param templateId The template ID to search for
+   * @returns The latest active version of the template, or undefined if none were found
+   */
   static async findActiveByTemplateId(reference: string, context: MyContext, templateId: number): Promise<VersionedTemplate> {
     const sql = 'SELECT * FROM versionedTemplates WHERE templateId = ? AND active = 1 ORDER BY modified DESC';
     const results = await VersionedTemplate.query(context, sql, [templateId.toString()], reference);

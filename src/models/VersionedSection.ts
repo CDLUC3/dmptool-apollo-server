@@ -192,6 +192,20 @@ export class VersionedSection extends MySqlModel {
     return Array.isArray(results) && results.length > 0 ? results.map((entry) => new VersionedSection(entry)) : [];
   }
 
+  /**
+   * Find the active VersionedSection by sectionId.
+   *
+   * @param reference The reference to use for logging
+   * @param context The Apollo context
+   * @param sectionId The sectionId to search for
+   * @returns The active VersionedSection or undefined if none was found.
+   */
+  static async findActiveBySectionId(reference: string, context: MyContext, sectionId: number): Promise<VersionedSection> {
+    const sql = 'SELECT * FROM versionedSections WHERE sectionId = ? AND active = 1 ORDER BY modified DESC';
+    const results = await VersionedSection.query(context, sql, [sectionId.toString()], reference);
+    return Array.isArray(results) && results.length > 0 ? new VersionedSection(results[0]) : undefined;
+  }
+
   // Find the VersionedSection by name
   static async findByName(
     reference: string,

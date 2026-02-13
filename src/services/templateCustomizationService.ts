@@ -1,10 +1,10 @@
 import { MyContext } from "../context";
+import { isSuperAdmin } from "./authService";
+import { VersionedTemplate } from "../models/VersionedTemplate";
 import {
   TemplateCustomization,
   TemplateCustomizationMigrationStatus
 } from "../models/TemplateCustomization";
-import { VersionedTemplate } from "../models/VersionedTemplate";
-import { isSuperAdmin } from "./authService";
 
 /**
  * Check if the user has permission to edit the template customization.
@@ -68,7 +68,11 @@ export const checkForFunderTemplateDrift = async (
       'Funder template has changed since customization was last published.'
     );
 
-    // TODO: Process all of the section and question customizations
+    // TODO: Process all SectionCustomizations and QuestionCustomizations and
+    //       check for drift. If drift is detected, mark them as `STALE` or `ORPHANED`
+
+    // TODO: Process all CustomSections and CustomQuestions and
+    //       check for drift. If drift is detected, mark them as `STALE` or `ORPHANED`
   }
   return templateCustomization;
 }
@@ -101,13 +105,17 @@ export const handleFunderTemplateRepublication = async (
   );
 
   if (Array.isArray(customizations) && customizations.length > 0) {
-    for (const customization of customizations) {
+    await Promise.all(customizations.map(async (customization: TemplateCustomization) => {
       // Mark all impacted customizations as stale
       customization.migrationStatus = TemplateCustomizationMigrationStatus.STALE;
       await customization.update(context, true);
 
-      // TODO: Process all of the section and question customizations
-    }
+      // TODO: Process all SectionCustomizations and QuestionCustomizations and
+      //       check for drift. If drift is detected, mark them as `STALE` or `ORPHANED`
+
+      // TODO: Process all CustomSections and CustomQuestions and
+      //       check for drift. If drift is detected, mark them as `STALE` or `ORPHANED`
+    }));
     return customizations.length;
   }
   return 0;
@@ -134,11 +142,17 @@ export const handleFunderTemplateArchive = async (
   );
 
   if (Array.isArray(customizations) && customizations.length > 0) {
-    for (const customization of customizations) {
+    await Promise.all(customizations.map(async (customization: TemplateCustomization) => {
       // Mark the impacted customizations as orphaned
       customization.migrationStatus = TemplateCustomizationMigrationStatus.ORPHANED;
       await customization.update(context, true);
-    }
+
+      // TODO: Process all SectionCustomizations and QuestionCustomization by
+      //       marking them as `ORPHANED` as well.
+
+      // TODO: Process all CustomSections and CustomQuestions by marking them as
+      //       `ORPHANED` as well.
+    }));
     return customizations.length;
   }
   return 0;

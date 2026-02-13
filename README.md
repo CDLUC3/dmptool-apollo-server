@@ -240,6 +240,8 @@ The database contains a `dataMigrations` table which records the name of every m
 
 To run process files in the `./data-migrations/local-only` you should add the `local` argument `bash ./data-migrations/process.sh local`
 
+You will almost always want to run `./data-migrations/process.sh` first and then `./data-migrations/process.sh local` to ensure that all schema changes have been run before any data is manipulated.
+
 The system also has several Stored Procedures it uses to run related works matching processes. To see the stored procedures you can run 
 ```sql
 SHOW PROCEDURE STATUS WHERE Db = 'dmptool';

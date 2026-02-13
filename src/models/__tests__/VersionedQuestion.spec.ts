@@ -271,3 +271,63 @@ describe('findByVersionedSectionId', () => {
     expect(result[0]).toBeInstanceOf(VersionedQuestion);
   });
 });
+
+describe('findActiveByQuestionId', () => {
+  const originalQuery = VersionedQuestion.query;
+
+  let localQuery;
+  let context;
+  let versionedQuestion;
+
+  beforeEach(async () => {
+    // jest.resetAllMocks();
+
+    localQuery = jest.fn();
+    (VersionedQuestion.query as jest.Mock) = localQuery;
+
+    context = await buildMockContextWithToken(logger);
+
+    versionedQuestion = new VersionedQuestion({
+      id: casual.integer(1, 999),
+      versionedTemplateId: casual.integer(1, 999),
+      versionedSectionId: casual.integer(1, 999),
+      questionId: casual.integer(1, 999),
+      questionText: casual.sentences(5),
+      displayOrder: casual.integer(1, 20),
+      json: {
+        type: "checkBoxes",
+        attributes: {},
+        meta: { schemaVersion: "1.0" },
+        options: [
+          { label: 'Option A', selected: false, value: 'a' },
+          { label: 'Option B', selected: false, value: 'b' }
+        ]
+      }
+    });
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+    VersionedQuestion.query = originalQuery;
+  });
+
+  it('findActiveByQuestionId returns the VersionedQuestion', async () => {
+    localQuery.mockResolvedValueOnce([versionedQuestion]);
+    const id = versionedQuestion.id;
+    const result = await VersionedQuestion.findActiveByQuestionId('Test', context, id);
+    const expectedSql = 'SELECT * FROM versionedQuestions WHERE questionId = ? AND active = 1 ORDER BY modified DESC';
+    expect(localQuery).toHaveBeenCalledTimes(1);
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'Test')
+    expect(result).toEqual(versionedQuestion);
+    expect(result).toBeInstanceOf(VersionedQuestion);
+    expect(Object.keys(result.errors).length).toBe(0);
+  });
+
+  it('findActiveByQuestionId returns undefined if there is no VersionedQuestion', async () => {
+    localQuery.mockResolvedValueOnce([]);
+    const id = versionedQuestion.id;
+    const result = await VersionedQuestion.findActiveByQuestionId('Test', context, id);
+    expect(localQuery).toHaveBeenCalledTimes(1);
+    expect(result).toEqual(undefined);
+  });
+});

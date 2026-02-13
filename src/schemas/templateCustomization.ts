@@ -52,7 +52,7 @@ export const typeDefs = gql`
     "The timestamp when the Object was last modifed"
     modified: String
     "Errors associated with the Object"
-    errors: TemplateErrors
+    errors: TemplateCustomizationErrors
 
     "The affiliation that the customization belongs to"
     affiliationId: String!
@@ -66,6 +66,16 @@ export const typeDefs = gql`
     latestPublishedDate: String
     "Whether the customization has been modified since it was last published"
     isDirty: Boolean!
+  }
+
+  "A collection of errors related to the Template Customization"
+  type TemplateCustomizationErrors {
+    "General error messages such as the object already exists"
+    general: String
+
+    affiliationId: String
+    templateId: String
+    currentVersionedTemplateId: String
   }
 
   "Input parameters for adding a new Template Customization"

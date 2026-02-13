@@ -28,6 +28,138 @@ export enum TemplateCustomizationMigrationStatus {
 }
 
 /**
+ * The type of customization.
+ *  - CUSTOMIZATION: Customizations to the funder section's guidance or question's
+ *    guidance or sample answer.
+ *  - ADDENDUM: A completely new section or question added to a funder template.
+ */
+export enum CustomizationType {
+  CUSTOMIZATION = 'CUSTOMIZATION',
+  ADDENDUM = 'ADDENDUM',
+}
+
+/**
+ * Represents a summary of an organizations customizations to a funder
+ * template section (guidance)
+ */
+export interface SectionCustomizationOverview {
+  displayOrder: number;
+  customizationType: CustomizationType.CUSTOMIZATION;
+  migrationStatus: TemplateCustomizationMigrationStatus;
+  questions: QuestionCustomizationOverview[] | CustomQuestionOverview[];
+
+  versionedSectionId: number;
+  versionedSectionName: string;
+  sectionCustomizationId: number;
+  hasCustomizedGuidance: boolean;
+}
+
+/**
+ * Represents a summary of an organizations custom section attached to a
+ * funder template
+ */
+export interface CustomSectionOverview {
+  displayOrder: number;
+  customizationType: CustomizationType.ADDENDUM;
+  migrationStatus: TemplateCustomizationMigrationStatus;
+  questions: CustomQuestionOverview
+
+  customSectionId: number;
+  customSectionName: string;
+}
+
+/**
+ * Represents a summary of an organizations customizations to a funder
+ * template question (guidance and sample answer)
+ */
+export interface QuestionCustomizationOverview {
+  displayOrder: number;
+  customizationType: CustomizationType.CUSTOMIZATION;
+  migrationStatus: TemplateCustomizationMigrationStatus;
+
+  versionedQuestionId: number;
+  versionedQuestionText: string;
+  questionCustomizationId: number;
+  hasCustomizedGuidance: boolean;
+  hasCustomizedSampleAnswer: boolean;
+}
+
+/**
+ * Represents a summary of an organizations custom question attached to a
+ * funder template
+ */
+export interface CustomQuestionOverview {
+  displayOrder: number;
+  customizationType: CustomizationType.ADDENDUM;
+  migrationStatus: TemplateCustomizationMigrationStatus;
+
+  customQuestionId: number;
+  customQuestionText: string;
+}
+
+/**
+ * Represents a summary of the funder template customization
+ */
+class TemplateCustomizationOverview {
+  // Information about the funder template
+  public versionedTemplateId: number;
+  public versionedTemplateAffiliationId: string;
+  public versionedTemplateAffiliationName: string;
+  public versionedTemplateName: string;
+  public versionedTemplateVersion: string;
+  public versionedTemplateLastModified: string;
+
+  // Information about the customization
+  public customizationId: number;
+  public customizationIsDirty: boolean;
+  public customizationStatus: TemplateCustomizationStatus;
+  public customizationMigrationStatus: TemplateCustomizationMigrationStatus;
+  public customizationLastCustomizedById: number;
+  public customizationLastCustomizedByName: string;
+  public customizationLastCustomized: string;
+
+  public sections: SectionCustomizationOverview[] | CustomSectionOverview[];
+
+  static async findByVersionedTemplateId(
+    reference: string,
+    context: MyContext,
+    versionedTemplateId: number
+  ): Promise<TemplateCustomizationOverview> {
+    /* TODO: Query to fetch all of the information for a given funder template customization.
+     *       The query will need to collate the sections:
+     *         - All funder template sections (regardless of whether they have been customized)
+     *         - CustomSections added by the organization. CustomSections are pinned to a
+     *           section of the base template (null means its the first section). They also
+     *           have a displayOrder which allows them to be aligned in a series together
+     *       _
+     *       The query will need to collate the questions on a per section basis:
+     *         - All funder template questions (regardless of whether they have been customized)
+     *         - All customizations to those questions
+     *         - CustomQuestions added by the organization are pinned to a question
+     *           of the base template (null means its the first question). They also
+     *           have a displayOrder which allows them to be aligned in a series together
+     *       _
+     *       Each section will need to include one of the following sets of identifiers:
+     *         - the versionedSectionId and sectionCustomizationId
+     *         - the customSectionId
+     *       _
+     *       Each question will need to include one of the following sets of identifiers:
+     *         - the versionedQuestionId and questionCustomizationId
+     *         - the customQuestionId and either customSectionId or versionedSectionId
+     *           depending on which it is attached to.
+     */
+    const sql = `
+      SELECT *
+      FROM ${TemplateCustomization.tableName}
+        JOIN affiliations ON affiliations.id = affiliationId
+      WHERE currentVersionedTemplateId = ?
+    `;
+
+    return new TemplateCustomizationOverview();
+  }
+}
+
+/**
  * An affiliation's customizations to a funder template
  *
  * When an affiliation ADMIN user customizes a funder template, this object is created
@@ -55,10 +187,12 @@ export enum TemplateCustomizationMigrationStatus {
  * object: `status: PUBLISHED`, `migrationStatus: OK`, `isDirty: false`,
  * `latestPublishedVersionId: <id>`, `latestPublishedDate: <date>`.
  *
- * All the queries, as well as the update and delete functions run a check to see
- * if the funder template has changed since the customization was last published.
- * If so, the `migrationStatus` is set to `STALE` and each child object is examined
- * to determine its own unique `migrationStatus`.
+ * The templateCustomizationService is called in some resolvers to determine if
+ * the base funder template has changed. If so, the `migrationStatus` is set to
+ * `STALE` and each child object is examined to determine its own unique
+ * `migrationStatus`. If the base funder template has been archived, then the
+ * `migrationStatus` is set to `ORPHANED`. If it has not been republished, the
+ * `migrationStatus` is set to `OK`.
  *
  * When this object is deleted, all child objects and related versions will also
  * be deleted due to the `ON DELETE CASCADE` constraints in the database.
@@ -280,8 +414,8 @@ export class TemplateCustomization extends MySqlModel {
         return await TemplateCustomization.findById(ref, context, this.id);
       }
     }
-
-    return this;
+    // Otherwise return as-is with all the errors
+    return new TemplateCustomization(this);
   }
 
   /**
@@ -312,9 +446,10 @@ export class TemplateCustomization extends MySqlModel {
       }
     }
     if (!this.hasErrors()) {
-      this.addError('general', 'Failed to archive customization');
+      this.addError('general', 'Failed to remove customization');
     }
-    return this;
+    // Otherwise return as-is with all the errors
+    return new TemplateCustomization(this);
   }
 
   /**

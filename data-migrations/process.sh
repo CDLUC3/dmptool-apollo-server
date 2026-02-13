@@ -49,9 +49,9 @@ create_database() {
 
   echo "Creating database, ${1}, if it does not already exist ..."
   if [ "${1}" == "${MYSQL_DATABASE}" ]; then
-    mysql ${MYSQL_ARGS} <<< ${CREATE_DATABASE}
+    mariadb ${MYSQL_ARGS} <<< ${CREATE_DATABASE}
   else
-    mysql ${MYSQL_TEST_ARGS} <<< ${CREATE_DATABASE}
+    mariadb ${MYSQL_TEST_ARGS} <<< ${CREATE_DATABASE}
   fi
 }
 
@@ -65,9 +65,9 @@ init_migrations_table() {
 
   echo "Creating the dataMigrations table if it does not already exist..."
   if [ "${1}" == "${MYSQL_DATABASE}" ]; then
-    mysql ${MYSQL_ARGS} ${1} <<< ${CREATE_MIGRATIONS_TABLE}
+    mariadb ${MYSQL_ARGS} ${1} <<< ${CREATE_MIGRATIONS_TABLE}
   else
-    mysql ${MYSQL_TEST_ARGS} ${1} <<< ${CREATE_MIGRATIONS_TABLE}
+    mariadb ${MYSQL_TEST_ARGS} ${1} <<< ${CREATE_MIGRATIONS_TABLE}
   fi
 }
 
@@ -80,18 +80,23 @@ process_migration() {
     MIGRATION_ARGS=${MYSQL_TEST_ARGS}
   fi
 
-  EXISTS=$(mysql ${MIGRATION_ARGS} -N ${1} <<< "SELECT * FROM dataMigrations WHERE migrationFile = '$2';")
+  # If we are running locally, the MySQL cert will exist in /etc
+  if [ -f "/etc/mysql-cert.pem" ]; then
+    MIGRATION_ARGS="${MIGRATION_ARGS} --ssl-ca=/etc/mysql-cert.pem --ssl-verify-server-cert=OFF"
+  fi
+
+  EXISTS=$(mariadb ${MIGRATION_ARGS} -N ${1} <<< "SELECT * FROM dataMigrations WHERE migrationFile = '$2';")
 
   if [ -z "$EXISTS" ]; then
     # If not run it
     echo "NEW MIGRATION - $2. Processing migration ..."
-    mysql ${MIGRATION_ARGS} ${1} < $2
+    mariadb ${MIGRATION_ARGS} ${1} < $2
 
     WAS_PROCESSED=$?
 
     # If it worked then update the data-migrations table so we don't run it again!
     if [ $WAS_PROCESSED -eq 0 ]; then
-      mysql ${MIGRATION_ARGS} ${1} <<< "INSERT INTO dataMigrations (migrationFile) VALUES ('$2');"
+      mariadb ${MIGRATION_ARGS} ${1} <<< "INSERT INTO dataMigrations (migrationFile) VALUES ('$2');"
       MIGRATIONS_RUN+=("$2")
       echo "    done"
       # Sleep for 2 seconds to allow the DB engine to fully process the last script

@@ -609,7 +609,7 @@ describe('TemplateCustomization', () => {
         1,
         'TemplateCustomization.delete'
       );
-      expect(customization.errors.general).toBe('Failed to archive customization');
+      expect(customization.errors.general).toBe('Failed to remove customization');
     });
 
     it('should successfully delete customization', async () => {

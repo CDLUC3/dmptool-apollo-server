@@ -109,5 +109,7 @@ services:
       - "SQS_GENERATE_MADMP_QUEUE_URL=http://localstack:4566/000000000000/generateMaDMPRecord"
     volumes:
       - ".:/app"
+      # Mount the mysql certs directory so Apollo can see them
+      - "./docker/mysql/server-cert.pem:/etc/mysql-cert.pem:ro"
     extra_hosts:
       - "host.docker.internal:host-gateway"

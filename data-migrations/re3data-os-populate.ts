@@ -297,7 +297,7 @@ async function syncRe3Data() {
           description: getText(repoDoc, "//r3d:repository/r3d:description"),
           website: getText(repoDoc, "//r3d:repository/r3d:repositoryURL"),
           contact: getText(repoDoc, "//r3d:repository/r3d:repositoryContact"),
-          uri: getText(repoDoc, "//r3d:repository/r3d:repositoryIdentifier"),
+          uri: `https://www.re3data.org/repository/${id}`,
 
           types: getAllText(repoDoc, "//r3d:repository/r3d:type"),
           // Normalize subjects: remove any leading numbers and whitespace (e.g. "3 Natural Sciences" -> "Natural Sciences")

@@ -29,7 +29,7 @@ export interface Re3DataRepositoryRecord {
   id: string;
   name: string;
   description?: string;
-  homepage?: string;
+  website?: string;
   contact?: string;
   uri?: string;
   types?: string[];
@@ -42,8 +42,8 @@ export interface Re3DataRepositoryRecord {
   uploadTypes?: string[];
   certificates?: string[];
   software?: string[];
-  createdAt?: string;
-  updatedAt?: string;
+  created?: string;
+  modified?: string;
 }
 
 /**
@@ -53,7 +53,7 @@ export interface OpenSearchRe3DataRecord {
   id: string;
   name: string;
   description?: string;
-  homepage?: string;
+  website?: string;
   contact?: string;
   uri?: string;
   types?: string[];
@@ -66,8 +66,8 @@ export interface OpenSearchRe3DataRecord {
   upload_types?: string[];
   certificates?: string[];
   software?: string[];
-  created_at?: string;
-  updated_at?: string;
+  created?: string;
+  modified?: string;
 }
 
 /**
@@ -106,7 +106,7 @@ export function convertRe3DataToCamelCase(
     id: record.id,
     name: record.name,
     description: record.description,
-    homepage: record.homepage,
+    website: record.website,
     contact: record.contact,
     uri: record.uri,
     types: record.types || [],
@@ -119,8 +119,8 @@ export function convertRe3DataToCamelCase(
     uploadTypes: record.upload_types || [],
     certificates: record.certificates || [],
     software: record.software || [],
-    createdAt: record.created_at,
-    updatedAt: record.updated_at,
+    created: record.created,
+    modified: record.modified,
   };
 }
 

@@ -95,7 +95,7 @@ const INDEX_BODY = {
         fields: { keyword: { type: 'keyword', ignore_above: 256 } }
       },
       description: { type: 'text', copy_to: 'search_all' },
-      homepage: { type: 'keyword' },
+      website: { type: 'keyword' },
       contact: { type: 'text', copy_to: 'search_all' },
       uri: { type: 'keyword' },
       types: { type: 'keyword', copy_to: 'search_all' },
@@ -112,8 +112,8 @@ const INDEX_BODY = {
       upload_types: { type: 'keyword' },
       certificates: { type: 'keyword', copy_to: 'search_all' },
       software: { type: 'keyword', copy_to: 'search_all' },
-      created_at: { type: 'date' },
-      updated_at: { type: 'date' },
+      created: { type: 'date' },
+      modified: { type: 'date' },
       search_all: { type: 'text' }
     }
   }
@@ -295,7 +295,7 @@ async function syncRe3Data() {
           id: id,
           name: getText(repoDoc, "//r3d:repository/r3d:repositoryName"),
           description: getText(repoDoc, "//r3d:repository/r3d:description"),
-          homepage: getText(repoDoc, "//r3d:repository/r3d:repositoryURL"),
+          website: getText(repoDoc, "//r3d:repository/r3d:repositoryURL"),
           contact: getText(repoDoc, "//r3d:repository/r3d:repositoryContact"),
           uri: getText(repoDoc, "//r3d:repository/r3d:repositoryIdentifier"),
 
@@ -320,8 +320,8 @@ async function syncRe3Data() {
           certificates: getAllText(repoDoc, "//r3d:repository/r3d:certificate"),
           software: getAllText(repoDoc, "//r3d:repository/r3d:software/r3d:softwareName"),
 
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          created: new Date().toISOString(),
+          modified: new Date().toISOString()
         };
 
         if (VERBOSE) console.log('Prepared document:', repositoryData.id, repositoryData.name || '(no name)');

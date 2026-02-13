@@ -31,7 +31,7 @@ curl -X PUT "$ENDPOINT/$INDEX_NAME" \
         "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } }
       },
       "description": { "type": "text", "copy_to": "search_all" },
-      "homepage": { "type": "keyword" },
+      "website": { "type": "keyword" },
       "contact": { "type": "text", "copy_to": "search_all" },
       "uri": { "type": "keyword" },
       "types": { "type": "keyword", "copy_to": "search_all" },
@@ -48,8 +48,8 @@ curl -X PUT "$ENDPOINT/$INDEX_NAME" \
       "upload_types": { "type": "keyword" },
       "certificates": { "type": "keyword", "copy_to": "search_all" },
       "software": { "type": "keyword", "copy_to": "search_all" },
-      "created_at": { "type": "date" },
-      "updated_at": { "type": "date" },
+      "created": { "type": "date" },
+      "modified": { "type": "date" },
       "search_all": { "type": "text" }
     }
   }

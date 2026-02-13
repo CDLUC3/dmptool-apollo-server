@@ -93,8 +93,8 @@ export const typeDefs = gql`
     name: String!
     "A description of the repository"
     description: String
-    "The homepage URL"
-    homepage: String
+    "The website URL"
+    website: String
     "Contact information"
     contact: String
     "The taxonomy URL of the repository"
@@ -122,9 +122,9 @@ export const typeDefs = gql`
     "Software used"
     software: [String!]
     "When the repository record was created"
-    createdAt: String
+    created: String
     "When the repository record was last updated"
-    updatedAt: String
+    modified: String
     "The source of this repository"
     source: RepositorySource!
   }

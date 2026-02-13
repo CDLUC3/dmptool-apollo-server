@@ -3268,15 +3268,15 @@ export type Re3DataRepository = {
   /** Contact information */
   contact?: Maybe<Scalars['String']['output']>;
   /** When the repository record was created */
-  createdAt?: Maybe<Scalars['String']['output']>;
+  created?: Maybe<Scalars['String']['output']>;
   /** A description of the repository */
   description?: Maybe<Scalars['String']['output']>;
-  /** The homepage URL */
-  homepage?: Maybe<Scalars['String']['output']>;
   /** The unique identifier from re3data */
   id: Scalars['String']['output'];
   /** Keywords to assist in finding the repository */
   keywords?: Maybe<Array<Scalars['String']['output']>>;
+  /** When the repository record was last updated */
+  modified?: Maybe<Scalars['String']['output']>;
   /** The name of the repository */
   name: Scalars['String']['output'];
   /** Persistent identifier systems supported */
@@ -3295,12 +3295,12 @@ export type Re3DataRepository = {
   subjects?: Maybe<Array<Scalars['String']['output']>>;
   /** The Categories/Types of the repository (compatible with CustomRepository) */
   types?: Maybe<Array<Scalars['String']['output']>>;
-  /** When the repository record was last updated */
-  updatedAt?: Maybe<Scalars['String']['output']>;
   /** Upload types supported */
   uploadTypes?: Maybe<Array<Scalars['String']['output']>>;
   /** The taxonomy URL of the repository */
   uri?: Maybe<Scalars['String']['output']>;
+  /** The website URL */
+  website?: Maybe<Scalars['String']['output']>;
 };
 
 /** The confidence of the related work match */
@@ -6289,11 +6289,11 @@ export type Re3DataRepositoryResolvers<ContextType = MyContext, ParentType exten
   access?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   certificates?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
   contact?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  createdAt?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   description?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  homepage?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   keywords?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
+  modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   pidSystem?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
   policies?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
@@ -6303,9 +6303,9 @@ export type Re3DataRepositoryResolvers<ContextType = MyContext, ParentType exten
   source?: Resolver<ResolversTypes['RepositorySource'], ParentType, ContextType>;
   subjects?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
   types?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
-  updatedAt?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   uploadTypes?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
   uri?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  website?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 

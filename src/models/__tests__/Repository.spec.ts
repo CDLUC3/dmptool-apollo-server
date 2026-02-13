@@ -4,6 +4,7 @@ import { Repository, RepositoryType } from "../Repository";
 import { getRandomEnumValue } from "../../__tests__/helpers";
 import { generalConfig } from "../../config/generalConfig";
 import { logger } from "../../logger";
+import { isCustomRepository, isRe3DataRepository } from "../../types/repository";
 
 jest.mock('../../context.ts');
 
@@ -48,6 +49,18 @@ describe('Repository', () => {
     expect(repo.repositoryTypes).toEqual(repoData.repositoryTypes);
     expect(repo.researchDomains).toEqual(repoData.researchDomains);
     expect(repo.keywords).toEqual(repoData.keywords);
+  });
+
+  it('should initialize with re3dataId when provided', () => {
+    const repoWithRe3Data = new Repository({
+      ...repoData,
+      re3dataId: 'r3d100014782',
+    });
+    expect(repoWithRe3Data.re3dataId).toEqual('r3d100014782');
+  });
+
+  it('should initialize with undefined re3dataId when not provided', () => {
+    expect(repo.re3dataId).toBeUndefined();
   });
 
   it('should return true when calling isValid if object is valid', async () => {
@@ -535,5 +548,142 @@ describe('delete', () => {
     expect(Object.keys(result.errors).length).toBe(0);
     expect(result.errors).toEqual({});
     expect(result).toBeInstanceOf(Repository);
+  });
+});
+
+describe('Discriminator Functions', () => {
+  describe('isCustomRepository', () => {
+    it('should return true for custom repository with numeric ID', () => {
+      const customRepo = {
+        id: 123,
+        name: 'Custom Repo',
+      };
+      expect(isCustomRepository(customRepo)).toBe(true);
+    });
+
+    it('should return true for custom repository with numeric string ID', () => {
+      const customRepo = {
+        id: '456',
+        name: 'Custom Repo',
+      };
+      expect(isCustomRepository(customRepo)).toBe(true);
+    });
+
+    it('should return true for custom repository with re3dataId', () => {
+      const customRepo = {
+        id: 789,
+        name: 'Custom Repo',
+        re3dataId: 'r3d100014782',
+      };
+      expect(isCustomRepository(customRepo)).toBe(true);
+    });
+
+    it('should return false for non-numeric string ID (re3data)', () => {
+      const re3dataRepo = {
+        id: 'some-uuid-or-doi',
+        name: 'Re3Data Repo',
+      };
+      expect(isCustomRepository(re3dataRepo)).toBe(false);
+    });
+
+    it('should return false for null', () => {
+      expect(isCustomRepository(null)).toBe(false);
+    });
+
+    it('should return false for undefined', () => {
+      expect(isCustomRepository(undefined)).toBe(false);
+    });
+
+    it('should return false for object without id', () => {
+      const obj = { name: 'No ID' };
+      expect(isCustomRepository(obj)).toBe(false);
+    });
+  });
+
+  describe('isRe3DataRepository', () => {
+    it('should return true for re3data repository with non-numeric string ID', () => {
+      const re3dataRepo = {
+        id: 'r3d100014782',
+        name: 'Re3Data Repo',
+      };
+      expect(isRe3DataRepository(re3dataRepo)).toBe(true);
+    });
+
+    it('should return true for re3data repository with UUID-like ID', () => {
+      const re3dataRepo = {
+        id: '550e8400-e29b-41d4-a716-446655440000',
+        name: 'Re3Data Repo',
+      };
+      expect(isRe3DataRepository(re3dataRepo)).toBe(true);
+    });
+
+    it('should return false when re3dataId field is present', () => {
+      const repo = {
+        id: 'r3d100014782',
+        name: 'Custom Repo',
+        re3dataId: 'r3d100014782',
+      };
+      expect(isRe3DataRepository(repo)).toBe(false);
+    });
+
+    it('should return false for numeric ID (custom repository)', () => {
+      const customRepo = {
+        id: 123,
+        name: 'Custom Repo',
+      };
+      expect(isRe3DataRepository(customRepo)).toBe(false);
+    });
+
+    it('should return false for numeric string ID (custom repository)', () => {
+      const customRepo = {
+        id: '456',
+        name: 'Custom Repo',
+      };
+      expect(isRe3DataRepository(customRepo)).toBe(false);
+    });
+
+    it('should return false for null', () => {
+      expect(isRe3DataRepository(null)).toBe(false);
+    });
+
+    it('should return false for undefined', () => {
+      expect(isRe3DataRepository(undefined)).toBe(false);
+    });
+
+    it('should return false for object without id', () => {
+      const obj = { name: 'No ID' };
+      expect(isRe3DataRepository(obj)).toBe(false);
+    });
+  });
+
+  describe('Discriminator Function Exclusivity', () => {
+    it('should not match the same object as both custom and re3data', () => {
+      const customRepo = {
+        id: 123,
+        name: 'Custom Repo',
+      };
+      const isCustom = isCustomRepository(customRepo);
+      const isRe3Data = isRe3DataRepository(customRepo);
+      expect(isCustom && isRe3Data).toBe(false);
+    });
+
+    it('custom repo with re3dataId should only match isCustomRepository', () => {
+      const repo = {
+        id: 123,
+        name: 'Custom Repo with Re3Data Reference',
+        re3dataId: 'r3d100014782',
+      };
+      expect(isCustomRepository(repo)).toBe(true);
+      expect(isRe3DataRepository(repo)).toBe(false);
+    });
+
+    it('re3data repo should only match isRe3DataRepository', () => {
+      const repo = {
+        id: 'r3d100014782',
+        name: 'Re3Data Repo',
+      };
+      expect(isCustomRepository(repo)).toBe(false);
+      expect(isRe3DataRepository(repo)).toBe(true);
+    });
   });
 });

@@ -18,6 +18,7 @@ import {
   isRe3DataRepository,
   RepositorySourceType,
 } from '../types/repository';
+import { openSearchFindRe3DataSubjects } from '../services/openSearchService';
 
 export const resolvers: Resolvers = {
   Query: {
@@ -132,6 +133,39 @@ export const resolvers: Resolvers = {
           // Field resolvers will add the source field
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           return repos as any;
+        }
+        throw context?.token ? ForbiddenError() : AuthenticationError();
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+        context.logger.error(
+          prepareObjectForLogs(err),
+          `Failure in ${reference}`,
+        );
+        throw InternalServerError();
+      }
+    },
+
+    // Return all distinct subject strings from re3data with optional counts
+    re3SubjectList: async (_, { input }, context: MyContext) => {
+      const reference = 're3SubjectList resolver';
+      try {
+        if (isAuthorized(context.token)) {
+          const includeCount = input?.includeCount ?? false;
+          const maxResults = input?.maxResults ?? 100;
+
+          const subjectData = await openSearchFindRe3DataSubjects(
+            context,
+            includeCount,
+            maxResults,
+          );
+
+          return {
+            subjects: subjectData.map((item) => ({
+              subject: item.subject,
+              count: item.count,
+            })),
+            totalCount: subjectData.length,
+          };
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();
       } catch (err) {

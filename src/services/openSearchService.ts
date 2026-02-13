@@ -222,6 +222,74 @@ export class OpenSearchService {
       });
     }
   }
+
+  public async findRe3DataSubjects(context: MyContext, includeCount: boolean, maxResults: number): Promise<{ subject: string; count?: number }[]> {
+    let response: unknown;
+    try {
+      const body = includeCount
+        ? {
+          size: 0,
+          aggs: {
+            unique_subjects: {
+              terms: {
+                field: 'subjects',
+                size: maxResults,
+              },
+            },
+          },
+        }
+        : {
+          size: 0,
+          aggs: {
+            unique_subjects: {
+              terms: {
+                field: 'subjects',
+                size: maxResults,
+              },
+            },
+          },
+        };
+
+      response = await this.client.search({
+        index: 're3data',
+        body,
+      });
+    } catch (err) {
+      context.logger.error(prepareObjectForLogs(err), `Error fetching re3data subjects from OpenSearch`);
+
+      throw new GraphQLError("Service temporarily unavailable", {
+        extensions: {
+          code: "SERVICE_UNAVAILABLE",
+          service: "opensearch",
+          details: "We are having trouble connecting to the search service, if the error persists please report the error."
+        }
+      });
+    }
+
+    try {
+      interface AggregationBucket {
+        key: string;
+        doc_count: number;
+      }
+      const aggs = (response as { body: { aggregations: { unique_subjects: { buckets: AggregationBucket[] } } } }).body.aggregations;
+      return aggs.unique_subjects.buckets.map((bucket: AggregationBucket) => {
+        if (includeCount) {
+          return { subject: bucket.key, count: bucket.doc_count };
+        }
+        return { subject: bucket.key };
+      });
+    } catch (err) {
+      context.logger.error(prepareObjectForLogs(err), `Error converting OpenSearch aggregation response for re3data subjects`);
+
+      throw new GraphQLError("Unexpected response format from search service.", {
+        extensions: {
+          code: "INTERNAL_SERVER_ERROR",
+          service: "opensearch",
+          details: "Unexpected response format from search service."
+        }
+      });
+    }
+  }
 }
 
 // Singleton instance
@@ -233,3 +301,7 @@ export const openSearchFindWorkByIdentifier = (reference: string, context: MyCon
 
 export const openSearchFindRe3Data = (term: string | null | undefined, context: MyContext, subject: string | null | undefined, type: string | null | undefined, maxResults: number) =>
   openSearchService.findRe3Data(term, context, subject, type, maxResults);
+
+export const openSearchFindRe3DataSubjects = (context: MyContext, includeCount: boolean, maxResults: number) =>
+  openSearchService.findRe3DataSubjects(context, includeCount, maxResults);
+

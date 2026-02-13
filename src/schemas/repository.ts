@@ -10,6 +10,8 @@ export const typeDefs = gql`
     repositorySubjectAreas: [String!]
     "return all repositories whose unique uri values are provided"
     repositoriesByURIs(uris: [String!]!): [CustomRepository!]
+    "return all distinct subject strings from re3data with optional counts"
+    re3SubjectList(input: Re3SubjectListInput): Re3SubjectListResults!
   }
 
   extend type Mutation {
@@ -179,6 +181,29 @@ export const typeDefs = gql`
     subject: String
     "The pagination options"
     paginationOptions: PaginationOptions
+  }
+
+  input Re3SubjectListInput {
+    "Whether to include the count of repositories for each subject"
+    includeCount: Boolean
+    "Maximum number of distinct subjects to return (default: 100)"
+    maxResults: Int
+  }
+
+  "A subject area from re3data with optional count"
+  type Re3Subject {
+    "The subject string"
+    subject: String!
+    "The count of repositories with this subject (if requested)"
+    count: Int
+  }
+
+  "Results from re3data subject list query"
+  type Re3SubjectListResults {
+    "The list of distinct subjects from re3data"
+    subjects: [Re3Subject!]!
+    "The total number of distinct subjects found"
+    totalCount: Int!
   }
 
   input AddRepositoryInput {

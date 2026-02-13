@@ -339,6 +339,62 @@ export class OpenSearchService {
       });
     }
   }
+
+  public async findRe3DataRepositoryTypes(context: MyContext, includeCount: boolean, maxResults: number): Promise<{ type: string; count?: number }[]> {
+    let response: unknown;
+    try {
+      const body = {
+        size: 0,
+        aggs: {
+          unique_types: {
+            terms: {
+              field: 'types',
+              size: maxResults,
+            },
+          },
+        },
+      };
+
+      response = await this.client.search({
+        index: 're3data',
+        body,
+      });
+    } catch (err) {
+      context.logger.error(prepareObjectForLogs(err), `Error fetching re3data repository types from OpenSearch`);
+
+      throw new GraphQLError("Service temporarily unavailable", {
+        extensions: {
+          code: "SERVICE_UNAVAILABLE",
+          service: "opensearch",
+          details: "We are having trouble connecting to the search service, if the error persists please report the error."
+        }
+      });
+    }
+
+    try {
+      interface AggregationBucket {
+        key: string;
+        doc_count: number;
+      }
+      const aggs = (response as { body: { aggregations: { unique_types: { buckets: AggregationBucket[] } } } }).body.aggregations;
+      return aggs.unique_types.buckets.map((bucket: AggregationBucket) => {
+        if (includeCount) {
+          return { type: bucket.key, count: bucket.doc_count };
+        }
+        return { type: bucket.key };
+      });
+    } catch (err) {
+      context.logger.error(prepareObjectForLogs(err), `Error converting OpenSearch aggregation response for re3data repository types`);
+
+      throw new GraphQLError("Unexpected response format from search service.", {
+        extensions: {
+          code: "INTERNAL_SERVER_ERROR",
+          service: "opensearch",
+          details: "Unexpected response format from search service."
+        }
+      });
+    }
+  }
 }
 
 // Singleton instance
@@ -356,4 +412,7 @@ export const openSearchFindRe3DataByURIs = (context: MyContext, uris: string[]) 
 
 export const openSearchFindRe3DataSubjects = (context: MyContext, includeCount: boolean, maxResults: number) =>
   openSearchService.findRe3DataSubjects(context, includeCount, maxResults);
+
+export const openSearchFindRe3DataRepositoryTypes = (context: MyContext, includeCount: boolean, maxResults: number) =>
+  openSearchService.findRe3DataRepositoryTypes(context, includeCount, maxResults);
 

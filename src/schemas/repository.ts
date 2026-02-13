@@ -14,6 +14,8 @@ export const typeDefs = gql`
     re3byURIs(uris: [String!]!): [Re3DataRepository!]
     "return all distinct subject strings from re3data with optional counts"
     re3SubjectList(input: Re3SubjectListInput): Re3SubjectListResults!
+    "return all distinct repository types from re3data with optional counts"
+    re3RepositoryTypesList(input: Re3RepositoryTypesListInput): Re3RepositoryTypesListResults!
   }
 
   extend type Mutation {
@@ -206,6 +208,29 @@ export const typeDefs = gql`
     subjects: [Re3Subject!]!
     "The total number of distinct subjects found"
     totalCount: Int!
+  }
+
+  "A repository type from re3data with optional count"
+  type Re3RepositoryType {
+    "The repository type string"
+    type: String!
+    "The count of repositories with this type (if requested)"
+    count: Int
+  }
+
+  "Results from re3data repository types list query"
+  type Re3RepositoryTypesListResults {
+    "The list of distinct repository types from re3data"
+    types: [Re3RepositoryType!]!
+    "The total number of distinct repository types found"
+    totalCount: Int!
+  }
+
+  input Re3RepositoryTypesListInput {
+    "Whether to include the count of repositories for each type"
+    includeCount: Boolean
+    "Maximum number of distinct types to return (default: 100)"
+    maxResults: Int
   }
 
   input AddRepositoryInput {

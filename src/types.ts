@@ -2718,6 +2718,8 @@ export type Query = {
   questionConditions?: Maybe<Array<Maybe<QuestionCondition>>>;
   /** Get the Questions that belong to the associated sectionId */
   questions?: Maybe<Array<Maybe<Question>>>;
+  /** return all distinct repository types from re3data with optional counts */
+  re3RepositoryTypesList: Re3RepositoryTypesListResults;
   /** return all distinct subject strings from re3data with optional counts */
   re3SubjectList: Re3SubjectListResults;
   /** return all re3data repositories whose unique uri values are provided */
@@ -3036,6 +3038,11 @@ export type QueryQuestionsArgs = {
 };
 
 
+export type QueryRe3RepositoryTypesListArgs = {
+  input?: InputMaybe<Re3RepositoryTypesListInput>;
+};
+
+
 export type QueryRe3SubjectListArgs = {
   input?: InputMaybe<Re3SubjectListInput>;
 };
@@ -3315,6 +3322,31 @@ export type Re3DataRepository = {
   uri?: Maybe<Scalars['String']['output']>;
   /** The website URL */
   website?: Maybe<Scalars['String']['output']>;
+};
+
+/** A repository type from re3data with optional count */
+export type Re3RepositoryType = {
+  __typename?: 'Re3RepositoryType';
+  /** The count of repositories with this type (if requested) */
+  count?: Maybe<Scalars['Int']['output']>;
+  /** The repository type string */
+  type: Scalars['String']['output'];
+};
+
+export type Re3RepositoryTypesListInput = {
+  /** Whether to include the count of repositories for each type */
+  includeCount?: InputMaybe<Scalars['Boolean']['input']>;
+  /** Maximum number of distinct types to return (default: 100) */
+  maxResults?: InputMaybe<Scalars['Int']['input']>;
+};
+
+/** Results from re3data repository types list query */
+export type Re3RepositoryTypesListResults = {
+  __typename?: 'Re3RepositoryTypesListResults';
+  /** The total number of distinct repository types found */
+  totalCount: Scalars['Int']['output'];
+  /** The list of distinct repository types from re3data */
+  types: Array<Re3RepositoryType>;
 };
 
 /** A subject area from re3data with optional count */
@@ -5015,6 +5047,9 @@ export type ResolversTypes = {
   QuestionConditionErrors: ResolverTypeWrapper<QuestionConditionErrors>;
   QuestionErrors: ResolverTypeWrapper<QuestionErrors>;
   Re3DataRepository: ResolverTypeWrapper<Re3DataRepository>;
+  Re3RepositoryType: ResolverTypeWrapper<Re3RepositoryType>;
+  Re3RepositoryTypesListInput: Re3RepositoryTypesListInput;
+  Re3RepositoryTypesListResults: ResolverTypeWrapper<Re3RepositoryTypesListResults>;
   Re3Subject: ResolverTypeWrapper<Re3Subject>;
   Re3SubjectListInput: Re3SubjectListInput;
   Re3SubjectListResults: ResolverTypeWrapper<Re3SubjectListResults>;
@@ -5210,6 +5245,9 @@ export type ResolversParentTypes = {
   QuestionConditionErrors: QuestionConditionErrors;
   QuestionErrors: QuestionErrors;
   Re3DataRepository: Re3DataRepository;
+  Re3RepositoryType: Re3RepositoryType;
+  Re3RepositoryTypesListInput: Re3RepositoryTypesListInput;
+  Re3RepositoryTypesListResults: Re3RepositoryTypesListResults;
   Re3Subject: Re3Subject;
   Re3SubjectListInput: Re3SubjectListInput;
   Re3SubjectListResults: Re3SubjectListResults;
@@ -6246,6 +6284,7 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   question?: Resolver<Maybe<ResolversTypes['Question']>, ParentType, ContextType, RequireFields<QueryQuestionArgs, 'questionId'>>;
   questionConditions?: Resolver<Maybe<Array<Maybe<ResolversTypes['QuestionCondition']>>>, ParentType, ContextType, RequireFields<QueryQuestionConditionsArgs, 'questionId'>>;
   questions?: Resolver<Maybe<Array<Maybe<ResolversTypes['Question']>>>, ParentType, ContextType, RequireFields<QueryQuestionsArgs, 'sectionId'>>;
+  re3RepositoryTypesList?: Resolver<ResolversTypes['Re3RepositoryTypesListResults'], ParentType, ContextType, Partial<QueryRe3RepositoryTypesListArgs>>;
   re3SubjectList?: Resolver<ResolversTypes['Re3SubjectListResults'], ParentType, ContextType, Partial<QueryRe3SubjectListArgs>>;
   re3byURIs?: Resolver<Maybe<Array<ResolversTypes['Re3DataRepository']>>, ParentType, ContextType, RequireFields<QueryRe3byUrIsArgs, 'uris'>>;
   recommendedLicenses?: Resolver<Maybe<Array<Maybe<ResolversTypes['License']>>>, ParentType, ContextType, RequireFields<QueryRecommendedLicensesArgs, 'recommended'>>;
@@ -6354,6 +6393,16 @@ export type Re3DataRepositoryResolvers<ContextType = MyContext, ParentType exten
   uri?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   website?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type Re3RepositoryTypeResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['Re3RepositoryType'] = ResolversParentTypes['Re3RepositoryType']> = {
+  count?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  type?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+};
+
+export type Re3RepositoryTypesListResultsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['Re3RepositoryTypesListResults'] = ResolversParentTypes['Re3RepositoryTypesListResults']> = {
+  totalCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  types?: Resolver<Array<ResolversTypes['Re3RepositoryType']>, ParentType, ContextType>;
 };
 
 export type Re3SubjectResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['Re3Subject'] = ResolversParentTypes['Re3Subject']> = {
@@ -7085,6 +7134,8 @@ export type Resolvers<ContextType = MyContext> = {
   QuestionConditionErrors?: QuestionConditionErrorsResolvers<ContextType>;
   QuestionErrors?: QuestionErrorsResolvers<ContextType>;
   Re3DataRepository?: Re3DataRepositoryResolvers<ContextType>;
+  Re3RepositoryType?: Re3RepositoryTypeResolvers<ContextType>;
+  Re3RepositoryTypesListResults?: Re3RepositoryTypesListResultsResolvers<ContextType>;
   Re3Subject?: Re3SubjectResolvers<ContextType>;
   Re3SubjectListResults?: Re3SubjectListResultsResolvers<ContextType>;
   RelatedWorkSearchResult?: RelatedWorkSearchResultResolvers<ContextType>;

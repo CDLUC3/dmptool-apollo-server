@@ -18,7 +18,7 @@ import {
   isRe3DataRepository,
   RepositorySourceType,
 } from '../types/repository';
-import { openSearchFindRe3DataSubjects } from '../services/openSearchService';
+import { openSearchFindRe3DataSubjects, openSearchFindRe3DataRepositoryTypes } from '../services/openSearchService';
 
 export const resolvers: Resolvers = {
   Query: {
@@ -190,6 +190,38 @@ export const resolvers: Resolvers = {
               count: item.count,
             })),
             totalCount: subjectData.length,
+          };
+        }
+        throw context?.token ? ForbiddenError() : AuthenticationError();
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+        context.logger.error(
+          prepareObjectForLogs(err),
+          `Failure in ${reference}`,
+        );
+        throw InternalServerError();
+      }
+    },
+
+    re3RepositoryTypesList: async (_, { input }, context: MyContext) => {
+      const reference = 're3RepositoryTypesList resolver';
+      try {
+        if (isAuthorized(context.token)) {
+          const includeCount = input?.includeCount ?? false;
+          const maxResults = input?.maxResults ?? 100;
+
+          const typeData = await openSearchFindRe3DataRepositoryTypes(
+            context,
+            includeCount,
+            maxResults,
+          );
+
+          return {
+            types: typeData.map((item) => ({
+              type: item.type,
+              count: item.count,
+            })),
+            totalCount: typeData.length,
           };
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();

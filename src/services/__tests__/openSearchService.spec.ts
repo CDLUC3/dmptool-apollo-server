@@ -303,4 +303,138 @@ describe('OpenSearchService', () => {
       );
     });
   });
+
+  describe('findRe3DataRepositoryTypes', () => {
+    test('Returns repository types with counts when includeCount is true', async () => {
+      mockSearch.mockResolvedValue({
+        body: {
+          aggregations: {
+            unique_types: {
+              buckets: [
+                { key: 'disciplinary', doc_count: 150 },
+                { key: 'generalist', doc_count: 45 },
+                { key: 'institutional', doc_count: 320 },
+              ],
+            },
+          },
+        },
+      });
+
+      const result = await service.findRe3DataRepositoryTypes(mockContext, true, 10);
+
+      expect(mockSearch).toHaveBeenCalledWith({
+        index: 're3data',
+        body: {
+          size: 0,
+          aggs: {
+            unique_types: {
+              terms: {
+                field: 'types',
+                size: 10,
+              },
+            },
+          },
+        },
+      });
+
+      expect(result).toEqual([
+        { type: 'disciplinary', count: 150 },
+        { type: 'generalist', count: 45 },
+        { type: 'institutional', count: 320 },
+      ]);
+    });
+
+    test('Returns repository types without counts when includeCount is false', async () => {
+      mockSearch.mockResolvedValue({
+        body: {
+          aggregations: {
+            unique_types: {
+              buckets: [
+                { key: 'disciplinary', doc_count: 150 },
+                { key: 'generalist', doc_count: 45 },
+              ],
+            },
+          },
+        },
+      });
+
+      const result = await service.findRe3DataRepositoryTypes(mockContext, false, 5);
+
+      expect(result).toEqual([
+        { type: 'disciplinary' },
+        { type: 'generalist' },
+      ]);
+    });
+
+    test('Respects maxResults parameter', async () => {
+      mockSearch.mockResolvedValue({
+        body: {
+          aggregations: {
+            unique_types: {
+              buckets: [
+                { key: 'disciplinary', doc_count: 150 },
+              ],
+            },
+          },
+        },
+      });
+
+      await service.findRe3DataRepositoryTypes(mockContext, true, 100);
+
+      expect(mockSearch).toHaveBeenCalledWith({
+        index: 're3data',
+        body: {
+          size: 0,
+          aggs: {
+            unique_types: {
+              terms: {
+                field: 'types',
+                size: 100,
+              },
+            },
+          },
+        },
+      });
+    });
+
+    test('Logs and rethrows if OpenSearch search fails', async () => {
+      const error = new Error('Connection failed');
+      mockSearch.mockRejectedValue(error);
+
+      const call = service.findRe3DataRepositoryTypes(mockContext, true, 10);
+      await expect(call).rejects.toThrow('Service temporarily unavailable');
+      await expect(call).rejects.toBeInstanceOf(GraphQLError);
+
+      expect(mockContext.logger.error).toHaveBeenCalledWith(
+        expect.objectContaining({}),
+        expect.stringContaining('Error fetching re3data repository types from OpenSearch'),
+      );
+    });
+
+    test('Logs and rethrows if response structure is invalid', async () => {
+      mockSearch.mockResolvedValue({ body: {} });
+      await expect(service.findRe3DataRepositoryTypes(mockContext, true, 10)).rejects.toThrow();
+
+      expect(mockContext.logger.error).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.stringContaining('Error converting OpenSearch aggregation response for re3data repository types'),
+      );
+    });
+
+    test('Returns empty array if no types are found', async () => {
+      mockSearch.mockResolvedValue({
+        body: {
+          aggregations: {
+            unique_types: {
+              buckets: [],
+            },
+          },
+        },
+      });
+
+      const result = await service.findRe3DataRepositoryTypes(mockContext, true, 10);
+
+      expect(result).toEqual([]);
+    });
+  });
 });

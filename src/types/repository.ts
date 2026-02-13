@@ -125,36 +125,50 @@ export function convertRe3DataToCamelCase(
 }
 
 /**
- * Type guard: Check if a Repository-like object is a Re3DataRepository
- * Used by resolvers to determine which type resolver to use
- */
-export function isRe3DataRepository(
-  repo: unknown,
-): repo is Re3DataRepositoryRecord {
-  return (
-    repo !== null
-    && typeof repo === 'object'
-    && 'id' in repo
-    && typeof (repo as { id: unknown }).id === 'string'
-    && 'name' in repo
-  );
-}
-
-/**
  * Type guard: Check if a Repository-like object is a CustomRepository
+ * Custom repositories have a numeric or numeric-string ID
+ * and may have a re3dataId field if they reference a re3data repository
  * Used by resolvers to determine which type resolver to use
  */
 export function isCustomRepository(
   repo: unknown,
 ): repo is CustomRepositoryRecord {
+  if (repo === null || typeof repo !== 'object') {
+    return false;
+  }
+
+  const obj = repo as Record<string, unknown>;
+
+  // Custom repositories have a numeric ID or a numeric string ID
   return (
-    repo !== null
-    && typeof repo === 'object'
-    && 'id' in repo
-    && (typeof (repo as { id: unknown }).id === 'number'
-      || (typeof (repo as { id: unknown }).id === 'string'
-        && !isNaN(Number((repo as { id: unknown }).id))))
-    && !('homepage' in repo) // re3data has homepage, custom doesn't
+    'id' in obj &&
+    (typeof obj.id === 'number' ||
+      (typeof obj.id === 'string' && !isNaN(Number(obj.id))))
+  );
+}
+
+/**
+ * Type guard: Check if a Repository-like object is a Re3DataRepository
+ * Re3Data repositories have a string ID that is not a numeric string
+ * and should not have the re3dataId field
+ * Used by resolvers to determine which type resolver to use
+ */
+export function isRe3DataRepository(
+  repo: unknown,
+): repo is Re3DataRepositoryRecord {
+  if (repo === null || typeof repo !== 'object') {
+    return false;
+  }
+
+  const obj = repo as Record<string, unknown>;
+
+  // Re3Data repositories have a string ID that is NOT a numeric string
+  // and should NOT have re3dataId field (that's for custom repos only)
+  return (
+    'id' in obj &&
+    typeof obj.id === 'string' &&
+    isNaN(Number(obj.id)) &&
+    !('re3dataId' in obj)
   );
 }
 

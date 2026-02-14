@@ -239,7 +239,6 @@ describe('Repository Resolvers', () => {
           undefined,
           undefined,
           'MULTI_DISCIPLINARY', // Should be converted to uppercase enum value
-          undefined,
           expect.any(Object)
         );
       });
@@ -280,7 +279,6 @@ describe('Repository Resolvers', () => {
           undefined,
           undefined,
           'PROJECT_RELATED', // Should be converted to uppercase enum value
-          undefined,
           expect.any(Object)
         );
       });

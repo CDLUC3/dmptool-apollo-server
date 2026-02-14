@@ -31,7 +31,6 @@ export const RepositoryService = {
     subjects: string[] | null | undefined,
     keyword: string | null | undefined,
     repositoryType: RepositoryType | null | undefined,
-    subject: string | null | undefined,
     options: PaginationOptions,
   ): Promise<PaginatedQueryResults<object>> {
     try {
@@ -51,8 +50,8 @@ export const RepositoryService = {
         reference,
         context,
         term,
-        subject,
-        null, // type filter not exposed yet in GraphQL
+        subjects,
+        repositoryType,
         50,
       );
 
@@ -111,16 +110,16 @@ async function searchRe3Data(
   reference: string,
   context: MyContext,
   term: string | null | undefined,
-  subject: string | null | undefined,
-  type: string | null | undefined,
+  subjects: string[] | null | undefined,
+  repositoryType: string | null | undefined,
   maxResults: number,
 ): Promise<Re3DataRepositoryRecord[]> {
   try {
     return await openSearchFindRe3Data(
       term,
       context,
-      subject,
-      type,
+      subjects,
+      repositoryType,
       maxResults,
     );
   } catch (err) {

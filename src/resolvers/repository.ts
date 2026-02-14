@@ -31,7 +31,6 @@ export const resolvers: Resolvers = {
             subjects,
             keyword,
             repositoryType,
-            subject,
             paginationOptions,
           } = input;
           // Convert string repository type (e.g., "multidisciplinary") to enum value (e.g., "MULTI_DISCIPLINARY")
@@ -68,7 +67,6 @@ export const resolvers: Resolvers = {
             subjects,
             keyword,
             repoType,
-            subject,
             opts,
           );
 

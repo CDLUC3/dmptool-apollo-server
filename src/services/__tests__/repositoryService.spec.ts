@@ -35,7 +35,6 @@ describe('RepositoryService', () => {
       const subjects = ['Life Sciences', 'Biology'];
       const keyword = 'genomics';
       const repositoryType = RepositoryType.DISCIPLINARY;
-      const subject = 'Life Sciences';
 
       const mockCustomResults: PaginatedQueryResults<Repository> = {
         items: [
@@ -74,7 +73,6 @@ describe('RepositoryService', () => {
         subjects,
         keyword,
         repositoryType,
-        subject,
         mockPaginationOptions,
       );
 
@@ -91,8 +89,8 @@ describe('RepositoryService', () => {
       expect(openSearchService.openSearchFindRe3Data).toHaveBeenCalledWith(
         term,
         mockContext,
-        subject,
-        null,
+        subjects,
+        repositoryType,
         50,
       );
 
@@ -141,7 +139,6 @@ describe('RepositoryService', () => {
         null,
         null,
         null,
-        null,
         mockPaginationOptions,
       );
 
@@ -185,7 +182,6 @@ describe('RepositoryService', () => {
         null,
         null,
         null,
-        null,
         mockPaginationOptions,
       );
 
@@ -225,7 +221,6 @@ describe('RepositoryService', () => {
         null,
         null,
         null,
-        null,
         mockPaginationOptions,
       );
 
@@ -239,7 +234,6 @@ describe('RepositoryService', () => {
       const subjects = ['Biology', 'Life Sciences'];
       const keyword = 'dna';
       const repositoryType = RepositoryType.GOVERNMENTAL;
-      const subject = 'Biology';
 
       const mockCustomResults: PaginatedQueryResults<Repository> = {
         items: [],
@@ -261,7 +255,6 @@ describe('RepositoryService', () => {
         subjects,
         keyword,
         repositoryType,
-        subject,
         mockPaginationOptions,
       );
 
@@ -275,12 +268,12 @@ describe('RepositoryService', () => {
         mockPaginationOptions,
       );
 
-      // Verify subject is used for re3data search, not repository type
+      // Verify subjects and repositoryType are used for re3data search
       expect(openSearchService.openSearchFindRe3Data).toHaveBeenCalledWith(
         term,
         mockContext,
-        subject,
-        null, // type parameter is always null (not exposed yet)
+        subjects,
+        repositoryType,
         50,
       );
     });
@@ -311,7 +304,6 @@ describe('RepositoryService', () => {
         null,
         null,
         null,
-        null,
         mockPaginationOptions,
       );
 
@@ -333,7 +325,6 @@ describe('RepositoryService', () => {
         RepositoryService.searchCombined(
           reference,
           mockContext,
-          null,
           null,
           null,
           null,
@@ -371,7 +362,6 @@ describe('RepositoryService', () => {
         null,
         null,
         null,
-        null,
         mockPaginationOptions,
       );
 
@@ -401,13 +391,12 @@ describe('RepositoryService', () => {
         null,
         null,
         null,
-        RepositoryType.DISCIPLINARY, // This is passed to Repository.search, not re3data
-        null,
+        RepositoryType.DISCIPLINARY, // This is passed to Repository.search and re3data
         mockPaginationOptions,
       );
 
       const call = (openSearchService.openSearchFindRe3Data as jest.Mock).mock.calls[0];
-      expect(call[3]).toBeNull(); // type parameter is always null
+      expect(call[3]).toBe(RepositoryType.DISCIPLINARY); // type parameter is now passed through
     });
   });
 
@@ -595,7 +584,6 @@ describe('RepositoryService', () => {
         null,
         null,
         null,
-        null,
         mockPaginationOptions,
       );
 
@@ -632,7 +620,6 @@ describe('RepositoryService', () => {
       const result = await RepositoryService.searchCombined(
         reference,
         mockContext,
-        undefined,
         undefined,
         undefined,
         undefined,
@@ -676,7 +663,6 @@ describe('RepositoryService', () => {
         reference,
         mockContext,
         'test',
-        null,
         null,
         null,
         null,

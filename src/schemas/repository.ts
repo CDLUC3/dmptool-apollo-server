@@ -175,14 +175,12 @@ export const typeDefs = gql`
   input RepositorySearchInput {
     "The search term"
     term: String
-    "The repository category/type (for custom repositories). Accepts values like: disciplinary, institutional, other, multidisciplinary, project-related, governmental, generalist"
+    "The repository category/type (for custom and re3data repositories). Accepts values like: disciplinary, institutional, other, multidisciplinary, project-related, governmental, generalist"
     repositoryType: String
-    "The subject areas from re3data (for re3data repositories). Custom repositories have no subject matching."
+    "The subject areas from re3data (for re3data repositories). Repositories matching ANY of the provided subjects will be returned. Custom repositories have no subject matching."
     subjects: [String!]
-    "The subject area keyword associated with the repository"
+    "The keyword to filter custom repositories by"
     keyword: String
-    "The subject area from re3data (for re3data repositories)"
-    subject: String
     "The pagination options"
     paginationOptions: PaginationOptions
   }

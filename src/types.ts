@@ -3649,15 +3649,13 @@ export type RepositoryErrors = {
 };
 
 export type RepositorySearchInput = {
-  /** The subject area keyword associated with the repository */
+  /** The keyword to filter custom repositories by */
   keyword?: InputMaybe<Scalars['String']['input']>;
   /** The pagination options */
   paginationOptions?: InputMaybe<PaginationOptions>;
-  /** The repository category/type (for custom repositories). Accepts values like: disciplinary, institutional, other, multidisciplinary, project-related, governmental, generalist */
+  /** The repository category/type (for custom and re3data repositories). Accepts values like: disciplinary, institutional, other, multidisciplinary, project-related, governmental, generalist */
   repositoryType?: InputMaybe<Scalars['String']['input']>;
-  /** The subject area from re3data (for re3data repositories) */
-  subject?: InputMaybe<Scalars['String']['input']>;
-  /** The subject areas from re3data (for re3data repositories). Custom repositories have no subject matching. */
+  /** The subject areas from re3data (for re3data repositories). Repositories matching ANY of the provided subjects will be returned. Custom repositories have no subject matching. */
   subjects?: InputMaybe<Array<Scalars['String']['input']>>;
   /** The search term */
   term?: InputMaybe<Scalars['String']['input']>;

@@ -152,7 +152,7 @@ export class OpenSearchService {
     }
   }
 
-  public async findRe3Data(term: string | null | undefined, context: MyContext, subject: string | null | undefined, type: string | null | undefined, maxResults: number): Promise<Re3DataRepositoryRecord[]> {
+  public async findRe3Data(term: string | null | undefined, context: MyContext, subjects: string[] | null | undefined, repositoryType: string | null | undefined, maxResults: number): Promise<Re3DataRepositoryRecord[]> {
     const must: Record<string, unknown>[] = [];
     const filter: Record<string, unknown>[] = [];
 
@@ -167,15 +167,20 @@ export class OpenSearchService {
       must.push({ match_all: {} });
     }
 
-    if (subject?.trim()) {
-      filter.push({
-        term: { subjects: subject },
-      });
+    // Handle multiple subjects: match repositories that have ANY of the provided subjects
+    if (subjects && subjects.length > 0) {
+      const validSubjects = subjects.filter(s => s?.trim());
+      if (validSubjects.length > 0) {
+        filter.push({
+          terms: { subjects: validSubjects },
+        });
+      }
     }
 
-    if (type?.trim()) {
+    // Handle repository type: must match exactly
+    if (repositoryType?.trim()) {
       filter.push({
-        term: { types: type },
+        term: { types: repositoryType },
       });
     }
 
@@ -404,8 +409,8 @@ const openSearchService = new OpenSearchService();
 export const openSearchFindWorkByIdentifier = (reference: string, context: MyContext, doi: string | null | undefined, maxResults: number) =>
   openSearchService.findWorkByIdentifier(reference, context, doi, maxResults);
 
-export const openSearchFindRe3Data = (term: string | null | undefined, context: MyContext, subject: string | null | undefined, type: string | null | undefined, maxResults: number) =>
-  openSearchService.findRe3Data(term, context, subject, type, maxResults);
+export const openSearchFindRe3Data = (term: string | null | undefined, context: MyContext, subjects: string[] | null | undefined, repositoryType: string | null | undefined, maxResults: number) =>
+  openSearchService.findRe3Data(term, context, subjects, repositoryType, maxResults);
 
 export const openSearchFindRe3DataByURIs = (context: MyContext, uris: string[]) =>
   openSearchService.findRe3DataByURIs(context, uris);

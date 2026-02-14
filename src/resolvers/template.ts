@@ -18,6 +18,9 @@ import { GraphQLError } from "graphql";
 import { generalConfig } from "../config/generalConfig";
 import { PaginationOptionsForCursors, PaginationOptionsForOffsets, PaginationType } from "../types/general";
 import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
+import {
+  handleFunderTemplateArchive
+} from "../services/templateCustomizationService";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -204,7 +207,15 @@ export const resolvers: Resolvers = {
               // Check if there are any plans associated with any versionedTemplate for this template
               const hasPlans = await VersionedTemplate.hasAssociatedPlans(reference, context, templateId);
 
-              if (hasPlans) {
+              // Mark all customizations as ORPHANED since the template is being archived
+              const nbrCustomizations = await handleFunderTemplateArchive(
+                reference,
+                context,
+                templateId
+              )
+
+              // If the template has associated plans or customizations then we cannot delete it!
+              if (hasPlans || nbrCustomizations > 0) {
                 // Template has associated plans, so unpublish it instead of deleting
                 templateInstance.latestPublishVersion = null;
                 templateInstance.latestPublishDate = null;

@@ -13,6 +13,8 @@ const mockGet = jest.spyOn(RESTDataSource.prototype as any, 'get');
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockPost = jest.spyOn(RESTDataSource.prototype as any, 'post');
 
+nock.disableNetConnect();
+
 beforeEach(() => {
   // Set up nock to intercept the OAuth2 token request
   nock(OrcidConfig.baseAuthUrl)
@@ -30,13 +32,8 @@ describe('Authorizer', () => {
 
   beforeEach(() => {
     mockPost.mockClear();
-    authorizer = Authorizer.instance;
-  });
 
-  it('should create a singleton instance', () => {
-    const instance1 = Authorizer.instance;
-    const instance2 = Authorizer.instance;
-    expect(instance1).toBe(instance2); // Both should be the same instance
+    authorizer = new Authorizer();
   });
 
   it('should encode credentials and call authenticate method', async () => {
@@ -75,11 +72,15 @@ describe('Authorizer', () => {
 
 describe('OrcidAPI', () => {
   let orcidAPI: OrcidAPI;
+  let mockAuthorizer: Authorizer;
 
   beforeEach(() => {
     mockGet.mockClear();
+
+    mockAuthorizer = new Authorizer();
+
     // Initialize DMPToolAPI
-    orcidAPI = new OrcidAPI({ cache: {} as KeyvAdapter });
+    orcidAPI = new OrcidAPI({ cache: {} as KeyvAdapter, authorizer: mockAuthorizer });
   });
 
   describe('willSendRequest', () => {
@@ -88,13 +89,13 @@ describe('OrcidAPI', () => {
       const request: any = { headers: {} };
 
       // Mock token expiration and authentication
-      jest.spyOn(Authorizer.instance, 'hasExpired').mockReturnValue(true);
-      jest.spyOn(Authorizer.instance, 'authenticate').mockResolvedValue(undefined);
-      Authorizer.instance.oauth2Token = 'new_test_token';
+      jest.spyOn(mockAuthorizer, 'hasExpired').mockReturnValue(true);
+      jest.spyOn(mockAuthorizer, 'authenticate').mockResolvedValue(undefined);
+      mockAuthorizer.oauth2Token = 'new_test_token';
 
       await orcidAPI.willSendRequest('/affiliations', request);
 
-      expect(Authorizer.instance.authenticate).toHaveBeenCalled();
+      expect(mockAuthorizer.authenticate).toHaveBeenCalled();
       expect(request.headers['authorization']).toBe('Bearer new_test_token');
       expect(request.headers['content-type']).toBe('application/orcid+json');
       expect(request.headers['accept']).toBe('application/orcid+json');
@@ -148,7 +149,7 @@ describe('OrcidAPI', () => {
       });
       mockGet.mockResolvedValueOnce(mockPersonResponse);
       mockGet.mockResolvedValueOnce(mockEmploymentResponse);
-      jest.spyOn(Authorizer.instance, 'hasExpired').mockReturnValue(false);
+      jest.spyOn(mockAuthorizer, 'hasExpired').mockReturnValue(false);
 
       const result = await orcidAPI.getPerson(context, orcid, 'Testing');
 
@@ -176,7 +177,7 @@ describe('OrcidAPI', () => {
       mockGet.mockImplementation(() => {
         throw mockError
       });
-      jest.spyOn(Authorizer.instance, 'hasExpired').mockReturnValue(false);
+      jest.spyOn(mockAuthorizer, 'hasExpired').mockReturnValue(false);
 
       await expect(orcidAPI.getPerson(context, orcid)).rejects.toThrow('API error');
     });

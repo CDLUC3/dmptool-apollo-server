@@ -202,6 +202,88 @@ describe('Repository Resolvers', () => {
         expect(result.body.singleResult.errors).toBeTruthy();
         expect(result.body.singleResult.errors[0].message).toEqual('Something went wrong');
       });
+
+      it('should accept repositoryType as lowercase hyphenated string (e.g., "multidisciplinary")', async () => {
+        context.token = token;
+        const mockResults = {
+          items: [mockRepository],
+          totalCount: 1,
+          limit: 10,
+          hasNextPage: false,
+        };
+
+        const repositoryServiceSpy = jest
+          .spyOn(RepositoryService, 'searchCombined')
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .mockResolvedValue(mockResults as any);
+
+        // Test with lowercase hyphenated format like what comes from OpenSearch
+        const result = await executeQuery(query, {
+          input: {
+            repositoryType: 'multidisciplinary',
+            paginationOptions: {
+              type: PaginationType.CURSOR,
+            },
+          },
+        });
+
+        expect(result.body.kind).toEqual('single');
+        expect(result.body.singleResult.errors).toBeUndefined();
+        expect(result.body.singleResult.data.repositories).toBeTruthy();
+
+        // Verify the service was called with the converted enum value
+        expect(repositoryServiceSpy).toHaveBeenCalledWith(
+          'repositories resolver',
+          context,
+          undefined,
+          undefined,
+          undefined,
+          'MULTI_DISCIPLINARY', // Should be converted to uppercase enum value
+          undefined,
+          expect.any(Object)
+        );
+      });
+
+      it('should accept repositoryType as other valid types (e.g., "project-related")', async () => {
+        context.token = token;
+        const mockResults = {
+          items: [mockRepository],
+          totalCount: 1,
+          limit: 10,
+          hasNextPage: false,
+        };
+
+        const repositoryServiceSpy = jest
+          .spyOn(RepositoryService, 'searchCombined')
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .mockResolvedValue(mockResults as any);
+
+        // Test with another format
+        const result = await executeQuery(query, {
+          input: {
+            repositoryType: 'project-related',
+            paginationOptions: {
+              type: PaginationType.CURSOR,
+            },
+          },
+        });
+
+        expect(result.body.kind).toEqual('single');
+        expect(result.body.singleResult.errors).toBeUndefined();
+        expect(result.body.singleResult.data.repositories).toBeTruthy();
+
+        // Verify the service was called with the converted enum value
+        expect(repositoryServiceSpy).toHaveBeenCalledWith(
+          'repositories resolver',
+          context,
+          undefined,
+          undefined,
+          undefined,
+          'PROJECT_RELATED', // Should be converted to uppercase enum value
+          undefined,
+          expect.any(Object)
+        );
+      });
     });
 
     describe('repository', () => {

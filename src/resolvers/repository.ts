@@ -8,7 +8,6 @@ import { ResearchDomain } from '../models/ResearchDomain';
 import {
   isNullOrUndefined,
   normaliseDateTime,
-  stringToEnumValue
 } from '../utils/helpers';
 import { GraphQLError } from 'graphql';
 import { PaginationOptionsForCursors, PaginationOptionsForOffsets, PaginationType } from '../types/general';
@@ -35,7 +34,24 @@ export const resolvers: Resolvers = {
             subject,
             paginationOptions,
           } = input;
-          const repoType = stringToEnumValue(RepositoryType, repositoryType);
+          // Convert string repository type (e.g., "multidisciplinary") to enum value (e.g., "MULTI_DISCIPLINARY")
+          let repoType = null;
+          if (repositoryType) {
+            // Map database format strings to enum values
+            const typeMap: Record<string, string> = {
+              'disciplinary': RepositoryType.DISCIPLINARY,
+              'generalist': RepositoryType.GENERALIST,
+              'institutional': RepositoryType.INSTITUTIONAL,
+              'other': RepositoryType.OTHER,
+              'governmental': RepositoryType.GOVERNMENTAL,
+              'government': RepositoryType.GOVERNMENTAL, // alternate spelling
+              'govermental': RepositoryType.GOVERNMENTAL, // misspelling support
+              'project-related': RepositoryType.PROJECT_RELATED,
+              'multidisciplinary': RepositoryType.MULTI_DISCIPLINARY,
+            };
+
+            repoType = typeMap[repositoryType.toLowerCase()];
+          }
 
           const opts = !isNullOrUndefined(paginationOptions) &&
             paginationOptions.type === PaginationType.OFFSET

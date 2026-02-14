@@ -175,8 +175,8 @@ export const typeDefs = gql`
   input RepositorySearchInput {
     "The search term"
     term: String
-    "The repository category/type (for custom repositories)"
-    repositoryType: RepositoryType
+    "The repository category/type (for custom repositories). Accepts values like: disciplinary, institutional, other, multidisciplinary, project-related, governmental, generalist"
+    repositoryType: String
     "The research domain associated with the repository (for custom repositories)"
     researchDomainId: Int
     "The subject area keyword associated with the repository"

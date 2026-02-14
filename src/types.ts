@@ -3655,10 +3655,10 @@ export type RepositorySearchInput = {
   paginationOptions?: InputMaybe<PaginationOptions>;
   /** The repository category/type (for custom repositories). Accepts values like: disciplinary, institutional, other, multidisciplinary, project-related, governmental, generalist */
   repositoryType?: InputMaybe<Scalars['String']['input']>;
-  /** The research domain associated with the repository (for custom repositories) */
-  researchDomainId?: InputMaybe<Scalars['Int']['input']>;
   /** The subject area from re3data (for re3data repositories) */
   subject?: InputMaybe<Scalars['String']['input']>;
+  /** The subject areas from re3data (for re3data repositories). Custom repositories have no subject matching. */
+  subjects?: InputMaybe<Array<Scalars['String']['input']>>;
   /** The search term */
   term?: InputMaybe<Scalars['String']['input']>;
 };

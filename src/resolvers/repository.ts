@@ -28,7 +28,7 @@ export const resolvers: Resolvers = {
         if (isAuthorized(context.token)) {
           const {
             term,
-            researchDomainId,
+            subjects,
             keyword,
             repositoryType,
             subject,
@@ -65,7 +65,7 @@ export const resolvers: Resolvers = {
             reference,
             context,
             term,
-            researchDomainId,
+            subjects,
             keyword,
             repoType,
             subject,

@@ -32,7 +32,7 @@ describe('RepositoryService', () => {
     it('should combine custom and re3data repository results', async () => {
       const reference = 'test-reference';
       const term = 'data';
-      const researchDomainId = 1;
+      const subjects = ['Life Sciences', 'Biology'];
       const keyword = 'genomics';
       const repositoryType = RepositoryType.DISCIPLINARY;
       const subject = 'Life Sciences';
@@ -71,7 +71,7 @@ describe('RepositoryService', () => {
         reference,
         mockContext,
         term,
-        researchDomainId,
+        subjects,
         keyword,
         repositoryType,
         subject,
@@ -82,7 +82,7 @@ describe('RepositoryService', () => {
         reference,
         mockContext,
         term,
-        researchDomainId,
+        subjects,
         keyword,
         repositoryType,
         mockPaginationOptions,
@@ -236,7 +236,7 @@ describe('RepositoryService', () => {
     it('should pass all filter parameters to Repository.search correctly', async () => {
       const reference = 'test-reference';
       const term = 'genomics';
-      const researchDomainId = 42;
+      const subjects = ['Biology', 'Life Sciences'];
       const keyword = 'dna';
       const repositoryType = RepositoryType.GOVERNMENTAL;
       const subject = 'Biology';
@@ -258,7 +258,7 @@ describe('RepositoryService', () => {
         reference,
         mockContext,
         term,
-        researchDomainId,
+        subjects,
         keyword,
         repositoryType,
         subject,
@@ -269,7 +269,7 @@ describe('RepositoryService', () => {
         reference,
         mockContext,
         term,
-        researchDomainId,
+        subjects,
         keyword,
         repositoryType,
         mockPaginationOptions,
@@ -603,7 +603,7 @@ describe('RepositoryService', () => {
         reference,
         mockContext,
         null,
-        null,
+        [],
         null,
         null,
         mockPaginationOptions,

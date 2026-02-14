@@ -177,8 +177,8 @@ export const typeDefs = gql`
     term: String
     "The repository category/type (for custom repositories). Accepts values like: disciplinary, institutional, other, multidisciplinary, project-related, governmental, generalist"
     repositoryType: String
-    "The research domain associated with the repository (for custom repositories)"
-    researchDomainId: Int
+    "The subject areas from re3data (for re3data repositories). Custom repositories have no subject matching."
+    subjects: [String!]
     "The subject area keyword associated with the repository"
     keyword: String
     "The subject area from re3data (for re3data repositories)"

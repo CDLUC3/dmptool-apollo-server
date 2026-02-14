@@ -172,7 +172,7 @@ export class Repository extends MySqlModel {
     reference: string,
     context: MyContext,
     term: string,
-    researchDomainId: number,
+    subjects: string[],
     keyword: string,
     repositoryType: RepositoryType,
     options: PaginationOptions = Repository.getDefaultPaginationOptions()
@@ -191,17 +191,14 @@ export class Repository extends MySqlModel {
       whereFilters.push('JSON_CONTAINS(r.repositoryTypes, ?, \'$\')');
       values.push(JSON.stringify(repositoryType.toLowerCase().replace(/_/g, '-')));
     }
-    // Handle the incoming research domain
-    if (researchDomainId) {
-      whereFilters.push('rrd.researchDomainId = ?');
-      values.push(researchDomainId.toString());
-    }
     // Handle the incoming keyword
     if (keyword) {
       const searchKeyword = keyword.toLowerCase().trim();
       whereFilters.push('JSON_CONTAINS(r.keywords, ?, \'$\')'); //use JSON_CONTAINS to search within the JSON array
       values.push(JSON.stringify(searchKeyword));
     }
+    // Note: subjects are from re3data (OpenSearch) and have no matches in custom repositories
+    // so they are not included in the custom repository search filter
 
     // Set the default sort field and order if none was provided
     if (isNullOrUndefined(options.sortField)) options.sortField = 'r.name';
@@ -221,8 +218,7 @@ export class Repository extends MySqlModel {
       opts.cursorField = 'r.id';
     }
 
-    const sqlStatement = 'SELECT r.* FROM repositories r ' +
-                          'LEFT OUTER JOIN repositoryResearchDomains rrd ON r.id = rrd.repositoryId';
+    const sqlStatement = 'SELECT r.* FROM repositories r';
 
     const response: PaginatedQueryResults<Repository> = await Repository.queryWithPagination(
       context,

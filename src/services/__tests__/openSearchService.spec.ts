@@ -205,7 +205,7 @@ describe('OpenSearchService', () => {
         },
       });
 
-      const result = await service.findRe3Data('Dryad', mockContext, 'Life Sciences', 'disciplinary', 5);
+      const result = await service.findRe3Data('Dryad', mockContext, ['Life Sciences'], 'disciplinary', 5);
 
       expect(mockSearch).toHaveBeenCalledWith({
         index: 're3data',
@@ -222,7 +222,7 @@ describe('OpenSearchService', () => {
                 },
               ],
               filter: [
-                { term: { subjects: 'Life Sciences' } },
+                { terms: { subjects: ['Life Sciences'] } },
                 { term: { types: 'disciplinary' } },
               ],
             },

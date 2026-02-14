@@ -34,7 +34,7 @@ curl -X PUT "$ENDPOINT/$INDEX_NAME" \
       "website": { "type": "keyword" },
       "contact": { "type": "text", "copy_to": "search_all" },
       "uri": { "type": "keyword" },
-      "types": { "type": "keyword", "copy_to": "search_all" },
+      "repositoryTypes": { "type": "keyword", "copy_to": "search_all" },
       "subjects": { "type": "keyword", "copy_to": "search_all" },
       "provider_types": { "type": "keyword" },
       "keywords": {

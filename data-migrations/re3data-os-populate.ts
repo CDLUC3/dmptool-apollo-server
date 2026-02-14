@@ -114,6 +114,7 @@ const INDEX_BODY = {
       software: { type: 'keyword', copy_to: 'search_all' },
       created: { type: 'date' },
       modified: { type: 'date' },
+      repositoryTypes: { type: 'keyword', copy_to: 'search_all' },
       search_all: { type: 'text' }
     }
   }
@@ -299,7 +300,7 @@ async function syncRe3Data() {
           contact: getText(repoDoc, "//r3d:repository/r3d:repositoryContact"),
           uri: `https://www.re3data.org/repository/${id}`,
 
-          types: getAllText(repoDoc, "//r3d:repository/r3d:type"),
+          repositoryTypes: getAllText(repoDoc, "//r3d:repository/r3d:type"),
           // Normalize subjects: remove any leading numbers and whitespace (e.g. "3 Natural Sciences" -> "Natural Sciences")
           subjects: getAllText(repoDoc, "//r3d:repository/r3d:subject")
             .map(s => s.replace(/^\s*\d+\s*/, '').trim())

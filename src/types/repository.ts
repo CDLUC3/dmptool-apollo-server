@@ -32,7 +32,7 @@ export interface Re3DataRepositoryRecord {
   website?: string;
   contact?: string;
   uri?: string;
-  types?: string[];
+  repositoryTypes?: string[];
   subjects?: string[];
   providerTypes?: string[];
   keywords?: string[];
@@ -56,7 +56,7 @@ export interface OpenSearchRe3DataRecord {
   website?: string;
   contact?: string;
   uri?: string;
-  types?: string[];
+  repository_types?: string[];
   subjects?: string[];
   provider_types?: string[];
   keywords?: string[];
@@ -109,7 +109,7 @@ export function convertRe3DataToCamelCase(
     website: record.website,
     contact: record.contact,
     uri: record.uri,
-    types: record.types || [],
+    repositoryTypes: record.repository_types || [],
     subjects: record.subjects || [],
     providerTypes: record.provider_types || [],
     keywords: record.keywords || [],

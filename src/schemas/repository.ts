@@ -83,8 +83,6 @@ export const typeDefs = gql`
     researchDomains: [ResearchDomain!]
     "Keywords to assist in finding the repository"
     keywords: [String!]
-    "The Categories/Types of the repository (aliases to repositoryTypes for backwards compatibility)"
-    types: [String!]
     "The Categories/Types of the repository"
     repositoryTypes: [String!]
     "The source of this repository"
@@ -105,9 +103,7 @@ export const typeDefs = gql`
     contact: String
     "The taxonomy URL of the repository"
     uri: String
-    "The Categories/Types of the repository (compatible with CustomRepository)"
-    types: [String!]
-    "The Categories/Types of the repository (alias for types field)"
+    "The Categories/Types of the repository"
     repositoryTypes: [String!]
     "Subject areas covered by the repository"
     subjects: [String!]

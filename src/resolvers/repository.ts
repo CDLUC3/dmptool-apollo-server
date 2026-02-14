@@ -593,10 +593,7 @@ export const resolvers: Resolvers = {
     id: (parent) => {
       return String(parent.id);
     },
-    // Alias types to repositoryTypes for compatibility with Re3DataRepository
-    types: (parent) => {
-      return parent.repositoryTypes || [];
-    },
+    // Map database repositoryTypes field for GraphQL
     repositoryTypes: (parent) => {
       return parent.repositoryTypes || [];
     },
@@ -624,12 +621,9 @@ export const resolvers: Resolvers = {
 
   Re3DataRepository: {
     source: () => RepositorySourceType.RE3DATA,
-    // Alias repositoryTypes to types for compatibility with CustomRepository
+    // Map OpenSearch repositoryTypes field for GraphQL
     repositoryTypes: (parent) => {
-      return parent.types || [];
-    },
-    types: (parent) => {
-      return parent.types || [];
+      return parent.repositoryTypes || [];
     },
   },
 };

@@ -57,7 +57,7 @@ describe('RepositoryService', () => {
           id: 'r3d100010134',
           name: 'Dryad Digital Repository',
           description: 'Dryad is a curated resource',
-          types: ['generalist'],
+          repositoryTypes: ['generalist'],
         },
       ];
 
@@ -697,7 +697,7 @@ describe('RepositoryService', () => {
       const mockRe3DataResults = Array.from({ length: 3 }, (_, i) => ({
         id: `r3d${String(i + 1).padStart(9, '0')}`,
         name: `Re3Data Repo ${i + 1}`,
-        types: ['generalist'],
+        repositoryTypes: ['generalist'],
       }));
 
       (Repository.search as jest.Mock).mockResolvedValueOnce(mockCustomResults);

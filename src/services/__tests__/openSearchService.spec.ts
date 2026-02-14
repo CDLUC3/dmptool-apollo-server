@@ -186,7 +186,7 @@ describe('OpenSearchService', () => {
                   website: 'https://datadryad.org/',
                   contact: 'help@datadryad.org',
                   uri: 'http://www.re3data.org/repository/r3d100010134',
-                  types: ['disciplinary'],
+                  repository_types: ['disciplinary'],
                   subjects: ['Life Sciences', 'Medicine'],
                   provider_types: ['non-profit'],
                   keywords: ['data', 'science'],
@@ -217,13 +217,13 @@ describe('OpenSearchService', () => {
                 {
                   multi_match: {
                     query: 'Dryad',
-                    fields: ['name^2', 'description', 'keywords', 'subjects', 'types', 'search_all'],
+                    fields: ['name^2', 'description', 'keywords', 'subjects', 'repositoryTypes', 'search_all'],
                   },
                 },
               ],
               filter: [
                 { terms: { subjects: ['Life Sciences'] } },
-                { term: { types: 'disciplinary' } },
+                { term: { repositoryTypes: 'disciplinary' } },
               ],
             },
           },
@@ -238,7 +238,7 @@ describe('OpenSearchService', () => {
           website: 'https://datadryad.org/',
           contact: 'help@datadryad.org',
           uri: 'http://www.re3data.org/repository/r3d100010134',
-          types: ['disciplinary'],
+          repositoryTypes: ['disciplinary'],
           subjects: ['Life Sciences', 'Medicine'],
           providerTypes: ['non-profit'],
           keywords: ['data', 'science'],
@@ -329,7 +329,7 @@ describe('OpenSearchService', () => {
           aggs: {
             unique_types: {
               terms: {
-                field: 'types',
+                field: 'repositoryTypes',
                 size: 10,
               },
             },
@@ -388,7 +388,7 @@ describe('OpenSearchService', () => {
           aggs: {
             unique_types: {
               terms: {
-                field: 'types',
+                field: 'repositoryTypes',
                 size: 100,
               },
             },

@@ -643,8 +643,6 @@ export type CustomRepository = {
   researchDomains?: Maybe<Array<ResearchDomain>>;
   /** The source of this repository */
   source: RepositorySource;
-  /** The Categories/Types of the repository (aliases to repositoryTypes for backwards compatibility) */
-  types?: Maybe<Array<Scalars['String']['output']>>;
   /** The taxonomy URL of the repository */
   uri?: Maybe<Scalars['String']['output']>;
   /** The website URL */
@@ -3418,7 +3416,7 @@ export type Re3DataRepository = {
   policies?: Maybe<Array<Scalars['String']['output']>>;
   /** Provider types */
   providerTypes?: Maybe<Array<Scalars['String']['output']>>;
-  /** The Categories/Types of the repository (alias for types field) */
+  /** The Categories/Types of the repository */
   repositoryTypes?: Maybe<Array<Scalars['String']['output']>>;
   /** Software used */
   software?: Maybe<Array<Scalars['String']['output']>>;
@@ -3426,8 +3424,6 @@ export type Re3DataRepository = {
   source: RepositorySource;
   /** Subject areas covered by the repository */
   subjects?: Maybe<Array<Scalars['String']['output']>>;
-  /** The Categories/Types of the repository (compatible with CustomRepository) */
-  types?: Maybe<Array<Scalars['String']['output']>>;
   /** Upload types supported */
   uploadTypes?: Maybe<Array<Scalars['String']['output']>>;
   /** The taxonomy URL of the repository */
@@ -5682,7 +5678,6 @@ export type CustomRepositoryResolvers<ContextType = MyContext, ParentType extend
   repositoryTypes?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
   researchDomains?: Resolver<Maybe<Array<ResolversTypes['ResearchDomain']>>, ParentType, ContextType>;
   source?: Resolver<ResolversTypes['RepositorySource'], ParentType, ContextType>;
-  types?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
   uri?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   website?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
@@ -6602,7 +6597,6 @@ export type Re3DataRepositoryResolvers<ContextType = MyContext, ParentType exten
   software?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
   source?: Resolver<ResolversTypes['RepositorySource'], ParentType, ContextType>;
   subjects?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
-  types?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
   uploadTypes?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
   uri?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   website?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;

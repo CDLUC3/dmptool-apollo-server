@@ -160,7 +160,7 @@ export class OpenSearchService {
       must.push({
         multi_match: {
           query: term,
-          fields: ['name^2', 'description', 'keywords', 'subjects', 'types', 'search_all'],
+          fields: ['name^2', 'description', 'keywords', 'subjects', 'repositoryTypes', 'search_all'],
         },
       });
     } else {
@@ -180,7 +180,7 @@ export class OpenSearchService {
     // Handle repository type: must match exactly
     if (repositoryType?.trim()) {
       filter.push({
-        term: { types: repositoryType },
+        term: { repositoryTypes: repositoryType },
       });
     }
 
@@ -353,7 +353,7 @@ export class OpenSearchService {
         aggs: {
           unique_types: {
             terms: {
-              field: 'types',
+              field: 'repositoryTypes',
               size: maxResults,
             },
           },

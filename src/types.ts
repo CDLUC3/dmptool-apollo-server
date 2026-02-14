@@ -614,6 +614,43 @@ export type ContentMatch = {
   titleHighlight?: Maybe<Scalars['String']['output']>;
 };
 
+/** A custom repository where research outputs are preserved (database-backed) */
+export type CustomRepository = {
+  __typename?: 'CustomRepository';
+  /** The timestamp when the Object was created */
+  created?: Maybe<Scalars['String']['output']>;
+  /** The user who created the Object */
+  createdById?: Maybe<Scalars['Int']['output']>;
+  /** A description of the repository */
+  description?: Maybe<Scalars['String']['output']>;
+  /** Errors associated with the Object */
+  errors?: Maybe<RepositoryErrors>;
+  /** The unique identifer for the Object (returns as String for compatibility with Re3DataRepository) */
+  id: Scalars['String']['output'];
+  /** Keywords to assist in finding the repository */
+  keywords?: Maybe<Array<Scalars['String']['output']>>;
+  /** The timestamp when the Object was last modifed */
+  modified?: Maybe<Scalars['String']['output']>;
+  /** The user who last modified the Object */
+  modifiedById?: Maybe<Scalars['Int']['output']>;
+  /** The name of the repository */
+  name: Scalars['String']['output'];
+  /** The re3data identifier if this is a local copy of re3data information (e.g. 'r3d100014782') */
+  re3dataId?: Maybe<Scalars['String']['output']>;
+  /** The Categories/Types of the repository */
+  repositoryTypes?: Maybe<Array<Scalars['String']['output']>>;
+  /** Research domains associated with the repository */
+  researchDomains?: Maybe<Array<ResearchDomain>>;
+  /** The source of this repository */
+  source: RepositorySource;
+  /** The Categories/Types of the repository (aliases to repositoryTypes for backwards compatibility) */
+  types?: Maybe<Array<Scalars['String']['output']>>;
+  /** The taxonomy URL of the repository */
+  uri?: Maybe<Scalars['String']['output']>;
+  /** The website URL */
+  website?: Maybe<Scalars['String']['output']>;
+};
+
 export type CustomizableTemplateSearchResult = {
   __typename?: 'CustomizableTemplateSearchResult';
   /** The id of the template customization (undefined means the template has not been customized yet) */
@@ -666,41 +703,6 @@ export type CustomizableTemplateSearchResults = PaginatedQueryResults & {
   nextCursor?: Maybe<Scalars['String']['output']>;
   /** The total number of possible items */
   totalCount?: Maybe<Scalars['Int']['output']>;
-/** A custom repository where research outputs are preserved (database-backed) */
-export type CustomRepository = {
-  __typename?: 'CustomRepository';
-  /** The timestamp when the Object was created */
-  created?: Maybe<Scalars['String']['output']>;
-  /** The user who created the Object */
-  createdById?: Maybe<Scalars['Int']['output']>;
-  /** A description of the repository */
-  description?: Maybe<Scalars['String']['output']>;
-  /** Errors associated with the Object */
-  errors?: Maybe<RepositoryErrors>;
-  /** The unique identifer for the Object (returns as String for compatibility with Re3DataRepository) */
-  id: Scalars['String']['output'];
-  /** Keywords to assist in finding the repository */
-  keywords?: Maybe<Array<Scalars['String']['output']>>;
-  /** The timestamp when the Object was last modifed */
-  modified?: Maybe<Scalars['String']['output']>;
-  /** The user who last modified the Object */
-  modifiedById?: Maybe<Scalars['Int']['output']>;
-  /** The name of the repository */
-  name: Scalars['String']['output'];
-  /** The re3data identifier if this is a local copy of re3data information (e.g. 'r3d100014782') */
-  re3dataId?: Maybe<Scalars['String']['output']>;
-  /** The Categories/Types of the repository */
-  repositoryTypes?: Maybe<Array<Scalars['String']['output']>>;
-  /** Research domains associated with the repository */
-  researchDomains?: Maybe<Array<ResearchDomain>>;
-  /** The source of this repository */
-  source: RepositorySource;
-  /** The Categories/Types of the repository (aliases to repositoryTypes for backwards compatibility) */
-  types?: Maybe<Array<Scalars['String']['output']>>;
-  /** The taxonomy URL of the repository */
-  uri?: Maybe<Scalars['String']['output']>;
-  /** The website URL */
-  website?: Maybe<Scalars['String']['output']>;
 };
 
 export type DoiMatch = {
@@ -5124,9 +5126,9 @@ export type ResolversTypes = {
   CollaboratorSearchResult: ResolverTypeWrapper<CollaboratorSearchResult>;
   CollaboratorSearchResults: ResolverTypeWrapper<CollaboratorSearchResults>;
   ContentMatch: ResolverTypeWrapper<ContentMatch>;
+  CustomRepository: ResolverTypeWrapper<CustomRepository>;
   CustomizableTemplateSearchResult: ResolverTypeWrapper<CustomizableTemplateSearchResult>;
   CustomizableTemplateSearchResults: ResolverTypeWrapper<CustomizableTemplateSearchResults>;
-  CustomRepository: ResolverTypeWrapper<CustomRepository>;
   DateTimeISO: ResolverTypeWrapper<Scalars['DateTimeISO']['output']>;
   DmspId: ResolverTypeWrapper<Scalars['DmspId']['output']>;
   DoiMatch: ResolverTypeWrapper<DoiMatch>;
@@ -5340,9 +5342,9 @@ export type ResolversParentTypes = {
   CollaboratorSearchResult: CollaboratorSearchResult;
   CollaboratorSearchResults: CollaboratorSearchResults;
   ContentMatch: ContentMatch;
+  CustomRepository: CustomRepository;
   CustomizableTemplateSearchResult: CustomizableTemplateSearchResult;
   CustomizableTemplateSearchResults: CustomizableTemplateSearchResults;
-  CustomRepository: CustomRepository;
   DateTimeISO: Scalars['DateTimeISO']['output'];
   DmspId: Scalars['DmspId']['output'];
   DoiMatch: DoiMatch;
@@ -5668,6 +5670,26 @@ export type ContentMatchResolvers<ContextType = MyContext, ParentType extends Re
   titleHighlight?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 };
 
+export type CustomRepositoryResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['CustomRepository'] = ResolversParentTypes['CustomRepository']> = {
+  created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  createdById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  description?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  errors?: Resolver<Maybe<ResolversTypes['RepositoryErrors']>, ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  keywords?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
+  modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  re3dataId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  repositoryTypes?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
+  researchDomains?: Resolver<Maybe<Array<ResolversTypes['ResearchDomain']>>, ParentType, ContextType>;
+  source?: Resolver<ResolversTypes['RepositorySource'], ParentType, ContextType>;
+  types?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
+  uri?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  website?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
 export type CustomizableTemplateSearchResultResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['CustomizableTemplateSearchResult'] = ResolversParentTypes['CustomizableTemplateSearchResult']> = {
   customizationId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   customizationIsDirty?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
@@ -5695,23 +5717,6 @@ export type CustomizableTemplateSearchResultsResolvers<ContextType = MyContext, 
   limit?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   nextCursor?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   totalCount?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-export type CustomRepositoryResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['CustomRepository'] = ResolversParentTypes['CustomRepository']> = {
-  created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  createdById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  description?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  errors?: Resolver<Maybe<ResolversTypes['RepositoryErrors']>, ParentType, ContextType>;
-  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  keywords?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
-  modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  re3dataId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  repositoryTypes?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
-  researchDomains?: Resolver<Maybe<Array<ResolversTypes['ResearchDomain']>>, ParentType, ContextType>;
-  source?: Resolver<ResolversTypes['RepositorySource'], ParentType, ContextType>;
-  types?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
-  uri?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  website?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
@@ -7290,9 +7295,9 @@ export type Resolvers<ContextType = MyContext> = {
   CollaboratorSearchResult?: CollaboratorSearchResultResolvers<ContextType>;
   CollaboratorSearchResults?: CollaboratorSearchResultsResolvers<ContextType>;
   ContentMatch?: ContentMatchResolvers<ContextType>;
+  CustomRepository?: CustomRepositoryResolvers<ContextType>;
   CustomizableTemplateSearchResult?: CustomizableTemplateSearchResultResolvers<ContextType>;
   CustomizableTemplateSearchResults?: CustomizableTemplateSearchResultsResolvers<ContextType>;
-  CustomRepository?: CustomRepositoryResolvers<ContextType>;
   DateTimeISO?: GraphQLScalarType;
   DmspId?: GraphQLScalarType;
   DoiMatch?: DoiMatchResolvers<ContextType>;

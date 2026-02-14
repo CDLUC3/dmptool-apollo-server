@@ -115,11 +115,18 @@ async function searchRe3Data(
   maxResults: number,
 ): Promise<Re3DataRepositoryRecord[]> {
   try {
+    // Convert enum format back to re3data format (e.g., "MULTI_DISCIPLINARY" -> "multidisciplinary")
+    let re3dataRepositoryType: string | undefined;
+    if (repositoryType) {
+      // Remove underscores and convert to lowercase to match re3data format
+      re3dataRepositoryType = repositoryType.toLowerCase().replace(/_/g, '');
+    }
+
     return await openSearchFindRe3Data(
       term,
       context,
       subjects,
-      repositoryType,
+      re3dataRepositoryType,
       maxResults,
     );
   } catch (err) {

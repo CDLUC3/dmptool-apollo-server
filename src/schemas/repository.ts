@@ -37,22 +37,16 @@ export const typeDefs = gql`
     RE3DATA
   }
 
-  enum RepositoryType {
-    "A discipline specific repository (e.g. GeneCards, Arctic Data Centre, etc.)"
-    DISCIPLINARY
-    "A generalist repository (e.g. Zenodo, Dryad)"
-    GENERALIST
-    "An institution specific repository (e.g. ASU Library Research Data Repository, etc.)"
-    INSTITUTIONAL
-    "A repository that doesn't fit into any of the other categories"
-    OTHER
-    "A repository owned and managed by a government entity (e.g. NCBI, NASA)"
-    GOVERNMENTAL
-    "A repository created to support a specific project or initiative (e.g. Human Genome Project)"
-    PROJECT_RELATED
-    "A repository that accepts any type of dataset, from any discipline. Often used when no disciplinary repository exists."
-    MULTI_DISCIPLINARY
-  }
+  """
+  Repository type values follow the re3data standard:
+  - disciplinary: A discipline specific repository (e.g. GeneCards, Arctic Data Centre, etc.)
+  - institutional: An institution specific repository (e.g. ASU Library Research Data Repository, etc.)
+  - other: A repository that doesn't fit into any of the other categories
+  - multidisciplinary: A repository that accepts any type of dataset, from any discipline
+  - project-related: A repository created to support a specific project or initiative (e.g. Human Genome Project)
+  - governmental: A repository owned and managed by a government entity (e.g. NCBI, NASA)
+  """
+  scalar RepositoryTypeValue
 
   "A custom repository where research outputs are preserved (database-backed)"
   type CustomRepository {
@@ -171,7 +165,7 @@ export const typeDefs = gql`
   input RepositorySearchInput {
     "The search term"
     term: String
-    "The repository category/type (for custom and re3data repositories). Accepts values like: disciplinary, institutional, other, multidisciplinary, project-related, governmental, generalist"
+    "The repository category/type (for custom and re3data repositories). Accepts values: disciplinary, institutional, other, multidisciplinary, project-related, governmental"
     repositoryType: String
     "The subject areas from re3data (for re3data repositories). Repositories matching ANY of the provided subjects will be returned. Custom repositories have no subject matching."
     subjects: [String!]

@@ -1,6 +1,6 @@
 import { MyContext } from '../context';
 import { prepareObjectForLogs } from '../logger';
-import { Repository, RepositoryType } from '../models/Repository';
+import { Repository } from '../models/Repository';
 import {
   Re3DataRepositoryRecord,
 } from '../types/repository';
@@ -30,7 +30,7 @@ export const RepositoryService = {
     term: string | null | undefined,
     subjects: string[] | null | undefined,
     keyword: string | null | undefined,
-    repositoryType: RepositoryType | null | undefined,
+    repositoryType: string | null | undefined,
     options: PaginationOptions,
   ): Promise<PaginatedQueryResults<object>> {
     try {
@@ -115,18 +115,12 @@ async function searchRe3Data(
   maxResults: number,
 ): Promise<Re3DataRepositoryRecord[]> {
   try {
-    // Convert enum format back to re3data format (e.g., "MULTI_DISCIPLINARY" -> "multidisciplinary")
-    let re3dataRepositoryType: string | undefined;
-    if (repositoryType) {
-      // Remove underscores and convert to lowercase to match re3data format
-      re3dataRepositoryType = repositoryType.toLowerCase().replace(/_/g, '');
-    }
-
+    // repositoryType is already in the correct re3data format (lowercase with hyphens)
     return await openSearchFindRe3Data(
       term,
       context,
       subjects,
-      re3dataRepositoryType,
+      repositoryType,
       maxResults,
     );
   } catch (err) {

@@ -1,6 +1,6 @@
 import casual from "casual";
 import { buildMockContextWithToken } from "../../__mocks__/context";
-import { Repository, RepositoryType } from "../Repository";
+import { Repository, REPOSITORY_TYPE } from "../Repository";
 import { getRandomEnumValue } from "../../__tests__/helpers";
 import { generalConfig } from "../../config/generalConfig";
 import { logger } from "../../logger";
@@ -10,9 +10,10 @@ jest.mock('../../context.ts');
 
 let context;
 
-// Helper function to convert enum values to kebab-case
-const toKebabCase = (str: string): string => {
-  return str.toLowerCase().replace(/_/g, '-');
+// Helper function to get a random repository type value
+const getRandomRepositoryType = (): string => {
+  const types = Object.values(REPOSITORY_TYPE);
+  return types[Math.floor(Math.random() * types.length)];
 };
 
 beforeEach(async () => {
@@ -34,7 +35,7 @@ describe('Repository', () => {
     description: casual.sentences(3),
     website: casual.url,
     researchDomains: [{ id: casual.integer(1, 99) }],
-    repositoryTypes: [getRandomEnumValue(RepositoryType), getRandomEnumValue(RepositoryType)],
+    repositoryTypes: [getRandomRepositoryType(), getRandomRepositoryType()],
     keywords: [casual.word, casual.word],
   }
   beforeEach(() => {
@@ -215,11 +216,12 @@ describe('findBy Queries', () => {
   it('search should work when a search term and repositoryType are specified', async () => {
     localPaginationQuery.mockResolvedValueOnce([repo]);
     const term = casual.words(3);
-    const repositoryType = getRandomEnumValue(RepositoryType);
+    const repositoryTypes = Object.values(REPOSITORY_TYPE);
+    const repositoryType = repositoryTypes[Math.floor(Math.random() * repositoryTypes.length)];
     const result = await Repository.search('testing', context, term, [], null, repositoryType);
     const sql = 'SELECT r.* FROM repositories r';
     const vals = [`%${term.toLowerCase()}%`, `%${term.toLowerCase()}%`, `%${term.toLowerCase()}%`,
-                  JSON.stringify(toKebabCase(repositoryType))];
+                  JSON.stringify(repositoryType)];
     const whereFilters = ['(LOWER(r.name) LIKE ? OR LOWER(r.description) LIKE ? OR LOWER(r.keywords) LIKE ?)',
                           'JSON_CONTAINS(r.repositoryTypes, ?, \'$\')'];
     const sortFields = ["r.name", "r.created"];
@@ -262,10 +264,11 @@ describe('findBy Queries', () => {
 
   it('search should work when only a Repository Type is specified', async () => {
     localPaginationQuery.mockResolvedValueOnce([repo]);
-    const repositoryType = getRandomEnumValue(RepositoryType);
+    const repositoryTypes = Object.values(REPOSITORY_TYPE);
+    const repositoryType = repositoryTypes[Math.floor(Math.random() * repositoryTypes.length)];
     const result = await Repository.search('testing', context, null, [], null, repositoryType);
     const sql = 'SELECT r.* FROM repositories r';
-    const vals = ['%%', '%%', '%%', JSON.stringify(toKebabCase(repositoryType))];
+    const vals = ['%%', '%%', '%%', JSON.stringify(repositoryType)];
     const whereFilters = [
       '(LOWER(r.name) LIKE ? OR LOWER(r.description) LIKE ? OR LOWER(r.keywords) LIKE ?)',
       'JSON_CONTAINS(r.repositoryTypes, ?, \'$\')'
@@ -310,7 +313,8 @@ describe('findBy Queries', () => {
   it('search should return empty array if it finds no records', async () => {
     localPaginationQuery.mockResolvedValueOnce([]);
     const term = casual.words(3);
-    const repositoryType = getRandomEnumValue(RepositoryType);
+    const repositoryTypes = Object.values(REPOSITORY_TYPE);
+    const repositoryType = repositoryTypes[Math.floor(Math.random() * repositoryTypes.length)];
     const result = await Repository.search('testing', context, term, [], null, repositoryType);
     expect(result).toEqual([]);
   });

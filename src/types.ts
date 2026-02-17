@@ -21,6 +21,16 @@ export type Scalars = {
   EmailAddress: { input: any; output: any; }
   MD5: { input: any; output: any; }
   Orcid: { input: any; output: any; }
+  /**
+   * Repository type values follow the re3data standard:
+   * - disciplinary: A discipline specific repository (e.g. GeneCards, Arctic Data Centre, etc.)
+   * - institutional: An institution specific repository (e.g. ASU Library Research Data Repository, etc.)
+   * - other: A repository that doesn't fit into any of the other categories
+   * - multidisciplinary: A repository that accepts any type of dataset, from any discipline
+   * - project-related: A repository created to support a specific project or initiative (e.g. Human Genome Project)
+   * - governmental: A repository owned and managed by a government entity (e.g. NCBI, NASA)
+   */
+  RepositoryTypeValue: { input: any; output: any; }
   Ror: { input: any; output: any; }
   URL: { input: any; output: any; }
 };
@@ -3649,7 +3659,7 @@ export type RepositorySearchInput = {
   keyword?: InputMaybe<Scalars['String']['input']>;
   /** The pagination options */
   paginationOptions?: InputMaybe<PaginationOptions>;
-  /** The repository category/type (for custom and re3data repositories). Accepts values like: disciplinary, institutional, other, multidisciplinary, project-related, governmental, generalist */
+  /** The repository category/type (for custom and re3data repositories). Accepts values: disciplinary, institutional, other, multidisciplinary, project-related, governmental */
   repositoryType?: InputMaybe<Scalars['String']['input']>;
   /** The subject areas from re3data (for re3data repositories). Repositories matching ANY of the provided subjects will be returned. Custom repositories have no subject matching. */
   subjects?: InputMaybe<Array<Scalars['String']['input']>>;
@@ -3682,22 +3692,6 @@ export type RepositorySource =
   | 'CUSTOM'
   /** A preset repository from re3data */
   | 'RE3DATA';
-
-export type RepositoryType =
-  /** A discipline specific repository (e.g. GeneCards, Arctic Data Centre, etc.) */
-  | 'DISCIPLINARY'
-  /** A generalist repository (e.g. Zenodo, Dryad) */
-  | 'GENERALIST'
-  /** A repository owned and managed by a government entity (e.g. NCBI, NASA) */
-  | 'GOVERNMENTAL'
-  /** An institution specific repository (e.g. ASU Library Research Data Repository, etc.) */
-  | 'INSTITUTIONAL'
-  /** A repository that accepts any type of dataset, from any discipline. Often used when no disciplinary repository exists. */
-  | 'MULTI_DISCIPLINARY'
-  /** A repository that doesn't fit into any of the other categories */
-  | 'OTHER'
-  /** A repository created to support a specific project or initiative (e.g. Human Genome Project) */
-  | 'PROJECT_RELATED';
 
 /** An aread of research (e.g. Electrical Engineering, Cellular biology, etc.) */
 export type ResearchDomain = {
@@ -5232,7 +5226,7 @@ export type ResolversTypes = {
   RepositorySearchInput: RepositorySearchInput;
   RepositorySearchResults: ResolverTypeWrapper<Omit<RepositorySearchResults, 'items'> & { items?: Maybe<Array<Maybe<ResolversTypes['Repository']>>> }>;
   RepositorySource: RepositorySource;
-  RepositoryType: RepositoryType;
+  RepositoryTypeValue: ResolverTypeWrapper<Scalars['RepositoryTypeValue']['output']>;
   ResearchDomain: ResolverTypeWrapper<ResearchDomain>;
   ResearchDomainErrors: ResolverTypeWrapper<ResearchDomainErrors>;
   ResearchDomainSearchResults: ResolverTypeWrapper<ResearchDomainSearchResults>;
@@ -5432,6 +5426,7 @@ export type ResolversParentTypes = {
   RepositoryErrors: RepositoryErrors;
   RepositorySearchInput: RepositorySearchInput;
   RepositorySearchResults: Omit<RepositorySearchResults, 'items'> & { items?: Maybe<Array<Maybe<ResolversParentTypes['Repository']>>> };
+  RepositoryTypeValue: Scalars['RepositoryTypeValue']['output'];
   ResearchDomain: ResearchDomain;
   ResearchDomainErrors: ResearchDomainErrors;
   ResearchDomainSearchResults: ResearchDomainSearchResults;
@@ -6708,6 +6703,10 @@ export type RepositorySearchResultsResolvers<ContextType = MyContext, ParentType
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
+export interface RepositoryTypeValueScalarConfig extends GraphQLScalarTypeConfig<ResolversTypes['RepositoryTypeValue'], any> {
+  name: 'RepositoryTypeValue';
+}
+
 export type ResearchDomainResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['ResearchDomain'] = ResolversParentTypes['ResearchDomain']> = {
   childResearchDomains?: Resolver<Maybe<Array<ResolversTypes['ResearchDomain']>>, ParentType, ContextType>;
   created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -7371,6 +7370,7 @@ export type Resolvers<ContextType = MyContext> = {
   Repository?: RepositoryResolvers<ContextType>;
   RepositoryErrors?: RepositoryErrorsResolvers<ContextType>;
   RepositorySearchResults?: RepositorySearchResultsResolvers<ContextType>;
+  RepositoryTypeValue?: GraphQLScalarType;
   ResearchDomain?: ResearchDomainResolvers<ContextType>;
   ResearchDomainErrors?: ResearchDomainErrorsResolvers<ContextType>;
   ResearchDomainSearchResults?: ResearchDomainSearchResultsResolvers<ContextType>;

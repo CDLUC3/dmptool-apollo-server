@@ -1,5 +1,5 @@
 import { RepositoryService } from '../repositoryService';
-import { Repository, RepositoryType } from '../../models/Repository';
+import { Repository } from '../../models/Repository';
 import * as openSearchService from '../openSearchService';
 import { MyContext } from '../../context';
 import { PaginatedQueryResults, PaginationType, PaginationOptionsForCursors } from '../../types/general';
@@ -34,7 +34,7 @@ describe('RepositoryService', () => {
       const term = 'data';
       const subjects = ['Life Sciences', 'Biology'];
       const keyword = 'genomics';
-      const repositoryType = RepositoryType.DISCIPLINARY;
+      const repositoryType = 'disciplinary';
 
       const mockCustomResults: PaginatedQueryResults<Repository> = {
         items: [
@@ -90,7 +90,7 @@ describe('RepositoryService', () => {
         term,
         mockContext,
         subjects,
-        'disciplinary', // Converted from RepositoryType.DISCIPLINARY
+        'disciplinary', // Already in re3data standard format
         50,
       );
 
@@ -233,7 +233,7 @@ describe('RepositoryService', () => {
       const term = 'genomics';
       const subjects = ['Biology', 'Life Sciences'];
       const keyword = 'dna';
-      const repositoryType = RepositoryType.GOVERNMENTAL;
+      const repositoryType = 'governmental';
 
       const mockCustomResults: PaginatedQueryResults<Repository> = {
         items: [],
@@ -268,13 +268,12 @@ describe('RepositoryService', () => {
         mockPaginationOptions,
       );
 
-      // Verify subjects and repositoryType are used for re3data search
-      // repositoryType should be converted from enum format (GOVERNMENTAL) to re3data format (governmental)
+      // Verify subjects and repositoryType are passed directly to re3data search
       expect(openSearchService.openSearchFindRe3Data).toHaveBeenCalledWith(
         term,
         mockContext,
         subjects,
-        'governmental', // Converted from RepositoryType.GOVERNMENTAL
+        'governmental', // Already in re3data standard format
         50,
       );
     });
@@ -392,16 +391,16 @@ describe('RepositoryService', () => {
         null,
         null,
         null,
-        RepositoryType.DISCIPLINARY, // This is passed to Repository.search and re3data
+        'disciplinary', // This is passed directly to Repository.search and re3data
         mockPaginationOptions,
       );
 
       const call = (openSearchService.openSearchFindRe3Data as jest.Mock).mock.calls[0];
-      // Type parameter should be converted from enum format (DISCIPLINARY) to re3data format (disciplinary)
+      // Type parameter is passed directly in re3data format
       expect(call[3]).toBe('disciplinary');
     });
 
-    it('should correctly convert various repository type enum values to re3data format', async () => {
+    it('should correctly pass various repository type values to re3data search', async () => {
       const reference = 'test-reference';
 
       const mockCustomResults: PaginatedQueryResults<Repository> = {
@@ -414,18 +413,17 @@ describe('RepositoryService', () => {
         availableSortFields: ['name', 'created'],
       };
 
-      // Test cases for different repository types
-      const testCases: Array<[RepositoryType, string]> = [
-        [RepositoryType.DISCIPLINARY, 'disciplinary'],
-        [RepositoryType.GENERALIST, 'generalist'],
-        [RepositoryType.MULTI_DISCIPLINARY, 'multidisciplinary'],
-        [RepositoryType.INSTITUTIONAL, 'institutional'],
-        [RepositoryType.GOVERNMENTAL, 'governmental'],
-        [RepositoryType.PROJECT_RELATED, 'projectrelated'],
-        [RepositoryType.OTHER, 'other'],
+      // Test cases for different repository types (using re3data standard format)
+      const testCases: Array<[string, string]> = [
+        ['disciplinary', 'disciplinary'],
+        ['institutional', 'institutional'],
+        ['multidisciplinary', 'multidisciplinary'],
+        ['governmental', 'governmental'],
+        ['project-related', 'project-related'],
+        ['other', 'other'],
       ];
 
-      for (const [enumValue, expectedFormat] of testCases) {
+      for (const [inputValue, expectedFormat] of testCases) {
         jest.clearAllMocks();
         (Repository.search as jest.Mock).mockResolvedValueOnce(mockCustomResults);
         (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValueOnce([]);
@@ -436,7 +434,7 @@ describe('RepositoryService', () => {
           null,
           null,
           null,
-          enumValue,
+          inputValue,
           mockPaginationOptions,
         );
 

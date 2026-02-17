@@ -1,6 +1,6 @@
 import { prepareObjectForLogs } from '../logger';
 import { RepositorySearchResults, Resolvers } from "../types";
-import { DEFAULT_DMPTOOL_REPOSITORY_URL, Repository, RepositoryType } from "../models/Repository";
+import { DEFAULT_DMPTOOL_REPOSITORY_URL, Repository } from "../models/Repository";
 import { MyContext } from '../context';
 import { isAdmin, isAuthorized, isSuperAdmin } from '../services/authService';
 import { AuthenticationError, ForbiddenError, InternalServerError, NotFoundError } from '../utils/graphQLErrors';
@@ -33,24 +33,6 @@ export const resolvers: Resolvers = {
             repositoryType,
             paginationOptions,
           } = input;
-          // Convert string repository type (e.g., "multidisciplinary") to enum value (e.g., "MULTI_DISCIPLINARY")
-          let repoType = null;
-          if (repositoryType) {
-            // Map database format strings to enum values
-            const typeMap: Record<string, string> = {
-              'disciplinary': RepositoryType.DISCIPLINARY,
-              'generalist': RepositoryType.GENERALIST,
-              'institutional': RepositoryType.INSTITUTIONAL,
-              'other': RepositoryType.OTHER,
-              'governmental': RepositoryType.GOVERNMENTAL,
-              'government': RepositoryType.GOVERNMENTAL, // alternate spelling
-              'govermental': RepositoryType.GOVERNMENTAL, // misspelling support
-              'project-related': RepositoryType.PROJECT_RELATED,
-              'multidisciplinary': RepositoryType.MULTI_DISCIPLINARY,
-            };
-
-            repoType = typeMap[repositoryType.toLowerCase()];
-          }
 
           const opts = !isNullOrUndefined(paginationOptions) &&
             paginationOptions.type === PaginationType.OFFSET
@@ -66,7 +48,7 @@ export const resolvers: Resolvers = {
             term,
             subjects,
             keyword,
-            repoType,
+            repositoryType,
             opts,
           );
 

@@ -16,7 +16,6 @@ import { getCurrentDate } from '../../utils/helpers'
 import {
   Repository,
   DEFAULT_DMPTOOL_REPOSITORY_URL,
-  RepositoryType,
 } from '../../models/Repository';
 import { ResearchDomain } from '../../models/ResearchDomain';
 import { RepositoryService } from '../../services/repositoryService';
@@ -78,7 +77,7 @@ describe('Repository Resolvers', () => {
       website: 'https://example.com',
       re3dataId: casual.uuid,
       researchDomains: [],
-      repositoryTypes: [RepositoryType.GENERALIST],
+      repositoryTypes: ['generalist'],
       keywords: ['test', 'repository'],
       created: getCurrentDate(),
       modified: getCurrentDate(),
@@ -102,7 +101,7 @@ describe('Repository Resolvers', () => {
         website: 'https://example2.com',
         re3dataId: casual.uuid,
         researchDomains: [],
-        repositoryTypes: [RepositoryType.DISCIPLINARY],
+        repositoryTypes: ['disciplinary'],
         keywords: ['disciplinary'],
         created: getCurrentDate(),
         modified: getCurrentDate(),
@@ -231,14 +230,14 @@ describe('Repository Resolvers', () => {
         expect(result.body.singleResult.errors).toBeUndefined();
         expect(result.body.singleResult.data.repositories).toBeTruthy();
 
-        // Verify the service was called with the converted enum value
+        // Verify the service was called with the string value directly (no conversion)
         expect(repositoryServiceSpy).toHaveBeenCalledWith(
           'repositories resolver',
           context,
           undefined,
           undefined,
           undefined,
-          'MULTI_DISCIPLINARY', // Should be converted to uppercase enum value
+          'multidisciplinary', // Value passed directly in re3data standard format
           expect.any(Object)
         );
       });
@@ -271,14 +270,14 @@ describe('Repository Resolvers', () => {
         expect(result.body.singleResult.errors).toBeUndefined();
         expect(result.body.singleResult.data.repositories).toBeTruthy();
 
-        // Verify the service was called with the converted enum value
+        // Verify the service was called with the string value directly (no conversion)
         expect(repositoryServiceSpy).toHaveBeenCalledWith(
           'repositories resolver',
           context,
           undefined,
           undefined,
           undefined,
-          'PROJECT_RELATED', // Should be converted to uppercase enum value
+          'project-related', // Value passed directly in re3data standard format
           expect.any(Object)
         );
       });
@@ -602,7 +601,7 @@ describe('Repository Resolvers', () => {
           name: 'New Repository',
           uri: `${DEFAULT_DMPTOOL_REPOSITORY_URL}new-repo`,
           description: 'A new test repository',
-          repositoryTypes: [RepositoryType.GENERALIST],
+          repositoryTypes: ['generalist'],
           keywords: ['test'],
         };
       });
@@ -722,7 +721,7 @@ describe('Repository Resolvers', () => {
           id: mockRepository.id,
           name: 'Updated Repository',
           description: 'Updated description',
-          repositoryTypes: [RepositoryType.DISCIPLINARY],
+          repositoryTypes: ['disciplinary'],
         };
       });
 

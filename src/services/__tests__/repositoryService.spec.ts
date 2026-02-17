@@ -52,14 +52,17 @@ describe('RepositoryService', () => {
         availableSortFields: ['name', 'created'],
       };
 
-      const mockRe3DataResults = [
-        {
-          id: 'r3d100010134',
-          name: 'Dryad Digital Repository',
-          description: 'Dryad is a curated resource',
-          repositoryTypes: ['generalist'],
-        },
-      ];
+      const mockRe3DataResults = {
+        repositories: [
+          {
+            id: 'r3d100010134',
+            name: 'Dryad Digital Repository',
+            description: 'Dryad is a curated resource',
+            repositoryTypes: ['generalist'],
+          },
+        ],
+        total: 100,
+      };
 
       (Repository.search as jest.Mock).mockResolvedValueOnce(mockCustomResults);
       (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValueOnce(
@@ -76,6 +79,7 @@ describe('RepositoryService', () => {
         mockPaginationOptions,
       );
 
+      // Repository.search should be called with a high limit to get all custom results
       expect(Repository.search).toHaveBeenCalledWith(
         reference,
         mockContext,
@@ -83,27 +87,29 @@ describe('RepositoryService', () => {
         subjects,
         keyword,
         repositoryType,
-        mockPaginationOptions,
+        expect.objectContaining({
+          ...mockPaginationOptions,
+          limit: 1000,
+        }),
       );
 
+      // openSearchFindRe3Data should be called with pagination parameters
       expect(openSearchService.openSearchFindRe3Data).toHaveBeenCalledWith(
         term,
         mockContext,
         subjects,
         'disciplinary', // Already in re3data standard format
-        50,
+        10, // limit from pagination options
+        0, // from offset
       );
 
+      // Results should have re3data first, then custom
       expect(result.items).toHaveLength(2);
-      expect(result.items[0]).toEqual(mockCustomResults.items[0]);
-      expect(result.items[1]).toEqual(mockRe3DataResults[0]);
-      expect(result.limit).toBe(mockCustomResults.limit);
-      // totalCount should now reflect combined results from both sources
-      expect(result.totalCount).toBe(
-        mockCustomResults.totalCount + mockRe3DataResults.length,
-      );
-      // hasNextPage should reflect if custom has more pages or only re3data present
-      expect(result.hasNextPage).toBe(mockCustomResults.hasNextPage);
+      expect(result.items[0]).toEqual(mockRe3DataResults.repositories[0]);
+      expect(result.items[1]).toEqual(mockCustomResults.items[0]);
+      expect(result.limit).toBe(mockPaginationOptions.limit);
+      // totalCount should be from re3data (primary source)
+      expect(result.totalCount).toBe(mockRe3DataResults.total);
     });
 
     it('should return only custom results when re3data search fails', async () => {
@@ -167,12 +173,15 @@ describe('RepositoryService', () => {
         availableSortFields: ['name', 'created'],
       };
 
-      const mockRe3DataResults = [
-        {
-          id: 'r3d100010134',
-          name: 'Dryad Digital Repository',
-        },
-      ];
+      const mockRe3DataResults = {
+        repositories: [
+          {
+            id: 'r3d100010134',
+            name: 'Dryad Digital Repository',
+          },
+        ],
+        total: 50,
+      };
 
       (Repository.search as jest.Mock).mockResolvedValueOnce(mockCustomResults);
       (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValueOnce(
@@ -190,7 +199,8 @@ describe('RepositoryService', () => {
       );
 
       expect(result.items).toHaveLength(1);
-      expect(result.items[0]).toEqual(mockRe3DataResults[0]);
+      expect(result.items[0]).toEqual(mockRe3DataResults.repositories[0]);
+      expect(result.totalCount).toBe(mockRe3DataResults.total);
     });
 
     it('should handle null items from custom results', async () => {
@@ -206,12 +216,15 @@ describe('RepositoryService', () => {
         availableSortFields: ['name', 'created'],
       };
 
-      const mockRe3DataResults = [
-        {
-          id: 'r3d100010134',
-          name: 'Dryad Digital Repository',
-        },
-      ];
+      const mockRe3DataResults = {
+        repositories: [
+          {
+            id: 'r3d100010134',
+            name: 'Dryad Digital Repository',
+          },
+        ],
+        total: 75,
+      };
 
       (Repository.search as jest.Mock).mockResolvedValueOnce(mockCustomResults);
       (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValueOnce(
@@ -229,7 +242,8 @@ describe('RepositoryService', () => {
       );
 
       expect(result.items).toHaveLength(1);
-      expect(result.items[0]).toEqual(mockRe3DataResults[0]);
+      expect(result.items[0]).toEqual(mockRe3DataResults.repositories[0]);
+      expect(result.totalCount).toBe(mockRe3DataResults.total);
     });
 
     it('should pass all filter parameters to Repository.search correctly', async () => {
@@ -249,20 +263,17 @@ describe('RepositoryService', () => {
         availableSortFields: ['name', 'created'],
       };
 
-      (Repository.search as jest.Mock).mockResolvedValueOnce(mockCustomResults);
-      (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValueOnce([]);
+      const mockRe3DataResults = {
+        repositories: [],
+        total: 0,
+      };
 
-      await RepositoryService.searchCombined(
-        reference,
-        mockContext,
-        term,
-        subjects,
-        keyword,
-        repositoryType,
-        mockPaginationOptions,
+      (Repository.search as jest.Mock).mockResolvedValueOnce(mockCustomResults);
+      (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValueOnce(
+        mockRe3DataResults,
       );
 
-      expect(Repository.search).toHaveBeenCalledWith(
+      await RepositoryService.searchCombined(
         reference,
         mockContext,
         term,
@@ -278,30 +289,30 @@ describe('RepositoryService', () => {
         mockContext,
         subjects,
         'governmental', // Already in re3data standard format
-        50,
+        10, // limit
+        0, // from
       );
     });
 
-    it('should preserve pagination info from custom results and include re3data count', async () => {
+    it('should use re3data pagination for combined results', async () => {
       const reference = 'test-reference';
-      const nextCursor = 'cursor-abc123';
-      const currentOffset = 20;
 
       const mockCustomResults: PaginatedQueryResults<Repository> = {
         items: [{ id: 1, name: 'Repo 1' } as Repository],
         limit: 20,
         totalCount: 100,
-        nextCursor,
-        currentOffset,
         hasNextPage: true,
-        hasPreviousPage: true,
+        hasPreviousPage: false,
         availableSortFields: ['name', 'created'],
       };
 
-      const mockRe3DataResults = [
-        { id: 'r3d1', name: 'Re3Data Repo 1' },
-        { id: 'r3d2', name: 'Re3Data Repo 2' },
-      ];
+      const mockRe3DataResults = {
+        repositories: [
+          { id: 'r3d1', name: 'Re3Data Repo 1' },
+          { id: 'r3d2', name: 'Re3Data Repo 2' },
+        ],
+        total: 250,
+      };
 
       (Repository.search as jest.Mock).mockResolvedValueOnce(mockCustomResults);
       (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValueOnce(
@@ -318,15 +329,18 @@ describe('RepositoryService', () => {
         mockPaginationOptions,
       );
 
-      expect(result.nextCursor).toBe(nextCursor);
-      expect(result.currentOffset).toBe(currentOffset);
+      // Pagination should be based on re3data, not custom results
+      expect(result.currentOffset).toBe(0);
       expect(result.hasNextPage).toBe(true);
-      expect(result.hasPreviousPage).toBe(true);
-      expect(result.limit).toBe(20);
-      // totalCount should now include re3data results: 100 + 2 = 102
-      expect(result.totalCount).toBe(102);
-      // items should include both custom and re3data results
+      expect(result.hasPreviousPage).toBe(false);
+      expect(result.limit).toBe(10);
+      // totalCount should be from re3data (primary pagination source): 250
+      expect(result.totalCount).toBe(250);
+      // items should include re3data first, then custom results
       expect(result.items).toHaveLength(3);
+      expect(result.items[0]).toEqual(mockRe3DataResults.repositories[0]);
+      expect(result.items[1]).toEqual(mockRe3DataResults.repositories[1]);
+      expect(result.items[2]).toEqual(mockCustomResults.items[0]);
     });
 
     it('should log and rethrow if Repository.search fails', async () => {
@@ -353,7 +367,7 @@ describe('RepositoryService', () => {
       );
     });
 
-    it('should call openSearchFindRe3Data with fixed maxResults of 50', async () => {
+    it('should call openSearchFindRe3Data with pagination parameters from options', async () => {
       const reference = 'test-reference';
 
       const mockCustomResults: PaginatedQueryResults<Repository> = {
@@ -366,8 +380,15 @@ describe('RepositoryService', () => {
         availableSortFields: ['name', 'created'],
       };
 
+      const mockRe3DataResults = {
+        repositories: [],
+        total: 0,
+      };
+
       (Repository.search as jest.Mock).mockResolvedValueOnce(mockCustomResults);
-      (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValueOnce([]);
+      (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValueOnce(
+        mockRe3DataResults,
+      );
 
       await RepositoryService.searchCombined(
         reference,
@@ -380,10 +401,11 @@ describe('RepositoryService', () => {
       );
 
       const call = (openSearchService.openSearchFindRe3Data as jest.Mock).mock.calls[0];
-      expect(call[4]).toBe(50); // maxResults parameter should always be 50
+      expect(call[4]).toBe(10); // limit from pagination options
+      expect(call[5]).toBe(0); // from offset (first page)
     });
 
-    it('should pass type filter as null to openSearchFindRe3Data (not exposed in GraphQL yet)', async () => {
+    it('should pass type filter to openSearchFindRe3Data', async () => {
       const reference = 'test-reference';
 
       const mockCustomResults: PaginatedQueryResults<Repository> = {
@@ -396,8 +418,15 @@ describe('RepositoryService', () => {
         availableSortFields: ['name', 'created'],
       };
 
+      const mockRe3DataResults = {
+        repositories: [],
+        total: 0,
+      };
+
       (Repository.search as jest.Mock).mockResolvedValueOnce(mockCustomResults);
-      (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValueOnce([]);
+      (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValueOnce(
+        mockRe3DataResults,
+      );
 
       await RepositoryService.searchCombined(
         reference,
@@ -428,7 +457,7 @@ describe('RepositoryService', () => {
       };
 
       // Test cases for different repository types (using re3data standard format)
-      const testCases: Array<[string, string]> = [
+      const testCases: [string, string][] = [
         ['disciplinary', 'disciplinary'],
         ['institutional', 'institutional'],
         ['multidisciplinary', 'multidisciplinary'],
@@ -440,7 +469,10 @@ describe('RepositoryService', () => {
       for (const [inputValue, expectedFormat] of testCases) {
         jest.clearAllMocks();
         (Repository.search as jest.Mock).mockResolvedValueOnce(mockCustomResults);
-        (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValueOnce([]);
+        (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValueOnce({
+          repositories: [],
+          total: 0,
+        });
 
         await RepositoryService.searchCombined(
           reference,
@@ -632,8 +664,15 @@ describe('RepositoryService', () => {
         availableSortFields: ['name', 'created'],
       };
 
+      const mockRe3DataResults = {
+        repositories: [],
+        total: 0,
+      };
+
       (Repository.search as jest.Mock).mockResolvedValueOnce(mockCustomResults);
-      (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValueOnce([]);
+      (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValueOnce(
+        mockRe3DataResults,
+      );
 
       const result = await RepositoryService.searchCombined(
         reference,
@@ -645,6 +684,7 @@ describe('RepositoryService', () => {
         mockPaginationOptions,
       );
 
+      // Repository.search should be called with high limit to get all custom results
       expect(Repository.search).toHaveBeenCalledWith(
         reference,
         mockContext,
@@ -652,7 +692,9 @@ describe('RepositoryService', () => {
         [],
         null,
         null,
-        mockPaginationOptions,
+        expect.objectContaining({
+          limit: 1000,
+        }),
       );
 
       expect(result).toBeDefined();
@@ -672,8 +714,15 @@ describe('RepositoryService', () => {
         availableSortFields: ['name', 'created'],
       };
 
+      const mockRe3DataResults = {
+        repositories: [],
+        total: 0,
+      };
+
       (Repository.search as jest.Mock).mockResolvedValueOnce(mockCustomResults);
-      (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValueOnce([]);
+      (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValueOnce(
+        mockRe3DataResults,
+      );
 
       const result = await RepositoryService.searchCombined(
         reference,
@@ -706,11 +755,14 @@ describe('RepositoryService', () => {
         availableSortFields: ['name', 'created'],
       };
 
-      const mockRe3DataResults = Array.from({ length: 3 }, (_, i) => ({
-        id: `r3d${String(i + 1).padStart(9, '0')}`,
-        name: `Re3Data Repo ${i + 1}`,
-        repositoryTypes: ['generalist'],
-      }));
+      const mockRe3DataResults = {
+        repositories: Array.from({ length: 3 }, (_, i) => ({
+          id: `r3d${String(i + 1).padStart(9, '0')}`,
+          name: `Re3Data Repo ${i + 1}`,
+          repositoryTypes: ['generalist'],
+        })),
+        total: 250,
+      };
 
       (Repository.search as jest.Mock).mockResolvedValueOnce(mockCustomResults);
       (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValueOnce(
@@ -727,12 +779,13 @@ describe('RepositoryService', () => {
         mockPaginationOptions,
       );
 
-      expect(result.items).toHaveLength(8); // 5 custom + 3 re3data
-      expect(result.items.slice(0, 5)).toEqual(mockCustomResults.items);
-      expect(result.items.slice(5, 8)).toEqual(mockRe3DataResults);
-      // totalCount should combine both sources: 100 + 3 = 103
-      expect(result.totalCount).toBe(103);
-      expect(result.hasNextPage).toBe(true); // custom results still have next page
+      // Results should have re3data first (3), then custom (5) = 8 total items
+      expect(result.items).toHaveLength(8);
+      expect(result.items.slice(0, 3)).toEqual(mockRe3DataResults.repositories);
+      expect(result.items.slice(3, 8)).toEqual(mockCustomResults.items);
+      // totalCount should be from re3data (primary source): 250
+      expect(result.totalCount).toBe(250);
+      expect(result.hasNextPage).toBe(true); // re3data has more results
     });
   });
 });

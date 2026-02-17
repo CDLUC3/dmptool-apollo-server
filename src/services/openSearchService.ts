@@ -152,7 +152,17 @@ export class OpenSearchService {
     }
   }
 
-  public async findRe3Data(term: string | null | undefined, context: MyContext, subjects: string[] | null | undefined, repositoryType: string | null | undefined, maxResults: number): Promise<Re3DataRepositoryRecord[]> {
+  public async findRe3Data(
+    term: string | null | undefined,
+    context: MyContext,
+    subjects: string[] | null | undefined,
+    repositoryType: string | null | undefined,
+    maxResults: number,
+    from: number = 0,
+  ): Promise<{
+    repositories: Re3DataRepositoryRecord[];
+    total: number;
+  }> {
     const must: Record<string, unknown>[] = [];
     const filter: Record<string, unknown>[] = [];
 
@@ -189,6 +199,7 @@ export class OpenSearchService {
       response = await this.client.search({
         index: 're3data',
         body: {
+          from,
           size: maxResults,
           query: {
             bool: {
@@ -211,10 +222,27 @@ export class OpenSearchService {
     }
 
     try {
-      const body = (response as { body: { hits: { hits: OpenSearchRe3DataHit[] } } }).body;
-      return body.hits.hits.map((hit: OpenSearchRe3DataHit) => {
-        return convertRe3DataToCamelCase(hit._source);
-      });
+      const body = (response as {
+        body: {
+          hits: {
+            total: { value: number } | number;
+            hits: OpenSearchRe3DataHit[];
+          };
+        };
+      }).body;
+
+      // Handle both old (number) and new (object) OpenSearch total formats
+      const totalHits =
+        typeof body.hits.total === 'number'
+          ? body.hits.total
+          : body.hits.total.value;
+
+      return {
+        repositories: body.hits.hits.map((hit: OpenSearchRe3DataHit) => {
+          return convertRe3DataToCamelCase(hit._source);
+        }),
+        total: totalHits,
+      };
     } catch (err) {
       context.logger.error(prepareObjectForLogs(err), `Error converting OpenSearch response into OpenSearchRe3Data`);
 
@@ -409,8 +437,15 @@ const openSearchService = new OpenSearchService();
 export const openSearchFindWorkByIdentifier = (reference: string, context: MyContext, doi: string | null | undefined, maxResults: number) =>
   openSearchService.findWorkByIdentifier(reference, context, doi, maxResults);
 
-export const openSearchFindRe3Data = (term: string | null | undefined, context: MyContext, subjects: string[] | null | undefined, repositoryType: string | null | undefined, maxResults: number) =>
-  openSearchService.findRe3Data(term, context, subjects, repositoryType, maxResults);
+export const openSearchFindRe3Data = (
+  term: string | null | undefined,
+  context: MyContext,
+  subjects: string[] | null | undefined,
+  repositoryType: string | null | undefined,
+  maxResults: number,
+  from?: number,
+) =>
+  openSearchService.findRe3Data(term, context, subjects, repositoryType, maxResults, from);
 
 export const openSearchFindRe3DataByURIs = (context: MyContext, uris: string[]) =>
   openSearchService.findRe3DataByURIs(context, uris);

@@ -172,11 +172,11 @@ describe('OpenSearchService', () => {
     });
   });
 
-  describe('findRe3Data', () => {
     test('Returns converted re3data records when OpenSearch returns hits', async () => {
       mockSearch.mockResolvedValue({
         body: {
           hits: {
+            total: { value: 100 },
             hits: [
               {
                 _source: {
@@ -205,11 +205,12 @@ describe('OpenSearchService', () => {
         },
       });
 
-      const result = await service.findRe3Data('Dryad', mockContext, ['Life Sciences'], 'disciplinary', 5);
+      const result = await service.findRe3Data('Dryad', mockContext, ['Life Sciences'], 'disciplinary', 5, 0);
 
       expect(mockSearch).toHaveBeenCalledWith({
         index: 're3data',
         body: {
+          from: 0,
           size: 5,
           query: {
             bool: {
@@ -230,44 +231,49 @@ describe('OpenSearchService', () => {
         },
       });
 
-      expect(result).toEqual([
-        expect.objectContaining({
-          id: 'r3d100010134',
-          name: 'Dryad Digital Repository',
-          description: 'Dryad is a curated resource that makes the data underlying scientific publications discoverable, freely reusable, and citable.',
-          website: 'https://datadryad.org/',
-          contact: 'help@datadryad.org',
-          uri: 'http://www.re3data.org/repository/r3d100010134',
-          repositoryTypes: ['disciplinary'],
-          subjects: ['Life Sciences', 'Medicine'],
-          providerTypes: ['non-profit'],
-          keywords: ['data', 'science'],
-          access: 'open',
-          pidSystem: ['DOI'],
-          policies: ['Data Policy'],
-          uploadTypes: ['images', 'text'],
-          certificates: ['CoreTrustSeal'],
-          software: ['DSpace'],
-          created: '2023-01-01T00:00:00Z',
-          modified: '2023-06-15T00:00:00Z',
-        }),
-      ]);
+      expect(result).toEqual({
+        repositories: [
+          expect.objectContaining({
+            id: 'r3d100010134',
+            name: 'Dryad Digital Repository',
+            description: 'Dryad is a curated resource that makes the data underlying scientific publications discoverable, freely reusable, and citable.',
+            website: 'https://datadryad.org/',
+            contact: 'help@datadryad.org',
+            uri: 'http://www.re3data.org/repository/r3d100010134',
+            repositoryTypes: ['disciplinary'],
+            subjects: ['Life Sciences', 'Medicine'],
+            providerTypes: ['non-profit'],
+            keywords: ['data', 'science'],
+            access: 'open',
+            pidSystem: ['DOI'],
+            policies: ['Data Policy'],
+            uploadTypes: ['images', 'text'],
+            certificates: ['CoreTrustSeal'],
+            software: ['DSpace'],
+            created: '2023-01-01T00:00:00Z',
+            modified: '2023-06-15T00:00:00Z',
+          }),
+        ],
+        total: 100,
+      });
     });
 
     test('Handles empty search term correctly', async () => {
       mockSearch.mockResolvedValue({
         body: {
           hits: {
+            total: { value: 0 },
             hits: [],
           },
         },
       });
 
-      await service.findRe3Data(null, mockContext, null, null, 10);
+      const result = await service.findRe3Data(null, mockContext, null, null, 10, 0);
 
       expect(mockSearch).toHaveBeenCalledWith({
         index: 're3data',
         body: {
+          from: 0,
           size: 10,
           query: {
             bool: {
@@ -277,13 +283,18 @@ describe('OpenSearchService', () => {
           },
         },
       });
+
+      expect(result).toEqual({
+        repositories: [],
+        total: 0,
+      });
     });
 
     test('Logs and rethrows if OpenSearch search fails', async () => {
       const error = new Error('Connection failed');
       mockSearch.mockRejectedValue(error);
 
-      const call = service.findRe3Data('term', mockContext, null, null, 10);
+      const call = service.findRe3Data('term', mockContext, null, null, 10, 0);
       await expect(call).rejects.toThrow('Service temporarily unavailable');
       await expect(call).rejects.toBeInstanceOf(GraphQLError);
 
@@ -295,7 +306,7 @@ describe('OpenSearchService', () => {
 
     test('Logs and rethrows if response structure is invalid', async () => {
       mockSearch.mockResolvedValue({ body: {} });
-      await expect(service.findRe3Data('term', mockContext, null, null, 10)).rejects.toThrow();
+      await expect(service.findRe3Data('term', mockContext, null, null, 10, 0)).rejects.toThrow();
 
       expect(mockContext.logger.error).toHaveBeenCalledWith(
         expect.any(Object),

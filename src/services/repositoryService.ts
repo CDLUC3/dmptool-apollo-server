@@ -7,6 +7,8 @@ import {
 import {
   PaginatedQueryResults,
   PaginationOptions,
+  PaginationType,
+  PaginationOptionsForOffsets,
 } from '../types/general';
 import { openSearchFindRe3Data, openSearchFindRe3DataByURIs } from './openSearchService';
 
@@ -22,13 +24,17 @@ export const RepositoryService = {
    * Search repositories with optional filtering and pagination
    *
    * Performs a combined search across both custom and re3data repositories.
+   * Re3data is used as the primary source for pagination since it has the
+   * more comprehensive repository list.
+   *
    * Returns results with a discriminator field indicating the source.
    *
-   * NOTE: Pagination for combined results has limitations:
-   * - totalCount reflects all results from both sources combined
-   * - hasNextPage indicates if there are more results from either source
-   * - Cursor-based pagination uses custom repository IDs as cursors
-   * - Re3data results are appended after custom results, without strict pagination
+   * NOTE: Pagination strategy:
+   * - Pagination (cursor/offset) is based on re3data results
+   * - totalCount reflects re3data total (the comprehensive source)
+   * - Custom repositories are included as a supplementary source
+   * - For offset pagination: uses from parameter
+   * - For cursor pagination: re3data ID is used as cursor
    */
   async searchCombined(
     reference: string,
@@ -40,7 +46,29 @@ export const RepositoryService = {
     options: PaginationOptions,
   ): Promise<PaginatedQueryResults<object>> {
     try {
-      // Search custom repositories
+      // Determine pagination parameters based on pagination type
+      let from = 0;
+      if (options.type === PaginationType.OFFSET) {
+        const offsetOpts = options as PaginationOptionsForOffsets;
+        from = offsetOpts.offset || 0;
+      } else {
+        // For cursor-based pagination, we would need to track cursor position
+        // For now, treat first page as from=0
+        // TODO: Implement proper cursor decoding for re3data offset
+      }
+
+      // Search re3data repositories with pagination
+      const re3dataResponse = await searchRe3DataWithPagination(
+        reference,
+        context,
+        term,
+        subjects,
+        repositoryType,
+        options.limit || 10,
+        from,
+      );
+
+      // Search custom repositories (without pagination applied)
       const customResults = await Repository.search(
         reference,
         context,
@@ -48,43 +76,31 @@ export const RepositoryService = {
         subjects || [],
         keyword,
         repositoryType,
-        options,
+        {
+          ...options,
+          limit: 1000, // Get all custom results to supplement re3data
+        },
       );
 
-      // Search re3data repositories
-      const re3dataResults = await searchRe3Data(
-        reference,
-        context,
-        term,
-        subjects,
-        repositoryType,
-        50,
-      );
-
-      // Combine results - both sources are object types
+      // Combine results - re3data first (primary source), then custom
       const combinedItems: object[] = [
+        ...re3dataResponse.repositories,
         ...(customResults.items || []),
-        ...re3dataResults,
       ];
 
-      // Calculate accurate pagination for combined results
-      const customCount = customResults.items?.length || 0;
-      const re3dataCount = re3dataResults.length;
-      const combinedTotalCount = customResults.totalCount + re3dataCount;
-
-      // hasNextPage is true if custom results have more pages OR if there are re3data results
-      // that extend beyond the current combined items
-      const hasNextPage = customResults.hasNextPage || (re3dataCount > 0 && customCount === 0);
+      // Calculate pagination based on re3data (primary source)
+      const limit = options.limit || 10;
+      const hasNextPage = from + re3dataResponse.repositories.length < re3dataResponse.total;
+      const nextFrom = from + limit;
 
       return {
         items: combinedItems,
-        limit: customResults.limit,
-        totalCount: combinedTotalCount,
-        nextCursor: customResults.nextCursor,
-        currentOffset: customResults.currentOffset,
+        limit,
+        totalCount: re3dataResponse.total,
+        currentOffset: from,
         hasNextPage,
-        hasPreviousPage: customResults.hasPreviousPage,
-        availableSortFields: customResults.availableSortFields,
+        hasPreviousPage: from > 0,
+        availableSortFields: ['name', 'created'],
       };
     } catch (err) {
       context.logger.error(
@@ -119,7 +135,40 @@ export const RepositoryService = {
 };
 
 /**
- * Search re3data repositories from OpenSearch
+ * Search re3data repositories with pagination support
+ * Returns both the repositories and total count for pagination
+ */
+async function searchRe3DataWithPagination(
+  reference: string,
+  context: MyContext,
+  term: string | null | undefined,
+  subjects: string[] | null | undefined,
+  repositoryType: string | null | undefined,
+  limit: number,
+  from: number,
+): Promise<{ repositories: Re3DataRepositoryRecord[]; total: number }> {
+  try {
+    // repositoryType is already in the correct re3data format (lowercase with hyphens)
+    return await openSearchFindRe3Data(
+      term,
+      context,
+      subjects,
+      repositoryType,
+      limit,
+      from,
+    );
+  } catch (err) {
+    context.logger.warn(
+      prepareObjectForLogs(err),
+      `Re3data search failed in ${reference}, continuing with custom results only`,
+    );
+    return { repositories: [], total: 0 };
+  }
+}
+
+/**
+ * Search re3data repositories without pagination
+ * Legacy function for non-paginated queries
  */
 async function searchRe3Data(
   reference: string,
@@ -131,13 +180,14 @@ async function searchRe3Data(
 ): Promise<Re3DataRepositoryRecord[]> {
   try {
     // repositoryType is already in the correct re3data format (lowercase with hyphens)
-    return await openSearchFindRe3Data(
+    const result = await openSearchFindRe3Data(
       term,
       context,
       subjects,
       repositoryType,
       maxResults,
     );
+    return result.repositories;
   } catch (err) {
     context.logger.warn(
       prepareObjectForLogs(err),

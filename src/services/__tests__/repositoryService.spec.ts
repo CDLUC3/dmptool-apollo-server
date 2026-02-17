@@ -98,7 +98,11 @@ describe('RepositoryService', () => {
       expect(result.items[0]).toEqual(mockCustomResults.items[0]);
       expect(result.items[1]).toEqual(mockRe3DataResults[0]);
       expect(result.limit).toBe(mockCustomResults.limit);
-      expect(result.totalCount).toBe(mockCustomResults.totalCount);
+      // totalCount should now reflect combined results from both sources
+      expect(result.totalCount).toBe(
+        mockCustomResults.totalCount + mockRe3DataResults.length,
+      );
+      // hasNextPage should reflect if custom has more pages or only re3data present
       expect(result.hasNextPage).toBe(mockCustomResults.hasNextPage);
     });
 
@@ -278,7 +282,7 @@ describe('RepositoryService', () => {
       );
     });
 
-    it('should preserve pagination info from custom results', async () => {
+    it('should preserve pagination info from custom results and include re3data count', async () => {
       const reference = 'test-reference';
       const nextCursor = 'cursor-abc123';
       const currentOffset = 20;
@@ -294,8 +298,15 @@ describe('RepositoryService', () => {
         availableSortFields: ['name', 'created'],
       };
 
+      const mockRe3DataResults = [
+        { id: 'r3d1', name: 'Re3Data Repo 1' },
+        { id: 'r3d2', name: 'Re3Data Repo 2' },
+      ];
+
       (Repository.search as jest.Mock).mockResolvedValueOnce(mockCustomResults);
-      (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValueOnce([]);
+      (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValueOnce(
+        mockRe3DataResults,
+      );
 
       const result = await RepositoryService.searchCombined(
         reference,
@@ -312,7 +323,10 @@ describe('RepositoryService', () => {
       expect(result.hasNextPage).toBe(true);
       expect(result.hasPreviousPage).toBe(true);
       expect(result.limit).toBe(20);
-      expect(result.totalCount).toBe(100);
+      // totalCount should now include re3data results: 100 + 2 = 102
+      expect(result.totalCount).toBe(102);
+      // items should include both custom and re3data results
+      expect(result.items).toHaveLength(3);
     });
 
     it('should log and rethrow if Repository.search fails', async () => {
@@ -716,6 +730,9 @@ describe('RepositoryService', () => {
       expect(result.items).toHaveLength(8); // 5 custom + 3 re3data
       expect(result.items.slice(0, 5)).toEqual(mockCustomResults.items);
       expect(result.items.slice(5, 8)).toEqual(mockRe3DataResults);
+      // totalCount should combine both sources: 100 + 3 = 103
+      expect(result.totalCount).toBe(103);
+      expect(result.hasNextPage).toBe(true); // custom results still have next page
     });
   });
 });

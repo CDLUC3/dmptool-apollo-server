@@ -23,6 +23,12 @@ export const RepositoryService = {
    *
    * Performs a combined search across both custom and re3data repositories.
    * Returns results with a discriminator field indicating the source.
+   *
+   * NOTE: Pagination for combined results has limitations:
+   * - totalCount reflects all results from both sources combined
+   * - hasNextPage indicates if there are more results from either source
+   * - Cursor-based pagination uses custom repository IDs as cursors
+   * - Re3data results are appended after custom results, without strict pagination
    */
   async searchCombined(
     reference: string,
@@ -61,13 +67,22 @@ export const RepositoryService = {
         ...re3dataResults,
       ];
 
+      // Calculate accurate pagination for combined results
+      const customCount = customResults.items?.length || 0;
+      const re3dataCount = re3dataResults.length;
+      const combinedTotalCount = customResults.totalCount + re3dataCount;
+
+      // hasNextPage is true if custom results have more pages OR if there are re3data results
+      // that extend beyond the current combined items
+      const hasNextPage = customResults.hasNextPage || (re3dataCount > 0 && customCount === 0);
+
       return {
         items: combinedItems,
         limit: customResults.limit,
-        totalCount: customResults.totalCount,
+        totalCount: combinedTotalCount,
         nextCursor: customResults.nextCursor,
         currentOffset: customResults.currentOffset,
-        hasNextPage: customResults.hasNextPage,
+        hasNextPage,
         hasPreviousPage: customResults.hasPreviousPage,
         availableSortFields: customResults.availableSortFields,
       };

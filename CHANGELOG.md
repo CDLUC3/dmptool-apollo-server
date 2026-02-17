@@ -3,6 +3,14 @@
 ## v1.1.0
 
 ### Added
+- Added OpenSearch integration for full-text search of re3data repositories
+- Added `open-search-init.sh` script to initialize OpenSearch indices with proper mappings for repository data
+- Added `re3data-os-populate.ts` migration script for syncing re3data repository metadata to OpenSearch with blue-green deployment strategy
+- Added `re3dataId` field to `repositories` table to track re3data repository identifiers
+- Added `re3byURIs` query to fetch re3data repositories by their URIs
+- Added `re3SubjectList` query to return distinct subject area keywords from re3data repositories with optional counts
+- Added `re3RepositoryTypesList` query to return distinct repository types from re3data with optional counts
+- Added new repository service methods for searching and filtering re3data repositories
 - Added `customizableTemplates` query and `CustomizableTemplateSearchResult` to the `versionedTemplate` schema and resolver
 - Added `TemplateCustomization` model resolver and schema
 - Added `templateCustomizationService` which handles updating the status of `templateCustomizations` when the customized template is archived or republished
@@ -27,6 +35,10 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `repositories` query to use combined search strategy across custom and re3data sources with OpenSearch-backed pagination
+- Updated `Repository` model to support searchCombined functionality that integrates custom and re3data repositories
+- Updated `repositoryService` to orchestrate queries from both custom and re3data sources with pagination support
+- Updated `openSearchService` to provide re3data repository search, filtering, and retrieval capabilities
 - Removed the template owner and user affiliation id filters from `getAffiliationsWithGuidanceForTemplate` so that the search returns ALL affiliations with guidance for the associated section tags [#29]
 - Updated `buildspec.yaml` to run `trivy` scans, unit tests and `npm audit`
 - Unpegged dependencies in `package.json`

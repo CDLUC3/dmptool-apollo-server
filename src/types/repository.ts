@@ -98,10 +98,14 @@ export interface BaseRepository {
 /**
  * Convert OpenSearch record (snake_case) to camelCase
  * Used by openSearchService when fetching re3data repositories
+ * Note: Handles both snake_case (expected format) and camelCase
+ * (current format from re3data-os-populate.ts) for compatibility
  */
 export function convertRe3DataToCamelCase(
   record: OpenSearchRe3DataRecord,
 ): Re3DataRepositoryRecord {
+  const rec = record as unknown as Record<string, unknown>;
+
   return {
     id: record.id,
     name: record.name,
@@ -109,14 +113,14 @@ export function convertRe3DataToCamelCase(
     website: record.website,
     contact: record.contact,
     uri: record.uri,
-    repositoryTypes: record.repository_types || [],
+    repositoryTypes: (record.repository_types || rec.repositoryTypes || []) as string[],
     subjects: record.subjects || [],
-    providerTypes: record.provider_types || [],
+    providerTypes: (record.provider_types || rec.provider_types || []) as string[],
     keywords: record.keywords || [],
     access: record.access,
-    pidSystem: record.pid_system || [],
+    pidSystem: (record.pid_system || rec.pid_system || []) as string[],
     policies: record.policies || [],
-    uploadTypes: record.upload_types || [],
+    uploadTypes: (record.upload_types || rec.upload_types || []) as string[],
     certificates: record.certificates || [],
     software: record.software || [],
     created: record.created,

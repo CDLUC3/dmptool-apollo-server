@@ -609,5 +609,3 @@ export const resolvers: Resolvers = {
     },
   },
 };
-
-

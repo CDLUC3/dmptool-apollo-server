@@ -1,9 +1,9 @@
-import {MySqlModel} from "./MySqlModel";
-import {VersionedTemplateCustomization} from "./VersionedTemplateCustomization";
-import {MyContext} from "../context";
-import {isNullOrUndefined} from "../utils/helpers";
-import {PinnedSectionTypeEnum} from "./CustomSection";
-import {PinnedQuestionTypeEnum} from "./CustomQuestion";
+import { MySqlModel } from "./MySqlModel";
+import { VersionedTemplateCustomization } from "./VersionedTemplateCustomization";
+import { MyContext } from "../context";
+import { isNullOrUndefined } from "../utils/helpers";
+import { PinnedSectionTypeEnum } from "./CustomSection";
+import { PinnedQuestionTypeEnum } from "./CustomQuestion";
 
 /**
  * The status of the customization.

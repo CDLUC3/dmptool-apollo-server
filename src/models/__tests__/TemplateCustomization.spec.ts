@@ -1667,4 +1667,372 @@ describe('TemplateCustomizationOverview', () => {
       expect(result).toEqual([]);
     });
   });
+
+  describe('generateOverview() - display order sequencing', () => {
+    it('should set sequential display orders for sections starting from 0', async () => {
+      const mockTemplateRows = [
+        {
+          versionedTemplateId: 1,
+          versionedTemplateAffiliationId: 'affil-123',
+          versionedTemplateAffiliationName: 'Test Affiliation',
+          versionedTemplateName: 'Test Template',
+          versionedTemplateVersion: '1.0',
+          versionedTemplateLastModified: '2023-01-01',
+          customizationId: 10,
+          customizationIsDirty: false,
+          customizationStatus: TemplateCustomizationStatus.PUBLISHED,
+          customizationMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          customizationLastCustomizedById: 100,
+          customizationLastCustomized: '2023-02-01',
+          customizationLastCustomizedByName: 'John Doe',
+          versionedSectionId: 1,
+          versionedSectionName: 'Section 1',
+          versionedSectionDisplayOrder: 5,
+          sectionCustomizationId: 101,
+          sectionCustomizationMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          sectionCustomizationHasGuidanceText: false,
+          versionedQuestionId: null,
+          versionedQuestionText: null,
+          versionedQuestionDisplayOrder: null,
+          questionCustomizationId: null,
+          questionCustomizationMigrationStatus: null,
+          questionCustomizationHasGuidanceText: null,
+          questionCustomizationHasSampleText: null
+        },
+        {
+          versionedTemplateId: 1,
+          versionedTemplateAffiliationId: 'affil-123',
+          versionedTemplateAffiliationName: 'Test Affiliation',
+          versionedTemplateName: 'Test Template',
+          versionedTemplateVersion: '1.0',
+          versionedTemplateLastModified: '2023-01-01',
+          customizationId: 10,
+          customizationIsDirty: false,
+          customizationStatus: TemplateCustomizationStatus.PUBLISHED,
+          customizationMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          customizationLastCustomizedById: 100,
+          customizationLastCustomized: '2023-02-01',
+          customizationLastCustomizedByName: 'John Doe',
+          versionedSectionId: 2,
+          versionedSectionName: 'Section 2',
+          versionedSectionDisplayOrder: 10,
+          sectionCustomizationId: 102,
+          sectionCustomizationMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          sectionCustomizationHasGuidanceText: false,
+          versionedQuestionId: null,
+          versionedQuestionText: null,
+          versionedQuestionDisplayOrder: null,
+          questionCustomizationId: null,
+          questionCustomizationMigrationStatus: null,
+          questionCustomizationHasGuidanceText: null,
+          questionCustomizationHasSampleText: null
+        }
+      ];
+
+      jest.spyOn(TemplateCustomization, 'query')
+        .mockResolvedValueOnce(mockTemplateRows)
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+
+      const result = await TemplateCustomizationOverview.generateOverview(
+        'test-ref',
+        mockContext,
+        10
+      );
+
+      expect(result.sections).toHaveLength(2);
+      expect(result.sections[0].displayOrder).toBe(0);
+      expect(result.sections[1].displayOrder).toBe(1);
+    });
+
+    it('should set sequential display orders for questions within each section starting from 0', async () => {
+      const mockTemplateRows = [
+        {
+          versionedTemplateId: 1,
+          versionedTemplateAffiliationId: 'affil-123',
+          versionedTemplateAffiliationName: 'Test Affiliation',
+          versionedTemplateName: 'Test Template',
+          versionedTemplateVersion: '1.0',
+          versionedTemplateLastModified: '2023-01-01',
+          customizationId: 10,
+          customizationIsDirty: false,
+          customizationStatus: TemplateCustomizationStatus.PUBLISHED,
+          customizationMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          customizationLastCustomizedById: 100,
+          customizationLastCustomized: '2023-02-01',
+          customizationLastCustomizedByName: 'John Doe',
+          versionedSectionId: 1,
+          versionedSectionName: 'Section 1',
+          versionedSectionDisplayOrder: 1,
+          sectionCustomizationId: 101,
+          sectionCustomizationMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          sectionCustomizationHasGuidanceText: false,
+          versionedQuestionId: 1,
+          versionedQuestionText: 'Question 1',
+          versionedQuestionDisplayOrder: 5,
+          questionCustomizationId: 201,
+          questionCustomizationMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          questionCustomizationHasGuidanceText: false,
+          questionCustomizationHasSampleText: false
+        },
+        {
+          versionedTemplateId: 1,
+          versionedTemplateAffiliationId: 'affil-123',
+          versionedTemplateAffiliationName: 'Test Affiliation',
+          versionedTemplateName: 'Test Template',
+          versionedTemplateVersion: '1.0',
+          versionedTemplateLastModified: '2023-01-01',
+          customizationId: 10,
+          customizationIsDirty: false,
+          customizationStatus: TemplateCustomizationStatus.PUBLISHED,
+          customizationMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          customizationLastCustomizedById: 100,
+          customizationLastCustomized: '2023-02-01',
+          customizationLastCustomizedByName: 'John Doe',
+          versionedSectionId: 1,
+          versionedSectionName: 'Section 1',
+          versionedSectionDisplayOrder: 1,
+          sectionCustomizationId: 101,
+          sectionCustomizationMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          sectionCustomizationHasGuidanceText: false,
+          versionedQuestionId: 2,
+          versionedQuestionText: 'Question 2',
+          versionedQuestionDisplayOrder: 10,
+          questionCustomizationId: 202,
+          questionCustomizationMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          questionCustomizationHasGuidanceText: false,
+          questionCustomizationHasSampleText: false
+        }
+      ];
+
+      jest.spyOn(TemplateCustomization, 'query')
+        .mockResolvedValueOnce(mockTemplateRows)
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+
+      const result = await TemplateCustomizationOverview.generateOverview(
+        'test-ref',
+        mockContext,
+        10
+      );
+
+      expect(result.sections).toHaveLength(1);
+      expect(result.sections[0].questions).toHaveLength(2);
+      expect(result.sections[0].questions[0].displayOrder).toBe(0);
+      expect(result.sections[0].questions[1].displayOrder).toBe(1);
+    });
+
+    it('should update display orders correctly for multiple sections with multiple questions', async () => {
+      const mockTemplateRows = [
+        {
+          versionedTemplateId: 1,
+          versionedTemplateAffiliationId: 'affil-123',
+          versionedTemplateAffiliationName: 'Test Affiliation',
+          versionedTemplateName: 'Test Template',
+          versionedTemplateVersion: '1.0',
+          versionedTemplateLastModified: '2023-01-01',
+          customizationId: 10,
+          customizationIsDirty: false,
+          customizationStatus: TemplateCustomizationStatus.PUBLISHED,
+          customizationMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          customizationLastCustomizedById: 100,
+          customizationLastCustomized: '2023-02-01',
+          customizationLastCustomizedByName: 'John Doe',
+          versionedSectionId: 1,
+          versionedSectionName: 'Section 1',
+          versionedSectionDisplayOrder: 3,
+          sectionCustomizationId: 101,
+          sectionCustomizationMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          sectionCustomizationHasGuidanceText: false,
+          versionedQuestionId: 1,
+          versionedQuestionText: 'Question 1',
+          versionedQuestionDisplayOrder: 8,
+          questionCustomizationId: 201,
+          questionCustomizationMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          questionCustomizationHasGuidanceText: false,
+          questionCustomizationHasSampleText: false
+        },
+        {
+          versionedTemplateId: 1,
+          versionedTemplateAffiliationId: 'affil-123',
+          versionedTemplateAffiliationName: 'Test Affiliation',
+          versionedTemplateName: 'Test Template',
+          versionedTemplateVersion: '1.0',
+          versionedTemplateLastModified: '2023-01-01',
+          customizationId: 10,
+          customizationIsDirty: false,
+          customizationStatus: TemplateCustomizationStatus.PUBLISHED,
+          customizationMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          customizationLastCustomizedById: 100,
+          customizationLastCustomized: '2023-02-01',
+          customizationLastCustomizedByName: 'John Doe',
+          versionedSectionId: 1,
+          versionedSectionName: 'Section 1',
+          versionedSectionDisplayOrder: 3,
+          sectionCustomizationId: 101,
+          sectionCustomizationMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          sectionCustomizationHasGuidanceText: false,
+          versionedQuestionId: 2,
+          versionedQuestionText: 'Question 2',
+          versionedQuestionDisplayOrder: 15,
+          questionCustomizationId: 202,
+          questionCustomizationMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          questionCustomizationHasGuidanceText: false,
+          questionCustomizationHasSampleText: false
+        },
+        {
+          versionedTemplateId: 1,
+          versionedTemplateAffiliationId: 'affil-123',
+          versionedTemplateAffiliationName: 'Test Affiliation',
+          versionedTemplateName: 'Test Template',
+          versionedTemplateVersion: '1.0',
+          versionedTemplateLastModified: '2023-01-01',
+          customizationId: 10,
+          customizationIsDirty: false,
+          customizationStatus: TemplateCustomizationStatus.PUBLISHED,
+          customizationMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          customizationLastCustomizedById: 100,
+          customizationLastCustomized: '2023-02-01',
+          customizationLastCustomizedByName: 'John Doe',
+          versionedSectionId: 2,
+          versionedSectionName: 'Section 2',
+          versionedSectionDisplayOrder: 7,
+          sectionCustomizationId: 102,
+          sectionCustomizationMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          sectionCustomizationHasGuidanceText: false,
+          versionedQuestionId: 3,
+          versionedQuestionText: 'Question 3',
+          versionedQuestionDisplayOrder: 20,
+          questionCustomizationId: 203,
+          questionCustomizationMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          questionCustomizationHasGuidanceText: false,
+          questionCustomizationHasSampleText: false
+        },
+        {
+          versionedTemplateId: 1,
+          versionedTemplateAffiliationId: 'affil-123',
+          versionedTemplateAffiliationName: 'Test Affiliation',
+          versionedTemplateName: 'Test Template',
+          versionedTemplateVersion: '1.0',
+          versionedTemplateLastModified: '2023-01-01',
+          customizationId: 10,
+          customizationIsDirty: false,
+          customizationStatus: TemplateCustomizationStatus.PUBLISHED,
+          customizationMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          customizationLastCustomizedById: 100,
+          customizationLastCustomized: '2023-02-01',
+          customizationLastCustomizedByName: 'John Doe',
+          versionedSectionId: 2,
+          versionedSectionName: 'Section 2',
+          versionedSectionDisplayOrder: 7,
+          sectionCustomizationId: 102,
+          sectionCustomizationMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          sectionCustomizationHasGuidanceText: false,
+          versionedQuestionId: 4,
+          versionedQuestionText: 'Question 4',
+          versionedQuestionDisplayOrder: 25,
+          questionCustomizationId: 204,
+          questionCustomizationMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          questionCustomizationHasGuidanceText: false,
+          questionCustomizationHasSampleText: false
+        }
+      ];
+
+      jest.spyOn(TemplateCustomization, 'query')
+        .mockResolvedValueOnce(mockTemplateRows)
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+
+      const result = await TemplateCustomizationOverview.generateOverview(
+        'test-ref',
+        mockContext,
+        10
+      );
+
+      expect(result.sections).toHaveLength(2);
+      expect(result.sections[0].displayOrder).toBe(0);
+      expect(result.sections[0].questions).toHaveLength(2);
+      expect(result.sections[0].questions[0].displayOrder).toBe(0);
+      expect(result.sections[0].questions[1].displayOrder).toBe(1);
+      expect(result.sections[1].displayOrder).toBe(1);
+      expect(result.sections[1].questions).toHaveLength(2);
+      expect(result.sections[1].questions[0].displayOrder).toBe(0);
+      expect(result.sections[1].questions[1].displayOrder).toBe(1);
+    });
+
+    it('should update display orders correctly when custom sections and questions are injected', async () => {
+      const mockTemplateRows = [
+        {
+          versionedTemplateId: 1,
+          versionedTemplateAffiliationId: 'affil-123',
+          versionedTemplateAffiliationName: 'Test Affiliation',
+          versionedTemplateName: 'Test Template',
+          versionedTemplateVersion: '1.0',
+          versionedTemplateLastModified: '2023-01-01',
+          customizationId: 10,
+          customizationIsDirty: false,
+          customizationStatus: TemplateCustomizationStatus.PUBLISHED,
+          customizationMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          customizationLastCustomizedById: 100,
+          customizationLastCustomized: '2023-02-01',
+          customizationLastCustomizedByName: 'John Doe',
+          versionedSectionId: 1,
+          versionedSectionName: 'Section 1',
+          versionedSectionDisplayOrder: 1,
+          sectionCustomizationId: 101,
+          sectionCustomizationMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          sectionCustomizationHasGuidanceText: false,
+          versionedQuestionId: 1,
+          versionedQuestionText: 'Question 1',
+          versionedQuestionDisplayOrder: 1,
+          questionCustomizationId: 201,
+          questionCustomizationMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          questionCustomizationHasGuidanceText: false,
+          questionCustomizationHasSampleText: false
+        }
+      ];
+
+      const mockCustomSections = [
+        {
+          customSectionId: 500,
+          customSectionMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          customSectionName: 'Custom Section',
+          customSectionPinType: 'BASE',
+          customSectionPinId: 1
+        }
+      ];
+
+      const mockCustomQuestions = [
+        {
+          customQuestionId: 600,
+          customQuestionMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          customQuestionText: 'Custom Question',
+          customQuestionSectionType: 'BASE',
+          customQuestionSectionId: 1,
+          customQuestionPinType: 'BASE',
+          customQuestionPinId: 1
+        }
+      ];
+
+      jest.spyOn(TemplateCustomization, 'query')
+        .mockResolvedValueOnce(mockTemplateRows)
+        .mockResolvedValueOnce(mockCustomSections)
+        .mockResolvedValueOnce(mockCustomQuestions);
+
+      const result = await TemplateCustomizationOverview.generateOverview(
+        'test-ref',
+        mockContext,
+        10
+      );
+
+      expect(result.sections).toHaveLength(2);
+      expect(result.sections[0].displayOrder).toBe(0);
+      expect(result.sections[0].questions).toHaveLength(2);
+      expect(result.sections[0].questions[0].displayOrder).toBe(0);
+      expect(result.sections[0].questions[1].displayOrder).toBe(1);
+      expect(result.sections[1].displayOrder).toBe(1);
+      expect(result.sections[1].questions).toHaveLength(0);
+    });
+  });
+
 });

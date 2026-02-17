@@ -3854,7 +3854,7 @@ export type TemplateCustomization = {
   /** The current published version of the base funder template */
   currentVersionedTemplateId: Scalars['Int']['output'];
   /** Errors associated with the Object */
-  errors?: Maybe<TemplateErrors>;
+  errors?: Maybe<TemplateCustomizationErrors>;
   /** The unique identifier for the Object */
   id?: Maybe<Scalars['Int']['output']>;
   /** Whether the customization has been modified since it was last published */
@@ -3869,6 +3869,16 @@ export type TemplateCustomization = {
   modifiedById?: Maybe<Scalars['Int']['output']>;
   /** The status of the customization */
   status: TemplateCustomizationStatus;
+};
+
+/** A collection of errors related to the Template Customization */
+export type TemplateCustomizationErrors = {
+  __typename?: 'TemplateCustomizationErrors';
+  affiliationId?: Maybe<Scalars['String']['output']>;
+  currentVersionedTemplateId?: Maybe<Scalars['String']['output']>;
+  /** General error messages such as the object already exists */
+  general?: Maybe<Scalars['String']['output']>;
+  templateId?: Maybe<Scalars['String']['output']>;
 };
 
 /** The status of a Template Customization with regard to the funder template */
@@ -5101,6 +5111,7 @@ export type ResolversTypes = {
   TemplateCollaborator: ResolverTypeWrapper<TemplateCollaborator>;
   TemplateCollaboratorErrors: ResolverTypeWrapper<TemplateCollaboratorErrors>;
   TemplateCustomization: ResolverTypeWrapper<TemplateCustomization>;
+  TemplateCustomizationErrors: ResolverTypeWrapper<TemplateCustomizationErrors>;
   TemplateCustomizationMigrationStatus: TemplateCustomizationMigrationStatus;
   TemplateCustomizationStatus: TemplateCustomizationStatus;
   TemplateErrors: ResolverTypeWrapper<TemplateErrors>;
@@ -5291,6 +5302,7 @@ export type ResolversParentTypes = {
   TemplateCollaborator: TemplateCollaborator;
   TemplateCollaboratorErrors: TemplateCollaboratorErrors;
   TemplateCustomization: TemplateCustomization;
+  TemplateCustomizationErrors: TemplateCustomizationErrors;
   TemplateErrors: TemplateErrors;
   TemplateSearchResult: TemplateSearchResult;
   TemplateSearchResults: TemplateSearchResults;
@@ -6652,7 +6664,7 @@ export type TemplateCustomizationResolvers<ContextType = MyContext, ParentType e
   created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   createdById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   currentVersionedTemplateId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  errors?: Resolver<Maybe<ResolversTypes['TemplateErrors']>, ParentType, ContextType>;
+  errors?: Resolver<Maybe<ResolversTypes['TemplateCustomizationErrors']>, ParentType, ContextType>;
   id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   isDirty?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   latestPublishedDate?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -6660,6 +6672,13 @@ export type TemplateCustomizationResolvers<ContextType = MyContext, ParentType e
   modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   status?: Resolver<ResolversTypes['TemplateCustomizationStatus'], ParentType, ContextType>;
+};
+
+export type TemplateCustomizationErrorsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['TemplateCustomizationErrors'] = ResolversParentTypes['TemplateCustomizationErrors']> = {
+  affiliationId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  currentVersionedTemplateId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  general?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  templateId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 };
 
 export type TemplateErrorsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['TemplateErrors'] = ResolversParentTypes['TemplateErrors']> = {
@@ -7168,6 +7187,7 @@ export type Resolvers<ContextType = MyContext> = {
   TemplateCollaborator?: TemplateCollaboratorResolvers<ContextType>;
   TemplateCollaboratorErrors?: TemplateCollaboratorErrorsResolvers<ContextType>;
   TemplateCustomization?: TemplateCustomizationResolvers<ContextType>;
+  TemplateCustomizationErrors?: TemplateCustomizationErrorsResolvers<ContextType>;
   TemplateErrors?: TemplateErrorsResolvers<ContextType>;
   TemplateSearchResult?: TemplateSearchResultResolvers<ContextType>;
   TemplateSearchResults?: TemplateSearchResultsResolvers<ContextType>;

@@ -171,7 +171,7 @@ export class TemplateCustomizationOverview {
     templateCustomizationId: number
   ): Promise<TemplateCustomizationOverview | undefined> {
 
-    // 1. Fetch data in parallel
+    // Fetch the required data in parallel
     const [templateRows, customSectionRows, customQuestionRows] = await Promise.all([
       this.fetchTemplateData(context, templateCustomizationId, reference),
       this.fetchCustomSections(context, templateCustomizationId, reference),
@@ -186,7 +186,7 @@ export class TemplateCustomizationOverview {
       return undefined;
     }
 
-    // 2. Initialize the result object using the first row
+    // Use the first row to build the funder template and customization info
     const first: FetchTemplateResult = templateRows[0];
     const result = new TemplateCustomizationOverview({
       versionedTemplateId: first.versionedTemplateId,
@@ -205,7 +205,7 @@ export class TemplateCustomizationOverview {
       sections: [],
     });
 
-    // 3. Build Base Structure (Map for $O(1)$ lookups)
+    // Build Base Structure
     const sectionMap = new Map<number, TemplateCustomizationSectionOverview>();
 
     for (const row of templateRows) {
@@ -238,11 +238,22 @@ export class TemplateCustomizationOverview {
       }
     }
 
-    // 4. Inject Custom Sections
+    // Inject Custom Sections
     this.injectCustomSections(result.sections, customSectionRows, context);
 
-    // 5. Inject Custom Questions
+    // Inject Custom Questions
     this.injectCustomQuestions(result.sections, customQuestionRows, context);
+
+    // Ensure that the display orders of each section are sequential and that each
+    // question's display order is sequential within its section.
+    let currentSectionDisplayOrder = 0;
+    for (const section of result.sections) {
+      let currentQuestionDisplayOrder = 0;
+      section.displayOrder = currentSectionDisplayOrder++;
+      for (const question of section.questions) {
+        question.displayOrder = currentQuestionDisplayOrder++;
+      }
+    }
 
     return result;
   }

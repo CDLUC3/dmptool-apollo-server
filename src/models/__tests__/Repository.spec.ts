@@ -1,7 +1,6 @@
 import casual from "casual";
 import { buildMockContextWithToken } from "../../__mocks__/context";
 import { Repository, REPOSITORY_TYPE } from "../Repository";
-import { getRandomEnumValue } from "../../__tests__/helpers";
 import { generalConfig } from "../../config/generalConfig";
 import { logger } from "../../logger";
 import { isCustomRepository, isRe3DataRepository } from "../../types/repository";

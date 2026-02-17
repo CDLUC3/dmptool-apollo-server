@@ -158,7 +158,7 @@ export class OpenSearchService {
     subjects: string[] | null | undefined,
     repositoryType: string | null | undefined,
     maxResults: number,
-    from: number = 0,
+    from = 0,
   ): Promise<{
     repositories: Re3DataRepositoryRecord[];
     total: number;

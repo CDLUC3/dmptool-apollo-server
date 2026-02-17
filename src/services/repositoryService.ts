@@ -91,7 +91,6 @@ export const RepositoryService = {
       // Calculate pagination based on re3data (primary source)
       const limit = options.limit || 10;
       const hasNextPage = from + re3dataResponse.repositories.length < re3dataResponse.total;
-      const nextFrom = from + limit;
 
       return {
         items: combinedItems,
@@ -166,34 +165,4 @@ async function searchRe3DataWithPagination(
   }
 }
 
-/**
- * Search re3data repositories without pagination
- * Legacy function for non-paginated queries
- */
-async function searchRe3Data(
-  reference: string,
-  context: MyContext,
-  term: string | null | undefined,
-  subjects: string[] | null | undefined,
-  repositoryType: string | null | undefined,
-  maxResults: number,
-): Promise<Re3DataRepositoryRecord[]> {
-  try {
-    // repositoryType is already in the correct re3data format (lowercase with hyphens)
-    const result = await openSearchFindRe3Data(
-      term,
-      context,
-      subjects,
-      repositoryType,
-      maxResults,
-    );
-    return result.repositories;
-  } catch (err) {
-    context.logger.warn(
-      prepareObjectForLogs(err),
-      `Re3data search failed in ${reference}, continuing with custom results only`,
-    );
-    return [];
-  }
-}
 

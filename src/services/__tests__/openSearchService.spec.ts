@@ -172,6 +172,7 @@ describe('OpenSearchService', () => {
     });
   });
 
+  describe('findRe3Data', () => {
     test('Returns converted re3data records when OpenSearch returns hits', async () => {
       mockSearch.mockResolvedValue({
         body: {

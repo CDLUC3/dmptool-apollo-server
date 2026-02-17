@@ -75,7 +75,8 @@ INSERT INTO versionedCustomQuestions (versionedTemplateCustomizationId, customQu
 
 -- =============================================================================
 -- Customization migrationStatus `OK`, status `DRAFT` and isDirty is true
--- WITH custom section with 2 custom questions. Appearing as the first section of funder template
+-- WITH custom section with 2 custom questions. Appearing as the first section of
+-- funder template and a custom question pinned to a base funder question
 SET @nsf_ehr_id := (SELECT id FROM templates WHERE name = 'NSF-EHR: Education and Human Resources' AND ownerId = @nsf_uri);
 SET @v_nsf_ehr_id := (SELECT id FROM versionedTemplates WHERE templateId = @nsf_ehr_id AND active = 1);
 SET @ok_ehr_id := (SELECT id FROM templateCustomizations WHERE affiliationId = @affiliation_uri AND templateId = @nsf_ehr_id);
@@ -111,6 +112,14 @@ SET @ok_ehr_cust_quest_id2 := (SELECT id FROM customQuestions WHERE templateCust
 
 INSERT INTO versionedCustomQuestions (versionedTemplateCustomizationId, customQuestionId, versionedSectionType, versionedSectionId, pinnedVersionedQuestionType, pinnedVersionedQuestionId, questionText, json, requirementText, guidanceText, sampleText, useSampleTextAsDefault, createdById, created, modifiedById, modified)
   VALUES (@v_ok_ehr_id, @ok_ehr_cust_quest_id2, 'CUSTOM', @v_ok_ehr_cust_sec_id, 'CUSTOM', @v_ok_ehr_cust_quest_id,'Custom question', '{"type":"text","attributes":{"maxLength":255},"meta":{"schemaVersion":"1.0"}}', 'Custom requirements', 'Custom guidance', 'Custom sample text', 0, @admin_id, NOW(), @admin_id, NOW());
+
+-- Custom question attached to a funder question
+INSERT INTO customQuestions (templateCustomizationId, sectionType, sectionId, pinnedQuestionType, pinnedQuestionId, migrationStatus, questionText, json, requirementText, guidanceText, sampleText, useSampleTextAsDefault, createdById, created, modifiedById, modified)
+VALUES (@ok_ehr_id, 'BASE', @nsf_ehr_sec_id, 'BASE', @nsf_ehr_quest_id,'OK', 'Custom question', '{"type":"text","attributes":{"maxLength":255},"meta":{"schemaVersion":"1.0"}}', 'Custom requirements', 'Custom guidance', 'Custom sample text', 0, @admin_id, NOW(), @admin_id, NOW());
+SET @ok_ehr_cust_quest_id3 := (SELECT id FROM customQuestions WHERE templateCustomizationId = @ok_ehr_id AND pinnedQuestionType = 'BASE' AND pinnedQuestionId = @nsf_ehr_quest_id);
+
+INSERT INTO versionedCustomQuestions (versionedTemplateCustomizationId, customQuestionId, versionedSectionType, versionedSectionId, pinnedVersionedQuestionType, pinnedVersionedQuestionId, questionText, json, requirementText, guidanceText, sampleText, useSampleTextAsDefault, createdById, created, modifiedById, modified)
+VALUES (@v_ok_ehr_id, @ok_ehr_cust_quest_id3, 'BASE', @v_nsf_ehr_sec_id, 'BASE', @v_nsf_ehr_quest_id,'Custom question', '{"type":"text","attributes":{"maxLength":255},"meta":{"schemaVersion":"1.0"}}', 'Custom requirements', 'Custom guidance', 'Custom sample text', 0, @admin_id, NOW(), @admin_id, NOW());
 
 
 -- =============================================================================

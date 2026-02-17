@@ -1,7 +1,9 @@
-import { MySqlModel } from "./MySqlModel";
-import { VersionedTemplateCustomization } from "./VersionedTemplateCustomization";
-import { MyContext } from "../context";
-import { isNullOrUndefined } from "../utils/helpers";
+import {MySqlModel} from "./MySqlModel";
+import {VersionedTemplateCustomization} from "./VersionedTemplateCustomization";
+import {MyContext} from "../context";
+import {isNullOrUndefined} from "../utils/helpers";
+import {PinnedSectionTypeEnum} from "./CustomSection";
+import {PinnedQuestionTypeEnum} from "./CustomQuestion";
 
 /**
  * The status of the customization.
@@ -28,79 +30,96 @@ export enum TemplateCustomizationMigrationStatus {
 }
 
 /**
- * The type of customization.
- *  - CUSTOMIZATION: Customizations to the funder section's guidance or question's
- *    guidance or sample answer.
- *  - ADDENDUM: A completely new section or question added to a funder template.
+ * Represents a summary of a template customization question
  */
-export enum CustomizationType {
-  CUSTOMIZATION = 'CUSTOMIZATION',
-  ADDENDUM = 'ADDENDUM',
+export interface TemplateCustomizationQuestionOverview {
+  questionType: PinnedQuestionTypeEnum;
+  id: number;
+  migrationStatus: TemplateCustomizationMigrationStatus;
+  questionText: string;
+  displayOrder: number;
+  hasCustomGuidance: boolean;
+  hasCustomSampleAnswer: boolean;
 }
 
 /**
- * Represents a summary of an organizations customizations to a funder
- * template section (guidance)
+ * Represents a summary of a template customization section
  */
-export interface SectionCustomizationOverview {
-  displayOrder: number;
-  customizationType: CustomizationType.CUSTOMIZATION;
+export interface TemplateCustomizationSectionOverview {
+  sectionType: PinnedSectionTypeEnum;
+  id: number;
   migrationStatus: TemplateCustomizationMigrationStatus;
-  questions: QuestionCustomizationOverview[] | CustomQuestionOverview[];
+  name: string;
+  displayOrder: number;
+  hasCustomGuidance: boolean;
+
+  questions: TemplateCustomizationQuestionOverview[];
+}
+
+/**
+ * A query result of the template customization and published funder template
+ */
+interface FetchTemplateResult {
+  versionedTemplateId: number;
+  versionedTemplateAffiliationId: string;
+  versionedTemplateAffiliationName: string;
+  versionedTemplateName: string;
+  versionedTemplateVersion: string;
+  versionedTemplateLastModified: string;
+
+  customizationId: number;
+  customizationIsDirty: boolean;
+  customizationStatus: TemplateCustomizationStatus;
+  customizationMigrationStatus: TemplateCustomizationMigrationStatus;
+  customizationLastCustomizedById: number;
+  customizationLastCustomized: string;
+  customizationLastCustomizedByName: string;
 
   versionedSectionId: number;
   versionedSectionName: string;
+  versionedSectionDisplayOrder: number;
   sectionCustomizationId: number;
-  hasCustomizedGuidance: boolean;
-}
-
-/**
- * Represents a summary of an organizations custom section attached to a
- * funder template
- */
-export interface CustomSectionOverview {
-  displayOrder: number;
-  customizationType: CustomizationType.ADDENDUM;
-  migrationStatus: TemplateCustomizationMigrationStatus;
-  questions: CustomQuestionOverview
-
-  customSectionId: number;
-  customSectionName: string;
-}
-
-/**
- * Represents a summary of an organizations customizations to a funder
- * template question (guidance and sample answer)
- */
-export interface QuestionCustomizationOverview {
-  displayOrder: number;
-  customizationType: CustomizationType.CUSTOMIZATION;
-  migrationStatus: TemplateCustomizationMigrationStatus;
+  sectionCustomizationMigrationStatus: TemplateCustomizationMigrationStatus;
+  sectionCustomizationHasGuidanceText: boolean;
 
   versionedQuestionId: number;
   versionedQuestionText: string;
+  versionedQuestionDisplayOrder: number;
   questionCustomizationId: number;
-  hasCustomizedGuidance: boolean;
-  hasCustomizedSampleAnswer: boolean;
+  questionCustomizationMigrationStatus: TemplateCustomizationMigrationStatus;
+  questionCustomizationHasGuidanceText: boolean;
+  questionCustomizationHasSampleText: boolean;
 }
 
 /**
- * Represents a summary of an organizations custom question attached to a
- * funder template
+ * A query result of custom sections
  */
-export interface CustomQuestionOverview {
-  displayOrder: number;
-  customizationType: CustomizationType.ADDENDUM;
-  migrationStatus: TemplateCustomizationMigrationStatus;
+interface FetchCustomSectionResult {
+  customSectionId: number;
+  customSectionMigrationStatus: TemplateCustomizationMigrationStatus;
+  customSectionName: string;
+  customSectionPinType: PinnedSectionTypeEnum;
+  customSectionPinId: number | null;
+}
 
+/**
+ * A query result of custom questions
+ */
+interface FetchCustomQuestionResult {
   customQuestionId: number;
+  customQuestionMigrationStatus: TemplateCustomizationMigrationStatus;
   customQuestionText: string;
+  customQuestionSectionType: PinnedSectionTypeEnum;
+  customQuestionSectionId: number;
+  customQuestionPinType: PinnedQuestionTypeEnum;
+  customQuestionPinId: number | null;
 }
 
 /**
- * Represents a summary of the funder template customization
+ * An overview of a funder template customization that includes the published
+ * version of the funder template and the customizations made to it.
  */
-class TemplateCustomizationOverview {
+export class TemplateCustomizationOverview {
   // Information about the funder template
   public versionedTemplateId: number;
   public versionedTemplateAffiliationId: string;
@@ -118,45 +137,347 @@ class TemplateCustomizationOverview {
   public customizationLastCustomizedByName: string;
   public customizationLastCustomized: string;
 
-  public sections: SectionCustomizationOverview[] | CustomSectionOverview[];
+  public sections: TemplateCustomizationSectionOverview[];
 
-  static async findByVersionedTemplateId(
+  constructor(options) {
+    this.versionedTemplateId = options.versionedTemplateId;
+    this.versionedTemplateAffiliationId = options.versionedTemplateAffiliationId;
+    this.versionedTemplateAffiliationName = options.versionedTemplateAffiliationName;
+    this.versionedTemplateName = options.versionedTemplateName;
+    this.versionedTemplateVersion = options.versionedTemplateVersion;
+    this.versionedTemplateLastModified = options.versionedTemplateLastModified;
+
+    this.customizationId = options.customizationId;
+    this.customizationIsDirty = options.customizationIsDirty;
+    this.customizationStatus = options.customizationStatus;
+    this.customizationMigrationStatus = options.customizationMigrationStatus;
+    this.customizationLastCustomizedById = options.customizationLastCustomizedById;
+    this.customizationLastCustomizedByName = options.customizationLastCustomizedByName;
+    this.customizationLastCustomized = options.customizationLastCustomized;
+
+    this.sections = options.sections ?? [];
+  }
+
+  /**
+   * Generate a TemplateCustomizationOverview object for a template customization.
+   *
+   * @param reference The reference string for logging.
+   * @param context The Apollo context.
+   * @param templateCustomizationId The ID of the template customization.
+   */
+  static async generateOverview(
     reference: string,
     context: MyContext,
-    versionedTemplateId: number
-  ): Promise<TemplateCustomizationOverview> {
-    /* TODO: Query to fetch all of the information for a given funder template customization.
-     *       The query will need to collate the sections:
-     *         - All funder template sections (regardless of whether they have been customized)
-     *         - CustomSections added by the organization. CustomSections are pinned to a
-     *           section of the base template (null means its the first section). They also
-     *           have a displayOrder which allows them to be aligned in a series together
-     *       _
-     *       The query will need to collate the questions on a per section basis:
-     *         - All funder template questions (regardless of whether they have been customized)
-     *         - All customizations to those questions
-     *         - CustomQuestions added by the organization are pinned to a question
-     *           of the base template (null means its the first question). They also
-     *           have a displayOrder which allows them to be aligned in a series together
-     *       _
-     *       Each section will need to include one of the following sets of identifiers:
-     *         - the versionedSectionId and sectionCustomizationId
-     *         - the customSectionId
-     *       _
-     *       Each question will need to include one of the following sets of identifiers:
-     *         - the versionedQuestionId and questionCustomizationId
-     *         - the customQuestionId and either customSectionId or versionedSectionId
-     *           depending on which it is attached to.
-     */
-    const sql = `
-      SELECT *
-      FROM ${TemplateCustomization.tableName}
-        JOIN affiliations ON affiliations.id = affiliationId
-      WHERE currentVersionedTemplateId = ?
-    `;
+    templateCustomizationId: number
+  ): Promise<TemplateCustomizationOverview | undefined> {
 
-    return new TemplateCustomizationOverview();
+    // 1. Fetch data in parallel
+    const [templateRows, customSectionRows, customQuestionRows] = await Promise.all([
+      this.fetchTemplateData(context, templateCustomizationId, reference),
+      this.fetchCustomSections(context, templateCustomizationId, reference),
+      this.fetchCustomQuestions(context, templateCustomizationId, reference)
+    ]);
+
+    if (!templateRows?.length) {
+      context.logger.error(
+        { templateCustomizationId },
+        'Unable to find template customization'
+      );
+      return undefined;
+    }
+
+    // 2. Initialize the result object using the first row
+    const first: FetchTemplateResult = templateRows[0];
+    const result = new TemplateCustomizationOverview({
+      versionedTemplateId: first.versionedTemplateId,
+      versionedTemplateAffiliationId: first.versionedTemplateAffiliationId,
+      versionedTemplateAffiliationName: first.versionedTemplateAffiliationName,
+      versionedTemplateName: first.versionedTemplateName,
+      versionedTemplateVersion: first.versionedTemplateVersion,
+      versionedTemplateLastModified: first.versionedTemplateLastModified,
+      customizationId: first.customizationId,
+      customizationIsDirty: first.customizationIsDirty,
+      customizationStatus: first.customizationStatus,
+      customizationMigrationStatus: first.customizationMigrationStatus,
+      customizationLastCustomizedById: first.customizationLastCustomizedById,
+      customizationLastCustomizedByName: first.customizationLastCustomizedByName,
+      customizationLastCustomized: first.customizationLastCustomized,
+      sections: [],
+    });
+
+    // 3. Build Base Structure (Map for $O(1)$ lookups)
+    const sectionMap = new Map<number, TemplateCustomizationSectionOverview>();
+
+    for (const row of templateRows) {
+      let section: TemplateCustomizationSectionOverview = sectionMap.get(row.versionedSectionId);
+
+      if (!section) {
+        section = {
+          sectionType: PinnedSectionTypeEnum.BASE,
+          id: row.versionedSectionId,
+          migrationStatus: row.sectionCustomizationMigrationStatus,
+          hasCustomGuidance: !!row.sectionCustomizationHasGuidanceText,
+          name: row.versionedSectionName,
+          displayOrder: row.versionedSectionDisplayOrder,
+          questions: []
+        };
+        sectionMap.set(section.id, section);
+        result.sections.push(section);
+      }
+
+      if (row.versionedQuestionId) {
+        section.questions.push({
+          questionType: PinnedQuestionTypeEnum.BASE,
+          id: row.versionedQuestionId,
+          migrationStatus: row.questionCustomizationMigrationStatus,
+          hasCustomGuidance: !!row.questionCustomizationHasGuidanceText,
+          hasCustomSampleAnswer: !!row.questionCustomizationHasSampleText,
+          displayOrder: row.versionedQuestionDisplayOrder,
+          questionText: row.versionedQuestionText,
+        });
+      }
+    }
+
+    // 4. Inject Custom Sections
+    this.injectCustomSections(result.sections, customSectionRows, context);
+
+    // 5. Inject Custom Questions
+    this.injectCustomQuestions(result.sections, customQuestionRows, context);
+
+    return result;
   }
+
+  /**
+   * Splice the custom sections into the correct order.
+   *
+   * @param sections The sections of the template customization overview.
+   * @param customRows The custom sections for the template customization.
+   * @param context The Apollo context.
+   */
+  private static injectCustomSections(
+    sections: TemplateCustomizationSectionOverview[],
+    customRows: FetchCustomSectionResult[],
+    context: MyContext
+  ): void {
+    // Sort to ensure sequential pinning works
+    customRows.sort((a, b) => (a.customSectionPinId ?? 0) - (b.customSectionPinId ?? 0));
+
+    for (const row of customRows) {
+      const newSection: TemplateCustomizationSectionOverview = {
+        sectionType: PinnedSectionTypeEnum.CUSTOM,
+        id: row.customSectionId,
+        migrationStatus: row.customSectionMigrationStatus,
+        name: row.customSectionName,
+        displayOrder: 0, // Custom sections usually don't have a base display order
+        hasCustomGuidance: false,
+        questions: []
+      };
+
+      // Make it the first section on the funder template if the pin id is null
+      if (row.customSectionPinId === null) {
+        sections.unshift(newSection);
+
+      } else {
+        const index = sections.findIndex(s => s.id === row.customSectionPinId);
+        // Splice the custom section in if the pin id is found otherwise add it to the end
+        if (index !== -1) {
+          sections.splice(index + 1, 0, newSection);
+        } else {
+          context.logger.error({ ...row }, 'Unable to find section to pin custom section');
+          sections.push(newSection); // Fallback
+        }
+      }
+    }
+  }
+
+  /**
+   * Splice the custom questions into the correct order.
+   *
+   * @param sections The sections of the template customization overview.
+   * @param customRows The custom questions for the template customization.
+   * @param context The Apollo context.
+   */
+  private static injectCustomQuestions(
+    sections: TemplateCustomizationSectionOverview[],
+    customRows: FetchCustomQuestionResult[],
+    context: MyContext
+  ): void {
+    customRows.sort((a: FetchCustomQuestionResult, b: FetchCustomQuestionResult) => {
+      return (a.customQuestionPinId ?? 0) - (b.customQuestionPinId ?? 0);
+    });
+
+    for (const row of customRows) {
+      // Find the section that the custom question belongs to
+      const section: TemplateCustomizationSectionOverview = sections.find((s: TemplateCustomizationSectionOverview) => {
+        return s.id === row.customQuestionSectionId;
+      });
+
+      const newQuestion: TemplateCustomizationQuestionOverview = {
+        questionType: PinnedQuestionTypeEnum.CUSTOM,
+        id: row.customQuestionId,
+        migrationStatus: row.customQuestionMigrationStatus,
+        questionText: row.customQuestionText,
+        displayOrder: 0,
+        hasCustomGuidance: false,
+        hasCustomSampleAnswer: false
+      };
+
+      // If the section is not found, log an error and tack it onto the last section
+      if (!section) {
+        context.logger.error(
+          { ...row },
+          'Unable to find the section the custom question belongs to'
+        );
+        sections[sections.length - 1].questions.push(newQuestion)
+
+      } else {
+        // Make it the first question of the section if the pin id is null
+        if (row.customQuestionPinId === null) {
+          section.questions.unshift(newQuestion);
+
+        } else {
+          // Find the question that this custom question should be pinned to
+          const pinIdx = section.questions.findIndex(q => q.id === row.customQuestionPinId);
+          if (pinIdx !== -1) {
+            // Splice the custom question in if the pin id is found
+            section.questions.splice(pinIdx + 1, 0, newQuestion);
+          } else {
+            context.logger.error(
+              { ...row },
+              'Unable to find the question to pin the custom question to'
+            );
+            // Otherwise add it to the end
+            section.questions.push(newQuestion);
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * Fetch the template customization and the published version of the funder template.
+   *
+   * @param context The Apollo context.
+   * @param templateCustomizationId The ID of the template customization.
+   * @param reference The reference string for logging.
+   * @returns The template customization and funder template overview.
+   */
+  private static async fetchTemplateData(
+    context: MyContext,
+    templateCustomizationId: number,
+    reference: string
+  ): Promise<FetchTemplateResult[]> {
+    const sql = `
+      SELECT
+        vt.id AS versionedTemplateId,
+        a.uri AS versionedTemplateAffiliationId, a.name AS versionedTemplateAffiliationName,
+        vt.name AS versionedTemplateName, vt.version AS versionedTemplateVersion,
+        vt.modified AS versionedTemplateLastModified,
+
+        tc.id customizationId, tc.isDirty AS customizationIsDirty,
+        tc.status AS customizationStatus, tc.migrationStatus AS customizationMigrationStatus,
+        tc.modifiedById AS customizationLastCustomizedById, tc.modified AS customizationLastCustomized,
+        CONCAT(u.givenName, ' ', u.surname) AS customizationLastCustomizedByName,
+
+        vs.id AS versionedSectionId, vs.name as versionedSectionName,
+        vs.displayOrder as versionedSectionDisplayOrder,
+        sc.id AS sectionCustomizationId, sc.migrationStatus AS sectionCustomizationMigrationStatus,
+        (sc.guidance IS NOT NULL) AS sectionCustomizationHasGuidanceText,
+
+        vq.id AS versionedQuestionId, vq.questionText as versionedQuestionText,
+        vq.displayOrder as versionedQuestionDisplayOrder,
+        qc.id AS questionCustomizationId, qc.migrationStatus AS questionCustomizationMigrationStatus,
+        (qc.guidanceText IS NOT NULL) AS questionCustomizationHasGuidanceText,
+        (qc.sampleText IS NOT NULL) AS questionCustomizationHasSampleText
+
+      FROM templateCustomizations AS tc
+        JOIN users AS u ON tc.modifiedById = u.id
+
+        JOIN versionedTemplates AS vt ON vt.templateId = tc.templateId
+        JOIN affiliations AS a ON vt.ownerId = a.uri
+
+        JOIN versionedSections AS vs ON vt.id = vs.versionedTemplateId
+          LEFT JOIN sectionCustomizations AS sc
+          ON vs.sectionId = sc.sectionId AND sc.templateCustomizationId = tc.id
+
+          LEFT JOIN versionedQuestions AS vq ON vs.id = vq.versionedSectionId
+            LEFT JOIN questionCustomizations AS qc
+            ON vq.questionId = qc.questionId AND qc.templateCustomizationId = tc.id
+      WHERE vt.active = 1 AND tc.id = ?
+      ORDER BY vs.displayOrder ASC, vq.displayOrder ASC;
+    `;
+    const results = await TemplateCustomization.query(
+      context,
+      sql,
+      [templateCustomizationId.toString()],
+      reference
+    );
+    return Array.isArray(results) ? results : [];
+  };
+
+  /**
+   * Fetch custom sections for a template customization.
+   *
+   * @param context The Apollo context.
+   * @param templateCustomizationId The ID of the template customization.
+   * @param reference The reference string for logging.
+   * @returns The custom section overviews for the template customization.
+   */
+  private static async fetchCustomSections(
+    context: MyContext,
+    templateCustomizationId: number,
+    reference: string
+  ): Promise<FetchCustomSectionResult[]> {
+    const customSectionsSQL = `
+      SELECT
+        cs.id AS customSectionId, cs.migrationStatus AS customSectionMigrationStatus,
+        cs.name AS customSectionName,
+        cs.pinnedSectionType AS customSectionPinType, cs.pinnedSectionId AS customSectionPinId,
+      FROM customSections AS cs ON tc.id = cs.templateCustomizationId
+      WHERE cs.templateCustomizationId = ?
+      ORDER BY cs.pinnedSectionType ASC, cs.pinnedSectionId ASC;
+    `;
+    const results = await TemplateCustomization.query(
+      context,
+      customSectionsSQL,
+      [templateCustomizationId.toString()],
+      reference
+    );
+    return Array.isArray(results) ? results : [];
+  };
+
+  /**
+   * Fetch custom questions for a template customization.
+   *
+   * @param context The Apollo context.
+   * @param templateCustomizationId The ID of the template customization.
+   * @param reference The reference string for logging.
+   * @returns The custom question overviews for the template customization.
+   */
+  private static async fetchCustomQuestions(
+    context: MyContext,
+    templateCustomizationId: number,
+    reference: string
+  ): Promise<FetchCustomQuestionResult[]> {
+    const customQuestionsSQL = `
+      SELECT
+        cq.id AS customQuestionId, cq.migrationStatus AS customQuestionMigrationStatus,
+        cq.questionText AS customQuestionText,
+        cq.sectionType AS customQuestionSectionType, cq.sectionId AS customQuestionSectionId,
+        cq.pinnedQuestionType AS customQuestionPinType, cq.pinnedQuestionId AS customQuestionPinId
+      FROM templateCustomizations AS tc
+        JOIN customQuestions AS cq ON tc.id = cq.templateCustomizationId
+      WHERE tc.id = ?
+      ORDER BY cq.pinnedQuestionType ASC, cq.pinnedQuestionId ASC;
+    `;
+    const results = await TemplateCustomization.query(
+      context,
+      customQuestionsSQL,
+      [templateCustomizationId.toString()],
+      reference
+    );
+    return Array.isArray(results) ? results : [];
+  };
 }
 
 /**

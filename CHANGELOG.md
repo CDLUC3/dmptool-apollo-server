@@ -3,6 +3,9 @@
 ## v1.1.0
 
 ### Added
+- Added `TemplateCustomizationOverview` to the `TemplateCustomization` model which returns high level overview info about the base funder template and the customizations
+- Added `CustomQuestion`, `CustomSection`, `sectionCustomization` and `questionCustomization` models
+- Added data migration script to create seed customization records for sections and questions
 - Added `customizableTemplates` query and `CustomizableTemplateSearchResult` to the `versionedTemplate` schema and resolver
 - Added `TemplateCustomization` model resolver and schema
 - Added `templateCustomizationService` which handles updating the status of `templateCustomizations` when the customized template is archived or republished

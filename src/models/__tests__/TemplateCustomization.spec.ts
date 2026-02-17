@@ -1,7 +1,8 @@
 import {
   TemplateCustomization,
   TemplateCustomizationMigrationStatus,
-  TemplateCustomizationStatus
+  TemplateCustomizationStatus,
+  TemplateCustomizationOverview,
 } from '../TemplateCustomization';
 import { VersionedTemplate } from '../VersionedTemplate';
 import { VersionedTemplateCustomization } from '../VersionedTemplateCustomization';
@@ -854,4 +855,816 @@ describe('TemplateCustomization', () => {
     });
   });
 
+});
+
+describe('TemplateCustomizationOverview', () => {
+  let mockContext: MyContext;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+
+    mockContext = {
+      logger: {
+        error: jest.fn()
+      }
+    } as undefined as MyContext;
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  describe('constructor', () => {
+    it('should initialize all properties correctly', () => {
+      const options = {
+        versionedTemplateId: 1,
+        versionedTemplateAffiliationId: 'affil-123',
+        versionedTemplateAffiliationName: 'Test Affiliation',
+        versionedTemplateName: 'Test Template',
+        versionedTemplateVersion: '1.0',
+        versionedTemplateLastModified: '2023-01-01',
+        customizationId: 10,
+        customizationIsDirty: true,
+        customizationStatus: TemplateCustomizationStatus.PUBLISHED,
+        customizationMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+        customizationLastCustomizedById: 100,
+        customizationLastCustomizedByName: 'John Doe',
+        customizationLastCustomized: '2023-02-01',
+        sections: []
+      };
+
+      const overview = new TemplateCustomizationOverview(options);
+
+      expect(overview.versionedTemplateId).toBe(1);
+      expect(overview.versionedTemplateAffiliationId).toBe('affil-123');
+      expect(overview.versionedTemplateAffiliationName).toBe('Test Affiliation');
+      expect(overview.versionedTemplateName).toBe('Test Template');
+      expect(overview.versionedTemplateVersion).toBe('1.0');
+      expect(overview.versionedTemplateLastModified).toBe('2023-01-01');
+      expect(overview.customizationId).toBe(10);
+      expect(overview.customizationIsDirty).toBe(true);
+      expect(overview.customizationStatus).toBe(TemplateCustomizationStatus.PUBLISHED);
+      expect(overview.customizationMigrationStatus).toBe(TemplateCustomizationMigrationStatus.OK);
+      expect(overview.customizationLastCustomizedById).toBe(100);
+      expect(overview.customizationLastCustomizedByName).toBe('John Doe');
+      expect(overview.customizationLastCustomized).toBe('2023-02-01');
+      expect(overview.sections).toEqual([]);
+    });
+
+    it('should default sections to empty array when not provided', () => {
+      const options = {
+        versionedTemplateId: 1,
+        versionedTemplateAffiliationId: 'affil-123',
+        versionedTemplateAffiliationName: 'Test Affiliation',
+        versionedTemplateName: 'Test Template',
+        versionedTemplateVersion: '1.0',
+        versionedTemplateLastModified: '2023-01-01',
+        customizationId: 10,
+        customizationIsDirty: false,
+        customizationStatus: TemplateCustomizationStatus.DRAFT,
+        customizationMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+        customizationLastCustomizedById: 100,
+        customizationLastCustomizedByName: 'John Doe',
+        customizationLastCustomized: '2023-02-01'
+      };
+
+      const overview = new TemplateCustomizationOverview(options);
+
+      expect(overview.sections).toEqual([]);
+    });
+  });
+
+  describe('generateOverview()', () => {
+    it('should return undefined when no template rows are found', async () => {
+      jest.spyOn(TemplateCustomization, 'query').mockResolvedValue([]);
+
+      const result = await TemplateCustomizationOverview.generateOverview(
+        'test-ref',
+        mockContext,
+        1
+      );
+
+      expect(mockContext.logger.error).toHaveBeenCalledWith(
+        {templateCustomizationId: 1},
+        'Unable to find template customization'
+      );
+      expect(result).toBeUndefined();
+    });
+
+    it('should generate overview with base sections and questions', async () => {
+      const mockTemplateRows = [
+        {
+          versionedTemplateId: 1,
+          versionedTemplateAffiliationId: 'affil-123',
+          versionedTemplateAffiliationName: 'Test Affiliation',
+          versionedTemplateName: 'Test Template',
+          versionedTemplateVersion: '1.0',
+          versionedTemplateLastModified: '2023-01-01',
+          customizationId: 10,
+          customizationIsDirty: false,
+          customizationStatus: TemplateCustomizationStatus.PUBLISHED,
+          customizationMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          customizationLastCustomizedById: 100,
+          customizationLastCustomized: '2023-02-01',
+          customizationLastCustomizedByName: 'John Doe',
+          versionedSectionId: 1,
+          versionedSectionName: 'Section 1',
+          versionedSectionDisplayOrder: 1,
+          sectionCustomizationId: 101,
+          sectionCustomizationMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          sectionCustomizationHasGuidanceText: true,
+          versionedQuestionId: 1,
+          versionedQuestionText: 'Question 1',
+          versionedQuestionDisplayOrder: 1,
+          questionCustomizationId: 201,
+          questionCustomizationMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          questionCustomizationHasGuidanceText: true,
+          questionCustomizationHasSampleText: false
+        }
+      ];
+
+      jest.spyOn(TemplateCustomization, 'query')
+        .mockResolvedValueOnce(mockTemplateRows)
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+
+      const result = await TemplateCustomizationOverview.generateOverview(
+        'test-ref',
+        mockContext,
+        10
+      );
+
+      expect(result).toBeInstanceOf(TemplateCustomizationOverview);
+      expect(result.versionedTemplateId).toBe(1);
+      expect(result.customizationId).toBe(10);
+      expect(result.sections).toHaveLength(1);
+      expect(result.sections[0].id).toBe(1);
+      expect(result.sections[0].name).toBe('Section 1');
+      expect(result.sections[0].questions).toHaveLength(1);
+      expect(result.sections[0].questions[0].id).toBe(1);
+      expect(result.sections[0].questions[0].questionText).toBe('Question 1');
+    });
+
+    it('should handle sections without questions', async () => {
+      const mockTemplateRows = [
+        {
+          versionedTemplateId: 1,
+          versionedTemplateAffiliationId: 'affil-123',
+          versionedTemplateAffiliationName: 'Test Affiliation',
+          versionedTemplateName: 'Test Template',
+          versionedTemplateVersion: '1.0',
+          versionedTemplateLastModified: '2023-01-01',
+          customizationId: 10,
+          customizationIsDirty: false,
+          customizationStatus: TemplateCustomizationStatus.PUBLISHED,
+          customizationMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          customizationLastCustomizedById: 100,
+          customizationLastCustomized: '2023-02-01',
+          customizationLastCustomizedByName: 'John Doe',
+          versionedSectionId: 1,
+          versionedSectionName: 'Section 1',
+          versionedSectionDisplayOrder: 1,
+          sectionCustomizationId: 101,
+          sectionCustomizationMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          sectionCustomizationHasGuidanceText: false,
+          versionedQuestionId: null,
+          versionedQuestionText: null,
+          versionedQuestionDisplayOrder: null,
+          questionCustomizationId: null,
+          questionCustomizationMigrationStatus: null,
+          questionCustomizationHasGuidanceText: null,
+          questionCustomizationHasSampleText: null
+        }
+      ];
+
+      jest.spyOn(TemplateCustomization, 'query')
+        .mockResolvedValueOnce(mockTemplateRows)
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+
+      const result = await TemplateCustomizationOverview.generateOverview(
+        'test-ref',
+        mockContext,
+        10
+      );
+
+      expect(result.sections).toHaveLength(1);
+      expect(result.sections[0].questions).toHaveLength(0);
+    });
+
+    it('should inject custom sections and questions', async () => {
+      const mockTemplateRows = [
+        {
+          versionedTemplateId: 1,
+          versionedTemplateAffiliationId: 'affil-123',
+          versionedTemplateAffiliationName: 'Test Affiliation',
+          versionedTemplateName: 'Test Template',
+          versionedTemplateVersion: '1.0',
+          versionedTemplateLastModified: '2023-01-01',
+          customizationId: 10,
+          customizationIsDirty: false,
+          customizationStatus: TemplateCustomizationStatus.PUBLISHED,
+          customizationMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          customizationLastCustomizedById: 100,
+          customizationLastCustomized: '2023-02-01',
+          customizationLastCustomizedByName: 'John Doe',
+          versionedSectionId: 1,
+          versionedSectionName: 'Section 1',
+          versionedSectionDisplayOrder: 1,
+          sectionCustomizationId: 101,
+          sectionCustomizationMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          sectionCustomizationHasGuidanceText: false,
+          versionedQuestionId: 1,
+          versionedQuestionText: 'Question 1',
+          versionedQuestionDisplayOrder: 1,
+          questionCustomizationId: 201,
+          questionCustomizationMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          questionCustomizationHasGuidanceText: false,
+          questionCustomizationHasSampleText: false
+        }
+      ];
+
+      const mockCustomSections = [
+        {
+          customSectionId: 500,
+          customSectionMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          customSectionName: 'Custom Section',
+          customSectionPinType: 'BASE',
+          customSectionPinId: 1
+        }
+      ];
+
+      const mockCustomQuestions = [
+        {
+          customQuestionId: 600,
+          customQuestionMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          customQuestionText: 'Custom Question',
+          customQuestionSectionType: 'BASE',
+          customQuestionSectionId: 1,
+          customQuestionPinType: 'BASE',
+          customQuestionPinId: 1
+        }
+      ];
+
+      jest.spyOn(TemplateCustomization, 'query')
+        .mockResolvedValueOnce(mockTemplateRows)
+        .mockResolvedValueOnce(mockCustomSections)
+        .mockResolvedValueOnce(mockCustomQuestions);
+
+      const result = await TemplateCustomizationOverview.generateOverview(
+        'test-ref',
+        mockContext,
+        10
+      );
+
+      expect(result.sections).toHaveLength(2);
+      expect(result.sections[0].sectionType).toBe('BASE');
+      expect(result.sections[1].sectionType).toBe('CUSTOM');
+      expect(result.sections[0].questions).toHaveLength(2);
+      expect(result.sections[0].questions[0].questionType).toBe('BASE');
+      expect(result.sections[0].questions[1].questionType).toBe('CUSTOM');
+    });
+  });
+
+  describe('injectCustomSections()', () => {
+    it('should insert custom section at the beginning when pinId is null', () => {
+      const sections = [
+        {
+          sectionType: 'BASE',
+          id: 1,
+          migrationStatus: TemplateCustomizationMigrationStatus.OK,
+          name: 'Base Section',
+          displayOrder: 1,
+          hasCustomGuidance: false,
+          questions: []
+        }
+      ];
+
+      const customRows = [
+        {
+          customSectionId: 500,
+          customSectionMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          customSectionName: 'Custom Section',
+          customSectionPinType: 'BASE',
+          customSectionPinId: null
+        }
+      ];
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (TemplateCustomizationOverview as any).injectCustomSections(sections, customRows, mockContext);
+      expect(sections).toHaveLength(2);
+      expect(sections[0].id).toBe(500);
+      expect(sections[0].name).toBe('Custom Section');
+      expect(sections[1].id).toBe(1);
+    });
+
+    it('should insert custom section after the pinned section', () => {
+      const sections = [
+        {
+          sectionType: 'BASE',
+          id: 1,
+          migrationStatus: TemplateCustomizationMigrationStatus.OK,
+          name: 'Base Section 1',
+          displayOrder: 1,
+          hasCustomGuidance: false,
+          questions: []
+        },
+        {
+          sectionType: 'BASE',
+          id: 2,
+          migrationStatus: TemplateCustomizationMigrationStatus.OK,
+          name: 'Base Section 2',
+          displayOrder: 2,
+          hasCustomGuidance: false,
+          questions: []
+        }
+      ];
+
+      const customRows = [
+        {
+          customSectionId: 500,
+          customSectionMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          customSectionName: 'Custom Section',
+          customSectionPinType: 'BASE',
+          customSectionPinId: 1
+        }
+      ];
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (TemplateCustomizationOverview as any).injectCustomSections(sections, customRows, mockContext);
+
+      expect(sections).toHaveLength(3);
+      expect(sections[0].id).toBe(1);
+      expect(sections[1].id).toBe(500);
+      expect(sections[2].id).toBe(2);
+    });
+
+    it('should append custom section when pinId is not found', () => {
+      const sections = [
+        {
+          sectionType: 'BASE',
+          id: 1,
+          migrationStatus: TemplateCustomizationMigrationStatus.OK,
+          name: 'Base Section',
+          displayOrder: 1,
+          hasCustomGuidance: false,
+          questions: []
+        }
+      ];
+
+      const customRows = [
+        {
+          customSectionId: 500,
+          customSectionMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          customSectionName: 'Custom Section',
+          customSectionPinType: 'BASE',
+          customSectionPinId: 999
+        }
+      ];
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (TemplateCustomizationOverview as any).injectCustomSections(sections, customRows, mockContext);
+
+      expect(sections).toHaveLength(2);
+      expect(sections[1].id).toBe(500);
+      expect(mockContext.logger.error).toHaveBeenCalledWith(
+        customRows[0],
+        'Unable to find section to pin custom section'
+      );
+    });
+
+    it('should sort custom sections by pinId before injection', () => {
+      const sections = [
+        {
+          sectionType: 'BASE',
+          id: 1,
+          migrationStatus: TemplateCustomizationMigrationStatus.OK,
+          name: 'Base Section',
+          displayOrder: 1,
+          hasCustomGuidance: false,
+          questions: []
+        }
+      ];
+
+      const customRows = [
+        {
+          customSectionId: 502,
+          customSectionMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          customSectionName: 'Custom Section 2',
+          customSectionPinType: 'BASE',
+          customSectionPinId: 1
+        },
+        {
+          customSectionId: 501,
+          customSectionMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          customSectionName: 'Custom Section 1',
+          customSectionPinType: 'BASE',
+          customSectionPinId: null
+        }
+      ];
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (TemplateCustomizationOverview as any).injectCustomSections(sections, customRows, mockContext);
+
+      expect(sections).toHaveLength(3);
+      expect(sections[0].id).toBe(501);
+      expect(sections[2].id).toBe(502);
+    });
+  });
+
+  describe('injectCustomQuestions()', () => {
+    it('should insert custom question at the beginning when pinId is null', () => {
+      const sections = [
+        {
+          sectionType: 'BASE',
+          id: 1,
+          migrationStatus: TemplateCustomizationMigrationStatus.OK,
+          name: 'Section 1',
+          displayOrder: 1,
+          hasCustomGuidance: false,
+          questions: [
+            {
+              questionType: 'BASE',
+              id: 1,
+              migrationStatus: TemplateCustomizationMigrationStatus.OK,
+              questionText: 'Base Question',
+              displayOrder: 1,
+              hasCustomGuidance: false,
+              hasCustomSampleAnswer: false
+            }
+          ]
+        }
+      ];
+
+      const customRows = [
+        {
+          customQuestionId: 600,
+          customQuestionMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          customQuestionText: 'Custom Question',
+          customQuestionSectionType: 'BASE',
+          customQuestionSectionId: 1,
+          customQuestionPinType: 'BASE',
+          customQuestionPinId: null
+        }
+      ];
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (TemplateCustomizationOverview as any).injectCustomQuestions(sections, customRows, mockContext);
+
+      expect(sections[0].questions).toHaveLength(2);
+      expect(sections[0].questions[0].id).toBe(600);
+      expect(sections[0].questions[1].id).toBe(1);
+    });
+
+    it('should insert custom question after the pinned question', () => {
+      const sections = [
+        {
+          sectionType: 'BASE',
+          id: 1,
+          migrationStatus: TemplateCustomizationMigrationStatus.OK,
+          name: 'Section 1',
+          displayOrder: 1,
+          hasCustomGuidance: false,
+          questions: [
+            {
+              questionType: 'BASE',
+              id: 1,
+              migrationStatus: TemplateCustomizationMigrationStatus.OK,
+              questionText: 'Base Question 1',
+              displayOrder: 1,
+              hasCustomGuidance: false,
+              hasCustomSampleAnswer: false
+            },
+            {
+              questionType: 'BASE',
+              id: 2,
+              migrationStatus: TemplateCustomizationMigrationStatus.OK,
+              questionText: 'Base Question 2',
+              displayOrder: 2,
+              hasCustomGuidance: false,
+              hasCustomSampleAnswer: false
+            }
+          ]
+        }
+      ];
+
+      const customRows = [
+        {
+          customQuestionId: 600,
+          customQuestionMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          customQuestionText: 'Custom Question',
+          customQuestionSectionType: 'BASE',
+          customQuestionSectionId: 1,
+          customQuestionPinType: 'BASE',
+          customQuestionPinId: 1
+        }
+      ];
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (TemplateCustomizationOverview as any).injectCustomQuestions(sections, customRows, mockContext);
+
+      expect(sections[0].questions).toHaveLength(3);
+      expect(sections[0].questions[0].id).toBe(1);
+      expect(sections[0].questions[1].id).toBe(600);
+      expect(sections[0].questions[2].id).toBe(2);
+    });
+
+    it('should append custom question to section when pinId is not found', () => {
+      const sections = [
+        {
+          sectionType: 'BASE',
+          id: 1,
+          migrationStatus: TemplateCustomizationMigrationStatus.OK,
+          name: 'Section 1',
+          displayOrder: 1,
+          hasCustomGuidance: false,
+          questions: [
+            {
+              questionType: 'BASE',
+              id: 1,
+              migrationStatus: TemplateCustomizationMigrationStatus.OK,
+              questionText: 'Base Question',
+              displayOrder: 1,
+              hasCustomGuidance: false,
+              hasCustomSampleAnswer: false
+            }
+          ]
+        }
+      ];
+
+      const customRows = [
+        {
+          customQuestionId: 600,
+          customQuestionMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          customQuestionText: 'Custom Question',
+          customQuestionSectionType: 'BASE',
+          customQuestionSectionId: 1,
+          customQuestionPinType: 'BASE',
+          customQuestionPinId: 999
+        }
+      ];
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (TemplateCustomizationOverview as any).injectCustomQuestions(sections, customRows, mockContext);
+
+      expect(sections[0].questions).toHaveLength(2);
+      expect(sections[0].questions[1].id).toBe(600);
+      expect(mockContext.logger.error).toHaveBeenCalledWith(
+        customRows[0],
+        'Unable to find the question to pin the custom question to'
+      );
+    });
+
+    it('should append custom question to last section when section is not found', () => {
+      const sections = [
+        {
+          sectionType: 'BASE',
+          id: 1,
+          migrationStatus: TemplateCustomizationMigrationStatus.OK,
+          name: 'Section 1',
+          displayOrder: 1,
+          hasCustomGuidance: false,
+          questions: []
+        },
+        {
+          sectionType: 'BASE',
+          id: 2,
+          migrationStatus: TemplateCustomizationMigrationStatus.OK,
+          name: 'Section 2',
+          displayOrder: 2,
+          hasCustomGuidance: false,
+          questions: []
+        }
+      ];
+
+      const customRows = [
+        {
+          customQuestionId: 600,
+          customQuestionMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          customQuestionText: 'Custom Question',
+          customQuestionSectionType: 'BASE',
+          customQuestionSectionId: 999,
+          customQuestionPinType: 'BASE',
+          customQuestionPinId: null
+        }
+      ];
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (TemplateCustomizationOverview as any).injectCustomQuestions(sections, customRows, mockContext);
+
+      expect(sections[1].questions).toHaveLength(1);
+      expect(sections[1].questions[0].id).toBe(600);
+      expect(mockContext.logger.error).toHaveBeenCalledWith(
+        customRows[0],
+        'Unable to find the section the custom question belongs to'
+      );
+    });
+
+    it('should sort custom questions by pinId before injection', () => {
+      const sections = [
+        {
+          sectionType: 'BASE',
+          id: 1,
+          migrationStatus: TemplateCustomizationMigrationStatus.OK,
+          name: 'Section 1',
+          displayOrder: 1,
+          hasCustomGuidance: false,
+          questions: [
+            {
+              questionType: 'BASE',
+              id: 1,
+              migrationStatus: TemplateCustomizationMigrationStatus.OK,
+              questionText: 'Base Question',
+              displayOrder: 1,
+              hasCustomGuidance: false,
+              hasCustomSampleAnswer: false
+            }
+          ]
+        }
+      ];
+
+      const customRows = [
+        {
+          customQuestionId: 602,
+          customQuestionMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          customQuestionText: 'Custom Question 2',
+          customQuestionSectionType: 'BASE',
+          customQuestionSectionId: 1,
+          customQuestionPinType: 'BASE',
+          customQuestionPinId: 1
+        },
+        {
+          customQuestionId: 601,
+          customQuestionMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          customQuestionText: 'Custom Question 1',
+          customQuestionSectionType: 'BASE',
+          customQuestionSectionId: 1,
+          customQuestionPinType: 'BASE',
+          customQuestionPinId: null
+        }
+      ];
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (TemplateCustomizationOverview as any).injectCustomQuestions(sections, customRows, mockContext);
+
+      expect(sections[0].questions).toHaveLength(3);
+      expect(sections[0].questions[0].id).toBe(601);
+      expect(sections[0].questions[2].id).toBe(602);
+    });
+  });
+
+  describe('fetchTemplateData()', () => {
+    it('should call query with correct parameters', async () => {
+      const mockResults = [
+        {
+          versionedTemplateId: 1,
+          versionedTemplateAffiliationId: 'affil-123',
+          versionedTemplateAffiliationName: 'Test Affiliation',
+          versionedTemplateName: 'Test Template',
+          versionedTemplateVersion: '1.0',
+          versionedTemplateLastModified: '2023-01-01',
+          customizationId: 10,
+          customizationIsDirty: false,
+          customizationStatus: TemplateCustomizationStatus.PUBLISHED,
+          customizationMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          customizationLastCustomizedById: 100,
+          customizationLastCustomized: '2023-02-01',
+          customizationLastCustomizedByName: 'John Doe',
+          versionedSectionId: 1,
+          versionedSectionName: 'Section 1',
+          versionedSectionDisplayOrder: 1,
+          sectionCustomizationId: 101,
+          sectionCustomizationMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          sectionCustomizationHasGuidanceText: false,
+          versionedQuestionId: 1,
+          versionedQuestionText: 'Question 1',
+          versionedQuestionDisplayOrder: 1,
+          questionCustomizationId: 201,
+          questionCustomizationMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          questionCustomizationHasGuidanceText: false,
+          questionCustomizationHasSampleText: false
+        }
+      ];
+
+      const querySpy = jest.spyOn(TemplateCustomization, 'query').mockResolvedValue(mockResults);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await (TemplateCustomizationOverview as any).fetchTemplateData(
+        mockContext,
+        10,
+        'test-ref'
+      );
+
+      expect(querySpy).toHaveBeenCalledWith(
+        mockContext,
+        expect.stringContaining('SELECT'),
+        ['10'],
+        'test-ref'
+      );
+      expect(result).toEqual(mockResults);
+    });
+
+    it('should return empty array when results is not an array', async () => {
+      jest.spyOn(TemplateCustomization, 'query').mockResolvedValue(null);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await (TemplateCustomizationOverview as any).fetchTemplateData(
+        mockContext,
+        10,
+        'test-ref'
+      );
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('fetchCustomSections()', () => {
+    it('should call query with correct parameters', async () => {
+      const mockResults = [
+        {
+          customSectionId: 500,
+          customSectionMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          customSectionName: 'Custom Section',
+          customSectionPinType: 'BASE',
+          customSectionPinId: 1
+        }
+      ];
+
+      const querySpy = jest.spyOn(TemplateCustomization, 'query').mockResolvedValue(mockResults);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await (TemplateCustomizationOverview as any).fetchCustomSections(
+        mockContext,
+        10,
+        'test-ref'
+      );
+
+      expect(querySpy).toHaveBeenCalledWith(
+        mockContext,
+        expect.stringContaining('SELECT'),
+        ['10'],
+        'test-ref'
+      );
+      expect(result).toEqual(mockResults);
+    });
+
+    it('should return empty array when results is not an array', async () => {
+      jest.spyOn(TemplateCustomization, 'query').mockResolvedValue(null);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await (TemplateCustomizationOverview as any).fetchCustomSections(
+        mockContext,
+        10,
+        'test-ref'
+      );
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('fetchCustomQuestions()', () => {
+    it('should call query with correct parameters', async () => {
+      const mockResults = [
+        {
+          customQuestionId: 600,
+          customQuestionMigrationStatus: TemplateCustomizationMigrationStatus.OK,
+          customQuestionText: 'Custom Question',
+          customQuestionSectionType: 'BASE',
+          customQuestionSectionId: 1,
+          customQuestionPinType: 'BASE',
+          customQuestionPinId: 1
+        }
+      ];
+
+      const querySpy = jest.spyOn(TemplateCustomization, 'query').mockResolvedValue(mockResults);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await (TemplateCustomizationOverview as any).fetchCustomQuestions(
+        mockContext,
+        10,
+        'test-ref'
+      );
+
+      expect(querySpy).toHaveBeenCalledWith(
+        mockContext,
+        expect.stringContaining('SELECT'),
+        ['10'],
+        'test-ref'
+      );
+      expect(result).toEqual(mockResults);
+    });
+
+    it('should return empty array when results is not an array', async () => {
+      jest.spyOn(TemplateCustomization, 'query').mockResolvedValue(null);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await (TemplateCustomizationOverview as any).fetchCustomQuestions(
+        mockContext,
+        10,
+        'test-ref'
+      );
+
+      expect(result).toEqual([]);
+    });
+  });
 });

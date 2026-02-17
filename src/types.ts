@@ -1407,7 +1407,7 @@ export type Mutation = {
   updateResearchOutputType?: Maybe<ResearchOutputType>;
   /** Update a Section */
   updateSection: Section;
-  /** Update custom guidance for a funder section */
+  /** Update custom guidance on a funder section */
   updateSectionCustomization: SectionCustomization;
   /** Change the section's display order */
   updateSectionDisplayOrder: ReorderSectionsResult;
@@ -2887,6 +2887,10 @@ export type Query = {
   bestPracticeSections?: Maybe<Array<Maybe<VersionedSection>>>;
   /** Get all of the research domains related to the specified top level domain (more nuanced ones) */
   childResearchDomains?: Maybe<Array<Maybe<ResearchDomain>>>;
+  /** Get the custom question the affiliation has added to a funder section or custom section (user must be an Admin) */
+  customQuestion: CustomQuestion;
+  /** Get the specified custom section an affiliation has added to a funder template (user must be an Admin) */
+  customSection: CustomSection;
   /** Get all of the customizable templates for the current user's affiliation (user must be an Admin) */
   customizableTemplates?: Maybe<CustomizableTemplateSearchResults>;
   /** Get all of the research output types */
@@ -2979,7 +2983,7 @@ export type Query = {
   question?: Maybe<Question>;
   /** Get the QuestionConditions that belong to a specific question */
   questionConditions?: Maybe<Array<Maybe<QuestionCondition>>>;
-  /** Get the specified question customization (user must be an Admin) */
+  /** Get the custom guidance and sample text the affiliation has added to a funder question question (user must be an Admin) */
   questionCustomization: QuestionCustomization;
   /** Get the Questions that belong to the associated sectionId */
   questions?: Maybe<Array<Maybe<Question>>>;
@@ -3007,7 +3011,7 @@ export type Query = {
   searchExternalProjects?: Maybe<Array<Maybe<ExternalProject>>>;
   /** Get the specified section */
   section?: Maybe<Section>;
-  /** Get the specified section customization (user must be an Admin) */
+  /** Get the custom guidance an affiliation has applied to a funder section (user must be an Admin) */
   sectionCustomization: SectionCustomization;
   /** Get all of the VersionedSection for the specified Section ID */
   sectionVersions?: Maybe<Array<Maybe<VersionedSection>>>;
@@ -3086,6 +3090,16 @@ export type QueryBestPracticeGuidanceArgs = {
 
 export type QueryChildResearchDomainsArgs = {
   parentResearchDomainId: Scalars['Int']['input'];
+};
+
+
+export type QueryCustomQuestionArgs = {
+  customQuestionId: Scalars['Int']['input'];
+};
+
+
+export type QueryCustomSectionArgs = {
+  customSectionId: Scalars['Int']['input'];
 };
 
 
@@ -6715,6 +6729,8 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   bestPracticeGuidance?: Resolver<Array<ResolversTypes['VersionedGuidance']>, ParentType, ContextType, RequireFields<QueryBestPracticeGuidanceArgs, 'tagIds'>>;
   bestPracticeSections?: Resolver<Maybe<Array<Maybe<ResolversTypes['VersionedSection']>>>, ParentType, ContextType>;
   childResearchDomains?: Resolver<Maybe<Array<Maybe<ResolversTypes['ResearchDomain']>>>, ParentType, ContextType, RequireFields<QueryChildResearchDomainsArgs, 'parentResearchDomainId'>>;
+  customQuestion?: Resolver<ResolversTypes['CustomQuestion'], ParentType, ContextType, RequireFields<QueryCustomQuestionArgs, 'customQuestionId'>>;
+  customSection?: Resolver<ResolversTypes['CustomSection'], ParentType, ContextType, RequireFields<QueryCustomSectionArgs, 'customSectionId'>>;
   customizableTemplates?: Resolver<Maybe<ResolversTypes['CustomizableTemplateSearchResults']>, ParentType, ContextType, Partial<QueryCustomizableTemplatesArgs>>;
   defaultResearchOutputTypes?: Resolver<Maybe<Array<Maybe<ResolversTypes['ResearchOutputType']>>>, ParentType, ContextType>;
   findCollaborator?: Resolver<Maybe<ResolversTypes['CollaboratorSearchResults']>, ParentType, ContextType, RequireFields<QueryFindCollaboratorArgs, 'term'>>;

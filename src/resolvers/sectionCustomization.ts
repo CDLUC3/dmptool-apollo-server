@@ -11,10 +11,9 @@ import {
   TemplateCustomizationMigrationStatus
 } from "../models/TemplateCustomization";
 import { authenticatedResolver } from "../services/authService";
-import { ForbiddenError, NotFoundError } from "../utils/graphQLErrors";
+import { NotFoundError } from "../utils/graphQLErrors";
 import {
   getValidatedCustomization,
-  hasPermissionOnTemplateCustomization,
   markTemplateCustomizationAsDirty
 } from "../services/templateCustomizationService";
 import { SectionCustomization } from "../models/SectionCustomization";

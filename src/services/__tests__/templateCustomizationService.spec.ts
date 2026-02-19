@@ -7,7 +7,6 @@ import {
   handleFunderTemplateRepublication,
   handleFunderTemplateArchive,
   markTemplateCustomizationAsDirty,
-  hasPermissionOnTemplateCustomization,
   getValidatedCustomization
 } from "../templateCustomizationService";
 import { ForbiddenError, NotFoundError } from "../../utils/graphQLErrors";
@@ -251,6 +250,7 @@ describe("templateCustomizationService", () => {
     });
 
     it("should successfully mark template customization as dirty", async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const mockEntity = {} as any;
       (TemplateCustomization.markAsDirty as jest.Mock).mockResolvedValue(true);
 
@@ -270,6 +270,7 @@ describe("templateCustomizationService", () => {
     });
 
     it("should log error when marking fails and entity does not support addError", async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const mockEntity = {} as any;
       (TemplateCustomization.markAsDirty as jest.Mock).mockResolvedValue(false);
 
@@ -293,7 +294,8 @@ describe("templateCustomizationService", () => {
 
     it("should log error and add error to entity when marking fails and entity supports addError", async () => {
       const mockAddError = jest.fn();
-      const mockEntity = {addError: mockAddError} as any;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const mockEntity = { addError: mockAddError } as any;
       (TemplateCustomization.markAsDirty as jest.Mock).mockResolvedValue(false);
 
       await markTemplateCustomizationAsDirty(

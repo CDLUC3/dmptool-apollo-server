@@ -1,9 +1,4 @@
 import gql from "graphql-tag";
-import {PinnedQuestionTypeEnum} from "../models/CustomQuestion";
-import {PinnedSectionTypeEnum} from "../models/CustomSection";
-import {
-  TemplateCustomizationMigrationStatus
-} from "../models/TemplateCustomization";
 
 export const typeDefs = gql`
   extend type Query {
@@ -13,15 +8,15 @@ export const typeDefs = gql`
 
   extend type Mutation {
     "Add a new customization to a funder template (user must be an Admin)"
-    addTemplateCustomization(input: AddTemplateCustomizationInput!): TemplateCustomization!
+    addTemplateCustomization(input: AddTemplateCustomizationInput!): TemplateCustomizationOverview!
     "Update a customization (user must be an Admin)"
-    updateTemplateCustomization(input: UpdateTemplateCustomizationInput!): TemplateCustomization!
+    updateTemplateCustomization(input: UpdateTemplateCustomizationInput!): TemplateCustomizationOverview!
     "Remove a customization (user must be an Admin)"
-    removeTemplateCustomization(templateCustomizationId: Int!): TemplateCustomization!
+    removeTemplateCustomization(templateCustomizationId: Int!): TemplateCustomizationOverview!
     "Publish a customization (user must be an Admin)"
-    publishTemplateCustomization(templateCustomizationId: Int!): TemplateCustomization!
+    publishTemplateCustomization(templateCustomizationId: Int!): TemplateCustomizationOverview!
     "Unpublish a customization (user must be an Admin)"
-    unpublishTemplateCustomization(templateCustomizationId: Int!): TemplateCustomization!
+    unpublishTemplateCustomization(templateCustomizationId: Int!): TemplateCustomizationOverview!
   }
 
   "The status of a Template Customization"
@@ -104,11 +99,13 @@ export const typeDefs = gql`
     customizationIsDirty: Boolean!
     customizationStatus: TemplateCustomizationStatus!
     customizationMigrationStatus: TemplateCustomizationMigrationStatus!
-    customizationLastCustomizedById: Int!
-    customizationLastCustomizedByName: String!
-    customizationLastCustomized: String!
+    customizationLastCustomizedById: Int
+    customizationLastCustomizedByName: String
+    customizationLastCustomized: String
 
     sections: [SectionCustomizationOverview!]
+
+    errors: TemplateCustomizationErrors
   }
 
   "An overview of a Section Customization"
@@ -160,8 +157,6 @@ export const typeDefs = gql`
   input UpdateTemplateCustomizationInput {
     "The id of the published funder template"
     templateCustomizationId: Int!
-    "The id of the published funder template"
-    versionedTemplateId: Int!
     "The status of the customization"
     status: TemplateCustomizationStatus
   }

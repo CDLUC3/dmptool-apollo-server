@@ -138,6 +138,7 @@ export class TemplateCustomizationOverview {
   public customizationLastCustomized: string;
 
   public sections: TemplateCustomizationSectionOverview[];
+  public errors: Record<string, string> = {};
 
   constructor(options) {
     this.versionedTemplateId = options.versionedTemplateId;
@@ -156,6 +157,7 @@ export class TemplateCustomizationOverview {
     this.customizationLastCustomized = options.customizationLastCustomized;
 
     this.sections = options.sections ?? [];
+    this.errors = options.errors ?? {};
   }
 
   /**
@@ -598,6 +600,11 @@ export class TemplateCustomization extends MySqlModel {
     if (!this.id) {
       // Cannot publish it if it hasn't been saved yet!
       this.addError('general', 'Customization has never been saved');
+
+    } else if (this.status === TemplateCustomizationStatus.PUBLISHED || this.latestPublishedVersionId) {
+        // Can't publish if it is already published!
+        this.addError('general', 'Customization is already published!');
+
     } else {
       // Make sure the record is valid
       if (await this.isValid()) {
@@ -643,6 +650,11 @@ export class TemplateCustomization extends MySqlModel {
     if (!this.id) {
       // Cannot unpublish it if it hasn't been saved yet!
       this.addError('general', 'Customization has never been saved');
+
+    } else if (this.status !== TemplateCustomizationStatus.PUBLISHED && !this.latestPublishedVersionId) {
+      // Can't unpublish if it isn't published!
+      this.addError('general', 'Customization is not published!');
+
     } else {
       // Make sure the record is valid
       if (await this.isValid()) {

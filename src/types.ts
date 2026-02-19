@@ -722,6 +722,8 @@ export type CustomSectionErrors = {
   introduction?: Maybe<Scalars['String']['output']>;
   migrationStatus?: Maybe<Scalars['String']['output']>;
   name?: Maybe<Scalars['String']['output']>;
+  pinnedSectionId?: Maybe<Scalars['String']['output']>;
+  pinnedSectionType?: Maybe<Scalars['String']['output']>;
   requirements?: Maybe<Scalars['String']['output']>;
   templateCustomizationId?: Maybe<Scalars['String']['output']>;
 };
@@ -1281,7 +1283,7 @@ export type Mutation = {
   /** Add a collaborator to a Template */
   addTemplateCollaborator?: Maybe<TemplateCollaborator>;
   /** Add a new customization to a funder template (user must be an Admin) */
-  addTemplateCustomization: TemplateCustomization;
+  addTemplateCustomization: TemplateCustomizationOverview;
   /** Add an email address for the current user */
   addUserEmail?: Maybe<UserEmail>;
   /** Archive a plan */
@@ -1315,7 +1317,7 @@ export type Mutation = {
   /** Publish a plan (changes status to PUBLISHED) */
   publishPlan?: Maybe<Plan>;
   /** Publish a customization (user must be an Admin) */
-  publishTemplateCustomization: TemplateCustomization;
+  publishTemplateCustomization: TemplateCustomizationOverview;
   /** Delete an Affiliation (only applicable to AffiliationProvenance == DMPTOOL) */
   removeAffiliation?: Maybe<Affiliation>;
   /** Remove answer comment */
@@ -1367,7 +1369,7 @@ export type Mutation = {
   /** Remove a TemplateCollaborator from a Template */
   removeTemplateCollaborator?: Maybe<TemplateCollaborator>;
   /** Remove a customization (user must be an Admin) */
-  removeTemplateCustomization: TemplateCustomization;
+  removeTemplateCustomization: TemplateCustomizationOverview;
   /** Anonymize the current user's account (essentially deletes their account without orphaning things) */
   removeUser?: Maybe<User>;
   /** Remove an email address from the current user */
@@ -1385,7 +1387,7 @@ export type Mutation = {
   /** Unpublish a GuidanceGroup (sets active flag to false on current version) */
   unpublishGuidanceGroup: GuidanceGroup;
   /** Unpublish a customization (user must be an Admin) */
-  unpublishTemplateCustomization: TemplateCustomization;
+  unpublishTemplateCustomization: TemplateCustomizationOverview;
   /** Update an Affiliation */
   updateAffiliation?: Maybe<Affiliation>;
   /** Edit an answer */
@@ -1451,7 +1453,7 @@ export type Mutation = {
   /** Update a Template */
   updateTemplate?: Maybe<Template>;
   /** Update a customization (user must be an Admin) */
-  updateTemplateCustomization: TemplateCustomization;
+  updateTemplateCustomization: TemplateCustomizationOverview;
   /** Update the current user's email notifications */
   updateUserNotifications?: Maybe<User>;
   /** Update the current user's information */
@@ -4033,8 +4035,8 @@ export type SectionCustomizationErrors = {
   general?: Maybe<Scalars['String']['output']>;
   guidance?: Maybe<Scalars['String']['output']>;
   migrationStatus?: Maybe<Scalars['String']['output']>;
+  sectionId?: Maybe<Scalars['String']['output']>;
   templateCustomizationId?: Maybe<Scalars['String']['output']>;
-  versionedSectionId?: Maybe<Scalars['String']['output']>;
 };
 
 /** An overview of a Section Customization */
@@ -4254,11 +4256,12 @@ export type TemplateCustomizationOverview = {
   __typename?: 'TemplateCustomizationOverview';
   customizationId: Scalars['Int']['output'];
   customizationIsDirty: Scalars['Boolean']['output'];
-  customizationLastCustomized: Scalars['String']['output'];
-  customizationLastCustomizedById: Scalars['Int']['output'];
-  customizationLastCustomizedByName: Scalars['String']['output'];
+  customizationLastCustomized?: Maybe<Scalars['String']['output']>;
+  customizationLastCustomizedById?: Maybe<Scalars['Int']['output']>;
+  customizationLastCustomizedByName?: Maybe<Scalars['String']['output']>;
   customizationMigrationStatus: TemplateCustomizationMigrationStatus;
   customizationStatus: TemplateCustomizationStatus;
+  errors?: Maybe<TemplateCustomizationErrors>;
   sections?: Maybe<Array<SectionCustomizationOverview>>;
   versionedTemplateAffiliationId: Scalars['String']['output'];
   versionedTemplateAffiliationName: Scalars['String']['output'];
@@ -4594,8 +4597,6 @@ export type UpdateTemplateCustomizationInput = {
   status?: InputMaybe<TemplateCustomizationStatus>;
   /** The id of the published funder template */
   templateCustomizationId: Scalars['Int']['input'];
-  /** The id of the published funder template */
-  versionedTemplateId: Scalars['Int']['input'];
 };
 
 export type UpdateUserNotificationsInput = {
@@ -6030,6 +6031,8 @@ export type CustomSectionErrorsResolvers<ContextType = MyContext, ParentType ext
   introduction?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   migrationStatus?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   name?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  pinnedSectionId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  pinnedSectionType?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   requirements?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   templateCustomizationId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 };
@@ -6320,7 +6323,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   addTag?: Resolver<Maybe<ResolversTypes['Tag']>, ParentType, ContextType, RequireFields<MutationAddTagArgs, 'name'>>;
   addTemplate?: Resolver<Maybe<ResolversTypes['Template']>, ParentType, ContextType, RequireFields<MutationAddTemplateArgs, 'name'>>;
   addTemplateCollaborator?: Resolver<Maybe<ResolversTypes['TemplateCollaborator']>, ParentType, ContextType, RequireFields<MutationAddTemplateCollaboratorArgs, 'email' | 'templateId'>>;
-  addTemplateCustomization?: Resolver<ResolversTypes['TemplateCustomization'], ParentType, ContextType, RequireFields<MutationAddTemplateCustomizationArgs, 'input'>>;
+  addTemplateCustomization?: Resolver<ResolversTypes['TemplateCustomizationOverview'], ParentType, ContextType, RequireFields<MutationAddTemplateCustomizationArgs, 'input'>>;
   addUserEmail?: Resolver<Maybe<ResolversTypes['UserEmail']>, ParentType, ContextType, RequireFields<MutationAddUserEmailArgs, 'email' | 'isPrimary'>>;
   archivePlan?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType, RequireFields<MutationArchivePlanArgs, 'planId'>>;
   archiveProject?: Resolver<Maybe<ResolversTypes['Project']>, ParentType, ContextType, RequireFields<MutationArchiveProjectArgs, 'projectId'>>;
@@ -6337,7 +6340,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   projectImport?: Resolver<Maybe<ResolversTypes['Project']>, ParentType, ContextType, Partial<MutationProjectImportArgs>>;
   publishGuidanceGroup?: Resolver<ResolversTypes['GuidanceGroup'], ParentType, ContextType, RequireFields<MutationPublishGuidanceGroupArgs, 'guidanceGroupId'>>;
   publishPlan?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType, RequireFields<MutationPublishPlanArgs, 'planId'>>;
-  publishTemplateCustomization?: Resolver<ResolversTypes['TemplateCustomization'], ParentType, ContextType, RequireFields<MutationPublishTemplateCustomizationArgs, 'templateCustomizationId'>>;
+  publishTemplateCustomization?: Resolver<ResolversTypes['TemplateCustomizationOverview'], ParentType, ContextType, RequireFields<MutationPublishTemplateCustomizationArgs, 'templateCustomizationId'>>;
   removeAffiliation?: Resolver<Maybe<ResolversTypes['Affiliation']>, ParentType, ContextType, RequireFields<MutationRemoveAffiliationArgs, 'affiliationId'>>;
   removeAnswerComment?: Resolver<Maybe<ResolversTypes['AnswerComment']>, ParentType, ContextType, RequireFields<MutationRemoveAnswerCommentArgs, 'answerCommentId' | 'answerId'>>;
   removeCustomQuestion?: Resolver<ResolversTypes['CustomQuestion'], ParentType, ContextType, RequireFields<MutationRemoveCustomQuestionArgs, 'customQuestionId'>>;
@@ -6363,7 +6366,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   removeSectionCustomization?: Resolver<ResolversTypes['SectionCustomization'], ParentType, ContextType, RequireFields<MutationRemoveSectionCustomizationArgs, 'sectionCustomizationId'>>;
   removeTag?: Resolver<Maybe<ResolversTypes['Tag']>, ParentType, ContextType, RequireFields<MutationRemoveTagArgs, 'tagId'>>;
   removeTemplateCollaborator?: Resolver<Maybe<ResolversTypes['TemplateCollaborator']>, ParentType, ContextType, RequireFields<MutationRemoveTemplateCollaboratorArgs, 'email' | 'templateId'>>;
-  removeTemplateCustomization?: Resolver<ResolversTypes['TemplateCustomization'], ParentType, ContextType, RequireFields<MutationRemoveTemplateCustomizationArgs, 'templateCustomizationId'>>;
+  removeTemplateCustomization?: Resolver<ResolversTypes['TemplateCustomizationOverview'], ParentType, ContextType, RequireFields<MutationRemoveTemplateCustomizationArgs, 'templateCustomizationId'>>;
   removeUser?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType>;
   removeUserEmail?: Resolver<Maybe<ResolversTypes['UserEmail']>, ParentType, ContextType, RequireFields<MutationRemoveUserEmailArgs, 'email'>>;
   requestFeedback?: Resolver<Maybe<ResolversTypes['PlanFeedback']>, ParentType, ContextType, RequireFields<MutationRequestFeedbackArgs, 'planId'>>;
@@ -6372,7 +6375,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   setUserOrcid?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationSetUserOrcidArgs, 'orcid'>>;
   superSyncPlanMaDMP?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationSuperSyncPlanMaDmpArgs, 'planId'>>;
   unpublishGuidanceGroup?: Resolver<ResolversTypes['GuidanceGroup'], ParentType, ContextType, RequireFields<MutationUnpublishGuidanceGroupArgs, 'guidanceGroupId'>>;
-  unpublishTemplateCustomization?: Resolver<ResolversTypes['TemplateCustomization'], ParentType, ContextType, RequireFields<MutationUnpublishTemplateCustomizationArgs, 'templateCustomizationId'>>;
+  unpublishTemplateCustomization?: Resolver<ResolversTypes['TemplateCustomizationOverview'], ParentType, ContextType, RequireFields<MutationUnpublishTemplateCustomizationArgs, 'templateCustomizationId'>>;
   updateAffiliation?: Resolver<Maybe<ResolversTypes['Affiliation']>, ParentType, ContextType, RequireFields<MutationUpdateAffiliationArgs, 'input'>>;
   updateAnswer?: Resolver<Maybe<ResolversTypes['Answer']>, ParentType, ContextType, RequireFields<MutationUpdateAnswerArgs, 'answerId'>>;
   updateAnswerComment?: Resolver<Maybe<ResolversTypes['AnswerComment']>, ParentType, ContextType, RequireFields<MutationUpdateAnswerCommentArgs, 'answerCommentId' | 'answerId' | 'commentText'>>;
@@ -6405,7 +6408,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   updateSectionDisplayOrder?: Resolver<ResolversTypes['ReorderSectionsResult'], ParentType, ContextType, RequireFields<MutationUpdateSectionDisplayOrderArgs, 'newDisplayOrder' | 'sectionId'>>;
   updateTag?: Resolver<Maybe<ResolversTypes['Tag']>, ParentType, ContextType, RequireFields<MutationUpdateTagArgs, 'name' | 'tagId'>>;
   updateTemplate?: Resolver<Maybe<ResolversTypes['Template']>, ParentType, ContextType, RequireFields<MutationUpdateTemplateArgs, 'name' | 'templateId'>>;
-  updateTemplateCustomization?: Resolver<ResolversTypes['TemplateCustomization'], ParentType, ContextType, RequireFields<MutationUpdateTemplateCustomizationArgs, 'input'>>;
+  updateTemplateCustomization?: Resolver<ResolversTypes['TemplateCustomizationOverview'], ParentType, ContextType, RequireFields<MutationUpdateTemplateCustomizationArgs, 'input'>>;
   updateUserNotifications?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationUpdateUserNotificationsArgs, 'input'>>;
   updateUserProfile?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationUpdateUserProfileArgs, 'input'>>;
   uploadPlan?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType, RequireFields<MutationUploadPlanArgs, 'projectId'>>;
@@ -7155,8 +7158,8 @@ export type SectionCustomizationErrorsResolvers<ContextType = MyContext, ParentT
   general?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   guidance?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   migrationStatus?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  sectionId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   templateCustomizationId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  versionedSectionId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 };
 
 export type SectionCustomizationOverviewResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['SectionCustomizationOverview'] = ResolversParentTypes['SectionCustomizationOverview']> = {
@@ -7267,11 +7270,12 @@ export type TemplateCustomizationErrorsResolvers<ContextType = MyContext, Parent
 export type TemplateCustomizationOverviewResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['TemplateCustomizationOverview'] = ResolversParentTypes['TemplateCustomizationOverview']> = {
   customizationId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   customizationIsDirty?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
-  customizationLastCustomized?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  customizationLastCustomizedById?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  customizationLastCustomizedByName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  customizationLastCustomized?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  customizationLastCustomizedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  customizationLastCustomizedByName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   customizationMigrationStatus?: Resolver<ResolversTypes['TemplateCustomizationMigrationStatus'], ParentType, ContextType>;
   customizationStatus?: Resolver<ResolversTypes['TemplateCustomizationStatus'], ParentType, ContextType>;
+  errors?: Resolver<Maybe<ResolversTypes['TemplateCustomizationErrors']>, ParentType, ContextType>;
   sections?: Resolver<Maybe<Array<ResolversTypes['SectionCustomizationOverview']>>, ParentType, ContextType>;
   versionedTemplateAffiliationId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   versionedTemplateAffiliationName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;

@@ -12,7 +12,6 @@ import { ApolloServer } from "@apollo/server";
 import { typeDefs } from "../../schema";
 import { resolvers } from '../../resolver';
 
-import { MyContext } from '../../context';
 import { logger } from "../../logger";
 import { JWTAccessToken } from "../../services/tokenService";
 import { SectionCustomization } from '../../models/SectionCustomization';
@@ -24,12 +23,7 @@ import {
   getValidatedCustomization,
   markTemplateCustomizationAsDirty
 } from '../../services/templateCustomizationService';
-import {
-  buildContext,
-  buildMockContextWithToken,
-  mockToken
-} from "../../__mocks__/context";
-import {TemplateCustomization} from "../../models/TemplateCustomization";
+import { buildContext, mockToken } from "../../__mocks__/context";
 
 jest.mock('../../context.ts');
 jest.mock('../../datasources/cache');
@@ -78,7 +72,6 @@ afterEach(() => {
 });
 
 describe('sectionCustomization resolver', () => {
-  let mockContext: MyContext;
   let user: User;
 
   beforeEach(async () => {
@@ -91,8 +84,6 @@ describe('sectionCustomization resolver', () => {
     });
 
     (user.getEmail as jest.Mock) = jest.fn().mockResolvedValue(casual.email);
-
-    mockContext = await buildMockContextWithToken(logger, user);
   });
 
   describe('Query.sectionCustomization', () => {

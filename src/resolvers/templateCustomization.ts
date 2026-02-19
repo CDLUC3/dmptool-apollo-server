@@ -3,33 +3,23 @@ import {
   Resolvers,
   UpdateTemplateCustomizationInput
 } from "../types";
-import { authenticatedResolver, isAdmin } from "../services/authService";
+import { authenticatedResolver } from "../services/authService";
 import { MyContext } from "../context";
 import { VersionedTemplate } from "../models/VersionedTemplate";
-import { normaliseDateTime } from "../utils/helpers";
+import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
 import {
   TemplateCustomization, TemplateCustomizationOverview,
   TemplateCustomizationStatus
 } from "../models/TemplateCustomization";
-import {
-  checkForFunderTemplateDrift,
-  getValidatedCustomization,
-} from "../services/templateCustomizationService";
-import {
-  AuthenticationError,
-  ForbiddenError,
-  InternalServerError,
-  NotFoundError,
-} from "../utils/graphQLErrors";
-import { GraphQLError } from "graphql";
-import { prepareObjectForLogs } from "../logger";
+import { getValidatedCustomization } from "../services/templateCustomizationService";
+import { NotFoundError } from "../utils/graphQLErrors";
 import { UserRole } from "../models/User";
 
 export const resolvers: Resolvers = {
   Query: {
     // Fetch the specific customization of a funder template (must be an admin)
     templateCustomizationOverview: authenticatedResolver(
-      'sectionCustomization resolver',
+      'templateCustomizationOverview resolver',
       UserRole.ADMIN,
       async (
         _: Record<PropertyKey, never>,
@@ -59,205 +49,185 @@ export const resolvers: Resolvers = {
 
   Mutation: {
     // Add a new customization of a funder template (must be an admin)
-    addTemplateCustomization: async (
-      _: Record<PropertyKey, never>,
-      { input }: { input: AddTemplateCustomizationInput },
-      context: MyContext
-    ): Promise<TemplateCustomization> => {
+    addTemplateCustomization: authenticatedResolver(
+      'addTemplateCustomization resolver',
+      UserRole.ADMIN,
+      async (
+        _: Record<PropertyKey, never>,
+        { input }: { input: AddTemplateCustomizationInput },
+        context: MyContext
+      ): Promise<TemplateCustomizationOverview | null> => {
       const reference = 'addTemplateCustomization resolver';
       const { versionedTemplateId, status } = input;
 
-      try {
-        // Only Admins can create template customizations
-        if (isAdmin(context.token)) {
-          // Fetch the versioned funder template
-          const versionedTemplate: VersionedTemplate = await VersionedTemplate.findById(
-            reference,
-            context,
-            versionedTemplateId
-          );
-          if (!versionedTemplate) throw NotFoundError();
+      // Fetch the versioned funder template
+      const versionedTemplate: VersionedTemplate = await VersionedTemplate.findById(
+        reference,
+        context,
+        versionedTemplateId
+      );
+      if (!versionedTemplate) throw NotFoundError();
 
-          const customization = new TemplateCustomization({
-            affiliationId: context.token.affiliationId,
-            templateId: versionedTemplate.templateId,
-            currentVersionedTemplateId: versionedTemplate.id,
-            status
-          });
+      const customization = new TemplateCustomization({
+        affiliationId: context.token.affiliationId,
+        templateId: versionedTemplate.templateId,
+        currentVersionedTemplateId: versionedTemplate.id,
+        status
+      });
 
-          // Save the new template customization
-          const created: TemplateCustomization = await customization.create(context);
-          if (created && !created.hasErrors()) {
-            // Check to see if the published funder template that this tracks has changed
-            return await checkForFunderTemplateDrift(reference, context, created);
-          }
+      // Save the new template customization
+      const created: TemplateCustomization = await customization.create(context);
 
-          return created;
-        }
-        // Caller is Unauthorized!
-        throw context?.token ? ForbiddenError() : AuthenticationError();
-      } catch (err) {
-        if (err instanceof GraphQLError) throw err;
+      // If there were no problems, then generate the overview and return it
+      if (!isNullOrUndefined(created)) {
+        const overview: TemplateCustomizationOverview = await TemplateCustomizationOverview.generateOverview(
+          reference,
+          context,
+          created.id
+        );
 
-        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
-        throw InternalServerError();
+        // Transfer any errors encountered during the creation to the Overview
+        overview.errors = created.errors;
+        return overview;
       }
-    },
+      return undefined;
+    }),
 
     // Update the customization of a funder template (must be an admin)
-    updateTemplateCustomization: async (
-      _: Record<PropertyKey, never>,
-      { input }: { input: UpdateTemplateCustomizationInput },
-      context: MyContext
-    ): Promise<TemplateCustomization> => {
+    updateTemplateCustomization: authenticatedResolver(
+      'updateTemplateCustomization resolver',
+      UserRole.ADMIN,
+      async (
+        _: Record<PropertyKey, never>,
+        { input }: { input: UpdateTemplateCustomizationInput },
+        context: MyContext
+      ): Promise<TemplateCustomizationOverview | null> => {
       const reference = 'updateTemplateCustomization resolver';
-      const { templateCustomizationId, versionedTemplateId, status } = input;
+      const { templateCustomizationId, status } = input;
 
-      try {
-        // Only Admins can update a template customization
-        if (isAdmin(context.token)) {
-          const customization: TemplateCustomization = await TemplateCustomization.findById(
-            reference,
-            context,
-            templateCustomizationId
-          )
-          if (!customization) throw NotFoundError();
+      const customization: TemplateCustomization = await getValidatedCustomization(
+        reference,
+        context,
+        templateCustomizationId
+      );
+      if (!customization) throw NotFoundError();
 
-          // If the versioned funder template has changed, make sure it exists
-          if (customization.currentVersionedTemplateId !== versionedTemplateId) {
-            const versionedTemplate: VersionedTemplate = await VersionedTemplate.findById(
-              reference,
-              context,
-              versionedTemplateId
-            );
-            if (!versionedTemplate) throw NotFoundError();
+      // Update the customization
+      customization.status = TemplateCustomizationStatus[status];
+      const updated: TemplateCustomization = await customization.update(context);
 
-            customization.currentVersionedTemplateId = versionedTemplateId;
-          }
+      if (!isNullOrUndefined(updated)) {
+        const overview: TemplateCustomizationOverview = await TemplateCustomizationOverview.generateOverview(
+          reference,
+          context,
+          updated.id
+        );
 
-          // Update the customization
-          customization.status = TemplateCustomizationStatus[status];
-          const updated = await customization.update(context);
-          if (updated && !updated.hasErrors()) {
-            // Check to see if the published funder template that this tracks has changed
-            return await checkForFunderTemplateDrift(reference, context, updated);
-          }
-
-          return updated;
-        }
-        // Caller is Unauthorized!
-        throw context?.token ? ForbiddenError() : AuthenticationError();
-      } catch (err) {
-        if (err instanceof GraphQLError) throw err;
-
-        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
-        throw InternalServerError();
+        // Transfer any errors encountered during the update to the Overview
+        overview.errors = updated.errors;
+        return overview;
       }
-    },
+      return undefined;
+    }),
 
     // Delete the customization of the funder template (must be an admin)
-    removeTemplateCustomization: async (
-      _: Record<PropertyKey, never>,
-      { templateCustomizationId }: { templateCustomizationId: number },
-      context: MyContext
-    ): Promise<TemplateCustomization> => {
+    removeTemplateCustomization: authenticatedResolver(
+      'removeTemplateCustomization resolver',
+      UserRole.ADMIN,
+      async (
+        _: Record<PropertyKey, never>,
+        { templateCustomizationId }: { templateCustomizationId: number },
+        context: MyContext
+      ): Promise<TemplateCustomizationOverview | null> => {
       const reference = 'removeTemplateCustomization resolver';
 
-      try {
-        // Only Admins can delete a template customization
-        if (isAdmin(context.token)) {
-          const customization: TemplateCustomization = await TemplateCustomization.findById(
-            reference,
-            context,
-            templateCustomizationId
-          )
-          if (!customization) throw NotFoundError();
+      const customization: TemplateCustomization = await getValidatedCustomization(
+        reference,
+        context,
+        templateCustomizationId
+      );
+      if (!customization) throw NotFoundError();
 
-          return await customization.delete(context);
-        }
-        // Caller is Unauthorized!
-        throw context?.token ? ForbiddenError() : AuthenticationError();
-      } catch (err) {
-        if (err instanceof GraphQLError) throw err;
+      const deleted: TemplateCustomization = await customization.delete(context);
 
-        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
-        throw InternalServerError();
+      if (!isNullOrUndefined(deleted)) {
+        const overview: TemplateCustomizationOverview = await TemplateCustomizationOverview.generateOverview(
+          reference,
+          context,
+          deleted.id
+        );
+
+        // Transfer any errors encountered during the deletion to the Overview
+        overview.errors = deleted.errors;
+        return overview;
       }
-    },
+      return undefined;
+    }),
 
     // Publish the customization of the funder template (must be an admin)
-    publishTemplateCustomization: async (
-      _: Record<PropertyKey, never>,
-      { templateCustomizationId }: { templateCustomizationId: number },
-      context: MyContext
-    ): Promise<TemplateCustomization> => {
+    publishTemplateCustomization: authenticatedResolver(
+      'publishTemplateCustomization resolver',
+      UserRole.ADMIN,
+      async (
+        _: Record<PropertyKey, never>,
+        { templateCustomizationId }: { templateCustomizationId: number },
+        context: MyContext
+      ): Promise<TemplateCustomizationOverview | null> => {
       const reference = 'publishTemplateCustomization resolver';
 
-      try {
-        // Only Admins can delete a template customization
-        if (isAdmin(context.token)) {
-          const customization: TemplateCustomization = await TemplateCustomization.findById(
-            reference,
-            context,
-            templateCustomizationId
-          )
+      const customization: TemplateCustomization = await getValidatedCustomization(
+        reference,
+        context,
+        templateCustomizationId
+      );
+      if (!customization) throw NotFoundError();
 
-          if (!customization) throw NotFoundError();
+      const published: TemplateCustomization = await customization.publish(context);
 
-          // Only publish if its not already published
-          if (customization.status !== TemplateCustomizationStatus.PUBLISHED
-            && !customization.latestPublishedVersionId) {
-            return await customization.publish(context);
-          }
-
-          customization.addError('general', 'Customization is already published');
-          return await customization.publish(context);
-        }
-        // Caller is Unauthorized!
-        throw context?.token ? ForbiddenError() : AuthenticationError();
-      } catch (err) {
-        if (err instanceof GraphQLError) throw err;
-
-        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
-        throw InternalServerError();
+      if (!isNullOrUndefined(published)) {
+        const overview: TemplateCustomizationOverview = await TemplateCustomizationOverview.generateOverview(
+          reference,
+          context,
+          published.id
+        );
+        // Transfer any errors
+        overview.errors = published.errors;
+        return overview;
       }
-    },
+      return undefined;
+    }),
 
     // Unpublish the customization of the funder template (must be an admin)
-    unpublishTemplateCustomization: async (
-      _: Record<PropertyKey, never>,
-      { templateCustomizationId }: { templateCustomizationId: number },
-      context: MyContext
-    ): Promise<TemplateCustomization> => {
+    unpublishTemplateCustomization: authenticatedResolver(
+      'unpublishTemplateCustomization resolver',
+      UserRole.ADMIN,
+      async (
+        _: Record<PropertyKey, never>,
+        { templateCustomizationId }: { templateCustomizationId: number },
+        context: MyContext
+      ): Promise<TemplateCustomizationOverview | null> => {
       const reference = 'unpublishTemplateCustomization resolver';
+      const customization: TemplateCustomization = await getValidatedCustomization(
+        reference,
+        context,
+        templateCustomizationId
+      );
+      if (!customization) throw NotFoundError();
 
-      try {
-        // Only Admins can delete a template customization
-        if (isAdmin(context.token)) {
-          const customization: TemplateCustomization = await TemplateCustomization.findById(
-            reference,
-            context,
-            templateCustomizationId
-          )
-          if (!customization) throw NotFoundError();
-          // Only unpublish it if it is published
-          if (customization.status === TemplateCustomizationStatus.PUBLISHED
-            && customization.latestPublishedVersionId) {
-            return await customization.unpublish(context);
-          }
+      const unpublished: TemplateCustomization = await customization.unpublish(context);
 
-          customization.addError('general', 'Customization is not published');
-          return customization;
-        }
-        // Caller is Unauthorized!
-        throw context?.token ? ForbiddenError() : AuthenticationError();
-      } catch (err) {
-        if (err instanceof GraphQLError) throw err;
-
-        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
-        throw InternalServerError();
+      if (!isNullOrUndefined(unpublished)) {
+        const overview: TemplateCustomizationOverview = await TemplateCustomizationOverview.generateOverview(
+          reference,
+          context,
+          unpublished.id
+        );
+        // Transfer any errors
+        overview.errors = unpublished.errors;
+        return overview;
       }
-    },
+      return undefined;
+    }),
   },
 
   TemplateCustomization: {

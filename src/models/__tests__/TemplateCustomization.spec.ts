@@ -27,8 +27,8 @@ describe('TemplateCustomization', () => {
         affiliationId: 'affil-123',
         templateId: 1,
         currentVersionedTemplateId: 10,
-        status: 'ACTIVE',
-        migrationStatus: 'UP_TO_DATE',
+        status: 'DRAFT',
+        migrationStatus: 'OK',
         errors: {}
       });
 
@@ -43,8 +43,8 @@ describe('TemplateCustomization', () => {
         affiliationId: null,
         templateId: 1,
         currentVersionedTemplateId: 10,
-        status: 'ACTIVE',
-        migrationStatus: 'UP_TO_DATE',
+        status: 'DRAFT',
+        migrationStatus: 'OK',
         errors: {}
       });
 
@@ -59,8 +59,8 @@ describe('TemplateCustomization', () => {
         affiliationId: 'affil-123',
         templateId: null,
         currentVersionedTemplateId: 10,
-        status: 'ACTIVE',
-        migrationStatus: 'UP_TO_DATE',
+        status: 'DRAFT',
+        migrationStatus: 'OK',
         errors: {}
       });
 
@@ -75,8 +75,8 @@ describe('TemplateCustomization', () => {
         affiliationId: 'affil-123',
         templateId: 1,
         currentVersionedTemplateId: null,
-        status: 'ACTIVE',
-        migrationStatus: 'UP_TO_DATE',
+        status: 'DRAFT',
+        migrationStatus: 'OK',
         errors: {}
       });
 
@@ -92,7 +92,7 @@ describe('TemplateCustomization', () => {
         templateId: 1,
         currentVersionedTemplateId: 10,
         status: null,
-        migrationStatus: 'UP_TO_DATE',
+        migrationStatus: 'OK',
         errors: {}
       });
 
@@ -104,7 +104,7 @@ describe('TemplateCustomization', () => {
         affiliationId: 'affil-123',
         templateId: 1,
         currentVersionedTemplateId: 10,
-        status: 'ACTIVE',
+        status: 'DRAFT',
         migrationStatus: null,
         errors: {}
       });
@@ -135,8 +135,8 @@ describe('TemplateCustomization', () => {
         affiliationId: 'affil-123',
         templateId: 1,
         currentVersionedTemplateId: 10,
-        status: 'ACTIVE',
-        migrationStatus: 'UP_TO_DATE',
+        status: 'DRAFT',
+        migrationStatus: 'OK',
         errors: {}
       });
 
@@ -151,8 +151,8 @@ describe('TemplateCustomization', () => {
         affiliationId: null,
         templateId: 1,
         currentVersionedTemplateId: 10,
-        status: 'ACTIVE',
-        migrationStatus: 'UP_TO_DATE',
+        status: 'DRAFT',
+        migrationStatus: 'OK',
         errors: {}
       });
 
@@ -161,15 +161,33 @@ describe('TemplateCustomization', () => {
       expect(result.errors.affiliationId).toBe('Affiliation can\'t be blank');
     });
 
+    it('should add error when the customization is already published', async () => {
+      const customization = new TemplateCustomization({
+        id: 1,
+        affiliationId: null,
+        templateId: 1,
+        currentVersionedTemplateId: 10,
+        status: 'PUBLISHED',
+        latestPublishedVersionId: 100,
+        latestPublishedDate: '2026-01-01 12:13:14',
+        migrationStatus: 'OK',
+        errors: {}
+      });
+
+      const result = await customization.publish(mockContext);
+
+      expect(result.errors.general).toBe('Customization is already published!');
+    });
+
     it('should add error when drift is detected', async () => {
       const customization = new TemplateCustomization({
         id: 1,
         affiliationId: 'affil-123',
         templateId: 1,
         currentVersionedTemplateId: 10,
-        latestPublishedVersionId: 5,
-        status: 'ACTIVE',
-        migrationStatus: 'UP_TO_DATE',
+        latestPublishedVersionId: null,
+        status: 'DRAFT',
+        migrationStatus: 'OK',
         errors: {}
       });
 
@@ -187,9 +205,8 @@ describe('TemplateCustomization', () => {
         affiliationId: 'affil-123',
         templateId: 1,
         currentVersionedTemplateId: 10,
-        latestPublishedVersionId: 5,
-        status: 'ACTIVE',
-        migrationStatus: 'UP_TO_DATE',
+        status: 'DRAFT',
+        migrationStatus: 'OK',
         errors: {}
       });
 
@@ -208,9 +225,8 @@ describe('TemplateCustomization', () => {
         affiliationId: 'affil-123',
         templateId: 1,
         currentVersionedTemplateId: 10,
-        latestPublishedVersionId: 5,
-        status: 'ACTIVE',
-        migrationStatus: 'UP_TO_DATE',
+        status: 'DRAFT',
+        migrationStatus: 'OK',
         errors: {}
       });
 
@@ -234,9 +250,8 @@ describe('TemplateCustomization', () => {
         affiliationId: 'affil-123',
         templateId: 1,
         currentVersionedTemplateId: 10,
-        latestPublishedVersionId: 5,
-        status: 'ACTIVE',
-        migrationStatus: 'UP_TO_DATE',
+        status: 'DRAFT',
+        migrationStatus: 'OK',
         errors: {}
       });
 
@@ -269,7 +284,7 @@ describe('TemplateCustomization', () => {
         templateId: 1,
         currentVersionedTemplateId: 10,
         status: 'PUBLISHED',
-        migrationStatus: 'UP_TO_DATE',
+        migrationStatus: 'OK',
         errors: {}
       });
 
@@ -285,13 +300,31 @@ describe('TemplateCustomization', () => {
         templateId: 1,
         currentVersionedTemplateId: 10,
         status: 'PUBLISHED',
-        migrationStatus: 'UP_TO_DATE',
+        migrationStatus: 'OK',
         errors: {}
       });
 
       const result = await customization.unpublish(mockContext);
 
       expect(result.errors.affiliationId).toBe('Affiliation can\'t be blank');
+    });
+
+    it('should add error when the customization is not published', async () => {
+      const customization = new TemplateCustomization({
+        id: 1,
+        affiliationId: null,
+        templateId: 1,
+        currentVersionedTemplateId: 10,
+        status: 'DRAFT',
+        latestPublishedDate: null,
+        latestPublishedVersionId: null,
+        migrationStatus: 'OK',
+        errors: {}
+      });
+
+      const result = await customization.unpublish(mockContext);
+
+      expect(result.errors.general).toBe('Customization is not published!');
     });
 
     it('should return as-is when versioned customization is not found', async () => {
@@ -302,7 +335,7 @@ describe('TemplateCustomization', () => {
         currentVersionedTemplateId: 10,
         latestPublishedVersionId: 100,
         status: 'PUBLISHED',
-        migrationStatus: 'UP_TO_DATE',
+        migrationStatus: 'OK',
         errors: {}
       });
 
@@ -326,7 +359,7 @@ describe('TemplateCustomization', () => {
         currentVersionedTemplateId: 10,
         latestPublishedVersionId: 100,
         status: 'PUBLISHED',
-        migrationStatus: 'UP_TO_DATE',
+        migrationStatus: 'OK',
         errors: {}
       });
 
@@ -351,7 +384,7 @@ describe('TemplateCustomization', () => {
         currentVersionedTemplateId: 10,
         latestPublishedVersionId: 100,
         status: 'PUBLISHED',
-        migrationStatus: 'UP_TO_DATE',
+        migrationStatus: 'OK',
         errors: {}
       });
 
@@ -376,7 +409,7 @@ describe('TemplateCustomization', () => {
         currentVersionedTemplateId: 10,
         latestPublishedVersionId: 100,
         status: 'PUBLISHED',
-        migrationStatus: 'UP_TO_DATE',
+        migrationStatus: 'OK',
         errors: {}
       });
 
@@ -408,8 +441,8 @@ describe('TemplateCustomization', () => {
         affiliationId: null,
         templateId: 1,
         currentVersionedTemplateId: 10,
-        status: 'ACTIVE',
-        migrationStatus: 'UP_TO_DATE',
+        status: 'DRAFT',
+        migrationStatus: 'OK',
         errors: {}
       });
 
@@ -423,8 +456,8 @@ describe('TemplateCustomization', () => {
         affiliationId: 'affil-123',
         templateId: 1,
         currentVersionedTemplateId: 10,
-        status: 'ACTIVE',
-        migrationStatus: 'UP_TO_DATE',
+        status: 'DRAFT',
+        migrationStatus: 'OK',
         errors: {}
       });
 
@@ -447,8 +480,8 @@ describe('TemplateCustomization', () => {
         affiliationId: 'affil-123',
         templateId: 1,
         currentVersionedTemplateId: 10,
-        status: 'ACTIVE',
-        migrationStatus: 'UP_TO_DATE',
+        status: 'DRAFT',
+        migrationStatus: 'OK',
         errors: {}
       });
 
@@ -476,8 +509,8 @@ describe('TemplateCustomization', () => {
         affiliationId: 'affil-123',
         templateId: 1,
         currentVersionedTemplateId: 10,
-        status: 'ACTIVE',
-        migrationStatus: 'UP_TO_DATE',
+        status: 'DRAFT',
+        migrationStatus: 'OK',
         errors: {}
       });
 
@@ -494,7 +527,7 @@ describe('TemplateCustomization', () => {
         currentVersionedTemplateId: 10,
         latestPublishedVersionId: 100,
         status: 'PUBLISHED',
-        migrationStatus: 'UP_TO_DATE',
+        migrationStatus: 'OK',
         errors: {}
       });
 
@@ -527,7 +560,7 @@ describe('TemplateCustomization', () => {
         currentVersionedTemplateId: 10,
         latestPublishedVersionId: 100,
         status: 'PUBLISHED',
-        migrationStatus: 'UP_TO_DATE',
+        migrationStatus: 'OK',
         errors: {}
       });
 
@@ -555,8 +588,8 @@ describe('TemplateCustomization', () => {
         affiliationId: 'affil-123',
         templateId: 1,
         currentVersionedTemplateId: 10,
-        status: 'ACTIVE',
-        migrationStatus: 'UP_TO_DATE',
+        status: 'DRAFT',
+        migrationStatus: 'OK',
         errors: {}
       });
 
@@ -577,8 +610,8 @@ describe('TemplateCustomization', () => {
         affiliationId: 'affil-123',
         templateId: 1,
         currentVersionedTemplateId: 10,
-        status: 'ACTIVE',
-        migrationStatus: 'UP_TO_DATE',
+        status: 'DRAFT',
+        migrationStatus: 'OK',
         errors: {}
       });
 
@@ -593,8 +626,8 @@ describe('TemplateCustomization', () => {
         affiliationId: 'affil-123',
         templateId: 1,
         currentVersionedTemplateId: 10,
-        status: 'ACTIVE',
-        migrationStatus: 'UP_TO_DATE',
+        status: 'DRAFT',
+        migrationStatus: 'OK',
         errors: {}
       });
 
@@ -619,8 +652,8 @@ describe('TemplateCustomization', () => {
         affiliationId: 'affil-123',
         templateId: 1,
         currentVersionedTemplateId: 10,
-        status: 'ACTIVE',
-        migrationStatus: 'UP_TO_DATE',
+        status: 'DRAFT',
+        migrationStatus: 'OK',
         errors: {}
       });
 
@@ -664,8 +697,8 @@ describe('TemplateCustomization', () => {
         affiliationId: 'affil-123',
         templateId: 1,
         currentVersionedTemplateId: 10,
-        status: 'ACTIVE',
-        migrationStatus: 'UP_TO_DATE'
+        status: 'DRAFT',
+        migrationStatus: 'OK'
       };
 
       const querySpy = jest.spyOn(TemplateCustomization, 'query').mockResolvedValue([mockData]);
@@ -712,8 +745,8 @@ describe('TemplateCustomization', () => {
         affiliationId: 'affil-123',
         templateId: 1,
         currentVersionedTemplateId: 10,
-        status: 'ACTIVE',
-        migrationStatus: 'UP_TO_DATE'
+        status: 'DRAFT',
+        migrationStatus: 'OK'
       };
 
       const querySpy = jest.spyOn(TemplateCustomization, 'query').mockResolvedValue([mockData]);
@@ -761,8 +794,8 @@ describe('TemplateCustomization', () => {
           affiliationId: 'affil-123',
           templateId: 1,
           currentVersionedTemplateId: 10,
-          status: 'ACTIVE',
-          migrationStatus: 'UP_TO_DATE'
+          status: 'DRAFT',
+          migrationStatus: 'OK'
         },
         {
           id: 124,
@@ -823,7 +856,7 @@ describe('TemplateCustomization', () => {
           affiliationId: 'affil-123',
           templateId: 1,
           currentVersionedTemplateId: 10,
-          status: 'ACTIVE',
+          status: 'DRAFT',
           migrationStatus: 'OK'
         },
         {
@@ -2050,7 +2083,7 @@ describe('TemplateCustomizationOverview', () => {
         templateId: 1,
         currentVersionedTemplateId: 10,
         status: 'PUBLISHED',
-        migrationStatus: 'UP_TO_DATE',
+        migrationStatus: 'OK',
         isDirty: true,
         errors: {}
       });
@@ -2069,7 +2102,7 @@ describe('TemplateCustomizationOverview', () => {
         templateId: 1,
         currentVersionedTemplateId: 10,
         status: 'PUBLISHED',
-        migrationStatus: 'UP_TO_DATE',
+        migrationStatus: 'OK',
         isDirty: false,
         errors: {}
       });
@@ -2091,7 +2124,7 @@ describe('TemplateCustomizationOverview', () => {
         templateId: 1,
         currentVersionedTemplateId: 10,
         status: 'PUBLISHED',
-        migrationStatus: 'UP_TO_DATE',
+        migrationStatus: 'OK',
         isDirty: false,
         errors: {}
       });
@@ -2119,7 +2152,7 @@ describe('TemplateCustomizationOverview', () => {
         templateId: 1,
         currentVersionedTemplateId: 10,
         status: 'PUBLISHED',
-        migrationStatus: 'UP_TO_DATE',
+        migrationStatus: 'OK',
         isDirty: false,
         errors: {}
       });

@@ -14,9 +14,9 @@ import { resolvers } from '../../resolver';
 
 import { logger } from "../../logger";
 import { JWTAccessToken } from "../../services/tokenService";
-import { SectionCustomization } from '../../models/SectionCustomization';
-import { CustomSection } from '../../models/CustomSection';
-import { VersionedSection } from '../../models/VersionedSection';
+import { QuestionCustomization } from '../../models/QuestionCustomization';
+import { CustomQuestion } from '../../models/CustomQuestion';
+import { VersionedQuestion } from '../../models/VersionedQuestion';
 import { PinnedSectionTypeEnum } from '../../models/CustomSection';
 import { User, UserRole } from "../../models/User";
 import {
@@ -28,10 +28,10 @@ import { buildContext, mockToken } from "../../__mocks__/context";
 jest.mock('../../context.ts');
 jest.mock('../../datasources/cache');
 
-jest.mock('../../models/SectionCustomization');
-jest.mock('../../models/CustomSection');
+jest.mock('../../models/QuestionCustomization');
+jest.mock('../../models/CustomQuestion');
 jest.mock('../../models/TemplateCustomization');
-jest.mock('../../models/VersionedSection');
+jest.mock('../../models/VersionedQuestion');
 jest.mock('../../services/templateCustomizationService');
 
 let testServer: ApolloServer;
@@ -71,7 +71,7 @@ afterEach(() => {
   jest.clearAllMocks();
 });
 
-describe('sectionCustomization resolver', () => {
+describe('questionCustomization resolver', () => {
   let user: User;
 
   beforeEach(async () => {
@@ -86,22 +86,23 @@ describe('sectionCustomization resolver', () => {
     (user.getEmail as jest.Mock) = jest.fn().mockResolvedValue(casual.email);
   });
 
-  describe('Query.sectionCustomization', () => {
+  describe('Query.questionCustomization', () => {
     beforeEach(() => {
       query = `
-        query sectionCustomization($sectionCustomizationId: Int!) {
-          sectionCustomization(sectionCustomizationId: $sectionCustomizationId) {
+        query questionCustomization($questionCustomizationId: Int!) {
+          questionCustomization(questionCustomizationId: $questionCustomizationId) {
             id
             templateCustomizationId
-            sectionId
+            questionId
             migrationStatus
-            guidance
+            guidanceText
+            sampleText
             errors {
               general
             }
-            versionedSection {
+            versionedQuestion {
               id
-              name
+              questionText
             }
           }
         }
@@ -112,34 +113,36 @@ describe('sectionCustomization resolver', () => {
       const mockCustomization = {
         id: 1,
         templateCustomizationId: 10,
-        sectionId: 5,
+        questionId: 5,
         migrationStatus: 'OK',
-        guidance: 'Test guidance'
+        guidanceText: 'Test guidance text',
+        sampleText: 'Test sample text'
       };
       const mockParent = { id: 10, isDirty: false };
-
-      (SectionCustomization.findById as jest.Mock).mockResolvedValue(mockCustomization);
+      
+      (QuestionCustomization.findById as jest.Mock).mockResolvedValue(mockCustomization);
       (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
 
-      const vars = { sectionCustomizationId: 1 };
+      const vars = { questionCustomizationId: 1 };
       const result = await executeQuery(query, vars, adminToken);
 
-      expect(result.body.singleResult.data.sectionCustomization.id).toEqual(1);
-      expect(result.body.singleResult.data.sectionCustomization.templateCustomizationId).toEqual(10);
-      expect(result.body.singleResult.data.sectionCustomization.sectionId).toEqual(5);
-      expect(result.body.singleResult.data.sectionCustomization.migrationStatus).toEqual('OK');
-      expect(result.body.singleResult.data.sectionCustomization.guidance).toEqual('Test guidance');
-      expect(SectionCustomization.findById).toHaveBeenCalledWith(
-        'sectionCustomization resolver',
+      expect(result.body.singleResult.data.questionCustomization.id).toEqual(1);
+      expect(result.body.singleResult.data.questionCustomization.templateCustomizationId).toEqual(10);
+      expect(result.body.singleResult.data.questionCustomization.questionId).toEqual(5);
+      expect(result.body.singleResult.data.questionCustomization.migrationStatus).toEqual('OK');
+      expect(result.body.singleResult.data.questionCustomization.guidanceText).toEqual('Test guidance text');
+      expect(result.body.singleResult.data.questionCustomization.sampleText).toEqual('Test sample text');
+      expect(QuestionCustomization.findById).toHaveBeenCalledWith(
+        'questionCustomization resolver',
         expect.any(Object),
         1
       );
     });
 
     it('should return NotFound error when section customization is not found', async () => {
-      (SectionCustomization.findById as jest.Mock).mockResolvedValue(null);
+      (QuestionCustomization.findById as jest.Mock).mockResolvedValue(null);
 
-      const vars = { sectionCustomizationId: 999 };
+      const vars = { questionCustomizationId: 999 };
       const result = await executeQuery(query, vars, adminToken);
 
       expect(result.body.kind).toEqual('single');
@@ -153,10 +156,10 @@ describe('sectionCustomization resolver', () => {
         templateCustomizationId: 10
       };
 
-      (SectionCustomization.findById as jest.Mock).mockResolvedValue(mockCustomization);
+      (QuestionCustomization.findById as jest.Mock).mockResolvedValue(mockCustomization);
       (getValidatedCustomization as jest.Mock).mockResolvedValue(null);
 
-      const vars = { sectionCustomizationId: 1 };
+      const vars = { questionCustomizationId: 1 };
       const result = await executeQuery(query, vars, adminToken);
 
       expect(result.body.kind).toEqual('single');
@@ -165,20 +168,25 @@ describe('sectionCustomization resolver', () => {
     });
   });
 
-  describe('Query.customSection', () => {
+  describe('Query.customQuestion', () => {
     beforeEach(() => {
       query = `
-        query customSection($customSectionId: Int!) {
-          customSection(customSectionId: $customSectionId) {
+        query customQuestion($customQuestionId: Int!) {
+          customQuestion(customQuestionId: $customQuestionId) {
             id
             templateCustomizationId
-            pinnedSectionType
-            pinnedSectionId
+            sectionType
+            sectionId
+            pinnedQuestionType
+            pinnedQuestionId
             migrationStatus
-            name
-            introduction
-            requirements
-            guidance
+            questionText
+            json
+            requirementText
+            guidanceText
+            sampleText
+            useSampleTextAsDefault
+            required
             errors {
               general
             }
@@ -188,33 +196,36 @@ describe('sectionCustomization resolver', () => {
     });
 
     it('should return the custom section when found and user has permission', async () => {
-      const mockCustomSection = {
+      const mockCustomQuestion = {
         id: 1,
         templateCustomizationId: 10,
-        name: 'Custom Section'
+        questionText: 'Custom Question',
+        sectionType: 'BASE',
+        sectionId: 5,
+        migrationStatus: 'OK'
       };
       const mockParent = {id: 10, isDirty: false};
 
-      (CustomSection.findById as jest.Mock).mockResolvedValue(mockCustomSection);
+      (CustomQuestion.findById as jest.Mock).mockResolvedValue(mockCustomQuestion);
       (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
 
-      const vars = { customSectionId: 1 };
+      const vars = { customQuestionId: 1 };
       const result = await executeQuery(query, vars, adminToken);
 
-      expect(result.body.singleResult.data.customSection.id).toEqual(1);
-      expect(result.body.singleResult.data.customSection.templateCustomizationId).toEqual(10);
-      expect(result.body.singleResult.data.customSection.name).toEqual('Custom Section');
-      expect(CustomSection.findById).toHaveBeenCalledWith(
-        'customSection resolver',
+      expect(result.body.singleResult.data.customQuestion.id).toEqual(1);
+      expect(result.body.singleResult.data.customQuestion.templateCustomizationId).toEqual(10);
+      expect(result.body.singleResult.data.customQuestion.questionText).toEqual('Custom Question');
+      expect(CustomQuestion.findById).toHaveBeenCalledWith(
+        'customQuestion resolver',
         expect.any(Object),
         1
       );
     });
 
     it('should return NotFound when custom section is not found', async () => {
-      (CustomSection.findById as jest.Mock).mockResolvedValue(null);
+      (CustomQuestion.findById as jest.Mock).mockResolvedValue(null);
 
-      const vars = { customSectionId: 999 };
+      const vars = { customQuestionId: 999 };
       const result = await executeQuery(query, vars, adminToken);
 
       expect(result.body.kind).toEqual('single');
@@ -223,15 +234,15 @@ describe('sectionCustomization resolver', () => {
     });
 
     it('should throw error when parent template customization is not found', async () => {
-      const mockCustomSection = {
+      const mockCustomQuestion = {
         id: 1,
         templateCustomizationId: 10
       };
 
-      (CustomSection.findById as jest.Mock).mockResolvedValue(mockCustomSection);
+      (CustomQuestion.findById as jest.Mock).mockResolvedValue(mockCustomQuestion);
       (getValidatedCustomization as jest.Mock).mockResolvedValue(null);
 
-      const vars = { customSectionId: 1 };
+      const vars = { customQuestionId: 1 };
       const result = await executeQuery(query, vars, adminToken)
 
       expect(result.body.kind).toEqual('single');
@@ -240,18 +251,19 @@ describe('sectionCustomization resolver', () => {
     });
   });
 
-  describe('Mutation.addSectionCustomization', () => {
+  describe('Mutation.addQuestionCustomization', () => {
     beforeEach(() => {
       query = `
-        mutation addSectionCustomization($input: AddSectionCustomizationInput!) {
-          addSectionCustomization(input: $input) {
+        mutation addQuestionCustomization($input: AddQuestionCustomizationInput!) {
+          addQuestionCustomization(input: $input) {
             id
             templateCustomizationId
-            sectionId
+            questionId
             errors {
               templateCustomizationId
-              sectionId
-              guidance
+              versionedQuestionId
+              guidanceText
+              sampleText
               general
             }
           }
@@ -262,28 +274,28 @@ describe('sectionCustomization resolver', () => {
     it('should create a new section customization successfully', async () => {
       const input = {
         templateCustomizationId: 10,
-        versionedSectionId: 5
+        versionedQuestionId: 5,
       };
       const mockSection = { id: 5, name: 'Section' };
       const mockParent = { id: 10, isDirty: false };
       const mockCreated = {
         id: 1,
-        sectionId: 5,
+        questionId: 5,
         ...input,
         hasErrors: jest.fn().mockReturnValue(false)
-      } as undefined as SectionCustomization;
+      } as undefined as QuestionCustomization;
 
-      (VersionedSection.findById as jest.Mock).mockResolvedValue(mockSection);
+      (VersionedQuestion.findById as jest.Mock).mockResolvedValue(mockSection);
       (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
-      jest.spyOn(SectionCustomization.prototype, 'create').mockResolvedValue(mockCreated);
+      jest.spyOn(QuestionCustomization.prototype, 'create').mockResolvedValue(mockCreated);
 
       const result = await executeQuery(query, { input }, adminToken);
 
-      expect(result.body.singleResult.data.addSectionCustomization.id).toEqual(1);
-      expect(result.body.singleResult.data.addSectionCustomization.templateCustomizationId).toEqual(10);
-      expect(result.body.singleResult.data.addSectionCustomization.sectionId).toEqual(5);
+      expect(result.body.singleResult.data.addQuestionCustomization.id).toEqual(1);
+      expect(result.body.singleResult.data.addQuestionCustomization.templateCustomizationId).toEqual(10);
+      expect(result.body.singleResult.data.addQuestionCustomization.questionId).toEqual(5);
       expect(markTemplateCustomizationAsDirty).toHaveBeenCalledWith(
-        'addSectionCustomization resolver',
+        'addQuestionCustomization resolver',
         expect.any(Object),
         10,
         mockCreated
@@ -293,10 +305,10 @@ describe('sectionCustomization resolver', () => {
     it('should throw NotFoundError when versioned section is not found', async () => {
       const input = {
         templateCustomizationId: 10,
-        versionedSectionId: 999
+        versionedQuestionId: 999
       };
 
-      (VersionedSection.findById as jest.Mock).mockResolvedValue(null);
+      (VersionedQuestion.findById as jest.Mock).mockResolvedValue(null);
 
       const result = await executeQuery(query, { input }, adminToken);
 
@@ -308,19 +320,19 @@ describe('sectionCustomization resolver', () => {
     it('should not mark parent as dirty when creation has errors', async () => {
       const input = {
         templateCustomizationId: 10,
-        versionedSectionId: 5
+        versionedQuestionId: 5
       };
       const mockSection = {id: 5};
       const mockParent = {id: 10, isDirty: false};
       const mockCreated = {
         id: 1,
-        sectionId: 5,
+        questionId: 5,
         hasErrors: jest.fn().mockReturnValue(true)
-      } as undefined as SectionCustomization;
+      } as undefined as QuestionCustomization;
 
-      (VersionedSection.findById as jest.Mock).mockResolvedValue(mockSection);
+      (VersionedQuestion.findById as jest.Mock).mockResolvedValue(mockSection);
       (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
-      jest.spyOn(SectionCustomization.prototype, 'create').mockResolvedValue(mockCreated);
+      jest.spyOn(QuestionCustomization.prototype, 'create').mockResolvedValue(mockCreated);
 
       await executeQuery(query, { input }, adminToken);
 
@@ -328,19 +340,18 @@ describe('sectionCustomization resolver', () => {
     });
   });
 
-  describe('Mutation.updateSectionCustomization', () => {
+  describe('Mutation.updateQuestionCustomization', () => {
     beforeEach(() => {
       query = `
-        mutation updateSectionCustomization($input: UpdateSectionCustomizationInput!) {
-          updateSectionCustomization(input: $input) {
+        mutation updateQuestionCustomization($input: UpdateQuestionCustomizationInput!) {
+          updateQuestionCustomization(input: $input) {
             id
             templateCustomizationId
-            sectionId
-            guidance
+            guidanceText
             errors {
               templateCustomizationId
-              sectionId
-              guidance
+              versionedQuestionId
+              guidanceText
               general
             }
           }
@@ -350,37 +361,37 @@ describe('sectionCustomization resolver', () => {
 
     it('should update section customization successfully', async () => {
       const input = {
-        sectionCustomizationId: 1,
-        guidance: 'Updated guidance'
+        questionCustomizationId: 1,
+        guidanceText: 'Updated guidanceText'
       };
       const mockCustomization = {
         id: 1,
         templateCustomizationId: 10,
-        sectionId: 5,
-        guidance: 'Old guidance',
+        versionedQuestionId: 5,
+        guidanceText: 'Old guidanceText',
         hasErrors: jest.fn().mockReturnValue(false),
         update: jest.fn()
       };
       const mockParent = { id: 10, isDirty: false };
-      const mockUpdated = { ...mockCustomization, guidance: 'Updated guidance' };
+      const mockUpdated = { ...mockCustomization, guidanceText: 'Updated guidanceText' };
 
-      (SectionCustomization.findById as jest.Mock).mockResolvedValue(mockCustomization);
+      (QuestionCustomization.findById as jest.Mock).mockResolvedValue(mockCustomization);
       (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
       mockCustomization.update.mockResolvedValue(mockUpdated);
 
       const result = await executeQuery(query, { input }, adminToken);
 
-      expect(result.body.singleResult.data.updateSectionCustomization.guidance).toBe('Updated guidance');
+      expect(result.body.singleResult.data.updateQuestionCustomization.guidanceText).toBe('Updated guidanceText');
       expect(markTemplateCustomizationAsDirty).toHaveBeenCalled();
     });
 
     it('should throw NotFoundError when section customization is not found', async () => {
       const input = {
-        sectionCustomizationId: 999,
-        guidance: 'New guidance'
+        questionCustomizationId: 999,
+        guidanceText: 'New guidanceText'
       };
 
-      (SectionCustomization.findById as jest.Mock).mockResolvedValue(null);
+      (QuestionCustomization.findById as jest.Mock).mockResolvedValue(null);
 
       const result = await executeQuery(query, { input }, adminToken);
 
@@ -391,8 +402,8 @@ describe('sectionCustomization resolver', () => {
 
     it('should not mark parent as dirty when parent is already dirty', async () => {
       const input = {
-        sectionCustomizationId: 1,
-        guidance: 'Updated guidance'
+        questionCustomizationId: 1,
+        guidanceText: 'Updated guidanceText'
       };
       const mockCustomization = {
         id: 1,
@@ -403,7 +414,7 @@ describe('sectionCustomization resolver', () => {
       const mockParent = { id: 10, isDirty: true };
       const mockUpdated = { ...mockCustomization };
 
-      (SectionCustomization.findById as jest.Mock).mockResolvedValue(mockCustomization);
+      (QuestionCustomization.findById as jest.Mock).mockResolvedValue(mockCustomization);
       (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
       mockCustomization.update.mockResolvedValue(mockUpdated);
 
@@ -413,17 +424,17 @@ describe('sectionCustomization resolver', () => {
     });
   });
 
-  describe('Mutation.removeSectionCustomization', () => {
+  describe('Mutation.removeQuestionCustomization', () => {
     beforeEach(() => {
       query = `
-        mutation removeSectionCustomization($sectionCustomizationId: Int!) {
-          removeSectionCustomization(sectionCustomizationId: $sectionCustomizationId) {
+        mutation removeQuestionCustomization($questionCustomizationId: Int!) {
+          removeQuestionCustomization(questionCustomizationId: $questionCustomizationId) {
             id
             templateCustomizationId
             errors {
               templateCustomizationId
-              sectionId
-              guidance
+              versionedQuestionId
+              guidanceText
               general
             }
           }
@@ -441,22 +452,22 @@ describe('sectionCustomization resolver', () => {
       const mockParent = { id: 10, isDirty: false };
       const mockDeleted = { ...mockCustomization };
 
-      (SectionCustomization.findById as jest.Mock).mockResolvedValue(mockCustomization);
+      (QuestionCustomization.findById as jest.Mock).mockResolvedValue(mockCustomization);
       (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
       mockCustomization.delete.mockResolvedValue(mockDeleted);
 
-      const args = { sectionCustomizationId: 1 };
+      const args = { questionCustomizationId: 1 };
       const result = await executeQuery(query, args, adminToken);
 
-      expect(result.body.singleResult.data.removeSectionCustomization.id).toEqual(1);
+      expect(result.body.singleResult.data.removeQuestionCustomization.id).toEqual(1);
       expect(mockCustomization.delete).toHaveBeenCalled();
       expect(markTemplateCustomizationAsDirty).toHaveBeenCalled();
     });
 
     it('should throw NotFoundError when section customization is not found', async () => {
-      (SectionCustomization.findById as jest.Mock).mockResolvedValue(null);
+      (QuestionCustomization.findById as jest.Mock).mockResolvedValue(null);
 
-      const args = { sectionCustomizationId: 999 };
+      const args = { questionCustomizationId: 999 };
       const result = await executeQuery(query, args, adminToken);
 
       expect(result.body.kind).toEqual('single');
@@ -465,21 +476,24 @@ describe('sectionCustomization resolver', () => {
     });
   });
 
-  describe('Mutation.addCustomSection', () => {
+  describe('Mutation.addCustomQuestion', () => {
     beforeEach(() => {
       query = `
-        mutation addCustomSection($input: AddCustomSectionInput!) {
-          addCustomSection(input: $input) {
+        mutation addCustomQuestion($input: AddCustomQuestionInput!) {
+          addCustomQuestion(input: $input) {
             id
             templateCustomizationId
-            pinnedSectionType
-            pinnedSectionId
-            name
+            sectionType
+            sectionId
+            pinnedQuestionType
+            pinnedQuestionId
+            questionText
+            json
             errors {
               templateCustomizationId
-              pinnedSectionType
-              pinnedSectionId
-              name
+              sectionId
+              questionText
+              json
               general
             }
           }
@@ -490,44 +504,51 @@ describe('sectionCustomization resolver', () => {
     it('should create a new custom section successfully', async () => {
       const input = {
         templateCustomizationId: 10,
-        pinnedSectionType: 'BASE',
-        pinnedSectionId: 5
+        sectionType: 'BASE',
+        sectionId: 5,
+        pinnedQuestionType: 'BASE',
+        pinnedQuestionId: 5
       };
       const mockParent = { id: 10, isDirty: false };
       const mockCreated = {
         id: 1,
         ...input,
         hasErrors: jest.fn().mockReturnValue(false)
-      } as undefined as CustomSection;
+      } as undefined as CustomQuestion;
 
       (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
 
-      jest.spyOn(CustomSection.prototype, 'create').mockResolvedValue(mockCreated);
+      jest.spyOn(CustomQuestion.prototype, 'create').mockResolvedValue(mockCreated);
 
       const result = await executeQuery(query, { input }, adminToken);
 
-      expect(result.body.singleResult.data.addCustomSection.id).toEqual(1);
-      expect(result.body.singleResult.data.addCustomSection.templateCustomizationId).toEqual(10);
-      expect(result.body.singleResult.data.addCustomSection.pinnedSectionType).toEqual('BASE');
-      expect(result.body.singleResult.data.addCustomSection.pinnedSectionId).toEqual(5);
+      expect(result.body.singleResult.data.addCustomQuestion.id).toEqual(1);
+      expect(result.body.singleResult.data.addCustomQuestion.templateCustomizationId).toEqual(10);
+      expect(result.body.singleResult.data.addCustomQuestion.sectionType).toEqual('BASE');
+      expect(result.body.singleResult.data.addCustomQuestion.sectionId).toEqual(5);
+      expect(result.body.singleResult.data.addCustomQuestion.pinnedQuestionType).toEqual('BASE');
+      expect(result.body.singleResult.data.addCustomQuestion.pinnedQuestionId).toEqual(5);
       expect(markTemplateCustomizationAsDirty).toHaveBeenCalled();
     });
 
     it('should not mark parent as dirty when creation has errors', async () => {
       const input = {
         templateCustomizationId: 10,
-        pinnedSectionType: 'BASE',
-        pinnedSectionId: 5
+        sectionType: 'BASE',
+        sectionId: 5,
+        pinnedQuestionType: 'BASE',
+        pinnedQuestionId: 5,
+        migrationStatus: 'OK'
       };
       const mockParent = { id: 10, isDirty: false };
       const mockCreated = {
         id: 1,
         hasErrors: jest.fn().mockReturnValue(true)
-      } as undefined as CustomSection;
+      } as undefined as CustomQuestion;
 
       (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
 
-      jest.spyOn(CustomSection.prototype, 'create').mockResolvedValue(mockCreated);
+      jest.spyOn(CustomQuestion.prototype, 'create').mockResolvedValue(mockCreated);
 
       await executeQuery(query, { input }, adminToken);
 
@@ -535,24 +556,26 @@ describe('sectionCustomization resolver', () => {
     });
   });
 
-  describe('Mutation.updateCustomSection', () => {
+  describe('Mutation.updateCustomQuestion', () => {
     beforeEach(() => {
       query = `
-        mutation updateCustomSection($input: UpdateCustomSectionInput!) {
-          updateCustomSection(input: $input) {
+        mutation updateCustomQuestion($input: UpdateCustomQuestionInput!) {
+          updateCustomQuestion(input: $input) {
             id
             templateCustomizationId
-            pinnedSectionType
-            pinnedSectionId
-            name
-            introduction
-            requirements
-            guidance
+            sectionType
+            sectionId
+            pinnedQuestionType
+            pinnedQuestionId
+            questionText
+            json
+            sampleText
+            requirementText
+            guidanceText
             errors {
               templateCustomizationId
-              pinnedSectionType
-              pinnedSectionId
-              name
+              sectionId
+              questionText
               general
             }
           }
@@ -560,44 +583,55 @@ describe('sectionCustomization resolver', () => {
       `;
     });
 
-    it('should update custom section successfully', async () => {
+    it('should update custom question successfully', async () => {
       const input = {
-        customSectionId: 1,
-        name: 'Updated Name',
-        introduction: 'Updated intro',
-        requirements: 'Updated requirements',
-        guidance: 'Updated guidance'
+        customQuestionId: 1,
+        questionText: 'Updated text',
+        json: '{"type":"text","meta":{"schemaVersion":"v1.0"}}',
+        sampleText: 'Updated sample',
+        requirementText: 'Updated requirements',
+        guidanceText: 'Updated guidance'
       };
       const mockCustomization = {
         id: 1,
         templateCustomizationId: 10,
-        name: 'Old Name',
+        sectionType: 'BASE',
+        sectionId: 5,
+        pinnedQuestionType: 'BASE',
+        pinnedQuestionId: 5,
+        migrationStatus: 'OK',
+        questionText: 'Old text',
+        json: { type: "text", meta: { schemaVersion: "v1.0" } },
+        sampleText: 'Old sample',
+        requirementText: 'Old requirements',
+        guidanceText: 'Old guidance',
         hasErrors: jest.fn().mockReturnValue(false),
         update: jest.fn()
       };
       const mockParent = { id: 10, isDirty: false };
       const mockUpdated = { ...mockCustomization, ...input };
 
-      (CustomSection.findById as jest.Mock).mockResolvedValue(mockCustomization);
+      (CustomQuestion.findById as jest.Mock).mockResolvedValue(mockCustomization);
       (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
       mockCustomization.update.mockResolvedValue(mockUpdated);
 
       const result = await executeQuery(query, { input }, adminToken);
 
-      expect(result.body.singleResult.data.updateCustomSection.name).toEqual('Updated Name');
+      expect(result.body.singleResult.data.updateCustomQuestion.guidanceText).toEqual('Updated guidance');
       expect(markTemplateCustomizationAsDirty).toHaveBeenCalled();
     });
 
     it('should throw NotFoundError when custom section is not found', async () => {
       const input = {
-        customSectionId: 999,
-        name: 'Name',
-        introduction: 'Intro',
-        requirements: 'Reqs',
-        guidance: 'Guide'
+        customQuestionId: 999,
+        questionText: 'Name',
+        json: '{"type":"text","meta":{"schemaVersion":"v1.0"}}',
+        sampleText: 'Intro',
+        requirementText: 'Reqs',
+        guidanceText: 'Guide'
       };
 
-      (CustomSection.findById as jest.Mock).mockResolvedValue(null);
+      (CustomQuestion.findById as jest.Mock).mockResolvedValue(null);
 
       const result = await executeQuery(query, { input }, adminToken);
 
@@ -607,21 +641,22 @@ describe('sectionCustomization resolver', () => {
     });
   });
 
-  describe('Mutation.removeCustomSection', () => {
+  describe('Mutation.removeCustomQuestion', () => {
     beforeEach(() => {
       query = `
-        mutation removeCustomSection($customSectionId: Int!) {
-          removeCustomSection(customSectionId: $customSectionId) {
+        mutation removeCustomQuestion($customQuestionId: Int!) {
+          removeCustomQuestion(customQuestionId: $customQuestionId) {
             id
             templateCustomizationId
-            pinnedSectionType
-            pinnedSectionId
-            name
+            sectionType
+            sectionId
+            pinnedQuestionType
+            pinnedQuestionId
             errors {
               templateCustomizationId
-              pinnedSectionType
-              pinnedSectionId
-              name
+              sectionId
+              questionText
+              json
               general
             }
           }
@@ -633,28 +668,32 @@ describe('sectionCustomization resolver', () => {
       const mockCustomization = {
         id: 1,
         templateCustomizationId: 10,
+        sectionType: 'BASE',
+        sectionId: 5,
+        pinnedQuestionType: 'BASE',
+        pinnedQuestionId: 5,
         hasErrors: jest.fn().mockReturnValue(false),
         delete: jest.fn()
       };
       const mockParent = { id: 10, isDirty: false };
       const mockDeleted = { ...mockCustomization };
 
-      (CustomSection.findById as jest.Mock).mockResolvedValue(mockCustomization);
+      (CustomQuestion.findById as jest.Mock).mockResolvedValue(mockCustomization);
       (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
       mockCustomization.delete.mockResolvedValue(mockDeleted);
 
-      const input = { customSectionId: 1 };
+      const input = { customQuestionId: 1 };
       const result = await executeQuery(query, input, adminToken);
 
-      expect(result.body.singleResult.data.removeCustomSection.id).toEqual(1);
+      expect(result.body.singleResult.data.removeCustomQuestion.id).toEqual(1);
       expect(mockCustomization.delete).toHaveBeenCalled();
       expect(markTemplateCustomizationAsDirty).toHaveBeenCalled();
     });
 
     it('should throw NotFoundError when custom section is not found', async () => {
-      (CustomSection.findById as jest.Mock).mockResolvedValue(null);
+      (CustomQuestion.findById as jest.Mock).mockResolvedValue(null);
 
-      const input = { customSectionId: 999 };
+      const input = { customQuestionId: 999 };
       const result = await executeQuery(query, input, adminToken);
 
       expect(result.body.kind).toEqual('single');
@@ -663,21 +702,24 @@ describe('sectionCustomization resolver', () => {
     });
   });
 
-  describe('Mutation.moveCustomSection', () => {
+  describe('Mutation.moveCustomQuestion', () => {
     beforeEach(() => {
       query = `
-        mutation moveCustomSection($input: MoveCustomSectionInput!) {
-          moveCustomSection(input: $input) {
+        mutation moveCustomQuestion($input: MoveCustomQuestionInput!) {
+          moveCustomQuestion(input: $input) {
             id
             templateCustomizationId
-            pinnedSectionType
-            pinnedSectionId
-            name
+            sectionType
+            sectionId
+            pinnedQuestionType
+            pinnedQuestionId
+            questionText
             errors {
               templateCustomizationId
-              pinnedSectionType
-              pinnedSectionId
-              name
+              sectionType
+              sectionId
+              pinnedQuestionType
+              pinnedQuestionId
               general
             }
           }
@@ -687,43 +729,49 @@ describe('sectionCustomization resolver', () => {
 
     it('should move custom section successfully', async () => {
       const input = {
-        customSectionId: 1,
-        newSectionType: 'BASE',
-        newSectionId: 10
+        customQuestionId: 1,
+        sectionType: 'BASE',
+        sectionId: 2,
+        pinnedQuestionType: 'BASE',
+        pinnedQuestionId: 10
       };
       const mockCustomization = {
         id: 1,
         templateCustomizationId: 10,
-        pinnedSectionType: null,
-        pinnedSectionId: null,
+        sectionType: 'BASE',
+        sectionId: 1,
+        pinnedQuestionType: null,
+        pinnedQuestionId: null,
         hasErrors: jest.fn().mockReturnValue(false),
         update: jest.fn()
       };
       const mockParent = { id: 10, isDirty: false };
       const mockMoved = {
         ...mockCustomization,
-        pinnedSectionType: PinnedSectionTypeEnum.BASE,
-        pinnedSectionId: 10
+        pinnedQuestionType: PinnedSectionTypeEnum.BASE,
+        pinnedQuestionId: 10
       };
 
-      (CustomSection.findById as jest.Mock).mockResolvedValue(mockCustomization);
+      (CustomQuestion.findById as jest.Mock).mockResolvedValue(mockCustomization);
       (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
       mockCustomization.update.mockResolvedValue(mockMoved);
 
       const result = await executeQuery(query, { input }, adminToken);
 
-      expect(result.body.singleResult.data.moveCustomSection.id).toEqual(1);
+      expect(result.body.singleResult.data.moveCustomQuestion.id).toEqual(1);
       expect(markTemplateCustomizationAsDirty).toHaveBeenCalled();
     });
 
     it('should throw NotFoundError when custom section is not found', async () => {
       const input = {
-        customSectionId: 999,
-        newSectionType: 'BASE',
-        newSectionId: 10
+        customQuestionId: 999,
+        sectionType: 'BASE',
+        sectionId: 2,
+        pinnedQuestionType: 'BASE',
+        pinnedQuestionId: 10
       };
 
-      (CustomSection.findById as jest.Mock).mockResolvedValue(null);
+      (CustomQuestion.findById as jest.Mock).mockResolvedValue(null);
 
       const result = await executeQuery(query, { input }, adminToken);
 
@@ -732,33 +780,37 @@ describe('sectionCustomization resolver', () => {
       expect(result.body.singleResult.errors[0].message).toEqual('Not Found');
     });
 
-    it('should handle null newSectionType and newSectionId', async () => {
+    it('should handle null QuestionType and QuestionId', async () => {
       const input = {
-        customSectionId: 1,
-        newSectionType: null,
-        newSectionId: null
+        customQuestionId: 1,
+        sectionType: 'BASE',
+        sectionId: 2,
+        pinnedQuestionType: null,
+        pinnedQuestionId: null
       };
       const mockCustomization = {
         id: 1,
         templateCustomizationId: 10,
         hasErrors: jest.fn().mockReturnValue(false),
         update: jest.fn()
-      } as undefined as CustomSection;
+      } as undefined as CustomQuestion;
       const mockParent = { id: 10, isDirty: false };
       const mockMoved = {
         ...mockCustomization,
+        sectionType: PinnedSectionTypeEnum.BASE,
+        sectionId: 2,
         pinnedSectionType: null,
         pinnedSectionId: null
-      } as undefined as CustomSection;
+      } as undefined as CustomQuestion;
 
-      (CustomSection.findById as jest.Mock).mockResolvedValue(mockCustomization);
+      (CustomQuestion.findById as jest.Mock).mockResolvedValue(mockCustomization);
       (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
       jest.spyOn(mockCustomization, 'update').mockResolvedValue(mockMoved);
 
       await executeQuery(query, { input }, adminToken);
 
-      expect(mockCustomization.pinnedSectionType).toBeNull();
-      expect(mockCustomization.pinnedSectionId).toBeNull();
+      expect(mockCustomization.pinnedQuestionType).toBeNull();
+      expect(mockCustomization.pinnedQuestionId).toBeNull();
     });
   });
 });

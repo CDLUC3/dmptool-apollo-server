@@ -149,7 +149,7 @@ export const resolvers: Resolvers = {
 
       const customization = new SectionCustomization({
         templateCustomizationId,
-        sectionId: section.id,
+        sectionId: section.sectionId,
         migrationStatus: TemplateCustomizationMigrationStatus.OK
       });
 

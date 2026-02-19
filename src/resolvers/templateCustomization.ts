@@ -17,7 +17,19 @@ import { UserRole } from "../models/User";
 
 export const resolvers: Resolvers = {
   Query: {
-    // Fetch the specific customization of a funder template (must be an admin)
+    /**
+     * ADMIN ONLY: Fetch an overview of the TemplateCustomization including the
+     * funder's sections and questions splicing in any custom sections and questions
+     *
+     * @param _ Ignored, this is the entrypoint for the Apollo resolver
+     * @param args the identifier of the TemplateCustomization
+     * @param context The Apollo context
+     * @returns The an overview of the TemplateCustomization (with errors if applicable)
+     * @throws NotFoundError when the TemplateCustomization was not found
+     * @throws ForbiddenError when the caller does not have permission
+     * @throws UnauthorizedError when the JWT token is not present
+     * @throws InternalServerError when a fatal error has occurred
+     */
     templateCustomizationOverview: authenticatedResolver(
       'templateCustomizationOverview resolver',
       UserRole.ADMIN,
@@ -48,7 +60,18 @@ export const resolvers: Resolvers = {
   },
 
   Mutation: {
-    // Add a new customization of a funder template (must be an admin)
+    /**
+     * ADMIN ONLY: Create a TemplateCustomization
+     *
+     * @param _ Ignored, this is the entrypoint for the Apollo resolver
+     * @param args the identifier of the TemplateCustomization
+     * @param context The Apollo context
+     * @returns The an overview of the new TemplateCustomization (with errors if applicable)
+     * @throws NotFoundError when the TemplateCustomization was not found
+     * @throws ForbiddenError when the caller does not have permission
+     * @throws UnauthorizedError when the JWT token is not present
+     * @throws InternalServerError when a fatal error has occurred
+     */
     addTemplateCustomization: authenticatedResolver(
       'addTemplateCustomization resolver',
       UserRole.ADMIN,
@@ -93,7 +116,18 @@ export const resolvers: Resolvers = {
       return undefined;
     }),
 
-    // Update the customization of a funder template (must be an admin)
+    /**
+     * ADMIN ONLY: Update the specified TemplateCustomization
+     *
+     * @param _ Ignored, this is the entrypoint for the Apollo resolver
+     * @param args the identifier of the TemplateCustomization
+     * @param context The Apollo context
+     * @returns The an overview of the TemplateCustomization (with errors if applicable)
+     * @throws NotFoundError when the TemplateCustomization was not found
+     * @throws ForbiddenError when the caller does not have permission
+     * @throws UnauthorizedError when the JWT token is not present
+     * @throws InternalServerError when a fatal error has occurred
+     */
     updateTemplateCustomization: authenticatedResolver(
       'updateTemplateCustomization resolver',
       UserRole.ADMIN,
@@ -130,7 +164,18 @@ export const resolvers: Resolvers = {
       return undefined;
     }),
 
-    // Delete the customization of the funder template (must be an admin)
+    /**
+     * ADMIN ONLY: Delete the specified TemplateCustomization
+     *
+     * @param _ Ignored, this is the entrypoint for the Apollo resolver
+     * @param args the identifier of the TemplateCustomization
+     * @param context The Apollo context
+     * @returns The an overview of the original TemplateCustomization (with errors if applicable)
+     * @throws NotFoundError when the TemplateCustomization was not found
+     * @throws ForbiddenError when the caller does not have permission
+     * @throws UnauthorizedError when the JWT token is not present
+     * @throws InternalServerError when a fatal error has occurred
+     */
     removeTemplateCustomization: authenticatedResolver(
       'removeTemplateCustomization resolver',
       UserRole.ADMIN,
@@ -164,7 +209,18 @@ export const resolvers: Resolvers = {
       return undefined;
     }),
 
-    // Publish the customization of the funder template (must be an admin)
+    /**
+     * ADMIN ONLY: Publish the specified TemplateCustomization
+     *
+     * @param _ Ignored, this is the entrypoint for the Apollo resolver
+     * @param args the identifier of the TemplateCustomization
+     * @param context The Apollo context
+     * @returns The an overview of the TemplateCustomization (with errors if applicable)
+     * @throws NotFoundError when the TemplateCustomization was not found
+     * @throws ForbiddenError when the caller does not have permission
+     * @throws UnauthorizedError when the JWT token is not present
+     * @throws InternalServerError when a fatal error has occurred
+     */
     publishTemplateCustomization: authenticatedResolver(
       'publishTemplateCustomization resolver',
       UserRole.ADMIN,
@@ -197,7 +253,18 @@ export const resolvers: Resolvers = {
       return undefined;
     }),
 
-    // Unpublish the customization of the funder template (must be an admin)
+    /**
+     * ADMIN ONLY: Unpublish the specified TemplateCustomization
+     *
+     * @param _ Ignored, this is the entrypoint for the Apollo resolver
+     * @param args the identifier of the TemplateCustomization
+     * @param context The Apollo context
+     * @returns The an overview of the TemplateCustomization (with errors if applicable)
+     * @throws NotFoundError when the TemplateCustomization was not found
+     * @throws ForbiddenError when the caller does not have permission
+     * @throws UnauthorizedError when the JWT token is not present
+     * @throws InternalServerError when a fatal error has occurred
+     */
     unpublishTemplateCustomization: authenticatedResolver(
       'unpublishTemplateCustomization resolver',
       UserRole.ADMIN,
@@ -231,12 +298,27 @@ export const resolvers: Resolvers = {
   },
 
   TemplateCustomization: {
+    /**
+     * Format the date time the customization was last published
+     * @param parent The TemplateCustomization
+     * @returns the formatted date
+     */
     latestPublishedDate: (parent: TemplateCustomization): string => {
       return normaliseDateTime(parent.latestPublishedDate);
     },
+    /**
+     * Format the created date time
+     * @param parent The TemplateCustomization
+     * @returns the formatted date
+     */
     created: (parent: TemplateCustomization): string => {
       return normaliseDateTime(parent.created);
     },
+    /**
+     * Format the modified date time
+     * @param parent The TemplateCustomization
+     * @returns the formatted date
+     */
     modified: (parent: TemplateCustomization): string => {
       return normaliseDateTime(parent.modified);
     }

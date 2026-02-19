@@ -704,8 +704,8 @@ export type CustomQuestionErrors = {
   guidanceText?: Maybe<Scalars['String']['output']>;
   json?: Maybe<Scalars['String']['output']>;
   migrationStatus?: Maybe<Scalars['String']['output']>;
-  pinnedSectionId?: Maybe<Scalars['String']['output']>;
-  pinnedSectionType?: Maybe<Scalars['String']['output']>;
+  pinnedQuestionId?: Maybe<Scalars['String']['output']>;
+  pinnedQuestionType?: Maybe<Scalars['String']['output']>;
   questionText?: Maybe<Scalars['String']['output']>;
   required?: Maybe<Scalars['String']['output']>;
   requirementText?: Maybe<Scalars['String']['output']>;
@@ -4451,13 +4451,13 @@ export type UpdateCustomQuestionInput = {
   /** The custom question text */
   questionText: Scalars['String']['input'];
   /** Whether the user is required to answer the question */
-  required: Scalars['Boolean']['input'];
+  required?: InputMaybe<Scalars['Boolean']['input']>;
   /** The custom question requirements */
   requirementText?: InputMaybe<Scalars['String']['input']>;
   /** The custom question sample answer */
   sampleText?: InputMaybe<Scalars['String']['input']>;
   /** Whether the sample answer should be used as the default answer */
-  useSampleTextAsDefault: Scalars['Boolean']['input'];
+  useSampleTextAsDefault?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 /** Input parameters for updating a custom section */
@@ -6089,8 +6089,8 @@ export type CustomQuestionErrorsResolvers<ContextType = MyContext, ParentType ex
   guidanceText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   json?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   migrationStatus?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  pinnedSectionId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  pinnedSectionType?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  pinnedQuestionId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  pinnedQuestionType?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   questionText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   required?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   requirementText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;

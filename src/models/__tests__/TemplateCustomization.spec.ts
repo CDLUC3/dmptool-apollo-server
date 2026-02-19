@@ -854,7 +854,6 @@ describe('TemplateCustomization', () => {
       expect(result[1].id).toBe(124);
     });
   });
-
 });
 
 describe('TemplateCustomizationOverview', () => {
@@ -2032,6 +2031,112 @@ describe('TemplateCustomizationOverview', () => {
       expect(result.sections[0].questions[1].displayOrder).toBe(1);
       expect(result.sections[1].displayOrder).toBe(1);
       expect(result.sections[1].questions).toHaveLength(0);
+    });
+  });
+
+  describe('static markAsDirty()', () => {
+    it('should return false when customization is not found', async () => {
+      jest.spyOn(TemplateCustomization, 'findById').mockResolvedValue(null);
+
+      const result = await TemplateCustomization.markAsDirty('test-ref', mockContext, 123);
+
+      expect(result).toBe(false);
+    });
+
+    it('should return true when customization is already dirty', async () => {
+      const mockCustomization = new TemplateCustomization({
+        id: 123,
+        affiliationId: 'affil-123',
+        templateId: 1,
+        currentVersionedTemplateId: 10,
+        status: 'PUBLISHED',
+        migrationStatus: 'UP_TO_DATE',
+        isDirty: true,
+        errors: {}
+      });
+
+      jest.spyOn(TemplateCustomization, 'findById').mockResolvedValue(mockCustomization);
+
+      const result = await TemplateCustomization.markAsDirty('test-ref', mockContext, 123);
+
+      expect(result).toBe(true);
+    });
+
+    it('should return false when update fails', async () => {
+      const mockCustomization = new TemplateCustomization({
+        id: 123,
+        affiliationId: 'affil-123',
+        templateId: 1,
+        currentVersionedTemplateId: 10,
+        status: 'PUBLISHED',
+        migrationStatus: 'UP_TO_DATE',
+        isDirty: false,
+        errors: {}
+      });
+
+      jest.spyOn(TemplateCustomization, 'findById').mockResolvedValue(mockCustomization);
+      mockCustomization.update = jest.fn().mockResolvedValue(null);
+
+      const result = await TemplateCustomization.markAsDirty('test-ref', mockContext, 123);
+
+      expect(mockCustomization.isDirty).toBe(true);
+      expect(mockCustomization.update).toHaveBeenCalledWith(mockContext);
+      expect(result).toBe(false);
+    });
+
+    it('should return false when update returns customization with errors', async () => {
+      const mockCustomization = new TemplateCustomization({
+        id: 123,
+        affiliationId: 'affil-123',
+        templateId: 1,
+        currentVersionedTemplateId: 10,
+        status: 'PUBLISHED',
+        migrationStatus: 'UP_TO_DATE',
+        isDirty: false,
+        errors: {}
+      });
+
+      const mockUpdated = new TemplateCustomization({
+        ...mockCustomization,
+        isDirty: true,
+        errors: {general: 'Some error'}
+      });
+
+      jest.spyOn(TemplateCustomization, 'findById').mockResolvedValue(mockCustomization);
+      mockCustomization.update = jest.fn().mockResolvedValue(mockUpdated);
+
+      const result = await TemplateCustomization.markAsDirty('test-ref', mockContext, 123);
+
+      expect(mockCustomization.isDirty).toBe(true);
+      expect(mockCustomization.update).toHaveBeenCalledWith(mockContext);
+      expect(result).toBe(false);
+    });
+
+    it('should return true when successfully marked as dirty', async () => {
+      const mockCustomization = new TemplateCustomization({
+        id: 123,
+        affiliationId: 'affil-123',
+        templateId: 1,
+        currentVersionedTemplateId: 10,
+        status: 'PUBLISHED',
+        migrationStatus: 'UP_TO_DATE',
+        isDirty: false,
+        errors: {}
+      });
+
+      const mockUpdated = new TemplateCustomization({
+        ...mockCustomization,
+        isDirty: true
+      });
+
+      jest.spyOn(TemplateCustomization, 'findById').mockResolvedValue(mockCustomization);
+      mockCustomization.update = jest.fn().mockResolvedValue(mockUpdated);
+
+      const result = await TemplateCustomization.markAsDirty('test-ref', mockContext, 123);
+
+      expect(mockCustomization.isDirty).toBe(true);
+      expect(mockCustomization.update).toHaveBeenCalledWith(mockContext);
+      expect(result).toBe(true);
     });
   });
 

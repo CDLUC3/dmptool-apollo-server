@@ -3,9 +3,9 @@ import gql from "graphql-tag";
 export const typeDefs = gql`
   extend type Query {
     "Get the custom guidance an affiliation has applied to a funder section (user must be an Admin)"
-    sectionCustomization(sectionCustomizationId: Int!): SectionCustomization!
+    sectionCustomization(sectionCustomizationId: Int!): SectionCustomization
     "Get the specified custom section an affiliation has added to a funder template (user must be an Admin)"
-    customSection(customSectionId: Int!): CustomSection!
+    customSection(customSectionId: Int!): CustomSection
   }
 
   extend type Mutation {
@@ -17,30 +17,59 @@ export const typeDefs = gql`
     removeSectionCustomization(sectionCustomizationId: Int!): SectionCustomization!
 
     "Add a custom section to a funder template"
-    addCustomSection(templateCustomizationId: Int!): CustomSection!
+    addCustomSection(input: AddCustomSectionInput!): CustomSection!
     "Update a custom section"
     updateCustomSection(input: UpdateCustomSectionInput!): CustomSection!
     "Remove a custom section"
     removeCustomSection(customSectionId: Int!): CustomSection!
     "Move a custom section to a different position in the template (null means move to the top of the template)"
-    moveCustomSection(customSectionId: Int!, newVersionedSectionId: Int): CustomSection!
+    moveCustomSection(input: MoveCustomSectionInput!): CustomSection!
   }
 
   "Customization of a funder section"
   type SectionCustomization {
+    "The unique identifier for the Object"
+    id: Int
+    "The user who created the Object"
+    createdById: Int
+    "The timestamp when the Object was created"
+    created: String
+    "The user who last modified the Object"
+    modifiedById: Int
+    "The timestamp when the Object was last modifed"
+    modified: String
+    "Errors associated with the Object"
+    errors: SectionCustomizationErrors
+
     "The identifier of the parent template customization"
     templateCustomizationId: Int!
     "The identifier of the published funder section"
-    versionedSectionId: Int!
+    sectionId: Int!
     "The current status of the customization with regard to the base funder template"
     migrationStatus: TemplateCustomizationMigrationStatus
 
     "Guidance specific to the customizing affiliation's users"
     guidance: String
+
+    "The versioned section that this customization applies to"
+    versionedSection: VersionedSection
   }
 
   "A section created/owned by the affiliation that owns the customization"
   type CustomSection {
+    "The unique identifier for the Object"
+    id: Int
+    "The user who created the Object"
+    createdById: Int
+    "The timestamp when the Object was created"
+    created: String
+    "The user who last modified the Object"
+    modifiedById: Int
+    "The timestamp when the Object was last modifed"
+    modified: String
+    "Errors associated with the Object"
+    errors: CustomSectionErrors
+
     "The identifier of the parent template customization"
     templateCustomizationId: Int!
     "The current status of the customization with regard to the base funder template"
@@ -61,6 +90,30 @@ export const typeDefs = gql`
     guidance: String
   }
 
+  "Errors related to the SectionCustomization"
+  type SectionCustomizationErrors {
+    "General error messages such as the object already exists"
+    general: String
+    templateCustomizationId: String
+    sectionId: String
+    migrationStatus: String
+    guidance: String
+  }
+
+  "Errors related to the CustomSection"
+  type CustomSectionErrors {
+    "General error messages such as the object already exists"
+    general: String
+    templateCustomizationId: String
+    pinnedSectionType: String
+    pinnedSectionId: String
+    migrationStatus: String
+    name: String
+    introduction: String
+    requirements: String
+    guidance: String
+  }
+
   "Input parameters for adding custom guidance to a funder section"
   input AddSectionCustomizationInput {
     "The identifier of the parent template customization"
@@ -75,6 +128,16 @@ export const typeDefs = gql`
     sectionCustomizationId: Int!
     "The custom guidance for the section"
     guidance: String
+  }
+
+  "Input parameters for adding a custom section to a funder template"
+  input AddCustomSectionInput {
+    "The identifier of the parent template customization"
+    templateCustomizationId: Int!
+    "The type of the section this new custom section should appear after"
+    pinnedSectionType: CustomizableObjectOwnership!
+    "The identifier of the section this new custom section should appear after"
+    pinnedSectionId: Int!
   }
 
   "Input parameters for updating a custom section"
@@ -96,8 +159,8 @@ export const typeDefs = gql`
     "the id of the custom section to move"
     customSectionId: Int!
     "The type of the section (BASE: VersionedSection, CUSTOM: CustomSection) this CustomSection will be pinned to (null means it is the first section in the template)"
-    sectionType: CustomizableObjectOwnership
+    newSectionType: CustomizableObjectOwnership
     "The id of the section this CustomSection will be pinned to (null means it is the first section in the template)"
-    sectionId: Int
+    newSectionId: Int
   }
 `;

@@ -23,7 +23,6 @@ jest.mock('../../context.ts');
 jest.mock('../../datasources/cache');
 
 jest.mock('../../models/TemplateCustomization');
-jest.mock('../../services/authService');
 jest.mock('../../services/templateCustomizationService');
 
 const mockIsAdmin = isAdmin as jest.MockedFunction<typeof isAdmin>;
@@ -113,11 +112,11 @@ describe('templateCustomization resolvers', () => {
     };
   });
 
-  describe('Query.templateCustomization', () => {
+  describe('Query.templateCustomizationOverview', () => {
     beforeEach(() => {
       query = `
-        query templateCustomization($templateCustomizationId: Int!) {
-          templateCustomization(templateCustomizationId: $templateCustomizationId) {
+        query templateCustomizationOverview($templateCustomizationId: Int!) {
+          templateCustomizationOverview(templateCustomizationId: $templateCustomizationId) {
             id
             affiliationId
             currentVersionedTemplateId

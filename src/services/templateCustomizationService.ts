@@ -5,6 +5,41 @@ import {
   TemplateCustomization,
   TemplateCustomizationMigrationStatus
 } from "../models/TemplateCustomization";
+import { CustomSection } from "../models/CustomSection";
+import { CustomQuestion } from "../models/CustomQuestion";
+import { SectionCustomization } from "../models/SectionCustomization";
+import { QuestionCustomization } from "../models/QuestionCustomization";
+import { ForbiddenError, NotFoundError } from "../utils/graphQLErrors";
+
+/**
+ * Fetch the TemplateCustomization and make sure the current user has permission
+ * to access it.
+ *
+ * @param reference
+ * @param context
+ * @param templateCustomizationId
+ */
+export const getValidatedCustomization = async (
+  reference: string,
+  context: MyContext,
+  templateCustomizationId: number
+): Promise<TemplateCustomization> => {
+  // Fetch the TemplateCustomization
+  const customization: TemplateCustomization = await TemplateCustomization.findById(
+    reference,
+    context,
+    templateCustomizationId
+  );
+
+  // If it was not found, throw a NotFoundError
+  if (!customization) throw NotFoundError();
+
+  // Check if the current user has permission to access the Customization
+  if (!(await hasPermissionOnTemplateCustomization(context, customization))) {
+    throw ForbiddenError();
+  }
+  return customization;
+}
 
 /**
  * Check if the user has permission to edit the template customization.
@@ -27,6 +62,35 @@ export const hasPermissionOnTemplateCustomization = (
     return true;
   }
 }
+
+/**
+ * Set the specified TemplateCustomization's isDirty flag to true
+ *
+ * @param reference A reference to use for logging errors.
+ * @param context
+ * @param templateCustomizationId The id of the TemplateCustomization to update.
+ * @param entity The entity that the TemplateCustomization belongs to. This is
+ * used to add an error to the entity if it supports it.
+ * @returns true if the TemplateCustomization was successfully updated.
+ */
+export const markTemplateCustomizationAsDirty = async (
+  reference: string,
+  context: MyContext,
+  templateCustomizationId: number,
+  entity: CustomSection | CustomQuestion | SectionCustomization | QuestionCustomization
+) => {
+  const success = await TemplateCustomization.markAsDirty(
+    reference,
+    context,
+    templateCustomizationId
+  );
+  if (!success) {
+    const msg = `Unable to update TemplateCustomization timestamp`;
+    context.logger.error({ templateCustomizationId }, msg);
+    // Optionally add error to the entity if it supports it
+    if (entity?.addError) entity.addError('general', msg);
+  }
+};
 
 /**
  * Check the customization to see if the latest published version of the funder

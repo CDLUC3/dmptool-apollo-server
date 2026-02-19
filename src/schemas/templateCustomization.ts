@@ -1,9 +1,14 @@
 import gql from "graphql-tag";
+import {PinnedQuestionTypeEnum} from "../models/CustomQuestion";
+import {PinnedSectionTypeEnum} from "../models/CustomSection";
+import {
+  TemplateCustomizationMigrationStatus
+} from "../models/TemplateCustomization";
 
 export const typeDefs = gql`
   extend type Query {
-    "Get the specified template customization (user must be an Admin)"
-    templateCustomization(templateCustomizationId: Int!): TemplateCustomizationOverview!
+    "Get the overview of the template customization (user must be an Admin)"
+    templateCustomizationOverview(templateCustomizationId: Int!): TemplateCustomizationOverview
   }
 
   extend type Mutation {
@@ -111,9 +116,9 @@ export const typeDefs = gql`
     "Whether the section belongs to a base funder template or to the customizing affiliation"
     sectionType: CustomizableObjectOwnership!
     "The unique identifier for the Section"
-    sectionId: Int!
+    id: Int!
     "The section title"
-    sectionName: String!
+    name: String!
     "The order of the section within the template"
     displayOrder: Int!
     "The status of the customization with regard to the base template (if applicable)"
@@ -130,7 +135,7 @@ export const typeDefs = gql`
     "Whether the question belongs to a base funder template or to the customizing affiliation"
     questionType: CustomizableObjectOwnership!
     "The unique identifier for the Question"
-    questionId: Int!
+    id: Int!
     "The question text"
     questionText: String!
     "The position of the question within the section"

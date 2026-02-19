@@ -32,6 +32,16 @@ export type AddCustomQuestionInput = {
   versionedSectionId: Scalars['Int']['input'];
 };
 
+/** Input parameters for adding a custom section to a funder template */
+export type AddCustomSectionInput = {
+  /** The identifier of the section this new custom section should appear after */
+  pinnedSectionId: Scalars['Int']['input'];
+  /** The type of the section this new custom section should appear after */
+  pinnedSectionType: CustomizableObjectOwnership;
+  /** The identifier of the parent template customization */
+  templateCustomizationId: Scalars['Int']['input'];
+};
+
 /** Input for adding a new GuidanceGroup */
 export type AddGuidanceGroupInput = {
   /** The affiliation (organization ror) that owns this GuidanceGroup. Optional: super-admins may set this; regular admins should omit it (their own affiliation will be used). */
@@ -673,12 +683,24 @@ export type CustomQuestion = {
 /** A section created/owned by the affiliation that owns the customization */
 export type CustomSection = {
   __typename?: 'CustomSection';
+  /** The timestamp when the Object was created */
+  created?: Maybe<Scalars['String']['output']>;
+  /** The user who created the Object */
+  createdById?: Maybe<Scalars['Int']['output']>;
+  /** Errors associated with the Object */
+  errors?: Maybe<CustomSectionErrors>;
   /** The guidance to help user with answering questions in this section */
   guidance?: Maybe<Scalars['String']['output']>;
+  /** The unique identifier for the Object */
+  id?: Maybe<Scalars['Int']['output']>;
   /** An introduction to the section */
   introduction?: Maybe<Scalars['String']['output']>;
   /** The current status of the customization with regard to the base funder template */
   migrationStatus?: Maybe<TemplateCustomizationMigrationStatus>;
+  /** The timestamp when the Object was last modifed */
+  modified?: Maybe<Scalars['String']['output']>;
+  /** The user who last modified the Object */
+  modifiedById?: Maybe<Scalars['Int']['output']>;
   /** The section title */
   name?: Maybe<Scalars['String']['output']>;
   /** The id of the VersionedSection or CustomSection this CustomSection is pinned to (null means it is the first section) */
@@ -689,6 +711,19 @@ export type CustomSection = {
   requirements?: Maybe<Scalars['String']['output']>;
   /** The identifier of the parent template customization */
   templateCustomizationId: Scalars['Int']['output'];
+};
+
+/** Errors related to the CustomSection */
+export type CustomSectionErrors = {
+  __typename?: 'CustomSectionErrors';
+  /** General error messages such as the object already exists */
+  general?: Maybe<Scalars['String']['output']>;
+  guidance?: Maybe<Scalars['String']['output']>;
+  introduction?: Maybe<Scalars['String']['output']>;
+  migrationStatus?: Maybe<Scalars['String']['output']>;
+  name?: Maybe<Scalars['String']['output']>;
+  requirements?: Maybe<Scalars['String']['output']>;
+  templateCustomizationId?: Maybe<Scalars['String']['output']>;
 };
 
 /** Whether the object is pinned to an object on the base template or a custom object */
@@ -1175,9 +1210,9 @@ export type MoveCustomSectionInput = {
   /** the id of the custom section to move */
   customSectionId: Scalars['Int']['input'];
   /** The id of the section this CustomSection will be pinned to (null means it is the first section in the template) */
-  sectionId?: InputMaybe<Scalars['Int']['input']>;
+  newSectionId?: InputMaybe<Scalars['Int']['input']>;
   /** The type of the section (BASE: VersionedSection, CUSTOM: CustomSection) this CustomSection will be pinned to (null means it is the first section in the template) */
-  sectionType?: InputMaybe<CustomizableObjectOwnership>;
+  newSectionType?: InputMaybe<CustomizableObjectOwnership>;
 };
 
 export type Mutation = {
@@ -1458,7 +1493,7 @@ export type MutationAddCustomQuestionArgs = {
 
 
 export type MutationAddCustomSectionArgs = {
-  templateCustomizationId: Scalars['Int']['input'];
+  input: AddCustomSectionInput;
 };
 
 
@@ -1684,8 +1719,7 @@ export type MutationMoveCustomQuestionArgs = {
 
 
 export type MutationMoveCustomSectionArgs = {
-  customSectionId: Scalars['Int']['input'];
-  newVersionedSectionId?: InputMaybe<Scalars['Int']['input']>;
+  input: MoveCustomSectionInput;
 };
 
 
@@ -2890,7 +2924,7 @@ export type Query = {
   /** Get the custom question the affiliation has added to a funder section or custom section (user must be an Admin) */
   customQuestion: CustomQuestion;
   /** Get the specified custom section an affiliation has added to a funder template (user must be an Admin) */
-  customSection: CustomSection;
+  customSection?: Maybe<CustomSection>;
   /** Get all of the customizable templates for the current user's affiliation (user must be an Admin) */
   customizableTemplates?: Maybe<CustomizableTemplateSearchResults>;
   /** Get all of the research output types */
@@ -3012,7 +3046,7 @@ export type Query = {
   /** Get the specified section */
   section?: Maybe<Section>;
   /** Get the custom guidance an affiliation has applied to a funder section (user must be an Admin) */
-  sectionCustomization: SectionCustomization;
+  sectionCustomization?: Maybe<SectionCustomization>;
   /** Get all of the VersionedSection for the specified Section ID */
   sectionVersions?: Maybe<Array<Maybe<VersionedSection>>>;
   /** Get the Sections that belong to the associated templateId */
@@ -3024,8 +3058,8 @@ export type Query = {
   template?: Maybe<Template>;
   /** Get all of the Users that belong to another affiliation that can edit the Template */
   templateCollaborators?: Maybe<Array<Maybe<TemplateCollaborator>>>;
-  /** Get the specified template customization (user must be an Admin) */
-  templateCustomization: TemplateCustomizationOverview;
+  /** Get the overview of the template customization (user must be an Admin) */
+  templateCustomizationOverview?: Maybe<TemplateCustomizationOverview>;
   /** Get all of the VersionedTemplate for the specified Template (a.k. the Template history) */
   templateVersions?: Maybe<Array<Maybe<VersionedTemplate>>>;
   /** Get all of the top level research domains (the most generic ones) */
@@ -3416,7 +3450,7 @@ export type QueryTemplateCollaboratorsArgs = {
 };
 
 
-export type QueryTemplateCustomizationArgs = {
+export type QueryTemplateCustomizationOverviewArgs = {
   templateCustomizationId: Scalars['Int']['input'];
 };
 
@@ -3571,10 +3605,10 @@ export type QuestionCustomizationOverview = {
   hasCustomGuidance?: Maybe<Scalars['Boolean']['output']>;
   /** Whether the question has a custom sample answer (only applicable to base funder questions) */
   hasCustomSampleAnswer?: Maybe<Scalars['Boolean']['output']>;
+  /** The unique identifier for the Question */
+  id: Scalars['Int']['output'];
   /** The status of the customization with regard to the base template (if applicable) */
   migrationStatus?: Maybe<TemplateCustomizationMigrationStatus>;
-  /** The unique identifier for the Question */
-  questionId: Scalars['Int']['output'];
   /** The question text */
   questionText: Scalars['String']['output'];
   /** Whether the question belongs to a base funder template or to the customizing affiliation */
@@ -3968,14 +4002,39 @@ export type Section = {
 /** Customization of a funder section */
 export type SectionCustomization = {
   __typename?: 'SectionCustomization';
+  /** The timestamp when the Object was created */
+  created?: Maybe<Scalars['String']['output']>;
+  /** The user who created the Object */
+  createdById?: Maybe<Scalars['Int']['output']>;
+  /** Errors associated with the Object */
+  errors?: Maybe<SectionCustomizationErrors>;
   /** Guidance specific to the customizing affiliation's users */
   guidance?: Maybe<Scalars['String']['output']>;
+  /** The unique identifier for the Object */
+  id?: Maybe<Scalars['Int']['output']>;
   /** The current status of the customization with regard to the base funder template */
   migrationStatus?: Maybe<TemplateCustomizationMigrationStatus>;
+  /** The timestamp when the Object was last modifed */
+  modified?: Maybe<Scalars['String']['output']>;
+  /** The user who last modified the Object */
+  modifiedById?: Maybe<Scalars['Int']['output']>;
+  /** The identifier of the published funder section */
+  sectionId: Scalars['Int']['output'];
   /** The identifier of the parent template customization */
   templateCustomizationId: Scalars['Int']['output'];
-  /** The identifier of the published funder section */
-  versionedSectionId: Scalars['Int']['output'];
+  /** The versioned section that this customization applies to */
+  versionedSection?: Maybe<VersionedSection>;
+};
+
+/** Errors related to the SectionCustomization */
+export type SectionCustomizationErrors = {
+  __typename?: 'SectionCustomizationErrors';
+  /** General error messages such as the object already exists */
+  general?: Maybe<Scalars['String']['output']>;
+  guidance?: Maybe<Scalars['String']['output']>;
+  migrationStatus?: Maybe<Scalars['String']['output']>;
+  templateCustomizationId?: Maybe<Scalars['String']['output']>;
+  versionedSectionId?: Maybe<Scalars['String']['output']>;
 };
 
 /** An overview of a Section Customization */
@@ -3985,14 +4044,14 @@ export type SectionCustomizationOverview = {
   displayOrder: Scalars['Int']['output'];
   /** Whether the question has custom guidance (only applicable to base funder questions) */
   hasCustomGuidance?: Maybe<Scalars['Boolean']['output']>;
+  /** The unique identifier for the Section */
+  id: Scalars['Int']['output'];
   /** The status of the customization with regard to the base template (if applicable) */
   migrationStatus?: Maybe<TemplateCustomizationMigrationStatus>;
+  /** The section title */
+  name: Scalars['String']['output'];
   /** The questions associated with this section */
   questions?: Maybe<Array<QuestionCustomizationOverview>>;
-  /** The unique identifier for the Section */
-  sectionId: Scalars['Int']['output'];
-  /** The section title */
-  sectionName: Scalars['String']['output'];
   /** Whether the section belongs to a base funder template or to the customizing affiliation */
   sectionType: CustomizableObjectOwnership;
 };
@@ -5332,6 +5391,7 @@ export type ResolversInterfaceTypes<_RefType extends Record<string, unknown>> = 
 /** Mapping between all available schema types and the resolvers types */
 export type ResolversTypes = {
   AddCustomQuestionInput: AddCustomQuestionInput;
+  AddCustomSectionInput: AddCustomSectionInput;
   AddGuidanceGroupInput: AddGuidanceGroupInput;
   AddGuidanceInput: AddGuidanceInput;
   AddMetadataStandardInput: AddMetadataStandardInput;
@@ -5369,6 +5429,7 @@ export type ResolversTypes = {
   ContentMatch: ResolverTypeWrapper<ContentMatch>;
   CustomQuestion: ResolverTypeWrapper<CustomQuestion>;
   CustomSection: ResolverTypeWrapper<CustomSection>;
+  CustomSectionErrors: ResolverTypeWrapper<CustomSectionErrors>;
   CustomizableObjectOwnership: CustomizableObjectOwnership;
   CustomizableTemplateSearchResult: ResolverTypeWrapper<CustomizableTemplateSearchResult>;
   CustomizableTemplateSearchResults: ResolverTypeWrapper<CustomizableTemplateSearchResults>;
@@ -5486,6 +5547,7 @@ export type ResolversTypes = {
   Ror: ResolverTypeWrapper<Scalars['Ror']['output']>;
   Section: ResolverTypeWrapper<Section>;
   SectionCustomization: ResolverTypeWrapper<SectionCustomization>;
+  SectionCustomizationErrors: ResolverTypeWrapper<SectionCustomizationErrors>;
   SectionCustomizationOverview: ResolverTypeWrapper<SectionCustomizationOverview>;
   SectionErrors: ResolverTypeWrapper<SectionErrors>;
   SectionVersionType: SectionVersionType;
@@ -5559,6 +5621,7 @@ export type ResolversTypes = {
 /** Mapping between all available schema types and the resolvers parents */
 export type ResolversParentTypes = {
   AddCustomQuestionInput: AddCustomQuestionInput;
+  AddCustomSectionInput: AddCustomSectionInput;
   AddGuidanceGroupInput: AddGuidanceGroupInput;
   AddGuidanceInput: AddGuidanceInput;
   AddMetadataStandardInput: AddMetadataStandardInput;
@@ -5594,6 +5657,7 @@ export type ResolversParentTypes = {
   ContentMatch: ContentMatch;
   CustomQuestion: CustomQuestion;
   CustomSection: CustomSection;
+  CustomSectionErrors: CustomSectionErrors;
   CustomizableTemplateSearchResult: CustomizableTemplateSearchResult;
   CustomizableTemplateSearchResults: CustomizableTemplateSearchResults;
   DateTimeISO: Scalars['DateTimeISO']['output'];
@@ -5694,6 +5758,7 @@ export type ResolversParentTypes = {
   Ror: Scalars['Ror']['output'];
   Section: Section;
   SectionCustomization: SectionCustomization;
+  SectionCustomizationErrors: SectionCustomizationErrors;
   SectionCustomizationOverview: SectionCustomizationOverview;
   SectionErrors: SectionErrors;
   String: Scalars['String']['output'];
@@ -5943,14 +6008,30 @@ export type CustomQuestionResolvers<ContextType = MyContext, ParentType extends 
 };
 
 export type CustomSectionResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['CustomSection'] = ResolversParentTypes['CustomSection']> = {
+  created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  createdById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  errors?: Resolver<Maybe<ResolversTypes['CustomSectionErrors']>, ParentType, ContextType>;
   guidance?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   introduction?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   migrationStatus?: Resolver<Maybe<ResolversTypes['TemplateCustomizationMigrationStatus']>, ParentType, ContextType>;
+  modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   name?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   pinnedSectionId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   pinnedSectionType?: Resolver<Maybe<ResolversTypes['CustomizableObjectOwnership']>, ParentType, ContextType>;
   requirements?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   templateCustomizationId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+};
+
+export type CustomSectionErrorsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['CustomSectionErrors'] = ResolversParentTypes['CustomSectionErrors']> = {
+  general?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  guidance?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  introduction?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  migrationStatus?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  name?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  requirements?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  templateCustomizationId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 };
 
 export type CustomizableTemplateSearchResultResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['CustomizableTemplateSearchResult'] = ResolversParentTypes['CustomizableTemplateSearchResult']> = {
@@ -6213,7 +6294,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   addAnswer?: Resolver<Maybe<ResolversTypes['Answer']>, ParentType, ContextType, RequireFields<MutationAddAnswerArgs, 'planId' | 'versionedQuestionId' | 'versionedSectionId'>>;
   addAnswerComment?: Resolver<Maybe<ResolversTypes['AnswerComment']>, ParentType, ContextType, RequireFields<MutationAddAnswerCommentArgs, 'answerId' | 'commentText'>>;
   addCustomQuestion?: Resolver<ResolversTypes['CustomQuestion'], ParentType, ContextType, RequireFields<MutationAddCustomQuestionArgs, 'input'>>;
-  addCustomSection?: Resolver<ResolversTypes['CustomSection'], ParentType, ContextType, RequireFields<MutationAddCustomSectionArgs, 'templateCustomizationId'>>;
+  addCustomSection?: Resolver<ResolversTypes['CustomSection'], ParentType, ContextType, RequireFields<MutationAddCustomSectionArgs, 'input'>>;
   addFeedbackComment?: Resolver<Maybe<ResolversTypes['PlanFeedbackComment']>, ParentType, ContextType, RequireFields<MutationAddFeedbackCommentArgs, 'answerId' | 'commentText' | 'planFeedbackId' | 'planId'>>;
   addGuidance?: Resolver<ResolversTypes['Guidance'], ParentType, ContextType, RequireFields<MutationAddGuidanceArgs, 'input'>>;
   addGuidanceGroup?: Resolver<ResolversTypes['GuidanceGroup'], ParentType, ContextType, RequireFields<MutationAddGuidanceGroupArgs, 'input'>>;
@@ -6252,7 +6333,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   mergeRepositories?: Resolver<Maybe<ResolversTypes['Repository']>, ParentType, ContextType, RequireFields<MutationMergeRepositoriesArgs, 'repositoryToKeepId' | 'repositoryToRemoveId'>>;
   mergeUsers?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationMergeUsersArgs, 'userIdToBeMerged' | 'userIdToKeep'>>;
   moveCustomQuestion?: Resolver<ResolversTypes['CustomQuestion'], ParentType, ContextType, RequireFields<MutationMoveCustomQuestionArgs, 'input'>>;
-  moveCustomSection?: Resolver<ResolversTypes['CustomSection'], ParentType, ContextType, RequireFields<MutationMoveCustomSectionArgs, 'customSectionId'>>;
+  moveCustomSection?: Resolver<ResolversTypes['CustomSection'], ParentType, ContextType, RequireFields<MutationMoveCustomSectionArgs, 'input'>>;
   projectImport?: Resolver<Maybe<ResolversTypes['Project']>, ParentType, ContextType, Partial<MutationProjectImportArgs>>;
   publishGuidanceGroup?: Resolver<ResolversTypes['GuidanceGroup'], ParentType, ContextType, RequireFields<MutationPublishGuidanceGroupArgs, 'guidanceGroupId'>>;
   publishPlan?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType, RequireFields<MutationPublishPlanArgs, 'planId'>>;
@@ -6730,7 +6811,7 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   bestPracticeSections?: Resolver<Maybe<Array<Maybe<ResolversTypes['VersionedSection']>>>, ParentType, ContextType>;
   childResearchDomains?: Resolver<Maybe<Array<Maybe<ResolversTypes['ResearchDomain']>>>, ParentType, ContextType, RequireFields<QueryChildResearchDomainsArgs, 'parentResearchDomainId'>>;
   customQuestion?: Resolver<ResolversTypes['CustomQuestion'], ParentType, ContextType, RequireFields<QueryCustomQuestionArgs, 'customQuestionId'>>;
-  customSection?: Resolver<ResolversTypes['CustomSection'], ParentType, ContextType, RequireFields<QueryCustomSectionArgs, 'customSectionId'>>;
+  customSection?: Resolver<Maybe<ResolversTypes['CustomSection']>, ParentType, ContextType, RequireFields<QueryCustomSectionArgs, 'customSectionId'>>;
   customizableTemplates?: Resolver<Maybe<ResolversTypes['CustomizableTemplateSearchResults']>, ParentType, ContextType, Partial<QueryCustomizableTemplatesArgs>>;
   defaultResearchOutputTypes?: Resolver<Maybe<Array<Maybe<ResolversTypes['ResearchOutputType']>>>, ParentType, ContextType>;
   findCollaborator?: Resolver<Maybe<ResolversTypes['CollaboratorSearchResults']>, ParentType, ContextType, RequireFields<QueryFindCollaboratorArgs, 'term'>>;
@@ -6791,14 +6872,14 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   researchOutputTypeByName?: Resolver<Maybe<ResolversTypes['ResearchOutputType']>, ParentType, ContextType, RequireFields<QueryResearchOutputTypeByNameArgs, 'name'>>;
   searchExternalProjects?: Resolver<Maybe<Array<Maybe<ResolversTypes['ExternalProject']>>>, ParentType, ContextType, RequireFields<QuerySearchExternalProjectsArgs, 'input'>>;
   section?: Resolver<Maybe<ResolversTypes['Section']>, ParentType, ContextType, RequireFields<QuerySectionArgs, 'sectionId'>>;
-  sectionCustomization?: Resolver<ResolversTypes['SectionCustomization'], ParentType, ContextType, RequireFields<QuerySectionCustomizationArgs, 'sectionCustomizationId'>>;
+  sectionCustomization?: Resolver<Maybe<ResolversTypes['SectionCustomization']>, ParentType, ContextType, RequireFields<QuerySectionCustomizationArgs, 'sectionCustomizationId'>>;
   sectionVersions?: Resolver<Maybe<Array<Maybe<ResolversTypes['VersionedSection']>>>, ParentType, ContextType, RequireFields<QuerySectionVersionsArgs, 'sectionId'>>;
   sections?: Resolver<Maybe<Array<Maybe<ResolversTypes['Section']>>>, ParentType, ContextType, RequireFields<QuerySectionsArgs, 'templateId'>>;
   tags?: Resolver<Array<ResolversTypes['Tag']>, ParentType, ContextType>;
   tagsBySectionId?: Resolver<Maybe<Array<Maybe<ResolversTypes['Tag']>>>, ParentType, ContextType, RequireFields<QueryTagsBySectionIdArgs, 'sectionId'>>;
   template?: Resolver<Maybe<ResolversTypes['Template']>, ParentType, ContextType, RequireFields<QueryTemplateArgs, 'templateId'>>;
   templateCollaborators?: Resolver<Maybe<Array<Maybe<ResolversTypes['TemplateCollaborator']>>>, ParentType, ContextType, RequireFields<QueryTemplateCollaboratorsArgs, 'templateId'>>;
-  templateCustomization?: Resolver<ResolversTypes['TemplateCustomizationOverview'], ParentType, ContextType, RequireFields<QueryTemplateCustomizationArgs, 'templateCustomizationId'>>;
+  templateCustomizationOverview?: Resolver<Maybe<ResolversTypes['TemplateCustomizationOverview']>, ParentType, ContextType, RequireFields<QueryTemplateCustomizationOverviewArgs, 'templateCustomizationId'>>;
   templateVersions?: Resolver<Maybe<Array<Maybe<ResolversTypes['VersionedTemplate']>>>, ParentType, ContextType, RequireFields<QueryTemplateVersionsArgs, 'templateId'>>;
   topLevelResearchDomains?: Resolver<Maybe<Array<Maybe<ResolversTypes['ResearchDomain']>>>, ParentType, ContextType>;
   user?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<QueryUserArgs, 'userId'>>;
@@ -6863,8 +6944,8 @@ export type QuestionCustomizationOverviewResolvers<ContextType = MyContext, Pare
   displayOrder?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   hasCustomGuidance?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
   hasCustomSampleAnswer?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   migrationStatus?: Resolver<Maybe<ResolversTypes['TemplateCustomizationMigrationStatus']>, ParentType, ContextType>;
-  questionId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   questionText?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   questionType?: Resolver<ResolversTypes['CustomizableObjectOwnership'], ParentType, ContextType>;
 };
@@ -7057,19 +7138,34 @@ export type SectionResolvers<ContextType = MyContext, ParentType extends Resolve
 };
 
 export type SectionCustomizationResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['SectionCustomization'] = ResolversParentTypes['SectionCustomization']> = {
+  created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  createdById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  errors?: Resolver<Maybe<ResolversTypes['SectionCustomizationErrors']>, ParentType, ContextType>;
   guidance?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   migrationStatus?: Resolver<Maybe<ResolversTypes['TemplateCustomizationMigrationStatus']>, ParentType, ContextType>;
+  modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  sectionId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   templateCustomizationId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  versionedSectionId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  versionedSection?: Resolver<Maybe<ResolversTypes['VersionedSection']>, ParentType, ContextType>;
+};
+
+export type SectionCustomizationErrorsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['SectionCustomizationErrors'] = ResolversParentTypes['SectionCustomizationErrors']> = {
+  general?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  guidance?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  migrationStatus?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  templateCustomizationId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  versionedSectionId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 };
 
 export type SectionCustomizationOverviewResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['SectionCustomizationOverview'] = ResolversParentTypes['SectionCustomizationOverview']> = {
   displayOrder?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   hasCustomGuidance?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   migrationStatus?: Resolver<Maybe<ResolversTypes['TemplateCustomizationMigrationStatus']>, ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   questions?: Resolver<Maybe<Array<ResolversTypes['QuestionCustomizationOverview']>>, ParentType, ContextType>;
-  sectionId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  sectionName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   sectionType?: Resolver<ResolversTypes['CustomizableObjectOwnership'], ParentType, ContextType>;
 };
 
@@ -7601,6 +7697,7 @@ export type Resolvers<ContextType = MyContext> = {
   ContentMatch?: ContentMatchResolvers<ContextType>;
   CustomQuestion?: CustomQuestionResolvers<ContextType>;
   CustomSection?: CustomSectionResolvers<ContextType>;
+  CustomSectionErrors?: CustomSectionErrorsResolvers<ContextType>;
   CustomizableTemplateSearchResult?: CustomizableTemplateSearchResultResolvers<ContextType>;
   CustomizableTemplateSearchResults?: CustomizableTemplateSearchResultsResolvers<ContextType>;
   DateTimeISO?: GraphQLScalarType;
@@ -7689,6 +7786,7 @@ export type Resolvers<ContextType = MyContext> = {
   Ror?: GraphQLScalarType;
   Section?: SectionResolvers<ContextType>;
   SectionCustomization?: SectionCustomizationResolvers<ContextType>;
+  SectionCustomizationErrors?: SectionCustomizationErrorsResolvers<ContextType>;
   SectionCustomizationOverview?: SectionCustomizationOverviewResolvers<ContextType>;
   SectionErrors?: SectionErrorsResolvers<ContextType>;
   Tag?: TagResolvers<ContextType>;

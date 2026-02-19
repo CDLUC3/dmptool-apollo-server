@@ -785,6 +785,36 @@ export class TemplateCustomization extends MySqlModel {
   }
 
   /**
+   * Update the specified templateCustomization's isDirty flag to true
+   *
+   * @param reference The reference to use for logging errors.
+   * @param context The Apollo context.
+   * @param templateCustomizationId The template customization id.
+   * @returns true if the customization was updated or was already dirty
+   */
+  static async markAsDirty(
+    reference: string,
+    context: MyContext,
+    templateCustomizationId: number
+  ): Promise<boolean> {
+    const customization: TemplateCustomization = await TemplateCustomization.findById(
+      reference,
+      context,
+      templateCustomizationId
+    );
+    if (isNullOrUndefined(customization)) return false;
+
+    // If its already dirty just return true
+    if (customization.isDirty) return true;
+
+    customization.isDirty = true;
+    const updated: TemplateCustomization = await customization.update(context);
+
+    // Return true if the update was successful
+    return !isNullOrUndefined(updated) && !updated.hasErrors();
+  }
+
+  /**
    * Find the customization by its id
    *
    * @param reference The reference to use for logging errors.

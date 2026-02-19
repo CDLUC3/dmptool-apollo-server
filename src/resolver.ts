@@ -26,6 +26,7 @@ import { resolvers as relatedWorkResolvers } from './resolvers/relatedWork';
 import { resolvers as repositoryResolvers } from './resolvers/repository';
 import { resolvers as researchDomainResolvers } from './resolvers/researchDomain';
 import { resolvers as researchOutputResolvers } from './resolvers/researchOutputTypes';
+import { resolvers as sectionCustomizationResolvers } from './resolvers/sectionCustomization';
 import { resolvers as sectionResolvers } from './resolvers/section';
 import { resolvers as superAdminResolvers } from './resolvers/superAdmin';
 import { resolvers as tagResolvers } from './resolvers/tag';
@@ -68,6 +69,7 @@ export const resolvers: IResolvers = mergeResolvers([
   repositoryResolvers,
   researchDomainResolvers,
   researchOutputResolvers,
+  sectionCustomizationResolvers,
   sectionResolvers,
   superAdminResolvers,
   tagResolvers,

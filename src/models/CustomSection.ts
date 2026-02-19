@@ -33,7 +33,7 @@ export class CustomSection extends MySqlModel {
   public pinnedSectionId?: number;
   public migrationStatus: TemplateCustomizationMigrationStatus;
 
-  public name: string;
+  public name?: string;
   public introduction?: string;
   public requirements?: string;
   public guidance?: string;

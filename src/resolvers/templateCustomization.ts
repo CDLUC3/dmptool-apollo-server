@@ -3,17 +3,17 @@ import {
   Resolvers,
   UpdateTemplateCustomizationInput
 } from "../types";
-import { isAdmin } from "../services/authService";
+import { authenticatedResolver, isAdmin } from "../services/authService";
 import { MyContext } from "../context";
 import { VersionedTemplate } from "../models/VersionedTemplate";
 import { normaliseDateTime } from "../utils/helpers";
 import {
-  TemplateCustomization,
+  TemplateCustomization, TemplateCustomizationOverview,
   TemplateCustomizationStatus
 } from "../models/TemplateCustomization";
 import {
   checkForFunderTemplateDrift,
-  hasPermissionOnTemplateCustomization
+  getValidatedCustomization,
 } from "../services/templateCustomizationService";
 import {
   AuthenticationError,
@@ -23,43 +23,38 @@ import {
 } from "../utils/graphQLErrors";
 import { GraphQLError } from "graphql";
 import { prepareObjectForLogs } from "../logger";
+import { UserRole } from "../models/User";
 
 export const resolvers: Resolvers = {
   Query: {
     // Fetch the specific customization of a funder template (must be an admin)
-    templateCustomization: async (
-      _: Record<PropertyKey, never>,
-      { templateCustomizationId }: { templateCustomizationId: number },
-      context: MyContext
-    ): Promise<TemplateCustomization> => {
+    templateCustomizationOverview: authenticatedResolver(
+      'sectionCustomization resolver',
+      UserRole.ADMIN,
+      async (
+        _: Record<PropertyKey, never>,
+        { templateCustomizationId }: { templateCustomizationId: number },
+        context: MyContext
+      ): Promise<TemplateCustomizationOverview | null> => {
       const reference = 'templateCustomization resolver';
-      try {
-        // Only Admins can retrieve a template customization
-        if (isAdmin(context.token)) {
-          const customization: TemplateCustomization = await TemplateCustomization.findById(
-            reference,
-            context,
-            templateCustomizationId
-          );
 
-          if (!customization) throw NotFoundError();
+      const customization: TemplateCustomizationOverview = await TemplateCustomizationOverview.generateOverview(
+        reference,
+        context,
+        templateCustomizationId
+      );
+      if (!customization) throw NotFoundError();
 
-          // Verify that the current user has permission to access the Customization
-          if (await hasPermissionOnTemplateCustomization(context, customization)) {
-            // Check to see if the published funder template that this tracks has changed
-            return await checkForFunderTemplateDrift(reference, context, customization);
-          }
-          throw ForbiddenError();
-        }
-        // Caller is Unauthorized!
-        throw context?.token ? ForbiddenError() : AuthenticationError();
-      } catch (err) {
-        if (err instanceof GraphQLError) throw err;
+      // Find the parent template customization and verify the user has access.
+      // This will throw a forbidden error if they do not.
+      await getValidatedCustomization(
+        reference,
+        context,
+        templateCustomizationId
+      );
 
-        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
-        throw InternalServerError();
-      }
-    },
+      return customization;
+    }),
   },
 
   Mutation: {

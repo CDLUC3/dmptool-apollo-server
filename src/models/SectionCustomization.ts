@@ -2,6 +2,7 @@ import { MyContext } from "../context";
 import { MySqlModel } from "./MySqlModel";
 import { isNullOrUndefined } from "../utils/helpers";
 import { TemplateCustomizationMigrationStatus } from "./TemplateCustomization";
+import {VersionedSection} from "../types";
 
 /**
  * This object represents custom guidance text an organization has added to an

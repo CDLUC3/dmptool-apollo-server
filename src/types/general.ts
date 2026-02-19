@@ -1,3 +1,12 @@
+import { MyContext } from "../context";
+import { GraphQLResolveInfo } from "graphql/index";
+
+export type AuthenticatedResolverType<TResult, TArgs = Record<string, unknown>, TParent = Record<string, unknown>> = (
+  parent: TParent,
+  args: TArgs,
+  context: MyContext,
+  info: GraphQLResolveInfo
+) => Promise<TResult>;
 
 export interface SectionFilterOptions {
   bestPractice?: boolean;        // Only return records where bestPractice = 1 if present

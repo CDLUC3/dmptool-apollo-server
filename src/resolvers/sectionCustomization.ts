@@ -21,6 +21,7 @@ import { VersionedSection } from "../models/VersionedSection";
 import { CustomSection, PinnedSectionTypeEnum } from "../models/CustomSection";
 import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
 import { UserRole } from "../models/User";
+import { Affiliation } from "../models/Affiliation";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -291,11 +292,15 @@ export const resolvers: Resolvers = {
         templateCustomizationId
       );
 
+      // Use the name of the current user's affiliation as the section name
+      const affiliation = await Affiliation.findByURI(ref, context, context.token.affiliationId);
+
       const customSection = new CustomSection({
         templateCustomizationId,
         pinnedSectionType,
         pinnedSectionId,
-        migrationStatus: TemplateCustomizationMigrationStatus.OK
+        migrationStatus: TemplateCustomizationMigrationStatus.OK,
+        name: isNullOrUndefined(affiliation) ? 'New Section' : affiliation.name
       });
 
       // Save the new custom section
@@ -471,13 +476,18 @@ export const resolvers: Resolvers = {
       _: Record<PropertyKey, never>,
       context: MyContext
     ): Promise<VersionedSection> => {
-      return parent?.sectionId
-        ? await VersionedSection.findActiveBySectionId(
-            'SectionCustomization.versionedSection chained resolver',
-            context,
-            parent.sectionId
-          )
-        : null;
+      const ref = 'SectionCustomization.versionedSection chained resolver';
+      if (isNullOrUndefined(parent?.sectionId)) return null;
+
+      const customization = await TemplateCustomization.findById(ref, context, parent.templateCustomizationId);
+      return isNullOrUndefined(customization)
+        ? null
+        : await VersionedSection.findByVersionedTemplateIdAndSectionId(
+          ref,
+          context,
+          customization.currentVersionedTemplateId,
+          parent.sectionId
+        );
     },
     /**
      * Format the created date time

@@ -105,7 +105,7 @@ export const typeDefs = gql`
   type QuestionCustomizationErrors {
     "General error messages such as the object already exists"
     general: String
-    versionedQuestionId: String
+    questionId: String
     templateCustomizationId: String
     migrationStatus: String
     guidanceText: String

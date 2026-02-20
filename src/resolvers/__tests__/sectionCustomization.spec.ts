@@ -24,6 +24,7 @@ import {
   markTemplateCustomizationAsDirty
 } from '../../services/templateCustomizationService';
 import { buildContext, mockToken } from "../../__mocks__/context";
+import { Affiliation } from "../../models/Affiliation";
 
 jest.mock('../../context.ts');
 jest.mock('../../datasources/cache');
@@ -497,10 +498,13 @@ describe('sectionCustomization resolver', () => {
       const mockCreated = {
         id: 1,
         ...input,
+        name: 'Test Affiliation',
         hasErrors: jest.fn().mockReturnValue(false)
       } as undefined as CustomSection;
+      const mockAffiliation = { id: 5, name: 'Test Affiliation' } as undefined as Affiliation;
 
       (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
+      jest.spyOn(Affiliation, 'findByURI').mockResolvedValue(mockAffiliation);
 
       jest.spyOn(CustomSection.prototype, 'create').mockResolvedValue(mockCreated);
 
@@ -510,6 +514,7 @@ describe('sectionCustomization resolver', () => {
       expect(result.body.singleResult.data.addCustomSection.templateCustomizationId).toEqual(10);
       expect(result.body.singleResult.data.addCustomSection.pinnedSectionType).toEqual('BASE');
       expect(result.body.singleResult.data.addCustomSection.pinnedSectionId).toEqual(5);
+      expect(result.body.singleResult.data.addCustomSection.name).toEqual('Test Affiliation');
       expect(markTemplateCustomizationAsDirty).toHaveBeenCalled();
     });
 

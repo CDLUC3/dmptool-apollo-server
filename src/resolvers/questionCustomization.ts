@@ -478,13 +478,18 @@ export const resolvers: Resolvers = {
       _: Record<PropertyKey, never>,
       context: MyContext
     ): Promise<VersionedQuestion> => {
-      return parent?.questionId
-        ? await VersionedQuestion.findActiveByQuestionId(
-          'QuestionCustomization.versionedQuestion chained resolver',
+      const ref = 'QuestionCustomization.versionedQuestion chained resolver';
+      if (isNullOrUndefined(parent?.questionId)) return null;
+
+      const customization = await TemplateCustomization.findById(ref, context, parent.templateCustomizationId);
+      return isNullOrUndefined(customization)
+        ? null
+        : await VersionedQuestion.findByVersionedTemplateIdAndQuestionId(
+          ref,
           context,
+          customization.currentVersionedTemplateId,
           parent.questionId
-        )
-        : null;
+        );
     },
     /**
      * Format the created date time

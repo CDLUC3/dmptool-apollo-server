@@ -134,25 +134,6 @@ describe("CustomQuestion", () => {
       expect(customization.errors.templateCustomizationId).toBe("Customization can't be blank");
     });
 
-    it("should add error when questionText is undefined", async () => {
-      const customization = new CustomQuestion({
-        templateCustomizationId: 100,
-        sectionType: PinnedSectionTypeEnum.BASE,
-        sectionId: 200,
-        questionText: null,
-        json: {
-          type: "text",
-          attributes: { maxLength: 100 },
-          meta: { schemaVersion: "1.0" }
-        },
-      });
-
-      const isValid = await customization.isValid();
-
-      expect(isValid).toBe(false);
-      expect(customization.errors.questionText).toBe("Question text can't be blank");
-    });
-
     it("should add error when sectionType is undefined", async () => {
       const customization = new CustomQuestion({
         templateCustomizationId: 100,
@@ -195,8 +176,8 @@ describe("CustomQuestion", () => {
       const customization = new CustomQuestion({
         templateCustomizationId: null,
         sectionType: PinnedSectionTypeEnum.BASE,
-        sectionId: 200,
-        questionText: null,
+        sectionId: null,
+        questionText: 'Test',
         json: {
           type: "text",
           attributes: { maxLength: 100 },
@@ -208,7 +189,7 @@ describe("CustomQuestion", () => {
 
       expect(isValid).toBe(false);
       expect(customization.errors.templateCustomizationId).toBe("Customization can't be blank");
-      expect(customization.errors.questionText).toBe("Question text can't be blank");
+      expect(customization.errors.sectionId).toBe("Must be attached to either a custom section or a funder section");
     });
   });
 

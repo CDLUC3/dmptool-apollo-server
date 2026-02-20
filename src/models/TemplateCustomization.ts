@@ -273,7 +273,7 @@ export class TemplateCustomizationOverview {
     context: MyContext
   ): void {
     // Sort to ensure sequential pinning works
-    customRows.sort((a, b) => (a.customSectionPinId ?? 0) - (b.customSectionPinId ?? 0));
+    customRows.sort((a, b) => (a.customSectionId ?? 0) - (b.customSectionId ?? 0));
 
     for (const row of customRows) {
       const newSection: TemplateCustomizationSectionOverview = {
@@ -291,7 +291,10 @@ export class TemplateCustomizationOverview {
         sections.unshift(newSection);
 
       } else {
-        const index = sections.findIndex(s => s.id === row.customSectionPinId);
+        const index = sections.findIndex(s => {
+          return s.sectionType === row.customSectionPinType && s.id === row.customSectionPinId
+        });
+
         // Splice the custom section in if the pin id is found otherwise add it to the end
         if (index !== -1) {
           sections.splice(index + 1, 0, newSection);
@@ -316,7 +319,7 @@ export class TemplateCustomizationOverview {
     context: MyContext
   ): void {
     customRows.sort((a: FetchCustomQuestionResult, b: FetchCustomQuestionResult) => {
-      return (a.customQuestionPinId ?? 0) - (b.customQuestionPinId ?? 0);
+      return (a.customQuestionId ?? 0) - (b.customQuestionId ?? 0);
     });
 
     for (const row of customRows) {
@@ -350,7 +353,9 @@ export class TemplateCustomizationOverview {
 
         } else {
           // Find the question that this custom question should be pinned to
-          const pinIdx = section.questions.findIndex(q => q.id === row.customQuestionPinId);
+          const pinIdx = section.questions.findIndex(q => {
+            return q.questionType === row.customQuestionPinType && q.id === row.customQuestionPinId
+          });
           if (pinIdx !== -1) {
             // Splice the custom question in if the pin id is found
             section.questions.splice(pinIdx + 1, 0, newQuestion);
@@ -445,8 +450,9 @@ export class TemplateCustomizationOverview {
       SELECT
         cs.id AS customSectionId, cs.migrationStatus AS customSectionMigrationStatus,
         cs.name AS customSectionName,
-        cs.pinnedSectionType AS customSectionPinType, cs.pinnedSectionId AS customSectionPinId,
-      FROM customSections AS cs ON tc.id = cs.templateCustomizationId
+        cs.pinnedSectionType AS customSectionPinType,
+        cs.pinnedSectionId AS customSectionPinId
+      FROM customSections AS cs
       WHERE cs.templateCustomizationId = ?
       ORDER BY cs.pinnedSectionType ASC, cs.pinnedSectionId ASC;
     `;
@@ -477,7 +483,8 @@ export class TemplateCustomizationOverview {
         cq.id AS customQuestionId, cq.migrationStatus AS customQuestionMigrationStatus,
         cq.questionText AS customQuestionText,
         cq.sectionType AS customQuestionSectionType, cq.sectionId AS customQuestionSectionId,
-        cq.pinnedQuestionType AS customQuestionPinType, cq.pinnedQuestionId AS customQuestionPinId
+        cq.pinnedQuestionType AS customQuestionPinType,
+        cq.pinnedQuestionId AS customQuestionPinId
       FROM templateCustomizations AS tc
         JOIN customQuestions AS cq ON tc.id = cq.templateCustomizationId
       WHERE tc.id = ?

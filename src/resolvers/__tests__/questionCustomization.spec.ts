@@ -119,7 +119,7 @@ describe('questionCustomization resolver', () => {
         sampleText: 'Test sample text'
       };
       const mockParent = { id: 10, isDirty: false };
-      
+
       (QuestionCustomization.findById as jest.Mock).mockResolvedValue(mockCustomization);
       (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
 
@@ -261,7 +261,7 @@ describe('questionCustomization resolver', () => {
             questionId
             errors {
               templateCustomizationId
-              versionedQuestionId
+              questionId
               guidanceText
               sampleText
               general
@@ -350,7 +350,7 @@ describe('questionCustomization resolver', () => {
             guidanceText
             errors {
               templateCustomizationId
-              versionedQuestionId
+              questionId
               guidanceText
               general
             }
@@ -433,7 +433,7 @@ describe('questionCustomization resolver', () => {
             templateCustomizationId
             errors {
               templateCustomizationId
-              versionedQuestionId
+              questionId
               guidanceText
               general
             }

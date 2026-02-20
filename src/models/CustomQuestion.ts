@@ -5,7 +5,7 @@ import {
   removeNullAndUndefinedFromJSON
 } from "../utils/helpers";
 import { MyContext } from "../context";
-import { QuestionSchemaMap } from "@dmptool/types";
+import {DefaultTextAreaQuestion, QuestionSchemaMap} from "@dmptool/types";
 import { PinnedSectionTypeEnum } from "./CustomSection";
 
 /**
@@ -61,14 +61,13 @@ export class CustomQuestion extends MySqlModel {
     this.pinnedQuestionId = options.pinnedQuestionId;
     this.migrationStatus = options.migrationStatus ?? TemplateCustomizationMigrationStatus.OK;
 
-    this.json = options.json;
     // Ensure JSON is stored as a string
     try {
-      this.json = removeNullAndUndefinedFromJSON(options.json);
+      this.json = removeNullAndUndefinedFromJSON(options.json ?? DefaultTextAreaQuestion);
     } catch (e) {
       this.addError('json', e.message);
     }
-    this.questionText = options.questionText;
+    this.questionText = options.questionText ?? 'New question';
     this.requirementText = options.requirementText;
     this.guidanceText = options.guidanceText;
     this.sampleText = options.sampleText;
@@ -91,30 +90,33 @@ export class CustomQuestion extends MySqlModel {
     if (isNullOrUndefined(this.sectionType) || isNullOrUndefined(this.sectionId)) {
       this.addError('sectionId', 'Must be attached to either a custom section or a funder section');
     }
-    if (isNullOrUndefined(this.questionText)) {
-      this.addError('questionText', 'Question text can\'t be blank');
-    }
-    // If JSON is not null and the type is in the schema map
-    if (!isNullOrUndefined(this.json) && this.errors['json'] === undefined) {
-      const parsedJSON = JSON.parse(this.json);
-      if (Object.keys(QuestionSchemaMap).includes(parsedJSON['type'])) {
-        // Validate the JSON against the Zod schema and if valid, set the questionType
-        try {
-          const result = QuestionSchemaMap[parsedJSON['type']]?.safeParse(parsedJSON);
-          if (result && !result.success) {
-            // If there are validation errors, add them to the errors object
-            this.addError('json', result.error?.issues?.map(e => `${e.path.join('.')} - ${e.message}`)?.join('; '));
+    // Only validate these if the record has already been created
+    if (!isNullOrUndefined(this.id)) {
+      if (isNullOrUndefined(this.questionText)) {
+        this.addError('questionText', 'Question text can\'t be blank');
+      }
+      // If JSON is not null and the type is in the schema map
+      if (!isNullOrUndefined(this.json) && this.errors['json'] === undefined) {
+        const parsedJSON = JSON.parse(this.json);
+        if (Object.keys(QuestionSchemaMap).includes(parsedJSON['type'])) {
+          // Validate the JSON against the Zod schema and if valid, set the questionType
+          try {
+            const result = QuestionSchemaMap[parsedJSON['type']]?.safeParse(parsedJSON);
+            if (result && !result.success) {
+              // If there are validation errors, add them to the errors object
+              this.addError('json', result.error?.issues?.map(e => `${e.path.join('.')} - ${e.message}`)?.join('; '));
+            }
+          } catch (e) {
+            this.addError('json', e.message);
           }
-        } catch (e) {
-          this.addError('json', e.message);
+        } else {
+          // If the type is not in the schema map, add an error
+          this.addError('json', `Unknown question type "${parsedJSON['type']}"`);
         }
       } else {
-        // If the type is not in the schema map, add an error
-        this.addError('json', `Unknown question type "${parsedJSON['type']}"`);
-      }
-    } else {
-      if (this.errors['json'] === undefined) {
-        this.addError('json', 'Question JSON can\'t be blank');
+        if (this.errors['json'] === undefined) {
+          this.addError('json', 'Question JSON can\'t be blank');
+        }
       }
     }
 
@@ -130,6 +132,8 @@ export class CustomQuestion extends MySqlModel {
     this.requirementText = this.requirementText?.trim();
     this.sampleText = this.sampleText?.trim();
     this.guidanceText = this.guidanceText?.trim();
+    if (isNullOrUndefined(this.useSampleTextAsDefault)) this.useSampleTextAsDefault = false;
+    if (isNullOrUndefined(this.required)) this.required = false;
   }
 
   /**

@@ -135,9 +135,9 @@ export const typeDefs = gql`
     "The identifier of the parent template customization"
     templateCustomizationId: Int!
     "The type of the section this new custom section should appear after"
-    pinnedSectionType: CustomizableObjectOwnership!
+    pinnedSectionType: CustomizableObjectOwnership
     "The identifier of the section this new custom section should appear after"
-    pinnedSectionId: Int!
+    pinnedSectionId: Int
   }
 
   "Input parameters for updating a custom section"

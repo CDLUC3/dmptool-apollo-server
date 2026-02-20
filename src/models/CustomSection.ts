@@ -67,7 +67,8 @@ export class CustomSection extends MySqlModel {
     if (isNullOrUndefined(this.templateCustomizationId)) {
       this.addError('templateCustomizationId', 'Customization can\'t be blank');
     }
-    if (isNullOrUndefined(this.name)) {
+    // Only validate the name if the record has already been created
+    if (!isNullOrUndefined(this.id) && isNullOrUndefined(this.name)) {
       this.addError('name', 'Name can\'t be blank');
     }
 

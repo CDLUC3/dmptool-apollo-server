@@ -89,31 +89,6 @@ describe("CustomSection", () => {
       expect(isValid).toBe(false);
       expect(customization.errors.templateCustomizationId).toBe("Customization can't be blank");
     });
-
-    it("should add error when name is undefined", async () => {
-      const customization = new CustomSection({
-        templateCustomizationId: 100,
-        name: null
-      });
-
-      const isValid = await customization.isValid();
-
-      expect(isValid).toBe(false);
-      expect(customization.errors.name).toBe("Name can't be blank");
-    });
-
-    it("should add multiple errors when multiple fields are missing", async () => {
-      const customization = new CustomSection({
-        templateCustomizationId: null,
-        name: null
-      });
-
-      const isValid = await customization.isValid();
-
-      expect(isValid).toBe(false);
-      expect(customization.errors.templateCustomizationId).toBe("Customization can't be blank");
-      expect(customization.errors.name).toBe("Name can't be blank");
-    });
   });
 
   describe("prepareForSave", () => {

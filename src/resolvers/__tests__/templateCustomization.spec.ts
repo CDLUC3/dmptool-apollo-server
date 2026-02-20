@@ -339,7 +339,7 @@ describe('templateCustomization resolvers', () => {
       query = `
         mutation removeTemplateCustomization($templateCustomizationId: Int!) {
           removeTemplateCustomization(templateCustomizationId: $templateCustomizationId) {
-            customizationId
+            id
             errors {
               general
             }
@@ -359,7 +359,7 @@ describe('templateCustomization resolvers', () => {
       expect(result.body.kind).toEqual('single');
       expect(result.body.singleResult.errors).toBeUndefined();
       expect(result.body.singleResult.data.removeTemplateCustomization).toBeTruthy();
-      expect(result.body.singleResult.data.removeTemplateCustomization.customizationId).toEqual(mockCustomizationOverview.customizationId);
+      expect(result.body.singleResult.data.removeTemplateCustomization.id).toEqual(mockCustomizationOverview.customizationId);
     });
 
     it('should throw NotFoundError when customization does not exist', async () => {

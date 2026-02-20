@@ -12,7 +12,7 @@ export const typeDefs = gql`
     "Update a customization (user must be an Admin)"
     updateTemplateCustomization(input: UpdateTemplateCustomizationInput!): TemplateCustomizationOverview!
     "Remove a customization (user must be an Admin)"
-    removeTemplateCustomization(templateCustomizationId: Int!): TemplateCustomizationOverview!
+    removeTemplateCustomization(templateCustomizationId: Int!): TemplateCustomization!
     "Publish a customization (user must be an Admin)"
     publishTemplateCustomization(templateCustomizationId: Int!): TemplateCustomizationOverview!
     "Unpublish a customization (user must be an Admin)"

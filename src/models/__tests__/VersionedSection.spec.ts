@@ -381,22 +381,23 @@ describe('finders', () => {
     expect(result).toBeInstanceOf(VersionedSection);
   });
 
-  it('findActiveBySectionId returns the VersionedSection', async () => {
+  it('findByVersionedTemplateIdAndSectionId returns the VersionedSection', async () => {
     localQuery.mockResolvedValueOnce([versionedSection]);
     const id = versionedSection.id;
-    const result = await VersionedSection.findActiveBySectionId('Test', context, id);
-    const expectedSql = 'SELECT * FROM versionedSections WHERE sectionId = ? AND active = 1 ORDER BY modified DESC';
+    const result = await VersionedSection.findByVersionedTemplateIdAndSectionId('Test', context, versionedSection.versionedTemplateId, id);
+    const expectedSql = `SELECT * FROM versionedSections
+         WHERE versionedTemplateId = ? AND sectionId = ? ORDER BY modified DESC`;
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'Test')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [versionedSection.versionedTemplateId.toString(), id.toString()], 'Test')
     expect(result).toEqual(versionedSection);
     expect(result).toBeInstanceOf(VersionedSection);
     expect(Object.keys(result.errors).length).toBe(0);
   });
 
-  it('findActiveBySectionId returns undefined if there is no VersionedSection', async () => {
+  it('findByVersionedTemplateIdAndSectionId returns undefined if there is no VersionedSection', async () => {
     localQuery.mockResolvedValueOnce([]);
     const id = versionedSection.id;
-    const result = await VersionedSection.findActiveBySectionId('Test', context, id);
+    const result = await VersionedSection.findByVersionedTemplateIdAndSectionId('Test', context, versionedSection.versionedTemplateId, id);
     expect(localQuery).toHaveBeenCalledTimes(1);
     expect(result).toEqual(undefined);
   });

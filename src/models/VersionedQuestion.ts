@@ -103,16 +103,24 @@ export class VersionedQuestion extends MySqlModel {
   }
 
   /**
-   * Find the active VersionedQuestion by sectionId.
+   * Find the VersionedQuestion by versionedTemplateId and the sectionId.
    *
    * @param reference The reference to use for logging
    * @param context The Apollo context
+   * @param versionedTemplateId The versionedTemplateId to search for
    * @param questionId The questionId to search for
    * @returns The active VersionedQuestion or undefined if none was found.
    */
-  static async findActiveByQuestionId(reference: string, context: MyContext, questionId: number): Promise<VersionedQuestion> {
-    const sql = 'SELECT * FROM versionedQuestions WHERE questionId = ? AND active = 1 ORDER BY modified DESC';
-    const results = await VersionedQuestion.query(context, sql, [questionId.toString()], reference);
+  static async findByVersionedTemplateIdAndQuestionId(
+    reference: string,
+    context: MyContext,
+    versionedTemplateId: number,
+    questionId: number
+  ): Promise<VersionedQuestion> {
+    const sql = `SELECT * FROM versionedQuestions
+      WHERE versionedTemplateId = ? AND questionId = ? ORDER BY modified DESC`;
+    const vals = [versionedTemplateId.toString(), questionId.toString()];
+    const results = await VersionedQuestion.query(context, sql, vals, reference);
     return Array.isArray(results) && results.length > 0 ? new VersionedQuestion(results[0]) : undefined;
   }
 }

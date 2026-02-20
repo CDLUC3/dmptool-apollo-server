@@ -41,9 +41,9 @@ export type AddCustomQuestionInput = {
 /** Input parameters for adding a custom section to a funder template */
 export type AddCustomSectionInput = {
   /** The identifier of the section this new custom section should appear after */
-  pinnedSectionId: Scalars['Int']['input'];
+  pinnedSectionId?: InputMaybe<Scalars['Int']['input']>;
   /** The type of the section this new custom section should appear after */
-  pinnedSectionType: CustomizableObjectOwnership;
+  pinnedSectionType?: InputMaybe<CustomizableObjectOwnership>;
   /** The identifier of the parent template customization */
   templateCustomizationId: Scalars['Int']['input'];
 };
@@ -1409,7 +1409,7 @@ export type Mutation = {
   /** Remove a TemplateCollaborator from a Template */
   removeTemplateCollaborator?: Maybe<TemplateCollaborator>;
   /** Remove a customization (user must be an Admin) */
-  removeTemplateCustomization: TemplateCustomizationOverview;
+  removeTemplateCustomization: TemplateCustomization;
   /** Anonymize the current user's account (essentially deletes their account without orphaning things) */
   removeUser?: Maybe<User>;
   /** Remove an email address from the current user */
@@ -3659,9 +3659,9 @@ export type QuestionCustomizationErrors = {
   general?: Maybe<Scalars['String']['output']>;
   guidanceText?: Maybe<Scalars['String']['output']>;
   migrationStatus?: Maybe<Scalars['String']['output']>;
+  questionId?: Maybe<Scalars['String']['output']>;
   sampleText?: Maybe<Scalars['String']['output']>;
   templateCustomizationId?: Maybe<Scalars['String']['output']>;
-  versionedQuestionId?: Maybe<Scalars['String']['output']>;
 };
 
 /** An overview of a Question Customization */
@@ -6459,7 +6459,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   removeSectionCustomization?: Resolver<ResolversTypes['SectionCustomization'], ParentType, ContextType, RequireFields<MutationRemoveSectionCustomizationArgs, 'sectionCustomizationId'>>;
   removeTag?: Resolver<Maybe<ResolversTypes['Tag']>, ParentType, ContextType, RequireFields<MutationRemoveTagArgs, 'tagId'>>;
   removeTemplateCollaborator?: Resolver<Maybe<ResolversTypes['TemplateCollaborator']>, ParentType, ContextType, RequireFields<MutationRemoveTemplateCollaboratorArgs, 'email' | 'templateId'>>;
-  removeTemplateCustomization?: Resolver<ResolversTypes['TemplateCustomizationOverview'], ParentType, ContextType, RequireFields<MutationRemoveTemplateCustomizationArgs, 'templateCustomizationId'>>;
+  removeTemplateCustomization?: Resolver<ResolversTypes['TemplateCustomization'], ParentType, ContextType, RequireFields<MutationRemoveTemplateCustomizationArgs, 'templateCustomizationId'>>;
   removeUser?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType>;
   removeUserEmail?: Resolver<Maybe<ResolversTypes['UserEmail']>, ParentType, ContextType, RequireFields<MutationRemoveUserEmailArgs, 'email'>>;
   requestFeedback?: Resolver<Maybe<ResolversTypes['PlanFeedback']>, ParentType, ContextType, RequireFields<MutationRequestFeedbackArgs, 'planId'>>;
@@ -7047,9 +7047,9 @@ export type QuestionCustomizationErrorsResolvers<ContextType = MyContext, Parent
   general?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   guidanceText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   migrationStatus?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  questionId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   sampleText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   templateCustomizationId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  versionedQuestionId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 };
 
 export type QuestionCustomizationOverviewResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['QuestionCustomizationOverview'] = ResolversParentTypes['QuestionCustomizationOverview']> = {

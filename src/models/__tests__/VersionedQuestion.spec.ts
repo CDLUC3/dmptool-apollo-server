@@ -272,7 +272,7 @@ describe('findByVersionedSectionId', () => {
   });
 });
 
-describe('findActiveByQuestionId', () => {
+describe('findByVersionedTemplateIdAndQuestionId', () => {
   const originalQuery = VersionedQuestion.query;
 
   let localQuery;
@@ -311,22 +311,23 @@ describe('findActiveByQuestionId', () => {
     VersionedQuestion.query = originalQuery;
   });
 
-  it('findActiveByQuestionId returns the VersionedQuestion', async () => {
+  it('findByVersionedTemplateIdAndQuestionId returns the VersionedQuestion', async () => {
     localQuery.mockResolvedValueOnce([versionedQuestion]);
     const id = versionedQuestion.id;
-    const result = await VersionedQuestion.findActiveByQuestionId('Test', context, id);
-    const expectedSql = 'SELECT * FROM versionedQuestions WHERE questionId = ? AND active = 1 ORDER BY modified DESC';
+    const result = await VersionedQuestion.findByVersionedTemplateIdAndQuestionId('Test', context, versionedQuestion.versionedTemplateId, id);
+    const expectedSql = `SELECT * FROM versionedQuestions
+      WHERE versionedTemplateId = ? AND questionId = ? ORDER BY modified DESC`;
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'Test')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [versionedQuestion.versionedTemplateId.toString(), id.toString()], 'Test')
     expect(result).toEqual(versionedQuestion);
     expect(result).toBeInstanceOf(VersionedQuestion);
     expect(Object.keys(result.errors).length).toBe(0);
   });
 
-  it('findActiveByQuestionId returns undefined if there is no VersionedQuestion', async () => {
+  it('findByVersionedTemplateIdAndQuestionId returns undefined if there is no VersionedQuestion', async () => {
     localQuery.mockResolvedValueOnce([]);
     const id = versionedQuestion.id;
-    const result = await VersionedQuestion.findActiveByQuestionId('Test', context, id);
+    const result = await VersionedQuestion.findByVersionedTemplateIdAndQuestionId('Test', context, versionedQuestion.versionedTemplateId, id);
     expect(localQuery).toHaveBeenCalledTimes(1);
     expect(result).toEqual(undefined);
   });

@@ -183,7 +183,7 @@ export const resolvers: Resolvers = {
         _: Record<PropertyKey, never>,
         { templateCustomizationId }: { templateCustomizationId: number },
         context: MyContext
-      ): Promise<TemplateCustomizationOverview | null> => {
+      ): Promise<TemplateCustomization> => {
       const reference = 'removeTemplateCustomization resolver';
 
       const customization: TemplateCustomization = await getValidatedCustomization(
@@ -193,20 +193,7 @@ export const resolvers: Resolvers = {
       );
       if (!customization) throw NotFoundError();
 
-      const deleted: TemplateCustomization = await customization.delete(context);
-
-      if (!isNullOrUndefined(deleted)) {
-        const overview: TemplateCustomizationOverview = await TemplateCustomizationOverview.generateOverview(
-          reference,
-          context,
-          deleted.id
-        );
-
-        // Transfer any errors encountered during the deletion to the Overview
-        overview.errors = deleted.errors;
-        return overview;
-      }
-      return undefined;
+      return await customization.delete(context);
     }),
 
     /**

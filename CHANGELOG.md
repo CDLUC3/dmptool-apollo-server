@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added new field, `sourceVersionedTemplateId` field to `templates` table so we can track the source when cloned from a `versionedTemplates` record [#1006]
 - Added `customizableTemplates` query and `CustomizableTemplateSearchResult` to the `versionedTemplate` schema and resolver
 - Added `TemplateCustomization` model resolver and schema
 - Added `templateCustomizationService` which handles updating the status of `templateCustomizations` when the customized template is archived or republished
@@ -60,6 +61,9 @@
 - Removed deprecated `@types/bcrypt` and `uuidv4` packages
 - Removed `ioredis` package
 
+### Fixed
+- Fixed breaking cloning of template. The `addTemplate` was updated to accept a `copyFromVersionedTemplateId` so that we copy from versioned template, section and questions, when it's not a template from the user's org. Otherwise we check for `copyFromTemplateId` to copy/clone from templates, sections and questions, and if neither are present, we continue to create a new record for `templates` table [#1006]
+- Fixed issue with templates not cloning with sections and questions by updating the `addTemplate` mutation to clone from non-versioned template, section and question [#1006]
 ## v1.0
 
 ### Updated

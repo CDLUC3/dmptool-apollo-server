@@ -1675,6 +1675,7 @@ export type MutationAddTagArgs = {
 
 export type MutationAddTemplateArgs = {
   copyFromTemplateId?: InputMaybe<Scalars['Int']['input']>;
+  copyFromVersionedTemplateId?: InputMaybe<Scalars['Int']['input']>;
   name: Scalars['String']['input'];
 };
 
@@ -4231,6 +4232,8 @@ export type Template = {
   sections?: Maybe<Array<Maybe<Section>>>;
   /** The template that this one was derived from */
   sourceTemplateId?: Maybe<Scalars['Int']['output']>;
+  /** The versioned template that this one was derived from */
+  sourceVersionedTemplateId?: Maybe<Scalars['Int']['output']>;
 };
 
 /** A user that that belongs to a different affiliation that can edit the Template */
@@ -4360,6 +4363,7 @@ export type TemplateErrors = {
   ownerId?: Maybe<Scalars['String']['output']>;
   sectionIds?: Maybe<Scalars['String']['output']>;
   sourceTemplateId?: Maybe<Scalars['String']['output']>;
+  sourceVersionedTemplateId?: Maybe<Scalars['String']['output']>;
 };
 
 /** A search result for templates */
@@ -7331,6 +7335,7 @@ export type TemplateResolvers<ContextType = MyContext, ParentType extends Resolv
   owner?: Resolver<Maybe<ResolversTypes['Affiliation']>, ParentType, ContextType>;
   sections?: Resolver<Maybe<Array<Maybe<ResolversTypes['Section']>>>, ParentType, ContextType>;
   sourceTemplateId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  sourceVersionedTemplateId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
 };
 
 export type TemplateCollaboratorResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['TemplateCollaborator'] = ResolversParentTypes['TemplateCollaborator']> = {
@@ -7405,6 +7410,7 @@ export type TemplateErrorsResolvers<ContextType = MyContext, ParentType extends 
   ownerId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   sectionIds?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   sourceTemplateId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  sourceVersionedTemplateId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 };
 
 export type TemplateSearchResultResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['TemplateSearchResult'] = ResolversParentTypes['TemplateSearchResult']> = {

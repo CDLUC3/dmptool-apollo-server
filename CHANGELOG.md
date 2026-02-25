@@ -8,6 +8,7 @@
 - Added `TemplateCustomizationOverview` to the `TemplateCustomization` model which returns high level overview info about the base funder template and the customizations
 - Added `CustomQuestion`, `CustomSection`, `sectionCustomization` and `questionCustomization` models
 - Added data migration script to create seed customization records for sections and questions
+- Added new field, `sourceVersionedTemplateId` field to `templates` table so we can track the source when cloned from a `versionedTemplates` record [#1006]
 - Added `customizableTemplates` query and `CustomizableTemplateSearchResult` to the `versionedTemplate` schema and resolver
 - Added `TemplateCustomization` model resolver and schema
 - Added `templateCustomizationService` which handles updating the status of `templateCustomizations` when the customized template is archived or republished
@@ -32,6 +33,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Removed the template owner and user affiliation id filters from `getAffiliationsWithGuidanceForTemplate` so that the search returns ALL affiliations with guidance for the associated section tags [#29]
 - Updated `buildspec.yaml` to run `trivy` scans, unit tests and `npm audit`
 - Unpegged dependencies in `package.json`
 - Started updating files to use JSDoc format
@@ -64,6 +66,9 @@
 - Removed deprecated `@types/bcrypt` and `uuidv4` packages
 - Removed `ioredis` package
 
+### Fixed
+- Fixed breaking cloning of template. The `addTemplate` was updated to accept a `copyFromVersionedTemplateId` so that we copy from versioned template, section and questions, when it's not a template from the user's org. Otherwise we check for `copyFromTemplateId` to copy/clone from templates, sections and questions, and if neither are present, we continue to create a new record for `templates` table [#1006]
+- Fixed issue with templates not cloning with sections and questions by updating the `addTemplate` mutation to clone from non-versioned template, section and question [#1006]
 ## v1.0
 
 ### Updated

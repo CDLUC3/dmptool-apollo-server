@@ -40,6 +40,7 @@ interface TagRow {
   name: string 
 };
 
+
 // Check if the user has permission to access the GuidanceGroup
 export const hasPermissionOnGuidanceGroup = async (
   context: MyContext,
@@ -338,7 +339,7 @@ export async function getGuidanceSourcesForPlan(
       tagsMap = await getSectionTags(context, versionedSectionId);
       const section = await VersionedSection.findById(reference, context, versionedSectionId);
       guidanceText = section?.guidance || null; // Section-level guidance
-    } 
+    }
 
     // Get template owner info
     const versionedTemplate = await VersionedTemplate.findById(reference, context, versionedTemplateId);
@@ -422,7 +423,7 @@ export async function getGuidanceSourcesForPlan(
 
       if (userAffiliationSelection) {
         const affiliation = await Affiliation.findByURI(reference, context, userAffiliationUri);
-        
+
         if (affiliation) {
           // Fetch TAG-BASED guidance
           const tagBasedGuidance = await VersionedGuidance.findByAffiliationAndTagIds(
@@ -463,7 +464,7 @@ export async function getGuidanceSourcesForPlan(
 
       if (templateOwnerSelection) {
         const affiliation = await Affiliation.findByURI(reference, context, templateOwnerUri);
-        
+
         if (affiliation) {
           // Fetch TAG-BASED guidance
           const tagBasedGuidance = await VersionedGuidance.findByAffiliationAndTagIds(
@@ -686,7 +687,7 @@ export async function getAffiliationsWithGuidanceForTemplate(
     // ============================================================
     // 1. Check for template-specific guidance (section/question level)
     // ============================================================
-    
+
     // Get the template to find its owner
     const template = await VersionedTemplate.findById(reference, context, versionedTemplateId);
     if (!template) {
@@ -694,7 +695,6 @@ export async function getAffiliationsWithGuidanceForTemplate(
     }
 
     const templateOwnerUri = template.ownerId;
-    const userAffilitationUri = context.token?.affiliationId || null;
 
     // Check if ANY section or question in the template has guidance
     const sectionsQuery = `
@@ -705,7 +705,7 @@ export async function getAffiliationsWithGuidanceForTemplate(
         AND guidance != ''
     `;
     const sectionsResult = await Affiliation.query(context, sectionsQuery, [versionedTemplateId.toString()], reference);
-    
+
     const questionsQuery = `
       SELECT COUNT(*) as count
       FROM versionedQuestions
@@ -722,46 +722,36 @@ export async function getAffiliationsWithGuidanceForTemplate(
     }
 
     // ============================================================
-    // 2. Check if template owner and/or user affiliation have guidance matching any tags in the template
+    // 2. Get ALL affiliations with published guidance matching any tags in the template
     // ============================================================
-    
+
     // Get all section tag IDs for the template
     const sectionTagIds = await getSectionTagIds(context, versionedTemplateId);
 
     if (sectionTagIds.length > 0) {
       const tagPlaceholders = sectionTagIds.map(() => '?').join(',');
-      
+
       const sql = `
-        SELECT COUNT(*) as count
+        SELECT DISTINCT gg.affiliationId
         FROM guidanceGroups gg
         INNER JOIN versionedGuidanceGroups vgg ON vgg.guidanceGroupId = gg.id
         INNER JOIN versionedGuidance vg ON vg.versionedGuidanceGroupId = vgg.id
         INNER JOIN guidance g ON g.id = vg.guidanceId
-        WHERE gg.affiliationId = ?
-          AND vgg.active = 1
+        WHERE vgg.active = 1
           AND vg.tagId IN (${tagPlaceholders})
           AND g.guidanceText IS NOT NULL
           AND g.guidanceText != ''
       `;
 
-      // Check template owner
-      if (templateOwnerUri) {
-        const values = [templateOwnerUri, ...sectionTagIds.map(id => id.toString())];
-        const results = await Affiliation.query(context, sql, values, reference);
+      const values = sectionTagIds.map(id => id.toString());
+      const results = await Affiliation.query(context, sql, values, reference);
 
-        if (results && results[0]?.count > 0) {
-          affiliationUris.add(templateOwnerUri);
-        }
-      }
-
-      // Check user affiliation (if different from template owner)
-      if (userAffilitationUri && userAffilitationUri !== templateOwnerUri) {
-        const values = [userAffilitationUri, ...sectionTagIds.map(id => id.toString())];
-        const results = await Affiliation.query(context, sql, values, reference);
-
-        if (results && results[0]?.count > 0) {
-          affiliationUris.add(userAffilitationUri);
-        }
+      if (results) {
+        results.forEach((row: { affiliationId: string }) => {
+          if (row.affiliationId) {
+            affiliationUris.add(row.affiliationId);
+          }
+        });
       }
     }
 

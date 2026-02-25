@@ -3,6 +3,8 @@
 ## v1.1.0
 
 ### Added
+- Added check for `SHIB_PUBLIC_KEY` to app initialization
+- Added `sso` middleware to verify headers sent from the Shibboleth SP
 - Added `customizableTemplates` query and `CustomizableTemplateSearchResult` to the `versionedTemplate` schema and resolver
 - Added `TemplateCustomization` model resolver and schema
 - Added `templateCustomizationService` which handles updating the status of `templateCustomizations` when the customized template is archived or republished

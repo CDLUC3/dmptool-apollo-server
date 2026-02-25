@@ -14,9 +14,14 @@ import { verifyCriticalEnvVariable } from './utils/helpers';
 import corsConfig from './config/corsConfig';
 import { authMiddleware } from './middleware/auth';
 import { DMPHubAPI } from "./datasources/dmphubAPI";
+import { validateShibKey } from "./middleware/sso";
 
 verifyCriticalEnvVariable('NODE_ENV');
 console.log(`DMPTool Apollo server backend starting in ${process.env.NODE_ENV} mode.`)
+
+// Validate that the SHIB_PUBLIC_KEY is present and is a valid public key. Will
+// terminate the process if it is not.
+validateShibKey();
 
 // TODO: Make this configurable and pass in as ENV variable
 const PORT = 4000;

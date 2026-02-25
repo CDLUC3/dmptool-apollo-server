@@ -11,6 +11,7 @@ import { Logger } from "pino";
 import { MySQLConnection } from "./datasources/mysql";
 import { DMPHubAPI } from "./datasources/dmphubAPI";
 import { KeyvAdapter } from "@apollo/utils.keyvadapter";
+import {verifyShibbolethHeaders} from "./middleware/sso";
 
 const router = express.Router();
 
@@ -73,18 +74,13 @@ export function setupRouter(
 
   // SSO Passthrough to Shibboleth SP
   router.get('/sso',
-    // TODO: Determine what middleware hooks we want
-
     // csrfMiddleware,
-    // authMiddleware,
     async (req: Request, res: Response): Promise<void> => await ssoPassthruController(req, res)
   );
 
   // SSO Callback from Shibboleth SP
   router.get('/sso/callback/:id',
-    // TODO: Determine what middleware hooks we want
-
-    // authMiddleware
+    verifyShibbolethHeaders,
     async (req: Request, res: Response): Promise<void> => await ssoCallbackController(req, res)
   );
 

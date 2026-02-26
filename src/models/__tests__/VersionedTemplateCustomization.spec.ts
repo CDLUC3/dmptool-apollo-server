@@ -151,6 +151,7 @@ describe('VersionedTemplateCustomization', () => {
 
       jest.spyOn(instance, 'isValid').mockResolvedValue(true);
       jest.spyOn(VersionedTemplateCustomization, 'findByCustomizationAndTemplate').mockResolvedValue(existingVersion);
+      jest.spyOn(VersionedTemplateCustomization, 'insert').mockResolvedValue(null);
 
       await instance.create(mockContext);
 

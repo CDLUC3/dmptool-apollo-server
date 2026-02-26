@@ -3,6 +3,11 @@
 ## v1.1.0
 
 ### Added
+- Added `SectionCustomization` and `QuestionCustomization` schemas and resolvers
+- Added a new `authenticatedResolver` wrapper function to help handle common authorization checks on a resolver
+- Added `TemplateCustomizationOverview` to the `TemplateCustomization` model which returns high level overview info about the base funder template and the customizations
+- Added `CustomQuestion`, `CustomSection`, `sectionCustomization` and `questionCustomization` models
+- Added data migration script to create seed customization records for sections and questions
 - Added new field, `sourceVersionedTemplateId` field to `templates` table so we can track the source when cloned from a `versionedTemplates` record [#1006]
 - Added `customizableTemplates` query and `CustomizableTemplateSearchResult` to the `versionedTemplate` schema and resolver
 - Added `TemplateCustomization` model resolver and schema

@@ -2,21 +2,21 @@ import gql from "graphql-tag";
 
 export const typeDefs = gql`
   extend type Query {
-    "Get the specified customization (user must be an Admin)"
-    templateCustomization(templateCustomizationId: Int!): TemplateCustomization
+    "Get the overview of the template customization (user must be an Admin)"
+    templateCustomizationOverview(templateCustomizationId: Int!): TemplateCustomizationOverview
   }
 
   extend type Mutation {
     "Add a new customization to a funder template (user must be an Admin)"
-    addTemplateCustomization(input: AddTemplateCustomizationInput!): TemplateCustomization!
+    addTemplateCustomization(input: AddTemplateCustomizationInput!): TemplateCustomizationOverview!
     "Update a customization (user must be an Admin)"
-    updateTemplateCustomization(input: UpdateTemplateCustomizationInput!): TemplateCustomization!
+    updateTemplateCustomization(input: UpdateTemplateCustomizationInput!): TemplateCustomizationOverview!
     "Remove a customization (user must be an Admin)"
     removeTemplateCustomization(templateCustomizationId: Int!): TemplateCustomization!
     "Publish a customization (user must be an Admin)"
-    publishTemplateCustomization(templateCustomizationId: Int!): TemplateCustomization!
+    publishTemplateCustomization(templateCustomizationId: Int!): TemplateCustomizationOverview!
     "Unpublish a customization (user must be an Admin)"
-    unpublishTemplateCustomization(templateCustomizationId: Int!): TemplateCustomization!
+    unpublishTemplateCustomization(templateCustomizationId: Int!): TemplateCustomizationOverview!
   }
 
   "The status of a Template Customization"
@@ -39,6 +39,14 @@ export const typeDefs = gql`
     ORPHANED
   }
 
+  "Whether the object is pinned to an object on the base template or a custom object"
+  enum CustomizableObjectOwnership {
+    "A Section/Question managed by the funder"
+    BASE
+    "A Section/Question managed by the affiliation that owns the customization"
+    CUSTOM
+  }
+
   "A Customization of a funder template"
   type TemplateCustomization {
     "The unique identifier for the Object"
@@ -52,7 +60,7 @@ export const typeDefs = gql`
     "The timestamp when the Object was last modifed"
     modified: String
     "Errors associated with the Object"
-    errors: TemplateErrors
+    errors: TemplateCustomizationErrors
 
     "The affiliation that the customization belongs to"
     affiliationId: String!
@@ -68,16 +76,89 @@ export const typeDefs = gql`
     isDirty: Boolean!
   }
 
+  "A collection of errors related to the Template Customization"
+  type TemplateCustomizationErrors {
+    "General error messages such as the object already exists"
+    general: String
+
+    affiliationId: String
+    templateId: String
+    currentVersionedTemplateId: String
+  }
+
+  "An overview of a Template Customization"
+  type TemplateCustomizationOverview {
+    versionedTemplateId: Int!
+    versionedTemplateAffiliationId: String!
+    versionedTemplateAffiliationName: String!
+    versionedTemplateName: String!
+    versionedTemplateDescription: String
+    versionedTemplateVersion: String!
+    versionedTemplateLastModified: String!
+
+    customizationId: Int!
+    customizationIsDirty: Boolean!
+    customizationStatus: TemplateCustomizationStatus!
+    customizationMigrationStatus: TemplateCustomizationMigrationStatus!
+    customizationLastCustomizedById: Int
+    customizationLastCustomizedByName: String
+    customizationLastCustomized: String
+
+    sections: [SectionCustomizationOverview!]
+
+    errors: TemplateCustomizationErrors
+  }
+
+  "An overview of a Section Customization"
+  type SectionCustomizationOverview {
+    "Whether the section belongs to a base funder template or to the customizing affiliation"
+    sectionType: CustomizableObjectOwnership!
+    "The unique identifier for the Section"
+    id: Int!
+    "The section title"
+    name: String!
+    "The order of the section within the template"
+    displayOrder: Int!
+    "The status of the customization with regard to the base template (if applicable)"
+    migrationStatus: TemplateCustomizationMigrationStatus
+    "Whether the question has custom guidance (only applicable to base funder questions)"
+    hasCustomGuidance: Boolean
+
+    "The questions associated with this section"
+    questions: [QuestionCustomizationOverview!]
+  }
+
+  "An overview of a Question Customization"
+  type QuestionCustomizationOverview {
+    "Whether the question belongs to a base funder template or to the customizing affiliation"
+    questionType: CustomizableObjectOwnership!
+    "The unique identifier for the Question"
+    id: Int!
+    "The question text"
+    questionText: String!
+    "The position of the question within the section"
+    displayOrder: Int!
+    "The status of the customization with regard to the base template (if applicable)"
+    migrationStatus: TemplateCustomizationMigrationStatus
+    "Whether the question has custom guidance (only applicable to base funder questions)"
+    hasCustomGuidance: Boolean
+    "Whether the question has a custom sample answer (only applicable to base funder questions)"
+    hasCustomSampleAnswer: Boolean
+  }
+
   "Input parameters for adding a new Template Customization"
   input AddTemplateCustomizationInput {
+    "The id of the published funder template"
     versionedTemplateId: Int!
+    "The status of the customization. Defaults to DRAFT if not specified"
     status: TemplateCustomizationStatus!
   }
 
   "Input parameters for updating a Template Customization"
   input UpdateTemplateCustomizationInput {
+    "The id of the published funder template"
     templateCustomizationId: Int!
-    versionedTemplateId: Int!
+    "The status of the customization"
     status: TemplateCustomizationStatus
   }
 `;

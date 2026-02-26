@@ -95,7 +95,7 @@
     "nock": "13.5.6",
     "nodemon": "3.1.10",
     "supertest": "7.1.4",
-    "ts-jest": "29.4.5",
+    "ts-jest": "29.4.6",
     "ts-node-dev": "2.0.0",
     "typescript": "5.9.2",
     "typescript-eslint": "7.18.0"

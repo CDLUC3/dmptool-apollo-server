@@ -47,32 +47,23 @@ create_database() {
     CHARACTER SET utf8mb4
     COLLATE utf8mb4_0900_ai_ci;"
 
+  # If we are running locally, the MySQL cert will exist in /etc
+  if [ -f "/etc/mysql-cert.pem" ]; then
+    CREATE_ARGS="${MYSQL_ARGS} --ssl-ca=/etc/mysql-cert.pem --ssl-verify-server-cert=OFF"
+  fi
+
   echo "Creating database, ${1}, if it does not already exist ..."
   if [ "${1}" == "${MYSQL_DATABASE}" ]; then
-    mariadb ${MYSQL_ARGS} <<< ${CREATE_DATABASE}
+    mariadb ${CREATE_ARGS} <<< ${CREATE_DATABASE}
   else
-    mariadb ${MYSQL_TEST_ARGS} <<< ${CREATE_DATABASE}
-  fi
-}
-
-init_migrations_table() {
-  # Create the dataMigrations table if it doesn't exist
-  CREATE_MIGRATIONS_TABLE="CREATE TABLE IF NOT EXISTS dataMigrations (
-      migrationFile varchar(255) NOT NULL,
-      created timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      CONSTRAINT unique_migration_file UNIQUE (migrationFile)
-    ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4;"
-
-  echo "Creating the dataMigrations table if it does not already exist..."
-  if [ "${1}" == "${MYSQL_DATABASE}" ]; then
-    mariadb ${MYSQL_ARGS} ${1} <<< ${CREATE_MIGRATIONS_TABLE}
-  else
-    mariadb ${MYSQL_TEST_ARGS} ${1} <<< ${CREATE_MIGRATIONS_TABLE}
+    mariadb ${CREATE_ARGS} <<< ${CREATE_DATABASE}
   fi
 }
 
 process_migration() {
-  # See if the migration was already processed
+  # See if the migration was already processed, this will report an ERROR when
+  # first creating the database. This is expected. The first SQL migration script
+  # creates the table we are checking.
   echo "Checking to see if $2 has been run ..."
   if [ "${1}" == "${MYSQL_DATABASE}" ]; then
     MIGRATION_ARGS=${MYSQL_ARGS}
@@ -117,7 +108,6 @@ MIGRATIONS_RUN=()
 # Create the database if it does not exist
 echo "Making sure the DB exists"
 create_database $MYSQL_DATABASE
-init_migrations_table $MYSQL_DATABASE
 
 # If RUN_LOCALS is true then also process any files in locals-only dir
 if [ "${RUN_LOCALS:-0}" -eq 1 ]; then

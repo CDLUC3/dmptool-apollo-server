@@ -63,7 +63,8 @@ interface FetchTemplateResult {
   versionedTemplateId: number;
   versionedTemplateAffiliationId: string;
   versionedTemplateAffiliationName: string;
-  versionedTemplateName: string;
+  versionedTemplateName?: string;
+  versionedTemplateDescription: string;
   versionedTemplateVersion: string;
   versionedTemplateLastModified: string;
 
@@ -71,9 +72,9 @@ interface FetchTemplateResult {
   customizationIsDirty: boolean;
   customizationStatus: TemplateCustomizationStatus;
   customizationMigrationStatus: TemplateCustomizationMigrationStatus;
-  customizationLastCustomizedById: number;
-  customizationLastCustomized: string;
-  customizationLastCustomizedByName: string;
+  customizationLastCustomizedById?: number;
+  customizationLastCustomized?: string;
+  customizationLastCustomizedByName?: string;
 
   versionedSectionId: number;
   versionedSectionName: string;
@@ -125,6 +126,7 @@ export class TemplateCustomizationOverview {
   public versionedTemplateAffiliationId: string;
   public versionedTemplateAffiliationName: string;
   public versionedTemplateName: string;
+  public versionedTemplateDescription?: string;
   public versionedTemplateVersion: string;
   public versionedTemplateLastModified: string;
 
@@ -133,9 +135,9 @@ export class TemplateCustomizationOverview {
   public customizationIsDirty: boolean;
   public customizationStatus: TemplateCustomizationStatus;
   public customizationMigrationStatus: TemplateCustomizationMigrationStatus;
-  public customizationLastCustomizedById: number;
-  public customizationLastCustomizedByName: string;
-  public customizationLastCustomized: string;
+  public customizationLastCustomizedById?: number;
+  public customizationLastCustomizedByName?: string;
+  public customizationLastCustomized?: string;
 
   public sections: TemplateCustomizationSectionOverview[];
   public errors: Record<string, string> = {};
@@ -145,6 +147,7 @@ export class TemplateCustomizationOverview {
     this.versionedTemplateAffiliationId = options.versionedTemplateAffiliationId;
     this.versionedTemplateAffiliationName = options.versionedTemplateAffiliationName;
     this.versionedTemplateName = options.versionedTemplateName;
+    this.versionedTemplateDescription = options.versionedTemplateDescription;
     this.versionedTemplateVersion = options.versionedTemplateVersion;
     this.versionedTemplateLastModified = options.versionedTemplateLastModified;
 
@@ -195,6 +198,7 @@ export class TemplateCustomizationOverview {
       versionedTemplateAffiliationId: first.versionedTemplateAffiliationId,
       versionedTemplateAffiliationName: first.versionedTemplateAffiliationName,
       versionedTemplateName: first.versionedTemplateName,
+      versionedTemplateDescription: first.versionedTemplateDescription,
       versionedTemplateVersion: first.versionedTemplateVersion,
       versionedTemplateLastModified: first.versionedTemplateLastModified,
       customizationId: first.customizationId,
@@ -389,8 +393,8 @@ export class TemplateCustomizationOverview {
       SELECT
         vt.id AS versionedTemplateId,
         a.uri AS versionedTemplateAffiliationId, a.name AS versionedTemplateAffiliationName,
-        vt.name AS versionedTemplateName, vt.version AS versionedTemplateVersion,
-        vt.modified AS versionedTemplateLastModified,
+        vt.name AS versionedTemplateName, vt.description AS versionedTemplateDescription,
+        vt.version AS versionedTemplateVersion, vt.modified AS versionedTemplateLastModified,
 
         tc.id customizationId, tc.isDirty AS customizationIsDirty,
         tc.status AS customizationStatus, tc.migrationStatus AS customizationMigrationStatus,

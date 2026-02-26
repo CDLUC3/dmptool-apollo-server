@@ -4334,6 +4334,7 @@ export type TemplateCustomizationOverview = {
   sections?: Maybe<Array<SectionCustomizationOverview>>;
   versionedTemplateAffiliationId: Scalars['String']['output'];
   versionedTemplateAffiliationName: Scalars['String']['output'];
+  versionedTemplateDescription?: Maybe<Scalars['String']['output']>;
   versionedTemplateId: Scalars['Int']['output'];
   versionedTemplateLastModified: Scalars['String']['output'];
   versionedTemplateName: Scalars['String']['output'];
@@ -7393,6 +7394,7 @@ export type TemplateCustomizationOverviewResolvers<ContextType = MyContext, Pare
   sections?: Resolver<Maybe<Array<ResolversTypes['SectionCustomizationOverview']>>, ParentType, ContextType>;
   versionedTemplateAffiliationId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   versionedTemplateAffiliationName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  versionedTemplateDescription?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   versionedTemplateId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   versionedTemplateLastModified?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   versionedTemplateName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;

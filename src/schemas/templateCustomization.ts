@@ -92,6 +92,7 @@ export const typeDefs = gql`
     versionedTemplateAffiliationId: String!
     versionedTemplateAffiliationName: String!
     versionedTemplateName: String!
+    versionedTemplateDescription: String
     versionedTemplateVersion: String!
     versionedTemplateLastModified: String!
 

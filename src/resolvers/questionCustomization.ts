@@ -22,6 +22,8 @@ import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
 import { UserRole } from "../models/User";
 import { PinnedSectionTypeEnum } from "../models/CustomSection";
 import { VersionedQuestion } from "../models/VersionedQuestion";
+import {VersionedSection} from "../models/VersionedSection";
+import {SectionCustomization} from "../models/SectionCustomization";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -43,17 +45,24 @@ export const resolvers: Resolvers = {
       UserRole.ADMIN,
       async (
         _: Record<PropertyKey, never>,
-        { questionCustomizationId }: { questionCustomizationId: number },
+        { templateCustomizationId, versionedQuestionId }: { templateCustomizationId: number, versionedQuestionId: number },
         context: MyContext
       ): Promise<QuestionCustomization> => {
         const ref = 'questionCustomization resolver';
 
-        const customization: QuestionCustomization = await QuestionCustomization.findById(
+        const versionedQuestion: VersionedQuestion = await VersionedQuestion.findById(
           ref,
           context,
-          questionCustomizationId
+          versionedQuestionId
         );
-        if (!customization) throw NotFoundError();
+        if (!versionedQuestion) throw NotFoundError();
+
+        const customization: QuestionCustomization = await QuestionCustomization.findByCustomizationAndQuestion(
+          ref,
+          context,
+          templateCustomizationId,
+          versionedQuestion.questionId
+        );
 
         // Find the parent template customization and verify the user has access.
         // This will throw a forbidden error if they do not.

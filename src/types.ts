@@ -3396,7 +3396,8 @@ export type QueryQuestionConditionsArgs = {
 
 
 export type QueryQuestionCustomizationArgs = {
-  questionCustomizationId: Scalars['Int']['input'];
+  templateCustomizationId: Scalars['Int']['input'];
+  versionedQuestionId: Scalars['Int']['input'];
 };
 
 
@@ -3464,7 +3465,8 @@ export type QuerySectionArgs = {
 
 
 export type QuerySectionCustomizationArgs = {
-  sectionCustomizationId: Scalars['Int']['input'];
+  templateCustomizationId: Scalars['Int']['input'];
+  versionedSectionId: Scalars['Int']['input'];
 };
 
 
@@ -6959,7 +6961,7 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   publishedTemplatesMetaData?: Resolver<Maybe<ResolversTypes['PublishedTemplateMetaDataResults']>, ParentType, ContextType, Partial<QueryPublishedTemplatesMetaDataArgs>>;
   question?: Resolver<Maybe<ResolversTypes['Question']>, ParentType, ContextType, RequireFields<QueryQuestionArgs, 'questionId'>>;
   questionConditions?: Resolver<Maybe<Array<Maybe<ResolversTypes['QuestionCondition']>>>, ParentType, ContextType, RequireFields<QueryQuestionConditionsArgs, 'questionId'>>;
-  questionCustomization?: Resolver<Maybe<ResolversTypes['QuestionCustomization']>, ParentType, ContextType, RequireFields<QueryQuestionCustomizationArgs, 'questionCustomizationId'>>;
+  questionCustomization?: Resolver<Maybe<ResolversTypes['QuestionCustomization']>, ParentType, ContextType, RequireFields<QueryQuestionCustomizationArgs, 'templateCustomizationId' | 'versionedQuestionId'>>;
   questions?: Resolver<Maybe<Array<Maybe<ResolversTypes['Question']>>>, ParentType, ContextType, RequireFields<QueryQuestionsArgs, 'sectionId'>>;
   recommendedLicenses?: Resolver<Maybe<Array<Maybe<ResolversTypes['License']>>>, ParentType, ContextType, RequireFields<QueryRecommendedLicensesArgs, 'recommended'>>;
   relatedWorks?: Resolver<Maybe<ResolversTypes['RelatedWorkSearchResults']>, ParentType, ContextType, RequireFields<QueryRelatedWorksArgs, 'id' | 'idType'>>;
@@ -6973,7 +6975,7 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   researchOutputTypeByName?: Resolver<Maybe<ResolversTypes['ResearchOutputType']>, ParentType, ContextType, RequireFields<QueryResearchOutputTypeByNameArgs, 'name'>>;
   searchExternalProjects?: Resolver<Maybe<Array<Maybe<ResolversTypes['ExternalProject']>>>, ParentType, ContextType, RequireFields<QuerySearchExternalProjectsArgs, 'input'>>;
   section?: Resolver<Maybe<ResolversTypes['Section']>, ParentType, ContextType, RequireFields<QuerySectionArgs, 'sectionId'>>;
-  sectionCustomization?: Resolver<Maybe<ResolversTypes['SectionCustomization']>, ParentType, ContextType, RequireFields<QuerySectionCustomizationArgs, 'sectionCustomizationId'>>;
+  sectionCustomization?: Resolver<Maybe<ResolversTypes['SectionCustomization']>, ParentType, ContextType, RequireFields<QuerySectionCustomizationArgs, 'templateCustomizationId' | 'versionedSectionId'>>;
   sectionVersions?: Resolver<Maybe<Array<Maybe<ResolversTypes['VersionedSection']>>>, ParentType, ContextType, RequireFields<QuerySectionVersionsArgs, 'sectionId'>>;
   sections?: Resolver<Maybe<Array<Maybe<ResolversTypes['Section']>>>, ParentType, ContextType, RequireFields<QuerySectionsArgs, 'templateId'>>;
   tags?: Resolver<Array<ResolversTypes['Tag']>, ParentType, ContextType>;

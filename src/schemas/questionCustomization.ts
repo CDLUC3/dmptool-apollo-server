@@ -3,7 +3,7 @@ import gql from "graphql-tag";
 export const typeDefs = gql`
   extend type Query {
     "Get the custom guidance and sample text the affiliation has added to a funder question question (user must be an Admin)"
-    questionCustomization(questionCustomizationId: Int!): QuestionCustomization
+    questionCustomization(templateCustomizationId: Int!, versionedQuestionId: Int!): QuestionCustomization
     "Get the custom question the affiliation has added to a funder section or custom section (user must be an Admin)"
     customQuestion(customQuestionId: Int!): CustomQuestion
   }

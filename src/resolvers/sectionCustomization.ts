@@ -43,15 +43,23 @@ export const resolvers: Resolvers = {
       UserRole.ADMIN,
       async (
         _: Record<PropertyKey, never>,
-        { sectionCustomizationId }: { sectionCustomizationId: number },
+        { templateCustomizationId, versionedSectionId }: { templateCustomizationId: number, versionedSectionId: number },
         context: MyContext
       ): Promise<SectionCustomization> => {
       const ref = 'sectionCustomization resolver';
 
-      const customization: SectionCustomization = await SectionCustomization.findById(
+      const versionedSection: VersionedSection = await VersionedSection.findById(
         ref,
         context,
-        sectionCustomizationId
+        versionedSectionId
+      );
+      if (!versionedSection) throw NotFoundError();
+
+      const customization: SectionCustomization = await SectionCustomization.findByCustomizationAndSection(
+        ref,
+        context,
+        templateCustomizationId,
+        versionedSection.sectionId
       );
       if (!customization) throw NotFoundError();
 

@@ -4332,6 +4332,7 @@ export type TemplateCustomizationOverview = {
   customizationLastCustomized?: Maybe<Scalars['String']['output']>;
   customizationLastCustomizedById?: Maybe<Scalars['Int']['output']>;
   customizationLastCustomizedByName?: Maybe<Scalars['String']['output']>;
+  customizationLastPublishedDate?: Maybe<Scalars['String']['output']>;
   customizationMigrationStatus: TemplateCustomizationMigrationStatus;
   customizationStatus: TemplateCustomizationStatus;
   errors?: Maybe<TemplateCustomizationErrors>;
@@ -7394,6 +7395,7 @@ export type TemplateCustomizationOverviewResolvers<ContextType = MyContext, Pare
   customizationLastCustomized?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   customizationLastCustomizedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   customizationLastCustomizedByName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  customizationLastPublishedDate?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   customizationMigrationStatus?: Resolver<ResolversTypes['TemplateCustomizationMigrationStatus'], ParentType, ContextType>;
   customizationStatus?: Resolver<ResolversTypes['TemplateCustomizationStatus'], ParentType, ContextType>;
   errors?: Resolver<Maybe<ResolversTypes['TemplateCustomizationErrors']>, ParentType, ContextType>;

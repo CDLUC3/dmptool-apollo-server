@@ -1,7 +1,7 @@
 import { MySqlModel } from "./MySqlModel";
 import { VersionedTemplateCustomization } from "./VersionedTemplateCustomization";
 import { MyContext } from "../context";
-import { isNullOrUndefined } from "../utils/helpers";
+import { isNullOrUndefined, valueIsEmpty } from "../utils/helpers";
 import { PinnedSectionTypeEnum } from "./CustomSection";
 import { PinnedQuestionTypeEnum } from "./CustomQuestion";
 
@@ -103,6 +103,7 @@ interface FetchCustomSectionResult {
   customSectionName: string;
   customSectionPinType: PinnedSectionTypeEnum;
   customSectionPinId: number | null;
+  guidance?: string;
 }
 
 /**
@@ -116,6 +117,8 @@ interface FetchCustomQuestionResult {
   customQuestionSectionId: number;
   customQuestionPinType: PinnedQuestionTypeEnum;
   customQuestionPinId: number | null;
+  guidanceText?: string;
+  sampleText?: string;
 }
 
 /**
@@ -225,7 +228,7 @@ export class TemplateCustomizationOverview {
           id: row.versionedSectionId,
           sectionCustomizationId: row.sectionCustomizationId,
           migrationStatus: row.sectionCustomizationMigrationStatus,
-          hasCustomGuidance: !!row.sectionCustomizationHasGuidanceText,
+          hasCustomGuidance: !valueIsEmpty(row.sectionCustomizationHasGuidanceText),
           name: row.versionedSectionName,
           displayOrder: row.versionedSectionDisplayOrder,
           questions: []
@@ -240,8 +243,8 @@ export class TemplateCustomizationOverview {
           id: row.versionedQuestionId,
           questionCustomizationId: row.questionCustomizationId,
           migrationStatus: row.questionCustomizationMigrationStatus,
-          hasCustomGuidance: !!row.questionCustomizationHasGuidanceText,
-          hasCustomSampleAnswer: !!row.questionCustomizationHasSampleText,
+          hasCustomGuidance: !valueIsEmpty(row.questionCustomizationHasGuidanceText),
+          hasCustomSampleAnswer: !valueIsEmpty(row.questionCustomizationHasSampleText),
           displayOrder: row.versionedQuestionDisplayOrder,
           questionText: row.versionedQuestionText,
         });
@@ -284,13 +287,19 @@ export class TemplateCustomizationOverview {
     customRows.sort((a, b) => (a.customSectionId ?? 0) - (b.customSectionId ?? 0));
 
     for (const row of customRows) {
+
+if (row.customSectionId === 2) {
+  console.log(row);
+  console.log('hasGuidance?', !valueIsEmpty(row.guidance))
+}
+
       const newSection: TemplateCustomizationSectionOverview = {
         sectionType: PinnedSectionTypeEnum.CUSTOM,
         id: row.customSectionId,
         migrationStatus: row.customSectionMigrationStatus,
         name: row.customSectionName,
         displayOrder: 0, // Custom sections usually don't have a base display order
-        hasCustomGuidance: false,
+        hasCustomGuidance: !valueIsEmpty(row.guidance),
         questions: []
       };
 
@@ -342,8 +351,8 @@ export class TemplateCustomizationOverview {
         migrationStatus: row.customQuestionMigrationStatus,
         questionText: row.customQuestionText,
         displayOrder: 0,
-        hasCustomGuidance: false,
-        hasCustomSampleAnswer: false
+        hasCustomGuidance: !valueIsEmpty(row.guidanceText),
+        hasCustomSampleAnswer: !valueIsEmpty(row.sampleText),
       };
 
       // If the section is not found, log an error and tack it onto the last section
@@ -459,7 +468,7 @@ export class TemplateCustomizationOverview {
         cs.id AS customSectionId, cs.migrationStatus AS customSectionMigrationStatus,
         cs.name AS customSectionName,
         cs.pinnedSectionType AS customSectionPinType,
-        cs.pinnedSectionId AS customSectionPinId
+        cs.pinnedSectionId AS customSectionPinId, cs.guidance
       FROM customSections AS cs
       WHERE cs.templateCustomizationId = ?
       ORDER BY cs.pinnedSectionType ASC, cs.pinnedSectionId ASC;
@@ -492,7 +501,7 @@ export class TemplateCustomizationOverview {
         cq.questionText AS customQuestionText,
         cq.sectionType AS customQuestionSectionType, cq.sectionId AS customQuestionSectionId,
         cq.pinnedQuestionType AS customQuestionPinType,
-        cq.pinnedQuestionId AS customQuestionPinId
+        cq.pinnedQuestionId AS customQuestionPinId, cq.guidanceText, cq.sampleText
       FROM templateCustomizations AS tc
         JOIN customQuestions AS cq ON tc.id = cq.templateCustomizationId
       WHERE tc.id = ?

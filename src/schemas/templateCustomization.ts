@@ -98,6 +98,7 @@ export const typeDefs = gql`
 
     customizationId: Int!
     customizationIsDirty: Boolean!
+    customizationLastPublishedDate: String
     customizationStatus: TemplateCustomizationStatus!
     customizationMigrationStatus: TemplateCustomizationMigrationStatus!
     customizationLastCustomizedById: Int
@@ -113,8 +114,10 @@ export const typeDefs = gql`
   type SectionCustomizationOverview {
     "Whether the section belongs to a base funder template or to the customizing affiliation"
     sectionType: CustomizableObjectOwnership!
-    "The unique identifier for the Section"
+    "The unique identifier for the Section (either a CustomSection or VersionedSection for funder)"
     id: Int!
+    "The id of the section customization (customized guidance for the funder section)"
+    sectionCustomizationId: Int
     "The section title"
     name: String!
     "The order of the section within the template"
@@ -132,8 +135,10 @@ export const typeDefs = gql`
   type QuestionCustomizationOverview {
     "Whether the question belongs to a base funder template or to the customizing affiliation"
     questionType: CustomizableObjectOwnership!
-    "The unique identifier for the Question"
+    "The unique identifier for the Question (either a CustomQuestion or VersionedQuestion for funder)"
     id: Int!
+    "The id of the question customization (customized guidance and sample text for the funder question)"
+    questionCustomizationId: Int
     "The question text"
     questionText: String!
     "The position of the question within the section"

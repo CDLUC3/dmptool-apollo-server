@@ -1,7 +1,11 @@
 import { MySqlModel } from "./MySqlModel";
 import { VersionedTemplateCustomization } from "./VersionedTemplateCustomization";
 import { MyContext } from "../context";
-import { isNullOrUndefined } from "../utils/helpers";
+import {
+  isNullOrUndefined,
+  normaliseDateTime,
+  valueIsEmpty
+} from "../utils/helpers";
 import { PinnedSectionTypeEnum } from "./CustomSection";
 import { PinnedQuestionTypeEnum } from "./CustomQuestion";
 
@@ -35,6 +39,7 @@ export enum TemplateCustomizationMigrationStatus {
 export interface TemplateCustomizationQuestionOverview {
   questionType: PinnedQuestionTypeEnum;
   id: number;
+  questionCustomizationId?: number;
   migrationStatus: TemplateCustomizationMigrationStatus;
   questionText: string;
   displayOrder: number;
@@ -48,6 +53,7 @@ export interface TemplateCustomizationQuestionOverview {
 export interface TemplateCustomizationSectionOverview {
   sectionType: PinnedSectionTypeEnum;
   id: number;
+  sectionCustomizationId?: number;
   migrationStatus: TemplateCustomizationMigrationStatus;
   name: string;
   displayOrder: number;
@@ -70,6 +76,7 @@ interface FetchTemplateResult {
 
   customizationId: number;
   customizationIsDirty: boolean;
+  customizationLastPublishedDate?: string;
   customizationStatus: TemplateCustomizationStatus;
   customizationMigrationStatus: TemplateCustomizationMigrationStatus;
   customizationLastCustomizedById?: number;
@@ -101,6 +108,7 @@ interface FetchCustomSectionResult {
   customSectionName: string;
   customSectionPinType: PinnedSectionTypeEnum;
   customSectionPinId: number | null;
+  guidance?: string;
 }
 
 /**
@@ -114,6 +122,8 @@ interface FetchCustomQuestionResult {
   customQuestionSectionId: number;
   customQuestionPinType: PinnedQuestionTypeEnum;
   customQuestionPinId: number | null;
+  guidanceText?: string;
+  sampleText?: string;
 }
 
 /**
@@ -133,6 +143,7 @@ export class TemplateCustomizationOverview {
   // Information about the customization
   public customizationId: number;
   public customizationIsDirty: boolean;
+  public customizationLastPublishedDate?: string;
   public customizationStatus: TemplateCustomizationStatus;
   public customizationMigrationStatus: TemplateCustomizationMigrationStatus;
   public customizationLastCustomizedById?: number;
@@ -153,6 +164,7 @@ export class TemplateCustomizationOverview {
 
     this.customizationId = options.customizationId;
     this.customizationIsDirty = options.customizationIsDirty;
+    this.customizationLastPublishedDate = options.customizationLastPublishedDate;
     this.customizationStatus = options.customizationStatus;
     this.customizationMigrationStatus = options.customizationMigrationStatus;
     this.customizationLastCustomizedById = options.customizationLastCustomizedById;
@@ -200,14 +212,15 @@ export class TemplateCustomizationOverview {
       versionedTemplateName: first.versionedTemplateName,
       versionedTemplateDescription: first.versionedTemplateDescription,
       versionedTemplateVersion: first.versionedTemplateVersion,
-      versionedTemplateLastModified: first.versionedTemplateLastModified,
+      versionedTemplateLastModified: normaliseDateTime(first.versionedTemplateLastModified),
       customizationId: first.customizationId,
       customizationIsDirty: first.customizationIsDirty,
+      customizationLastPublishedDate: normaliseDateTime(first.customizationLastPublishedDate),
       customizationStatus: first.customizationStatus,
       customizationMigrationStatus: first.customizationMigrationStatus,
       customizationLastCustomizedById: first.customizationLastCustomizedById,
       customizationLastCustomizedByName: first.customizationLastCustomizedByName,
-      customizationLastCustomized: first.customizationLastCustomized,
+      customizationLastCustomized: normaliseDateTime(first.customizationLastCustomized),
       sections: [],
     });
 
@@ -221,8 +234,9 @@ export class TemplateCustomizationOverview {
         section = {
           sectionType: PinnedSectionTypeEnum.BASE,
           id: row.versionedSectionId,
+          sectionCustomizationId: row.sectionCustomizationId,
           migrationStatus: row.sectionCustomizationMigrationStatus,
-          hasCustomGuidance: !!row.sectionCustomizationHasGuidanceText,
+          hasCustomGuidance: !valueIsEmpty(row.sectionCustomizationHasGuidanceText),
           name: row.versionedSectionName,
           displayOrder: row.versionedSectionDisplayOrder,
           questions: []
@@ -235,9 +249,10 @@ export class TemplateCustomizationOverview {
         section.questions.push({
           questionType: PinnedQuestionTypeEnum.BASE,
           id: row.versionedQuestionId,
+          questionCustomizationId: row.questionCustomizationId,
           migrationStatus: row.questionCustomizationMigrationStatus,
-          hasCustomGuidance: !!row.questionCustomizationHasGuidanceText,
-          hasCustomSampleAnswer: !!row.questionCustomizationHasSampleText,
+          hasCustomGuidance: !valueIsEmpty(row.questionCustomizationHasGuidanceText),
+          hasCustomSampleAnswer: !valueIsEmpty(row.questionCustomizationHasSampleText),
           displayOrder: row.versionedQuestionDisplayOrder,
           questionText: row.versionedQuestionText,
         });
@@ -286,7 +301,7 @@ export class TemplateCustomizationOverview {
         migrationStatus: row.customSectionMigrationStatus,
         name: row.customSectionName,
         displayOrder: 0, // Custom sections usually don't have a base display order
-        hasCustomGuidance: false,
+        hasCustomGuidance: !valueIsEmpty(row.guidance),
         questions: []
       };
 
@@ -338,8 +353,8 @@ export class TemplateCustomizationOverview {
         migrationStatus: row.customQuestionMigrationStatus,
         questionText: row.customQuestionText,
         displayOrder: 0,
-        hasCustomGuidance: false,
-        hasCustomSampleAnswer: false
+        hasCustomGuidance: !valueIsEmpty(row.guidanceText),
+        hasCustomSampleAnswer: !valueIsEmpty(row.sampleText),
       };
 
       // If the section is not found, log an error and tack it onto the last section
@@ -397,6 +412,7 @@ export class TemplateCustomizationOverview {
         vt.version AS versionedTemplateVersion, vt.modified AS versionedTemplateLastModified,
 
         tc.id customizationId, tc.isDirty AS customizationIsDirty,
+        tc.latestPublishedDate AS customizationLastPublishedDate,
         tc.status AS customizationStatus, tc.migrationStatus AS customizationMigrationStatus,
         tc.modifiedById AS customizationLastCustomizedById, tc.modified AS customizationLastCustomized,
         CONCAT(u.givenName, ' ', u.surname) AS customizationLastCustomizedByName,
@@ -455,7 +471,7 @@ export class TemplateCustomizationOverview {
         cs.id AS customSectionId, cs.migrationStatus AS customSectionMigrationStatus,
         cs.name AS customSectionName,
         cs.pinnedSectionType AS customSectionPinType,
-        cs.pinnedSectionId AS customSectionPinId
+        cs.pinnedSectionId AS customSectionPinId, cs.guidance
       FROM customSections AS cs
       WHERE cs.templateCustomizationId = ?
       ORDER BY cs.pinnedSectionType ASC, cs.pinnedSectionId ASC;
@@ -488,7 +504,7 @@ export class TemplateCustomizationOverview {
         cq.questionText AS customQuestionText,
         cq.sectionType AS customQuestionSectionType, cq.sectionId AS customQuestionSectionId,
         cq.pinnedQuestionType AS customQuestionPinType,
-        cq.pinnedQuestionId AS customQuestionPinId
+        cq.pinnedQuestionId AS customQuestionPinId, cq.guidanceText, cq.sampleText
       FROM templateCustomizations AS tc
         JOIN customQuestions AS cq ON tc.id = cq.templateCustomizationId
       WHERE tc.id = ?

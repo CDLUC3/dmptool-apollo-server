@@ -1031,9 +1031,11 @@ describe('TemplateCustomizationOverview', () => {
       expect(result.customizationId).toBe(10);
       expect(result.sections).toHaveLength(1);
       expect(result.sections[0].id).toBe(1);
+      expect(result.sections[0].sectionCustomizationId).toBe(101);
       expect(result.sections[0].name).toBe('Section 1');
       expect(result.sections[0].questions).toHaveLength(1);
       expect(result.sections[0].questions[0].id).toBe(1);
+      expect(result.sections[0].questions[0].questionCustomizationId).toBe(201);
       expect(result.sections[0].questions[0].questionText).toBe('Question 1');
     });
 
@@ -1122,7 +1124,8 @@ describe('TemplateCustomizationOverview', () => {
           customSectionMigrationStatus: TemplateCustomizationMigrationStatus.OK,
           customSectionName: 'Custom Section',
           customSectionPinType: 'BASE',
-          customSectionPinId: 1
+          customSectionPinId: 1,
+          guidance: 'Custom Section Guidance',
         }
       ];
 
@@ -1134,7 +1137,9 @@ describe('TemplateCustomizationOverview', () => {
           customQuestionSectionType: 'BASE',
           customQuestionSectionId: 1,
           customQuestionPinType: 'BASE',
-          customQuestionPinId: 1
+          customQuestionPinId: 1,
+          guidanceText: 'Custom Question Guidance',
+          sampleText: 'Custom Question Sample Text'
         }
       ];
 
@@ -1152,9 +1157,12 @@ describe('TemplateCustomizationOverview', () => {
       expect(result.sections).toHaveLength(2);
       expect(result.sections[0].sectionType).toBe('BASE');
       expect(result.sections[1].sectionType).toBe('CUSTOM');
+      expect(result.sections[1].hasCustomGuidance).toBe(true);
       expect(result.sections[0].questions).toHaveLength(2);
       expect(result.sections[0].questions[0].questionType).toBe('BASE');
       expect(result.sections[0].questions[1].questionType).toBe('CUSTOM');
+      expect(result.sections[0].questions[1].hasCustomGuidance).toBe(true);
+      expect(result.sections[0].questions[1].hasCustomSampleAnswer).toBe(true);
     });
   });
 

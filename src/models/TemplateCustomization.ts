@@ -1,7 +1,11 @@
 import { MySqlModel } from "./MySqlModel";
 import { VersionedTemplateCustomization } from "./VersionedTemplateCustomization";
 import { MyContext } from "../context";
-import { isNullOrUndefined, valueIsEmpty } from "../utils/helpers";
+import {
+  isNullOrUndefined,
+  normaliseDateTime,
+  valueIsEmpty
+} from "../utils/helpers";
 import { PinnedSectionTypeEnum } from "./CustomSection";
 import { PinnedQuestionTypeEnum } from "./CustomQuestion";
 
@@ -72,6 +76,7 @@ interface FetchTemplateResult {
 
   customizationId: number;
   customizationIsDirty: boolean;
+  customizationLastPublishedDate?: string;
   customizationStatus: TemplateCustomizationStatus;
   customizationMigrationStatus: TemplateCustomizationMigrationStatus;
   customizationLastCustomizedById?: number;
@@ -138,6 +143,7 @@ export class TemplateCustomizationOverview {
   // Information about the customization
   public customizationId: number;
   public customizationIsDirty: boolean;
+  public customizationLastPublishedDate?: string;
   public customizationStatus: TemplateCustomizationStatus;
   public customizationMigrationStatus: TemplateCustomizationMigrationStatus;
   public customizationLastCustomizedById?: number;
@@ -158,6 +164,7 @@ export class TemplateCustomizationOverview {
 
     this.customizationId = options.customizationId;
     this.customizationIsDirty = options.customizationIsDirty;
+    this.customizationLastPublishedDate = options.customizationLastPublishedDate;
     this.customizationStatus = options.customizationStatus;
     this.customizationMigrationStatus = options.customizationMigrationStatus;
     this.customizationLastCustomizedById = options.customizationLastCustomizedById;
@@ -205,14 +212,15 @@ export class TemplateCustomizationOverview {
       versionedTemplateName: first.versionedTemplateName,
       versionedTemplateDescription: first.versionedTemplateDescription,
       versionedTemplateVersion: first.versionedTemplateVersion,
-      versionedTemplateLastModified: first.versionedTemplateLastModified,
+      versionedTemplateLastModified: normaliseDateTime(first.versionedTemplateLastModified),
       customizationId: first.customizationId,
       customizationIsDirty: first.customizationIsDirty,
+      customizationLastPublishedDate: normaliseDateTime(first.customizationLastPublishedDate),
       customizationStatus: first.customizationStatus,
       customizationMigrationStatus: first.customizationMigrationStatus,
       customizationLastCustomizedById: first.customizationLastCustomizedById,
       customizationLastCustomizedByName: first.customizationLastCustomizedByName,
-      customizationLastCustomized: first.customizationLastCustomized,
+      customizationLastCustomized: normaliseDateTime(first.customizationLastCustomized),
       sections: [],
     });
 
@@ -287,12 +295,6 @@ export class TemplateCustomizationOverview {
     customRows.sort((a, b) => (a.customSectionId ?? 0) - (b.customSectionId ?? 0));
 
     for (const row of customRows) {
-
-if (row.customSectionId === 2) {
-  console.log(row);
-  console.log('hasGuidance?', !valueIsEmpty(row.guidance))
-}
-
       const newSection: TemplateCustomizationSectionOverview = {
         sectionType: PinnedSectionTypeEnum.CUSTOM,
         id: row.customSectionId,
@@ -410,6 +412,7 @@ if (row.customSectionId === 2) {
         vt.version AS versionedTemplateVersion, vt.modified AS versionedTemplateLastModified,
 
         tc.id customizationId, tc.isDirty AS customizationIsDirty,
+        tc.latestPublishedDate AS customizationLastPublishedDate,
         tc.status AS customizationStatus, tc.migrationStatus AS customizationMigrationStatus,
         tc.modifiedById AS customizationLastCustomizedById, tc.modified AS customizationLastCustomized,
         CONCAT(u.givenName, ' ', u.surname) AS customizationLastCustomizedByName,

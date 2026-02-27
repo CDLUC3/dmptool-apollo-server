@@ -98,6 +98,7 @@ export const typeDefs = gql`
 
     customizationId: Int!
     customizationIsDirty: Boolean!
+    customizationLastPublishedDate: String
     customizationStatus: TemplateCustomizationStatus!
     customizationMigrationStatus: TemplateCustomizationMigrationStatus!
     customizationLastCustomizedById: Int

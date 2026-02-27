@@ -35,6 +35,7 @@ export enum TemplateCustomizationMigrationStatus {
 export interface TemplateCustomizationQuestionOverview {
   questionType: PinnedQuestionTypeEnum;
   id: number;
+  questionCustomizationId?: number;
   migrationStatus: TemplateCustomizationMigrationStatus;
   questionText: string;
   displayOrder: number;
@@ -48,6 +49,7 @@ export interface TemplateCustomizationQuestionOverview {
 export interface TemplateCustomizationSectionOverview {
   sectionType: PinnedSectionTypeEnum;
   id: number;
+  sectionCustomizationId?: number;
   migrationStatus: TemplateCustomizationMigrationStatus;
   name: string;
   displayOrder: number;
@@ -221,6 +223,7 @@ export class TemplateCustomizationOverview {
         section = {
           sectionType: PinnedSectionTypeEnum.BASE,
           id: row.versionedSectionId,
+          sectionCustomizationId: row.sectionCustomizationId,
           migrationStatus: row.sectionCustomizationMigrationStatus,
           hasCustomGuidance: !!row.sectionCustomizationHasGuidanceText,
           name: row.versionedSectionName,
@@ -235,6 +238,7 @@ export class TemplateCustomizationOverview {
         section.questions.push({
           questionType: PinnedQuestionTypeEnum.BASE,
           id: row.versionedQuestionId,
+          questionCustomizationId: row.questionCustomizationId,
           migrationStatus: row.questionCustomizationMigrationStatus,
           hasCustomGuidance: !!row.questionCustomizationHasGuidanceText,
           hasCustomSampleAnswer: !!row.questionCustomizationHasSampleText,

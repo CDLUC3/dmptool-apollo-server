@@ -1031,9 +1031,11 @@ describe('TemplateCustomizationOverview', () => {
       expect(result.customizationId).toBe(10);
       expect(result.sections).toHaveLength(1);
       expect(result.sections[0].id).toBe(1);
+      expect(result.sections[0].sectionCustomizationId).toBe(101);
       expect(result.sections[0].name).toBe('Section 1');
       expect(result.sections[0].questions).toHaveLength(1);
       expect(result.sections[0].questions[0].id).toBe(1);
+      expect(result.sections[0].questions[0].questionCustomizationId).toBe(201);
       expect(result.sections[0].questions[0].questionText).toBe('Question 1');
     });
 

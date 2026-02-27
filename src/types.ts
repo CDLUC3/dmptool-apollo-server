@@ -3674,10 +3674,12 @@ export type QuestionCustomizationOverview = {
   hasCustomGuidance?: Maybe<Scalars['Boolean']['output']>;
   /** Whether the question has a custom sample answer (only applicable to base funder questions) */
   hasCustomSampleAnswer?: Maybe<Scalars['Boolean']['output']>;
-  /** The unique identifier for the Question */
+  /** The unique identifier for the Question (either a CustomQuestion or VersionedQuestion for funder) */
   id: Scalars['Int']['output'];
   /** The status of the customization with regard to the base template (if applicable) */
   migrationStatus?: Maybe<TemplateCustomizationMigrationStatus>;
+  /** The id of the question customization (customized guidance and sample text for the funder question) */
+  questionCustomizationId?: Maybe<Scalars['Int']['output']>;
   /** The question text */
   questionText: Scalars['String']['output'];
   /** Whether the question belongs to a base funder template or to the customizing affiliation */
@@ -4113,7 +4115,7 @@ export type SectionCustomizationOverview = {
   displayOrder: Scalars['Int']['output'];
   /** Whether the question has custom guidance (only applicable to base funder questions) */
   hasCustomGuidance?: Maybe<Scalars['Boolean']['output']>;
-  /** The unique identifier for the Section */
+  /** The unique identifier for the Section (either a CustomSection or VersionedSection for funder) */
   id: Scalars['Int']['output'];
   /** The status of the customization with regard to the base template (if applicable) */
   migrationStatus?: Maybe<TemplateCustomizationMigrationStatus>;
@@ -4121,6 +4123,8 @@ export type SectionCustomizationOverview = {
   name: Scalars['String']['output'];
   /** The questions associated with this section */
   questions?: Maybe<Array<QuestionCustomizationOverview>>;
+  /** The id of the section customization (customized guidance for the funder section) */
+  sectionCustomizationId?: Maybe<Scalars['Int']['output']>;
   /** Whether the section belongs to a base funder template or to the customizing affiliation */
   sectionType: CustomizableObjectOwnership;
 };
@@ -7063,6 +7067,7 @@ export type QuestionCustomizationOverviewResolvers<ContextType = MyContext, Pare
   hasCustomSampleAnswer?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
   id?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   migrationStatus?: Resolver<Maybe<ResolversTypes['TemplateCustomizationMigrationStatus']>, ParentType, ContextType>;
+  questionCustomizationId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   questionText?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   questionType?: Resolver<ResolversTypes['CustomizableObjectOwnership'], ParentType, ContextType>;
 };
@@ -7283,6 +7288,7 @@ export type SectionCustomizationOverviewResolvers<ContextType = MyContext, Paren
   migrationStatus?: Resolver<Maybe<ResolversTypes['TemplateCustomizationMigrationStatus']>, ParentType, ContextType>;
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   questions?: Resolver<Maybe<Array<ResolversTypes['QuestionCustomizationOverview']>>, ParentType, ContextType>;
+  sectionCustomizationId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   sectionType?: Resolver<ResolversTypes['CustomizableObjectOwnership'], ParentType, ContextType>;
 };
 

@@ -125,16 +125,16 @@ export class VersionedTemplateCustomization extends MySqlModel {
     } else {
       // Make sure the record is valid
       if (await this.isValid()) {
-        const updated: VersionedTemplateCustomization = await VersionedTemplateCustomization.update(
+        const result = await VersionedTemplateCustomization.update(
           context,
           VersionedTemplateCustomization.tableName,
           this,
           ref,
           [],
           noTouch
-        ) as VersionedTemplateCustomization;
+        ) as unknown as {affectedRows:number} | null;
 
-        if (!isNullOrUndefined(updated) && !updated.hasErrors()) {
+        if (result && result.affectedRows > 0) {
           return await VersionedTemplateCustomization.findById(ref, context, this.id);
         } else {
           this.addError('general', 'Unable to update version');

@@ -197,7 +197,7 @@ describe('VersionedTemplateCustomization', () => {
       });
 
       jest.spyOn(instance, 'isValid').mockResolvedValue(true);
-      jest.spyOn(VersionedTemplateCustomization, 'update').mockResolvedValue(mockUpdated);
+      jest.spyOn(VersionedTemplateCustomization, 'update').mockResolvedValue({affectedRows: 1} as unknown as VersionedTemplateCustomization);
       jest.spyOn(mockUpdated, 'hasErrors').mockReturnValue(false);
       jest.spyOn(VersionedTemplateCustomization, 'findById').mockResolvedValue(mockFetched);
 

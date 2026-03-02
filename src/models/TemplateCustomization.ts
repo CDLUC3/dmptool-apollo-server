@@ -251,8 +251,8 @@ export class TemplateCustomizationOverview {
           id: row.versionedQuestionId,
           questionCustomizationId: row.questionCustomizationId,
           migrationStatus: row.questionCustomizationMigrationStatus,
-          hasCustomGuidance: !valueIsEmpty(row.questionCustomizationHasGuidanceText),
-          hasCustomSampleAnswer: !valueIsEmpty(row.questionCustomizationHasSampleText),
+          hasCustomGuidance: row.questionCustomizationHasGuidanceText,
+          hasCustomSampleAnswer: row.questionCustomizationHasSampleText,
           displayOrder: row.versionedQuestionDisplayOrder,
           questionText: row.versionedQuestionText,
         });

@@ -325,7 +325,7 @@ describe('preparePaginationOptions', () => {
     const result = MySqlModel.preparePaginationOptions(options);
     expect(result).toEqual({
       ...options,
-      cursorField: 'LOWER(REPLACE(CONCAT(name, id), \' \', \'_\'))'
+      cursorField: "LOWER(REPLACE(CONCAT(COALESCE(name, ''), COALESCE(id, '')), ' ', '_'))",
     });
   });
 
@@ -342,7 +342,7 @@ describe('preparePaginationOptions', () => {
     const result = MySqlModel.preparePaginationOptions(options);
     expect(result).toEqual({
       ...options,
-      cursorField: 'LOWER(REPLACE(CONCAT(name, custom_field), \' \', \'_\'))'
+      cursorField: "LOWER(REPLACE(CONCAT(COALESCE(name, ''), COALESCE(custom_field, '')), ' ', '_'))"
     });
   });
 
@@ -359,7 +359,7 @@ describe('preparePaginationOptions', () => {
     expect(result).toEqual({
       ...options,
       availableSortFields: [],
-      cursorField: 'LOWER(REPLACE(CONCAT(custom_field), \' \', \'_\'))'
+      cursorField: "LOWER(REPLACE(CONCAT(COALESCE(custom_field, '')), ' ', '_'))",
     });
   });
 });
@@ -562,7 +562,7 @@ describe('queryWithPagination', () => {
       {
         ...options,
         availableSortFields: [],
-        cursorField: 'LOWER(REPLACE(CONCAT(id), \' \', \'_\'))'
+        cursorField: "LOWER(REPLACE(CONCAT(COALESCE(id, '')), ' ', '_'))",
       },
       reference,
       true

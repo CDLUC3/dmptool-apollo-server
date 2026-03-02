@@ -236,7 +236,7 @@ export class TemplateCustomizationOverview {
           id: row.versionedSectionId,
           sectionCustomizationId: row.sectionCustomizationId,
           migrationStatus: row.sectionCustomizationMigrationStatus,
-          hasCustomGuidance: !valueIsEmpty(row.sectionCustomizationHasGuidanceText),
+          hasCustomGuidance: row.sectionCustomizationHasGuidanceText,
           name: row.versionedSectionName,
           displayOrder: row.versionedSectionDisplayOrder,
           questions: []

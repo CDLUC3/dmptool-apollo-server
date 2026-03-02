@@ -624,7 +624,6 @@ export class TemplateCustomization extends MySqlModel {
    * @returns The published Template customization.
    */
   async publish(context: MyContext): Promise<TemplateCustomization> {
-    const ref = 'TemplateCustomization.publish';
 
     if (!this.id) {
       // Cannot publish it if it hasn't been saved yet!
@@ -637,19 +636,6 @@ export class TemplateCustomization extends MySqlModel {
     } else {
         // Make sure the record is valid
         if (await this.isValid()) {
-          // Deactivate the existing published version BEFORE creating a new one,
-          // otherwise VersionedTemplateCustomization.create will find it and reject as already existing active version
-          if (this.latestPublishedVersionId) {
-            const currentVer = await VersionedTemplateCustomization.findById(
-              ref,
-              context,
-              this.latestPublishedVersionId
-            );
-            if (currentVer) {
-              currentVer.active = false;
-              await currentVer.update(context, true); // noTouch=true, no need to update timestamps
-            }
-          }
 
           // Create a new published version of the customization
           const newVersion = new VersionedTemplateCustomization(

@@ -67,21 +67,40 @@ export const resolvers: Resolvers = {
       return customization;
     }),
 
-    sectionCustomizationBySection: authenticatedResolver(
-      'sectionCustomizationBySection resolver',
+    sectionCustomizationByVersionedSection: authenticatedResolver(
+      'sectionCustomizationByVersionedSection resolver',
       UserRole.ADMIN,
       async (
         _: Record<PropertyKey, never>,
         { templateCustomizationId, versionedSectionId }: { templateCustomizationId: number; versionedSectionId: number },
         context: MyContext
       ): Promise<SectionCustomization | null> => {
-        const ref = 'sectionCustomizationBySection resolver';
+        const ref = 'sectionCustomizationByVersionedSection resolver';
 
         const parent = await getValidatedCustomization(ref, context, templateCustomizationId);
         if (isNullOrUndefined(parent)) throw NotFoundError();
 
         // Returns null if no customization exists yet — not a 404
-        const customization = await SectionCustomization.findByCustomizationAndSection(ref, context, templateCustomizationId, versionedSectionId);
+        const customization = await SectionCustomization.findByCustomizationAndVersionedSection(ref, context, templateCustomizationId, versionedSectionId);
+        return customization ?? null;
+      }
+    ),
+
+    sectionCustomizationByVersionedQuestion: authenticatedResolver(
+      'sectionCustomizationByVersionedQuestion resolver',
+      UserRole.ADMIN,
+      async (
+        _: Record<PropertyKey, never>,
+        { templateCustomizationId, versionedQuestionId }: { templateCustomizationId: number; versionedQuestionId: number },
+        context: MyContext
+      ): Promise<SectionCustomization | null> => {
+        const ref = 'sectionCustomizationByVersionedQuestion resolver';
+
+        const parent = await getValidatedCustomization(ref, context, templateCustomizationId);
+        if (isNullOrUndefined(parent)) throw NotFoundError();
+
+        // Returns null if no customization exists yet — not a 404
+        const customization = await SectionCustomization.findByCustomizationAndVersionedQuestion(ref, context, templateCustomizationId, versionedQuestionId);
         return customization ?? null;
       }
     ),

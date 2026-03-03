@@ -5,7 +5,9 @@ export const typeDefs = gql`
     "Get the custom guidance an affiliation has applied to a funder section (user must be an Admin)"
     sectionCustomization(sectionCustomizationId: Int!): SectionCustomization
     "Get the custom guidance using the parent template customization and funder section (user must be an Admin)"
-    sectionCustomizationBySection(templateCustomizationId: Int! versionedSectionId: Int!): SectionCustomization
+    sectionCustomizationByVersionedSection(templateCustomizationId: Int! versionedSectionId: Int!): SectionCustomization
+    "Get the custom guidance using the parent template customization and funder question (user must be an Admin)"
+    sectionCustomizationByVersionedQuestion(templateCustomizationId: Int! versionedQuestionId: Int!): SectionCustomization
     "Get the specified custom section an affiliation has added to a funder template (user must be an Admin)"
     customSection(customSectionId: Int!): CustomSection
   }

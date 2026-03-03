@@ -276,7 +276,7 @@ describe('VersionedTemplateCustomization', () => {
       expect(VersionedTemplateCustomization.query).toHaveBeenCalledWith(
         mockContext,
         expect.stringContaining('UPDATE versionedTemplateCustomizations SET active = 0'),
-        ['1', '10'],
+        ['1', '10', '20'],
         'test-ref'
       );
       expect(result).toBe(true);

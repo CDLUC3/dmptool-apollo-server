@@ -166,6 +166,85 @@ describe('sectionCustomization resolver', () => {
     });
   });
 
+  describe('Query.sectionCustomizationBySection', () => {
+    beforeEach(() => {
+      query = `
+        query sectionCustomizationBySection($templateCustomizationId: Int!, $versionedSectionId: Int!) {
+          sectionCustomizationBySection(templateCustomizationId: $templateCustomizationId, versionedSectionId: $versionedSectionId) {
+            id
+            templateCustomizationId
+            sectionId
+            migrationStatus
+            guidance
+            errors {
+              general
+            }
+            versionedSection {
+              id
+              name
+            }
+          }
+        }
+      `;
+    });
+
+    it('should return the section customization when found and user has permission', async () => {
+      const mockCustomization = {
+        id: 1,
+        templateCustomizationId: 10,
+        sectionId: 5,
+        migrationStatus: 'OK',
+        guidance: 'Test guidance'
+      };
+      const mockParent = { id: 10, isDirty: false };
+
+      (SectionCustomization.findByCustomizationAndSection as jest.Mock).mockResolvedValue(mockCustomization);
+      (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
+
+      const vars = { templateCustomizationId: 10, versionedSectionId: 5 };
+      const result = await executeQuery(query, vars, adminToken);
+
+      expect(result.body.singleResult.data.sectionCustomizationBySection.id).toEqual(1);
+      expect(result.body.singleResult.data.sectionCustomizationBySection.templateCustomizationId).toEqual(10);
+      expect(result.body.singleResult.data.sectionCustomizationBySection.sectionId).toEqual(5);
+      expect(result.body.singleResult.data.sectionCustomizationBySection.migrationStatus).toEqual('OK');
+      expect(result.body.singleResult.data.sectionCustomizationBySection.guidance).toEqual('Test guidance');
+      expect(SectionCustomization.findByCustomizationAndSection).toHaveBeenCalledWith(
+        'sectionCustomizationBySection resolver',
+        expect.any(Object),
+        10,
+        5
+      );
+    });
+
+    it('should return NotFound error when section customization is not found', async () => {
+      (SectionCustomization.findByCustomizationAndSection as jest.Mock).mockResolvedValue(null);
+
+      const vars = { templateCustomizationId: 10, versionedSectionId: 999 };
+      const result = await executeQuery(query, vars, adminToken);
+
+      expect(result.body.kind).toEqual('single');
+      expect(result.body.singleResult.errors).toBeDefined();
+      expect(result.body.singleResult.errors[0].message).toEqual('Not Found');
+    });
+
+    it('should return null when parent template customization is not found', async () => {
+      const mockCustomization = {
+        id: 1,
+        templateCustomizationId: 10
+      };
+
+      (SectionCustomization.findById as jest.Mock).mockResolvedValue(mockCustomization);
+      (getValidatedCustomization as jest.Mock).mockResolvedValue(null);
+
+      const vars = { templateCustomizationId: 10, versionedSectionId: 5 };
+      const result = await executeQuery(query, vars, adminToken);
+
+      expect(result.body.kind).toEqual('single');
+      expect(result.body.singleResult.data.sectionCustomizationBySection).toBeNull();
+    });
+  });
+
   describe('Query.customSection', () => {
     beforeEach(() => {
       query = `

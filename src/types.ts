@@ -3090,6 +3090,8 @@ export type Query = {
   section?: Maybe<Section>;
   /** Get the custom guidance an affiliation has applied to a funder section (user must be an Admin) */
   sectionCustomization?: Maybe<SectionCustomization>;
+  /** Get the custom guidance using the parent template customization and funder section (user must be an Admin) */
+  sectionCustomizationBySection?: Maybe<SectionCustomization>;
   /** Get all of the VersionedSection for the specified Section ID */
   sectionVersions?: Maybe<Array<Maybe<VersionedSection>>>;
   /** Get the Sections that belong to the associated templateId */
@@ -3465,6 +3467,12 @@ export type QuerySectionArgs = {
 
 export type QuerySectionCustomizationArgs = {
   sectionCustomizationId: Scalars['Int']['input'];
+};
+
+
+export type QuerySectionCustomizationBySectionArgs = {
+  templateCustomizationId: Scalars['Int']['input'];
+  versionedSectionId: Scalars['Int']['input'];
 };
 
 
@@ -6979,6 +6987,7 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   searchExternalProjects?: Resolver<Maybe<Array<Maybe<ResolversTypes['ExternalProject']>>>, ParentType, ContextType, RequireFields<QuerySearchExternalProjectsArgs, 'input'>>;
   section?: Resolver<Maybe<ResolversTypes['Section']>, ParentType, ContextType, RequireFields<QuerySectionArgs, 'sectionId'>>;
   sectionCustomization?: Resolver<Maybe<ResolversTypes['SectionCustomization']>, ParentType, ContextType, RequireFields<QuerySectionCustomizationArgs, 'sectionCustomizationId'>>;
+  sectionCustomizationBySection?: Resolver<Maybe<ResolversTypes['SectionCustomization']>, ParentType, ContextType, RequireFields<QuerySectionCustomizationBySectionArgs, 'templateCustomizationId' | 'versionedSectionId'>>;
   sectionVersions?: Resolver<Maybe<Array<Maybe<ResolversTypes['VersionedSection']>>>, ParentType, ContextType, RequireFields<QuerySectionVersionsArgs, 'sectionId'>>;
   sections?: Resolver<Maybe<Array<Maybe<ResolversTypes['Section']>>>, ParentType, ContextType, RequireFields<QuerySectionsArgs, 'templateId'>>;
   tags?: Resolver<Array<ResolversTypes['Tag']>, ParentType, ContextType>;

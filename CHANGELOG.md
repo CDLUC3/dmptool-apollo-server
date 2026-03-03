@@ -33,6 +33,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated buildspec and Dockerfile for AWS to ignore audit scan on devDependencies and to ensure we do not build an image that contains them
 - Updated `TemplateCustomizationOverview` to include the `sectionCustomizationId` and `questionCustomizationId` for funder sections and questions that have been customized.
 - Updated `TemplateCustomizationOverview` to accurately populate the `hasGuidanceText` and `hasSampleText` flags for `customSection` and `customQuestion` types
 - Removed the template owner and user affiliation id filters from `getAffiliationsWithGuidanceForTemplate` so that the search returns ALL affiliations with guidance for the associated section tags [#29]

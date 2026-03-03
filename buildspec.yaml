@@ -47,9 +47,9 @@ phases:
       - echo "Installing dependencies..."
       - npm ci
 
-      # Run NPM audit to check for vulnerabilities
+      # Run NPM audit to check for vulnerabilities in the prod dependencies
       - echo "Running NPM audit..."
-      - npm audit --audit-level=high
+      - npm audit -production --audit-level=high
 
       # Run the linter checks
       - echo "Running linter checks"

@@ -229,8 +229,7 @@ describe('VersionedGuidance.findBestPracticeByTagIds', () => {
       SELECT DISTINCT vg.*
       FROM versionedGuidance vg
       INNER JOIN versionedGuidanceGroups vgg ON vg.versionedGuidanceGroupId = vgg.id
-      INNER JOIN versionedGuidanceTags vgt ON vg.id = vgt.versionedGuidanceId
-      WHERE vgt.tagId IN (${placeholders}) AND vgg.bestPractice = 1 AND vgg.active = 1
+      WHERE vg.tagId IN (${placeholders}) AND vgg.bestPractice = 1 AND vgg.active = 1
       ORDER BY vg.id ASC
     `;
     expect(localQuery).toHaveBeenCalledTimes(1);
@@ -291,8 +290,7 @@ describe('VersionedGuidance.findByAffiliationAndTagIds', () => {
       FROM versionedGuidance vg
       INNER JOIN versionedGuidanceGroups vgg ON vg.versionedGuidanceGroupId = vgg.id
       INNER JOIN guidanceGroups gg ON vgg.guidanceGroupId = gg.id
-      INNER JOIN versionedGuidanceTags vgt ON vg.id = vgt.versionedGuidanceId
-      WHERE gg.affiliationId = ? AND vgt.tagId IN (${placeholders}) AND vgg.active = 1
+      WHERE gg.affiliationId = ? AND vg.tagId IN (${placeholders}) AND vgg.active = 1
       ORDER BY vg.id ASC
     `;
     expect(localQuery).toHaveBeenCalledTimes(1);

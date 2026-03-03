@@ -36,7 +36,6 @@ import {Answer} from "../models/Answer";
 import {PlanMember} from "../models/Member";
 import {ExternalMember} from "../types";
 
-// eslint-disable-next-line no-useless-escape
 export const DOI_REGEX = /^(https?:\/\/)?(doi\.org\/)?(doi:)?(10\.\d{4,9}\/[-._;()/:\w]+)$/;
 
 // Represents the the RDA Common Metadata standard version of a plan/DMP. When communicating with external
@@ -92,7 +91,7 @@ export async function planToDMPCommonStandard(
   // Get all of the fundings and narrative info
   const fundings = plan.id ? await loadFundingInfo(context, reference, plan.id) : [];
   const narrative = plan.id ? await loadNarrativeTemplateInfo(context, reference, plan.id) : [];
-  const works = await RelatedWorkSearchResult.search(reference, context, plan.projectId, undefined, {status: "ACCEPTED"});
+  const works = await RelatedWorkSearchResult.search(reference, context, plan.projectId, undefined, undefined, {status: "ACCEPTED"});
   const defaultRole = await MemberRole.defaultRole(context, reference);
 
   // Build the DMP with all the required properties (and any that we have defaults for)
@@ -464,7 +463,6 @@ export const loadMemberInfo = async (
 }
 
 // Fetch the plan owner information need to construct the Contact if the primary contact is not available
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function loadContactFromPlanOwner(
   context: MyContext,
   reference: string,
@@ -497,7 +495,7 @@ export const loadNarrativeTemplateInfo = async (
                           'LEFT JOIN versionedSections s ON s.versionedTemplateId = t.id ' +
                             'LEFT JOIN versionedQuestions q ON q.versionedSectionId = s.id ' +
                               'LEFT JOIN answers a ON a.versionedQuestionId = q.id AND p.id = a.planId ' +
-                        'WHERE p.id = ? '
+                        'WHERE p.id = ? ' +
                         'ORDER BY s.displayOrder, q.displayOrder;';
   let results = await Answer.query(context, sql, [planId.toString()], reference);
   results = results.filter((row) => !isNullOrUndefined(row));

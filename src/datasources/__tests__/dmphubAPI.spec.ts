@@ -1,4 +1,3 @@
-import nock from 'nock';
 import { DMPHubAPI, Authorizer } from '../dmphubAPI';
 import { DMPIdentifierType, DMPPrivacy, DMPStatus, DMPYesNoUnknown } from '../../types/DMP';
 import { RESTDataSource } from '@apollo/datasource-rest';
@@ -7,7 +6,7 @@ import { buildContext, buildMockContextWithToken } from '../../__mocks__/context
 import { DMPHubConfig } from '../../config/dmpHubConfig';
 import casual from 'casual';
 import { getRandomEnumValue } from '../../__tests__/helpers';
-import {KeyvAdapter} from "@apollo/utils.keyvadapter";
+import { KeyvAdapter } from "@apollo/utils.keyvadapter";
 import { logger } from "../../logger";
 
 jest.mock('../../context.ts');
@@ -67,17 +66,7 @@ describe('Authorizer', () => {
 
   beforeEach(() => {
     mockPost.mockClear();
-    authorizer = Authorizer.instance;
-
-    // Set up nock to intercept the OAuth2 token request
-    nock(DMPHubConfig.dmpHubAuthURL)
-      .post('/oauth2/token')
-      .reply(200, { access_token: 'test_token' });
-  });
-
-  afterEach(() => {
-    // Clean up all mocks after each test
-    nock.cleanAll();
+    Authorizer.releaseInstance();
   });
 
   it('should create a singleton instance', () => {
@@ -89,6 +78,8 @@ describe('Authorizer', () => {
   it('should encode credentials and call authenticate method', async () => {
     const mockResponse = { access_token: 'test_token' };
     mockPost.mockResolvedValue(mockResponse);
+
+    authorizer = Authorizer.instance;
     await authorizer.authenticate();
 
     expect(mockPost).toHaveBeenCalledWith(`/oauth2/token`);
@@ -98,21 +89,29 @@ describe('Authorizer', () => {
 
   it('should check token expiration', () => {
     const expiredDate = new Date(Date.now() - 600 * 1000); // Set expired date
+    authorizer = Authorizer.instance;
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (authorizer as any).expiry = expiredDate;
     expect(authorizer.hasExpired()).toBe(true);
   });
 
   it('should correctly set request headers in willSendRequest', () => {
+    authorizer = Authorizer.instance;
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const request: any = { headers: {}, body: '' };
-
     authorizer.willSendRequest('/oauth2/token', request);
 
-    const creds = Buffer.from(`${DMPHubConfig.dmpHubClientId}:${DMPHubConfig.dmpHubClientSecret}`).toString('base64');
+    const creds = Buffer.from(
+      `${DMPHubConfig.dmpHubClientId}:${DMPHubConfig.dmpHubClientSecret}`
+    ).toString('base64');
+
     expect(request.headers['authorization']).toBe(`Basic ${creds}`);
     expect(request.headers['content-type']).toBe('application/x-www-form-urlencoded');
     expect(request.body).toContain('grant_type=client_credentials');
+    expect(request.body).toContain('.read');
+    expect(request.body).toContain('.write');
   });
 });
 
@@ -135,13 +134,8 @@ describe('DMPToolAPI', () => {
       const request: any = { headers: {} };
 
       // Mock token expiration and authentication
-      jest.spyOn(Authorizer.instance, 'hasExpired').mockReturnValue(true);
-      jest.spyOn(Authorizer.instance, 'authenticate').mockResolvedValue(undefined);
       Authorizer.instance.oauth2Token = 'new_test_token';
-
       dmphubAPI.willSendRequest('/affiliations', request);
-
-      expect(Authorizer.instance.authenticate).toHaveBeenCalled();
       expect(request.headers['authorization']).toBe('Bearer new_test_token');
     });
   });

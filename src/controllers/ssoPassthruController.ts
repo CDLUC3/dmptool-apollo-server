@@ -63,7 +63,7 @@ export const ssoPassthruController = async (req: Request, res: Response) => {
        .send();
 
   } catch (err) {
-    context.logger.error(prepareObjectForLogs({ email, entityId }), 'SSO Passthrough 500 error');
+    context.logger.error(prepareObjectForLogs({ email, entityId, err }), 'SSO Passthrough 500 error');
     res.status(500).json({ success: false, message: 'Internal server error.' });
   }
 }

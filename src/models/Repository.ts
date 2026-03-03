@@ -260,6 +260,20 @@ export class Repository extends MySqlModel {
     return null;
   }
 
+  static async findByURIs(reference: string, context: MyContext, uris: string[]): Promise<Repository[]> {
+    if (!Array.isArray(uris) || uris.length === 0) {
+      return [];
+    }
+    // Create placeholders for each URI
+    const placeholders = uris.map(() => '?').join(', ');
+    const sql = `SELECT * FROM repositories WHERE uri IN (${placeholders})`;
+    const results = await Repository.query(context, sql, uris, reference);
+    if (Array.isArray(results) && results.length !== 0) {
+      return results.map((row) => Repository.processResult(new Repository(row)));
+    }
+    return [];
+  }
+
   static async findByName(reference: string, context: MyContext, name: string): Promise<Repository> {
     const sql = `SELECT * FROM repositories WHERE LOWER(name) = ?`;
     const searchTerm = (name ?? '');

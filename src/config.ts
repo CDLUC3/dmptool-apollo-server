@@ -45,10 +45,6 @@ export function serverConfig(logger: Logger, httpServer) {
           ? ApolloServerPluginLandingPageDisabled()
           : ApolloServerPluginLandingPageLocalDefault()
       ],
-      // Mitigation for an issue that causes Apollo server v4 to return a 200 when a query
-      // includes invalid variables.
-      //    See: https://www.apollographql.com/docs/apollo-server/migration/#known-regressions
-      status400ForVariableCoercionErrors: true
     }
   };
 }

@@ -87,3 +87,5 @@ services:
       - "CACHE_CONNECT_TIMEOUT=10000"
     volumes:
       - ".:/app"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

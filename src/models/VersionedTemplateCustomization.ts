@@ -146,11 +146,10 @@ export class VersionedTemplateCustomization extends MySqlModel {
     const results = await VersionedTemplateCustomization.query(
       context,
       `UPDATE ${VersionedTemplateCustomization.tableName} SET active = 0
-        WHERE id != ? AND templateCustomizationId = ? AND currentVersionedTemplateId = ?`,
+        WHERE id != ? AND templateCustomizationId = ?`,
       [
         this.id.toString(),
-        this.templateCustomizationId.toString(),
-        this.currentVersionedTemplateId.toString()
+        this.templateCustomizationId.toString()
       ],
       reference
     );

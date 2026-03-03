@@ -238,33 +238,6 @@ export class SectionCustomization extends MySqlModel {
   }
 
   /**
-   * Find the customization by the customization and versioned question
-   *
-   * @param reference The reference to use for logging errors.
-   * @param context The Apollo context.
-   * @param templateCustomizatonId The id of the template customization.
-   * @param versionedQuestionId The versioned question id.
-   * @returns The Section customization.
-   */
-  static async findByCustomizationAndVersionedQuestion(
-    reference: string,
-    context: MyContext,
-    templateCustomizatonId: number,
-    versionedQuestionId: number
-  ): Promise<SectionCustomization> {
-    const results = await SectionCustomization.query(
-      context,
-      `SELECT sc.* FROM ${SectionCustomization.tableName} sc
-         INNER JOIN versionedSections vs ON sc.sectionId = vs.sectionId
-         INNER JOIN versionedQuestions vq ON vs.id = vq.versionedSectionId
-         WHERE sc.templateCustomizationId = ? AND vq.id = ?`,
-      [templateCustomizatonId.toString(), versionedQuestionId?.toString()],
-      reference
-    );
-    return Array.isArray(results) && results.length > 0 ? new SectionCustomization(results[0]) : undefined;
-  }
-
-  /**
    * Find all the section customizations for a specific template customization
    *
    * @param reference The reference to use for logging errors.

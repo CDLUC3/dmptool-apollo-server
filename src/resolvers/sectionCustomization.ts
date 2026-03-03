@@ -86,25 +86,6 @@ export const resolvers: Resolvers = {
       }
     ),
 
-    sectionCustomizationByVersionedQuestion: authenticatedResolver(
-      'sectionCustomizationByVersionedQuestion resolver',
-      UserRole.ADMIN,
-      async (
-        _: Record<PropertyKey, never>,
-        { templateCustomizationId, versionedQuestionId }: { templateCustomizationId: number; versionedQuestionId: number },
-        context: MyContext
-      ): Promise<SectionCustomization | null> => {
-        const ref = 'sectionCustomizationByVersionedQuestion resolver';
-
-        const parent = await getValidatedCustomization(ref, context, templateCustomizationId);
-        if (isNullOrUndefined(parent)) throw NotFoundError();
-
-        // Returns null if no customization exists yet — not a 404
-        const customization = await SectionCustomization.findByCustomizationAndVersionedQuestion(ref, context, templateCustomizationId, versionedQuestionId);
-        return customization ?? null;
-      }
-    ),
-
     /**
      * ADMIN ONLY: Fetch the specified CustomSection
      *

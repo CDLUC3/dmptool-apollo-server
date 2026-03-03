@@ -82,8 +82,6 @@ export const resolvers: Resolvers = {
           // create the new question
           const newQuestion = await question.create(context);
 
-console.log(newQuestion);
-
           if (!newQuestion?.id) {
             // A null was returned so add a generic error and return it
             if (!question.errors['general']) {

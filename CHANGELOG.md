@@ -3,11 +3,47 @@
 ## v1.1.0
 
 ### Added
+- Added `SectionCustomization` and `QuestionCustomization` schemas and resolvers
+- Added a new `authenticatedResolver` wrapper function to help handle common authorization checks on a resolver
+- Added `TemplateCustomizationOverview` to the `TemplateCustomization` model which returns high level overview info about the base funder template and the customizations
+- Added `CustomQuestion`, `CustomSection`, `sectionCustomization` and `questionCustomization` models
+- Added data migration script to create seed customization records for sections and questions
+- Added new field, `sourceVersionedTemplateId` field to `templates` table so we can track the source when cloned from a `versionedTemplates` record [#1006]
+- Added `customizableTemplates` query and `CustomizableTemplateSearchResult` to the `versionedTemplate` schema and resolver
+- Added `TemplateCustomization` model resolver and schema
+- Added `templateCustomizationService` which handles updating the status of `templateCustomizations` when the customized template is archived or republished
+- Added `findActiveByTemplateId` query to `VersionedTemplate` model
+- Added `VersionedTemplateSearchResult` to `VersionedTemplate` model
+- Added `renovate.json` config file
+- Added `.nvmrc` file
+- Added `processResult` handler to the Plan model to help generate DMP ids when they are missing
+- Added `saveMaDMPVersion` function to the `src/services/planService`. This service handles sending the SQS messages to the AWS SQS Queue to trigger the `generateMaDMPRecord` Lambda Function.
+- Added SQS Queue URL env variable to config files (also added to the ECS container definitions)
+- Added `@dmptool/utils` package
+- Added data-migration script to create new `planGuidance` JOIN table [#29]
+- Added a new method `searchManagedWithPublishedGuidance` to `Affiliation` model for managed Affiliations that have published guidance associated with them [#29]
+- Added `managedAffiliationsWithGuidance` query resolver to `Affiliation` resolvers [#29]
+- Added `guidanceSourcesForPlans`, `addPlanGuidance` and `removePlanGuidance` to `guidance` resolvers [#29]
+- Added a new `PlanGuidance` model and schema to accommodate the new `planGuidance` table [#29]
+- Added `acronyms` to `AffiliationSearch` schema so that client can get shortened names of affiliations [#29]
+- Added new methods to `guidanceServices`: `groupGuidanceByTag`, `getGuidanceSourcesForPlan`, `getSectionTags`, `getSectionTagIds`, `getSectionTagsMap`, `addPlanGuidanceAffiliation` and `getAffiliationsWithGuidanceForTemplate` [#29]
+- Added override for the `fast-xml-parser` dependency
 - Added `ownerAffiliation` chained resolvers to `versionedQuestion` [#18]
 - added `@as-integrations/express5` for Apollo-Express integration
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `TemplateCustomizationOverview` to include the `sectionCustomizationId` and `questionCustomizationId` for funder sections and questions that have been customized.
+- Updated `TemplateCustomizationOverview` to accurately populate the `hasGuidanceText` and `hasSampleText` flags for `customSection` and `customQuestion` types
+- Removed the template owner and user affiliation id filters from `getAffiliationsWithGuidanceForTemplate` so that the search returns ALL affiliations with guidance for the associated section tags [#29]
+- Updated `buildspec.yaml` to run `trivy` scans, unit tests and `npm audit`
+- Unpegged dependencies in `package.json`
+- Started updating files to use JSDoc format
+- Updated `answer`, `funding`, `member`, `plan` and `project` resolvers to use the new `saveMaDMPVersion` function to update maDMP records.
+- Updated `superAdmin` resolver and replaced existing functions with one that allows us to force the recreation of a maDMP record for a specified plan id.
+- Upgraded to Apollo Server `5.4` and updates all `@aws-sdk` packages
+- Updated the `Plan` model's `create` function to auto-populate the `planGuidance` table when a plan is created [#29]
+- Updated related works endpoints to support related works project overview page.
 - Updated `findBestPracticeByTagIds` and `findByAffiliationAndTagIds` in `VersionedGuidance` to remove the use of `VersionedGuidanceTags` table, since there is not table with that name [#18]
 - Regenerated `src/types` using new `graphql-codegen` version
 - Updated `tokenService` to use `uuid` instead of `uuidv4` package
@@ -20,11 +56,22 @@
 - Updates to appease newer version of eslint
 
 ### Removed
+- Removed `src/datasources/dynamo` data source. Writes to Dynamo are now being handled by the `generateMaDMPRecord` Lambda Function.
+- Removed `src/models/PlanVersion`
+- Removed the old `commonStandardService`. This functionality now lives in the `@dmptool/utils` package
+- Removed most functions from `src/datasources/dmphubAPI` data source that were atempting to modify dynamo records via the old DMP Hub API
+- Removed DMP endpoints from `dmphubAPI` datasource
+- Removed override for `fast-xml-parser` dependency
+- Removed override for `qs` dependency
 - Removed duplicative properties like `public id: number;` from classes in `models/RelatedWork`. They are inherited from `MySQLModel`.
 - removed Apollo config option to deal with flaw in Apollo4 `status400ForVariableCoercionErrors`
 - Removed deprecated `@types/bcrypt` and `uuidv4` packages
 - Removed `ioredis` package
 
+### Fixed
+- In `preparePaginationOptions` function, wrapped each cursorField with `COALESCE` to handle `NULL` values in SQL `CONCAT`, otherwise if any cursorField is NULL, it would just return a null value due to the way `CONCAT` works [#107]
+- Fixed breaking cloning of template. The `addTemplate` was updated to accept a `copyFromVersionedTemplateId` so that we copy from versioned template, section and questions, when it's not a template from the user's org. Otherwise we check for `copyFromTemplateId` to copy/clone from templates, sections and questions, and if neither are present, we continue to create a new record for `templates` table [#1006]
+- Fixed issue with templates not cloning with sections and questions by updating the `addTemplate` mutation to clone from non-versioned template, section and question [#1006]
 ## v1.0
 
 ### Updated

@@ -7,10 +7,27 @@ import { logger, prepareObjectForLogs } from '../logger';
 import { DMPHubConfig } from '../config/dmpHubConfig';
 import { JWTAccessToken } from '../services/tokenService';
 import { MyContext } from "../context";
-import { GraphQLError } from "graphql";
-import { DMPCommonStandard, DMPCommonStandardContact, DMPCommonStandardContributor, DMPCommonStandardProject } from "../types/DMP";
+import { RDACommonStandardContact, RDACommonStandardContributor } from "@dmptool/utils";
 import { isNullOrUndefined } from "../utils/helpers";
 import { KeyvAdapter } from "@apollo/utils.keyvadapter";
+
+// This is a temporary type until the RDA Common Standard until we update the Awards
+// API to return the newer RDA Common Standard v1.2 format (with DMP Tool extensions).
+interface RDACommonStandardObsoleteProject {
+  title: string,
+  description?: string,
+  start?: string,
+  end?: string,
+  funding?: {
+    dmproadmap_project_number?: string
+    dmproadmap_opportunity_number?: string,
+    dmproadmap_award_amount?: number,
+    grant_id?: {
+      identifier: string,
+      type: string
+    }
+  }[]
+}
 
 // Singleton class that retrieves an Auth token from the API
 export class Authorizer extends RESTDataSource {
@@ -106,140 +123,6 @@ export class DMPHubAPI extends RESTDataSource {
     return id.toString().replace(/^(https?:\/\/|https?%3A%2F%2F)/i, '').replace(/%2F/g, '/');
   }
 
-  // Fetch a single DMP from the DMPHub API
-  async getDMP(
-    context: MyContext,
-    dmp_id: string,
-    version = 'LATEST',
-    reference = 'dmphubAPI.getDMP'
-  ): Promise<DMPCommonStandard | null> {
-    try {
-      await this.authorizer.init();
-
-      // If we don't have a cached version, call the API
-      const sanitizedDOI = encodeURI(this.removeProtocol(dmp_id));
-      const sanitizedVersion = `?version=${encodeURI(version)}`;
-      const path = `dmps/${sanitizedDOI}${sanitizedVersion}`;
-
-      context.logger.debug(`${reference} calling DMPHub Get: ${this.baseURL}/${path}`);
-      const response = await this.get(path);
-
-      if (response?.status === 200 && Array.isArray(response?.items) && response?.items?.length > 0) {
-        return response.items[0]?.dmp as DMPCommonStandard;
-      }
-
-      context.logger.error(
-        prepareObjectForLogs({ dmp_id, code: response?.status, errs: response?.errors }),
-        'Error retrieving DMP from DMPHub API'
-      );
-      return null;
-    } catch(err) {
-      context.logger.error(prepareObjectForLogs({ dmp_id, err }), 'Error calling DMPHub API getDMP');
-      throw(err);
-    }
-  }
-
-  // Create a new DMP in the DMPHub (will assign a DMP ID for us)
-  async createDMP(
-    context: MyContext,
-    dmp: DMPCommonStandard,
-    reference = 'dmphubAPI.createDMP'
-  ): Promise<DMPCommonStandard> {
-    try {
-      await this.authorizer.init();
-
-      const path = `dmps`;
-      context.logger.debug(`${reference} calling DMPHub Create: ${this.baseURL}/${path}`);
-      const response = await this.post(path, { body: JSON.stringify({ dmp }) });
-      if (response?.status === 201 && Array.isArray(response?.items) && response?.items?.length > 0) {
-        return response.items[0]?.dmp as DMPCommonStandard;
-      }
-      return null;
-    } catch(err) {
-      context.logger.error(prepareObjectForLogs({ dmp, err }), 'Error calling DMPHub API createDMP');
-      throw(err);
-    }
-  }
-
-  // Update an existing DMP in the DMPHub
-  async updateDMP(
-    context: MyContext,
-    dmp: DMPCommonStandard,
-    reference = 'dmphubAPI.updateDMP'
-  ): Promise<DMPCommonStandard> {
-    try {
-      await this.authorizer.init();
-
-      const path = `dmps/${encodeURI(this.removeProtocol(dmp.dmp_id.identifier))}`;
-      context.logger.debug(`${reference} calling DMPHub Update: ${this.baseURL}/${path}`);
-
-      const response = await this.put(path, { body: JSON.stringify({ dmp }) });
-      if (response?.status === 200 && Array.isArray(response?.items) && response?.items?.length > 0) {
-        return response.items[0]?.dmp as DMPCommonStandard;
-      }
-      return null;
-    } catch(err) {
-      context.logger.error(prepareObjectForLogs({ dmp, err }), 'Error calling DMPHub API updateDMP');
-      throw(err);
-    }
-  }
-
-  // Tombstone an existing DMP in the DMPHub
-  async tombstoneDMP(
-    context: MyContext,
-    dmp: DMPCommonStandard,
-    reference = 'dmphubAPI.tombstoneDMP'
-  ): Promise<DMPCommonStandard> {
-    try {
-      await this.authorizer.init();
-
-      const path = `dmps/${encodeURI(this.removeProtocol(dmp.dmp_id.identifier))}`;
-      context.logger.debug(`${reference} calling DMPHub Tombstone: ${this.baseURL}/${path}`);
-
-      const response = await this.delete(path);
-      if (response?.status === 200 && Array.isArray(response?.items) && response?.items?.length > 0) {
-        return response.items[0]?.dmp as DMPCommonStandard;
-      }
-      return null;
-    } catch(err) {
-      context.logger.error(prepareObjectForLogs({ dmp, err }), 'Error calling DMPHub API tombstoneDMP');
-      throw(err);
-    }
-  }
-
-  // Validate the DMP JSON content against the RDA DMP Common Metadata Standard
-  async validateDMP(context: MyContext, dmp: DMPCommonStandard, reference = 'dmphubAPI.validate'): Promise<string[]> {
-    try {
-      await this.authorizer.init();
-
-      // If we don't have a cached version, call the API
-      const path = `dmps/validate`;
-      context.logger.debug(`${reference} Calling DMPHub: ${this.baseURL}/${path}`);
-
-      const response = await this.post(path, { body: JSON.stringify({ dmp: dmp }) });
-      if (response?.status === 400 && Array.isArray(response?.errors) && response?.errors?.length > 0) {
-        return response.errors;
-      }
-      return [];
-    } catch(err) {
-      if (err instanceof GraphQLError) {
-        try {
-          // Try to parse out the errors and add them to the DMP
-          const body = err.extensions['response']['body'];
-          if (body['status'] === 400 && Array.isArray(body['errors']) && body['errors'].length > 0) {
-            return body.errors;
-          }
-        }
-        catch {
-          return ['The resulting JSON from the DMP is not valid'];
-        }
-      }
-
-      context.logger.error(prepareObjectForLogs({ dmp, err }), 'Error calling DMPHub API validate');
-      throw(err);
-    }
-  }
-
   /**
    * Retrieves award information from the specified funder API.
    *
@@ -311,7 +194,7 @@ export class DMPHubAPI extends RESTDataSource {
 // Types returned by DMPHubAPI awards endpoint
 // -----------------------------------------------------------------------------------------------
 export interface DMPHubAward {
-  project: DMPCommonStandardProject
-  contact: DMPCommonStandardContact
-  contributor: [DMPCommonStandardContributor]
+  project: RDACommonStandardObsoleteProject
+  contact: RDACommonStandardContact
+  contributor: [RDACommonStandardContributor]
 }

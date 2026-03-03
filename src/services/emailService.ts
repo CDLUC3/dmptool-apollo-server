@@ -60,7 +60,7 @@ const sendEmail = async (
 
   if (['development'].includes(process.env.NODE_ENV)) {
     // When running in development mode, we do not have access to AWS SES and we probably don't want to
-    // actually send emails to people by accident so so just log the message
+    // actually send emails to people by accident, so just log the message
     context.logger.info(
       prepareObjectForLogs({ toAddresses, ccAddresses, bccAddresses, subjectLine, message, asHTML }),
       `Logging email notification of type '${emailType}' because we are in ${process.env.NODE_ENV} mode`

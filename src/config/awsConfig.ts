@@ -32,10 +32,10 @@ export const awsConfig = {
   sesBounceAddress: process.env.SES_BOUNCE_EMAIL_ADDRESS,
   sesBouncedEmailBucket: process.env.SES_BOUNCED_EMAIL_BUCKET,
 
-  // DynamoDB configuration
-  dynamoTableName: process.env.DYNAMO_TABLE_NAME,
-  dynamoEndpoint: process.env.DYNAMO_ENDPOINT,
-  dynamoMaxQueryAttempts: process.env.DYNAMO_MAX_ATTEMPTS ? parseInt(process.env.DYNAMO_MAX_ATTEMPTS) : 3,
+  // SQS configuration
+  sqs: {
+    generateMaDMPQueueUrl: process.env.SQS_GENERATE_MADMP_QUEUE_URL,
+  },
 
   // OpenSearch config
   opensearch: {

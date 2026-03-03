@@ -14,6 +14,7 @@ import { GraphQLError } from "graphql";
 import { PaginationOptionsForCursors, PaginationOptionsForOffsets, PaginationType } from "../types/general";
 import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
 import { GuidanceGroup } from "../models/GuidanceGroup";
+import { getAffiliationsWithGuidanceForTemplate } from "../services/guidanceService";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -27,8 +28,8 @@ export const resolvers: Resolvers = {
       const reference = 'affiliations resolver';
       try {
         const opts = !isNullOrUndefined(paginationOptions) && paginationOptions.type === PaginationType.OFFSET
-            ? paginationOptions as PaginationOptionsForOffsets
-            : { ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors;
+          ? paginationOptions as PaginationOptionsForOffsets
+          : { ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors;
 
         return await AffiliationSearch.search(reference, context, name, funderOnly, opts);
       } catch (err) {
@@ -36,7 +37,47 @@ export const resolvers: Resolvers = {
         throw InternalServerError();
       }
     },
+    // returns managed affiliations with published guidance for a specific template
+    managedAffiliationsWithGuidance: async (
+      _,
+      { name, versionedTemplateId, paginationOptions },
+      context: MyContext
+    ): Promise<AffiliationSearchResults> => {
+      const reference = 'managedAffiliationsWithGuidance resolver';
+      try {
+        // Get affiliation URIs that have guidance for the specified template
+        const affiliationUris = await getAffiliationsWithGuidanceForTemplate(
+          context,
+          versionedTemplateId
+        );
 
+        // If no affiliations have guidance, return empty results
+        if (affiliationUris.length === 0) {
+          return {
+            items: [],
+            totalCount: 0,
+            hasNextPage: false,
+            currentOffset: 0
+          };
+        }
+
+        const opts = !isNullOrUndefined(paginationOptions) && paginationOptions.type === PaginationType.OFFSET
+          ? paginationOptions as PaginationOptionsForOffsets
+          : { ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors;
+
+        // Search for affiliations matching the URIs and name filter
+        return await AffiliationSearch.searchManagedWithPublishedGuidance(
+          reference, 
+          context, 
+          name, 
+          affiliationUris,
+          opts
+        );
+      } catch (err) {
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    },
     // Returns the specified Affiliation by id
     affiliationById: async (_, { affiliationId }, context: MyContext): Promise<Affiliation> => {
       const reference = 'affiliationById resolver';

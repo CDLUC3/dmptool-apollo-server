@@ -10,6 +10,9 @@ export const typeDefs = gql`
     publishedTemplatesMetaData(term: String, paginationOptions: PaginationOptions): PublishedTemplateMetaDataResults
     "Get the VersionedTemplates that belong to the current user's affiliation (user must be an Admin)"
     myVersionedTemplates: [VersionedTemplateSearchResult]
+
+    "Get all of the customizable templates for the current user's affiliation (user must be an Admin)"
+    customizableTemplates(term: String, status: String, migrationStatus: String, paginationOptions: PaginationOptions): CustomizableTemplateSearchResults
   }
 
   "Template version type"
@@ -76,6 +79,59 @@ export const typeDefs = gql`
     modifiedByName: String
     "The timestamp when the Template was last modified"
     modified: String
+  }
+
+  type CustomizableTemplateSearchResults implements PaginatedQueryResults {
+    "The CustomizableTemplateSearchResult that match the search criteria"
+    items: [CustomizableTemplateSearchResult]
+    "The total number of possible items"
+    totalCount: Int
+    "The number of items returned"
+    limit: Int
+    "The cursor to use for the next page of results (for infinite scroll/load more)"
+    nextCursor: String
+    "The current offset of the results (for standard offset pagination)"
+    currentOffset: Int
+    "Whether or not there is a next page"
+    hasNextPage: Boolean
+    "Whether or not there is a previous page"
+    hasPreviousPage: Boolean
+    "The sortFields that are available for this query (for standard offset pagination only!)"
+    availableSortFields: [String]
+  }
+
+  type CustomizableTemplateSearchResult {
+    "The id of the published template"
+    versionedTemplateId: Int!
+    "The affiliation uri that owns the published template"
+    versionedTemplateAffiliationId: String!
+    "The affiliation name that owns the published template"
+    versionedTemplateAffiliationName: String!
+    "The name of the published template"
+    versionedTemplateName: String!
+    "The version number of the published template"
+    versionedTemplateVersion: String!
+    "The description of the published template"
+    versionedTemplateDescription: String
+    "Whether the published template is a best practice template"
+    versionedTemplateBestPractice: Boolean!
+    "The timestamp when the published template was last modified"
+    versionedTemplateLastModified: String!
+
+    "The id of the template customization (undefined means the template has not been customized yet)"
+    customizationId: Int
+    "Whether the customization has unpublished changes (if applicable)"
+    customizationIsDirty: Boolean
+    "The status of the customization (if applicable)"
+    customizationStatus: TemplateCustomizationStatus
+    "The status of the customization with regard to the published template (if applicable)"
+    customizationMigrationStatus: TemplateCustomizationMigrationStatus
+    "The id of the user who customized the template (if applicable)"
+    customizationLastCustomizedById: Int
+    "The name of the user who last modified the customization (if applicable)"
+    customizationLastCustomizedByName: String
+    "The timestamp when the customization was last modified (if applicable)"
+    customizationLastCustomized: String
   }
 
   "A snapshot of a Template when it became published. DMPs are created from published templates"

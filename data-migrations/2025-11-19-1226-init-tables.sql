@@ -69,6 +69,12 @@ DROP TABLE IF EXISTS workVersions;
 DROP TABLE IF EXISTS works;
 
 -- Recreate the tables
+CREATE TABLE `dataMigrations` (
+  `migrationFile` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `created` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY `unique_migration_file` (`migrationFile`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE `affiliationDepartments` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
   `affiliationId` varchar(255) NOT NULL,

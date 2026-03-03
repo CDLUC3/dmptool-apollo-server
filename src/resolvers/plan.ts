@@ -14,7 +14,10 @@ import { VersionedTemplate } from "../models/VersionedTemplate";
 import { Answer } from "../models/Answer";
 import { ProjectCollaboratorAccessLevel } from "../models/Collaborator";
 import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
-import { ensureDefaultPlanContact } from "../services/planService";
+import {
+  ensureDefaultPlanContact,
+  saveMaDMPVersion
+} from "../services/planService";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -90,7 +93,11 @@ export const resolvers: Resolvers = {
               if (!contactWasSet) {
                 created.addError('general', 'Unable to set the default contact');
               }
+
+              // Generate the initial maDMP version of the record
+              await saveMaDMPVersion(reference, context, created.id, created.registered);
             }
+
             return created;
           }
         }
@@ -120,7 +127,12 @@ export const resolvers: Resolvers = {
           const project = await Project.findById(reference, context, plan.projectId);
           if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.OWN)) {
             if (!plan.hasErrors()) {
-              return await plan.delete(context);
+              const deleted = await plan.delete(context);
+
+              if (deleted) {
+                // Delete the maDMP versions of the record
+                await saveMaDMPVersion(reference, context, deleted.id, deleted.registered, true);
+              }
             } else {
               return plan;
             }
@@ -191,7 +203,13 @@ export const resolvers: Resolvers = {
                   plan.addError('general', 'Plan must have a primary contact');
                 } else {
                   // All criteria was satisfied, so publish the plan
-                  await plan.publish(context, visibility as PlanVisibility);
+                  const published = await plan.publish(context, visibility as PlanVisibility);
+
+                  if (published && !published.hasErrors()) {
+                    // Update the maDMP version of the record
+                    await saveMaDMPVersion(reference, context, plan.id, plan.registered);
+                  }
+                  return published;
                 }
               }
             }
@@ -218,7 +236,12 @@ export const resolvers: Resolvers = {
           const project = await Project.findById(reference, context, plan.projectId);
           if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.OWN)) {
             plan.status = status as PlanStatus;
-            return await plan.update(context);
+            const updated = await plan.update(context);
+
+            if (updated && !updated.hasErrors()) {
+              // Update the maDMP version of the record
+              await saveMaDMPVersion(reference, context, updated.id, updated.registered);
+            }
           }
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();
@@ -241,7 +264,12 @@ export const resolvers: Resolvers = {
           const project = await Project.findById(reference, context, plan.projectId);
           if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.OWN)) {
             plan.title = title;
-            return await plan.update(context);
+            const updated = await plan.update(context);
+
+            if (updated && !updated.hasErrors()) {
+              // Update the maDMP version of the record
+              await saveMaDMPVersion(reference, context, updated.id, updated.registered);
+            }
           }
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();

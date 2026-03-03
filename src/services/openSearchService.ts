@@ -3,6 +3,7 @@ import { OpenSearchWork, WorkType } from '../types';
 import { awsConfig } from '../config/awsConfig';
 import { prepareObjectForLogs } from '../logger';
 import { createOpenSearchClient, OpenSearchConfig } from "../datasources/openSearch";
+import { GraphQLError } from "graphql";
 
 
 interface OpenSearchWorkRecord {
@@ -70,16 +71,16 @@ export function convertWorkToCamelCase(work: OpenSearchWorkRecord): OpenSearchWo
   };
 }
 
-export const openSearchFindWorkByIdentifier = async (context: MyContext, doi: string | null | undefined, maxResults: number): Promise<OpenSearchWork[]> => {
+export const openSearchFindWorkByIdentifier = async (reference: string, context: MyContext, doi: string | null | undefined, maxResults: number): Promise<OpenSearchWork[]> => {
   // If doi is empty, whitespace, null or undefined return no results
   if (!doi?.trim()) {
     return [];
   }
 
   // Fetch data from OpenSearch
-  const client = createOpenSearchClient(awsConfig.opensearch as OpenSearchConfig);
   let response;
   try {
+    const client = createOpenSearchClient(awsConfig.opensearch as OpenSearchConfig);
     response = await client.search({
       index: 'works-index',
       body: {
@@ -92,8 +93,15 @@ export const openSearchFindWorkByIdentifier = async (context: MyContext, doi: st
       },
     });
   } catch (err) {
-    context.logger.error(`Error fetching works with DOI ${doi} from OpenSearch domain: ${err.message}`);
-    throw err;
+    context.logger.error(prepareObjectForLogs(err), `Error fetching works with DOI ${doi} from OpenSearch domain in ${reference}`);
+
+    throw new GraphQLError("Service temporarily unavailable", {
+      extensions: {
+        code: "SERVICE_UNAVAILABLE",
+        service: "opensearch",
+        details: "We are having trouble connecting to the search service, if the error persists please report the error."
+      }
+    });
   }
 
   // Convert response from snake case to camel case
@@ -110,7 +118,14 @@ export const openSearchFindWorkByIdentifier = async (context: MyContext, doi: st
       return convertWorkToCamelCase(hit._source as OpenSearchWorkRecord);
     });
   } catch (err) {
-    context.logger.error(prepareObjectForLogs({ err }), `Error converting OpenSearch response: ${err.message}`);
-    throw err;
+    context.logger.error(prepareObjectForLogs(err), `Error converting OpenSearch response into OpenSearchWorkRecord in ${reference}`);
+
+    throw new GraphQLError("Unexpected response format from search service.", {
+      extensions: {
+        code: "INTERNAL_SERVER_ERROR",
+        service: "opensearch",
+        details: "Unexpected response format from search service."
+      }
+    });
   }
 };

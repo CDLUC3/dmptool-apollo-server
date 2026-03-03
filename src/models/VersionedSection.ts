@@ -192,6 +192,28 @@ export class VersionedSection extends MySqlModel {
     return Array.isArray(results) && results.length > 0 ? results.map((entry) => new VersionedSection(entry)) : [];
   }
 
+  /**
+   * Find the VersionedSection by the versionedTemplateId and sectionId.
+   *
+   * @param reference The reference to use for logging
+   * @param context The Apollo context
+   * @param versionedTemplateId The versionedTemplateId to search for
+   * @param sectionId The sectionId to search for
+   * @returns The active VersionedSection or undefined if none was found.
+   */
+  static async findByVersionedTemplateIdAndSectionId(
+    reference: string,
+    context: MyContext,
+    versionedTemplateId: number,
+    sectionId: number
+  ): Promise<VersionedSection> {
+    const sql = `SELECT * FROM versionedSections
+         WHERE versionedTemplateId = ? AND sectionId = ? ORDER BY modified DESC`;
+    const vals = [versionedTemplateId.toString(), sectionId.toString()];
+    const results = await VersionedSection.query(context, sql, vals, reference);
+    return Array.isArray(results) && results.length > 0 ? new VersionedSection(results[0]) : undefined;
+  }
+
   // Find the VersionedSection by name
   static async findByName(
     reference: string,

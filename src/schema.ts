@@ -16,15 +16,18 @@ import { typeDefs as fundingTypeDefs } from './schemas/funding';
 import { typeDefs as guidanceTypeDefs } from './schemas/guidance';
 import { typeDefs as guidanceGroupTypeDefs } from './schemas/guidanceGroup';
 import { typeDefs as questionTypeDefs } from './schemas/question';
+import { typeDefs as questionCustomizationTypeDefs } from './schemas/questionCustomization';
 import { typeDefs as questionConditionTypeDefs } from './schemas/questionCondition';
 import { typeDefs as relatedWorkTypeDefs } from './schemas/relatedWork';
 import { typeDefs as repositoryTypeDefs } from './schemas/repository';
 import { typeDefs as researchDomainTypeDefs } from './schemas/researchDomain';
 import { typeDefs as researchOutputTypeDefs } from './schemas/researchOutputType';
 import { typeDefs as sectionTypeDefs } from './schemas/section';
+import { typeDefs as sectionCustomizationTypeDefs } from './schemas/sectionCustomization';
 import { typeDefs as superAdminTypeDefs } from './schemas/superAdmin';
 import { typeDefs as tagTypeDefs } from './schemas/tag';
 import { typeDefs as templateTypeDefs } from './schemas/template';
+import { typeDefs as templateCustomizationTypeDefs } from './schemas/templateCustomization';
 import { typeDefs as userTypeDefs } from './schemas/user';
 import { typeDefs as versionedQuestionTypeDefs } from './schemas/versionedQuestion';
 import { typeDefs as versionedGuidanceTypeDefs } from './schemas/versionedGuidance';
@@ -51,14 +54,17 @@ export const typeDefs = mergeTypeDefs([
   projectTypeDefs,
   questionTypeDefs,
   questionConditionTypeDefs,
+  questionCustomizationTypeDefs,
   relatedWorkTypeDefs,
   repositoryTypeDefs,
   researchDomainTypeDefs,
   researchOutputTypeDefs,
   sectionTypeDefs,
+  sectionCustomizationTypeDefs,
   superAdminTypeDefs,
   tagTypeDefs,
   templateTypeDefs,
+  templateCustomizationTypeDefs,
   userTypeDefs,
   versionedGuidanceTypeDefs,
   versionedQuestionTypeDefs,

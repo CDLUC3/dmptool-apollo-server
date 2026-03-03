@@ -81,7 +81,7 @@ export function setupRouter(
   );
 
   // SSO Callback from Shibboleth SP
-  router.get('/sso/callback',
+  router.get('/sso/callback/:id',
     // TODO: Determine what middleware hooks we want
 
     // authMiddleware

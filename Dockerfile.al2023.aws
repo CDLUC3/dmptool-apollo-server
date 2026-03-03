@@ -4,9 +4,8 @@
 # testing on AL2023 for future integration with shiboleth sp
 FROM public.ecr.aws/amazonlinux/amazonlinux:2023 as deps
 
-RUN rm -fr /var/cache/dnf/* && dnf clean all && dnf -y update && dnf -y install \
-  nodejs22 \
-  && dnf clean all
+RUN dnf -y install \
+  nodejs22
 
 WORKDIR /app
 
@@ -25,9 +24,8 @@ RUN npm ci
 FROM public.ecr.aws/amazonlinux/amazonlinux:2023 as builder
 #FROM public.ecr.aws/docker/library/node:22.1.0-alpine3.19 as builder
 
-RUN rm -fr /var/cache/dnf/* && dnf clean all && dnf -y update && dnf -y install \
-  nodejs22 \
-  && dnf clean all
+RUN dnf -y install \
+  nodejs22
 
 WORKDIR /app
 

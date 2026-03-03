@@ -35,7 +35,7 @@
     "npm": ">=11.3.0"
   },
   "overrides": {
-    "minimatch": "10.2.2"
+    "minimatch": "10.2.1"
   },
   "dependencies": {
     "@apollo/datasource-rest": "^6.4.1",

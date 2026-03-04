@@ -11,7 +11,6 @@ import {
 } from '../types/repository';
 import { GraphQLError } from "graphql";
 
-
 interface OpenSearchWorkRecord {
   doi: string;
   title?: string;

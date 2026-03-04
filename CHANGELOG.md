@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added opensearch to the docker compose file
 - Added OpenSearch integration for full-text search of re3data repositories
 - Added `open-search-init.sh` script to initialize OpenSearch indices with proper mappings for repository data
 - Added `re3data-os-populate.ts` migration script for syncing re3data repository metadata to OpenSearch with blue-green deployment strategy

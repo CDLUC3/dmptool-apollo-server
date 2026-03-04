@@ -20,7 +20,6 @@ afterEach(() => {
 
 describe('ProjectSearchResult', () => {
   let localQuery;
-  let originalQuery;
   let projectSearchResult;
 
   beforeEach(async () => {
@@ -66,7 +65,6 @@ describe('ProjectSearchResult', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
-    Project.query = originalQuery;
   });
 
   describe('search', () => {

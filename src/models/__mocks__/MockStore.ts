@@ -122,15 +122,12 @@ export const findEntriesInMockTableByFilter = (tableName, criteria) => {
 
 // Simulate pagination of the results returned from a query
 export const paginate = (results, paginationOptions: PaginationOptionsForCursors | PaginationOptionsForOffsets) => {
-  let paginatedResults = [];
   const totalCount = results.length;
   const finalId = results.length > 0 ? results[results.length - 1].id : null;
 
-  if ('offset' in paginationOptions && !isNullOrUndefined(paginationOptions.offset)) {
-    paginatedResults = paginateByOffset(results, paginationOptions as PaginationOptionsForOffsets);
-  } else {
-    paginatedResults = paginateByCursor(results, paginationOptions as PaginationOptionsForCursors);
-  }
+  const paginatedResults = ('offset' in paginationOptions && !isNullOrUndefined(paginationOptions.offset))
+    ? paginateByOffset(results, paginationOptions as PaginationOptionsForOffsets)
+    : paginateByCursor(results, paginationOptions as PaginationOptionsForCursors);
 
   const lastId = paginatedResults.length > 0 ? paginatedResults[paginatedResults.length - 1].id : null;
 

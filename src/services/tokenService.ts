@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from 'uuid';
+import { v4 } from 'uuid';
 import { createHash, timingSafeEqual } from 'crypto';
 import jwt, { JwtPayload } from 'jsonwebtoken';
 import { Response } from "express";
@@ -51,7 +51,7 @@ export const setTokenCookie = (res: Response, name: string, value: string, maxAg
 // Generate a new CSRF token the session
 export const generateCSRFToken = async (cache: KeyvAdapter): Promise<string> => {
   try {
-    const csrfToken = uuidv4().replace(/-/g, '').slice(0, generalConfig.csrfLength);
+    const csrfToken = v4().replace(/-/g, '').slice(0, generalConfig.csrfLength);
     const hashedToken = hashToken(csrfToken);
 
     // Add the refresh token to the Cache

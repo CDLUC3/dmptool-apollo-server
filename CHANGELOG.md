@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added `sectionCustomizationByVersionedSection` schema and resolver, and added `findByCustomizationAndVersionedSection` method to the `SectionCustomization` model.
 - Added `SectionCustomization` and `QuestionCustomization` schemas and resolvers
 - Added a new `authenticatedResolver` wrapper function to help handle common authorization checks on a resolver
 - Added `TemplateCustomizationOverview` to the `TemplateCustomization` model which returns high level overview info about the base funder template and the customizations
@@ -33,6 +34,10 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated buildspec and Dockerfile for AWS to ignore audit scan on devDependencies and to ensure we do not build an image that contains them
+- Updated the `TemplateCustomizationOverview` checks for `hasGuidanceText` and `hasSampleText` flags to use the `customSection` and `customQuestion`.
+- Updated the `publish` method in `TemplateCustomization` so it would allow me to publish a customization when `isDirty` was true and the template had been published before. Also removed check for `current` in `VersionedTemplateCustomizations.create` so that it could get past the `Version already exists` error when trying to publish a template customization a second time [#428]
+- Updated the `update` function in `VersionedTemplateCustomization.ts model because it was failing since what is returned by the `update` function in `MySQLModel` is a `ResultSetHeader` and not an instance of `VersionedTemplateCustomization`, so it was failing [#428]
 - Updated `TemplateCustomizationOverview` to include the `sectionCustomizationId` and `questionCustomizationId` for funder sections and questions that have been customized.
 - Updated `TemplateCustomizationOverview` to accurately populate the `hasGuidanceText` and `hasSampleText` flags for `customSection` and `customQuestion` types
 - Removed the template owner and user affiliation id filters from `getAffiliationsWithGuidanceForTemplate` so that the search returns ALL affiliations with guidance for the associated section tags [#29]
@@ -56,6 +61,7 @@
 - Updates to appease newer version of eslint
 
 ### Removed
+- Removed the `unique_vTemplateCusts` restriction from `versionedTemplateCustomizations` table, because it was not allowing the publishing of a templateCustomization more than twice, because the combination of `templateCustomizationId` and `active` had to be unique [#428]
 - Removed `src/datasources/dynamo` data source. Writes to Dynamo are now being handled by the `generateMaDMPRecord` Lambda Function.
 - Removed `src/models/PlanVersion`
 - Removed the old `commonStandardService`. This functionality now lives in the `@dmptool/utils` package

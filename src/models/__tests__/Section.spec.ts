@@ -17,6 +17,7 @@ describe('Section', () => {
   }
   beforeEach(() => {
     section = new Section(sectionData);
+    context = buildMockContextWithToken(logger);
   });
 
   it('should initialize options as expected', () => {

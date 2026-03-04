@@ -62,46 +62,34 @@ export class VersionedTemplateCustomization extends MySqlModel {
 
     // Make sure the record is valid
     if (await this.isValid()) {
-      const current: VersionedTemplateCustomization = await VersionedTemplateCustomization.findByCustomizationAndTemplate(
-        ref,
+      // Set the active flag to true by default.
+      this.active = true;
+
+      // Save the record and then fetch it
+      const newId: number = await VersionedTemplateCustomization.insert(
         context,
-        this.templateCustomizationId,
-        this.currentVersionedTemplateId
+        VersionedTemplateCustomization.tableName,
+        this,
+        ref
       );
 
-      // Make sure it doesn't already exist
-      if (!isNullOrUndefined(current)) {
-        this.addError('general', 'Version already exists');
-      } else {
-        // Set the active flag to true by default.
-        this.active = true;
-
-        // Save the record and then fetch it
-        const newId: number = await VersionedTemplateCustomization.insert(
+      if (newId) {
+        const created: VersionedTemplateCustomization = await VersionedTemplateCustomization.findById(
+          ref,
           context,
-          VersionedTemplateCustomization.tableName,
-          this,
-          ref
+          newId
         );
 
-        if (newId) {
-          const created: VersionedTemplateCustomization = await VersionedTemplateCustomization.findById(
-            ref,
-            context,
-            newId
-          );
+        if (!isNullOrUndefined(created) && !isNullOrUndefined(created.id)) {
+          // Unpublish all other versions of the customization.
+          await created.unpublishOtherVersions(ref, context)
 
-          if (!isNullOrUndefined(created) && !isNullOrUndefined(created.id)) {
-            // Unpublish all other versions of the customization.
-            await created.unpublishOtherVersions(ref, context)
-
-            return created;
-          } else {
-            this.addError('general', 'Unable to load newly created version');
-          }
+          return created;
         } else {
-          this.addError('general', 'Unable to create version');
+          this.addError('general', 'Unable to load newly created version');
         }
+      } else {
+        this.addError('general', 'Unable to create version');
       }
     }
 
@@ -125,16 +113,16 @@ export class VersionedTemplateCustomization extends MySqlModel {
     } else {
       // Make sure the record is valid
       if (await this.isValid()) {
-        const updated: VersionedTemplateCustomization = await VersionedTemplateCustomization.update(
+        const result = await VersionedTemplateCustomization.update(
           context,
           VersionedTemplateCustomization.tableName,
           this,
           ref,
           [],
           noTouch
-        ) as VersionedTemplateCustomization;
+        ) as unknown as {affectedRows:number} | null;
 
-        if (!isNullOrUndefined(updated) && !updated.hasErrors()) {
+        if (result && result.affectedRows > 0) {
           return await VersionedTemplateCustomization.findById(ref, context, this.id);
         } else {
           this.addError('general', 'Unable to update version');
@@ -158,11 +146,10 @@ export class VersionedTemplateCustomization extends MySqlModel {
     const results = await VersionedTemplateCustomization.query(
       context,
       `UPDATE ${VersionedTemplateCustomization.tableName} SET active = 0
-        WHERE id != ? AND templateCustomizationId = ? AND versionedTemplateId = ?`,
+        WHERE id != ? AND templateCustomizationId = ?`,
       [
         this.id.toString(),
-        this.templateCustomizationId.toString(),
-        this.currentVersionedTemplateId.toString()
+        this.templateCustomizationId.toString()
       ],
       reference
     );

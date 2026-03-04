@@ -1,0 +1,2 @@
+ALTER TABLE versionedTemplateCustomizations 
+DROP INDEX unique_vTemplateCusts;

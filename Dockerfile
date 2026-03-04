@@ -3,6 +3,7 @@ FROM public.ecr.aws/docker/library/node:22.22-alpine3.23
 
 # Install MariaDB and Bash so we can run data-migrations/process.sh
 RUN apk update && \
+    apk upgrade && \
     apk add --no-cache \
     mysql-client \
     mariadb-connector-c \

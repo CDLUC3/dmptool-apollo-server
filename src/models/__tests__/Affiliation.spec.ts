@@ -74,6 +74,7 @@ describe('prepForSave', () => {
     const affiliation = new Affiliation({ name, homepage, acronyms, aliases });
     const domain = homepage.replace(/https?:\/\//, '').replace('/', '').toLowerCase();
     affiliation.prepForSave();
+
     expect(affiliation.name).toEqual(name);
     expect(affiliation.homepage).toEqual(homepage);
     expect(affiliation.displayName).toEqual(`${name} (${domain})`);

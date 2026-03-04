@@ -11,6 +11,13 @@
 - Added `re3SubjectList` query to return distinct subject area keywords from re3data repositories with optional counts
 - Added `re3RepositoryTypesList` query to return distinct repository types from re3data with optional counts
 - Added new repository service methods for searching and filtering re3data repositories
+- Added `sectionCustomizationByVersionedSection` schema and resolver, and added `findByCustomizationAndVersionedSection` method to the `SectionCustomization` model.
+- Added `SectionCustomization` and `QuestionCustomization` schemas and resolvers
+- Added a new `authenticatedResolver` wrapper function to help handle common authorization checks on a resolver
+- Added `TemplateCustomizationOverview` to the `TemplateCustomization` model which returns high level overview info about the base funder template and the customizations
+- Added `CustomQuestion`, `CustomSection`, `sectionCustomization` and `questionCustomization` models
+- Added data migration script to create seed customization records for sections and questions
+- Added new field, `sourceVersionedTemplateId` field to `templates` table so we can track the source when cloned from a `versionedTemplates` record [#1006]
 - Added `customizableTemplates` query and `CustomizableTemplateSearchResult` to the `versionedTemplate` schema and resolver
 - Added `TemplateCustomization` model resolver and schema
 - Added `templateCustomizationService` which handles updating the status of `templateCustomizations` when the customized template is archived or republished
@@ -39,6 +46,12 @@
 - Updated `Repository` model to support searchCombined functionality that integrates custom and re3data repositories
 - Updated `repositoryService` to orchestrate queries from both custom and re3data sources with pagination support
 - Updated `openSearchService` to provide re3data repository search, filtering, and retrieval capabilities
+- Updated buildspec and Dockerfile for AWS to ignore audit scan on devDependencies and to ensure we do not build an image that contains them
+- Updated the `TemplateCustomizationOverview` checks for `hasGuidanceText` and `hasSampleText` flags to use the `customSection` and `customQuestion`.
+- Updated the `publish` method in `TemplateCustomization` so it would allow me to publish a customization when `isDirty` was true and the template had been published before. Also removed check for `current` in `VersionedTemplateCustomizations.create` so that it could get past the `Version already exists` error when trying to publish a template customization a second time [#428]
+- Updated the `update` function in `VersionedTemplateCustomization.ts model because it was failing since what is returned by the `update` function in `MySQLModel` is a `ResultSetHeader` and not an instance of `VersionedTemplateCustomization`, so it was failing [#428]
+- Updated `TemplateCustomizationOverview` to include the `sectionCustomizationId` and `questionCustomizationId` for funder sections and questions that have been customized.
+- Updated `TemplateCustomizationOverview` to accurately populate the `hasGuidanceText` and `hasSampleText` flags for `customSection` and `customQuestion` types
 - Removed the template owner and user affiliation id filters from `getAffiliationsWithGuidanceForTemplate` so that the search returns ALL affiliations with guidance for the associated section tags [#29]
 - Updated `buildspec.yaml` to run `trivy` scans, unit tests and `npm audit`
 - Unpegged dependencies in `package.json`
@@ -60,6 +73,7 @@
 - Updates to appease newer version of eslint
 
 ### Removed
+- Removed the `unique_vTemplateCusts` restriction from `versionedTemplateCustomizations` table, because it was not allowing the publishing of a templateCustomization more than twice, because the combination of `templateCustomizationId` and `active` had to be unique [#428]
 - Removed `src/datasources/dynamo` data source. Writes to Dynamo are now being handled by the `generateMaDMPRecord` Lambda Function.
 - Removed `src/models/PlanVersion`
 - Removed the old `commonStandardService`. This functionality now lives in the `@dmptool/utils` package
@@ -72,6 +86,10 @@
 - Removed deprecated `@types/bcrypt` and `uuidv4` packages
 - Removed `ioredis` package
 
+### Fixed
+- In `preparePaginationOptions` function, wrapped each cursorField with `COALESCE` to handle `NULL` values in SQL `CONCAT`, otherwise if any cursorField is NULL, it would just return a null value due to the way `CONCAT` works [#107]
+- Fixed breaking cloning of template. The `addTemplate` was updated to accept a `copyFromVersionedTemplateId` so that we copy from versioned template, section and questions, when it's not a template from the user's org. Otherwise we check for `copyFromTemplateId` to copy/clone from templates, sections and questions, and if neither are present, we continue to create a new record for `templates` table [#1006]
+- Fixed issue with templates not cloning with sections and questions by updating the `addTemplate` mutation to clone from non-versioned template, section and question [#1006]
 ## v1.0
 
 ### Updated

@@ -234,9 +234,12 @@ export class MySqlModel {
         cursorFields.unshift(paginationOptions.sortField);
       }
 
+      // Wrap each field with COALESCE to handle NULL values in SQL CONCAT
+      const coalesced = cursorFields.map(field => `COALESCE(${field}, '')`).join(', ');
+
       return {
         ...paginationOptions,
-        cursorField: `LOWER(REPLACE(CONCAT(${cursorFields.join(', ')}), ' ', '_'))`
+        cursorField: `LOWER(REPLACE(CONCAT(${coalesced}), ' ', '_'))`
       };
     }
   }
@@ -381,14 +384,14 @@ export class MySqlModel {
 
       const totalCount = calculateTotalCount
         ? await this.getTotalCountForPagination(
-            apolloContext,
-            sqlStatement,
-            whereClause,
-            groupByClause,
-            options.countField ?? 'id',
-            values,
-            reference
-          )
+          apolloContext,
+          sqlStatement,
+          whereClause,
+          groupByClause,
+          options.countField ?? 'id',
+          values,
+          reference
+        )
         : 0;
 
       const currentOffset = options.offset ?? 0;
@@ -470,14 +473,14 @@ export class MySqlModel {
       // Use original WHERE clause and original values for total count
       const totalCount: number = calculateTotalCount
         ? await this.getTotalCountForPagination(
-            apolloContext,
-            sqlStatement,
-            originalWhereClause,
-            groupByClause,
-            options.countField ?? 'id',
-            values,
-            reference
-          )
+          apolloContext,
+          sqlStatement,
+          originalWhereClause,
+          groupByClause,
+          options.countField ?? 'id',
+          values,
+          reference
+        )
         : 0;
 
       const nextCursor = items.length > 0 ? items[items.length - 1]?.cursorId : undefined;

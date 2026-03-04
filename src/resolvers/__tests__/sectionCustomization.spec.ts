@@ -41,7 +41,7 @@ let adminToken: JWTAccessToken;
 let query: string;
 
 // Proxy call to the Apollo server test server
-async function executeQuery (
+async function executeQuery(
   query: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   variables: any,
@@ -274,7 +274,7 @@ describe('sectionCustomization resolver', () => {
         templateCustomizationId: 10,
         name: 'Custom Section'
       };
-      const mockParent = {id: 10, isDirty: false};
+      const mockParent = { id: 10, isDirty: false };
 
       (CustomSection.findById as jest.Mock).mockResolvedValue(mockCustomSection);
       (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
@@ -391,8 +391,8 @@ describe('sectionCustomization resolver', () => {
         templateCustomizationId: 10,
         versionedSectionId: 5
       };
-      const mockSection = {id: 5};
-      const mockParent = {id: 10, isDirty: false};
+      const mockSection = { id: 5 };
+      const mockParent = { id: 10, isDirty: false };
       const mockCreated = {
         id: 1,
         sectionId: 5,
@@ -552,6 +552,10 @@ describe('sectionCustomization resolver', () => {
         mutation addCustomSection($input: AddCustomSectionInput!) {
           addCustomSection(input: $input) {
             id
+            name
+            introduction
+            requirements
+            guidance
             templateCustomizationId
             pinnedSectionType
             pinnedSectionId
@@ -570,6 +574,10 @@ describe('sectionCustomization resolver', () => {
 
     it('should create a new custom section successfully', async () => {
       const input = {
+        name: 'Test Affiliation',
+        introduction: 'Test introduction',
+        requirements: 'Test requirements',
+        guidance: 'Test guidance',
         templateCustomizationId: 10,
         pinnedSectionType: 'BASE',
         pinnedSectionId: 5
@@ -595,6 +603,9 @@ describe('sectionCustomization resolver', () => {
       expect(result.body.singleResult.data.addCustomSection.pinnedSectionType).toEqual('BASE');
       expect(result.body.singleResult.data.addCustomSection.pinnedSectionId).toEqual(5);
       expect(result.body.singleResult.data.addCustomSection.name).toEqual('Test Affiliation');
+      expect(result.body.singleResult.data.addCustomSection.introduction).toEqual('Test introduction');
+      expect(result.body.singleResult.data.addCustomSection.requirements).toEqual('Test requirements');
+      expect(result.body.singleResult.data.addCustomSection.guidance).toEqual('Test guidance');
       expect(markTemplateCustomizationAsDirty).toHaveBeenCalled();
     });
 

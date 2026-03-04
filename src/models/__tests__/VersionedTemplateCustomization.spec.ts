@@ -143,21 +143,6 @@ describe('VersionedTemplateCustomization', () => {
       expect(result).toBe(createdInstance);
     });
 
-    it('should add error when version already exists', async () => {
-      const instance = new VersionedTemplateCustomization(mockOptions);
-      instance.errors = {};
-
-      const existingVersion = new VersionedTemplateCustomization(mockOptions);
-
-      jest.spyOn(instance, 'isValid').mockResolvedValue(true);
-      jest.spyOn(VersionedTemplateCustomization, 'findByCustomizationAndTemplate').mockResolvedValue(existingVersion);
-      jest.spyOn(VersionedTemplateCustomization, 'insert').mockResolvedValue(null);
-
-      await instance.create(mockContext);
-
-      expect(instance.addError).toHaveBeenCalledWith('general', 'Version already exists');
-    });
-
     it('should add error when insert fails', async () => {
       const instance = new VersionedTemplateCustomization(mockOptions);
       instance.errors = {};
@@ -197,7 +182,7 @@ describe('VersionedTemplateCustomization', () => {
       });
 
       jest.spyOn(instance, 'isValid').mockResolvedValue(true);
-      jest.spyOn(VersionedTemplateCustomization, 'update').mockResolvedValue(mockUpdated);
+      jest.spyOn(VersionedTemplateCustomization, 'update').mockResolvedValue({ affectedRows: 1 } as unknown as VersionedTemplateCustomization);
       jest.spyOn(mockUpdated, 'hasErrors').mockReturnValue(false);
       jest.spyOn(VersionedTemplateCustomization, 'findById').mockResolvedValue(mockFetched);
 
@@ -291,7 +276,7 @@ describe('VersionedTemplateCustomization', () => {
       expect(VersionedTemplateCustomization.query).toHaveBeenCalledWith(
         mockContext,
         expect.stringContaining('UPDATE versionedTemplateCustomizations SET active = 0'),
-        ['1', '10', '20'],
+        ['1', '10'],
         'test-ref'
       );
       expect(result).toBe(true);

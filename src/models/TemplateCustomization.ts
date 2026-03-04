@@ -624,47 +624,49 @@ export class TemplateCustomization extends MySqlModel {
    * @returns The published Template customization.
    */
   async publish(context: MyContext): Promise<TemplateCustomization> {
+
     if (!this.id) {
       // Cannot publish it if it hasn't been saved yet!
       this.addError('general', 'Customization has never been saved');
 
-    } else if (this.status === TemplateCustomizationStatus.PUBLISHED || this.latestPublishedVersionId) {
+    } else if (this.status === TemplateCustomizationStatus.PUBLISHED && !this.isDirty) {
         // Can't publish if it is already published!
         this.addError('general', 'Customization is already published!');
 
     } else {
-      // Make sure the record is valid
-      if (await this.isValid()) {
-        // Create a new published version of the customization
-        const newVersion = new VersionedTemplateCustomization(
-          {
-            affiliationId: this.affiliationId,
-            templateCustomizationId: this.id,
-            currentVersionedTemplateId: this.currentVersionedTemplateId,
-            active: true
+        // Make sure the record is valid
+        if (await this.isValid()) {
+
+          // Create a new published version of the customization
+          const newVersion = new VersionedTemplateCustomization(
+            {
+              affiliationId: this.affiliationId,
+              templateCustomizationId: this.id,
+              currentVersionedTemplateId: this.currentVersionedTemplateId,
+              active: true
+            }
+          )
+
+          const created: VersionedTemplateCustomization = await newVersion.create(context);
+
+          if (!isNullOrUndefined(created) && !created.hasErrors() && created.id) {
+            // Update the status of the customization to reflect the change
+            this.status = TemplateCustomizationStatus.PUBLISHED;
+            this.isDirty = false;
+            this.latestPublishedVersionId = created.id;
+            this.latestPublishedDate = created.created;
+            const published: TemplateCustomization = await this.update(context, true); // noTouch=true, the update method will not set isDirty to true
+
+            if (!published) {
+              this.addError('general', 'Unable to publish');
+            }
+          } else {
+            this.errors = created?.errors ?? this.errors;
           }
-        )
-
-        const created: VersionedTemplateCustomization = await newVersion.create(context);
-
-        if (!isNullOrUndefined(created) && !created.hasErrors() && created.id) {
-          // Update the status of the customization to reflect the change
-          this.status = TemplateCustomizationStatus.PUBLISHED;
-          this.isDirty = false;
-          this.latestPublishedVersionId = created.id;
-          this.latestPublishedDate = created.created;
-          const published: TemplateCustomization = await this.update(context);
-
-          if (!published) {
-            this.addError('general', 'Unable to publish');
-          }
-        } else {
-          this.errors = created?.errors ?? this.errors;
         }
       }
+      return new TemplateCustomization(this);
     }
-    return new TemplateCustomization(this);
-  }
 
   /**
    * Unpublish the customization

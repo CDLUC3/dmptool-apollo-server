@@ -542,7 +542,7 @@ describe('updateDisplayOrders', () => {
       const tstamp = getCurrentDate();
 
       const templateId = casual.integer(1, 999);
-      const sectionId = casual.integer(1, 999);
+      sectionId = casual.integer(1, 999);
 
       // Setup the mock data store
       questionStore = [

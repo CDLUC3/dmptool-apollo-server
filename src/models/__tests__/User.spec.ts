@@ -760,7 +760,7 @@ describe('updatePassword', () => {
     context = await buildMockContextWithToken(logger);
 
     oldPassword = 'Test0ldP@ssw1';
-    oldPassword = 'TestN3wP@ssw2';
+    newPassword = 'TestN3wP@ssw2';
 
     user = new User({
       id: casual.integer(1, 9),

@@ -146,7 +146,7 @@ export const generateTemplateVersion = async (
       }
     } catch (err) {
       context.logger.error(prepareObjectForLogs(err), `Unable to create a new version for template: ${template.id}`);
-      throw new Error(err.message);
+      throw err;
     }
 
 

@@ -120,7 +120,6 @@ export function removeNullAndUndefinedFromJSON(json: string): string {
     });
     return JSON.stringify(parsedJSON);
   } catch (e) {
-    // eslint-disable-next-line preserve-caught-error
     throw new Error(`Invalid JSON format: ${e.message}`);
   }
 }

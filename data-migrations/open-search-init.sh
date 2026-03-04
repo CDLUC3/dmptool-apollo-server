@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Configuration
-ENDPOINT="http://localhost:9200"
+ENDPOINT="http://opensearch:9200"
 INDEX_NAME="re3data-idx1"
 ALIAS_NAME="re3data"
 

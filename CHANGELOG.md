@@ -34,6 +34,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated the `TemplateCustomizationOverview` checks for `hasGuidanceText` and `hasSampleText` flags to use the `customSection` and `customQuestion`.
 - Updated the `publish` method in `TemplateCustomization` so it would allow me to publish a customization when `isDirty` was true and the template had been published before. Also removed check for `current` in `VersionedTemplateCustomizations.create` so that it could get past the `Version already exists` error when trying to publish a template customization a second time [#428]
 - Updated the `update` function in `VersionedTemplateCustomization.ts model because it was failing since what is returned by the `update` function in `MySQLModel` is a `ResultSetHeader` and not an instance of `VersionedTemplateCustomization`, so it was failing [#428]
 - Updated `TemplateCustomizationOverview` to include the `sectionCustomizationId` and `questionCustomizationId` for funder sections and questions that have been customized.

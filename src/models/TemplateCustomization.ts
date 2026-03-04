@@ -236,7 +236,7 @@ export class TemplateCustomizationOverview {
           id: row.versionedSectionId,
           sectionCustomizationId: row.sectionCustomizationId,
           migrationStatus: row.sectionCustomizationMigrationStatus,
-          hasCustomGuidance: !valueIsEmpty(row.sectionCustomizationHasGuidanceText),
+          hasCustomGuidance: row.sectionCustomizationHasGuidanceText,
           name: row.versionedSectionName,
           displayOrder: row.versionedSectionDisplayOrder,
           questions: []
@@ -251,8 +251,8 @@ export class TemplateCustomizationOverview {
           id: row.versionedQuestionId,
           questionCustomizationId: row.questionCustomizationId,
           migrationStatus: row.questionCustomizationMigrationStatus,
-          hasCustomGuidance: !valueIsEmpty(row.questionCustomizationHasGuidanceText),
-          hasCustomSampleAnswer: !valueIsEmpty(row.questionCustomizationHasSampleText),
+          hasCustomGuidance: row.questionCustomizationHasGuidanceText,
+          hasCustomSampleAnswer: row.questionCustomizationHasSampleText,
           displayOrder: row.versionedQuestionDisplayOrder,
           questionText: row.versionedQuestionText,
         });

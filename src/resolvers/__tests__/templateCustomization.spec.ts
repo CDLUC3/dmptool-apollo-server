@@ -29,6 +29,10 @@ jest.mock('../../services/authService', () => ({
 
 jest.mock('../../context.ts');
 jest.mock('../../datasources/cache');
+jest.mock('../../services/openSearchService');
+jest.mock('../../config/awsConfig', () => ({
+  awsConfig: { opensearch: { useSSL: false, host: 'localhost', port: 9200 } },
+}));
 
 jest.mock('../../models/TemplateCustomization');
 jest.mock('../../services/templateCustomizationService');

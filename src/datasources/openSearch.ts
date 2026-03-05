@@ -2,7 +2,6 @@ import { Client, ClientOptions } from "@opensearch-project/opensearch";
 import { AwsSigv4Signer } from "@opensearch-project/opensearch/aws";
 import { fromNodeProviderChain } from "@aws-sdk/credential-providers";
 
-
 export interface OpenSearchConfig {
   host: string;
   port: number;

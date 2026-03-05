@@ -15,6 +15,10 @@ import { Template } from "../../models/Template";
 jest.mock('../../context.ts');
 jest.mock('../../datasources/cache');
 jest.mock('../../services/emailService');
+jest.mock('../../services/openSearchService');
+jest.mock('../../config/awsConfig', () => ({
+  awsConfig: { opensearch: { useSSL: false, host: 'localhost', port: 9200 } },
+}));
 
 let testServer: ApolloServer;
 let templateCollaboratorStore: TemplateCollaborator[];

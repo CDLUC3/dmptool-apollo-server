@@ -3,6 +3,15 @@
 ## v1.1.0
 
 ### Added
+- Added opensearch to the docker compose file
+- Added OpenSearch integration for full-text search of re3data repositories
+- Added `open-search-init.sh` script to initialize OpenSearch indices with proper mappings for repository data
+- Added `re3data-os-populate.ts` migration script for syncing re3data repository metadata to OpenSearch with blue-green deployment strategy
+- Added `re3dataId` field to `repositories` table to track re3data repository identifiers
+- Added `re3byURIs` query to fetch re3data repositories by their URIs
+- Added `re3SubjectList` query to return distinct subject area keywords from re3data repositories with optional counts
+- Added `re3RepositoryTypesList` query to return distinct repository types from re3data with optional counts
+- Added new repository service methods for searching and filtering re3data repositories
 - Added `sectionCustomizationByVersionedSection` schema and resolver, and added `findByCustomizationAndVersionedSection` method to the `SectionCustomization` model.
 - Added `SectionCustomization` and `QuestionCustomization` schemas and resolvers
 - Added a new `authenticatedResolver` wrapper function to help handle common authorization checks on a resolver
@@ -34,6 +43,10 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `repositories` query to use combined search strategy across custom and re3data sources with OpenSearch-backed pagination
+- Updated `Repository` model to support searchCombined functionality that integrates custom and re3data repositories
+- Updated `repositoryService` to orchestrate queries from both custom and re3data sources with pagination support
+- Updated `openSearchService` to provide re3data repository search, filtering, and retrieval capabilities
 - Updated `addCustomSection` to include `name`, `introduction`, `requirements` and `guidance` to the input schema
 - Updated buildspec and Dockerfile for AWS to ignore audit scan on devDependencies and to ensure we do not build an image that contains them
 - Updated the `TemplateCustomizationOverview` checks for `hasGuidanceText` and `hasSampleText` flags to use the `customSection` and `customQuestion`.

@@ -186,8 +186,8 @@ async function tryGetConnection(context: MyContext) {
       return null;
     }
   } catch (err) {
-    if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND') {
-      console.warn('MySQL is not running, skipping tests.');
+    if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND' || err.code === 'EACCES' || err.code === 'ER_ACCESS_DENIED_ERROR') {
+      console.warn('MySQL is not running or access denied, skipping tests.');
       return null;
     }
     throw err; // unexpected error, let it bubble

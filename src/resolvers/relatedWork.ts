@@ -150,7 +150,7 @@ export const resolvers: Resolvers = {
                         id: null,
                         doi: os.doi,
                       },
-                      hash: os.hash,
+                      hash: Buffer.from(os.hash, 'hex'),
                       workType: os.workType,
                       publicationDate: os.publicationDate,
                       title: os.title,
@@ -279,7 +279,7 @@ export const resolvers: Resolvers = {
                 }
 
                 // Fetch or create work version
-                let workVersion = await WorkVersion.findByDoiAndHash(reference, context, input.doi, input.hash);
+                let workVersion = await WorkVersion.findByDoiAndHash(reference, context, input.doi, Buffer.from(input.hash, 'hex'));
                 if (!workVersion) {
                   // Lookup work in OpenSearch
                   const openSearchWorks =  await openSearchFindWorkByIdentifier(
@@ -374,11 +374,11 @@ export const resolvers: Resolvers = {
               }
 
               // Fetch or create work version
-              let workVersion = await WorkVersion.findByDoiAndHash(reference, context, input.doi, input.hash);
+              let workVersion = await WorkVersion.findByDoiAndHash(reference, context, input.doi, Buffer.from(input.hash, 'hex'));
               if (!workVersion) {
                 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                const { planId, doi, ...options } = input;
-                workVersion = new WorkVersion(options);
+                const { planId, doi, hash, ...options } = input;
+                workVersion = new WorkVersion({ ...options, hash: Buffer.from(hash, 'hex') });
                 workVersion.workId = work.id;
                 workVersion = await workVersion.create(context, work.doi);
               }

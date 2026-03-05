@@ -33,6 +33,17 @@ jest.mock('../config/awsConfig', () => ({
     sesBouncedEmailBucket: 'my-test-bucket',
     sqs: {
       generateMaDMPQueueUrl: 'http://sqs.example.com/queue/generateMadmp'
+    },
+    opensearch: {
+      host: 'localhost',
+      port: 9200,
+      useSSL: false,
+      verifyCerts: false,
+      authType: 'aws',
+      username: 'admin',
+      password: 'password',
+      awsRegion: 'us-west-2',
+      awsService: 'es',
     }
   }
 }));

@@ -7,6 +7,7 @@ export type MakeOptional<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]?: 
 export type MakeMaybe<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]: Maybe<T[SubKey]> };
 export type MakeEmpty<T extends { [key: string]: unknown }, K extends keyof T> = { [_ in K]?: never };
 export type Incremental<T> = T | { [P in keyof T]?: P extends ' $fragmentName' | '__typename' ? T[P] : never };
+export type Omit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>;
 export type RequireFields<T, K extends keyof T> = Omit<T, K> & { [P in K]-?: NonNullable<T[P]> };
 /** All built-in and custom scalars, mapped to their actual values */
 export type Scalars = {
@@ -20,6 +21,16 @@ export type Scalars = {
   EmailAddress: { input: any; output: any; }
   MD5: { input: any; output: any; }
   Orcid: { input: any; output: any; }
+  /**
+   * Repository type values follow the re3data standard:
+   * - disciplinary: A discipline specific repository (e.g. GeneCards, Arctic Data Centre, etc.)
+   * - institutional: An institution specific repository (e.g. ASU Library Research Data Repository, etc.)
+   * - other: A repository that doesn't fit into any of the other categories
+   * - multidisciplinary: A repository that accepts any type of dataset, from any discipline
+   * - project-related: A repository created to support a specific project or initiative (e.g. Human Genome Project)
+   * - governmental: A repository owned and managed by a government entity (e.g. NCBI, NASA)
+   */
+  RepositoryTypeValue: { input: any; output: any; }
   Ror: { input: any; output: any; }
   URL: { input: any; output: any; }
 };
@@ -212,6 +223,8 @@ export type AddRepositoryInput = {
   keywords?: InputMaybe<Array<Scalars['String']['input']>>;
   /** The name of the repository */
   name: Scalars['String']['input'];
+  /** The re3data identifier if this is a local copy of re3data information (e.g. 'r3d100014782') */
+  re3dataId?: InputMaybe<Scalars['String']['input']>;
   /** The Categories/Types of the repository */
   repositoryTypes?: InputMaybe<Array<Scalars['String']['input']>>;
   /** Research domains associated with the repository */
@@ -722,6 +735,41 @@ export type CustomQuestionErrors = {
   sectionType?: Maybe<Scalars['String']['output']>;
   templateCustomizationId?: Maybe<Scalars['String']['output']>;
   useSampleTextAsDefault?: Maybe<Scalars['String']['output']>;
+};
+
+/** A custom repository where research outputs are preserved (database-backed) */
+export type CustomRepository = {
+  __typename?: 'CustomRepository';
+  /** The timestamp when the Object was created */
+  created?: Maybe<Scalars['String']['output']>;
+  /** The user who created the Object */
+  createdById?: Maybe<Scalars['Int']['output']>;
+  /** A description of the repository */
+  description?: Maybe<Scalars['String']['output']>;
+  /** Errors associated with the Object */
+  errors?: Maybe<RepositoryErrors>;
+  /** The unique identifer for the Object (returns as String for compatibility with Re3DataRepository) */
+  id: Scalars['String']['output'];
+  /** Keywords to assist in finding the repository */
+  keywords?: Maybe<Array<Scalars['String']['output']>>;
+  /** The timestamp when the Object was last modifed */
+  modified?: Maybe<Scalars['String']['output']>;
+  /** The user who last modified the Object */
+  modifiedById?: Maybe<Scalars['Int']['output']>;
+  /** The name of the repository */
+  name: Scalars['String']['output'];
+  /** The re3data identifier if this is a local copy of re3data information (e.g. 'r3d100014782') */
+  re3dataId?: Maybe<Scalars['String']['output']>;
+  /** The Categories/Types of the repository */
+  repositoryTypes?: Maybe<Array<Scalars['String']['output']>>;
+  /** Research domains associated with the repository */
+  researchDomains?: Maybe<Array<ResearchDomain>>;
+  /** The source of this repository */
+  source: RepositorySource;
+  /** The taxonomy URL of the repository */
+  uri?: Maybe<Scalars['String']['output']>;
+  /** The website URL */
+  website?: Maybe<Scalars['String']['output']>;
 };
 
 /** A section created/owned by the affiliation that owns the customization */
@@ -1317,7 +1365,7 @@ export type Mutation = {
   /** Add a related work manually, by specifying all work details */
   addRelatedWorkManual?: Maybe<RelatedWorkSearchResult>;
   /** Add a new Repository */
-  addRepository?: Maybe<Repository>;
+  addRepository?: Maybe<CustomRepository>;
   /** Add a new research output type (name must be unique!) */
   addResearchOutputType?: Maybe<ResearchOutputType>;
   /** Create a new Section. Leave the 'copyFromVersionedSectionId' blank to create a new section from scratch */
@@ -1355,7 +1403,7 @@ export type Mutation = {
   /** Merge two metadata standards */
   mergeMetadataStandards?: Maybe<MetadataStandard>;
   /** Merge two repositories */
-  mergeRepositories?: Maybe<Repository>;
+  mergeRepositories?: Maybe<CustomRepository>;
   /** Merge the 2 user accounts (Admin only) */
   mergeUsers?: Maybe<User>;
   /** Move a custom question to a different position within the section (null means move to the top of the section) */
@@ -1411,7 +1459,7 @@ export type Mutation = {
   /** Remove custom guidance and sample answer from a funder question */
   removeQuestionCustomization: QuestionCustomization;
   /** Delete a Repository */
-  removeRepository?: Maybe<Repository>;
+  removeRepository?: Maybe<CustomRepository>;
   /** Delete the research output type */
   removeResearchOutputType?: Maybe<ResearchOutputType>;
   /** Delete a section */
@@ -1495,7 +1543,7 @@ export type Mutation = {
   /** Update the status of a related work */
   updateRelatedWorkStatus?: Maybe<RelatedWorkSearchResult>;
   /** Update a Repository record */
-  updateRepository?: Maybe<Repository>;
+  updateRepository?: Maybe<CustomRepository>;
   /** Update the research output type */
   updateResearchOutputType?: Maybe<ResearchOutputType>;
   /** Update a Section */
@@ -3080,6 +3128,12 @@ export type Query = {
   questionCustomization?: Maybe<QuestionCustomization>;
   /** Get the Questions that belong to the associated sectionId */
   questions?: Maybe<Array<Maybe<Question>>>;
+  /** return all distinct repository types from re3data with optional counts */
+  re3RepositoryTypesList: Re3RepositoryTypesListResults;
+  /** return all distinct subject strings from re3data with optional counts */
+  re3SubjectList: Re3SubjectListResults;
+  /** return all re3data repositories whose unique uri values are provided */
+  re3byURIs?: Maybe<Array<Re3DataRepository>>;
   /** Return the recommended Licenses */
   recommendedLicenses?: Maybe<Array<Maybe<License>>>;
   /** Get all of the related works for a project or plan */
@@ -3088,12 +3142,12 @@ export type Query = {
   relatedWorksByPlanStats?: Maybe<RelatedWorkStatsResults>;
   /** Get summary statistics for related works by project */
   relatedWorksByProjectStats?: Maybe<RelatedWorkStatsResults>;
-  /** Search for a repository */
+  /** Search for repositories from custom database and re3data combined */
   repositories?: Maybe<RepositorySearchResults>;
   /** return all repositories whose unique uri values are provided */
-  repositoriesByURIs?: Maybe<Array<Repository>>;
-  /** Fetch a specific repository */
-  repository?: Maybe<Repository>;
+  repositoriesByURIs?: Maybe<Array<CustomRepository>>;
+  /** Fetch a specific custom repository */
+  repository?: Maybe<CustomRepository>;
   /** return all distinct subject area keywords across all repositories */
   repositorySubjectAreas?: Maybe<Array<Scalars['String']['output']>>;
   /** Get the research output type by it's id */
@@ -3423,6 +3477,21 @@ export type QueryQuestionsArgs = {
 };
 
 
+export type QueryRe3RepositoryTypesListArgs = {
+  input?: InputMaybe<Re3RepositoryTypesListInput>;
+};
+
+
+export type QueryRe3SubjectListArgs = {
+  input?: InputMaybe<Re3SubjectListInput>;
+};
+
+
+export type QueryRe3byUrIsArgs = {
+  uris: Array<Scalars['String']['input']>;
+};
+
+
 export type QueryRecommendedLicensesArgs = {
   recommended: Scalars['Boolean']['input'];
 };
@@ -3727,6 +3796,99 @@ export type QuestionErrors = {
   templateId?: Maybe<Scalars['String']['output']>;
 };
 
+/** A preset repository from re3data (external source) */
+export type Re3DataRepository = {
+  __typename?: 'Re3DataRepository';
+  /** Access restrictions */
+  access?: Maybe<Scalars['String']['output']>;
+  /** Certifications held */
+  certificates?: Maybe<Array<Scalars['String']['output']>>;
+  /** Contact information */
+  contact?: Maybe<Scalars['String']['output']>;
+  /** When the repository record was created */
+  created?: Maybe<Scalars['String']['output']>;
+  /** A description of the repository */
+  description?: Maybe<Scalars['String']['output']>;
+  /** The unique identifier from re3data */
+  id: Scalars['String']['output'];
+  /** Keywords to assist in finding the repository */
+  keywords?: Maybe<Array<Scalars['String']['output']>>;
+  /** When the repository record was last updated */
+  modified?: Maybe<Scalars['String']['output']>;
+  /** The name of the repository */
+  name: Scalars['String']['output'];
+  /** Persistent identifier systems supported */
+  pidSystem?: Maybe<Array<Scalars['String']['output']>>;
+  /** Data policies */
+  policies?: Maybe<Array<Scalars['String']['output']>>;
+  /** Provider types */
+  providerTypes?: Maybe<Array<Scalars['String']['output']>>;
+  /** The Categories/Types of the repository */
+  repositoryTypes?: Maybe<Array<Scalars['String']['output']>>;
+  /** Software used */
+  software?: Maybe<Array<Scalars['String']['output']>>;
+  /** The source of this repository */
+  source: RepositorySource;
+  /** Subject areas covered by the repository */
+  subjects?: Maybe<Array<Scalars['String']['output']>>;
+  /** Upload types supported */
+  uploadTypes?: Maybe<Array<Scalars['String']['output']>>;
+  /** The taxonomy URL of the repository */
+  uri?: Maybe<Scalars['String']['output']>;
+  /** The website URL */
+  website?: Maybe<Scalars['String']['output']>;
+};
+
+/** A repository type from re3data with optional count */
+export type Re3RepositoryType = {
+  __typename?: 'Re3RepositoryType';
+  /** The count of repositories with this type (if requested) */
+  count?: Maybe<Scalars['Int']['output']>;
+  /** The repository type string */
+  type: Scalars['String']['output'];
+};
+
+export type Re3RepositoryTypesListInput = {
+  /** Whether to include the count of repositories for each type */
+  includeCount?: InputMaybe<Scalars['Boolean']['input']>;
+  /** Maximum number of distinct types to return (default: 100) */
+  maxResults?: InputMaybe<Scalars['Int']['input']>;
+};
+
+/** Results from re3data repository types list query */
+export type Re3RepositoryTypesListResults = {
+  __typename?: 'Re3RepositoryTypesListResults';
+  /** The total number of distinct repository types found */
+  totalCount: Scalars['Int']['output'];
+  /** The list of distinct repository types from re3data */
+  types: Array<Re3RepositoryType>;
+};
+
+/** A subject area from re3data with optional count */
+export type Re3Subject = {
+  __typename?: 'Re3Subject';
+  /** The count of repositories with this subject (if requested) */
+  count?: Maybe<Scalars['Int']['output']>;
+  /** The subject string */
+  subject: Scalars['String']['output'];
+};
+
+export type Re3SubjectListInput = {
+  /** Whether to include the count of repositories for each subject */
+  includeCount?: InputMaybe<Scalars['Boolean']['input']>;
+  /** Maximum number of distinct subjects to return (default: 100) */
+  maxResults?: InputMaybe<Scalars['Int']['input']>;
+};
+
+/** Results from re3data subject list query */
+export type Re3SubjectListResults = {
+  __typename?: 'Re3SubjectListResults';
+  /** The list of distinct subjects from re3data */
+  subjects: Array<Re3Subject>;
+  /** The total number of distinct subjects found */
+  totalCount: Scalars['Int']['output'];
+};
+
 /** The confidence of the related work match */
 export type RelatedWorkConfidence =
   /** High confidence */
@@ -3871,36 +4033,8 @@ export type ReorderSectionsResult = {
   sections?: Maybe<Array<Section>>;
 };
 
-/** A repository where research outputs are preserved */
-export type Repository = {
-  __typename?: 'Repository';
-  /** The timestamp when the Object was created */
-  created?: Maybe<Scalars['String']['output']>;
-  /** The user who created the Object */
-  createdById?: Maybe<Scalars['Int']['output']>;
-  /** A description of the repository */
-  description?: Maybe<Scalars['String']['output']>;
-  /** Errors associated with the Object */
-  errors?: Maybe<RepositoryErrors>;
-  /** The unique identifer for the Object */
-  id?: Maybe<Scalars['Int']['output']>;
-  /** Keywords to assist in finding the repository */
-  keywords?: Maybe<Array<Scalars['String']['output']>>;
-  /** The timestamp when the Object was last modifed */
-  modified?: Maybe<Scalars['String']['output']>;
-  /** The user who last modified the Object */
-  modifiedById?: Maybe<Scalars['Int']['output']>;
-  /** The name of the repository */
-  name: Scalars['String']['output'];
-  /** The Categories/Types of the repository */
-  repositoryTypes?: Maybe<Array<RepositoryType>>;
-  /** Research domains associated with the repository */
-  researchDomains?: Maybe<Array<ResearchDomain>>;
-  /** The taxonomy URL of the repository */
-  uri: Scalars['String']['output'];
-  /** The website URL */
-  website?: Maybe<Scalars['String']['output']>;
-};
+/** Union type for repository search results (can be custom or re3data) */
+export type Repository = CustomRepository | Re3DataRepository;
 
 /** A collection of errors related to the Repository */
 export type RepositoryErrors = {
@@ -3910,6 +4044,7 @@ export type RepositoryErrors = {
   general?: Maybe<Scalars['String']['output']>;
   keywords?: Maybe<Scalars['String']['output']>;
   name?: Maybe<Scalars['String']['output']>;
+  re3dataId?: Maybe<Scalars['String']['output']>;
   repositoryTypes?: Maybe<Scalars['String']['output']>;
   researchDomainIds?: Maybe<Scalars['String']['output']>;
   uri?: Maybe<Scalars['String']['output']>;
@@ -3917,14 +4052,14 @@ export type RepositoryErrors = {
 };
 
 export type RepositorySearchInput = {
-  /** The subject area keyword associated with the repository */
+  /** The keyword to filter custom repositories by */
   keyword?: InputMaybe<Scalars['String']['input']>;
   /** The pagination options */
   paginationOptions?: InputMaybe<PaginationOptions>;
-  /** The repository category/type */
-  repositoryType?: InputMaybe<RepositoryType>;
-  /** The research domain associated with the repository */
-  researchDomainId?: InputMaybe<Scalars['Int']['input']>;
+  /** The repository category/type (for custom and re3data repositories). Accepts values: disciplinary, institutional, other, multidisciplinary, project-related, governmental */
+  repositoryType?: InputMaybe<Scalars['String']['input']>;
+  /** The subject areas from re3data (for re3data repositories). Repositories matching ANY of the provided subjects will be returned. Custom repositories have no subject matching. */
+  subjects?: InputMaybe<Array<Scalars['String']['input']>>;
   /** The search term */
   term?: InputMaybe<Scalars['String']['input']>;
 };
@@ -3949,21 +4084,11 @@ export type RepositorySearchResults = PaginatedQueryResults & {
   totalCount?: Maybe<Scalars['Int']['output']>;
 };
 
-export type RepositoryType =
-  /** A discipline specific repository (e.g. GeneCards, Arctic Data Centre, etc.) */
-  | 'DISCIPLINARY'
-  /** A generalist repository (e.g. Zenodo, Dryad) */
-  | 'GENERALIST'
-  /** A repository owned and managed by a government entity (e.g. NCBI, NASA) */
-  | 'GOVERNMENTAL'
-  /** An institution specific repository (e.g. ASU Library Research Data Repository, etc.) */
-  | 'INSTITUTIONAL'
-  /** A repository that accepts any type of dataset, from any discipline. Often used when no disciplinary repository exists. */
-  | 'MULTI_DISCIPLINARY'
-  /** A repository that doesn't fit into any of the other categories */
-  | 'OTHER'
-  /** A repository created to support a specific project or initiative (e.g. Human Genome Project) */
-  | 'PROJECT_RELATED';
+export type RepositorySource =
+  /** A custom repository managed in this system */
+  | 'CUSTOM'
+  /** A preset repository from re3data */
+  | 'RE3DATA';
 
 /** An aread of research (e.g. Electrical Engineering, Cellular biology, etc.) */
 export type ResearchDomain = {
@@ -4655,6 +4780,8 @@ export type UpdateRepositoryInput = {
   keywords?: InputMaybe<Array<Scalars['String']['input']>>;
   /** The name of the repository */
   name: Scalars['String']['input'];
+  /** The re3data identifier if this is a local copy of re3data information (e.g. 'r3d100014782') */
+  re3dataId?: InputMaybe<Scalars['String']['input']>;
   /** The Categories/Types of the repository */
   repositoryTypes?: InputMaybe<Array<Scalars['String']['input']>>;
   /** Research domains associated with the repository */
@@ -5470,6 +5597,13 @@ export type DirectiveResolverFn<TResult = Record<PropertyKey, never>, TParent = 
 
 
 
+/** Mapping of union types */
+export type ResolversUnionTypes<_RefType extends Record<string, unknown>> = {
+  Repository:
+    | ( CustomRepository )
+    | ( Re3DataRepository )
+  ;
+};
 
 /** Mapping of interface types */
 export type ResolversInterfaceTypes<_RefType extends Record<string, unknown>> = {
@@ -5481,7 +5615,7 @@ export type ResolversInterfaceTypes<_RefType extends Record<string, unknown>> = 
     | ( ProjectSearchResults )
     | ( PublishedTemplateSearchResults )
     | ( RelatedWorkSearchResults )
-    | ( RepositorySearchResults )
+    | ( Omit<RepositorySearchResults, 'items'> & { items?: Maybe<Array<Maybe<_RefType['Repository']>>> } )
     | ( ResearchDomainSearchResults )
     | ( TemplateSearchResults )
     | ( UserSearchResults )
@@ -5530,6 +5664,7 @@ export type ResolversTypes = {
   ContentMatch: ResolverTypeWrapper<ContentMatch>;
   CustomQuestion: ResolverTypeWrapper<CustomQuestion>;
   CustomQuestionErrors: ResolverTypeWrapper<CustomQuestionErrors>;
+  CustomRepository: ResolverTypeWrapper<CustomRepository>;
   CustomSection: ResolverTypeWrapper<CustomSection>;
   CustomSectionErrors: ResolverTypeWrapper<CustomSectionErrors>;
   CustomizableObjectOwnership: CustomizableObjectOwnership;
@@ -5627,6 +5762,13 @@ export type ResolversTypes = {
   QuestionCustomizationErrors: ResolverTypeWrapper<QuestionCustomizationErrors>;
   QuestionCustomizationOverview: ResolverTypeWrapper<QuestionCustomizationOverview>;
   QuestionErrors: ResolverTypeWrapper<QuestionErrors>;
+  Re3DataRepository: ResolverTypeWrapper<Re3DataRepository>;
+  Re3RepositoryType: ResolverTypeWrapper<Re3RepositoryType>;
+  Re3RepositoryTypesListInput: Re3RepositoryTypesListInput;
+  Re3RepositoryTypesListResults: ResolverTypeWrapper<Re3RepositoryTypesListResults>;
+  Re3Subject: ResolverTypeWrapper<Re3Subject>;
+  Re3SubjectListInput: Re3SubjectListInput;
+  Re3SubjectListResults: ResolverTypeWrapper<Re3SubjectListResults>;
   RelatedWorkConfidence: RelatedWorkConfidence;
   RelatedWorkSearchResult: ResolverTypeWrapper<RelatedWorkSearchResult>;
   RelatedWorkSearchResults: ResolverTypeWrapper<RelatedWorkSearchResults>;
@@ -5637,11 +5779,12 @@ export type ResolversTypes = {
   RelatedWorksIdentifierType: RelatedWorksIdentifierType;
   ReorderQuestionsResult: ResolverTypeWrapper<ReorderQuestionsResult>;
   ReorderSectionsResult: ResolverTypeWrapper<ReorderSectionsResult>;
-  Repository: ResolverTypeWrapper<Repository>;
+  Repository: ResolverTypeWrapper<ResolversUnionTypes<ResolversTypes>['Repository']>;
   RepositoryErrors: ResolverTypeWrapper<RepositoryErrors>;
   RepositorySearchInput: RepositorySearchInput;
-  RepositorySearchResults: ResolverTypeWrapper<RepositorySearchResults>;
-  RepositoryType: RepositoryType;
+  RepositorySearchResults: ResolverTypeWrapper<Omit<RepositorySearchResults, 'items'> & { items?: Maybe<Array<Maybe<ResolversTypes['Repository']>>> }>;
+  RepositorySource: RepositorySource;
+  RepositoryTypeValue: ResolverTypeWrapper<Scalars['RepositoryTypeValue']['output']>;
   ResearchDomain: ResolverTypeWrapper<ResearchDomain>;
   ResearchDomainErrors: ResolverTypeWrapper<ResearchDomainErrors>;
   ResearchDomainSearchResults: ResolverTypeWrapper<ResearchDomainSearchResults>;
@@ -5760,6 +5903,7 @@ export type ResolversParentTypes = {
   ContentMatch: ContentMatch;
   CustomQuestion: CustomQuestion;
   CustomQuestionErrors: CustomQuestionErrors;
+  CustomRepository: CustomRepository;
   CustomSection: CustomSection;
   CustomSectionErrors: CustomSectionErrors;
   CustomizableTemplateSearchResult: CustomizableTemplateSearchResult;
@@ -5845,16 +5989,24 @@ export type ResolversParentTypes = {
   QuestionCustomizationErrors: QuestionCustomizationErrors;
   QuestionCustomizationOverview: QuestionCustomizationOverview;
   QuestionErrors: QuestionErrors;
+  Re3DataRepository: Re3DataRepository;
+  Re3RepositoryType: Re3RepositoryType;
+  Re3RepositoryTypesListInput: Re3RepositoryTypesListInput;
+  Re3RepositoryTypesListResults: Re3RepositoryTypesListResults;
+  Re3Subject: Re3Subject;
+  Re3SubjectListInput: Re3SubjectListInput;
+  Re3SubjectListResults: Re3SubjectListResults;
   RelatedWorkSearchResult: RelatedWorkSearchResult;
   RelatedWorkSearchResults: RelatedWorkSearchResults;
   RelatedWorkStatsResults: RelatedWorkStatsResults;
   RelatedWorksFilterOptions: RelatedWorksFilterOptions;
   ReorderQuestionsResult: ReorderQuestionsResult;
   ReorderSectionsResult: ReorderSectionsResult;
-  Repository: Repository;
+  Repository: ResolversUnionTypes<ResolversParentTypes>['Repository'];
   RepositoryErrors: RepositoryErrors;
   RepositorySearchInput: RepositorySearchInput;
-  RepositorySearchResults: RepositorySearchResults;
+  RepositorySearchResults: Omit<RepositorySearchResults, 'items'> & { items?: Maybe<Array<Maybe<ResolversParentTypes['Repository']>>> };
+  RepositoryTypeValue: Scalars['RepositoryTypeValue']['output'];
   ResearchDomain: ResearchDomain;
   ResearchDomainErrors: ResearchDomainErrors;
   ResearchDomainSearchResults: ResearchDomainSearchResults;
@@ -6133,6 +6285,25 @@ export type CustomQuestionErrorsResolvers<ContextType = MyContext, ParentType ex
   sectionType?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   templateCustomizationId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   useSampleTextAsDefault?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+};
+
+export type CustomRepositoryResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['CustomRepository'] = ResolversParentTypes['CustomRepository']> = {
+  created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  createdById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  description?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  errors?: Resolver<Maybe<ResolversTypes['RepositoryErrors']>, ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  keywords?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
+  modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  re3dataId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  repositoryTypes?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
+  researchDomains?: Resolver<Maybe<Array<ResolversTypes['ResearchDomain']>>, ParentType, ContextType>;
+  source?: Resolver<ResolversTypes['RepositorySource'], ParentType, ContextType>;
+  uri?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  website?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
 export type CustomSectionResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['CustomSection'] = ResolversParentTypes['CustomSection']> = {
@@ -6443,7 +6614,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   addQuestionCondition?: Resolver<ResolversTypes['QuestionCondition'], ParentType, ContextType, RequireFields<MutationAddQuestionConditionArgs, 'input'>>;
   addQuestionCustomization?: Resolver<ResolversTypes['QuestionCustomization'], ParentType, ContextType, RequireFields<MutationAddQuestionCustomizationArgs, 'input'>>;
   addRelatedWorkManual?: Resolver<Maybe<ResolversTypes['RelatedWorkSearchResult']>, ParentType, ContextType, RequireFields<MutationAddRelatedWorkManualArgs, 'input'>>;
-  addRepository?: Resolver<Maybe<ResolversTypes['Repository']>, ParentType, ContextType, Partial<MutationAddRepositoryArgs>>;
+  addRepository?: Resolver<Maybe<ResolversTypes['CustomRepository']>, ParentType, ContextType, Partial<MutationAddRepositoryArgs>>;
   addResearchOutputType?: Resolver<Maybe<ResolversTypes['ResearchOutputType']>, ParentType, ContextType, RequireFields<MutationAddResearchOutputTypeArgs, 'name'>>;
   addSection?: Resolver<ResolversTypes['Section'], ParentType, ContextType, RequireFields<MutationAddSectionArgs, 'input'>>;
   addSectionCustomization?: Resolver<ResolversTypes['SectionCustomization'], ParentType, ContextType, RequireFields<MutationAddSectionCustomizationArgs, 'input'>>;
@@ -6462,7 +6633,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   introduction?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   mergeLicenses?: Resolver<Maybe<ResolversTypes['License']>, ParentType, ContextType, RequireFields<MutationMergeLicensesArgs, 'licenseToKeepId' | 'licenseToRemoveId'>>;
   mergeMetadataStandards?: Resolver<Maybe<ResolversTypes['MetadataStandard']>, ParentType, ContextType, RequireFields<MutationMergeMetadataStandardsArgs, 'metadataStandardToKeepId' | 'metadataStandardToRemoveId'>>;
-  mergeRepositories?: Resolver<Maybe<ResolversTypes['Repository']>, ParentType, ContextType, RequireFields<MutationMergeRepositoriesArgs, 'repositoryToKeepId' | 'repositoryToRemoveId'>>;
+  mergeRepositories?: Resolver<Maybe<ResolversTypes['CustomRepository']>, ParentType, ContextType, RequireFields<MutationMergeRepositoriesArgs, 'repositoryToKeepId' | 'repositoryToRemoveId'>>;
   mergeUsers?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationMergeUsersArgs, 'userIdToBeMerged' | 'userIdToKeep'>>;
   moveCustomQuestion?: Resolver<ResolversTypes['CustomQuestion'], ParentType, ContextType, RequireFields<MutationMoveCustomQuestionArgs, 'input'>>;
   moveCustomSection?: Resolver<ResolversTypes['CustomSection'], ParentType, ContextType, RequireFields<MutationMoveCustomSectionArgs, 'input'>>;
@@ -6490,7 +6661,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   removeQuestion?: Resolver<Maybe<ResolversTypes['Question']>, ParentType, ContextType, RequireFields<MutationRemoveQuestionArgs, 'questionId'>>;
   removeQuestionCondition?: Resolver<Maybe<ResolversTypes['QuestionCondition']>, ParentType, ContextType, RequireFields<MutationRemoveQuestionConditionArgs, 'questionConditionId'>>;
   removeQuestionCustomization?: Resolver<ResolversTypes['QuestionCustomization'], ParentType, ContextType, RequireFields<MutationRemoveQuestionCustomizationArgs, 'questionCustomizationId'>>;
-  removeRepository?: Resolver<Maybe<ResolversTypes['Repository']>, ParentType, ContextType, RequireFields<MutationRemoveRepositoryArgs, 'repositoryId'>>;
+  removeRepository?: Resolver<Maybe<ResolversTypes['CustomRepository']>, ParentType, ContextType, RequireFields<MutationRemoveRepositoryArgs, 'repositoryId'>>;
   removeResearchOutputType?: Resolver<Maybe<ResolversTypes['ResearchOutputType']>, ParentType, ContextType, RequireFields<MutationRemoveResearchOutputTypeArgs, 'id'>>;
   removeSection?: Resolver<ResolversTypes['Section'], ParentType, ContextType, RequireFields<MutationRemoveSectionArgs, 'sectionId'>>;
   removeSectionCustomization?: Resolver<ResolversTypes['SectionCustomization'], ParentType, ContextType, RequireFields<MutationRemoveSectionCustomizationArgs, 'sectionCustomizationId'>>;
@@ -6532,7 +6703,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   updateQuestionCustomization?: Resolver<ResolversTypes['QuestionCustomization'], ParentType, ContextType, RequireFields<MutationUpdateQuestionCustomizationArgs, 'input'>>;
   updateQuestionDisplayOrder?: Resolver<ResolversTypes['ReorderQuestionsResult'], ParentType, ContextType, RequireFields<MutationUpdateQuestionDisplayOrderArgs, 'newDisplayOrder' | 'questionId'>>;
   updateRelatedWorkStatus?: Resolver<Maybe<ResolversTypes['RelatedWorkSearchResult']>, ParentType, ContextType, RequireFields<MutationUpdateRelatedWorkStatusArgs, 'input'>>;
-  updateRepository?: Resolver<Maybe<ResolversTypes['Repository']>, ParentType, ContextType, Partial<MutationUpdateRepositoryArgs>>;
+  updateRepository?: Resolver<Maybe<ResolversTypes['CustomRepository']>, ParentType, ContextType, Partial<MutationUpdateRepositoryArgs>>;
   updateResearchOutputType?: Resolver<Maybe<ResolversTypes['ResearchOutputType']>, ParentType, ContextType, RequireFields<MutationUpdateResearchOutputTypeArgs, 'id' | 'name'>>;
   updateSection?: Resolver<ResolversTypes['Section'], ParentType, ContextType, RequireFields<MutationUpdateSectionArgs, 'input'>>;
   updateSectionCustomization?: Resolver<ResolversTypes['SectionCustomization'], ParentType, ContextType, RequireFields<MutationUpdateSectionCustomizationArgs, 'input'>>;
@@ -6994,13 +7165,16 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   questionConditions?: Resolver<Maybe<Array<Maybe<ResolversTypes['QuestionCondition']>>>, ParentType, ContextType, RequireFields<QueryQuestionConditionsArgs, 'questionId'>>;
   questionCustomization?: Resolver<Maybe<ResolversTypes['QuestionCustomization']>, ParentType, ContextType, RequireFields<QueryQuestionCustomizationArgs, 'questionCustomizationId'>>;
   questions?: Resolver<Maybe<Array<Maybe<ResolversTypes['Question']>>>, ParentType, ContextType, RequireFields<QueryQuestionsArgs, 'sectionId'>>;
+  re3RepositoryTypesList?: Resolver<ResolversTypes['Re3RepositoryTypesListResults'], ParentType, ContextType, Partial<QueryRe3RepositoryTypesListArgs>>;
+  re3SubjectList?: Resolver<ResolversTypes['Re3SubjectListResults'], ParentType, ContextType, Partial<QueryRe3SubjectListArgs>>;
+  re3byURIs?: Resolver<Maybe<Array<ResolversTypes['Re3DataRepository']>>, ParentType, ContextType, RequireFields<QueryRe3byUrIsArgs, 'uris'>>;
   recommendedLicenses?: Resolver<Maybe<Array<Maybe<ResolversTypes['License']>>>, ParentType, ContextType, RequireFields<QueryRecommendedLicensesArgs, 'recommended'>>;
   relatedWorks?: Resolver<Maybe<ResolversTypes['RelatedWorkSearchResults']>, ParentType, ContextType, RequireFields<QueryRelatedWorksArgs, 'id' | 'idType'>>;
   relatedWorksByPlanStats?: Resolver<Maybe<ResolversTypes['RelatedWorkStatsResults']>, ParentType, ContextType, RequireFields<QueryRelatedWorksByPlanStatsArgs, 'planId'>>;
   relatedWorksByProjectStats?: Resolver<Maybe<ResolversTypes['RelatedWorkStatsResults']>, ParentType, ContextType, RequireFields<QueryRelatedWorksByProjectStatsArgs, 'projectId'>>;
   repositories?: Resolver<Maybe<ResolversTypes['RepositorySearchResults']>, ParentType, ContextType, RequireFields<QueryRepositoriesArgs, 'input'>>;
-  repositoriesByURIs?: Resolver<Maybe<Array<ResolversTypes['Repository']>>, ParentType, ContextType, RequireFields<QueryRepositoriesByUrIsArgs, 'uris'>>;
-  repository?: Resolver<Maybe<ResolversTypes['Repository']>, ParentType, ContextType, RequireFields<QueryRepositoryArgs, 'uri'>>;
+  repositoriesByURIs?: Resolver<Maybe<Array<ResolversTypes['CustomRepository']>>, ParentType, ContextType, RequireFields<QueryRepositoriesByUrIsArgs, 'uris'>>;
+  repository?: Resolver<Maybe<ResolversTypes['CustomRepository']>, ParentType, ContextType, RequireFields<QueryRepositoryArgs, 'uri'>>;
   repositorySubjectAreas?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
   researchOutputType?: Resolver<Maybe<ResolversTypes['ResearchOutputType']>, ParentType, ContextType, RequireFields<QueryResearchOutputTypeArgs, 'id'>>;
   researchOutputTypeByName?: Resolver<Maybe<ResolversTypes['ResearchOutputType']>, ParentType, ContextType, RequireFields<QueryResearchOutputTypeByNameArgs, 'name'>>;
@@ -7116,6 +7290,49 @@ export type QuestionErrorsResolvers<ContextType = MyContext, ParentType extends 
   templateId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 };
 
+export type Re3DataRepositoryResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['Re3DataRepository'] = ResolversParentTypes['Re3DataRepository']> = {
+  access?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  certificates?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
+  contact?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  description?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  keywords?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
+  modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  pidSystem?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
+  policies?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
+  providerTypes?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
+  repositoryTypes?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
+  software?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
+  source?: Resolver<ResolversTypes['RepositorySource'], ParentType, ContextType>;
+  subjects?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
+  uploadTypes?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
+  uri?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  website?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type Re3RepositoryTypeResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['Re3RepositoryType'] = ResolversParentTypes['Re3RepositoryType']> = {
+  count?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  type?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+};
+
+export type Re3RepositoryTypesListResultsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['Re3RepositoryTypesListResults'] = ResolversParentTypes['Re3RepositoryTypesListResults']> = {
+  totalCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  types?: Resolver<Array<ResolversTypes['Re3RepositoryType']>, ParentType, ContextType>;
+};
+
+export type Re3SubjectResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['Re3Subject'] = ResolversParentTypes['Re3Subject']> = {
+  count?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  subject?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+};
+
+export type Re3SubjectListResultsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['Re3SubjectListResults'] = ResolversParentTypes['Re3SubjectListResults']> = {
+  subjects?: Resolver<Array<ResolversTypes['Re3Subject']>, ParentType, ContextType>;
+  totalCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+};
+
 export type RelatedWorkSearchResultResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['RelatedWorkSearchResult'] = ResolversParentTypes['RelatedWorkSearchResult']> = {
   authorMatches?: Resolver<Maybe<Array<ResolversTypes['ItemMatch']>>, ParentType, ContextType>;
   awardMatches?: Resolver<Maybe<Array<ResolversTypes['ItemMatch']>>, ParentType, ContextType>;
@@ -7174,19 +7391,7 @@ export type ReorderSectionsResultResolvers<ContextType = MyContext, ParentType e
 };
 
 export type RepositoryResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['Repository'] = ResolversParentTypes['Repository']> = {
-  created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  createdById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  description?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  errors?: Resolver<Maybe<ResolversTypes['RepositoryErrors']>, ParentType, ContextType>;
-  id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  keywords?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
-  modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  repositoryTypes?: Resolver<Maybe<Array<ResolversTypes['RepositoryType']>>, ParentType, ContextType>;
-  researchDomains?: Resolver<Maybe<Array<ResolversTypes['ResearchDomain']>>, ParentType, ContextType>;
-  uri?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  website?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  __resolveType: TypeResolveFn<'CustomRepository' | 'Re3DataRepository', ParentType, ContextType>;
 };
 
 export type RepositoryErrorsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['RepositoryErrors'] = ResolversParentTypes['RepositoryErrors']> = {
@@ -7194,6 +7399,7 @@ export type RepositoryErrorsResolvers<ContextType = MyContext, ParentType extend
   general?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   keywords?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   name?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  re3dataId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   repositoryTypes?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   researchDomainIds?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   uri?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -7211,6 +7417,10 @@ export type RepositorySearchResultsResolvers<ContextType = MyContext, ParentType
   totalCount?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
+
+export interface RepositoryTypeValueScalarConfig extends GraphQLScalarTypeConfig<ResolversTypes['RepositoryTypeValue'], any> {
+  name: 'RepositoryTypeValue';
+}
 
 export type ResearchDomainResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['ResearchDomain'] = ResolversParentTypes['ResearchDomain']> = {
   childResearchDomains?: Resolver<Maybe<Array<ResolversTypes['ResearchDomain']>>, ParentType, ContextType>;
@@ -7855,6 +8065,7 @@ export type Resolvers<ContextType = MyContext> = {
   ContentMatch?: ContentMatchResolvers<ContextType>;
   CustomQuestion?: CustomQuestionResolvers<ContextType>;
   CustomQuestionErrors?: CustomQuestionErrorsResolvers<ContextType>;
+  CustomRepository?: CustomRepositoryResolvers<ContextType>;
   CustomSection?: CustomSectionResolvers<ContextType>;
   CustomSectionErrors?: CustomSectionErrorsResolvers<ContextType>;
   CustomizableTemplateSearchResult?: CustomizableTemplateSearchResultResolvers<ContextType>;
@@ -7930,6 +8141,11 @@ export type Resolvers<ContextType = MyContext> = {
   QuestionCustomizationErrors?: QuestionCustomizationErrorsResolvers<ContextType>;
   QuestionCustomizationOverview?: QuestionCustomizationOverviewResolvers<ContextType>;
   QuestionErrors?: QuestionErrorsResolvers<ContextType>;
+  Re3DataRepository?: Re3DataRepositoryResolvers<ContextType>;
+  Re3RepositoryType?: Re3RepositoryTypeResolvers<ContextType>;
+  Re3RepositoryTypesListResults?: Re3RepositoryTypesListResultsResolvers<ContextType>;
+  Re3Subject?: Re3SubjectResolvers<ContextType>;
+  Re3SubjectListResults?: Re3SubjectListResultsResolvers<ContextType>;
   RelatedWorkSearchResult?: RelatedWorkSearchResultResolvers<ContextType>;
   RelatedWorkSearchResults?: RelatedWorkSearchResultsResolvers<ContextType>;
   RelatedWorkStatsResults?: RelatedWorkStatsResultsResolvers<ContextType>;
@@ -7938,6 +8154,7 @@ export type Resolvers<ContextType = MyContext> = {
   Repository?: RepositoryResolvers<ContextType>;
   RepositoryErrors?: RepositoryErrorsResolvers<ContextType>;
   RepositorySearchResults?: RepositorySearchResultsResolvers<ContextType>;
+  RepositoryTypeValue?: GraphQLScalarType;
   ResearchDomain?: ResearchDomainResolvers<ContextType>;
   ResearchDomainErrors?: ResearchDomainErrorsResolvers<ContextType>;
   ResearchDomainSearchResults?: ResearchDomainSearchResultsResolvers<ContextType>;

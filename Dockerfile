@@ -1,13 +1,23 @@
 # Dockerfile
-# preferred node version chosen here (22.1.0-alpine3.19 as of 05/04/2024)
-FROM public.ecr.aws/docker/library/node:22.1.0-alpine3.19
+# https://docs.aws.amazon.com/linux/al2023/ug/base-container.html
+FROM public.ecr.aws/amazonlinux/amazonlinux:2023
 
 # Install MariaDB and Bash so we can run data-migrations/process.sh
-RUN apk update && \
-    apk add mysql-client && \
-    apk add mariadb-connector-c && \
-    apk add aws-cli && \
-    apk add --no-cache bash
+# Also some system utilities for testing
+RUN rm -fr /var/cache/dnf/* && dnf clean all && dnf -y update && dnf -y install \
+  net-tools \
+  wget \
+  tar \
+  unzip \
+  man \
+  vim \
+  procps-ng \
+  awscli \
+  findutils \
+  mariadb-connector-c \
+  mariadb1011 \
+  nodejs22 \
+  && dnf clean all
 
 # Create the directory on the node image
 # where our Next.js app will live

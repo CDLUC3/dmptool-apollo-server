@@ -20,6 +20,14 @@ export const typeDefs = gql`
 
     "Add a custom section to a funder template"
     addCustomSection(input: AddCustomSectionInput!): CustomSection!
+    "The custom section name"
+    name: String!
+    "The introduction to the custom section"
+    introduction: String
+    "The requirements for the custom section"
+    requirements: String
+    "The custom guidance for the custom section"
+    guidance: String
     "Update a custom section"
     updateCustomSection(input: UpdateCustomSectionInput!): CustomSection!
     "Remove a custom section"
@@ -134,6 +142,14 @@ export const typeDefs = gql`
 
   "Input parameters for adding a custom section to a funder template"
   input AddCustomSectionInput {
+    "The custom section name"
+    name: String!
+    "The introduction to the custom section"
+    introduction: String
+    "The requirements for the custom section"
+    requirements: String
+    "The custom guidance for the custom section"
+    guidance: String
     "The identifier of the parent template customization"
     templateCustomizationId: Int!
     "The type of the section this new custom section should appear after"

@@ -51,10 +51,18 @@ export type AddCustomQuestionInput = {
 
 /** Input parameters for adding a custom section to a funder template */
 export type AddCustomSectionInput = {
+  /** The custom guidance for the custom section */
+  guidance?: InputMaybe<Scalars['String']['input']>;
+  /** The introduction to the custom section */
+  introduction?: InputMaybe<Scalars['String']['input']>;
+  /** The custom section name */
+  name: Scalars['String']['input'];
   /** The identifier of the section this new custom section should appear after */
   pinnedSectionId?: InputMaybe<Scalars['Int']['input']>;
   /** The type of the section this new custom section should appear after */
   pinnedSectionType?: InputMaybe<CustomizableObjectOwnership>;
+  /** The requirements for the custom section */
+  requirements?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the parent template customization */
   templateCustomizationId: Scalars['Int']['input'];
 };
@@ -1386,6 +1394,10 @@ export type Mutation = {
   createTemplateVersion?: Maybe<Template>;
   /** Deactivate the specified user Account (Admin only) */
   deactivateUser?: Maybe<User>;
+  /** The custom guidance for the custom section */
+  guidance?: Maybe<Scalars['String']['output']>;
+  /** The introduction to the custom section */
+  introduction?: Maybe<Scalars['String']['output']>;
   /** Merge two licenses */
   mergeLicenses?: Maybe<License>;
   /** Merge two metadata standards */
@@ -1398,6 +1410,8 @@ export type Mutation = {
   moveCustomQuestion: CustomQuestion;
   /** Move a custom section to a different position in the template (null means move to the top of the template) */
   moveCustomSection: CustomSection;
+  /** The custom section name */
+  name: Scalars['String']['output'];
   /** Import a project from an external source */
   projectImport?: Maybe<Project>;
   /** Publish a GuidanceGroup (creates a VersionedGuidanceGroup snapshot) */
@@ -1464,6 +1478,8 @@ export type Mutation = {
   removeUserEmail?: Maybe<UserEmail>;
   /** Request a round of admin feedback */
   requestFeedback?: Maybe<PlanFeedback>;
+  /** The requirements for the custom section */
+  requirements?: Maybe<Scalars['String']['output']>;
   /** Resend an invite to a ProjectCollaborator */
   resendInviteToProjectCollaborator?: Maybe<ProjectCollaborator>;
   /** Designate the email as the current user's primary email address */
@@ -6613,12 +6629,15 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   completeFeedback?: Resolver<Maybe<ResolversTypes['PlanFeedback']>, ParentType, ContextType, RequireFields<MutationCompleteFeedbackArgs, 'planFeedbackId' | 'planId'>>;
   createTemplateVersion?: Resolver<Maybe<ResolversTypes['Template']>, ParentType, ContextType, RequireFields<MutationCreateTemplateVersionArgs, 'latestPublishVisibility' | 'templateId'>>;
   deactivateUser?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationDeactivateUserArgs, 'userId'>>;
+  guidance?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  introduction?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   mergeLicenses?: Resolver<Maybe<ResolversTypes['License']>, ParentType, ContextType, RequireFields<MutationMergeLicensesArgs, 'licenseToKeepId' | 'licenseToRemoveId'>>;
   mergeMetadataStandards?: Resolver<Maybe<ResolversTypes['MetadataStandard']>, ParentType, ContextType, RequireFields<MutationMergeMetadataStandardsArgs, 'metadataStandardToKeepId' | 'metadataStandardToRemoveId'>>;
   mergeRepositories?: Resolver<Maybe<ResolversTypes['CustomRepository']>, ParentType, ContextType, RequireFields<MutationMergeRepositoriesArgs, 'repositoryToKeepId' | 'repositoryToRemoveId'>>;
   mergeUsers?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationMergeUsersArgs, 'userIdToBeMerged' | 'userIdToKeep'>>;
   moveCustomQuestion?: Resolver<ResolversTypes['CustomQuestion'], ParentType, ContextType, RequireFields<MutationMoveCustomQuestionArgs, 'input'>>;
   moveCustomSection?: Resolver<ResolversTypes['CustomSection'], ParentType, ContextType, RequireFields<MutationMoveCustomSectionArgs, 'input'>>;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   projectImport?: Resolver<Maybe<ResolversTypes['Project']>, ParentType, ContextType, Partial<MutationProjectImportArgs>>;
   publishGuidanceGroup?: Resolver<ResolversTypes['GuidanceGroup'], ParentType, ContextType, RequireFields<MutationPublishGuidanceGroupArgs, 'guidanceGroupId'>>;
   publishPlan?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType, RequireFields<MutationPublishPlanArgs, 'planId'>>;
@@ -6652,6 +6671,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   removeUser?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType>;
   removeUserEmail?: Resolver<Maybe<ResolversTypes['UserEmail']>, ParentType, ContextType, RequireFields<MutationRemoveUserEmailArgs, 'email'>>;
   requestFeedback?: Resolver<Maybe<ResolversTypes['PlanFeedback']>, ParentType, ContextType, RequireFields<MutationRequestFeedbackArgs, 'planId'>>;
+  requirements?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   resendInviteToProjectCollaborator?: Resolver<Maybe<ResolversTypes['ProjectCollaborator']>, ParentType, ContextType, RequireFields<MutationResendInviteToProjectCollaboratorArgs, 'projectCollaboratorId'>>;
   setPrimaryUserEmail?: Resolver<Maybe<Array<Maybe<ResolversTypes['UserEmail']>>>, ParentType, ContextType, RequireFields<MutationSetPrimaryUserEmailArgs, 'email'>>;
   setUserOrcid?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationSetUserOrcidArgs, 'orcid'>>;

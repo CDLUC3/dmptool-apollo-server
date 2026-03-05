@@ -47,6 +47,7 @@
 - Updated `Repository` model to support searchCombined functionality that integrates custom and re3data repositories
 - Updated `repositoryService` to orchestrate queries from both custom and re3data sources with pagination support
 - Updated `openSearchService` to provide re3data repository search, filtering, and retrieval capabilities
+- Updated `addCustomSection` to include `name`, `introduction`, `requirements` and `guidance` to the input schema
 - Updated buildspec and Dockerfile for AWS to ignore audit scan on devDependencies and to ensure we do not build an image that contains them
 - Updated the `TemplateCustomizationOverview` checks for `hasGuidanceText` and `hasSampleText` flags to use the `customSection` and `customQuestion`.
 - Updated the `publish` method in `TemplateCustomization` so it would allow me to publish a customization when `isDirty` was true and the template had been published before. Also removed check for `current` in `VersionedTemplateCustomizations.create` so that it could get past the `Version already exists` error when trying to publish a template customization a second time [#428]

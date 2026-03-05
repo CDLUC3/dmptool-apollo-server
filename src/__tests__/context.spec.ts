@@ -10,7 +10,6 @@ import { logger, REDACTION_MESSAGE } from '../logger';
 // Mock dependencies
 jest.mock('../datasources/dmphubAPI');
 jest.mock('../datasources/mysql');
-// jest.mock('../logger');
 
 describe('buildContext', () => {
   let loggerMock;
@@ -19,11 +18,7 @@ describe('buildContext', () => {
   let dataSourcesMock: { sqlDataSource: MySQLConnection, dmphubAPIDataSource: DMPHubAPI };
 
   beforeEach(() => {
-    // loggerMock = {
-    //   error: jest.fn(),
-    //   info: jest.fn(),
-    // };
-    loggerMock = logger,
+    loggerMock = logger;
     cacheMock = MockCache.getInstance();
     tokenMock = { accessToken: 'test-token' };
     dataSourcesMock = mockDataSources

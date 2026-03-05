@@ -164,7 +164,7 @@ export class VersionedSection extends MySqlModel {
     // First make sure the record is valid
     if (await this.isValid()) {
       // Save the record and then fetch it
-      const newId = await VersionedSection.insert(context, this.tableName, this, 'VersionedSection.create', ['tags']);
+      const newId = await VersionedSection.insert(context, this.tableName, this, 'VersionedSection.create', ['tags', 'versionedTemplate']);
       return await VersionedSection.findById('VersionedSection.create', context, newId);
     }
     // Otherwise return as-is with all the errors

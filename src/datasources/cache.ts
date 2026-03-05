@@ -1,6 +1,5 @@
 import Keyv from "keyv";
 import KeyvRedis from "@keyv/redis";
-import Redis from "ioredis";
 import { KeyvAdapter } from "@apollo/utils.keyvadapter";
 import { cacheConfig } from "../config/cacheConfig";
 import { logger } from '../logger';
@@ -9,64 +8,41 @@ import { logger } from '../logger';
 // near one another and are able to be set and fetched.
 //    For example: `{csrf}:12345` instead of `csrf:12345`
 export class Cache {
-  private static instance: Cache;
-  public adapter: KeyvAdapter;
+  private static instance: Cache | undefined;
+
+  public readonly adapter: KeyvAdapter;
 
   private constructor() {
-    let cache;
-
-    // Setup the Redis Cluster
     logger.info(cacheConfig, 'Attempting to connect to Redis');
 
-    if (['development', 'test'].includes(process.env.NODE_ENV)) {
-      // We are running locally, so use we are dealing with a single Redis node
-      cache = new Redis({ ...cacheConfig });
-
-    } else {
-      // We are running in the AW environment with an Elasticache
-      if (cacheConfig.autoFailoverEnabled === 'true') {
-        // ElastiCache instances with Auto-failover enabled, reconnectOnError does not execute.
-        // Instead of returning a Redis error, AWS closes all connections to the master endpoint
-        // until the new primary node is ready. ioredis reconnects via retryStrategy instead of
-        // reconnectOnError after about a minute.
-        cache = new Redis({ ...cacheConfig, tls: {} });
-
-      } else {
-        // ElastiCache instances with Auto-failover disabled, reconnectOnError can be used to catch
-        // the error READONLY thrown and force the connection to be restablished.
-        cache = new Redis({
-          ...cacheConfig,
-          tls: {},
-          reconnectOnError(err) {
-            logger.error(err, 'Redis reconnect on error')
-            const targetErrors = ["READONLY", "MOVED"];
-            if (targetErrors.includes(err.message)) {
-              // Only reconnect when the error contains "READONLY"
-              return true; // or `return 1;`
-            }
-          },
-        });
-      }
-    }
-
-    // Having trouble figuring how how to type `Keyv` as `Keyv<string, Record<string, any>>`
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const keyV = new Keyv(new KeyvRedis(cache)) as any;
-
-    keyV.on('connect', () => {
-      logger.info(null, `Redis connection established`);
+    const keyv = new Keyv({
+      store: new KeyvRedis(
+        cacheConfig,
+        {
+          throwOnConnectError: true
+        }
+      )
     });
 
-    keyV.on('error', (err) => {
+    keyv.on('connect', () => {
+      logger.info({}, `Redis connection established`);
+    });
+
+    keyv.on('error', (err) => {
       logger.error(err, `Redis connection error - ${err.message}`);
     });
 
-    keyV.on('close', () => {
-      logger.info( null, `Redis connection closed`);
+    keyv.on('close', () => {
+      logger.info( {}, `Redis connection closed`);
     });
 
     // Set the Adapter which will be used to interact with the cache
-    this.adapter = new KeyvAdapter(keyV, { disableBatchReads: true });
+    this.adapter = new KeyvAdapter(
+      // Using any here because the KeyvRedis adapter does not export the correct type
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      keyv as any,
+      { disableBatchReads: true }
+    );
   }
 
   // Singleton instance of the Cache
@@ -78,9 +54,7 @@ export class Cache {
   }
 
   // Remove the instance
-  public static async removeInstance(): Promise<void> {
-    if (Cache.instance) {
-      Cache.instance = null;
-    }
+  public static async destroy(): Promise<void> {
+    Cache.instance = undefined;
   }
 }

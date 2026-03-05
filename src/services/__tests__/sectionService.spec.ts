@@ -15,7 +15,6 @@ import { Question } from "../../models/Question";
 // Pulling context in here so that the mysql gets mocked
 jest.mock('../../context.ts');
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 let context;
 
 beforeEach(async () => {

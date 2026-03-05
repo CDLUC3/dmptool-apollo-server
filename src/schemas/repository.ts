@@ -8,6 +8,8 @@ export const typeDefs = gql`
     repository(uri: String!): Repository
     "return all distinct subject area keywords across all repositories"
     repositorySubjectAreas: [String!]
+    "return all repositories whose unique uri values are provided"
+    repositoriesByURIs(uris: [String!]!): [Repository!]
   }
 
   extend type Mutation {

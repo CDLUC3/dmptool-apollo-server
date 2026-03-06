@@ -3,7 +3,7 @@
 # Stage 1: Dependencies
 # Use AL2023 base image for future integration with shiboleth sp
 # See: https://github.com/CDLUC3/dmptool-shibboleth-sp
-FROM public.ecr.aws/amazonlinux/amazonlinux:2023 as deps
+FROM public.ecr.aws/amazonlinux/amazonlinux:2023 AS deps
 
 RUN dnf -y install \
   nodejs22
@@ -21,7 +21,7 @@ COPY package*.json ./
 RUN npm ci
 
 #Stage 2: Builder
-FROM public.ecr.aws/amazonlinux/amazonlinux:2023 as builder
+FROM public.ecr.aws/amazonlinux/amazonlinux:2023 AS builder
 
 RUN dnf -y install \
   nodejs22
@@ -54,7 +54,7 @@ RUN rm -rf dist/__tests__ \
            dist/**/__mocks__
 
 # Stage 3: Runner
-FROM public.ecr.aws/amazonlinux/amazonlinux:2023 as runner
+FROM public.ecr.aws/amazonlinux/amazonlinux:2023 AS runner
 
 RUN rm -fr /var/cache/dnf/* && dnf clean all && dnf -y update && dnf -y install \
   nodejs22 \

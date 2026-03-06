@@ -65,7 +65,7 @@ phases:
       # - trivy image --exit-code 1 --severity HIGH,CRITICAL $REGISTRY:apollo-latest
 
       # Tag the image with the Git commit ID
-      - docker tag $ECR_REPOSITORY_URI:apollo-latest $ECR_REPOSITORY_URI:$IMAGE_TAG
+      # - docker tag $ECR_REPOSITORY_URI:apollo-latest $ECR_REPOSITORY_URI:$IMAGE_TAG
   post_build:
     commands:
       # Push the Docker image to the ECR repository. Fargate will pick it up an deploy automatically

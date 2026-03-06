@@ -30,7 +30,7 @@ phases:
       # Set the image tag to the Git commit ID if it exists, otherwise use the default value
       - IMAGE_TAG=${CODEBUILD_RESOLVED_SOURCE_VERSION:-latest}
       - IMAGE_TAG=${IMAGE_TAG:0:7}
-      - echo "Building with tag: $IMAGE_TAG"
+      - echo "Building with tag - ${IMAGE_TAG}"
   build:
     commands:
       - echo "Running in ${NODE_ENV} - started on `date`"

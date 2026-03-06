@@ -59,6 +59,10 @@ phases:
       - echo "Running tests"
       - npm run test-no-db
 
+      # All is good so build the Docker image
+      - echo "Building the Docker image..."
+      - docker build -f Dockerfile.aws -t $SHORT_ECR_URI:apollo-latest .
+
       # Run Trivy on the new image to check for vulnerabilities
       # - echo "Running Trivy vulnerability scanner on the new image..."
       # - trivy image --exit-code 1 --severity HIGH,CRITICAL $SHORT_ECR_URI:apollo-latest

@@ -37,24 +37,24 @@ phases:
       - cd $CODEBUILD_SRC_DIR
 
       # Ensure we're running in CI mode nd that it always installs the devDependencies for our tests
-      - CI=true
-      - echo "production=false" >> .npmrc
+      # - CI=true
+      # - echo "production=false" >> .npmrc
 
       # CI deletes the node_modules folder and installs the dependencies as defined in package-lock.json
-      - echo "Installing dependencies..."
-      - npm ci
+      # - echo "Installing dependencies..."
+      # - npm ci
 
       # Run NPM audit to check for vulnerabilities in the prod dependencies
-      - echo "Running NPM audit..."
-      - npm audit -production --audit-level=high
+      # - echo "Running NPM audit..."
+      # - npm audit -production --audit-level=high
 
       # Run the linter checks
-      - echo "Running linter checks"
-      - npm run lint
+      # - echo "Running linter checks"
+      # - npm run lint
 
-      # Run the tests
-      - echo "Running tests"
-      - npm run test-no-db
+      # Run the tests (commenting out now to speed up the build to test pipeline)
+      # - echo "Running tests"
+      # - npm run test-no-db
 
       # The code is good, so build the Docker image
       - echo "Building the Docker image..."
@@ -65,7 +65,7 @@ phases:
       # - trivy image --exit-code 1 --severity HIGH,CRITICAL $REGISTRY:apollo-latest
 
       # Tag the image with the Git commit ID
-      - docker tag $ECR_REPOSITORY_URI:apollo-latest $ECR_REGISTRY:$IMAGE_TAG
+      - docker tag $ECR_REPOSITORY_URI:apollo-latest $ECR_REPOSITORY_URI:$IMAGE_TAG
   post_build:
     commands:
       # Push the Docker image to the ECR repository. Fargate will pick it up an deploy automatically

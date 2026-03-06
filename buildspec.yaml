@@ -62,7 +62,7 @@ phases:
 
       # Run Trivy on the new image to check for vulnerabilities
       # - echo "Running Trivy vulnerability scanner on the new image..."
-      # - trivy image --exit-code 1 --severity HIGH,CRITICAL $ECR_REGISTRY:apollo-latest
+      # - trivy image --exit-code 1 --severity HIGH,CRITICAL $REGISTRY:apollo-latest
 
       # Tag the image with the Git commit ID
       - docker tag $ECR_REPOSITORY_URI:apollo-latest $ECR_REGISTRY:$IMAGE_TAG

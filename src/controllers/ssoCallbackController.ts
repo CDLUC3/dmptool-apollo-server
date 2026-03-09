@@ -6,15 +6,20 @@ import { prepareObjectForLogs } from "../logger";
 export const ssoCallbackController = async (req: Request, res: Response) => {
 
 
+console.log('ssoCallbackController PATH', req.path);
+console.log('ssoCallbackController QUERY', req.query);
 console.log('ssoCallbackController BODY', req.body);
 console.log('ssoCallbackController HEADERS', req.headers);
 console.log('ssoCallbackController COOKIES', req.cookies);
+console.log('ssoCallbackController PARAMS', req.params);
+console.log('ssoCallbackController SIGNED COOKIES', req.signedCookies);
 
+const sessionId = req.cookies.find(cookie => cookie.name.startsWith('_shibsession_'))?.value;
 console.log('ssoCallbackController PAYLOAD', {
   uid: req.headers['uid'] || req.headers['remote-user'],
   email: req.headers['mail'],
   displayName: req.headers['displayname'],
-  sessionId: req.headers['shib-session-id']
+  sessionId
 });
 
   const { email, entityId } = req.body;

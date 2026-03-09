@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added some opensearch variables for running it locally in docker-compose.yaml [#118]
 - Added opensearch to the docker compose file
 - Added OpenSearch integration for full-text search of re3data repositories
 - Added `open-search-init.sh` script to initialize OpenSearch indices with proper mappings for repository data
@@ -43,6 +44,9 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `re3data-os-populate.ts` because `fetchWithTimeout` kept erroring out when we populate the OpenSearch data. We needed to add a `catch` and `retries` because a single failed attempt would kill the entire sync. [#118]
+- Moved the data migration script that populates the researchOutputTypes db table to `local-only` directory, because it was not 
+  getting populated because SUPER ADMIN user did not yet exist [#118]
 - Updated `repositories` query to use combined search strategy across custom and re3data sources with OpenSearch-backed pagination
 - Updated `Repository` model to support searchCombined functionality that integrates custom and re3data repositories
 - Updated `repositoryService` to orchestrate queries from both custom and re3data sources with pagination support

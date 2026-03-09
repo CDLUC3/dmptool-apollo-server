@@ -4,6 +4,19 @@ import { prepareObjectForLogs } from "../logger";
 
 // This is the entry point for SSO response information from our Shibboleth SP
 export const ssoCallbackController = async (req: Request, res: Response) => {
+
+
+console.log('ssoCallbackController BODY', req.body);
+console.log('ssoCallbackController HEADERS', req.headers);
+console.log('ssoCallbackController COOKIES', req.cookies);
+
+console.log('ssoCallbackController PAYLOAD', {
+  uid: req.headers['uid'] || req.headers['remote-user'],
+  email: req.headers['mail'],
+  displayName: req.headers['displayname'],
+  sessionId: req.headers['shib-session-id']
+});
+
   const { email, entityId } = req.body;
   const ref = 'ssoCallbackController';
 

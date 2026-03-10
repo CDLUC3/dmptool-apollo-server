@@ -8,13 +8,17 @@ import {
   incrementVersionNumber,
   validateURL,
   getCurrentDate,
+  randomFloatInRange,
   randomHex,
+  randomIntInRange,
   stripIdentifierBaseURL,
   stringToEnumValue,
   formatORCID,
   normaliseHttpProtocol,
   reorderDisplayOrder,
-  removeNullAndUndefinedFromJSON, normaliseDate, normaliseDateTime
+  removeNullAndUndefinedFromJSON,
+  normaliseDate,
+  normaliseDateTime,
 } from '../helpers';
 
 describe('Date validation', () => {
@@ -229,6 +233,24 @@ describe('getCurrentDate', () => {
   it('returns a date (as string) in the expected format', () => {
     const result = getCurrentDate();
     expect(/[0-9]{4}-[0-9]{2}-[0-9]{2}\s([0-9]{2}:){2}[0-9]{2}/.test(result)).toBe(true);
+  });
+});
+
+describe('randomFloatInRange', () => {
+  it('returns a random floating point number within the specified range', () => {
+    const min = 1.2;
+    const max = 10.6;
+    const result = randomFloatInRange(min, max);
+    expect(result >= min && result <= max).toBe(true);
+  });
+});
+
+describe('randomIntInRange', () => {
+  it('returns a random integer within the specified range', () => {
+    const min = 1;
+    const max = 10;
+    const result = randomIntInRange(min, max);
+    expect(result >= min && result <= max).toBe(true);
   });
 });
 

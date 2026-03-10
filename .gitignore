@@ -28,3 +28,5 @@ volume/
 
 /.idea/
 .prettierrc
+*.swp
+/tmp

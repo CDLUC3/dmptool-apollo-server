@@ -45,6 +45,7 @@
 ### Updated
 - Updated SSO test controllers with additional debug
 - Updated `buildspec.yaml`, 'Dockerfile's to work with new combined Apollo+Shibboleth container
+- Updated `src/mocks.ts` by removing dependency on `casual`
 - Updated `repositories` query to use combined search strategy across custom and re3data sources with OpenSearch-backed pagination
 - Updated `Repository` model to support searchCombined functionality that integrates custom and re3data repositories
 - Updated `repositoryService` to orchestrate queries from both custom and re3data sources with pagination support

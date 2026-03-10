@@ -52,7 +52,7 @@ phases:
       - echo "Running linter checks"
       - npm run lint
 
-      # Run the tests (commenting out now to speed up the build to test pipeline)
+      # Run the tests
       - echo "Running tests"
       - npm run test-no-db
 

@@ -195,6 +195,8 @@ export class TemplateCustomizationOverview {
       this.fetchCustomQuestions(context, templateCustomizationId, reference)
     ]);
 
+    console.log("***TemplateRows", templateRows);
+
     if (!templateRows?.length) {
       context.logger.error(
         { templateCustomizationId },
@@ -246,6 +248,7 @@ export class TemplateCustomizationOverview {
       }
 
       if (row.versionedQuestionId) {
+        console.log("***Question Row", row);
         section.questions.push({
           questionType: PinnedQuestionTypeEnum.BASE,
           id: row.versionedQuestionId,
@@ -426,7 +429,7 @@ export class TemplateCustomizationOverview {
         vq.displayOrder as versionedQuestionDisplayOrder,
         qc.id AS questionCustomizationId, qc.migrationStatus AS questionCustomizationMigrationStatus,
         (qc.guidanceText IS NOT NULL) AS questionCustomizationHasGuidanceText,
-        (qc.sampleText IS NOT NULL) AS questionCustomizationHasSampleText
+        (qc.sampleText IS NOT NULL AND qc.sampleText != '') AS questionCustomizationHasSampleText
 
       FROM templateCustomizations AS tc
         JOIN users AS u ON tc.modifiedById = u.id
@@ -516,6 +519,8 @@ export class TemplateCustomizationOverview {
       [templateCustomizationId.toString()],
       reference
     );
+
+    console.log("***Question Customization Rows", results);
     return Array.isArray(results) ? results : [];
   };
 }
@@ -605,7 +610,7 @@ export class TemplateCustomization extends MySqlModel {
       this.addError('affiliationId', 'Affiliation can\'t be blank');
     }
     if (isNullOrUndefined(this.templateId)) {
-      this.addError('templateId','Template can\'t be blank');
+      this.addError('templateId', 'Template can\'t be blank');
     }
     if (isNullOrUndefined(this.currentVersionedTemplateId)) {
       this.addError(
@@ -630,43 +635,43 @@ export class TemplateCustomization extends MySqlModel {
       this.addError('general', 'Customization has never been saved');
 
     } else if (this.status === TemplateCustomizationStatus.PUBLISHED && !this.isDirty) {
-        // Can't publish if it is already published!
-        this.addError('general', 'Customization is already published!');
+      // Can't publish if it is already published!
+      this.addError('general', 'Customization is already published!');
 
     } else {
-        // Make sure the record is valid
-        if (await this.isValid()) {
+      // Make sure the record is valid
+      if (await this.isValid()) {
 
-          // Create a new published version of the customization
-          const newVersion = new VersionedTemplateCustomization(
-            {
-              affiliationId: this.affiliationId,
-              templateCustomizationId: this.id,
-              currentVersionedTemplateId: this.currentVersionedTemplateId,
-              active: true
-            }
-          )
-
-          const created: VersionedTemplateCustomization = await newVersion.create(context);
-
-          if (!isNullOrUndefined(created) && !created.hasErrors() && created.id) {
-            // Update the status of the customization to reflect the change
-            this.status = TemplateCustomizationStatus.PUBLISHED;
-            this.isDirty = false;
-            this.latestPublishedVersionId = created.id;
-            this.latestPublishedDate = created.created;
-            const published: TemplateCustomization = await this.update(context, true); // noTouch=true, the update method will not set isDirty to true
-
-            if (!published) {
-              this.addError('general', 'Unable to publish');
-            }
-          } else {
-            this.errors = created?.errors ?? this.errors;
+        // Create a new published version of the customization
+        const newVersion = new VersionedTemplateCustomization(
+          {
+            affiliationId: this.affiliationId,
+            templateCustomizationId: this.id,
+            currentVersionedTemplateId: this.currentVersionedTemplateId,
+            active: true
           }
+        )
+
+        const created: VersionedTemplateCustomization = await newVersion.create(context);
+
+        if (!isNullOrUndefined(created) && !created.hasErrors() && created.id) {
+          // Update the status of the customization to reflect the change
+          this.status = TemplateCustomizationStatus.PUBLISHED;
+          this.isDirty = false;
+          this.latestPublishedVersionId = created.id;
+          this.latestPublishedDate = created.created;
+          const published: TemplateCustomization = await this.update(context, true); // noTouch=true, the update method will not set isDirty to true
+
+          if (!published) {
+            this.addError('general', 'Unable to publish');
+          }
+        } else {
+          this.errors = created?.errors ?? this.errors;
         }
       }
-      return new TemplateCustomization(this);
     }
+    return new TemplateCustomization(this);
+  }
 
   /**
    * Unpublish the customization

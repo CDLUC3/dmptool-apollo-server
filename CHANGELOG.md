@@ -47,6 +47,9 @@
 - Updated `re3data-os-populate.ts` because `fetchWithTimeout` kept erroring out when we populate the OpenSearch data. We needed to add a `catch` and `retries` because a single failed attempt would kill the entire sync. [#118]
 - Moved the data migration script that populates the researchOutputTypes db table to `local-only` directory, because it was not 
   getting populated because SUPER ADMIN user did not yet exist [#118]
+- Updated SSO test controllers with additional debug
+- Updated `buildspec.yaml`, 'Dockerfile's to work with new combined Apollo+Shibboleth container
+- Updated `src/mocks.ts` by removing dependency on `casual`
 - Updated `repositories` query to use combined search strategy across custom and re3data sources with OpenSearch-backed pagination
 - Updated `Repository` model to support searchCombined functionality that integrates custom and re3data repositories
 - Updated `repositoryService` to orchestrate queries from both custom and re3data sources with pagination support

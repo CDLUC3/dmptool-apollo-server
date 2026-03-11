@@ -176,9 +176,21 @@ export function getCurrentDate(): string {
   return formatISO9075(new Date());
 }
 
+// Generate a random floating point number within the specified range
+export function randomFloatInRange(min: number, max: number): number {
+  return Math.random() * (max - min) + min;
+}
+
 // Generate a random hex code
 export function randomHex(size: number): string {
   return [...Array(size)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+}
+
+// Generate a random number within the specified range
+export function randomIntInRange(min: number, max: number): number {
+  min = Math.ceil(min);
+  max = Math.floor(max);
+  return Math.floor(Math.random() * (max - min)) + min;
 }
 
 // Normalises a date and time value

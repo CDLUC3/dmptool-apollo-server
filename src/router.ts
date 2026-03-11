@@ -12,8 +12,6 @@ import { MySQLConnection } from "./datasources/mysql";
 import { DMPHubAPI } from "./datasources/dmphubAPI";
 import { KeyvAdapter } from "@apollo/utils.keyvadapter";
 
-const router = express.Router();
-
 // Modify the express Request to allow it to include our context resources:
 declare module 'express-serve-static-core' {
   interface Request {
@@ -31,7 +29,13 @@ export function setupRouter(
   sqlDataSource: MySQLConnection | null,
   dmphubAPIDataSource: DMPHubAPI | null,
 ): Router {
+  const router = express.Router();
+
   router.use((req: Request, res: Response, next) => {
+    if (logger) {
+      logger.debug(`Router Layer Trace: ${req.method} ${req.path}`);
+    }
+
     req.logger = logger;
     req.cache = cache;
     req.sqlDataSource = sqlDataSource;
@@ -78,6 +82,14 @@ export function setupRouter(
     // csrfMiddleware,
     // authMiddleware,
     async (req: Request, res: Response): Promise<void> => await ssoPassthruController(req, res)
+  );
+
+  // SSO Callback from Shibboleth SP
+  router.get('/sso/callback/1234567890',
+    // TODO: remove this because its just to verify our specific test SSO callback
+
+    // authMiddleware
+    async (req: Request, res: Response): Promise<void> => await ssoCallbackController(req, res)
   );
 
   // SSO Callback from Shibboleth SP

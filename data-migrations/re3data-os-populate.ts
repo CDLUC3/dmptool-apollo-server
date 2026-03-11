@@ -59,16 +59,27 @@ const getAllText = (node: Node, path: string): string[] => {
 // Simple sleep
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
-// Fetch wrapper with timeout
-async function fetchWithTimeout(url: string, timeout = 30000) {
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeout);
-  try {
-    const res = await fetch(url, { signal: controller.signal });
-    return res;
-  } finally {
-    clearTimeout(id);
+// Fetch wrapper with timeout and retry (exponential backoff)
+async function fetchWithTimeout(url: string, timeout = 30000, retries = 3) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+    try {
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(id);
+      return res;
+    } catch (err) {
+      clearTimeout(id);
+      if (attempt < retries) {
+        const backoff = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
+        if (VERBOSE) console.log(`Fetch attempt ${attempt + 1} failed for ${url}, retrying in ${backoff}ms...`);
+        await sleep(backoff);
+      } else {
+        throw err;
+      }
+    }
   }
+  return null;
 }
 
 process.on('unhandledRejection', (reason) => {
@@ -166,7 +177,7 @@ async function createIndexIfMissing(indexName: string) {
     return true;
   } catch (err: unknown) {
     // If already exists, that's ok
-    const msg = err && (((err as unknown) as { body?: unknown }).body ? JSON.stringify(((err as unknown) as { body: unknown }).body) : String(err));
+    const msg: string = (((err as unknown) as { body?: unknown }).body ? JSON.stringify(((err as unknown) as { body: unknown }).body) : String(err));
     if (msg && msg.includes('resource_already_exists_exception')) {
       if (VERBOSE) console.log(`Index ${indexName} already exists, proceeding.`);
       return true;
@@ -268,7 +279,7 @@ async function syncRe3Data() {
       repoIds.splice(argv.limit);
     }
 
-    let currentBatch: unknown[] = [];
+    let currentBatch: Record<string, unknown>[] = [];
     let successCount = 0;
     let failedCount = 0;
 
@@ -370,7 +381,7 @@ async function syncRe3Data() {
         }
 
         // be polite to the API
-        await sleep(100);
+        await sleep(300);
 
       } catch (err) {
         console.error(`Error processing repo ${id}:`, err instanceof Error ? err.message : err);

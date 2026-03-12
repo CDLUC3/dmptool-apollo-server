@@ -99,6 +99,7 @@
 - Removed `ioredis` package
 
 ### Fixed
+- Had issue running `nuke-db.sh` and `process.sh`, so I turned off SSL by using `--ssl=off` instead
 - Fixed `fetchTemplateData` query in `TemplateCustomization` model because `questionCustomizationHasSampleText` was incorrectly returning true [#130] 
 - In `preparePaginationOptions` function, wrapped each cursorField with `COALESCE` to handle `NULL` values in SQL `CONCAT`, otherwise if any cursorField is NULL, it would just return a null value due to the way `CONCAT` works [#107]
 - Fixed breaking cloning of template. The `addTemplate` was updated to accept a `copyFromVersionedTemplateId` so that we copy from versioned template, section and questions, when it's not a template from the user's org. Otherwise we check for `copyFromTemplateId` to copy/clone from templates, sections and questions, and if neither are present, we continue to create a new record for `templates` table [#1006]

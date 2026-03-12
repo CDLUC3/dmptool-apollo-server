@@ -73,7 +73,7 @@ process_migration() {
 
   # If we are running locally, the MySQL cert will exist in /etc
   if [ -f "/etc/mysql-cert.pem" ]; then
-    MIGRATION_ARGS="${MIGRATION_ARGS} --ssl-ca=/etc/mysql-cert.pem --ssl-verify-server-cert=OFF"
+    MIGRATION_ARGS="${MIGRATION_ARGS} --ssl=off"
   fi
 
   EXISTS=$(mariadb ${MIGRATION_ARGS} -N ${1} <<< "SELECT * FROM dataMigrations WHERE migrationFile = '$2';")

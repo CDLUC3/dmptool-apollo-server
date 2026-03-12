@@ -44,9 +44,12 @@ drop_tables() {
   fi
 
   # If we are running locally, the MySQL cert will exist in /etc
+  # if [ -f "/etc/mysql-cert.pem" ]; then
+  #   MIGRATION_ARGS="${MIGRATION_ARGS} --ssl-ca=/etc/mysql-cert.pem --ssl-verify-server-cert=OFF"
+  # fi
   if [ -f "/etc/mysql-cert.pem" ]; then
-    MIGRATION_ARGS="${MIGRATION_ARGS} --ssl-ca=/etc/mysql-cert.pem --ssl-verify-server-cert=OFF"
-  fi
+MIGRATION_ARGS="${MIGRATION_ARGS} --ssl=off"
+fi
 
   mariadb $MIGRATION_ARGS -N $1 <<< "$FKEY_OFF"
 

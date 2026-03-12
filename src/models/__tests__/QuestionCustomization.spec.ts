@@ -442,6 +442,70 @@ describe("QuestionCustomization", () => {
     });
   });
 
+  describe("findByCustomizationAndVersionedQuestion", () => {
+    it("should find QuestionCustomization by templateCustomizationId and versionedQuestionId", async () => {
+      const mockQuery = jest.spyOn(MySqlModel, "query").mockResolvedValue([
+        {
+          id: 1,
+          templateCustomizationId: 100,
+          versionedQuestionId: 300,
+        },
+      ]);
+
+      const result = await QuestionCustomization.findByCustomizationAndVersionedQuestion(
+        "test.ref",
+        mockContext,
+        100,
+        300
+      );
+
+      expect(mockQuery).toHaveBeenCalledWith(
+        mockContext,
+        `SELECT qc.* FROM questionCustomizations qc
+         INNER JOIN versionedQuestions vq ON qc.questionId = vq.questionId
+         WHERE qc.templateCustomizationId = ? AND vq.id = ?`,
+        ["100", "300"],
+        "test.ref"
+      );
+      expect(result).toBeInstanceOf(QuestionCustomization);
+      expect(result.templateCustomizationId).toBe(100);
+    });
+
+    it("should return undefined when not found", async () => {
+      jest.spyOn(MySqlModel, "query").mockResolvedValue([]);
+
+      const result = await QuestionCustomization.findByCustomizationAndVersionedQuestion(
+        "test.ref",
+        mockContext,
+        100,
+        300
+      );
+
+      expect(result).toBeUndefined();
+    });
+
+    it("should handle null questionId", async () => {
+      const mockQuery = jest.spyOn(MySqlModel, "query").mockResolvedValue([]);
+
+      const result = await QuestionCustomization.findByCustomizationAndVersionedQuestion(
+        "test.ref",
+        mockContext,
+        100,
+        null
+      );
+
+      expect(mockQuery).toHaveBeenCalledWith(
+        mockContext,
+        `SELECT qc.* FROM questionCustomizations qc
+         INNER JOIN versionedQuestions vq ON qc.questionId = vq.questionId
+         WHERE qc.templateCustomizationId = ? AND vq.id = ?`,
+        ["100", undefined],
+        "test.ref"
+      );
+      expect(result).toBeUndefined();
+    });
+  });
+
   describe("findByCustomizationId", () => {
     it("should find QuestionCustomizations by templateCustomizationId", async () => {
       const mockQuery = jest.spyOn(MySqlModel, "query").mockResolvedValue([

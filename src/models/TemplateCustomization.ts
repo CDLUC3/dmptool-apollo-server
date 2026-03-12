@@ -195,8 +195,6 @@ export class TemplateCustomizationOverview {
       this.fetchCustomQuestions(context, templateCustomizationId, reference)
     ]);
 
-    console.log("***TemplateRows", templateRows);
-
     if (!templateRows?.length) {
       context.logger.error(
         { templateCustomizationId },
@@ -248,7 +246,6 @@ export class TemplateCustomizationOverview {
       }
 
       if (row.versionedQuestionId) {
-        console.log("***Question Row", row);
         section.questions.push({
           questionType: PinnedQuestionTypeEnum.BASE,
           id: row.versionedQuestionId,
@@ -520,7 +517,6 @@ export class TemplateCustomizationOverview {
       reference
     );
 
-    console.log("***Question Customization Rows", results);
     return Array.isArray(results) ? results : [];
   };
 }

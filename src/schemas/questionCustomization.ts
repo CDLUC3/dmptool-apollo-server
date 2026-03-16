@@ -4,6 +4,8 @@ export const typeDefs = gql`
   extend type Query {
     "Get the custom guidance and sample text the affiliation has added to a funder question question (user must be an Admin)"
     questionCustomization(questionCustomizationId: Int!): QuestionCustomization
+    "Get the custom guidance and sample text the affiliation has added to a funder question question (user must be an Admin)"
+    questionCustomizationByVersionedQuestion(templateCustomizationId: Int!, versionedQuestionId: Int!): QuestionCustomization
     "Get the custom question the affiliation has added to a funder section or custom section (user must be an Admin)"
     customQuestion(customQuestionId: Int!): CustomQuestion
   }
@@ -137,6 +139,10 @@ export const typeDefs = gql`
     templateCustomizationId: Int!
     "The identifier of the published funder question"
     versionedQuestionId: Int!
+    "The custom guidance for the question"
+    guidanceText: String
+    "The custom sample answer for the question"
+    sampleText: String
   }
 
   "Input parameters for updating custom guidance and sample text to a funder question"
@@ -161,6 +167,20 @@ export const typeDefs = gql`
     pinnedQuestionType: CustomizableObjectOwnership
     "The identifier of the question this new custom question should appear after (null means it is the first question in the section)"
     pinnedQuestionId: Int
+    "The JSON representation of the question type"
+    json: String
+    "This will be used as a sort of title for the Question"
+    questionText: String
+    "Requirements associated with the Question"
+    requirementText: String
+    "Guidance to complete the question"
+    guidanceText: String
+    "Sample text to possibly provide a starting point or example to answer question"
+    sampleText: String
+    "Boolean indicating whether we should use content from sampleText as the default answer"
+    useSampleTextAsDefault: Boolean
+    "To indicate whether the question is required to be completed"
+    required: Boolean
   }
   "Input parameters for updating a custom section"
   input UpdateCustomQuestionInput {

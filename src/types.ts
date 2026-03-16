@@ -37,16 +37,30 @@ export type Scalars = {
 
 /** Input parameters for adding a custom section to a funder template */
 export type AddCustomQuestionInput = {
+  /** Guidance to complete the question */
+  guidanceText?: InputMaybe<Scalars['String']['input']>;
+  /** The JSON representation of the question type */
+  json?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the question this new custom question should appear after (null means it is the first question in the section) */
   pinnedQuestionId?: InputMaybe<Scalars['Int']['input']>;
   /** The type of the question this new custom question should appear after (null means it is the first question in the section) */
   pinnedQuestionType?: InputMaybe<CustomizableObjectOwnership>;
+  /** This will be used as a sort of title for the Question */
+  questionText?: InputMaybe<Scalars['String']['input']>;
+  /** To indicate whether the question is required to be completed */
+  required?: InputMaybe<Scalars['Boolean']['input']>;
+  /** Requirements associated with the Question */
+  requirementText?: InputMaybe<Scalars['String']['input']>;
+  /** Sample text to possibly provide a starting point or example to answer question */
+  sampleText?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the section this new custom question should appear within */
   sectionId: Scalars['Int']['input'];
   /** The type of the section this new custom question should appear within */
   sectionType: CustomizableObjectOwnership;
   /** The identifier of the parent template customization */
   templateCustomizationId: Scalars['Int']['input'];
+  /** Boolean indicating whether we should use content from sampleText as the default answer */
+  useSampleTextAsDefault?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 /** Input parameters for adding a custom section to a funder template */
@@ -154,6 +168,10 @@ export type AddQuestionConditionInput = {
 
 /** Input parameters for adding custom guidance and sample text to a funder question */
 export type AddQuestionCustomizationInput = {
+  /** The custom guidance for the question */
+  guidanceText?: InputMaybe<Scalars['String']['input']>;
+  /** The custom sample answer for the question */
+  sampleText?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the parent template customization */
   templateCustomizationId: Scalars['Int']['input'];
   /** The identifier of the published funder question */
@@ -3126,6 +3144,8 @@ export type Query = {
   questionConditions?: Maybe<Array<Maybe<QuestionCondition>>>;
   /** Get the custom guidance and sample text the affiliation has added to a funder question question (user must be an Admin) */
   questionCustomization?: Maybe<QuestionCustomization>;
+  /** Get the custom guidance and sample text the affiliation has added to a funder question question (user must be an Admin) */
+  questionCustomizationByVersionedQuestion?: Maybe<QuestionCustomization>;
   /** Get the Questions that belong to the associated sectionId */
   questions?: Maybe<Array<Maybe<Question>>>;
   /** return all distinct repository types from re3data with optional counts */
@@ -3469,6 +3489,12 @@ export type QueryQuestionConditionsArgs = {
 
 export type QueryQuestionCustomizationArgs = {
   questionCustomizationId: Scalars['Int']['input'];
+};
+
+
+export type QueryQuestionCustomizationByVersionedQuestionArgs = {
+  templateCustomizationId: Scalars['Int']['input'];
+  versionedQuestionId: Scalars['Int']['input'];
 };
 
 
@@ -7164,6 +7190,7 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   question?: Resolver<Maybe<ResolversTypes['Question']>, ParentType, ContextType, RequireFields<QueryQuestionArgs, 'questionId'>>;
   questionConditions?: Resolver<Maybe<Array<Maybe<ResolversTypes['QuestionCondition']>>>, ParentType, ContextType, RequireFields<QueryQuestionConditionsArgs, 'questionId'>>;
   questionCustomization?: Resolver<Maybe<ResolversTypes['QuestionCustomization']>, ParentType, ContextType, RequireFields<QueryQuestionCustomizationArgs, 'questionCustomizationId'>>;
+  questionCustomizationByVersionedQuestion?: Resolver<Maybe<ResolversTypes['QuestionCustomization']>, ParentType, ContextType, RequireFields<QueryQuestionCustomizationByVersionedQuestionArgs, 'templateCustomizationId' | 'versionedQuestionId'>>;
   questions?: Resolver<Maybe<Array<Maybe<ResolversTypes['Question']>>>, ParentType, ContextType, RequireFields<QueryQuestionsArgs, 'sectionId'>>;
   re3RepositoryTypesList?: Resolver<ResolversTypes['Re3RepositoryTypesListResults'], ParentType, ContextType, Partial<QueryRe3RepositoryTypesListArgs>>;
   re3SubjectList?: Resolver<ResolversTypes['Re3SubjectListResults'], ParentType, ContextType, Partial<QueryRe3SubjectListArgs>>;

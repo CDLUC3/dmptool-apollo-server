@@ -49,7 +49,7 @@ export class QuestionCustomization extends MySqlModel {
       this.addError('templateCustomizationId', 'Customization can\'t be blank');
     }
     if (isNullOrUndefined(this.questionId)) {
-      this.addError('questionId','Question can\'t be blank');
+      this.addError('questionId', 'Question can\'t be blank');
     }
 
     return Object.keys(this.errors).length === 0;
@@ -210,6 +210,33 @@ export class QuestionCustomization extends MySqlModel {
       `SELECT * FROM ${QuestionCustomization.tableName}
          WHERE templateCustomizationId = ? AND questionId = ?`,
       [templateCustomizatonId.toString(), questionId?.toString()],
+      reference
+    );
+    return Array.isArray(results) && results.length > 0 ? new QuestionCustomization(results[0]) : undefined;
+  }
+
+
+  /**
+   * Find the customization by the customization and versioned question
+   *
+   * @param reference The reference to use for logging errors.
+   * @param context The Apollo context.
+   * @param templateCustomizatonId The id of the template customization.
+   * @param versionedQuestionId The versioned question id.
+   * @returns The Question customization.
+   */
+  static async findByCustomizationAndVersionedQuestion(
+    reference: string,
+    context: MyContext,
+    templateCustomizatonId: number,
+    versionedQuestionId: number
+  ): Promise<QuestionCustomization> {
+    const results = await QuestionCustomization.query(
+      context,
+      `SELECT qc.* FROM ${QuestionCustomization.tableName} qc
+         INNER JOIN versionedQuestions vq ON qc.questionId = vq.questionId
+         WHERE qc.templateCustomizationId = ? AND vq.id = ?`,
+      [templateCustomizatonId.toString(), versionedQuestionId?.toString()],
       reference
     );
     return Array.isArray(results) && results.length > 0 ? new QuestionCustomization(results[0]) : undefined;

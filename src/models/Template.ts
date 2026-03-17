@@ -111,6 +111,7 @@ export class TemplateSearchResult {
 // A Template for creating a DMP
 export class Template extends MySqlModel {
   public sourceTemplateId?: number;
+  public sourceVersionedTemplateId?: number;
   public name: string;
   public description?: string;
   public ownerId?: string;
@@ -129,7 +130,8 @@ export class Template extends MySqlModel {
     this.name = options.name;
     this.ownerId = options.ownerId;
     this.description = options.description;
-    this.sourceTemplateId = options.sourceTemplateId
+    this.sourceTemplateId = options.sourceTemplateId;
+    this.sourceVersionedTemplateId = options.sourceVersionedTemplateId;
     this.latestPublishVisibility = options.latestPublishVisibility ?? TemplateVisibility.ORGANIZATION;
     this.latestPublishVersion = options.latestPublishVersion ?? '';
     this.latestPublishDate = options.latestPublishDate ?? null;

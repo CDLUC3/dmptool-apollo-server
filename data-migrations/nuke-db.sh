@@ -43,16 +43,24 @@ drop_tables() {
     MIGRATION_ARGS=${MYSQL_TEST_ARGS}
   fi
 
-  mysql $MIGRATION_ARGS -N $1 <<< "$FKEY_OFF"
+  # If we are running locally, the MySQL cert will exist in /etc
+  # if [ -f "/etc/mysql-cert.pem" ]; then
+  #   MIGRATION_ARGS="${MIGRATION_ARGS} --ssl-ca=/etc/mysql-cert.pem --ssl-verify-server-cert=OFF"
+  # fi
+  if [ -f "/etc/mysql-cert.pem" ]; then
+MIGRATION_ARGS="${MIGRATION_ARGS} --ssl=off"
+fi
 
-  TABLE_LIST=$(mysql $MIGRATION_ARGS -N $1 <<< "$LIST_TABLES")
+  mariadb $MIGRATION_ARGS -N $1 <<< "$FKEY_OFF"
+
+  TABLE_LIST=$(mariadb $MIGRATION_ARGS -N $1 <<< "$LIST_TABLES")
 
   while read -r TABLE; do
     echo "  Dropping: $TABLE"
-    mysql $MIGRATION_ARGS -N $1 <<< "${FKEY_OFF} DROP TABLE \`${TABLE}\`; ${FKEY_ON}"
+    mariadb $MIGRATION_ARGS -N $1 <<< "${FKEY_OFF} DROP TABLE \`${TABLE}\`; ${FKEY_ON}"
   done <<< "$TABLE_LIST"
 
-  mysql $MIGRATION_ARGS -N $1 <<< "$FKEY_ON"
+  mariadb $MIGRATION_ARGS -N $1 <<< "$FKEY_ON"
 }
 
 drop_tables $MYSQL_DATABASE

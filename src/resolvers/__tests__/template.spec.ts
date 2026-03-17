@@ -14,6 +14,14 @@ import * as templateService from "../../services/templateService";
 jest.mock('../../context.ts');
 jest.mock('../../datasources/cache');
 jest.mock('../../services/emailService');
+jest.mock('../../services/templateCustomizationService', () => ({
+  handleFunderTemplateRepublication: jest.fn(),
+  handleFunderTemplateArchive: jest.fn(),
+}));
+jest.mock('../../services/openSearchService');
+jest.mock('../../config/awsConfig', () => ({
+  awsConfig: { opensearch: { useSSL: false, host: 'localhost', port: 9200 } },
+}));
 
 let testServer: ApolloServer;
 let affiliationId: string;
@@ -41,9 +49,7 @@ beforeEach(async () => {
   jest.resetAllMocks();
 
   // Initialize the Apollo server
-  testServer = new ApolloServer({
-    typeDefs, resolvers
-  });
+  testServer = new ApolloServer({ typeDefs, resolvers });
 
   affiliationId = casual.url;
   templateId = casual.integer(1, 999);

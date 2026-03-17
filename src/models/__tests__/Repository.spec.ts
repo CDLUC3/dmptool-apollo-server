@@ -1,17 +1,18 @@
 import casual from "casual";
 import { buildMockContextWithToken } from "../../__mocks__/context";
-import { Repository, RepositoryType } from "../Repository";
-import { getRandomEnumValue } from "../../__tests__/helpers";
+import { Repository, REPOSITORY_TYPE } from "../Repository";
 import { generalConfig } from "../../config/generalConfig";
 import { logger } from "../../logger";
+import { isCustomRepository, isRe3DataRepository } from "../../types/repository";
 
 jest.mock('../../context.ts');
 
 let context;
 
-// Helper function to convert enum values to kebab-case
-const toKebabCase = (str: string): string => {
-  return str.toLowerCase().replace(/_/g, '-');
+// Helper function to get a random repository type value
+const getRandomRepositoryType = (): string => {
+  const types = Object.values(REPOSITORY_TYPE);
+  return types[Math.floor(Math.random() * types.length)];
 };
 
 beforeEach(async () => {
@@ -33,7 +34,7 @@ describe('Repository', () => {
     description: casual.sentences(3),
     website: casual.url,
     researchDomains: [{ id: casual.integer(1, 99) }],
-    repositoryTypes: [getRandomEnumValue(RepositoryType), getRandomEnumValue(RepositoryType)],
+    repositoryTypes: [getRandomRepositoryType(), getRandomRepositoryType()],
     keywords: [casual.word, casual.word],
   }
   beforeEach(() => {
@@ -48,6 +49,18 @@ describe('Repository', () => {
     expect(repo.repositoryTypes).toEqual(repoData.repositoryTypes);
     expect(repo.researchDomains).toEqual(repoData.researchDomains);
     expect(repo.keywords).toEqual(repoData.keywords);
+  });
+
+  it('should initialize with re3dataId when provided', () => {
+    const repoWithRe3Data = new Repository({
+      ...repoData,
+      re3dataId: 'r3d100014782',
+    });
+    expect(repoWithRe3Data.re3dataId).toEqual('r3d100014782');
+  });
+
+  it('should initialize with undefined re3dataId when not provided', () => {
+    expect(repo.re3dataId).toBeUndefined();
   });
 
   it('should return true when calling isValid if object is valid', async () => {
@@ -199,18 +212,17 @@ describe('findBy Queries', () => {
     expect(result).toEqual([]);
   });
 
-  it('search should work when a Research Domain, search term and repositoryType are specified', async () => {
+  it('search should work when a search term and repositoryType are specified', async () => {
     localPaginationQuery.mockResolvedValueOnce([repo]);
     const term = casual.words(3);
-    const researchDomainId = casual.integer(1, 9);
-    const repositoryType = getRandomEnumValue(RepositoryType);
-    const result = await Repository.search('testing', context, term, researchDomainId, null, repositoryType);
-    const sql = 'SELECT r.* FROM repositories r ' +
-                'LEFT OUTER JOIN repositoryResearchDomains rrd ON r.id = rrd.repositoryId';
+    const repositoryTypes = Object.values(REPOSITORY_TYPE);
+    const repositoryType = repositoryTypes[Math.floor(Math.random() * repositoryTypes.length)];
+    const result = await Repository.search('testing', context, term, [], null, repositoryType);
+    const sql = 'SELECT r.* FROM repositories r';
     const vals = [`%${term.toLowerCase()}%`, `%${term.toLowerCase()}%`, `%${term.toLowerCase()}%`,
-                  JSON.stringify(toKebabCase(repositoryType)), researchDomainId.toString()];
+                  JSON.stringify(repositoryType)];
     const whereFilters = ['(LOWER(r.name) LIKE ? OR LOWER(r.description) LIKE ? OR LOWER(r.keywords) LIKE ?)',
-                          'JSON_CONTAINS(r.repositoryTypes, ?, \'$\')', 'rrd.researchDomainId = ?'];
+                          'JSON_CONTAINS(r.repositoryTypes, ?, \'$\')'];
     const sortFields = ["r.name", "r.created"];
     const opts = {
       cursor: null,
@@ -226,16 +238,13 @@ describe('findBy Queries', () => {
     expect(result).toEqual([repo]);
   });
 
-  it('search should work when only a Research Domain is specified', async () => {
+  it('search should work when no filters are specified', async () => {
     localPaginationQuery.mockResolvedValueOnce([repo]);
-    const researchDomainId = casual.integer(1, 9);
-    const result = await Repository.search('testing', context, null, researchDomainId, null, null);
-    const sql = 'SELECT r.* FROM repositories r ' +
-                'LEFT OUTER JOIN repositoryResearchDomains rrd ON r.id = rrd.repositoryId';
-    const vals = ['%%', '%%', '%%', researchDomainId.toString()];
+    const result = await Repository.search('testing', context, null, [], null, null);
+    const sql = 'SELECT r.* FROM repositories r';
+    const vals = ['%%', '%%', '%%'];
     const whereFilters = [
-      '(LOWER(r.name) LIKE ? OR LOWER(r.description) LIKE ? OR LOWER(r.keywords) LIKE ?)',
-      'rrd.researchDomainId = ?'
+      '(LOWER(r.name) LIKE ? OR LOWER(r.description) LIKE ? OR LOWER(r.keywords) LIKE ?)'
     ];
     const sortFields = ["r.name", "r.created"];
     const opts = {
@@ -254,11 +263,11 @@ describe('findBy Queries', () => {
 
   it('search should work when only a Repository Type is specified', async () => {
     localPaginationQuery.mockResolvedValueOnce([repo]);
-    const repositoryType = getRandomEnumValue(RepositoryType);
-    const result = await Repository.search('testing', context, null, null, null, repositoryType);
-    const sql = 'SELECT r.* FROM repositories r ' +
-                'LEFT OUTER JOIN repositoryResearchDomains rrd ON r.id = rrd.repositoryId';
-    const vals = ['%%', '%%', '%%', JSON.stringify(toKebabCase(repositoryType))];
+    const repositoryTypes = Object.values(REPOSITORY_TYPE);
+    const repositoryType = repositoryTypes[Math.floor(Math.random() * repositoryTypes.length)];
+    const result = await Repository.search('testing', context, null, [], null, repositoryType);
+    const sql = 'SELECT r.* FROM repositories r';
+    const vals = ['%%', '%%', '%%', JSON.stringify(repositoryType)];
     const whereFilters = [
       '(LOWER(r.name) LIKE ? OR LOWER(r.description) LIKE ? OR LOWER(r.keywords) LIKE ?)',
       'JSON_CONTAINS(r.repositoryTypes, ?, \'$\')'
@@ -278,40 +287,11 @@ describe('findBy Queries', () => {
     expect(result).toEqual([repo]);
   });
 
-  it('search should work when only a Research Domain and Repository Type are specified', async () => {
-    localPaginationQuery.mockResolvedValueOnce([repo]);
-    const researchDomainId = casual.integer(1, 9);
-    const repositoryType = getRandomEnumValue(RepositoryType);
-    const result = await Repository.search('testing', context, null, researchDomainId, null, repositoryType);
-    const sql = 'SELECT r.* FROM repositories r ' +
-                'LEFT OUTER JOIN repositoryResearchDomains rrd ON r.id = rrd.repositoryId';
-    const vals = ['%%', '%%', '%%', JSON.stringify(toKebabCase(repositoryType)), researchDomainId.toString()];
-    const whereFilters = [
-      '(LOWER(r.name) LIKE ? OR LOWER(r.description) LIKE ? OR LOWER(r.keywords) LIKE ?)',
-      'JSON_CONTAINS(r.repositoryTypes, ?, \'$\')',
-      'rrd.researchDomainId = ?'
-    ];
-    const sortFields = ["r.name", "r.created"];
-    const opts = {
-      cursor: null,
-      limit: generalConfig.defaultSearchLimit,
-      sortField: 'r.name',
-      sortDir: 'ASC',
-      countField: 'r.id',
-      cursorField: 'r.id',
-      availableSortFields: sortFields,
-    };
-    expect(localPaginationQuery).toHaveBeenCalledTimes(1);
-    expect(localPaginationQuery).toHaveBeenCalledWith(context, sql, whereFilters, '', vals, opts, 'testing');
-    expect(result).toEqual([repo]);
-  });
-
   it('search should work when only a search term is specified', async () => {
     localPaginationQuery.mockResolvedValueOnce([repo]);
     const term = casual.words(3);
-    const result = await Repository.search('testing', context, term, null, null, null);
-    const sql = 'SELECT r.* FROM repositories r ' +
-                'LEFT OUTER JOIN repositoryResearchDomains rrd ON r.id = rrd.repositoryId';
+    const result = await Repository.search('testing', context, term, [], null, null);
+    const sql = 'SELECT r.* FROM repositories r';
     const vals = [`%${term.toLowerCase()}%`, `%${term.toLowerCase()}%`, `%${term.toLowerCase()}%`];
     const whereFilters = ['(LOWER(r.name) LIKE ? OR LOWER(r.description) LIKE ? OR LOWER(r.keywords) LIKE ?)'];
     const sortFields = ["r.name", "r.created"];
@@ -332,9 +312,9 @@ describe('findBy Queries', () => {
   it('search should return empty array if it finds no records', async () => {
     localPaginationQuery.mockResolvedValueOnce([]);
     const term = casual.words(3);
-    const researchDomainId = casual.integer(1, 9);
-    const repositoryType = getRandomEnumValue(RepositoryType);
-    const result = await Repository.search('testing', context, term, researchDomainId, null, repositoryType);
+    const repositoryTypes = Object.values(REPOSITORY_TYPE);
+    const repositoryType = repositoryTypes[Math.floor(Math.random() * repositoryTypes.length)];
+    const result = await Repository.search('testing', context, term, [], null, repositoryType);
     expect(result).toEqual([]);
   });
 });
@@ -535,5 +515,142 @@ describe('delete', () => {
     expect(Object.keys(result.errors).length).toBe(0);
     expect(result.errors).toEqual({});
     expect(result).toBeInstanceOf(Repository);
+  });
+});
+
+describe('Discriminator Functions', () => {
+  describe('isCustomRepository', () => {
+    it('should return true for custom repository with numeric ID', () => {
+      const customRepo = {
+        id: 123,
+        name: 'Custom Repo',
+      };
+      expect(isCustomRepository(customRepo)).toBe(true);
+    });
+
+    it('should return true for custom repository with numeric string ID', () => {
+      const customRepo = {
+        id: '456',
+        name: 'Custom Repo',
+      };
+      expect(isCustomRepository(customRepo)).toBe(true);
+    });
+
+    it('should return true for custom repository with re3dataId', () => {
+      const customRepo = {
+        id: 789,
+        name: 'Custom Repo',
+        re3dataId: 'r3d100014782',
+      };
+      expect(isCustomRepository(customRepo)).toBe(true);
+    });
+
+    it('should return false for non-numeric string ID (re3data)', () => {
+      const re3dataRepo = {
+        id: 'some-uuid-or-doi',
+        name: 'Re3Data Repo',
+      };
+      expect(isCustomRepository(re3dataRepo)).toBe(false);
+    });
+
+    it('should return false for null', () => {
+      expect(isCustomRepository(null)).toBe(false);
+    });
+
+    it('should return false for undefined', () => {
+      expect(isCustomRepository(undefined)).toBe(false);
+    });
+
+    it('should return false for object without id', () => {
+      const obj = { name: 'No ID' };
+      expect(isCustomRepository(obj)).toBe(false);
+    });
+  });
+
+  describe('isRe3DataRepository', () => {
+    it('should return true for re3data repository with non-numeric string ID', () => {
+      const re3dataRepo = {
+        id: 'r3d100014782',
+        name: 'Re3Data Repo',
+      };
+      expect(isRe3DataRepository(re3dataRepo)).toBe(true);
+    });
+
+    it('should return true for re3data repository with UUID-like ID', () => {
+      const re3dataRepo = {
+        id: '550e8400-e29b-41d4-a716-446655440000',
+        name: 'Re3Data Repo',
+      };
+      expect(isRe3DataRepository(re3dataRepo)).toBe(true);
+    });
+
+    it('should return false when re3dataId field is present', () => {
+      const repo = {
+        id: 'r3d100014782',
+        name: 'Custom Repo',
+        re3dataId: 'r3d100014782',
+      };
+      expect(isRe3DataRepository(repo)).toBe(false);
+    });
+
+    it('should return false for numeric ID (custom repository)', () => {
+      const customRepo = {
+        id: 123,
+        name: 'Custom Repo',
+      };
+      expect(isRe3DataRepository(customRepo)).toBe(false);
+    });
+
+    it('should return false for numeric string ID (custom repository)', () => {
+      const customRepo = {
+        id: '456',
+        name: 'Custom Repo',
+      };
+      expect(isRe3DataRepository(customRepo)).toBe(false);
+    });
+
+    it('should return false for null', () => {
+      expect(isRe3DataRepository(null)).toBe(false);
+    });
+
+    it('should return false for undefined', () => {
+      expect(isRe3DataRepository(undefined)).toBe(false);
+    });
+
+    it('should return false for object without id', () => {
+      const obj = { name: 'No ID' };
+      expect(isRe3DataRepository(obj)).toBe(false);
+    });
+  });
+
+  describe('Discriminator Function Exclusivity', () => {
+    it('should not match the same object as both custom and re3data', () => {
+      const customRepo = {
+        id: 123,
+        name: 'Custom Repo',
+      };
+      const isCustom = isCustomRepository(customRepo);
+      const isRe3Data = isRe3DataRepository(customRepo);
+      expect(isCustom && isRe3Data).toBe(false);
+    });
+
+    it('custom repo with re3dataId should only match isCustomRepository', () => {
+      const repo = {
+        id: 123,
+        name: 'Custom Repo with Re3Data Reference',
+        re3dataId: 'r3d100014782',
+      };
+      expect(isCustomRepository(repo)).toBe(true);
+      expect(isRe3DataRepository(repo)).toBe(false);
+    });
+
+    it('re3data repo should only match isRe3DataRepository', () => {
+      const repo = {
+        id: 'r3d100014782',
+        name: 'Re3Data Repo',
+      };
+      expect(isCustomRepository(repo)).toBe(false);
+      expect(isRe3DataRepository(repo)).toBe(true);
+    });
   });
 });

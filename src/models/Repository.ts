@@ -7,23 +7,29 @@ import { ResearchDomain } from "./ResearchDomain";
 
 export const DEFAULT_DMPTOOL_REPOSITORY_URL = 'https://dmptool.org/repositories/';;
 
-export enum RepositoryType {
-  OTHER = 'OTHER',                // A repository that doesn't fit into any of the other categories
-  GOVERNMENTAL = 'GOVERNMENTAL',  // A repository owned and managed by a government entity (e.g. NCBI, NASA)
-  PROJECT_RELATED = 'PROJECT_RELATED', // A repository created to support a specific project or initiative (e.g. Human Genome Project)
-  GENERALIST = 'GENERALIST',        // A general purpose repository to store any output type (e.g. Dryad, Zenodo)
-  DISCIPLINARY = 'DISCIPLINARY',    // A repository that stores discipline specific output (e.g. genomes, DNA)
-  MULTI_DISCIPLINARY = 'MULTI_DISCIPLINARY', // A repository that accepts any type of dataset, from any discipline. Often used when no disciplinary repository exists.
-  INSTITUTIONAL = 'INSTITUTIONAL',  // A repository owned and managed by a specific institution (e.g. UC, Stanford)
-}
+/**
+ * Standard repository type values following the re3data standard
+ * These are stored as lowercase strings with hyphens in the database and OpenSearch
+ */
+export const REPOSITORY_TYPE = {
+  DISCIPLINARY: 'disciplinary',
+  INSTITUTIONAL: 'institutional',
+  OTHER: 'other',
+  MULTIDISCIPLINARY: 'multidisciplinary',
+  PROJECT_RELATED: 'project-related',
+  GOVERNMENTAL: 'governmental',
+} as const;
+
+export type RepositoryTypeValue = typeof REPOSITORY_TYPE[keyof typeof REPOSITORY_TYPE];
 
 export class Repository extends MySqlModel {
   public name: string;
   public uri: string;
   public description?: string;
   public website?: string;
+  public re3dataId?: string;
   public researchDomains: ResearchDomain[];
-  public repositoryTypes: RepositoryType[];
+  public repositoryTypes: string[];
   public keywords: string[];
 
   private tableName = 'repositories';
@@ -36,6 +42,7 @@ export class Repository extends MySqlModel {
     this.uri = options.uri;
     this.description = options.description;
     this.website = options.website;
+    this.re3dataId = options.re3dataId;
     this.researchDomains = options.researchDomains ?? [];
     this.repositoryTypes = options.repositoryTypes ?? [];
     this.keywords = options.keywords ?? [];
@@ -80,21 +87,11 @@ export class Repository extends MySqlModel {
       repository.keywords = JSON.parse(repository.keywords);
     }
 
-    // Parse and transform repositoryTypes from database format to enum formats replacing lowercase to uppercase and hyphens to underscores
-    if (repository?.repositoryTypes) {
-      let parsed;
-      if (typeof repository.repositoryTypes === 'string') {
-        parsed = JSON.parse(repository.repositoryTypes);
-      } else if (Array.isArray(repository.repositoryTypes)) {
-        parsed = repository.repositoryTypes;
-      }
-
-      if (Array.isArray(parsed)) {
-        repository.repositoryTypes = parsed.map((type: string) =>
-          type.toUpperCase().replace(/-/g, '_') as RepositoryType
-        );
-      }
+    // Parse repositoryTypes from JSON string if needed
+    if (repository?.repositoryTypes && typeof repository.repositoryTypes === 'string') {
+      repository.repositoryTypes = JSON.parse(repository.repositoryTypes);
     }
+
     return repository;
   }
 
@@ -170,9 +167,9 @@ export class Repository extends MySqlModel {
     reference: string,
     context: MyContext,
     term: string,
-    researchDomainId: number,
+    subjects: string[],
     keyword: string,
-    repositoryType: RepositoryType,
+    repositoryType: string,
     options: PaginationOptions = Repository.getDefaultPaginationOptions()
   ): Promise<PaginatedQueryResults<Repository>> {
     const whereFilters = [];
@@ -184,15 +181,10 @@ export class Repository extends MySqlModel {
       whereFilters.push('(LOWER(r.name) LIKE ? OR LOWER(r.description) LIKE ? OR LOWER(r.keywords) LIKE ?)');
       values.push(`%${searchTerm}%`, `%${searchTerm}%`, `%${searchTerm}%`);
     }
-    // Handle the incoming repository type
+    // Handle the incoming repository type (already in lowercase format from re3data standard)
     if (repositoryType) {
       whereFilters.push('JSON_CONTAINS(r.repositoryTypes, ?, \'$\')');
-      values.push(JSON.stringify(repositoryType.toLowerCase().replace(/_/g, '-')));
-    }
-    // Handle the incoming research domain
-    if (researchDomainId) {
-      whereFilters.push('rrd.researchDomainId = ?');
-      values.push(researchDomainId.toString());
+      values.push(JSON.stringify(repositoryType));
     }
     // Handle the incoming keyword
     if (keyword) {
@@ -200,6 +192,8 @@ export class Repository extends MySqlModel {
       whereFilters.push('JSON_CONTAINS(r.keywords, ?, \'$\')'); //use JSON_CONTAINS to search within the JSON array
       values.push(JSON.stringify(searchKeyword));
     }
+    // Note: subjects are from re3data (OpenSearch) and have no matches in custom repositories
+    // so they are not included in the custom repository search filter
 
     // Set the default sort field and order if none was provided
     if (isNullOrUndefined(options.sortField)) options.sortField = 'r.name';
@@ -219,8 +213,7 @@ export class Repository extends MySqlModel {
       opts.cursorField = 'r.id';
     }
 
-    const sqlStatement = 'SELECT r.* FROM repositories r ' +
-                          'LEFT OUTER JOIN repositoryResearchDomains rrd ON r.id = rrd.repositoryId';
+    const sqlStatement = 'SELECT r.* FROM repositories r';
 
     const response: PaginatedQueryResults<Repository> = await Repository.queryWithPagination(
       context,

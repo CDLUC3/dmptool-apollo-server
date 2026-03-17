@@ -234,9 +234,12 @@ export class MySqlModel {
         cursorFields.unshift(paginationOptions.sortField);
       }
 
+      // Wrap each field with COALESCE to handle NULL values in SQL CONCAT
+      const coalesced = cursorFields.map(field => `COALESCE(${field}, '')`).join(', ');
+
       return {
         ...paginationOptions,
-        cursorField: `LOWER(REPLACE(CONCAT(${cursorFields.join(', ')}), ' ', '_'))`
+        cursorField: `LOWER(REPLACE(CONCAT(${coalesced}), ' ', '_'))`
       };
     }
   }
@@ -303,6 +306,7 @@ export class MySqlModel {
     values: string[],
     options: PaginationOptions,
     reference = 'undefined caller',
+    calculateTotalCount = true
   ): Promise<PaginatedQueryResults<T>> {
     const paginationOptions = this.preparePaginationOptions(options);
     try {
@@ -315,7 +319,8 @@ export class MySqlModel {
           groupByClause ?? '',
           values,
           paginationOptions,
-          reference
+          reference,
+          calculateTotalCount
         );
 
       } else {
@@ -327,7 +332,8 @@ export class MySqlModel {
           groupByClause ?? '',
           values,
           paginationOptions,
-          reference
+          reference,
+          calculateTotalCount
         );
       }
     } catch (err) {
@@ -357,6 +363,7 @@ export class MySqlModel {
     values: string[],
     options: PaginationOptionsForOffsets,
     reference = 'undefined caller',
+    calculateTotalCount = true
   ): Promise<PaginatedQueryResults<T>> {
     try {
       // Determine the maximum number of results to return
@@ -375,15 +382,17 @@ export class MySqlModel {
 
       const items = Array.isArray(rows) ? rows : [];
 
-      const totalCount = await this.getTotalCountForPagination(
-        apolloContext,
-        sqlStatement,
-        whereClause,
-        groupByClause,
-        options.countField ?? 'id',
-        values,
-        reference
-      );
+      const totalCount = calculateTotalCount
+        ? await this.getTotalCountForPagination(
+          apolloContext,
+          sqlStatement,
+          whereClause,
+          groupByClause,
+          options.countField ?? 'id',
+          values,
+          reference
+        )
+        : 0;
 
       const currentOffset = options.offset ?? 0;
       const hasNextPage = items.length === limit && (!totalCount || currentOffset + limit < totalCount);
@@ -429,6 +438,7 @@ export class MySqlModel {
     values: string[],
     options: PaginationOptionsForCursors,
     reference = 'undefined caller',
+    calculateTotalCount = true
   ): Promise<PaginatedQueryResults<T>> {
     try {
       // Determine the maximum number of results to return
@@ -461,15 +471,17 @@ export class MySqlModel {
       const items = Array.isArray(rows) ? rows : [];
 
       // Use original WHERE clause and original values for total count
-      const totalCount = await this.getTotalCountForPagination(
-        apolloContext,
-        sqlStatement,
-        originalWhereClause,
-        groupByClause,
-        options.countField ?? 'id',
-        values,
-        reference
-      );
+      const totalCount: number = calculateTotalCount
+        ? await this.getTotalCountForPagination(
+          apolloContext,
+          sqlStatement,
+          originalWhereClause,
+          groupByClause,
+          options.countField ?? 'id',
+          values,
+          reference
+        )
+        : 0;
 
       const nextCursor = items.length > 0 ? items[items.length - 1]?.cursorId : undefined;
       const hasNextPage = nextCursor !== undefined && options.cursor !== nextCursor && items.length > limit;

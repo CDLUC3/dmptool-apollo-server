@@ -1,13 +1,19 @@
-import { incrementVersionNumber } from "../utils/helpers";
-import { Template, TemplateVisibility } from "../models/Template";
-import { Tag } from "../models/Tag";
-import { VersionedTemplate, TemplateVersionType } from "../models/VersionedTemplate";
-import { MyContext } from "../context";
-import { isSuperAdmin } from "./authService";
-import { TemplateCollaborator } from "../models/Collaborator";
-import { Section } from "../models/Section";
-import { generateSectionVersion } from "./sectionService";
-import { prepareObjectForLogs } from "../logger";
+import {incrementVersionNumber} from "../utils/helpers";
+import {Template, TemplateVisibility} from "../models/Template";
+import {Tag} from "../models/Tag";
+import {
+  TemplateVersionType,
+  VersionedTemplate
+} from "../models/VersionedTemplate";
+import {MyContext} from "../context";
+import {isSuperAdmin} from "./authService";
+import {TemplateCollaborator} from "../models/Collaborator";
+import {Section} from "../models/Section";
+import {generateSectionVersion} from "./sectionService";
+import {prepareObjectForLogs} from "../logger";
+import {
+  handleFunderTemplateRepublication
+} from "./templateCustomizationService";
 
 // Determine whether the specified user has permission to access the Template
 export const hasPermissionOnTemplate = async (context: MyContext, template: Template): Promise<boolean> => {
@@ -50,6 +56,8 @@ export const generateTemplateVersion = async (
   latestPublishVisibility = TemplateVisibility.ORGANIZATION,
   versionType = TemplateVersionType.DRAFT,
 ): Promise<VersionedTemplate> => {
+  const ref = 'generateTemplateVersion';
+
   // If the template has no id then it has not yet been saved so throw an error
   if (!template.id) {
     throw new Error('Cannot publish unsaved Template');
@@ -90,16 +98,16 @@ export const generateTemplateVersion = async (
 
   // If the version was successfully created and there are no errors
   if (created && !created.hasErrors()) {
-
     // Deactivate previous versions only *after* successful creation
     for (const v of versions) {
       if (v.active) {
         const versionInstance = new VersionedTemplate({ ...v, active: false });
         await versionInstance.update(context);
+        context.logger.info(`Deactivated version ${v.version} of template ${template.id}`);
       }
     }
 
-    const sections = await Section.findByTemplateId('generateTemplateVersion', context, template.id);
+    const sections = await Section.findByTemplateId(ref, context, template.id);
 
     try {
       let allSectionsWereVersioned = true;
@@ -110,7 +118,7 @@ export const generateTemplateVersion = async (
         });
 
         // Get current tags for the section so we can add it to versionedSectionTags table
-        const currentTags = await Tag.findBySectionId('generateTemplateVersion', context, sectionInstance.id);
+        const currentTags = await Tag.findBySectionId(ref, context, sectionInstance.id);
         sectionInstance.tags = currentTags;
 
         const passed = await generateSectionVersion(context, sectionInstance, created.id);
@@ -138,7 +146,26 @@ export const generateTemplateVersion = async (
       }
     } catch (err) {
       context.logger.error(prepareObjectForLogs(err), `Unable to create a new version for template: ${template.id}`);
-      throw new Error(err.message);
+      throw err;
+    }
+
+
+    // If the version was successfully created, there were no errors, it is `PUBLISHED`
+    // and all section and question versioning has been done. Process any customizations
+    // of the old published version of the template
+    if (created && !created.hasErrors() && created.versionType === TemplateVersionType.PUBLISHED) {
+      for (const v of versions) {
+        const nbrAffected = await handleFunderTemplateRepublication(
+          ref,
+          context,
+          v.id,         // old version id
+          created.id,   // new version id
+        );
+        context.logger.info(
+          { nbrAffected, oldVersionId: v.id, newVersionId: created.id },
+          `Processed ${nbrAffected} customizations of the old version of template`
+        );
+      }
     }
   } else {
     const msg = `Unable to generate a new version of template ${template.id}`;

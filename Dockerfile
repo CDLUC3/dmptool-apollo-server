@@ -26,15 +26,20 @@ RUN mkdir -p /app
 # Set /app as the working directory in container
 WORKDIR /app
 
+# Install awslocal so we can build AWS resources in localstack
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+RUN pip install --no-cache-dir awscli-local
+
 # Copy package.json and package-lock.json
 # to the /app working directory
 COPY package*.json tsconfig.json codegen.ts .env ./
 
-# Copy the rest of our Apollo Server folder into /app
-COPY . .
-
 # Install dependencies in /app
 RUN npm ci
+
+# Copy the rest of our Apollo Server folder into /app
+COPY . .
 
 # Ensure port 3000 is accessible to our system
 EXPOSE 4000

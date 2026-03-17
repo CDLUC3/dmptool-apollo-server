@@ -1,3 +1,4 @@
+
 jest.mock('../logger', () => {
   const original = jest.requireActual('../logger') as typeof import('../logger');
 
@@ -30,9 +31,20 @@ jest.mock('../config/awsConfig', () => ({
     sesAccessSecret: '98765',
     sesBounceAddress: 'bounce@example.com',
     sesBouncedEmailBucket: 'my-test-bucket',
-    dynamoTableName: 'test-table',
-    dynamoMaxQueryAttempts: 3,
-    dynamoEndpoint: 'http://localhost:8000',
+    sqs: {
+      generateMaDMPQueueUrl: 'http://sqs.example.com/queue/generateMadmp'
+    },
+    opensearch: {
+      host: 'localhost',
+      port: 9200,
+      useSSL: false,
+      verifyCerts: false,
+      authType: 'aws',
+      username: 'admin',
+      password: 'password',
+      awsRegion: 'us-west-2',
+      awsService: 'es',
+    }
   }
 }));
 
@@ -99,5 +111,6 @@ jest.mock('../config/generalConfig', () => ({
     jwtRefreshSecret: 'testJwtRefreshSecret',
     jwtRefreshTTL: 500,
     hashTokenSecret: 'testTokenSecret',
-  }
+  },
+  envAsEnumValue: () => 'dev'
 }));

@@ -2,23 +2,17 @@ import gql from 'graphql-tag';
 
 export const typeDefs = gql`
   extend type Query {
-    "Get all of the related works for a project"
-    relatedWorksByProject(
-      projectId: Int!
-      paginationOptions: PaginationOptions
-      filterOptions: RelatedWorksFilterOptions
-    ): RelatedWorkSearchResults
-
-    "Get all of the related works for a plan"
-    relatedWorksByPlan(
-      planId: Int!
+    "Get all of the related works for a project or plan"
+    relatedWorks(
+      id: Int!
+      idType: RelatedWorksIdentifierType!
       paginationOptions: PaginationOptions
       filterOptions: RelatedWorksFilterOptions
     ): RelatedWorkSearchResults
 
     "Find a work with an identifier"
     findWorkByIdentifier(
-      planId: Int!,
+      planId: Int,
       doi: String,
       paginationOptions: PaginationOptions
     ): RelatedWorkSearchResults
@@ -26,6 +20,11 @@ export const typeDefs = gql`
     "Get summary statistics for related works by plan"
     relatedWorksByPlanStats(
       planId: Int!
+    ): RelatedWorkStatsResults
+
+    "Get summary statistics for related works by project"
+    relatedWorksByProjectStats(
+      projectId: Int!
     ): RelatedWorkStatsResults
   }
 
@@ -39,6 +38,9 @@ export const typeDefs = gql`
   }
 
   type RelatedWorkStatsResults {
+    "Whether the plan is published (if request was for a plan) or whether any plan is published (if request was for a project)"
+    hasPublishedPlan: Boolean
+
     "The total number of related works"
     totalCount: Int
 
@@ -85,8 +87,12 @@ export const typeDefs = gql`
   type RelatedWorkSearchResult {
     "The unique identifier for the Object"
     id: Int
+    "The unique identifier of the project that this related work has been matched to"
+    projectId: Int
     "The unique identifier of the plan that this related work has been matched to"
     planId: Int
+    "The title of the plan that this related work has been matched to"
+    planTitle: String
     "The version of the work that the plan was matched to"
     workVersion: WorkVersion!
     "Whether the related work was automatically or manually added"
@@ -251,6 +257,12 @@ export const typeDefs = gql`
     fields: [String!]
   }
 
+  "Identifier type for calling related works endpoints"
+  enum RelatedWorksIdentifierType {
+    PROJECT_ID
+    PLAN_ID
+  }
+
   "The origin of the related work entry"
   enum RelatedWorkSourceType {
     USER_ADDED
@@ -319,6 +331,8 @@ export const typeDefs = gql`
 
   "Related work search filter options"
   input RelatedWorksFilterOptions {
+    "Filter by Plan ID"
+    planId: Int
     "Filter results by the related work status"
     status: RelatedWorkStatus
     "The confidence of the match"

@@ -25,18 +25,19 @@ import { ResearchDomain } from '../models/ResearchDomain';
 import { MemberRole } from '../models/MemberRole';
 import { GraphQLError } from 'graphql';
 import { Plan, PlanSearchResult } from '../models/Plan';
-import { addVersion } from '../models/PlanVersion';
+//import { addVersion } from '../models/PlanVersion';
 import {
   isNullOrUndefined,
   normaliseDate,
   normaliseDateTime
 } from '../utils/helpers';
-import { parseMember } from '../services/commonStandardService';
+//import { parseMember } from '../services/commonStandardService';
 import {
   PaginationOptionsForCursors,
   PaginationOptionsForOffsets,
   PaginationType
 } from '../types/general';
+import {saveMaDMPVersion} from "../services/planService";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -146,10 +147,7 @@ export const resolvers: Resolvers = {
             piNames,
           );
           return dmps.map((dmpHubAward) => {
-            const members = [
-              parseMember(dmpHubAward.contact),
-              ...dmpHubAward.contributor.map((c) => parseMember(c)),
-            ].filter((c) => c !== null);
+            const members = [];
 
             return {
               title: dmpHubAward.project.title,
@@ -230,7 +228,8 @@ export const resolvers: Resolvers = {
             // Update each plan's version snapshot if the project was updated
             const plans = await Plan.findByProjectId(reference, context, project.id);
             for (const plan of plans) {
-              await addVersion(context, plan, reference);
+              // Update the maDMP version of the Plan
+              await saveMaDMPVersion(reference, context, plan.id, plan.registered);
             }
           }
 
@@ -263,7 +262,12 @@ export const resolvers: Resolvers = {
           // Delete/Tombstone each plan associated with the project
           const plans = await Plan.findByProjectId(reference, context, project.id);
           for (const plan of plans) {
-            plan.delete(context);
+            const deleted = await plan.delete(context);
+
+            if (deleted && !deleted.hasErrors()) {
+              // Delete the maDMP versions of the Plan
+              await saveMaDMPVersion(reference, context, deleted.id, deleted.registered, true);
+            }
           }
 
           return await project.delete(context);

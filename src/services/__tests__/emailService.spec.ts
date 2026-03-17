@@ -26,6 +26,7 @@ import { User } from "../../models/User";
 let context;
 
 const subjectPrefix = `${generalConfig.applicationName}`;
+process.env.NODE_ENV = 'test';
 
 beforeEach(async () => {
   jest.resetAllMocks();

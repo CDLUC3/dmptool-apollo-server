@@ -8,12 +8,13 @@ networks:
     driver: bridge
 
 services:
+  # The database used by the Apollo server
   mysql:
     image: mysql:latest
     container_name: apollo-mysql
     ports:
       - "3307:3306"
-      - "3306:3306"
+      # - "3306:3306"
     expose:
       - 3307
     environment:
@@ -24,20 +25,7 @@ services:
     volumes:
       - ./docker/mysql:/var/lib/mysql
 
-  dynamodb:
-    image: "amazon/dynamodb-local:latest"
-    container_name: dynamodb
-    command: "-jar DynamoDBLocal.jar -sharedDb -dbPath ./data"
-    networks:
-      - dmptool-network
-    ports:
-      - "8000:8000"
-    expose:
-      - 8000
-    volumes:
-      - "./docker/dynamodb/data:/home/dynamodblocal/data"
-    working_dir: /home/dynamodblocal
-
+  # The cache used by the Apollo server to store tokens
   redis:
     image: "public.ecr.aws/docker/library/redis:alpine"
     container_name: apollo-redis
@@ -49,12 +37,66 @@ services:
     volumes:
       - "./docker/redis:/var/lib/redis"
 
+  opensearch:
+    image: "opensearchproject/opensearch:1.3.0"
+    container_name: opensearch
+    environment:
+      - cluster.name=opensearch-cluster # Name the cluster
+      - cluster.routing.allocation.disk.threshold_enabled=false # Disable disk allocation threshold checks
+      - node.name=opensearch-node1 # Name the node that will run in this container
+      - discovery.type=single-node # 👈 Enables single-node mode
+      - bootstrap.memory_lock=true # Disable JVM heap memory swapping
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m" # Set min and max JVM heap sizes
+      - "DISABLE_INSTALL_DEMO_CONFIG=true" # Prevents execution of bundled demo script which installs demo certificates and security configurations to OpenSearch
+      - "DISABLE_SECURITY_PLUGIN=true"
+    volumes:
+      - "./docker/opensearch:/usr/share/opensearch/data"
+    ports:
+      - 9200:9200 # REST API
+      - 9600:9600 # Performance Analyzer
+    networks:
+      - dmptool-network
+
+  # We use LocalStack to mock AWS services. We are using it to mock the DynamoDB
+  # table used to store the maDMP versions of Plans. Interactions between the
+  # Apollo server and DynamoDB are made via SQS messages that trigger Lambda
+  # functions.
+  #
+  # See the ./localstack-setup/init-aws.sh script for more details.
+  #
+  # Note: that because we are using the free version of LocalStack, the DynamoDB
+  #       table, Lambda Function and SQS Queues do not persist between restarts.
+  localstack:
+    image: "localstack/localstack"
+    container_name: localstack
+    networks:
+      - dmptool-network
+    ports:
+      - "127.0.0.1:4566:4566"            # LocalStack Gateway
+      - "127.0.0.1:4510-4559:4510-4559"  # external services port range
+    environment:
+      # LocalStack configuration: https://docs.localstack.cloud/references/configuration/
+      - DEBUG=${DEBUG:-0}
+      - SERVICES=ses,sqs,lambda,ssm,logs,events,dynamodb
+    volumes:
+      - "./docker/localstack:/var/lib/localstack"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      # Load local Lambda code and init-aws.sh startup scripts
+      - "./localstack-setup:/etc/localstack/init/ready.d"
+      - "./lambdas:/etc/lambda-code"
+
+  # The Apollo server (GraphQL)
   apollo:
     container_name: apollo-server
     depends_on:
-      - mysql
-      - dynamodb
-      - redis
+      mysql:
+        condition: service_started
+      redis:
+        condition: service_started
+      opensearch:
+        condition: service_started
+      localstack:
+        condition: service_healthy
     build:
       context: .
       dockerfile: Dockerfile
@@ -72,6 +114,7 @@ services:
       - "REGION=us-west-2"
       - "NODE_ENV=development"
 
+      # Local MySQL database
       - "MYSQL_CONNECTION_LIMIT=5"
       - "MYSQL_HOST=apollo-mysql"
       - "MYSQL_PORT=3306"
@@ -79,13 +122,23 @@ services:
       - "MYSQL_USER=root"
       - "MYSQL_PASSWORD=d0ckerSecr3t"
 
-      - "DYNAMO_TABLE_NAME=localDMPTable"
-      - "DYNAMO_ENDPOINT=http://dynamodb:8000"
-
+      # Local Redis cache
       - "CACHE_HOST=apollo-redis"
       - "CACHE_PORT=6379"
       - "CACHE_CONNECT_TIMEOUT=10000"
+
+      # OpenSearch
+      - "OPENSEARCH_HOST=opensearch"
+      - "OPENSEARCH_PORT=9200"
+      - "OPENSEARCH_USE_SSL=false"
+      - "OPENSEARCH_VERIFY_CERTS=false"
+      - "OPENSEARCH_AUTH_TYPE="
+
+      # LocalStack managed SQS queue
+      - "SQS_GENERATE_MADMP_QUEUE_URL=http://localstack:4566/000000000000/generateMaDMPRecord"
     volumes:
       - ".:/app"
+      # Mount the mysql certs directory so Apollo can see them
+      - "./docker/mysql/server-cert.pem:/etc/mysql-cert.pem:ro"
     extra_hosts:
       - "host.docker.internal:host-gateway"

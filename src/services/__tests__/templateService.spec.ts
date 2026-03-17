@@ -12,6 +12,11 @@ import { getCurrentDate } from '../../utils/helpers';
 import { logger } from '../../logger';
 import { Tag } from '../../models/Tag';
 
+// Mock all calls to process template customizations
+jest.mock('../../services/templateCustomizationService', () => ({
+  handleFunderTemplateRepublication: jest.fn().mockResolvedValue(0)
+}));
+
 // Pulling context in here so that the mysql gets mocked
 jest.mock('../../context.ts');
 

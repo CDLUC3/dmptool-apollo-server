@@ -67,6 +67,28 @@ export const resolvers: Resolvers = {
         return customization;
       }),
 
+    /** 
+     * ADMIN ONLY: Fetch the QuestionCustomization for a given versioned section
+     */
+    questionCustomizationByVersionedQuestion: authenticatedResolver(
+      'questionCustomizationByVersionedQuestion resolver',
+      UserRole.ADMIN,
+      async (
+        _: Record<PropertyKey, never>,
+        { templateCustomizationId, versionedQuestionId }: { templateCustomizationId: number; versionedQuestionId: number },
+        context: MyContext
+      ): Promise<QuestionCustomization | null> => {
+        const ref = 'questionCustomizationByVersionedQuestion resolver';
+
+        const parent = await getValidatedCustomization(ref, context, templateCustomizationId);
+        if (isNullOrUndefined(parent)) throw NotFoundError();
+
+        // Returns null if no customization exists yet — not a 404
+        const customization = await QuestionCustomization.findByCustomizationAndVersionedQuestion(ref, context, templateCustomizationId, versionedQuestionId);
+        return customization ?? null;
+      }
+    ),
+
     /**
      * ADMIN ONLY: Fetch the specified CustomQuestion
      *
@@ -356,7 +378,7 @@ export const resolvers: Resolvers = {
         customization.sampleText = sampleText;
         customization.useSampleTextAsDefault = useSampleTextAsDefault;
         customization.required = required;
-        const updated: CustomQuestion =  await customization.update(context);
+        const updated: CustomQuestion = await customization.update(context);
 
         // If it was successfully updated, update the parent's isDirty flag
         if (updated && !updated.hasErrors() && !parent.isDirty) {

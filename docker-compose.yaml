@@ -14,7 +14,7 @@ services:
     container_name: apollo-mysql
     ports:
       - "3307:3306"
-      - "3306:3306"
+      # - "3306:3306"
     expose:
       - 3307
     environment:
@@ -36,6 +36,26 @@ services:
       - "6379:6379"
     volumes:
       - "./docker/redis:/var/lib/redis"
+
+  opensearch:
+    image: "opensearchproject/opensearch:1.3.0"
+    container_name: opensearch
+    environment:
+      - cluster.name=opensearch-cluster # Name the cluster
+      - cluster.routing.allocation.disk.threshold_enabled=false # Disable disk allocation threshold checks
+      - node.name=opensearch-node1 # Name the node that will run in this container
+      - discovery.type=single-node # 👈 Enables single-node mode
+      - bootstrap.memory_lock=true # Disable JVM heap memory swapping
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m" # Set min and max JVM heap sizes
+      - "DISABLE_INSTALL_DEMO_CONFIG=true" # Prevents execution of bundled demo script which installs demo certificates and security configurations to OpenSearch
+      - "DISABLE_SECURITY_PLUGIN=true"
+    volumes:
+      - "./docker/opensearch:/usr/share/opensearch/data"
+    ports:
+      - 9200:9200 # REST API
+      - 9600:9600 # Performance Analyzer
+    networks:
+      - dmptool-network
 
   # We use LocalStack to mock AWS services. We are using it to mock the DynamoDB
   # table used to store the maDMP versions of Plans. Interactions between the
@@ -73,6 +93,8 @@ services:
         condition: service_started
       redis:
         condition: service_started
+      opensearch:
+        condition: service_started
       localstack:
         condition: service_healthy
     build:
@@ -104,6 +126,13 @@ services:
       - "CACHE_HOST=apollo-redis"
       - "CACHE_PORT=6379"
       - "CACHE_CONNECT_TIMEOUT=10000"
+
+      # OpenSearch
+      - "OPENSEARCH_HOST=opensearch"
+      - "OPENSEARCH_PORT=9200"
+      - "OPENSEARCH_USE_SSL=false"
+      - "OPENSEARCH_VERIFY_CERTS=false"
+      - "OPENSEARCH_AUTH_TYPE="
 
       # LocalStack managed SQS queue
       - "SQS_GENERATE_MADMP_QUEUE_URL=http://localstack:4566/000000000000/generateMaDMPRecord"

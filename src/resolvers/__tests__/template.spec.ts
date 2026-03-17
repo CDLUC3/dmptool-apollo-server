@@ -18,6 +18,10 @@ jest.mock('../../services/templateCustomizationService', () => ({
   handleFunderTemplateRepublication: jest.fn(),
   handleFunderTemplateArchive: jest.fn(),
 }));
+jest.mock('../../services/openSearchService');
+jest.mock('../../config/awsConfig', () => ({
+  awsConfig: { opensearch: { useSSL: false, host: 'localhost', port: 9200 } },
+}));
 
 let testServer: ApolloServer;
 let affiliationId: string;

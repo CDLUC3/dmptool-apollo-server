@@ -64,6 +64,130 @@ describe('Answer', () => {
     expect(Object.keys(answer.errors).length).toBe(1);
     expect(answer.errors['planId']).toBeTruthy();
   });
+
+  it('prepForSave should NOT add the default output type column if the answer is NOT a ResearchOutputTableAnswer', async () => {
+    answer.json = `{"type":"textArea","answer":"California","meta":{"schemaVersion":"${CURRENT_SCHEMA_VERSION}"}}`;
+    answer.prepForSave();
+    expect(answer.json).toEqual(answer.json);
+  });
+
+  it('prepForSave should NOT add the default output type column if the answer is a ResearchOutputTableAnswer but has one defined', async () => {
+    answer.json = JSON.stringify({
+      type: "researchOutputTable",
+      columnHeadings: ["Title", "Type"],
+      answer: [{
+        columns: [
+          {
+            type: "text",
+            commonStandardId: 'title',
+            answer: "",
+            meta: { schemaVersion: CURRENT_SCHEMA_VERSION },
+          },
+          {
+            type: "selectBox",
+            commonStandardId: 'type',
+            answer: "",
+            meta: { schemaVersion: CURRENT_SCHEMA_VERSION },
+          }
+        ]
+      }],
+      meta: {
+        schemaVersion: CURRENT_SCHEMA_VERSION,
+      }
+    });
+    answer.prepForSave();
+    expect(answer.json).toEqual(answer.json);
+  });
+
+  it('prepForSave should add the default output type column if the answer is a ResearchOutputTableAnswer and it is missing', async () => {
+    const baseJSON = {
+      type: "researchOutputTable",
+      columnHeadings: ["Title", "Type"],
+      answer: [{
+        columns: [
+          {
+            type: "text",
+            commonStandardId: 'title',
+            answer: "",
+            meta: { schemaVersion: CURRENT_SCHEMA_VERSION },
+          }
+        ]
+      }],
+      meta: {
+        schemaVersion: CURRENT_SCHEMA_VERSION,
+      }
+    };
+    answer.json = JSON.stringify(baseJSON);
+
+    const expectedJSON = JSON.stringify({
+      type: "researchOutputTable",
+      columnHeadings: ["Title", "Type"],
+      answer: [{
+        columns: [
+          ...baseJSON.answer[0].columns,
+          {
+            type: "selectBox",
+            commonStandardId: 'type',
+            answer: "Unknown",
+            meta: { schemaVersion: CURRENT_SCHEMA_VERSION },
+          }
+        ]
+      }],
+      meta: { schemaVersion: CURRENT_SCHEMA_VERSION }
+    });
+    answer.prepForSave();
+    expect(answer.json).toEqual(expectedJSON);
+  });
+
+  it('prepForSave should add the default output type column if the answer is a ResearchOutputTableAnswer and it is blank', async () => {
+    const baseJSON = {
+      type: "researchOutputTable",
+      columnHeadings: ["Title", "Type"],
+      answer: [
+        {
+          columns: [
+            {
+              type: "text",
+              commonStandardId: 'title',
+              answer: "",
+              meta: { schemaVersion: CURRENT_SCHEMA_VERSION },
+            },
+            {
+              type: "selectBox",
+              commonStandardId: 'type',
+              answer: "dataset",
+              meta: { schemaVersion: CURRENT_SCHEMA_VERSION },
+            }
+          ]
+        },
+        {
+          columns: [
+            {
+              type: "text",
+              commonStandardId: 'title',
+              answer: "",
+              meta: { schemaVersion: CURRENT_SCHEMA_VERSION },
+            },
+            {
+              type: "selectBox",
+              commonStandardId: 'type',
+              answer: "",
+              meta: { schemaVersion: CURRENT_SCHEMA_VERSION },
+            }
+          ]
+        }
+      ],
+      meta: {
+        schemaVersion: CURRENT_SCHEMA_VERSION,
+      }
+    };
+    answer.json = JSON.stringify(baseJSON);
+
+    const expectedJSON = baseJSON;
+    expectedJSON.answer[1].columns[1].answer = "Unknown";
+    answer.prepForSave();
+    expect(answer.json).toEqual(JSON.stringify(expectedJSON));
+  });
 });
 
 describe('findBy Queries', () => {

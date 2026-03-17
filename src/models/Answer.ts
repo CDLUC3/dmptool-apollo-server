@@ -2,9 +2,16 @@ import { MyContext } from "../context";
 import { MySqlModel } from "./MySqlModel";
 import {
   isNullOrUndefined,
-  removeNullAndUndefinedFromJSON
+  removeNullAndUndefinedFromJSON,
 } from "../utils/helpers";
-import { AnswerSchemaMap } from "@dmptool/types";
+import {
+  AnswerSchemaMap,
+  AnyResearchOutputTableColumnAnswerType,
+  ResearchOutputTableRowAnswerType,
+  CURRENT_SCHEMA_VERSION,
+  QuestionFormatsEnum,
+  SelectBoxAnswerType
+} from "@dmptool/types";
 
 export class Answer extends MySqlModel {
   public planId: number;
@@ -68,11 +75,62 @@ export class Answer extends MySqlModel {
   prepForSave(): void {
     // Remove leading/trailing blank spaces
     this.json = this.json?.trim();
+
+    const parsedJSON = JSON.parse(this.json);
+
+    // If this is not a research output table, we don't need to do anything further
+    if (parsedJSON.type !== QuestionFormatsEnum.enum.researchOutputTable) {
+      return;
+    }
+
+    // Extract the output type columns
+    let modified = false;
+
+    // Process each output in the table
+    parsedJSON.answer = parsedJSON.answer.map((row: ResearchOutputTableRowAnswerType) => {
+      const columns: AnyResearchOutputTableColumnAnswerType[] = row.columns || [];
+      const typeCol = columns.find((col: AnyResearchOutputTableColumnAnswerType) => {
+        return col.commonStandardId === 'type';
+      }) as SelectBoxAnswerType;
+
+      // If the output type column is missing or empty/null
+      if (!typeCol || !typeCol.answer || typeCol.answer.trim() === '') {
+        modified = true;
+
+        // Create the default column object
+        const defaultTypeCol: SelectBoxAnswerType = {
+          type: "selectBox",
+          commonStandardId: 'type',
+          answer: "Unknown",
+          meta: { schemaVersion: CURRENT_SCHEMA_VERSION },
+        } as unknown as SelectBoxAnswerType;
+
+        // Return the row with the updated columns list
+        return {
+          ...row,
+          columns: [
+            ...columns.filter((col: AnyResearchOutputTableColumnAnswerType) => {
+              return col.commonStandardId !== 'type';
+            }),
+            defaultTypeCol
+          ]
+        };
+      }
+
+      return row;
+    });
+
+// Only stringify and re-assign if we actually changed something
+    if (modified) {
+      this.json = JSON.stringify(parsedJSON);
+    }
   }
 
   //Create a new Answer
   async create(context: MyContext): Promise<Answer> {
     const reference = 'Answer.create';
+
+    this.prepForSave();
 
     // First make sure the record is valid
     if (await this.isValid()) {
@@ -99,6 +157,8 @@ export class Answer extends MySqlModel {
 
   //Update an existing Answer
   async update(context: MyContext, noTouch = false): Promise<Answer> {
+    this.prepForSave();
+
     if (await this.isValid()) {
       if (this.id) {
         await Answer.update(context, Answer.tableName, this, 'Answer.update', [], noTouch);

@@ -4,7 +4,7 @@ import { MySqlModel } from "./MySqlModel";
 // An email domain associated with this affiliation. For use with SSO
 export class AffiliationEmailDomain extends MySqlModel {
   public affiliationId!: string;
-  public domain!: string;
+  public emailDomain!: string;
 
   private tableName = 'affiliationEmailDomains';
 
@@ -12,7 +12,7 @@ export class AffiliationEmailDomain extends MySqlModel {
     super(options.id, options.created, options.createdById, options.modified, options.modifiedById, options.errors);
 
     this.affiliationId = options.affiliationId
-    this.domain = options.domain;
+    this.emailDomain = options.emailDomain;
   }
 
   // Validation to be used prior to saving the record
@@ -20,7 +20,7 @@ export class AffiliationEmailDomain extends MySqlModel {
     await super.isValid();
 
     if (!this.affiliationId) this.addError('affiliationId', 'Affiliation can\'t be blank');
-    if (!this.domain) this.addError('domain', 'Domain can\'t be blank');
+    if (!this.emailDomain) this.addError('emailDomain', 'Domain can\'t be blank');
 
     return Object.keys(this.errors).length === 0;
   }
@@ -31,7 +31,7 @@ export class AffiliationEmailDomain extends MySqlModel {
     const currentDomain = await AffiliationEmailDomain.findByDomain(
       'AffiliationEmailDomain.create',
       context,
-      this.domain,
+      this.emailDomain,
     );
 
     if (await this.isValid()) {
@@ -68,7 +68,7 @@ export class AffiliationEmailDomain extends MySqlModel {
 
   // Search by the domain
   static async findByDomain(reference: string, context: MyContext, domain: string): Promise<AffiliationEmailDomain> {
-    const sql = `SELECT * FROM affiliationEmailDomains WHERE domain LIKE ?`;
+    const sql = `SELECT * FROM affiliationEmailDomains WHERE emailDomain LIKE ?`;
     const results = await AffiliationEmailDomain.query(context, sql, [domain], reference);
     return Array.isArray(results) && results.length > 0 ? new AffiliationEmailDomain(results[0]) : null;
   }

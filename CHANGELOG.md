@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added override for `fast-xml-parser` dependency
 - Added `guidanceText` and `sampleText` fields to `addQuestionCustomization` and added `json`, `questionText`, `requirementText`, `guidanceText`, `sampleText`, `useSampleTextAsDefault` and `required` to `addCustomQuestionInput` [#130]
 - Added `questionCustomizationByVersionedQuestion` resolver [#130]
 - Added `findByCustomizationAndVersionedQuestion` method to `QuestionCustomization` model [#130]
@@ -86,6 +87,8 @@
 - Updates to appease newer version of eslint
 
 ### Removed
+- Removed old dependabot config
+- Removed override for `minimatch` and `immutable` dependencies
 - Removed the `unique_vTemplateCusts` restriction from `versionedTemplateCustomizations` table, because it was not allowing the publishing of a templateCustomization more than twice, because the combination of `templateCustomizationId` and `active` had to be unique [#428]
 - Removed `src/datasources/dynamo` data source. Writes to Dynamo are now being handled by the `generateMaDMPRecord` Lambda Function.
 - Removed `src/models/PlanVersion`

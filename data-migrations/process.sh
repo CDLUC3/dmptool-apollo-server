@@ -41,6 +41,10 @@ else
   fi
 fi
 
+# Extract the last 2 characters and then display the args
+LAST_2="${MYSQL_PASSWORD: -2}"
+echo "HOST: $MYSQL_HOST, PORT: $MYSQL_PORT, USER: $MYSQL_USER, PWD: *******$LAST_2"
+
 create_database() {
   # Create the database if it does not exist
   CREATE_DATABASE="CREATE DATABASE IF NOT EXISTS ${1}

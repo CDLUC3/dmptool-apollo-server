@@ -5,7 +5,6 @@ import { prepareObjectForLogs } from "../logger";
 // This is the entry point for SSO response information from our Shibboleth SP
 export const ssoCallbackController = async (req: Request, res: Response) => {
 
-
 console.log('ssoCallbackController PATH', req.path);
 console.log('ssoCallbackController QUERY', req.query);
 console.log('ssoCallbackController BODY', req.body);

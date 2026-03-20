@@ -9,7 +9,7 @@ import { Affiliation } from "../models/Affiliation";
 // institutional SSO via our Shibboleth SP
 export const ssoPassthruController = async (req: Request, res: Response) => {
   // const { email, entityId } = req.body;
-  const email = 'brian.riley@ucop.edu';
+  const email = 'teser123@ucop.edu';
   const entityId = 'urn:mace:incommon:ucop.edu';
 
   const ref = 'ssoPassthruController';

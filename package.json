@@ -36,7 +36,8 @@
     "npm": ">=11.3.0"
   },
   "overrides": {
-    "fast-xml-parser": "5.5.6"
+    "fast-xml-parser": "5.5.8",
+    "flatted": "3.4.2"
   },
   "dependencies": {
     "@apollo/datasource-rest": "^6.4.1",
@@ -91,7 +92,7 @@
     "@types/supertest": "^7.2.0",
     "assert": "^2.1.0",
     "casual": "^1.6.2",
-    "eslint": "^10.0.3",
+    "eslint": "^10.1.0",
     "eslint-formatter-unix": "^9.0.1",
     "globals": "^17.4.0",
     "husky": "^9.1.7",

@@ -8,7 +8,10 @@ import { Affiliation } from "../models/Affiliation";
 // This is an endpoint that can be called to send a user to login to their
 // institutional SSO via our Shibboleth SP
 export const ssoPassthruController = async (req: Request, res: Response) => {
-  const { email, entityId } = req.body;
+  // const { email, entityId } = req.body;
+  const email = 'teser123@ucop.edu';
+  const entityId = 'urn:mace:incommon:ucop.edu';
+
   const ref = 'ssoPassthruController';
 
   const context = buildContext(

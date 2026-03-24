@@ -5457,6 +5457,8 @@ export type VersionedTemplateSearchResult = {
   templateId?: Maybe<Scalars['Int']['output']>;
   /** The major.minor semantic version */
   version?: Maybe<Scalars['String']['output']>;
+  /** The id of the template customization (undefined means the template has not been customized yet) */
+  versionedTemplateCustomizationId?: Maybe<Scalars['Int']['output']>;
   /** The template's availability setting: Public is available to everyone, Private only your affiliation */
   visibility?: Maybe<TemplateVisibility>;
 };
@@ -8043,6 +8045,7 @@ export type VersionedTemplateSearchResultResolvers<ContextType = MyContext, Pare
   ownerURI?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   templateId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   version?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  versionedTemplateCustomizationId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   visibility?: Resolver<Maybe<ResolversTypes['TemplateVisibility']>, ParentType, ContextType>;
 };
 

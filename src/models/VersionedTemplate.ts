@@ -38,6 +38,7 @@ export class VersionedTemplateSearchResult {
   public modifiedById: number;
   public modifiedByName: string;
   public modified: string;
+  public versionedTemplateCustomizationId?: number;
 
   constructor(options) {
     this.id = options.id;
@@ -54,6 +55,7 @@ export class VersionedTemplateSearchResult {
     this.modifiedById = options.modifiedById;
     this.modifiedByName = options.modifiedByName;
     this.modified = options.modified;
+    this.versionedTemplateCustomizationId = options.versionedTemplateCustomizationId;
   }
 
   // Find all of the high level details about the published templates matching the search term
@@ -103,13 +105,17 @@ export class VersionedTemplateSearchResult {
       opts.cursorField = 'vt.id';
     }
 
-    const sqlStatement = 'SELECT vt.id, vt.templateId, vt.name, vt.description, vt.version, vt.visibility, vt.bestPractice, \
-                            vt.modified, vt.modifiedById, TRIM(CONCAT(u.givenName, CONCAT(\' \', u.surName))) as modifiedByName, \
-                            a.id as ownerId, vt.ownerId as ownerURI, a.displayName as ownerDisplayName, \
-                            a.searchName as ownerSearchName \
-                          FROM versionedTemplates vt \
-                            LEFT JOIN users u ON u.id = vt.modifiedById \
-                            LEFT JOIN affiliations a ON a.uri = vt.ownerId';
+    const sqlStatement = [
+      'SELECT vt.id, vt.templateId, vt.name, vt.description, vt.version, vt.visibility, vt.bestPractice,',
+      'vt.modified, vt.modifiedById, TRIM(CONCAT(u.givenName, " ", u.surName)) as modifiedByName,',
+      'a.id as ownerId, vt.ownerId as ownerURI, a.displayName as ownerDisplayName,',
+      'a.searchName as ownerSearchName,',
+      'vtc.id as versionedTemplateCustomizationId',
+      'FROM versionedTemplates vt',
+      'LEFT JOIN users u ON u.id = vt.modifiedById',
+      'LEFT JOIN affiliations a ON a.uri = vt.ownerId',
+      'LEFT JOIN versionedTemplateCustomizations vtc ON vtc.currentVersionedTemplateId = vt.id'
+    ].join(' ');
 
     const response: PaginatedQueryResults<VersionedTemplateSearchResult> = await VersionedTemplate.queryWithPagination(
       context,

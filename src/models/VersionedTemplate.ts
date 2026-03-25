@@ -65,6 +65,7 @@ export class VersionedTemplateSearchResult {
     term: string,
     options: TemplateQueryOptions = VersionedTemplate.getDefaultPaginationOptions(),
   ): Promise<PaginatedQueryResults<VersionedTemplateSearchResult>> {
+    const userAffiliationId = context.token?.affiliationId;
     const whereFilters = ['vt.active = 1 AND vt.versionType = ?'];
     const values = [TemplateVersionType.PUBLISHED.toString()];
 
@@ -114,8 +115,11 @@ export class VersionedTemplateSearchResult {
       'FROM versionedTemplates vt',
       'LEFT JOIN users u ON u.id = vt.modifiedById',
       'LEFT JOIN affiliations a ON a.uri = vt.ownerId',
-      'LEFT JOIN versionedTemplateCustomizations vtc ON vtc.currentVersionedTemplateId = vt.id'
+      'LEFT JOIN versionedTemplateCustomizations vtc ON vtc.currentVersionedTemplateId = vt.id',
+      'AND vtc.affiliationId = ?'
     ].join(' ');
+
+    values.unshift(userAffiliationId);
 
     const response: PaginatedQueryResults<VersionedTemplateSearchResult> = await VersionedTemplate.queryWithPagination(
       context,

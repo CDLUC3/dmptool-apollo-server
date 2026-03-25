@@ -48,6 +48,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated the `VersionedTemplateSearchResult` to return `versionedTemplateCustomizationId` for the `search` function [#166]
 - Update `domain` to `emailDomain` in `AffiliationEmailDomain` model to match field name in table
 - Update buildspec to use `--omit=dev` instead of `--production` on `npm` commands
 - Updated `re3data-os-populate.ts` because `fetchWithTimeout` kept erroring out when we populate the OpenSearch data. We needed to add a `catch` and `retries` because a single failed attempt would kill the entire sync. [#118]

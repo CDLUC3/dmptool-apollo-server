@@ -60,8 +60,12 @@ export const typeDefs = gql`
 
   "The progress the user has made within a section of the plan"
   type PlanSectionProgress {
+    "Whether or not the section is a customization (i.e. added by the user and not part of the original template)"
+    sectionType: CustomizableObjectOwnership!
     "The id of the Section"
-    versionedSectionId: Int!
+    versionedSectionId: Int
+    "The custom section id if the section is a customization, otherwise null"
+    customSectionId: Int
     "The title of the section"
     title: String!
     "The display order of the section"

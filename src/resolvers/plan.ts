@@ -49,6 +49,8 @@ export const resolvers: Resolvers = {
       const reference = 'plan resolver';
       try {
         const plan = await Plan.findById(reference, context, planId);
+
+        console.log("***PLAN***", plan); // --- IGNORE ---
         if (!plan) {
           throw NotFoundError(`Plan with ID ${planId} not found`);
         }
@@ -326,7 +328,7 @@ export const resolvers: Resolvers = {
     },
     versionedSections: async (parent: Plan, _, context: MyContext): Promise<PlanSectionProgress[]> => {
       if (parent?.id) {
-        return await PlanSectionProgress.findByPlanId('plan versionedSections resolver', context, parent.id);
+        return await PlanSectionProgress.findByPlanId('plan versionedSections resolver', context, parent.id, parent?.versionedTemplateId);
       }
       return [];
     },

@@ -2655,8 +2655,12 @@ export type PlanSectionProgress = {
   __typename?: 'PlanSectionProgress';
   /** The number of questions the user has answered */
   answeredQuestions: Scalars['Int']['output'];
+  /** The custom section id if the section is a customization, otherwise null */
+  customSectionId?: Maybe<Scalars['Int']['output']>;
   /** The display order of the section */
   displayOrder: Scalars['Int']['output'];
+  /** Whether or not the section is a customization (i.e. added by the user and not part of the original template) */
+  sectionType: CustomizableObjectOwnership;
   /** Tags associated with the section */
   tags?: Maybe<Array<Tag>>;
   /** The title of the section */
@@ -6945,7 +6949,9 @@ export type PlanSearchResultResolvers<ContextType = MyContext, ParentType extend
 
 export type PlanSectionProgressResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PlanSectionProgress'] = ResolversParentTypes['PlanSectionProgress']> = {
   answeredQuestions?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  customSectionId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   displayOrder?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  sectionType?: Resolver<ResolversTypes['CustomizableObjectOwnership'], ParentType, ContextType>;
   tags?: Resolver<Maybe<Array<ResolversTypes['Tag']>>, ParentType, ContextType>;
   title?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   totalQuestions?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;

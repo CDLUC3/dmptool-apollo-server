@@ -37,7 +37,7 @@ import {
   PaginationOptionsForOffsets,
   PaginationType
 } from '../types/general';
-import {saveMaDMPVersion} from "../services/planService";
+import { saveMaDMPVersion } from "../services/planService";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -51,8 +51,8 @@ export const resolvers: Resolvers = {
       try {
         if (isAuthorized(context.token)) {
           const pagOpts = !isNullOrUndefined(paginationOptions) && paginationOptions.type === PaginationType.OFFSET
-                      ? paginationOptions as PaginationOptionsForOffsets
-                      : { ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors;
+            ? paginationOptions as PaginationOptionsForOffsets
+            : { ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors;
 
           return await ProjectSearchResult.search(
             reference,
@@ -117,6 +117,8 @@ export const resolvers: Resolvers = {
           if (isNullOrUndefined(project)) {
             throw NotFoundError();
           }
+
+          const temp = await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.COMMENT);
           if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.COMMENT)) {
             return project;
           }
@@ -132,7 +134,7 @@ export const resolvers: Resolvers = {
 
     searchExternalProjects: async (_, { input }, context: MyContext): Promise<ExternalProject[]> => {
       const reference = 'external project search resolver';
-      const { affiliationId , awardId, awardName, awardYear, piNames } = input;
+      const { affiliationId, awardId, awardName, awardYear, piNames } = input;
 
       try {
         if (isAuthorized(context.token)) {
@@ -179,7 +181,7 @@ export const resolvers: Resolvers = {
       const reference = 'addProject resolver';
       try {
         if (isAuthorized(context.token)) {
-          const newProject = new Project({title, isTestProject});
+          const newProject = new Project({ title, isTestProject });
           const created = await newProject.create(context);
 
           if (!isNullOrUndefined(created)) {
@@ -282,7 +284,7 @@ export const resolvers: Resolvers = {
     },
 
     // Import project from an external data source
-    projectImport: async (_, {input}, context) => {
+    projectImport: async (_, { input }, context) => {
       const reference = 'updateProject resolver';
       try {
         if (isAuthorized(context.token)) {
@@ -308,11 +310,11 @@ export const resolvers: Resolvers = {
               for (const fund of input.funding) {
                 const newFunding = new ProjectFunding(fund);
                 const fundingAdded = await newFunding.create(context, projectId);
-                if(!fundingAdded){
+                if (!fundingAdded) {
                   addFundingErrors.push(`Funding(affiliationId=${newFunding.affiliationId})`);
                 }
               }
-              if(addFundingErrors.length > 0){
+              if (addFundingErrors.length > 0) {
                 const msg = `Unable to add fundings to project: ${addFundingErrors.join(', ')}`;
                 context.logger.error(prepareObjectForLogs({ projectId }), msg);
                 updatedProject.addError('fundings', msg)
@@ -326,13 +328,13 @@ export const resolvers: Resolvers = {
                 const newMember = new ProjectMember(contrib);
                 context.logger.debug(`${reference}: add project member`);
                 const memberAdded = await newMember.create(context, projectId);
-                if(!memberAdded){
+                if (!memberAdded) {
                   addMemberErrors.push(`Member(affiliationId=${newMember.affiliationId}, givenName=${newMember.givenName}, surName=${newMember.surName}, orcid=${newMember.orcid}, email=${newMember.email})`);
                 } else {
                   // Add member role
                   context.logger.debug(`${reference}: add member role`);
                   const role = await MemberRole.defaultRole(context, reference);
-                  if(!role){
+                  if (!role) {
                     context.logger.error(`${reference}: could not find default role`);
                   } else {
                     context.logger.debug(`${reference}: add ${role.label} to member ${memberAdded.id}`);
@@ -344,12 +346,12 @@ export const resolvers: Resolvers = {
                 }
               }
 
-              if(addMemberErrors.length > 0){
+              if (addMemberErrors.length > 0) {
                 const msg = `Unable to add members to project: ${addMemberErrors.join(', ')}`;
                 context.logger.error(prepareObjectForLogs({ projectId }), msg);
                 updatedProject.addError('members', msg)
               }
-              if(addMemberRoleErrors.length > 0){
+              if (addMemberRoleErrors.length > 0) {
                 const msg = `Unable to add default member roles: ${addMemberRoleErrors.join(', ')}`
                 context.logger.error(prepareObjectForLogs({ projectId }), msg);
                 updatedProject.addError('memberRoles', msg)

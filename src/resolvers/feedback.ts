@@ -116,7 +116,7 @@ export const resolvers: Resolvers = {
           const versionedTemplate = await VersionedTemplate.findById(reference, context, plan.versionedTemplateId);
 
           // If the user is a superAdmin or an admin for the same affiliation
-          if (isSuperAdmin(context.token) || (isAdmin(context.token) && context.token.affiliationId === versionedTemplate.ownerId)) {
+          if (isSuperAdmin(context.token) || (isAdmin(context.token))) {
 
             // Check that user has permissions to access feedback
             const projectId = plan.projectId;

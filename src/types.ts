@@ -2668,7 +2668,7 @@ export type PlanSectionProgress = {
   /** The number of questions in the section */
   totalQuestions: Scalars['Int']['output'];
   /** The id of the Section */
-  versionedSectionId: Scalars['Int']['output'];
+  versionedSectionId?: Maybe<Scalars['Int']['output']>;
 };
 
 /** The status/state of the plan */
@@ -6955,7 +6955,7 @@ export type PlanSectionProgressResolvers<ContextType = MyContext, ParentType ext
   tags?: Resolver<Maybe<Array<ResolversTypes['Tag']>>, ParentType, ContextType>;
   title?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   totalQuestions?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  versionedSectionId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  versionedSectionId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
 };
 
 export type PlanVersionResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PlanVersion'] = ResolversParentTypes['PlanVersion']> = {

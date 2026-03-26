@@ -38,25 +38,25 @@ export const resolvers: Resolvers = {
         { templateCustomizationId }: { templateCustomizationId: number },
         context: MyContext
       ): Promise<TemplateCustomizationOverview | null> => {
-      const reference = 'templateCustomization resolver';
+        const reference = 'templateCustomization resolver';
 
-      const customization: TemplateCustomizationOverview = await TemplateCustomizationOverview.generateOverview(
-        reference,
-        context,
-        templateCustomizationId
-      );
-      if (!customization) throw NotFoundError();
+        const customization: TemplateCustomizationOverview = await TemplateCustomizationOverview.generateOverview(
+          reference,
+          context,
+          templateCustomizationId
+        );
+        if (!customization) throw NotFoundError();
 
-      // Find the parent template customization and verify the user has access.
-      // This will throw a forbidden error if they do not.
-      await getValidatedCustomization(
-        reference,
-        context,
-        templateCustomizationId
-      );
+        // Find the parent template customization and verify the user has access.
+        // This will throw a forbidden error if they do not.
+        await getValidatedCustomization(
+          reference,
+          context,
+          templateCustomizationId
+        );
 
-      return customization;
-    }),
+        return customization;
+      }),
   },
 
   Mutation: {
@@ -80,41 +80,41 @@ export const resolvers: Resolvers = {
         { input }: { input: AddTemplateCustomizationInput },
         context: MyContext
       ): Promise<TemplateCustomizationOverview | null> => {
-      const reference = 'addTemplateCustomization resolver';
-      const { versionedTemplateId, status } = input;
+        const reference = 'addTemplateCustomization resolver';
+        const { versionedTemplateId, status } = input;
 
-      // Fetch the versioned funder template
-      const versionedTemplate: VersionedTemplate = await VersionedTemplate.findById(
-        reference,
-        context,
-        versionedTemplateId
-      );
-      if (!versionedTemplate) throw NotFoundError();
-
-      const customization = new TemplateCustomization({
-        affiliationId: context.token.affiliationId,
-        templateId: versionedTemplate.templateId,
-        currentVersionedTemplateId: versionedTemplate.id,
-        status
-      });
-
-      // Save the new template customization
-      const created: TemplateCustomization = await customization.create(context);
-
-      // If there were no problems, then generate the overview and return it
-      if (!isNullOrUndefined(created)) {
-        const overview: TemplateCustomizationOverview = await TemplateCustomizationOverview.generateOverview(
+        // Fetch the versioned funder template
+        const versionedTemplate: VersionedTemplate = await VersionedTemplate.findById(
           reference,
           context,
-          created.id
+          versionedTemplateId
         );
+        if (!versionedTemplate) throw NotFoundError();
 
-        // Transfer any errors encountered during the creation to the Overview
-        overview.errors = created.errors;
-        return overview;
-      }
-      return undefined;
-    }),
+        const customization = new TemplateCustomization({
+          affiliationId: context.token.affiliationId,
+          templateId: versionedTemplate.templateId,
+          currentVersionedTemplateId: versionedTemplate.id,
+          status
+        });
+
+        // Save the new template customization
+        const created: TemplateCustomization = await customization.create(context);
+
+        // If there were no problems, then generate the overview and return it
+        if (!isNullOrUndefined(created)) {
+          const overview: TemplateCustomizationOverview = await TemplateCustomizationOverview.generateOverview(
+            reference,
+            context,
+            created.id
+          );
+
+          // Transfer any errors encountered during the creation to the Overview
+          overview.errors = created.errors;
+          return overview;
+        }
+        return undefined;
+      }),
 
     /**
      * ADMIN ONLY: Update the specified TemplateCustomization
@@ -136,33 +136,33 @@ export const resolvers: Resolvers = {
         { input }: { input: UpdateTemplateCustomizationInput },
         context: MyContext
       ): Promise<TemplateCustomizationOverview | null> => {
-      const reference = 'updateTemplateCustomization resolver';
-      const { templateCustomizationId, status } = input;
+        const reference = 'updateTemplateCustomization resolver';
+        const { templateCustomizationId, status } = input;
 
-      const customization: TemplateCustomization = await getValidatedCustomization(
-        reference,
-        context,
-        templateCustomizationId
-      );
-      if (!customization) throw NotFoundError();
-
-      // Update the customization
-      customization.status = TemplateCustomizationStatus[status];
-      const updated: TemplateCustomization = await customization.update(context);
-
-      if (!isNullOrUndefined(updated)) {
-        const overview: TemplateCustomizationOverview = await TemplateCustomizationOverview.generateOverview(
+        const customization: TemplateCustomization = await getValidatedCustomization(
           reference,
           context,
-          updated.id
+          templateCustomizationId
         );
+        if (!customization) throw NotFoundError();
 
-        // Transfer any errors encountered during the update to the Overview
-        overview.errors = updated.errors;
-        return overview;
-      }
-      return undefined;
-    }),
+        // Update the customization
+        customization.status = TemplateCustomizationStatus[status];
+        const updated: TemplateCustomization = await customization.update(context);
+
+        if (!isNullOrUndefined(updated)) {
+          const overview: TemplateCustomizationOverview = await TemplateCustomizationOverview.generateOverview(
+            reference,
+            context,
+            updated.id
+          );
+
+          // Transfer any errors encountered during the update to the Overview
+          overview.errors = updated.errors;
+          return overview;
+        }
+        return undefined;
+      }),
 
     /**
      * ADMIN ONLY: Delete the specified TemplateCustomization
@@ -184,17 +184,17 @@ export const resolvers: Resolvers = {
         { templateCustomizationId }: { templateCustomizationId: number },
         context: MyContext
       ): Promise<TemplateCustomization> => {
-      const reference = 'removeTemplateCustomization resolver';
+        const reference = 'removeTemplateCustomization resolver';
 
-      const customization: TemplateCustomization = await getValidatedCustomization(
-        reference,
-        context,
-        templateCustomizationId
-      );
-      if (!customization) throw NotFoundError();
+        const customization: TemplateCustomization = await getValidatedCustomization(
+          reference,
+          context,
+          templateCustomizationId
+        );
+        if (!customization) throw NotFoundError();
 
-      return await customization.delete(context);
-    }),
+        return await customization.delete(context);
+      }),
 
     /**
      * ADMIN ONLY: Publish the specified TemplateCustomization
@@ -216,29 +216,31 @@ export const resolvers: Resolvers = {
         { templateCustomizationId }: { templateCustomizationId: number },
         context: MyContext
       ): Promise<TemplateCustomizationOverview | null> => {
-      const reference = 'publishTemplateCustomization resolver';
+        const reference = 'publishTemplateCustomization resolver';
 
-      const customization: TemplateCustomization = await getValidatedCustomization(
-        reference,
-        context,
-        templateCustomizationId
-      );
-      if (!customization) throw NotFoundError();
-
-      const published: TemplateCustomization = await customization.publish(context);
-
-      if (!isNullOrUndefined(published)) {
-        const overview: TemplateCustomizationOverview = await TemplateCustomizationOverview.generateOverview(
+        const customization: TemplateCustomization = await getValidatedCustomization(
           reference,
           context,
-          published.id
+          templateCustomizationId
         );
-        // Transfer any errors
-        overview.errors = published.errors;
-        return overview;
-      }
-      return undefined;
-    }),
+        if (!customization) throw NotFoundError();
+
+        console.log("***Customization to publish: ", customization);
+
+        const published: TemplateCustomization = await customization.publish(context);
+
+        if (!isNullOrUndefined(published)) {
+          const overview: TemplateCustomizationOverview = await TemplateCustomizationOverview.generateOverview(
+            reference,
+            context,
+            published.id
+          );
+          // Transfer any errors
+          overview.errors = published.errors;
+          return overview;
+        }
+        return undefined;
+      }),
 
     /**
      * ADMIN ONLY: Unpublish the specified TemplateCustomization
@@ -260,28 +262,28 @@ export const resolvers: Resolvers = {
         { templateCustomizationId }: { templateCustomizationId: number },
         context: MyContext
       ): Promise<TemplateCustomizationOverview | null> => {
-      const reference = 'unpublishTemplateCustomization resolver';
-      const customization: TemplateCustomization = await getValidatedCustomization(
-        reference,
-        context,
-        templateCustomizationId
-      );
-      if (!customization) throw NotFoundError();
-
-      const unpublished: TemplateCustomization = await customization.unpublish(context);
-
-      if (!isNullOrUndefined(unpublished)) {
-        const overview: TemplateCustomizationOverview = await TemplateCustomizationOverview.generateOverview(
+        const reference = 'unpublishTemplateCustomization resolver';
+        const customization: TemplateCustomization = await getValidatedCustomization(
           reference,
           context,
-          unpublished.id
+          templateCustomizationId
         );
-        // Transfer any errors
-        overview.errors = unpublished.errors;
-        return overview;
-      }
-      return undefined;
-    }),
+        if (!customization) throw NotFoundError();
+
+        const unpublished: TemplateCustomization = await customization.unpublish(context);
+
+        if (!isNullOrUndefined(unpublished)) {
+          const overview: TemplateCustomizationOverview = await TemplateCustomizationOverview.generateOverview(
+            reference,
+            context,
+            unpublished.id
+          );
+          // Transfer any errors
+          overview.errors = unpublished.errors;
+          return overview;
+        }
+        return undefined;
+      }),
   },
 
   TemplateCustomization: {

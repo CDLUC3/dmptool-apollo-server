@@ -80,29 +80,29 @@ export class PlanSearchResult {
    */
   static async findByProjectId(reference: string, context: MyContext, projectId: number): Promise<PlanSearchResult[]> {
     const sql = 'SELECT p.id, ' +
-                'CONCAT(cu.givenName, CONCAT(\' \', cu.surName)) createdBy, p.created, ' +
-                'CONCAT(cm.givenName, CONCAT(\' \', cm.surName)) modifiedBy, p.modified, ' +
-                'p.versionedTemplateId, p.title, p.status, p.visibility, p.dmpId, ' +
-                'CONCAT(cr.givenName, CONCAT(\' \', cr.surName)) registeredBy, p.registered, p.featured, ' +
-                'GROUP_CONCAT(DISTINCT CONCAT(prc.givenName, CONCAT(\' \', prc.surName, ' +
-                  'CONCAT(\' (\', CONCAT(r.label, \')\'))))) members, ' +
-                'GROUP_CONCAT(DISTINCT fundings.name) funding ' +
-              'FROM plans p ' +
-                'LEFT JOIN users cu ON cu.id = p.createdById ' +
-                'LEFT JOIN users cm ON cm.id = p.modifiedById ' +
-                'LEFT JOIN users cr ON cr.id = p.registeredById ' +
-                'LEFT JOIN planMembers plc ON plc.planId = p.id ' +
-                  'LEFT JOIN projectMembers prc ON prc.id = plc.projectMemberId ' +
-                  'LEFT JOIN planMemberRoles plcr ON plc.id = plcr.planMemberId ' +
-                    'LEFT JOIN memberRoles r ON plcr.memberRoleId = r.id ' +
-                'LEFT JOIN planFundings ON planFundings.planId = p.id ' +
-                  'LEFT JOIN projectFundings ON projectFundings.id = planFundings.projectFundingId ' +
-                    'LEFT JOIN affiliations fundings ON projectFundings.affiliationId = fundings.uri ' +
-              'WHERE p.projectId = ? ' +
-              'GROUP BY p.id, cu.givenName, cu.surName, cm.givenName, cm.surName, ' +
-                'p.title, p.status, p.visibility, ' +
-                'p.dmpId, cr.givenName, cr.surName, p.registered, p.featured ' +
-              'ORDER BY p.created DESC;';
+      'CONCAT(cu.givenName, CONCAT(\' \', cu.surName)) createdBy, p.created, ' +
+      'CONCAT(cm.givenName, CONCAT(\' \', cm.surName)) modifiedBy, p.modified, ' +
+      'p.versionedTemplateId, p.title, p.status, p.visibility, p.dmpId, ' +
+      'CONCAT(cr.givenName, CONCAT(\' \', cr.surName)) registeredBy, p.registered, p.featured, ' +
+      'GROUP_CONCAT(DISTINCT CONCAT(prc.givenName, CONCAT(\' \', prc.surName, ' +
+      'CONCAT(\' (\', CONCAT(r.label, \')\'))))) members, ' +
+      'GROUP_CONCAT(DISTINCT fundings.name) funding ' +
+      'FROM plans p ' +
+      'LEFT JOIN users cu ON cu.id = p.createdById ' +
+      'LEFT JOIN users cm ON cm.id = p.modifiedById ' +
+      'LEFT JOIN users cr ON cr.id = p.registeredById ' +
+      'LEFT JOIN planMembers plc ON plc.planId = p.id ' +
+      'LEFT JOIN projectMembers prc ON prc.id = plc.projectMemberId ' +
+      'LEFT JOIN planMemberRoles plcr ON plc.id = plcr.planMemberId ' +
+      'LEFT JOIN memberRoles r ON plcr.memberRoleId = r.id ' +
+      'LEFT JOIN planFundings ON planFundings.planId = p.id ' +
+      'LEFT JOIN projectFundings ON projectFundings.id = planFundings.projectFundingId ' +
+      'LEFT JOIN affiliations fundings ON projectFundings.affiliationId = fundings.uri ' +
+      'WHERE p.projectId = ? ' +
+      'GROUP BY p.id, cu.givenName, cu.surName, cm.givenName, cm.surName, ' +
+      'p.title, p.status, p.visibility, ' +
+      'p.dmpId, cr.givenName, cr.surName, p.registered, p.featured ' +
+      'ORDER BY p.created DESC;';
     const results = await Plan.query(context, sql, [projectId?.toString()], reference);
     return Array.isArray(results) ? results.map((entry) => new PlanSearchResult(entry)) : [];
   }
@@ -122,7 +122,7 @@ export enum PlanSectionType {
 export class PlanSectionProgress {
   public sectionType: PlanSectionType;
   public versionedSectionId: number | null;  // null for CUSTOM sections
-  public customSectionId: number | null;      // null for BASE sections
+  public customSectionId?: number | null;      // null for BASE sections
   public title: string;
   public displayOrder: number;
   public totalQuestions: number;
@@ -166,33 +166,25 @@ export class PlanSectionProgress {
    * how many custom questions belong to each one.
    */
   private static async fetchCustomSections(
-  reference: string,
-  context: MyContext,
-  templateCustomizationId: number,
-  versionedTemplateId: number
-): Promise<{ id: number; name: string; pinnedDisplayOrder: number; totalQuestions: number }[]> {
-  const sql = `
+    reference: string,
+    context: MyContext,
+    templateCustomizationId: number,
+  ): Promise<{ id: number; name: string; pinnedSectionType: string; pinnedSectionId: number; totalQuestions: number }[]> {
+    const sql = `
     SELECT
       cs.id,
       cs.name,
-      vs.displayOrder AS pinnedDisplayOrder,
+      cs.pinnedSectionType,
+      cs.pinnedSectionId,
       COUNT(cq.id) AS totalQuestions
     FROM customSections cs
-    LEFT JOIN versionedSections vs
-      ON vs.sectionId = cs.pinnedSectionId
-      AND vs.versionedTemplateId = ?
     LEFT JOIN customQuestions cq ON cq.sectionId = cs.id
     WHERE cs.templateCustomizationId = ?
-    GROUP BY cs.id, cs.name, vs.displayOrder
+    GROUP BY cs.id, cs.name, cs.pinnedSectionType, cs.pinnedSectionId
   `;
-  const rows = await Plan.query(
-    context,
-    sql,
-    [versionedTemplateId.toString(), templateCustomizationId.toString()],
-    reference
-  );
-  return Array.isArray(rows) ? rows : [];
-}
+    const rows = await Plan.query(context, sql, [templateCustomizationId.toString()], reference);
+    return Array.isArray(rows) ? rows : [];
+  }
 
   /**
    * Fetch the count of custom questions added to a BASE section for a given templateCustomizationId.
@@ -282,6 +274,9 @@ export class PlanSectionProgress {
     // If there are no base sections the plan is in a bad state — return early
     if (!baseSections.length) return baseSections;
 
+    // If versionedTemplateId wasn't provided, skip customization lookup
+    if (isNullOrUndefined(versionedTemplateId)) return baseSections;
+
     const templateCustomizationId = await this.findTemplateCustomizationId(
       reference,
       context,
@@ -291,11 +286,11 @@ export class PlanSectionProgress {
     // No customization exists for this template — return base sections as-is
     if (!templateCustomizationId) return baseSections;
 
-    // --- Fetch custom data in parallel ---
-const [customSectionRows, extraQuestionRows] = await Promise.all([
-  this.fetchCustomSections(reference, context, templateCustomizationId, versionedTemplateId),
-  this.fetchExtraQuestionsForBaseSections(reference, context, templateCustomizationId),
-]);
+    // Fetch custom sections and extra question counts in parallel
+    const [customSectionRows, extraQuestionRows] = await Promise.all([
+      this.fetchCustomSections(reference, context, templateCustomizationId),
+      this.fetchExtraQuestionsForBaseSections(reference, context, templateCustomizationId),
+    ]);
 
     // Bump totalQuestions on base sections that have extra custom questions
     if (extraQuestionRows.length) {
@@ -308,31 +303,50 @@ const [customSectionRows, extraQuestionRows] = await Promise.all([
       }
     }
 
-    // Build custom section instances and merge with base
-const customSections: PlanSectionProgress[] = customSectionRows.map(
-  (cs, index) =>
-    new PlanSectionProgress({
-      sectionType: PlanSectionType.CUSTOM,
-      customSectionId: cs.id,
-      versionedSectionId: null,
-      title: cs.name,
-      displayOrder: cs.pinnedDisplayOrder + 0.5 + (index * 0.01),
-      totalQuestions: Number(cs.totalQuestions),
-      answeredQuestions: 0,
-      tags: [],
-    })
-);
+    // Build a map: pinnedId → custom sections pinned to it
+    const pinnedToMap = new Map<number, typeof customSectionRows>();
+    for (const cs of customSectionRows) {
+      const existing = pinnedToMap.get(cs.pinnedSectionId) ?? [];
+      existing.push(cs);
+      pinnedToMap.set(cs.pinnedSectionId, existing);
+    }
 
+    // Recursively collect custom sections inserted after a given target id
+    function collectAfter(targetId: number, result: typeof customSectionRows, visited = new Set<number>()) {
+      if (visited.has(targetId)) return;
+      visited.add(targetId);
+      const pinned = (pinnedToMap.get(targetId) ?? []).sort((a, b) => a.id - b.id);
+      for (const cs of pinned) {
+        result.push(cs);
+        collectAfter(cs.id, result, visited);
+      }
+    }
 
-    // Merge, sort by displayOrder, then re-index sequentially
-    const merged = [...baseSections, ...customSections].sort(
-      (a, b) => a.displayOrder - b.displayOrder
-    );
-    merged.forEach((section, i) => {
-      section.displayOrder = i;
-    });
+    // Walk base sections in order, inserting custom section chains after each one
+    const orderedSections: PlanSectionProgress[] = [];
+    let displayOrder = 0;
 
-    return merged;
+    for (const base of baseSections) {
+      orderedSections.push(new PlanSectionProgress({ ...base, displayOrder: displayOrder++ }));
+
+      const chain: typeof customSectionRows = [];
+      collectAfter(base.versionedSectionId, chain);
+
+      for (const cs of chain) {
+        orderedSections.push(new PlanSectionProgress({
+          sectionType: PlanSectionType.CUSTOM,
+          customSectionId: cs.id,
+          versionedSectionId: null,
+          title: cs.name,
+          displayOrder: displayOrder++,
+          totalQuestions: Number(cs.totalQuestions),
+          answeredQuestions: 0,
+          tags: [],
+        }));
+      }
+    }
+
+    return orderedSections;
   }
 }
 

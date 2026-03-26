@@ -50,7 +50,6 @@ export const resolvers: Resolvers = {
       try {
         const plan = await Plan.findById(reference, context, planId);
 
-        console.log("***PLAN***", plan); // --- IGNORE ---
         if (!plan) {
           throw NotFoundError(`Plan with ID ${planId} not found`);
         }

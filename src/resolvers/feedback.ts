@@ -112,9 +112,6 @@ export const resolvers: Resolvers = {
             throw NotFoundError(`Plan with ID ${planId} not found`);
           }
 
-          // Get versionedTemplate associated with the plan
-          const versionedTemplate = await VersionedTemplate.findById(reference, context, plan.versionedTemplateId);
-
           // If the user is a superAdmin or an admin for the same affiliation
           if (isSuperAdmin(context.token) || (isAdmin(context.token))) {
 

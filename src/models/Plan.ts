@@ -44,6 +44,7 @@ export class PlanSearchResult {
   public funding: string;
   public members: string;
   public templateTitle: string;
+  public versionedTemplateId: number;
 
   // The following fields will only be set when the plan is published!
   public dmpId: string;
@@ -63,6 +64,7 @@ export class PlanSearchResult {
     this.funding = options.funding;
     this.members = options.members;
     this.templateTitle = options.title;
+    this.versionedTemplateId = options.versionedTemplateId;
 
     this.dmpId = options.dmpId;
     this.registeredBy = options.registeredBy;
@@ -172,15 +174,19 @@ export class PlanSectionProgress {
   ): Promise<{ id: number; name: string; pinnedSectionType: string; pinnedSectionId: number; totalQuestions: number }[]> {
     const sql = `
     SELECT
-      cs.id,
-      cs.name,
-      cs.pinnedSectionType,
-      cs.pinnedSectionId,
-      COUNT(cq.id) AS totalQuestions
-    FROM customSections cs
-    LEFT JOIN customQuestions cq ON cq.sectionId = cs.id
-    WHERE cs.templateCustomizationId = ?
-    GROUP BY cs.id, cs.name, cs.pinnedSectionType, cs.pinnedSectionId
+      vcs.customSectionId AS id,
+      vcs.name,
+      vcs.pinnedVersionedSectionType AS pinnedSectionType,
+      vcs.pinnedVersionedSectionId AS pinnedSectionId,
+      COUNT(vcq.id) AS totalQuestions
+    FROM versionedCustomSections vcs
+    JOIN versionedTemplateCustomizations vtc ON vtc.id = vcs.versionedTemplateCustomizationId
+    LEFT JOIN versionedCustomQuestions vcq
+      ON vcq.versionedSectionId = vcs.customSectionId
+      AND vcq.versionedSectionType = 'CUSTOM'
+      AND vcq.versionedTemplateCustomizationId = vtc.id
+    WHERE vtc.templateCustomizationId = ?
+    GROUP BY vcs.customSectionId, vcs.name, vcs.pinnedVersionedSectionType, vcs.pinnedVersionedSectionId
   `;
     const rows = await Plan.query(context, sql, [templateCustomizationId.toString()], reference);
     return Array.isArray(rows) ? rows : [];

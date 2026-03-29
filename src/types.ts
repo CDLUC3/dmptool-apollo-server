@@ -2646,6 +2646,8 @@ export type PlanSearchResult = {
   title?: Maybe<Scalars['String']['output']>;
   /** The section search results */
   versionedSections?: Maybe<Array<PlanSectionProgress>>;
+  /** The versioned template id the plan is based on */
+  versionedTemplateId?: Maybe<Scalars['Int']['output']>;
   /** The visibility/permission setting */
   visibility?: Maybe<PlanVisibility>;
 };
@@ -6944,6 +6946,7 @@ export type PlanSearchResultResolvers<ContextType = MyContext, ParentType extend
   templateTitle?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   title?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   versionedSections?: Resolver<Maybe<Array<ResolversTypes['PlanSectionProgress']>>, ParentType, ContextType>;
+  versionedTemplateId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   visibility?: Resolver<Maybe<ResolversTypes['PlanVisibility']>, ParentType, ContextType>;
 };
 

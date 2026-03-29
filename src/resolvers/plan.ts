@@ -349,11 +349,17 @@ export const resolvers: Resolvers = {
   },
 
   PlanSearchResult: {
-    versionedSections: async (parent: PlanSearchResult, _, context: MyContext): Promise<PlanSectionProgress[]> => {
+    versionedSections: async (parent, _, context: MyContext): Promise<PlanSectionProgress[]> => {
       if (parent?.id) {
-        return await PlanSectionProgress.findByPlanId('planSearchresult versionedSections resolver', context, parent.id);
+        return await PlanSectionProgress.findByPlanId(
+          'planSearchresult versionedSections resolver',
+          context,
+          parent.id,
+          parent?.versionedTemplateId
+        );
       }
       return [];
     }
-  },
+  }
+
 }

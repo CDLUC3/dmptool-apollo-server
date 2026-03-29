@@ -56,6 +56,8 @@ export const typeDefs = gql`
     templateTitle: String
     "The section search results"
     versionedSections: [PlanSectionProgress!]
+    "The versioned template id the plan is based on"
+    versionedTemplateId: Int
   }
 
   "The progress the user has made within a section of the plan"

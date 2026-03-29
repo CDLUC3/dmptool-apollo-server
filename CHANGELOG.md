@@ -49,6 +49,7 @@
 
 ### Updated
 - Updated `PlanSectionProgress` so that it returns custom sections, and correct totalQuestions counts that include customQuestions [#167]
+- Updated `PlanSearchResult` `versionedSections` chained resolver to include `versionedTemplateId` [#167]
 - Updated the `VersionedTemplateSearchResult` to return `versionedTemplateCustomizationId` for the `search` function [#166]
 - Update `domain` to `emailDomain` in `AffiliationEmailDomain` model to match field name in table
 - Update buildspec to use `--omit=dev` instead of `--production` on `npm` commands

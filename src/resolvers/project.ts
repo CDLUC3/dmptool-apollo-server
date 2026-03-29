@@ -118,7 +118,6 @@ export const resolvers: Resolvers = {
             throw NotFoundError();
           }
 
-          const temp = await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.COMMENT);
           if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.COMMENT)) {
             return project;
           }

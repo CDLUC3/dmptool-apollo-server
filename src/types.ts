@@ -3132,6 +3132,8 @@ export type Query = {
   projectMembers?: Maybe<Array<Maybe<ProjectMember>>>;
   /** Search for VersionedQuestions that belong to Section specified by sectionId */
   publishedConditionsForQuestion?: Maybe<Array<Maybe<VersionedQuestionCondition>>>;
+  /** Fetch a specific VersionedCustomSection for a plan - resolved via the caller's affiliation */
+  publishedCustomSection?: Maybe<VersionedCustomSection>;
   /** Get a specific VersionedQuestion based on versionedQuestionId */
   publishedQuestion?: Maybe<VersionedQuestion>;
   /** Search for VersionedQuestions that belong to Section specified by sectionId and answer status for a plan */
@@ -3446,6 +3448,12 @@ export type QueryProjectMembersArgs = {
 
 export type QueryPublishedConditionsForQuestionArgs = {
   versionedQuestionId: Scalars['Int']['input'];
+};
+
+
+export type QueryPublishedCustomSectionArgs = {
+  customSectionId: Scalars['Int']['input'];
+  planId: Scalars['Int']['input'];
 };
 
 
@@ -5030,6 +5038,106 @@ export type UserSearchResults = PaginatedQueryResults & {
   totalCount?: Maybe<Scalars['Int']['output']>;
 };
 
+/** A snapshot of a CustomQuestion when the template customization was published. */
+export type VersionedCustomQuestion = {
+  __typename?: 'VersionedCustomQuestion';
+  /** The timestamp when the Object was created */
+  created?: Maybe<Scalars['String']['output']>;
+  /** The user who created the Object */
+  createdById?: Maybe<Scalars['Int']['output']>;
+  /** The CustomQuestion this is a snapshot of */
+  customQuestionId: Scalars['Int']['output'];
+  /** Errors associated with the Object */
+  errors?: Maybe<VersionedCustomQuestionErrors>;
+  /** Guidance to help the user answer this question */
+  guidanceText?: Maybe<Scalars['String']['output']>;
+  /** The unique identifier for the Object */
+  id?: Maybe<Scalars['Int']['output']>;
+  /** The question JSON schema definition */
+  json: Scalars['String']['output'];
+  /** The timestamp when the Object was last modified */
+  modified?: Maybe<Scalars['String']['output']>;
+  /** The user who last modified the Object */
+  modifiedById?: Maybe<Scalars['Int']['output']>;
+  /** The id of the question this custom question is pinned after */
+  pinnedVersionedQuestionId?: Maybe<Scalars['Int']['output']>;
+  /** The type of question this custom question is pinned after (null = first question in section) */
+  pinnedVersionedQuestionType?: Maybe<Scalars['String']['output']>;
+  /** The question text */
+  questionText: Scalars['String']['output'];
+  /** Whether this question is required */
+  required?: Maybe<Scalars['Boolean']['output']>;
+  /** The requirement text for this question */
+  requirementText?: Maybe<Scalars['String']['output']>;
+  /** A sample answer for this question */
+  sampleText?: Maybe<Scalars['String']['output']>;
+  /** Whether the sample text should be pre-populated as the default answer */
+  useSampleTextAsDefault?: Maybe<Scalars['Boolean']['output']>;
+  /** The id of the section this question belongs to */
+  versionedSectionId: Scalars['Int']['output'];
+  /** Whether this question is pinned inside a BASE or CUSTOM section */
+  versionedSectionType: Scalars['String']['output'];
+  /** The VersionedTemplateCustomization this snapshot belongs to */
+  versionedTemplateCustomizationId: Scalars['Int']['output'];
+};
+
+/** A collection of errors related to the VersionedCustomQuestion */
+export type VersionedCustomQuestionErrors = {
+  __typename?: 'VersionedCustomQuestionErrors';
+  customQuestionId?: Maybe<Scalars['String']['output']>;
+  /** General error messages */
+  general?: Maybe<Scalars['String']['output']>;
+  json?: Maybe<Scalars['String']['output']>;
+  questionText?: Maybe<Scalars['String']['output']>;
+  versionedSectionId?: Maybe<Scalars['String']['output']>;
+  versionedTemplateCustomizationId?: Maybe<Scalars['String']['output']>;
+};
+
+/** A snapshot of a CustomSection when the template customization was published. */
+export type VersionedCustomSection = {
+  __typename?: 'VersionedCustomSection';
+  /** The timestamp when the Object was created */
+  created?: Maybe<Scalars['String']['output']>;
+  /** The user who created the Object */
+  createdById?: Maybe<Scalars['Int']['output']>;
+  /** The CustomSection this is a snapshot of */
+  customSectionId: Scalars['Int']['output'];
+  /** Errors associated with the Object */
+  errors?: Maybe<VersionedCustomSectionErrors>;
+  /** Guidance to help the user with this section */
+  guidance?: Maybe<Scalars['String']['output']>;
+  /** The unique identifier for the Object */
+  id?: Maybe<Scalars['Int']['output']>;
+  /** The custom section introduction */
+  introduction?: Maybe<Scalars['String']['output']>;
+  /** The timestamp when the Object was last modified */
+  modified?: Maybe<Scalars['String']['output']>;
+  /** The user who last modified the Object */
+  modifiedById?: Maybe<Scalars['Int']['output']>;
+  /** The custom section name/title */
+  name: Scalars['String']['output'];
+  /** The id of the base section this custom section is pinned after */
+  pinnedVersionedSectionId?: Maybe<Scalars['Int']['output']>;
+  /** The type of base section this custom section is pinned after (null = prepend to template) */
+  pinnedVersionedSectionType?: Maybe<Scalars['String']['output']>;
+  /** The custom questions associated with this VersionedCustomSection */
+  questions?: Maybe<Array<VersionedCustomQuestion>>;
+  /** Requirements that a user must consider in this section */
+  requirements?: Maybe<Scalars['String']['output']>;
+  /** The VersionedTemplateCustomization this snapshot belongs to */
+  versionedTemplateCustomizationId: Scalars['Int']['output'];
+};
+
+/** A collection of errors related to the VersionedCustomSection */
+export type VersionedCustomSectionErrors = {
+  __typename?: 'VersionedCustomSectionErrors';
+  customSectionId?: Maybe<Scalars['String']['output']>;
+  /** General error messages */
+  general?: Maybe<Scalars['String']['output']>;
+  name?: Maybe<Scalars['String']['output']>;
+  versionedTemplateCustomizationId?: Maybe<Scalars['String']['output']>;
+};
+
 /** A snapshot of a Guidance item when its GuidanceGroup was published */
 export type VersionedGuidance = {
   __typename?: 'VersionedGuidance';
@@ -5875,6 +5983,10 @@ export type ResolversTypes = {
   UserErrors: ResolverTypeWrapper<UserErrors>;
   UserRole: UserRole;
   UserSearchResults: ResolverTypeWrapper<UserSearchResults>;
+  VersionedCustomQuestion: ResolverTypeWrapper<VersionedCustomQuestion>;
+  VersionedCustomQuestionErrors: ResolverTypeWrapper<VersionedCustomQuestionErrors>;
+  VersionedCustomSection: ResolverTypeWrapper<VersionedCustomSection>;
+  VersionedCustomSectionErrors: ResolverTypeWrapper<VersionedCustomSectionErrors>;
   VersionedGuidance: ResolverTypeWrapper<VersionedGuidance>;
   VersionedGuidanceErrors: ResolverTypeWrapper<VersionedGuidanceErrors>;
   VersionedGuidanceGroup: ResolverTypeWrapper<VersionedGuidanceGroup>;
@@ -6091,6 +6203,10 @@ export type ResolversParentTypes = {
   UserEmailErrors: UserEmailErrors;
   UserErrors: UserErrors;
   UserSearchResults: UserSearchResults;
+  VersionedCustomQuestion: VersionedCustomQuestion;
+  VersionedCustomQuestionErrors: VersionedCustomQuestionErrors;
+  VersionedCustomSection: VersionedCustomSection;
+  VersionedCustomSectionErrors: VersionedCustomSectionErrors;
   VersionedGuidance: VersionedGuidance;
   VersionedGuidanceErrors: VersionedGuidanceErrors;
   VersionedGuidanceGroup: VersionedGuidanceGroup;
@@ -7192,6 +7308,7 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   projectMember?: Resolver<Maybe<ResolversTypes['ProjectMember']>, ParentType, ContextType, RequireFields<QueryProjectMemberArgs, 'projectMemberId'>>;
   projectMembers?: Resolver<Maybe<Array<Maybe<ResolversTypes['ProjectMember']>>>, ParentType, ContextType, RequireFields<QueryProjectMembersArgs, 'projectId'>>;
   publishedConditionsForQuestion?: Resolver<Maybe<Array<Maybe<ResolversTypes['VersionedQuestionCondition']>>>, ParentType, ContextType, RequireFields<QueryPublishedConditionsForQuestionArgs, 'versionedQuestionId'>>;
+  publishedCustomSection?: Resolver<Maybe<ResolversTypes['VersionedCustomSection']>, ParentType, ContextType, RequireFields<QueryPublishedCustomSectionArgs, 'customSectionId' | 'planId'>>;
   publishedQuestion?: Resolver<Maybe<ResolversTypes['VersionedQuestion']>, ParentType, ContextType, RequireFields<QueryPublishedQuestionArgs, 'versionedQuestionId'>>;
   publishedQuestions?: Resolver<Maybe<Array<Maybe<ResolversTypes['VersionedQuestionWithFilled']>>>, ParentType, ContextType, RequireFields<QueryPublishedQuestionsArgs, 'planId' | 'versionedSectionId'>>;
   publishedSection?: Resolver<Maybe<ResolversTypes['VersionedSection']>, ParentType, ContextType, RequireFields<QueryPublishedSectionArgs, 'versionedSectionId'>>;
@@ -7816,6 +7933,62 @@ export type UserSearchResultsResolvers<ContextType = MyContext, ParentType exten
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
+export type VersionedCustomQuestionResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['VersionedCustomQuestion'] = ResolversParentTypes['VersionedCustomQuestion']> = {
+  created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  createdById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  customQuestionId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  errors?: Resolver<Maybe<ResolversTypes['VersionedCustomQuestionErrors']>, ParentType, ContextType>;
+  guidanceText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  json?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  pinnedVersionedQuestionId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  pinnedVersionedQuestionType?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  questionText?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  required?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
+  requirementText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  sampleText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  useSampleTextAsDefault?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
+  versionedSectionId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  versionedSectionType?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  versionedTemplateCustomizationId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+};
+
+export type VersionedCustomQuestionErrorsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['VersionedCustomQuestionErrors'] = ResolversParentTypes['VersionedCustomQuestionErrors']> = {
+  customQuestionId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  general?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  json?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  questionText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  versionedSectionId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  versionedTemplateCustomizationId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+};
+
+export type VersionedCustomSectionResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['VersionedCustomSection'] = ResolversParentTypes['VersionedCustomSection']> = {
+  created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  createdById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  customSectionId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  errors?: Resolver<Maybe<ResolversTypes['VersionedCustomSectionErrors']>, ParentType, ContextType>;
+  guidance?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  introduction?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  pinnedVersionedSectionId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  pinnedVersionedSectionType?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  questions?: Resolver<Maybe<Array<ResolversTypes['VersionedCustomQuestion']>>, ParentType, ContextType>;
+  requirements?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  versionedTemplateCustomizationId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+};
+
+export type VersionedCustomSectionErrorsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['VersionedCustomSectionErrors'] = ResolversParentTypes['VersionedCustomSectionErrors']> = {
+  customSectionId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  general?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  name?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  versionedTemplateCustomizationId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+};
+
 export type VersionedGuidanceResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['VersionedGuidance'] = ResolversParentTypes['VersionedGuidance']> = {
   created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   createdById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
@@ -8223,6 +8396,10 @@ export type Resolvers<ContextType = MyContext> = {
   UserEmailErrors?: UserEmailErrorsResolvers<ContextType>;
   UserErrors?: UserErrorsResolvers<ContextType>;
   UserSearchResults?: UserSearchResultsResolvers<ContextType>;
+  VersionedCustomQuestion?: VersionedCustomQuestionResolvers<ContextType>;
+  VersionedCustomQuestionErrors?: VersionedCustomQuestionErrorsResolvers<ContextType>;
+  VersionedCustomSection?: VersionedCustomSectionResolvers<ContextType>;
+  VersionedCustomSectionErrors?: VersionedCustomSectionErrorsResolvers<ContextType>;
   VersionedGuidance?: VersionedGuidanceResolvers<ContextType>;
   VersionedGuidanceErrors?: VersionedGuidanceErrorsResolvers<ContextType>;
   VersionedGuidanceGroup?: VersionedGuidanceGroupResolvers<ContextType>;

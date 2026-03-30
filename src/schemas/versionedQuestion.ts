@@ -113,4 +113,62 @@ type VersionedQuestionErrors {
     sampleText: String
     versionedQuestionConditionIds: String
   }
+
+  "A snapshot of a CustomQuestion when the template customization was published."
+  type VersionedCustomQuestion {
+    "The unique identifier for the Object"
+    id: Int
+    "The user who created the Object"
+    createdById: Int
+    "The timestamp when the Object was created"
+    created: String
+    "The user who last modified the Object"
+    modifiedById: Int
+    "The timestamp when the Object was last modified"
+    modified: String
+
+    "The VersionedTemplateCustomization this snapshot belongs to"
+    versionedTemplateCustomizationId: Int!
+    "The CustomQuestion this is a snapshot of"
+    customQuestionId: Int!
+
+    "Whether this question is pinned inside a BASE or CUSTOM section"
+    versionedSectionType: String!
+    "The id of the section this question belongs to"
+    versionedSectionId: Int!
+
+    "The type of question this custom question is pinned after (null = first question in section)"
+    pinnedVersionedQuestionType: String
+    "The id of the question this custom question is pinned after"
+    pinnedVersionedQuestionId: Int
+
+    "The question text"
+    questionText: String!
+    "The question JSON schema definition"
+    json: String!
+    "The requirement text for this question"
+    requirementText: String
+    "Guidance to help the user answer this question"
+    guidanceText: String
+    "A sample answer for this question"
+    sampleText: String
+    "Whether the sample text should be pre-populated as the default answer"
+    useSampleTextAsDefault: Boolean
+    "Whether this question is required"
+    required: Boolean
+
+    "Errors associated with the Object"
+    errors: VersionedCustomQuestionErrors
+  }
+
+  "A collection of errors related to the VersionedCustomQuestion"
+  type VersionedCustomQuestionErrors {
+    "General error messages"
+    general: String
+    versionedTemplateCustomizationId: String
+    customQuestionId: String
+    versionedSectionId: String
+    questionText: String
+    json: String
+  }
 `

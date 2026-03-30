@@ -48,6 +48,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated the `batch_update_related_works` stored procedure to operate on batches of DMPs and updated these unit tests to use `@testcontainers/mysql` so that they can run in CI, are self-contained and don't affect local tables.
 - Updated the `VersionedTemplateSearchResult` to return `versionedTemplateCustomizationId` for the `search` function [#166]
 - Update `domain` to `emailDomain` in `AffiliationEmailDomain` model to match field name in table
 - Update buildspec to use `--omit=dev` instead of `--production` on `npm` commands

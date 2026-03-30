@@ -1,9 +1,7 @@
+import fs from 'fs';
+import path from 'path';
 import mysql, { Connection } from 'mysql2/promise';
-import { generalConfig } from '../../config/generalConfig';
-import { getParameter } from '../parameterStore';
-import { MyContext } from '../../context';
-import { buildContext } from '../../__mocks__/context';
-import { logger } from '../../logger';
+import { MySqlContainer, StartedMySqlContainer } from '@testcontainers/mysql';
 import { Author, Award, ContentMatch, DoiMatch, Funder, Institution, ItemMatch } from '../../types';
 import type { ResultSetHeader } from 'mysql2/promise';
 
@@ -58,7 +56,17 @@ interface Project {
   modifiedById: number;
 }
 
-export async function insertProjectAndPlan(connection: Connection, project: Project, plan: Plan) {
+async function executeProceduresSql(conn: Connection, sql: string): Promise<void> {
+  const cleaned = sql
+    .replace(/DELIMITER\s+\$\$\s*/g, '')
+    .replace(/DELIMITER\s+;\s*/g, '');
+  const statements = cleaned.split('$$').map((s) => s.trim()).filter(Boolean);
+  for (const stmt of statements) {
+    await conn.query(stmt);
+  }
+}
+
+async function insertProjectAndPlan(connection: Connection, project: Project, plan: Plan) {
   await connection.beginTransaction();
 
   try {
@@ -98,7 +106,7 @@ export async function insertProjectAndPlan(connection: Connection, project: Proj
   }
 }
 
-export async function insertRelatedWorks(connection: Connection, data: RelatedWork[]) {
+async function insertRelatedWorks(connection: Connection, data: RelatedWork[]) {
   if (data.length === 0) {
     return;
   }
@@ -124,7 +132,7 @@ export async function insertRelatedWorks(connection: Connection, data: RelatedWo
   await connection.query(sql, [values]);
 }
 
-export async function insertWorkVersions(connection: Connection, data: WorkVersion[]) {
+async function insertWorkVersions(connection: Connection, data: WorkVersion[]) {
   if (data.length === 0) {
     return;
   }
@@ -149,134 +157,170 @@ export async function insertWorkVersions(connection: Connection, data: WorkVersi
   await connection.query(sql, [values]);
 }
 
-let connection: mysql.Connection | null = null;
-let context: MyContext;
+const MIGRATIONS_DIR = path.join(__dirname, '../../../data-migrations');
 
-// Function to attempt to connect to the database in certain situations
-async function tryGetConnection(context: MyContext) {
-  try {
-    let connection: Connection;
-
-    // If we are running locally (test) or in the AWS development env (dev)
-    if (['dev', 'test'].includes(generalConfig.env)) {
-      if (generalConfig.env === 'test') {
-        // Running locally so use the Docker compose MySQL instance
-        connection = await mysql.createConnection({
-          host: 'localhost',
-          port: 3306,
-          user: 'root',
-          password: 'd0ckerSecr3t',
-          database: 'dmptool',
-          multipleStatements: true,
-        });
-      } else {
-        // Running in the AWS development environment so use the RDS instance
-        connection = await mysql.createConnection({
-          host: await getParameter(context, '/uc3/dmp/tool/dev/RdsHost'),
-          port: Number(await getParameter(context, '/uc3/dmp/tool/dev/RdsPort')),
-          user: await getParameter(context, '/uc3/dmp/tool/dev/RdsUsername'),
-          password: await getParameter(context, '/uc3/dmp/tool/dev/RdsPassword'),
-          database: await getParameter(context, '/uc3/dmp/tool/dev/RdsName'),
-          multipleStatements: true,
-        });
-      }
-      return connection;
-    } else {
-      // We are running in a different environment so skip the tests!
-      return null;
-    }
-  } catch (err) {
-    if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND' || err.code === 'EACCES' || err.code === 'ER_ACCESS_DENIED_ERROR') {
-      console.warn('MySQL is not running or access denied, skipping tests.');
-      return null;
-    }
-    throw err; // unexpected error, let it bubble
-  }
-}
+let container: StartedMySqlContainer;
+let connection: Connection;
 
 const testPlanDOIs = ['https://doi.org/10.11111/2A3B4C'];
 const testWorkDOIs = ['10.1234/fake-doi-001', '10.5678/sample.abc.2025'];
 
-function clearTestRecords() {
-  if (connection) {
-    const placeholders = testWorkDOIs.map(() => '?').join(', ');
-    connection.query(
-      `
-      DELETE FROM relatedWorks
-        WHERE workVersionId IN (
-          SELECT workVersions.id
-          FROM workVersions
-              INNER JOIN works ON workVersions.workId = works.id
-          WHERE works.doi IN (${placeholders})
-      );
-    `,
-      testWorkDOIs,
-    );
-
-    connection.query(
-      `
-      DELETE FROM workVersions
-        WHERE workId IN (SELECT id FROM works WHERE doi IN (${placeholders}))
-    `,
-      testWorkDOIs,
-    );
-
-    connection.query(
-      `
-      DELETE FROM works
-        WHERE doi IN (${placeholders})
-    `,
-      testWorkDOIs,
-    );
-
-    connection.query(
-      `
-      DELETE FROM plans
-        WHERE dmpId = '${testPlanDOIs[0]}'
-    `,
-      testWorkDOIs,
-    );
-
-    connection.query(
-      `
-      DELETE FROM projects
-        WHERE title = '${testPlanDOIs[0]}'
-    `,
-      testWorkDOIs,
-    );
-  }
-}
-
 beforeAll(async () => {
-  context = buildContext(logger);
-  connection = await tryGetConnection(context);
-  clearTestRecords();
-});
+  container = await new MySqlContainer('mysql:8.0')
+    .withDatabase('dmptool')
+    .withRootPassword('test')
+    .start();
+
+  connection = await mysql.createConnection({
+    host: container.getHost(),
+    port: container.getMappedPort(3306),
+    user: 'root',
+    password: 'test',
+    database: 'dmptool',
+    multipleStatements: true,
+  });
+
+  // Apply all migrations in chronological order (filenames sort lexicographically by date)
+  const migrationFiles = fs
+    .readdirSync(MIGRATIONS_DIR)
+    .filter((f) => f.endsWith('.sql'))
+    .sort();
+
+  for (const file of migrationFiles) {
+    const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf-8');
+    if (sql.includes('DELIMITER')) {
+      await executeProceduresSql(connection, sql);
+    } else {
+      await connection.query(sql);
+    }
+  }
+
+  // Seed minimal reference data for FK constraints
+  await connection.query(`
+    INSERT INTO users (id, password, role, givenName, surName)
+    VALUES (1, 'dummy', 'RESEARCHER', 'Test', 'User');
+  `);
+  await connection.query(`
+    INSERT INTO affiliations (uri, name, displayName, createdById, modifiedById)
+    VALUES ('https://ror.org/test', 'Test University', 'Test University', 1, 1);
+  `);
+  await connection.query(`
+    INSERT INTO templates (id, name, ownerId, latestPublishVisibility, createdById, modifiedById)
+    VALUES (1, 'Test Template', 'https://ror.org/test', 'PRIVATE', 1, 1);
+  `);
+  await connection.query(`
+    INSERT INTO versionedTemplates (id, templateId, version, versionedById, name, ownerId, visibility, createdById, modifiedById)
+    VALUES (1, 1, '1.0', 1, 'Test Template v1', 'https://ror.org/test', 'PRIVATE', 1, 1);
+  `);
+}, 120000);
 
 afterAll(async () => {
-  clearTestRecords();
   if (connection) await connection.end();
+  if (container) await container.stop();
 });
 
-describe('Related Works Tables', () => {
-  // Tests that the related works tables stored procedures insert, update and
-  // delete records correctly.
-  test('1. should insert works', async () => {
-    // Inserts new related works, work versions and works and checks that
-    // they have been inserted correctly
-    if (!connection) {
-      console.warn('Skipping test: MySQL not available');
-      return;
-    }
+const makeDoiMatch = (score = 1.0): DoiMatch => ({
+  found: true,
+  score,
+  sources: [{ awardId: 'ABC', awardUrl: 'https://url-of-funder/award-page' }],
+});
 
+const makeContentMatch = (score: number, titleHighlight: string): ContentMatch => ({
+  score,
+  titleHighlight,
+  abstractHighlights: ['An <mark>abstract</mark>'],
+});
+
+const makeItemMatch = (index: number, score: number, fields: string[]): ItemMatch => ({
+  index,
+  score,
+  fields,
+});
+
+const workVersion1: WorkVersion = {
+  doi: testWorkDOIs[0],
+  hash: Buffer.from('c4ca4238a0b923820dcc509a6f75849b', 'hex'),
+  workType: 'DATASET',
+  publicationDate: '2025-01-01',
+  title: 'Juvenile Eel Recruitment and Reef Nursery Conditions (JERRNC)',
+  abstractText: 'An abstract',
+  authors: [
+    {
+      orcid: '0000-0003-1234-5678',
+      firstInitial: 'A',
+      givenName: 'Alyssa',
+      middleInitials: 'M',
+      middleNames: 'Marie',
+      surname: 'Langston',
+      full: null,
+    },
+  ],
+  institutions: [{ name: 'University of California, Berkeley', ror: '01an7q238' }],
+  funders: [{ name: 'National Science Foundation', ror: '021nxhr62' }],
+  awards: [{ awardId: 'ABC' }],
+  publicationVenue: 'Zenodo',
+  sourceName: 'DataCite',
+  sourceUrl: `https://commons.datacite.org/doi.org/${testWorkDOIs[0]}`,
+};
+
+const workVersion2: WorkVersion = {
+  doi: testWorkDOIs[1],
+  hash: Buffer.from('c81e728d9d4c2f636f067f89cc14862c', 'hex'),
+  workType: 'ARTICLE',
+  publicationDate: '2025-02-01',
+  title: 'Climate Resilience of Eel-Reef Mutualisms: A Longitudinal Study',
+  abstractText: 'An abstract',
+  authors: [
+    {
+      orcid: '0000-0003-1234-5678',
+      firstInitial: 'A',
+      givenName: 'Alyssa',
+      middleInitials: 'M',
+      middleNames: 'Marie',
+      surname: 'Langston',
+      full: null,
+    },
+    {
+      orcid: null,
+      firstInitial: 'D',
+      givenName: 'David',
+      middleInitials: null,
+      middleNames: null,
+      surname: 'Choi',
+      full: null,
+    },
+  ],
+  institutions: [{ name: 'University of California, Berkeley', ror: '01an7q238' }],
+  funders: [{ name: 'National Science Foundation', ror: '021nxhr62' }],
+  awards: [{ awardId: 'ABC' }],
+  publicationVenue: 'Nature',
+  sourceName: 'OpenAlex',
+  sourceUrl: 'https://openalex.org/works/W0000000001',
+};
+
+function makeRelatedWork(overrides: Partial<RelatedWork> & { workDoi: string; hash: Buffer }): RelatedWork {
+  return {
+    planId: null,
+    dmpDoi: testPlanDOIs[0],
+    sourceType: 'SYSTEM_MATCHED',
+    score: 1.0,
+    status: 'PENDING',
+    scoreMax: 1.0,
+    doiMatch: makeDoiMatch(),
+    contentMatch: makeContentMatch(18.0, 'Juvenile <mark>Eel</mark> Recruitment and Reef Nursery Conditions (JERRNC)'),
+    authorMatches: [makeItemMatch(0, 2.0, ['full', 'ror'])],
+    institutionMatches: [makeItemMatch(0, 2.0, ['name', 'ror'])],
+    funderMatches: [makeItemMatch(0, 1.0, ['name'])],
+    awardMatches: [{ index: 0, score: 10.0 } as ItemMatch],
+    ...overrides,
+  };
+}
+
+describe('Related Works Tables', () => {
+  test('1. should insert works', async () => {
     await insertProjectAndPlan(
       connection,
-      {
-        title: testPlanDOIs[0],
-        isTestProject: true,
-        createdById: 1,
-        modifiedById: 1,
-      },
+      { title: testPlanDOIs[0], isTestProject: true, createdById: 1, modifiedById: 1 },
       {
         versionedTemplateId: 1,
         visibility: 'PRIVATE',
@@ -289,1247 +333,376 @@ describe('Related Works Tables', () => {
       },
     );
 
-    const workVersionsData = [
-      {
-        doi: testWorkDOIs[0],
-        hash: Buffer.from('c4ca4238a0b923820dcc509a6f75849b', 'hex'),
-        workType: 'DATASET',
-        publicationDate: '2025-01-01',
-        title: 'Juvenile Eel Recruitment and Reef Nursery Conditions (JERRNC)',
-        abstractText: 'An abstract',
-        authors: [
-          {
-            orcid: '0000-0003-1234-5678',
-            firstInitial: 'A',
-            givenName: 'Alyssa',
-            middleInitials: 'M',
-            middleNames: 'Marie',
-            surname: 'Langston',
-            full: null,
-          },
-        ],
-        institutions: [
-          {
-            name: 'University of California, Berkeley',
-            ror: '01an7q238',
-          },
-        ],
-        funders: [{ name: 'National Science Foundation', ror: '021nxhr62' }],
-        awards: [{ awardId: 'ABC' }],
-        publicationVenue: 'Zenodo',
-        sourceName: 'DataCite',
-        sourceUrl: `https://commons.datacite.org/doi.org/${testWorkDOIs[0]}`,
-      },
-      {
-        doi: testWorkDOIs[1],
-        hash: Buffer.from('c81e728d9d4c2f636f067f89cc14862c', 'hex'),
-        workType: 'ARTICLE',
-        publicationDate: '2025-02-01',
-        title: 'Climate Resilience of Eel-Reef Mutualisms: A Longitudinal Study',
-        abstractText: 'An abstract',
-        authors: [
-          {
-            orcid: '0000-0003-1234-5678',
-            firstInitial: 'A',
-            givenName: 'Alyssa',
-            middleInitials: 'M',
-            middleNames: 'Marie',
-            surname: 'Langston',
-            full: null,
-          },
-          {
-            orcid: null,
-            firstInitial: 'D',
-            givenName: 'David',
-            middleInitials: null,
-            middleNames: null,
-            surname: 'Choi',
-            full: null,
-          },
-        ],
-        institutions: [
-          {
-            name: 'University of California, Berkeley',
-            ror: '01an7q238',
-          },
-        ],
-        funders: [{ name: 'National Science Foundation', ror: '021nxhr62' }],
-        awards: [{ awardId: 'ABC' }],
-        publicationVenue: 'Nature',
-        sourceName: 'OpenAlex',
-        sourceUrl: 'https://openalex.org/works/W0000000001',
-      },
-    ];
-    const relatedWorksData = [
-      {
-        planId: null,
-        dmpDoi: '10.11111/2A3B4C',
-        workDoi: testWorkDOIs[0],
-        hash: Buffer.from('c4ca4238a0b923820dcc509a6f75849b', 'hex'),
-        sourceType: 'SYSTEM_MATCHED',
-        score: 1.0,
-        status: 'PENDING',
-        scoreMax: 1.0,
-        doiMatch: {
-          found: true,
-          score: 1.0,
-          sources: [
-            {
-              awardId: 'ABC',
-              awardUrl: 'https://url-of-funder/award-page',
-            },
-          ],
-        },
-        contentMatch: {
-          score: 18.0,
-          titleHighlight: 'Juvenile <mark>Eel</mark> Recruitment and Reef Nursery Conditions (JERRNC)',
-          abstractHighlights: ['An <mark>abstract</mark>'],
-        },
-        authorMatches: [
-          {
-            index: 0,
-            score: 2.0,
-            fields: ['full', 'ror'],
-          },
-        ],
-        institutionMatches: [
-          {
-            index: 0,
-            score: 2.0,
-            fields: ['name', 'ror'],
-          },
-        ],
-        funderMatches: [
-          {
-            index: 0,
-            score: 1.0,
-            fields: ['name'],
-          },
-        ],
-        awardMatches: [
-          {
-            index: 0,
-            score: 10.0,
-          },
-        ],
-      },
-      {
-        planId: null,
-        dmpDoi: '10.11111/2A3B4C',
+    const relatedWorksData: RelatedWork[] = [
+      makeRelatedWork({ workDoi: testWorkDOIs[0], hash: workVersion1.hash }),
+      makeRelatedWork({
         workDoi: testWorkDOIs[1],
-        hash: Buffer.from('c81e728d9d4c2f636f067f89cc14862c', 'hex'),
-        sourceType: 'SYSTEM_MATCHED',
+        hash: workVersion2.hash,
         score: 0.8,
-        status: 'PENDING',
-        scoreMax: 1.0,
-        doiMatch: {
-          found: true,
-          score: 1.0,
-          sources: [
-            {
-              awardId: 'ABC',
-              awardUrl: 'https://url-of-funder/award-page',
-            },
-          ],
-        },
-        contentMatch: {
-          score: 18.0,
-          titleHighlight: 'Climate Resilience of <mark>Eel-Reef</mark> Mutualisms: A Longitudinal Study',
-          abstractHighlights: ['An <mark>abstract</mark>'],
-        },
-        authorMatches: [
-          {
-            index: 0,
-            score: 2.0,
-            fields: ['full', 'ror'],
-          },
-        ],
-        institutionMatches: [
-          {
-            index: 0,
-            score: 2.0,
-            fields: ['name', 'ror'],
-          },
-        ],
-        funderMatches: [
-          {
-            index: 0,
-            score: 1.0,
-            fields: ['name'],
-          },
-        ],
-        awardMatches: [
-          {
-            index: 0,
-            score: 10.0,
-          },
-        ],
-      },
+        contentMatch: makeContentMatch(18.0, 'Climate Resilience of <mark>Eel-Reef</mark> Mutualisms: A Longitudinal Study'),
+      }),
     ];
-    await connection.query('CALL create_related_works_staging_tables');
-    await insertWorkVersions(connection, workVersionsData);
-    await insertRelatedWorks(connection, relatedWorksData);
-    const systemMatched = true;
-    await connection.query("CALL batch_update_related_works(?)", [systemMatched]);
 
-    // Check relatedWorks table
+    await connection.query('CALL create_related_works_staging_tables');
+    await insertWorkVersions(connection, [workVersion1, workVersion2]);
+    await insertRelatedWorks(connection, relatedWorksData);
+    await connection.query('CALL batch_update_related_works(?)', [true]);
+    await connection.query('CALL cleanup_orphan_works');
+
     const [relatedWorksRows] = await connection.execute('SELECT * FROM relatedWorks');
     expect(relatedWorksRows).toHaveLength(2);
     expect(relatedWorksRows).toMatchObject([
       {
-        id: expect.any(Number), // 👈 auto-increment id
-        planId: expect.any(Number), // 👈 auto-increment id
-        workVersionId: expect.any(Number), // 👈 auto-increment id
+        id: expect.any(Number),
+        planId: expect.any(Number),
+        workVersionId: expect.any(Number),
         sourceType: 'SYSTEM_MATCHED',
         score: 1,
         scoreMax: 1.0,
         status: 'PENDING',
-        doiMatch: {
-          found: true,
-          score: 1.0,
-          sources: [
-            {
-              awardId: 'ABC',
-              awardUrl: 'https://url-of-funder/award-page',
-            },
-          ],
-        },
-        contentMatch: {
-          score: 18.0,
-          titleHighlight: 'Juvenile <mark>Eel</mark> Recruitment and Reef Nursery Conditions (JERRNC)',
-          abstractHighlights: ['An <mark>abstract</mark>'],
-        },
-        authorMatches: [
-          {
-            index: 0,
-            score: 2.0,
-            fields: ['full', 'ror'],
-          },
-        ],
-        institutionMatches: [
-          {
-            index: 0,
-            score: 2.0,
-            fields: ['name', 'ror'],
-          },
-        ],
-        funderMatches: [
-          {
-            index: 0,
-            score: 1.0,
-            fields: ['name'],
-          },
-        ],
-        awardMatches: [
-          {
-            index: 0,
-            score: 10.0,
-          },
-        ],
+        doiMatch: makeDoiMatch(),
+        contentMatch: makeContentMatch(18.0, 'Juvenile <mark>Eel</mark> Recruitment and Reef Nursery Conditions (JERRNC)'),
+        authorMatches: [makeItemMatch(0, 2.0, ['full', 'ror'])],
+        institutionMatches: [makeItemMatch(0, 2.0, ['name', 'ror'])],
+        funderMatches: [makeItemMatch(0, 1.0, ['name'])],
+        awardMatches: [{ index: 0, score: 10.0 }],
       },
       {
-        id: expect.any(Number), // 👈 auto-increment id
-        planId: expect.any(Number), // 👈 auto-increment id
-        workVersionId: expect.any(Number), // 👈 auto-increment id
+        id: expect.any(Number),
+        planId: expect.any(Number),
+        workVersionId: expect.any(Number),
         sourceType: 'SYSTEM_MATCHED',
         score: expect.closeTo(0.8, 5),
         scoreMax: 1.0,
         status: 'PENDING',
-        doiMatch: {
-          found: true,
-          score: 1.0,
-          sources: [
-            {
-              awardId: 'ABC',
-              awardUrl: 'https://url-of-funder/award-page',
-            },
-          ],
-        },
-        contentMatch: {
-          score: 18.0,
-          titleHighlight: 'Climate Resilience of <mark>Eel-Reef</mark> Mutualisms: A Longitudinal Study',
-          abstractHighlights: ['An <mark>abstract</mark>'],
-        },
-        authorMatches: [
-          {
-            index: 0,
-            score: 2.0,
-            fields: ['full', 'ror'],
-          },
-        ],
-        institutionMatches: [
-          {
-            index: 0,
-            score: 2.0,
-            fields: ['name', 'ror'],
-          },
-        ],
-        funderMatches: [
-          {
-            index: 0,
-            score: 1.0,
-            fields: ['name'],
-          },
-        ],
-        awardMatches: [
-          {
-            index: 0,
-            score: 10.0,
-          },
-        ],
+        doiMatch: makeDoiMatch(),
+        contentMatch: makeContentMatch(18.0, 'Climate Resilience of <mark>Eel-Reef</mark> Mutualisms: A Longitudinal Study'),
+        authorMatches: [makeItemMatch(0, 2.0, ['full', 'ror'])],
+        institutionMatches: [makeItemMatch(0, 2.0, ['name', 'ror'])],
+        funderMatches: [makeItemMatch(0, 1.0, ['name'])],
+        awardMatches: [{ index: 0, score: 10.0 }],
       },
     ]);
 
-    // Check workVersions table
     const [workVersionsRows] = await connection.execute('SELECT * FROM workVersions');
     expect(workVersionsRows).toHaveLength(2);
     expect(workVersionsRows).toMatchObject([
       {
-        id: expect.any(Number), // 👈 auto-increment id
-        workId: expect.any(Number), // 👈 auto-increment id
-        hash: Buffer.from('c4ca4238a0b923820dcc509a6f75849b', 'hex'),
+        id: expect.any(Number),
+        workId: expect.any(Number),
+        hash: workVersion1.hash,
         workType: 'DATASET',
         publicationDate: expect.any(Date),
-        title: 'Juvenile Eel Recruitment and Reef Nursery Conditions (JERRNC)',
-        abstractText: 'An abstract',
-        authors: [
-          {
-            orcid: '0000-0003-1234-5678',
-            firstInitial: 'A',
-            givenName: 'Alyssa',
-            middleInitials: 'M',
-            middleNames: 'Marie',
-            surname: 'Langston',
-            full: null,
-          },
-        ],
-        institutions: [
-          {
-            name: 'University of California, Berkeley',
-            ror: '01an7q238',
-          },
-        ],
-        funders: [{ name: 'National Science Foundation', ror: '021nxhr62' }],
-        awards: [{ awardId: 'ABC' }],
-        publicationVenue: 'Zenodo',
-        sourceName: 'DataCite',
-        sourceUrl: `https://commons.datacite.org/doi.org/${testWorkDOIs[0]}`,
+        title: workVersion1.title,
+        abstractText: workVersion1.abstractText,
+        authors: workVersion1.authors,
+        institutions: workVersion1.institutions,
+        funders: workVersion1.funders,
+        awards: workVersion1.awards,
+        publicationVenue: workVersion1.publicationVenue,
+        sourceName: workVersion1.sourceName,
+        sourceUrl: workVersion1.sourceUrl,
       },
       {
-        id: expect.any(Number), // 👈 auto-increment id
-        workId: expect.any(Number), // 👈 auto-increment id
-        hash: Buffer.from('c81e728d9d4c2f636f067f89cc14862c', 'hex'),
+        id: expect.any(Number),
+        workId: expect.any(Number),
+        hash: workVersion2.hash,
         workType: 'ARTICLE',
         publicationDate: expect.any(Date),
-        title: 'Climate Resilience of Eel-Reef Mutualisms: A Longitudinal Study',
-        abstractText: 'An abstract',
-        authors: [
-          {
-            orcid: '0000-0003-1234-5678',
-            firstInitial: 'A',
-            givenName: 'Alyssa',
-            middleInitials: 'M',
-            middleNames: 'Marie',
-            surname: 'Langston',
-            full: null,
-          },
-          {
-            orcid: null,
-            firstInitial: 'D',
-            givenName: 'David',
-            middleInitials: null,
-            middleNames: null,
-            surname: 'Choi',
-            full: null,
-          },
-        ],
-        institutions: [
-          {
-            name: 'University of California, Berkeley',
-            ror: '01an7q238',
-          },
-        ],
-        funders: [{ name: 'National Science Foundation', ror: '021nxhr62' }],
-        awards: [{ awardId: 'ABC' }],
-        publicationVenue: 'Nature',
-        sourceName: 'OpenAlex',
-        sourceUrl: 'https://openalex.org/works/W0000000001',
+        title: workVersion2.title,
+        abstractText: workVersion2.abstractText,
+        authors: workVersion2.authors,
+        institutions: workVersion2.institutions,
+        funders: workVersion2.funders,
+        awards: workVersion2.awards,
+        publicationVenue: workVersion2.publicationVenue,
+        sourceName: workVersion2.sourceName,
+        sourceUrl: workVersion2.sourceUrl,
       },
     ]);
 
-    // Assert works table
     const [worksRows] = await connection.execute('SELECT * FROM works');
     expect(worksRows).toHaveLength(2);
     expect(worksRows).toMatchObject([
-      {
-        id: expect.any(Number), // 👈 auto-increment id
-        doi: testWorkDOIs[0],
-        created: expect.any(Date),
-      },
-      {
-        id: expect.any(Number), // 👈 auto-increment id
-        doi: testWorkDOIs[1],
-        created: expect.any(Date),
-      },
+      { id: expect.any(Number), doi: testWorkDOIs[0], created: expect.any(Date) },
+      { id: expect.any(Number), doi: testWorkDOIs[1], created: expect.any(Date) },
     ]);
   });
 
-  test("2. should update works", async () => {
-    // Updates the second related work and links an updated work version to this
-    // related work, then checks that the data has been updated correctly.
-    if (!connection) {
-      console.warn("Skipping test: MySQL not available");
-      return;
-    }
+  test('2. should update works', async () => {
+    const updatedWorkVersion2: WorkVersion = {
+      ...workVersion2,
+      hash: Buffer.from('eccbc87e4b5ce2fe28308fd9f2a7baf3', 'hex'),
+      workType: 'DATASET',
+      publicationDate: '2025-02-02',
+      title: 'Title: Climate Resilience of Eel-Reef Mutualisms: A Longitudinal Study',
+      abstractText: 'An abstract abstract',
+      authors: [
+        ...workVersion2.authors.slice(0, 1),
+        { ...workVersion2.authors[1]!, givenName: 'Daniel' },
+      ],
+      institutions: [{ name: 'University of California', ror: '01an7q238' }],
+      funders: [{ name: 'National Science Foundation, USA', ror: '021nxhr62' }],
+      awards: [{ awardId: 'ABC' }, { awardId: '123' }],
+      publicationVenue: 'Nature Publications',
+      sourceName: 'DataCite',
+      sourceUrl: `https://commons.datacite.org/doi.org/${testWorkDOIs[1]}`,
+    };
 
-    const workVersionsData = [
-      {
-        doi: testWorkDOIs[0],
-        hash: Buffer.from("c4ca4238a0b923820dcc509a6f75849b", "hex"),
-        workType: "DATASET",
-        publicationDate: "2025-01-01",
-        title: "Juvenile Eel Recruitment and Reef Nursery Conditions (JERRNC)",
-        abstractText: "An abstract",
-        authors: [
-          {
-            orcid: "0000-0003-1234-5678",
-            firstInitial: "A",
-            givenName: "Alyssa",
-            middleInitials: "M",
-            middleNames: "Marie",
-            surname: "Langston",
-            full: null,
-          },
-        ],
-        institutions: [
-          {
-            name: "University of California, Berkeley",
-            ror: "01an7q238",
-          },
-        ],
-        funders: [{ name: "National Science Foundation", ror: "021nxhr62" }],
-        awards: [{ awardId: "ABC" }],
-        publicationVenue: "Zenodo",
-        sourceName: "DataCite",
-        sourceUrl: `https://commons.datacite.org/doi.org/${testWorkDOIs[0]}`,
-      },
-      {
-        doi: testWorkDOIs[1],
-        hash: Buffer.from("eccbc87e4b5ce2fe28308fd9f2a7baf3", "hex"), // Hash changed
-        workType: "DATASET", // Type changed
-        publicationDate: "2025-02-02", // Date changed
-        title: "Title: Climate Resilience of Eel-Reef Mutualisms: A Longitudinal Study", // Title changed
-        abstractText: "An abstract abstract", // Abstract changed
-        authors: [
-          // Authors changed
-          {
-            orcid: "0000-0003-1234-5678",
-            firstInitial: "A",
-            givenName: "Alyssa",
-            middleInitials: "M",
-            middleNames: "Marie",
-            surname: "Langston",
-            full: null,
-          },
-          {
-            orcid: null,
-            firstInitial: "D",
-            givenName: "Daniel",
-            middleInitials: null,
-            middleNames: null,
-            surname: "Choi",
-            full: null,
-          },
-        ],
-        institutions: [
-          // Institutions changed
-          {
-            name: "University of California",
-            ror: "01an7q238",
-          },
-        ],
-        funders: [{ name: "National Science Foundation, USA", ror: "021nxhr62" }], // Funders changed
-        awards: [{ awardId: "ABC" }, { awardId: "123" }], // Award IDs changed
-        publicationVenue: "Nature Publications", // Publication venue changed
-        sourceName: "DataCite", // Source Changed
-        sourceUrl: `https://commons.datacite.org/doi.org/${testWorkDOIs[1]}`, // Source URL changed
-      },
-    ];
-    const relatedWorksData = [
-      {
-        planId: null,
-        dmpDoi: "10.11111/2A3B4C",
-        workDoi: testWorkDOIs[0],
-        hash: Buffer.from("c4ca4238a0b923820dcc509a6f75849b", "hex"),
-        sourceType: "SYSTEM_MATCHED",
-        score: 1.0,
-        status: "PENDING",
-        scoreMax: 1.0,
-        doiMatch: {
-          found: true,
-          score: 1.0,
-          sources: [
-            {
-              awardId: "ABC",
-              awardUrl: "https://url-of-funder/award-page",
-            },
-          ],
-        },
-        contentMatch: {
-          score: 18.0,
-          titleHighlight: "Juvenile <mark>Eel</mark> Recruitment and Reef Nursery Conditions (JERRNC)",
-          abstractHighlights: ["An <mark>abstract</mark>"],
-        },
-        authorMatches: [
-          {
-            index: 0,
-            score: 2.0,
-            fields: ["full", "ror"],
-          },
-        ],
-        institutionMatches: [
-          {
-            index: 0,
-            score: 2.0,
-            fields: ["name", "ror"],
-          },
-        ],
-        funderMatches: [
-          {
-            index: 0,
-            score: 1.0,
-            fields: ["name"],
-          },
-        ],
-        awardMatches: [
-          {
-            index: 0,
-            score: 10.0,
-          },
-        ],
-      },
-      {
-        planId: null,
-        dmpDoi: "10.11111/2A3B4C",
+    const relatedWorksData: RelatedWork[] = [
+      makeRelatedWork({ workDoi: testWorkDOIs[0], hash: workVersion1.hash }),
+      makeRelatedWork({
         workDoi: testWorkDOIs[1],
-        hash: Buffer.from("eccbc87e4b5ce2fe28308fd9f2a7baf3", "hex"), // Hash changed
-        sourceType: "SYSTEM_MATCHED",
-        score: 0.9, // Score changed
-        status: "PENDING",
-        scoreMax: 1.0,
-        doiMatch: {
-          // doiMatch changed
-          found: true,
-          score: 2.0,
-          sources: [
-            {
-              awardId: "ABC",
-              awardUrl: "https://url-of-funder/award-page",
-            },
-          ],
-        },
-        contentMatch: {
-          // contentMatch changed
-          score: 20.0,
-          titleHighlight: "Climate Resilience of <mark>Eel-Reef</mark> Mutualisms: A Longitudinal Study",
-          abstractHighlights: ["An <mark>abstract</mark>"],
-        },
-        authorMatches: [
-          // authorMatches changed
-          {
-            index: 1,
-            score: 2.0,
-            fields: ["full", "ror"],
-          },
-        ],
-        institutionMatches: [
-          // institutionMatches changed
-          {
-            index: 1,
-            score: 2.0,
-            fields: ["name", "ror"],
-          },
-        ],
-        funderMatches: [
-          // funderMatches changed
-          {
-            index: 1,
-            score: 1.0,
-            fields: ["name"],
-          },
-        ],
-        awardMatches: [
-          // awardMatches changed
-          {
-            index: 1,
-            score: 10.0,
-          },
-        ],
-      },
+        hash: updatedWorkVersion2.hash,
+        score: 0.9,
+        doiMatch: makeDoiMatch(2.0),
+        contentMatch: makeContentMatch(20.0, 'Climate Resilience of <mark>Eel-Reef</mark> Mutualisms: A Longitudinal Study'),
+        authorMatches: [makeItemMatch(1, 2.0, ['full', 'ror'])],
+        institutionMatches: [makeItemMatch(1, 2.0, ['name', 'ror'])],
+        funderMatches: [makeItemMatch(1, 1.0, ['name'])],
+        awardMatches: [{ index: 1, score: 10.0 } as ItemMatch],
+      }),
     ];
-    await connection.query("CALL create_related_works_staging_tables");
-    await insertWorkVersions(connection, workVersionsData);
-    await insertRelatedWorks(connection, relatedWorksData);
-    const systemMatched = true;
-    await connection.query("CALL batch_update_related_works(?)", [systemMatched]);
 
-    // Check relatedWorks table
-    const [relatedWorksRows] = await connection.execute("SELECT * FROM relatedWorks");
+    await connection.query('CALL create_related_works_staging_tables');
+    await insertWorkVersions(connection, [workVersion1, updatedWorkVersion2]);
+    await insertRelatedWorks(connection, relatedWorksData);
+    await connection.query('CALL batch_update_related_works(?)', [true]);
+    await connection.query('CALL cleanup_orphan_works');
+
+    const [relatedWorksRows] = await connection.execute('SELECT * FROM relatedWorks');
     expect(relatedWorksRows).toHaveLength(2);
     expect(relatedWorksRows).toMatchObject([
       {
-        id: expect.any(Number), // 👈 auto-increment id
-        planId: expect.any(Number), // 👈 auto-increment id
-        workVersionId: expect.any(Number), // 👈 auto-increment id
-        sourceType: "SYSTEM_MATCHED",
+        sourceType: 'SYSTEM_MATCHED',
         score: 1,
         scoreMax: 1.0,
-        status: "PENDING",
-        doiMatch: {
-          found: true,
-          score: 1.0,
-          sources: [
-            {
-              awardId: "ABC",
-              awardUrl: "https://url-of-funder/award-page",
-            },
-          ],
-        },
-        contentMatch: {
-          score: 18.0,
-          titleHighlight: "Juvenile <mark>Eel</mark> Recruitment and Reef Nursery Conditions (JERRNC)",
-          abstractHighlights: ["An <mark>abstract</mark>"],
-        },
-        authorMatches: [
-          {
-            index: 0,
-            score: 2.0,
-            fields: ["full", "ror"],
-          },
-        ],
-        institutionMatches: [
-          {
-            index: 0,
-            score: 2.0,
-            fields: ["name", "ror"],
-          },
-        ],
-        funderMatches: [
-          {
-            index: 0,
-            score: 1.0,
-            fields: ["name"],
-          },
-        ],
-        awardMatches: [
-          {
-            index: 0,
-            score: 10.0,
-          },
-        ],
+        status: 'PENDING',
       },
       {
-        id: expect.any(Number), // 👈 auto-increment id
-        planId: expect.any(Number), // 👈 auto-increment id
-        workVersionId: expect.any(Number), // 👈 auto-increment id
-        sourceType: "SYSTEM_MATCHED",
+        sourceType: 'SYSTEM_MATCHED',
         score: expect.closeTo(0.9, 5),
         scoreMax: 1.0,
-        status: "PENDING",
-        doiMatch: {
-          found: true,
-          score: 2.0,
-          sources: [
-            {
-              awardId: "ABC",
-              awardUrl: "https://url-of-funder/award-page",
-            },
-          ],
-        },
-        contentMatch: {
-          score: 20.0,
-          titleHighlight: "Climate Resilience of <mark>Eel-Reef</mark> Mutualisms: A Longitudinal Study",
-          abstractHighlights: ["An <mark>abstract</mark>"],
-        },
-        authorMatches: [
-          {
-            index: 1,
-            score: 2.0,
-            fields: ["full", "ror"],
-          },
-        ],
-        institutionMatches: [
-          {
-            index: 1,
-            score: 2.0,
-            fields: ["name", "ror"],
-          },
-        ],
-        funderMatches: [
-          {
-            index: 1,
-            score: 1.0,
-            fields: ["name"],
-          },
-        ],
-        awardMatches: [
-          {
-            index: 1,
-            score: 10.0,
-          },
-        ],
+        status: 'PENDING',
+        doiMatch: makeDoiMatch(2.0),
+        contentMatch: makeContentMatch(20.0, 'Climate Resilience of <mark>Eel-Reef</mark> Mutualisms: A Longitudinal Study'),
+        authorMatches: [makeItemMatch(1, 2.0, ['full', 'ror'])],
+        institutionMatches: [makeItemMatch(1, 2.0, ['name', 'ror'])],
+        funderMatches: [makeItemMatch(1, 1.0, ['name'])],
+        awardMatches: [{ index: 1, score: 10.0 }],
       },
     ]);
 
-    // Check workVersions table
-    const [workVersionsRows] = await connection.execute("SELECT * FROM workVersions");
+    const [workVersionsRows] = await connection.execute('SELECT * FROM workVersions');
     expect(workVersionsRows).toHaveLength(2);
     expect(workVersionsRows).toMatchObject([
+      { hash: workVersion1.hash, workType: 'DATASET', title: workVersion1.title },
       {
-        id: expect.any(Number), // 👈 auto-increment id
-        workId: expect.any(Number), // 👈 auto-increment id
-        hash: Buffer.from("c4ca4238a0b923820dcc509a6f75849b", "hex"),
-        workType: "DATASET",
-        publicationDate: expect.any(Date),
-        title: "Juvenile Eel Recruitment and Reef Nursery Conditions (JERRNC)",
-        abstractText: "An abstract",
-        authors: [
-          {
-            orcid: "0000-0003-1234-5678",
-            firstInitial: "A",
-            givenName: "Alyssa",
-            middleInitials: "M",
-            middleNames: "Marie",
-            surname: "Langston",
-            full: null,
-          },
-        ],
-        institutions: [
-          {
-            name: "University of California, Berkeley",
-            ror: "01an7q238",
-          },
-        ],
-        funders: [{ name: "National Science Foundation", ror: "021nxhr62" }],
-        awards: [{ awardId: "ABC" }],
-        publicationVenue: "Zenodo",
-        sourceName: "DataCite",
-        sourceUrl: `https://commons.datacite.org/doi.org/${testWorkDOIs[0]}`,
-      },
-      {
-        id: expect.any(Number), // 👈 auto-increment id
-        workId: expect.any(Number), // 👈 auto-increment id
-        hash: Buffer.from("eccbc87e4b5ce2fe28308fd9f2a7baf3", "hex"),
-        workType: "DATASET",
-        publicationDate: expect.any(Date),
-        title: "Title: Climate Resilience of Eel-Reef Mutualisms: A Longitudinal Study",
-        abstractText: "An abstract abstract",
-        authors: [
-          {
-            orcid: "0000-0003-1234-5678",
-            firstInitial: "A",
-            givenName: "Alyssa",
-            middleInitials: "M",
-            middleNames: "Marie",
-            surname: "Langston",
-            full: null,
-          },
-          {
-            orcid: null,
-            firstInitial: "D",
-            givenName: "Daniel",
-            middleInitials: null,
-            middleNames: null,
-            surname: "Choi",
-            full: null,
-          },
-        ],
-        institutions: [
-          {
-            name: "University of California",
-            ror: "01an7q238",
-          },
-        ],
-        funders: [{ name: "National Science Foundation, USA", ror: "021nxhr62" }],
-        awards: [{ awardId: "ABC" }, { awardId: "123" }],
-        publicationVenue: "Nature Publications",
-        sourceName: "DataCite",
-        sourceUrl: `https://commons.datacite.org/doi.org/${testWorkDOIs[1]}`,
+        hash: updatedWorkVersion2.hash,
+        workType: 'DATASET',
+        title: updatedWorkVersion2.title,
+        abstractText: updatedWorkVersion2.abstractText,
+        authors: updatedWorkVersion2.authors,
+        institutions: updatedWorkVersion2.institutions,
+        funders: updatedWorkVersion2.funders,
+        awards: updatedWorkVersion2.awards,
+        publicationVenue: updatedWorkVersion2.publicationVenue,
+        sourceName: updatedWorkVersion2.sourceName,
+        sourceUrl: updatedWorkVersion2.sourceUrl,
       },
     ]);
 
-    // Assert works table
-    const [worksRows] = await connection.execute("SELECT * FROM works");
+    const [worksRows] = await connection.execute('SELECT * FROM works');
     expect(worksRows).toHaveLength(2);
     expect(worksRows).toMatchObject([
-      {
-        id: expect.any(Number), // 👈 auto-increment id
-        doi: testWorkDOIs[0],
-        created: expect.any(Date),
-      },
-      {
-        id: expect.any(Number), // 👈 auto-increment id
-        doi: testWorkDOIs[1],
-        created: expect.any(Date),
-      },
+      { doi: testWorkDOIs[0], created: expect.any(Date) },
+      { doi: testWorkDOIs[1], created: expect.any(Date) },
     ]);
   });
 
-  test("3. should keep accepted and rejected works", async () => {
-    // Updates the status of the two related works to accepted and rejected
-    // and then runs procedures with empty data, which tests that accepted and
-    // rejected related works, work version and works are not deleted.
-    if (!connection) {
-      console.warn("Skipping test: MySQL not available");
-      return;
-    }
-
-    // Accept work
+  test('3. should keep accepted and rejected works', async () => {
+    // Accept first work, reject second
     await connection.query(`
       UPDATE relatedWorks
       SET status = 'ACCEPTED'
       WHERE workVersionId = (
-        SELECT workVersions.id
-        FROM workVersions
-          INNER JOIN works ON works.id = workVersions.workId
-        WHERE works.doi = '${testWorkDOIs[0]}'
+        SELECT wv.id FROM workVersions wv
+          INNER JOIN works w ON w.id = wv.workId
+        WHERE w.doi = '${testWorkDOIs[0]}'
+        LIMIT 1
       );
     `);
-
-    // Reject work
     await connection.query(`
       UPDATE relatedWorks
       SET status = 'REJECTED'
       WHERE workVersionId = (
-        SELECT workVersions.id
-        FROM workVersions
-          INNER JOIN works ON works.id = workVersions.workId
-        WHERE works.doi = '${testWorkDOIs[1]}'
+        SELECT wv.id FROM workVersions wv
+          INNER JOIN works w ON w.id = wv.workId
+        WHERE w.doi = '${testWorkDOIs[1]}'
+        LIMIT 1
       );
     `);
 
-    // Load empty data, which would delete any unlinked pending results
-    // but should keep accepted and rejected works
-    await connection.query("CALL create_related_works_staging_tables");
+    // Load empty staging data — should not delete accepted/rejected works
+    await connection.query('CALL create_related_works_staging_tables');
     await insertWorkVersions(connection, []);
     await insertRelatedWorks(connection, []);
-    const systemMatched = true;
-    await connection.query("CALL batch_update_related_works(?)", [systemMatched]);
+    await connection.query('CALL batch_update_related_works(?)', [true]);
+    await connection.query('CALL cleanup_orphan_works');
 
-    // Check relatedWorks table
-    const [relatedWorksRows] = await connection.execute("SELECT * FROM relatedWorks");
+    const [relatedWorksRows] = await connection.execute('SELECT * FROM relatedWorks');
     expect(relatedWorksRows).toHaveLength(2);
     expect(relatedWorksRows).toMatchObject([
-      {
-        id: expect.any(Number), // 👈 auto-increment id
-        planId: expect.any(Number), // 👈 auto-increment id
-        workVersionId: expect.any(Number), // 👈 auto-increment id
-        sourceType: "SYSTEM_MATCHED",
-        score: 1,
-        scoreMax: 1.0,
-        status: "ACCEPTED",
-        doiMatch: {
-          found: true,
-          score: 1.0,
-          sources: [
-            {
-              awardId: "ABC",
-              awardUrl: "https://url-of-funder/award-page",
-            },
-          ],
-        },
-        contentMatch: {
-          score: 18.0,
-          titleHighlight: "Juvenile <mark>Eel</mark> Recruitment and Reef Nursery Conditions (JERRNC)",
-          abstractHighlights: ["An <mark>abstract</mark>"],
-        },
-        authorMatches: [
-          {
-            index: 0,
-            score: 2.0,
-            fields: ["full", "ror"],
-          },
-        ],
-        institutionMatches: [
-          {
-            index: 0,
-            score: 2.0,
-            fields: ["name", "ror"],
-          },
-        ],
-        funderMatches: [
-          {
-            index: 0,
-            score: 1.0,
-            fields: ["name"],
-          },
-        ],
-        awardMatches: [
-          {
-            index: 0,
-            score: 10.0,
-          },
-        ],
-      },
-      {
-        id: expect.any(Number), // 👈 auto-increment id
-        planId: expect.any(Number), // 👈 auto-increment id
-        workVersionId: expect.any(Number), // 👈 auto-increment id
-        sourceType: "SYSTEM_MATCHED",
-        score: expect.closeTo(0.9, 5),
-        scoreMax: 1.0,
-        status: "REJECTED",
-        doiMatch: {
-          found: true,
-          score: 2.0,
-          sources: [
-            {
-              awardId: "ABC",
-              awardUrl: "https://url-of-funder/award-page",
-            },
-          ],
-        },
-        contentMatch: {
-          score: 20.0,
-          titleHighlight: "Climate Resilience of <mark>Eel-Reef</mark> Mutualisms: A Longitudinal Study",
-          abstractHighlights: ["An <mark>abstract</mark>"],
-        },
-        authorMatches: [
-          {
-            index: 1,
-            score: 2.0,
-            fields: ["full", "ror"],
-          },
-        ],
-        institutionMatches: [
-          {
-            index: 1,
-            score: 2.0,
-            fields: ["name", "ror"],
-          },
-        ],
-        funderMatches: [
-          {
-            index: 1,
-            score: 1.0,
-            fields: ["name"],
-          },
-        ],
-        awardMatches: [
-          {
-            index: 1,
-            score: 10.0,
-          },
-        ],
-      },
+      { status: 'ACCEPTED' },
+      { status: 'REJECTED' },
     ]);
 
-    // Check workVersions table
-    const [workVersionsRows] = await connection.execute("SELECT * FROM workVersions");
+    const [workVersionsRows] = await connection.execute('SELECT * FROM workVersions');
     expect(workVersionsRows).toHaveLength(2);
-    expect(workVersionsRows).toMatchObject([
-      {
-        id: expect.any(Number), // 👈 auto-increment id
-        workId: expect.any(Number), // 👈 auto-increment id
-        hash: Buffer.from("c4ca4238a0b923820dcc509a6f75849b", "hex"),
-        workType: "DATASET",
-        publicationDate: expect.any(Date),
-        title: "Juvenile Eel Recruitment and Reef Nursery Conditions (JERRNC)",
-        abstractText: "An abstract",
-        authors: [
-          {
-            orcid: "0000-0003-1234-5678",
-            firstInitial: "A",
-            givenName: "Alyssa",
-            middleInitials: "M",
-            middleNames: "Marie",
-            surname: "Langston",
-            full: null,
-          },
-        ],
-        institutions: [
-          {
-            name: "University of California, Berkeley",
-            ror: "01an7q238",
-          },
-        ],
-        funders: [{ name: "National Science Foundation", ror: "021nxhr62" }],
-        awards: [{ awardId: "ABC" }],
-        publicationVenue: "Zenodo",
-        sourceName: "DataCite",
-        sourceUrl: `https://commons.datacite.org/doi.org/${testWorkDOIs[0]}`,
-      },
-      {
-        id: expect.any(Number), // 👈 auto-increment id
-        workId: expect.any(Number), // 👈 auto-increment id
-        hash: Buffer.from("eccbc87e4b5ce2fe28308fd9f2a7baf3", "hex"),
-        workType: "DATASET",
-        publicationDate: expect.any(Date),
-        title: "Title: Climate Resilience of Eel-Reef Mutualisms: A Longitudinal Study",
-        abstractText: "An abstract abstract",
-        authors: [
-          {
-            orcid: "0000-0003-1234-5678",
-            firstInitial: "A",
-            givenName: "Alyssa",
-            middleInitials: "M",
-            middleNames: "Marie",
-            surname: "Langston",
-            full: null,
-          },
-          {
-            orcid: null,
-            firstInitial: "D",
-            givenName: "Daniel",
-            middleInitials: null,
-            middleNames: null,
-            surname: "Choi",
-            full: null,
-          },
-        ],
-        institutions: [
-          {
-            name: "University of California",
-            ror: "01an7q238",
-          },
-        ],
-        funders: [{ name: "National Science Foundation, USA", ror: "021nxhr62" }],
-        awards: [{ awardId: "ABC" }, { awardId: "123" }],
-        publicationVenue: "Nature Publications",
-        sourceName: "DataCite",
-        sourceUrl: `https://commons.datacite.org/doi.org/${testWorkDOIs[1]}`,
-      },
-    ]);
 
-    // Assert works table
-    const [worksRows] = await connection.execute("SELECT * FROM works");
+    const [worksRows] = await connection.execute('SELECT * FROM works');
     expect(worksRows).toHaveLength(2);
-    expect(worksRows).toMatchObject([
-      {
-        id: expect.any(Number), // 👈 auto-increment id
-        doi: testWorkDOIs[0],
-        created: expect.any(Date),
-      },
-      {
-        id: expect.any(Number), // 👈 auto-increment id
-        doi: testWorkDOIs[1],
-        created: expect.any(Date),
-      },
-    ]);
   });
 
-  test("4. should delete unlinked pending related works", async () => {
-    // Checks that unlinked pending related works and their work versions and works
-    // are deleted. Sets all works to pending, then makes an update where only
-    // one related work is in staging table, all other pending related works, work
-    // versions and works should be deleted.
-    if (!connection) {
-      console.warn("Skipping test: MySQL not available");
-      return;
-    }
+  test('4. should delete unlinked pending related works', async () => {
+    // Set all works back to pending
+    await connection.query(`UPDATE relatedWorks SET status = 'PENDING'`);
 
-    // Set work to pending
-    await connection.query(
-      `UPDATE relatedWorks
-       SET status = 'PENDING'`,
-    );
+    // Only keep one work in staging
+    const relatedWorksData: RelatedWork[] = [
+      makeRelatedWork({ workDoi: testWorkDOIs[0], hash: workVersion1.hash }),
+    ];
 
-    // Only keep one work
-    const workVersionsData = [
-      {
-        doi: testWorkDOIs[0],
-        hash: Buffer.from("c4ca4238a0b923820dcc509a6f75849b", "hex"),
-        workType: "DATASET",
-        publicationDate: "2025-01-01",
-        title: "Juvenile Eel Recruitment and Reef Nursery Conditions (JERRNC)",
-        abstractText: "An abstract",
-        authors: [
-          {
-            orcid: "0000-0003-1234-5678",
-            firstInitial: "A",
-            givenName: "Alyssa",
-            middleInitials: "M",
-            middleNames: "Marie",
-            surname: "Langston",
-            full: null,
-          },
-        ],
-        institutions: [
-          {
-            name: "University of California, Berkeley",
-            ror: "01an7q238",
-          },
-        ],
-        funders: [{ name: "National Science Foundation", ror: "021nxhr62" }],
-        awards: [{ awardId: "ABC" }],
-        publicationVenue: "Zenodo",
-        sourceName: "DataCite",
-        sourceUrl: `https://commons.datacite.org/doi.org/${testWorkDOIs[0]}`,
-      },
-    ];
-    const relatedWorksData = [
-      {
-        planId: null,
-        dmpDoi: "10.11111/2A3B4C",
-        workDoi: testWorkDOIs[0],
-        hash: Buffer.from("c4ca4238a0b923820dcc509a6f75849b", "hex"),
-        sourceType: "SYSTEM_MATCHED",
-        score: 1.0,
-        status: "PENDING",
-        scoreMax: 1.0,
-        doiMatch: {
-          found: true,
-          score: 1.0,
-          sources: [
-            {
-              awardId: "ABC",
-              awardUrl: "https://url-of-funder/award-page",
-            },
-          ],
-        },
-        contentMatch: {
-          score: 18.0,
-          titleHighlight: "Juvenile <mark>Eel</mark> Recruitment and Reef Nursery Conditions (JERRNC)",
-          abstractHighlights: ["An <mark>abstract</mark>"],
-        },
-        authorMatches: [
-          {
-            index: 0,
-            score: 2.0,
-            fields: ["full", "ror"],
-          },
-        ],
-        institutionMatches: [
-          {
-            index: 0,
-            score: 2.0,
-            fields: ["name", "ror"],
-          },
-        ],
-        funderMatches: [
-          {
-            index: 0,
-            score: 1.0,
-            fields: ["name"],
-          },
-        ],
-        awardMatches: [
-          {
-            index: 0,
-            score: 10.0,
-          },
-        ],
-      },
-    ];
-    await connection.query("CALL create_related_works_staging_tables");
-    await insertWorkVersions(connection, workVersionsData);
+    await connection.query('CALL create_related_works_staging_tables');
+    await insertWorkVersions(connection, [workVersion1]);
     await insertRelatedWorks(connection, relatedWorksData);
-    const systemMatched = true;
-    await connection.query("CALL batch_update_related_works(?)", [systemMatched]);
+    await connection.query('CALL batch_update_related_works(?)', [true]);
+    await connection.query('CALL cleanup_orphan_works');
 
-    // Check relatedWorks table
-    const [relatedWorksRows] = await connection.execute("SELECT * FROM relatedWorks");
+    const [relatedWorksRows] = await connection.execute('SELECT * FROM relatedWorks');
     expect(relatedWorksRows).toHaveLength(1);
     expect(relatedWorksRows).toMatchObject([
-      {
-        id: expect.any(Number), // 👈 auto-increment id
-        planId: expect.any(Number), // 👈 auto-increment id
-        workVersionId: expect.any(Number), // 👈 auto-increment id
-        sourceType: "SYSTEM_MATCHED",
-        score: 1,
-        scoreMax: 1.0,
-        status: "PENDING",
-        doiMatch: {
-          found: true,
-          score: 1.0,
-          sources: [
-            {
-              awardId: "ABC",
-              awardUrl: "https://url-of-funder/award-page",
-            },
-          ],
-        },
-        contentMatch: {
-          score: 18.0,
-          titleHighlight: "Juvenile <mark>Eel</mark> Recruitment and Reef Nursery Conditions (JERRNC)",
-          abstractHighlights: ["An <mark>abstract</mark>"],
-        },
-        authorMatches: [
-          {
-            index: 0,
-            score: 2.0,
-            fields: ["full", "ror"],
-          },
-        ],
-        institutionMatches: [
-          {
-            index: 0,
-            score: 2.0,
-            fields: ["name", "ror"],
-          },
-        ],
-        funderMatches: [
-          {
-            index: 0,
-            score: 1.0,
-            fields: ["name"],
-          },
-        ],
-        awardMatches: [
-          {
-            index: 0,
-            score: 10.0,
-          },
-        ],
-      },
+      { sourceType: 'SYSTEM_MATCHED', score: 1, status: 'PENDING' },
     ]);
 
-    // Check workVersions table
-    const [workVersionsRows] = await connection.execute("SELECT * FROM workVersions");
+    const [workVersionsRows] = await connection.execute('SELECT * FROM workVersions');
     expect(workVersionsRows).toHaveLength(1);
     expect(workVersionsRows).toMatchObject([
-      {
-        id: expect.any(Number), // 👈 auto-increment id
-        workId: expect.any(Number), // 👈 auto-increment id
-        hash: Buffer.from("c4ca4238a0b923820dcc509a6f75849b", "hex"),
-        workType: "DATASET",
-        publicationDate: expect.any(Date),
-        title: "Juvenile Eel Recruitment and Reef Nursery Conditions (JERRNC)",
-        abstractText: "An abstract",
-        authors: [
-          {
-            orcid: "0000-0003-1234-5678",
-            firstInitial: "A",
-            givenName: "Alyssa",
-            middleInitials: "M",
-            middleNames: "Marie",
-            surname: "Langston",
-            full: null,
-          },
-        ],
-        institutions: [
-          {
-            name: "University of California, Berkeley",
-            ror: "01an7q238",
-          },
-        ],
-        funders: [{ name: "National Science Foundation", ror: "021nxhr62" }],
-        awards: [{ awardId: "ABC" }],
-        publicationVenue: "Zenodo",
-        sourceName: "DataCite",
-        sourceUrl: `https://commons.datacite.org/doi.org/${testWorkDOIs[0]}`,
-      },
+      { hash: workVersion1.hash, workType: 'DATASET', title: workVersion1.title },
     ]);
 
-    // Assert works table
-    const [worksRows] = await connection.execute("SELECT * FROM works");
+    const [worksRows] = await connection.execute('SELECT * FROM works');
     expect(worksRows).toHaveLength(1);
-    expect(worksRows).toMatchObject([
+    expect(worksRows).toMatchObject([{ doi: testWorkDOIs[0] }]);
+  });
+
+  test('5. should not delete other plans pending works when batching per-DMP', async () => {
+    // Setup: Create Plan B with its own work
+    const planBDoi = 'https://doi.org/10.22222/PLAN_B';
+    const workDoi3 = '10.9999/third-work-doi';
+
+    await insertProjectAndPlan(
+      connection,
+      { title: planBDoi, isTestProject: true, createdById: 1, modifiedById: 1 },
       {
-        id: expect.any(Number), // 👈 auto-increment id
-        doi: testWorkDOIs[0],
-        created: expect.any(Date),
+        versionedTemplateId: 1,
+        visibility: 'PRIVATE',
+        status: 'DRAFT',
+        dmpId: planBDoi,
+        languageId: 'en-US',
+        featured: 0,
+        createdById: 1,
+        modifiedById: 1,
       },
+    );
+
+    const workVersion3: WorkVersion = {
+      ...workVersion1,
+      doi: workDoi3,
+      hash: Buffer.from('a87ff679a2f3e71d9181a67b7542122c', 'hex'),
+      title: 'Third Work for Plan B',
+    };
+
+    // Add a second work for Plan A and a work for Plan B (include both Plan A works in staging)
+    await connection.query('CALL create_related_works_staging_tables');
+    await insertWorkVersions(connection, [workVersion1, workVersion2, workVersion3]);
+    await insertRelatedWorks(connection, [
+      makeRelatedWork({ workDoi: testWorkDOIs[0], hash: workVersion1.hash }),
+      makeRelatedWork({ workDoi: testWorkDOIs[1], hash: workVersion2.hash }),
+      makeRelatedWork({ dmpDoi: planBDoi, workDoi: workDoi3, hash: workVersion3.hash }),
     ]);
+    await connection.query('CALL batch_update_related_works(?)', [true]);
+    await connection.query('CALL cleanup_orphan_works');
+
+    // Verify: Plan A has 2 works (one from test 4, one just added), Plan B has 1
+    const [beforeRows] = await connection.execute<any[]>(
+      'SELECT r.*, p.dmpId FROM relatedWorks r JOIN plans p ON r.planId = p.id ORDER BY p.dmpId, r.id',
+    );
+    const planABefore = beforeRows.filter((r: any) => r.dmpId === testPlanDOIs[0]);
+    const planBBefore = beforeRows.filter((r: any) => r.dmpId === planBDoi);
+    expect(planABefore).toHaveLength(2);
+    expect(planBBefore).toHaveLength(1);
+
+    // Now batch for Plan A only with just 1 of its 2 works
+    await connection.query('CALL create_related_works_staging_tables');
+    await insertWorkVersions(connection, [workVersion1]);
+    await insertRelatedWorks(connection, [
+      makeRelatedWork({ workDoi: testWorkDOIs[0], hash: workVersion1.hash }),
+    ]);
+    await connection.query('CALL batch_update_related_works(?)', [true]);
+
+    // Plan A: stale pending work deleted, only the staged one remains
+    // Plan B: untouched — its PENDING work must still be there
+    const [afterRows] = await connection.execute<any[]>(
+      'SELECT r.*, p.dmpId FROM relatedWorks r JOIN plans p ON r.planId = p.id ORDER BY p.dmpId, r.id',
+    );
+    const planAAfter = afterRows.filter((r: any) => r.dmpId === testPlanDOIs[0]);
+    const planBAfter = afterRows.filter((r: any) => r.dmpId === planBDoi);
+
+    expect(planAAfter).toHaveLength(1);
+    expect(planBAfter).toHaveLength(1);
+  });
+
+  test('6. systemMatched=false should only update status, not delete or update metadata', async () => {
+    // State from test 5: Plan A has 1 PENDING work (testWorkDOIs[0]), Plan B has 1 PENDING work (workDoi3)
+    const workDoi3 = '10.9999/third-work-doi';
+    const planBDoi = 'https://doi.org/10.22222/PLAN_B';
+
+    // Capture current scores before the update
+    const [beforeRows] = await connection.execute<any[]>(
+      'SELECT r.score, r.scoreMax, r.sourceType, p.dmpId FROM relatedWorks r JOIN plans p ON r.planId = p.id',
+    );
+    const planABefore = beforeRows.find((r: any) => r.dmpId === testPlanDOIs[0]);
+
+    // Stage Plan A's work with status=ACCEPTED and different score/sourceType
+    await connection.query('CALL create_related_works_staging_tables');
+    await insertWorkVersions(connection, [workVersion1]);
+    await insertRelatedWorks(connection, [
+      makeRelatedWork({
+        workDoi: testWorkDOIs[0],
+        hash: workVersion1.hash,
+        status: 'ACCEPTED',
+        sourceType: 'USER_ADDED',
+        score: 999,
+      }),
+    ]);
+    await connection.query('CALL batch_update_related_works(?)', [false]);
+
+    const [afterRows] = await connection.execute<any[]>(
+      'SELECT r.score, r.sourceType, r.status, p.dmpId FROM relatedWorks r JOIN plans p ON r.planId = p.id ORDER BY p.dmpId',
+    );
+    const planAAfter = afterRows.find((r: any) => r.dmpId === testPlanDOIs[0]);
+    const planBAfter = afterRows.find((r: any) => r.dmpId === planBDoi);
+
+    // Status should be updated
+    expect(planAAfter.status).toBe('ACCEPTED');
+
+    // Score and sourceType should NOT be updated (systemMatched=false only touches status)
+    expect(planAAfter.score).toBe(planABefore.score);
+    expect(planAAfter.sourceType).toBe(planABefore.sourceType);
+
+    // Plan B's PENDING work should NOT be deleted (no PENDING deletion in systemMatched=false path)
+    expect(planBAfter).toBeDefined();
+    expect(planBAfter.status).toBe('PENDING');
   });
 });

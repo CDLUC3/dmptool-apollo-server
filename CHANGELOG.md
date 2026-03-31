@@ -3,7 +3,6 @@
 ## v1.1.0
 
 ### Added
-- Updated override for `fast-xml-parser` dependency
 - Added logic to set a default output type for each entry in a `ResearchOutputTable` answer.
 - Added `guidanceText` and `sampleText` fields to `addQuestionCustomization` and added `json`, `questionText`, `requirementText`, `guidanceText`, `sampleText`, `useSampleTextAsDefault` and `required` to `addCustomQuestionInput` [#130]
 - Added `questionCustomizationByVersionedQuestion` resolver [#130]
@@ -49,6 +48,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated dependencies based on Renovate PRs
 - Updated the `VersionedTemplateSearchResult` to return `versionedTemplateCustomizationId` for the `search` function [#166]
 - Update `domain` to `emailDomain` in `AffiliationEmailDomain` model to match field name in table
 - Update buildspec to use `--omit=dev` instead of `--production` on `npm` commands

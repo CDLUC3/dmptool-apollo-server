@@ -10,6 +10,8 @@ export class Answer extends MySqlModel {
   public planId: number;
   public versionedSectionId: number;
   public versionedQuestionId: number;
+  public versionedCustomSectionId?: number;
+  public versionedCustomQuestionId?: number;
   public json: string;
 
   private static tableName = 'answers';
@@ -20,6 +22,8 @@ export class Answer extends MySqlModel {
     this.planId = options.planId;
     this.versionedSectionId = options.versionedSectionId;
     this.versionedQuestionId = options.versionedQuestionId;
+    this.versionedCustomSectionId = options.versionedCustomSectionId;
+    this.versionedCustomQuestionId = options.versionedCustomQuestionId;
     this.json = options.json;
     // Ensure json is stored as a string
     try {
@@ -32,10 +36,17 @@ export class Answer extends MySqlModel {
   // Validation to be used prior to saving the record
   async isValid(): Promise<boolean> {
     await super.isValid();
+    const hasBase = !!this.versionedSectionId && !!this.versionedQuestionId;
+    const hasCustom = !!this.versionedCustomSectionId && !!this.versionedCustomQuestionId;
+
+    if (!hasBase && !hasCustom) {
+      this.addError('general', 'Answer must belong to either a base or custom section and question');
+    }
+    if (hasBase && hasCustom) {
+      this.addError('general', 'Answer cannot belong to both a base and custom section simultaneously');
+    }
 
     if (!this.planId) this.addError('planId', 'Plan can\'t be blank');
-    if (!this.versionedSectionId) this.addError('versionedSectionId', 'Section can\'t be blank');
-    if (!this.versionedQuestionId) this.addError('versionedQuestionId', 'Question can\'t be blank');
 
     // If json is not null or undefined and the type is in the schema map
     if (!isNullOrUndefined(this.json) && this.errors['json'] === undefined) {
@@ -76,12 +87,11 @@ export class Answer extends MySqlModel {
 
     // First make sure the record is valid
     if (await this.isValid()) {
-      const current = await Answer.findByPlanIdAndVersionedQuestionId(
-        reference,
-        context,
-        this.planId,
-        this.versionedQuestionId
-      );
+      // Check if an answer already exists for this planId and versionedQuestionId or versionedCustomQuestionId (depending on which one is being used)
+      const current = this.versionedQuestionId
+        ? await Answer.findByPlanIdAndVersionedQuestionId(reference, context, this.planId, this.versionedQuestionId)
+        : await Answer.findByPlanIdAndVersionedCustomQuestionId(reference, context, this.planId, this.versionedCustomQuestionId);
+
 
       // Then make sure it doesn't already exist
       if (current) {
@@ -149,6 +159,18 @@ export class Answer extends MySqlModel {
     return Array.isArray(results) && results.length > 0 ? new Answer(results[0]) : null;
   }
 
+  static async findByPlanIdAndVersionedCustomQuestionId(
+    reference: string,
+    context: MyContext,
+    planId: number,
+    versionedCustomQuestionId: number
+  ): Promise<Answer> {
+    const sql = `SELECT * FROM answers WHERE planId = ? AND versionedCustomQuestionId = ?`;
+    const results = await Answer.query(context, sql, [planId.toString(), versionedCustomQuestionId.toString()], reference);
+    return Array.isArray(results) && results.length > 0 ? new Answer(results[0]) : null;
+  }
+
+
   // Fetch all of the answers for a versionedSectionId
   static async findByPlanIdAndVersionedSectionId(
     reference: string,
@@ -180,6 +202,24 @@ export class Answer extends MySqlModel {
     const placeholders = questionIds.map(() => '?').join(', ');
     const sql = `SELECT * FROM answers WHERE planId = ? AND versionedQuestionId IN (${placeholders}) AND json IS NOT NULL AND json != ''`;
     const results = await Answer.query(context, sql, [String(planId), ...questionIds.map(String)], reference);
+    return Array.isArray(results) && results.length > 0 ? results.map((ans) => new Answer(ans)) : [];
+  }
+
+  // Given a list of question ids, return all filled answers for custom questions
+  static async findFilledAnswersByCustomQuestionIds(
+    reference: string,
+    context: MyContext,
+    planId: number,
+    customQuestionIds: number[]
+  ): Promise<Answer[]> {
+    if (!Array.isArray(customQuestionIds) || customQuestionIds.length === 0) return [];
+
+    const placeholders = customQuestionIds.map(() => '?').join(', ');
+    const sql = `SELECT * FROM answers 
+    WHERE planId = ? 
+    AND versionedCustomQuestionId IN (${placeholders}) 
+    AND json IS NOT NULL AND json != ''`;
+    const results = await Answer.query(context, sql, [String(planId), ...customQuestionIds.map(String)], reference);
     return Array.isArray(results) && results.length > 0 ? results.map((ans) => new Answer(ans)) : [];
   }
 };

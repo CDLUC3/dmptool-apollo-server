@@ -343,4 +343,19 @@ export class VersionedCustomQuestion extends MySqlModel {
       : [];
   }
 
+  // Find all the custom question versions for a specific versioned section version and section type
+  static async findByVersionedSectionIdAndType(
+    reference: string,
+    context: MyContext,
+    versionedSectionId: number,
+    sectionType: 'BASE' | 'CUSTOM'
+  ): Promise<VersionedCustomQuestion[]> {
+    const sql = `SELECT * FROM versionedCustomQuestions 
+    WHERE versionedSectionType = ? AND versionedSectionId = ?
+    ORDER BY pinnedVersionedQuestionType ASC, pinnedVersionedQuestionId ASC`;
+    const results = await VersionedCustomQuestion.query(
+      context, sql, [sectionType, versionedSectionId.toString()], reference
+    );
+    return Array.isArray(results) ? results.map(r => new VersionedCustomQuestion(r)) : [];
+  }
 }

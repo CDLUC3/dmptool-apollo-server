@@ -14,7 +14,7 @@ export const typeDefs = gql`
 
   extend type Mutation {
     "Answer a question"
-    addAnswer(planId: Int!, versionedSectionId: Int!, versionedQuestionId: Int!, json: String): Answer
+    addAnswer(planId: Int!,versionedSectionId: Int,versionedQuestionId: Int,versionedCustomSectionId: Int,versionedCustomQuestionId: Int,json: String): Answer
     "Edit an answer"
     updateAnswer(answerId: Int!, json: String): Answer
     "Add comment for an answer "
@@ -44,6 +44,10 @@ export const typeDefs = gql`
     versionedSection: VersionedSection
     "The question in the template the answer is for"
     versionedQuestion: VersionedQuestion
+    "The custom section the answer is for"
+    versionedCustomSection: VersionedCustomSection
+    "The custom question the answer is for"
+    versionedCustomQuestion: VersionedCustomQuestion
     "The DMP that the answer belongs to"
     plan: Plan
     "The answer to the question"

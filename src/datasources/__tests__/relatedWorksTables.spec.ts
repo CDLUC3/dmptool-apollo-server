@@ -57,10 +57,11 @@ interface Project {
 }
 
 async function executeProceduresSql(conn: Connection, sql: string): Promise<void> {
-  const cleaned = sql
-    .replace(/DELIMITER\s+\$\$\s*/g, '')
-    .replace(/DELIMITER\s+;\s*/g, '');
-  const statements = cleaned.split('$$').map((s) => s.trim()).filter(Boolean);
+  const cleaned = sql.replace(/DELIMITER\s+\$\$\s*/g, '').replace(/DELIMITER\s+;\s*/g, '');
+  const statements = cleaned
+    .split('$$')
+    .map((s) => s.trim())
+    .filter(Boolean);
   for (const stmt of statements) {
     await conn.query(stmt);
   }
@@ -166,10 +167,7 @@ const testPlanDOIs = ['https://doi.org/10.11111/2A3B4C'];
 const testWorkDOIs = ['10.1234/fake-doi-001', '10.5678/sample.abc.2025'];
 
 beforeAll(async () => {
-  container = await new MySqlContainer('mysql:8.0')
-    .withDatabase('dmptool')
-    .withRootPassword('test')
-    .start();
+  container = await new MySqlContainer('mysql:8.0').withDatabase('dmptool').withRootPassword('test').start();
 
   connection = await mysql.createConnection({
     host: container.getHost(),
@@ -339,7 +337,10 @@ describe('Related Works Tables', () => {
         workDoi: testWorkDOIs[1],
         hash: workVersion2.hash,
         score: 0.8,
-        contentMatch: makeContentMatch(18.0, 'Climate Resilience of <mark>Eel-Reef</mark> Mutualisms: A Longitudinal Study'),
+        contentMatch: makeContentMatch(
+          18.0,
+          'Climate Resilience of <mark>Eel-Reef</mark> Mutualisms: A Longitudinal Study',
+        ),
       }),
     ];
 
@@ -361,7 +362,10 @@ describe('Related Works Tables', () => {
         scoreMax: 1.0,
         status: 'PENDING',
         doiMatch: makeDoiMatch(),
-        contentMatch: makeContentMatch(18.0, 'Juvenile <mark>Eel</mark> Recruitment and Reef Nursery Conditions (JERRNC)'),
+        contentMatch: makeContentMatch(
+          18.0,
+          'Juvenile <mark>Eel</mark> Recruitment and Reef Nursery Conditions (JERRNC)',
+        ),
         authorMatches: [makeItemMatch(0, 2.0, ['full', 'ror'])],
         institutionMatches: [makeItemMatch(0, 2.0, ['name', 'ror'])],
         funderMatches: [makeItemMatch(0, 1.0, ['name'])],
@@ -376,7 +380,10 @@ describe('Related Works Tables', () => {
         scoreMax: 1.0,
         status: 'PENDING',
         doiMatch: makeDoiMatch(),
-        contentMatch: makeContentMatch(18.0, 'Climate Resilience of <mark>Eel-Reef</mark> Mutualisms: A Longitudinal Study'),
+        contentMatch: makeContentMatch(
+          18.0,
+          'Climate Resilience of <mark>Eel-Reef</mark> Mutualisms: A Longitudinal Study',
+        ),
         authorMatches: [makeItemMatch(0, 2.0, ['full', 'ror'])],
         institutionMatches: [makeItemMatch(0, 2.0, ['name', 'ror'])],
         funderMatches: [makeItemMatch(0, 1.0, ['name'])],
@@ -437,10 +444,7 @@ describe('Related Works Tables', () => {
       publicationDate: '2025-02-02',
       title: 'Title: Climate Resilience of Eel-Reef Mutualisms: A Longitudinal Study',
       abstractText: 'An abstract abstract',
-      authors: [
-        ...workVersion2.authors.slice(0, 1),
-        { ...workVersion2.authors[1]!, givenName: 'Daniel' },
-      ],
+      authors: [...workVersion2.authors.slice(0, 1), { ...workVersion2.authors[1]!, givenName: 'Daniel' }],
       institutions: [{ name: 'University of California', ror: '01an7q238' }],
       funders: [{ name: 'National Science Foundation, USA', ror: '021nxhr62' }],
       awards: [{ awardId: 'ABC' }, { awardId: '123' }],
@@ -456,7 +460,10 @@ describe('Related Works Tables', () => {
         hash: updatedWorkVersion2.hash,
         score: 0.9,
         doiMatch: makeDoiMatch(2.0),
-        contentMatch: makeContentMatch(20.0, 'Climate Resilience of <mark>Eel-Reef</mark> Mutualisms: A Longitudinal Study'),
+        contentMatch: makeContentMatch(
+          20.0,
+          'Climate Resilience of <mark>Eel-Reef</mark> Mutualisms: A Longitudinal Study',
+        ),
         authorMatches: [makeItemMatch(1, 2.0, ['full', 'ror'])],
         institutionMatches: [makeItemMatch(1, 2.0, ['name', 'ror'])],
         funderMatches: [makeItemMatch(1, 1.0, ['name'])],
@@ -485,7 +492,10 @@ describe('Related Works Tables', () => {
         scoreMax: 1.0,
         status: 'PENDING',
         doiMatch: makeDoiMatch(2.0),
-        contentMatch: makeContentMatch(20.0, 'Climate Resilience of <mark>Eel-Reef</mark> Mutualisms: A Longitudinal Study'),
+        contentMatch: makeContentMatch(
+          20.0,
+          'Climate Resilience of <mark>Eel-Reef</mark> Mutualisms: A Longitudinal Study',
+        ),
         authorMatches: [makeItemMatch(1, 2.0, ['full', 'ror'])],
         institutionMatches: [makeItemMatch(1, 2.0, ['name', 'ror'])],
         funderMatches: [makeItemMatch(1, 1.0, ['name'])],
@@ -552,10 +562,7 @@ describe('Related Works Tables', () => {
 
     const [relatedWorksRows] = await connection.execute('SELECT * FROM relatedWorks');
     expect(relatedWorksRows).toHaveLength(2);
-    expect(relatedWorksRows).toMatchObject([
-      { status: 'ACCEPTED' },
-      { status: 'REJECTED' },
-    ]);
+    expect(relatedWorksRows).toMatchObject([{ status: 'ACCEPTED' }, { status: 'REJECTED' }]);
 
     const [workVersionsRows] = await connection.execute('SELECT * FROM workVersions');
     expect(workVersionsRows).toHaveLength(2);
@@ -569,9 +576,7 @@ describe('Related Works Tables', () => {
     await connection.query(`UPDATE relatedWorks SET status = 'PENDING'`);
 
     // Only keep one work in staging
-    const relatedWorksData: RelatedWork[] = [
-      makeRelatedWork({ workDoi: testWorkDOIs[0], hash: workVersion1.hash }),
-    ];
+    const relatedWorksData: RelatedWork[] = [makeRelatedWork({ workDoi: testWorkDOIs[0], hash: workVersion1.hash })];
 
     await connection.query('CALL create_related_works_staging_tables');
     await insertWorkVersions(connection, [workVersion1]);
@@ -581,9 +586,7 @@ describe('Related Works Tables', () => {
 
     const [relatedWorksRows] = await connection.execute('SELECT * FROM relatedWorks');
     expect(relatedWorksRows).toHaveLength(1);
-    expect(relatedWorksRows).toMatchObject([
-      { sourceType: 'SYSTEM_MATCHED', score: 1, status: 'PENDING' },
-    ]);
+    expect(relatedWorksRows).toMatchObject([{ sourceType: 'SYSTEM_MATCHED', score: 1, status: 'PENDING' }]);
 
     const [workVersionsRows] = await connection.execute('SELECT * FROM workVersions');
     expect(workVersionsRows).toHaveLength(1);
@@ -646,9 +649,7 @@ describe('Related Works Tables', () => {
     // Now batch for Plan A only with just 1 of its 2 works
     await connection.query('CALL create_related_works_staging_tables');
     await insertWorkVersions(connection, [workVersion1]);
-    await insertRelatedWorks(connection, [
-      makeRelatedWork({ workDoi: testWorkDOIs[0], hash: workVersion1.hash }),
-    ]);
+    await insertRelatedWorks(connection, [makeRelatedWork({ workDoi: testWorkDOIs[0], hash: workVersion1.hash })]);
     await connection.query('CALL batch_update_related_works(?)', [true]);
 
     // Plan A: stale pending work deleted, only the staged one remains

@@ -3,7 +3,8 @@
 ## v1.1.0
 
 ### Added
-- Added override for `fast-xml-parser` dependency
+- Updated override for `fast-xml-parser` dependency
+- Added logic to set a default output type for each entry in a `ResearchOutputTable` answer.
 - Added `guidanceText` and `sampleText` fields to `addQuestionCustomization` and added `json`, `questionText`, `requirementText`, `guidanceText`, `sampleText`, `useSampleTextAsDefault` and `required` to `addCustomQuestionInput` [#130]
 - Added `questionCustomizationByVersionedQuestion` resolver [#130]
 - Added `findByCustomizationAndVersionedQuestion` method to `QuestionCustomization` model [#130]

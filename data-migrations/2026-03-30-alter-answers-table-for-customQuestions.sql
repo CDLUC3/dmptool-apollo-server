@@ -11,6 +11,8 @@ ALTER TABLE `answers`
   ADD CONSTRAINT `answers_ibfk_7`
     FOREIGN KEY (`versionedCustomQuestionId`)
     REFERENCES `versionedCustomQuestions` (`id`) ON DELETE CASCADE,
+  -- Answer can be linked to either a question or a custom question, but not both. This constraint ensures that only 
+  -- one of the pairs (versionedSectionId, versionedQuestionId) or (versionedCustomSectionId, versionedCustomQuestionId) can be non-null at any given time.  
   ADD CONSTRAINT `chk_answer_question_type` CHECK (
     (
       versionedSectionId IS NOT NULL AND

@@ -1,4 +1,4 @@
-import { Resolvers } from "../types";
+import { Resolvers, CustomizableObjectOwnership } from "../types";
 import { MyContext } from "../context";
 import { VersionedQuestion } from "../models/VersionedQuestion";
 import { VersionedCustomQuestion } from "../models/VersionedCustomQuestion";
@@ -21,7 +21,7 @@ interface PublishedQuestionResult {
   sampleText?: string;
   required: boolean;
   hasAnswer: boolean;
-  questionType: 'BASE' | 'CUSTOM';
+  questionType: CustomizableObjectOwnership;
   // Type-specific IDs — one will always be present depending on questionType
   versionedQuestionId?: number;  // present when questionType === 'BASE'
   customQuestionId?: number;     // present when questionType === 'CUSTOM'
@@ -62,7 +62,7 @@ export const resolvers: Resolvers = {
               sampleText: q.sampleText,
               required: q.required,
               hasAnswer: baseAnswersMap.has(q.id),
-              questionType: 'BASE' as const,
+              questionType: 'BASE' as CustomizableObjectOwnership,
               versionedQuestionId: q.id,
               customQuestionId: undefined,
             })),
@@ -74,7 +74,7 @@ export const resolvers: Resolvers = {
               sampleText: q.sampleText,
               required: q.required,
               hasAnswer: customAnswersMap.has(q.id),
-              questionType: 'CUSTOM' as const,
+              questionType: 'CUSTOM' as CustomizableObjectOwnership,
               versionedQuestionId: undefined,
               customQuestionId: q.id,
             })),

@@ -5,7 +5,12 @@ import { VersionedCustomSection } from "../models/VersionedCustomSection";
 import { Section } from "../models/Section";
 import { Tag } from "../models/Tag";
 import { VersionedTemplate } from "../models/VersionedTemplate";
-import { AuthenticationError, ForbiddenError, InternalServerError } from "../utils/graphQLErrors";
+import {
+  AuthenticationError,
+  ForbiddenError,
+  InternalServerError,
+  NotFoundError
+} from "../utils/graphQLErrors";
 import { VersionedQuestion } from "../models/VersionedQuestion";
 import { prepareObjectForLogs } from "../logger";
 import { GraphQLError } from "graphql";
@@ -34,8 +39,8 @@ export const resolvers: Resolvers = {
       const reference = 'publishedSections resolver';
       try {
         const opts = !isNullOrUndefined(paginationOptions) && paginationOptions.type === PaginationType.OFFSET
-                    ? paginationOptions as PaginationOptionsForOffsets
-                    : { ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors;
+          ? paginationOptions as PaginationOptionsForOffsets
+          : { ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors;
 
         // Find published versionedSections with similar names for the current user
         return await VersionedSectionSearchResult.search(reference, context, term, opts);
@@ -84,9 +89,9 @@ export const resolvers: Resolvers = {
           affiliationId
         );
 
-        if (!result) throw new GraphQLError('Custom section not found', {
-          extensions: { code: 'NOT_FOUND' }
-        });
+        if (!result) {
+          throw NotFoundError(`Custom section with ID ${customSectionId} not found`);
+        }
 
         return result;
       } catch (err) {

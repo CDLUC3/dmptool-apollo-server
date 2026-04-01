@@ -713,6 +713,43 @@ export class TemplateCustomization extends MySqlModel {
             }
           }
 
+          // Snapshot custom questions attached to BASE sections — these are NOT
+          // covered by the loop above since that loop only iterates custom sections.
+          // findByCustomizationAndSectionType(BASE) returns all custom questions
+          // where sectionType = 'BASE', regardless of which specific base section
+          // they belong to.
+          const baseCustomQuestions = await CustomQuestion.findByCustomizationAndSectionType(
+            'TemplateCustomization.publish',
+            context,
+            this.id,
+            PinnedSectionTypeEnum.BASE
+          );
+
+          for (const question of baseCustomQuestions) {
+            const versionedQuestion = new VersionedCustomQuestion({
+              versionedTemplateCustomizationId: created.id,
+              customQuestionId: question.id,
+              versionedSectionType: question.sectionType,           // 'BASE'
+              versionedSectionId: question.sectionId,               // the versionedSection id
+              pinnedVersionedQuestionType: question.pinnedQuestionType ?? null,
+              pinnedVersionedQuestionId: question.pinnedQuestionId ?? null,
+              questionText: question.questionText,
+              json: question.json,
+              requirementText: question.requirementText ?? null,
+              guidanceText: question.guidanceText ?? null,
+              sampleText: question.sampleText ?? null,
+              useSampleTextAsDefault: question.useSampleTextAsDefault ?? false,
+              required: question.required ?? false,
+            });
+            const createdQuestion = await versionedQuestion.create(context);
+
+            if (!createdQuestion || createdQuestion.hasErrors()) {
+              this.addError(
+                'general',
+                `Unable to version custom question for base section id: ${question.sectionId}`
+              );
+            }
+          }
 
           // Update the status of the customization to reflect the change
           this.status = TemplateCustomizationStatus.PUBLISHED;

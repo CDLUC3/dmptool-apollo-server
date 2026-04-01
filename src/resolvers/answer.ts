@@ -12,6 +12,8 @@ import { isAuthorized } from "../services/authService";
 import { sendProjectCollaboratorsCommentsAddedEmail } from '../services/emailService';
 import { canDeleteComment } from "../services/commentPermissions";
 import { Resolvers } from "../types";
+import { VersionedCustomQuestion } from "../models/VersionedCustomQuestion";
+import { VersionedCustomSection } from "../models/VersionedCustomSection";
 import { Answer } from "../models/Answer";
 import { VersionedQuestion } from "../models/VersionedQuestion";
 import { VersionedSection } from "../models/VersionedSection";
@@ -314,6 +316,20 @@ export const resolvers: Resolvers = {
     versionedQuestion: async (parent: Answer, _, context: MyContext): Promise<VersionedQuestion> => {
       if (parent?.versionedQuestionId) {
         return await VersionedQuestion.findById('Answer versionedQuestion resolver', context, parent.versionedQuestionId);
+      }
+      return null;
+    },
+    // The section the answer's question belongs to
+    versionedCustomSection: async (parent: Answer, _, context: MyContext): Promise<VersionedCustomSection> => {
+      if (parent?.versionedCustomSectionId) {
+        return await VersionedCustomSection.findById('Answer versionedCustomSection resolver', context, parent.versionedCustomSectionId);
+      }
+      return null;
+    },
+    // The question the answer is associated with
+    versionedCustomQuestion: async (parent: Answer, _, context: MyContext): Promise<VersionedCustomQuestion> => {
+      if (parent?.versionedCustomQuestionId) {
+        return await VersionedCustomQuestion.findById('Answer versionedCustomQuestion resolver', context, parent.versionedCustomQuestionId);
       }
       return null;
     },

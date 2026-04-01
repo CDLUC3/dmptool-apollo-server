@@ -3,6 +3,9 @@
 ## v1.1.0
 
 ### Added
+- Added `versionedCustomSectionId` and `versionedCustomQuestionId` files to `answers` table [#159]
+- Added `findByVersionedCustomSectionId` and `findByVersionedSectionIdAndType` functions to VersionedCustomQuestion model [#159]
+- Added `versionedCustomSection` and `versionedCustomQuestion` chained resolvers to `answer` query [#159]
 - Added logic to set a default output type for each entry in a `ResearchOutputTable` answer.
 - Added `guidanceText` and `sampleText` fields to `addQuestionCustomization` and added `json`, `questionText`, `requirementText`, `guidanceText`, `sampleText`, `useSampleTextAsDefault` and `required` to `addCustomQuestionInput` [#130]
 - Added `questionCustomizationByVersionedQuestion` resolver [#130]
@@ -48,6 +51,8 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `Answer` model with `versionedCustomSectionId` and `versionedCustomQuestionId`, and added new `findFilledAnswersByCustomQuestionIds` and `findByPlanIdAndVersionedCustomQuestionId` functions, and updated `isValid` function to account for new id fields, and updated `create` function to check both `versionedQuestionId` and `versionedCustomQuestionId` for already existing answer [#159]
+- Updated `publishedQuestions` query in `versionedQuestion` resolver to return both `BASE` and `CUSTOM` versioned questions for the given versionedSectionId. Also, added `publishedCustomQuestions` query to return the `customQuestions` associated with a `customSection` [#159]
 - Updated `PlanSectionProgress` so that it returns custom sections, and correct totalQuestions counts that include customQuestions [#167]
 - Updated `PlanSearchResult` `versionedSections` chained resolver to include `versionedTemplateId` [#167]
 - Updated dependencies based on Renovate PRs

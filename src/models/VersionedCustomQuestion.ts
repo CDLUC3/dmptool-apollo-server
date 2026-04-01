@@ -321,4 +321,41 @@ export class VersionedCustomQuestion extends MySqlModel {
     );
     return Array.isArray(results) && results.length > 0 ? new VersionedCustomQuestion(results[0]) : undefined;
   }
+
+  // Find all the custom question versions for a specific versioned custom section version
+  // Custom questions use pinning, and not displayOrder
+  static async findByVersionedCustomSectionId(
+    reference: string,
+    context: MyContext,
+    versionedCustomSectionId: number
+  ): Promise<VersionedCustomQuestion[]> {
+    const sql = `
+    SELECT * FROM ${VersionedCustomQuestion.tableName}
+    WHERE versionedSectionType = 'CUSTOM'
+      AND versionedSectionId = ?
+    ORDER BY pinnedVersionedQuestionType ASC, pinnedVersionedQuestionId ASC
+  `;
+    const results = await VersionedCustomQuestion.query(
+      context, sql, [versionedCustomSectionId.toString()], reference
+    );
+    return Array.isArray(results) && results.length > 0
+      ? results.map(r => new VersionedCustomQuestion(r))
+      : [];
+  }
+
+  // Find all the custom question versions for a specific versioned section version and section type
+  static async findByVersionedSectionIdAndType(
+    reference: string,
+    context: MyContext,
+    versionedSectionId: number,
+    sectionType: 'BASE' | 'CUSTOM'
+  ): Promise<VersionedCustomQuestion[]> {
+    const sql = `SELECT * FROM versionedCustomQuestions 
+    WHERE versionedSectionType = ? AND versionedSectionId = ?
+    ORDER BY pinnedVersionedQuestionType ASC, pinnedVersionedQuestionId ASC`;
+    const results = await VersionedCustomQuestion.query(
+      context, sql, [sectionType, versionedSectionId.toString()], reference
+    );
+    return Array.isArray(results) ? results.map(r => new VersionedCustomQuestion(r)) : [];
+  }
 }

@@ -352,4 +352,31 @@ export class CustomQuestion extends MySqlModel {
   }
 
 
+  /**
+   * Find all custom questions of a specific section type within a template customization.
+   * For example, find all custom questions added to BASE sections (as opposed to CUSTOM sections).
+   *
+   * @param reference The reference to use for logging errors.
+   * @param context The Apollo context.
+   * @param templateCustomizationId The id of the template customization.
+   * @param sectionType The type of the section to filter by (either 'BASE' or 'CUSTOM').
+   * @returns The custom questions.
+   */
+  static async findByCustomizationAndSectionType(
+    reference: string,
+    context: MyContext,
+    templateCustomizationId: number,
+    sectionType: PinnedSectionTypeEnum,
+    // No sectionId — we want ALL questions of this type across all sections
+  ): Promise<CustomQuestion[]> {
+    const results = await CustomQuestion.query(
+      context,
+      `SELECT * FROM ${CustomQuestion.tableName}
+     WHERE templateCustomizationId = ? AND sectionType = ?`,
+      [templateCustomizationId.toString(), sectionType],
+      reference
+    );
+    return Array.isArray(results) ? results.map(r => new CustomQuestion(r)) : [];
+  }
+
 }

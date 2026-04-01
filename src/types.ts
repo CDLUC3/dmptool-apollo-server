@@ -2646,6 +2646,8 @@ export type PlanSearchResult = {
   title?: Maybe<Scalars['String']['output']>;
   /** The section search results */
   versionedSections?: Maybe<Array<PlanSectionProgress>>;
+  /** The versioned template id the plan is based on */
+  versionedTemplateId?: Maybe<Scalars['Int']['output']>;
   /** The visibility/permission setting */
   visibility?: Maybe<PlanVisibility>;
 };
@@ -2655,8 +2657,12 @@ export type PlanSectionProgress = {
   __typename?: 'PlanSectionProgress';
   /** The number of questions the user has answered */
   answeredQuestions: Scalars['Int']['output'];
+  /** The custom section id if the section is a customization, otherwise null */
+  customSectionId?: Maybe<Scalars['Int']['output']>;
   /** The display order of the section */
   displayOrder: Scalars['Int']['output'];
+  /** Whether or not the section is a customization (i.e. added by the user and not part of the original template) */
+  sectionType: CustomizableObjectOwnership;
   /** Tags associated with the section */
   tags?: Maybe<Array<Tag>>;
   /** The title of the section */
@@ -2664,7 +2670,7 @@ export type PlanSectionProgress = {
   /** The number of questions in the section */
   totalQuestions: Scalars['Int']['output'];
   /** The id of the Section */
-  versionedSectionId: Scalars['Int']['output'];
+  versionedSectionId?: Maybe<Scalars['Int']['output']>;
 };
 
 /** The status/state of the plan */
@@ -6940,16 +6946,19 @@ export type PlanSearchResultResolvers<ContextType = MyContext, ParentType extend
   templateTitle?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   title?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   versionedSections?: Resolver<Maybe<Array<ResolversTypes['PlanSectionProgress']>>, ParentType, ContextType>;
+  versionedTemplateId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   visibility?: Resolver<Maybe<ResolversTypes['PlanVisibility']>, ParentType, ContextType>;
 };
 
 export type PlanSectionProgressResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PlanSectionProgress'] = ResolversParentTypes['PlanSectionProgress']> = {
   answeredQuestions?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  customSectionId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   displayOrder?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  sectionType?: Resolver<ResolversTypes['CustomizableObjectOwnership'], ParentType, ContextType>;
   tags?: Resolver<Maybe<Array<ResolversTypes['Tag']>>, ParentType, ContextType>;
   title?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   totalQuestions?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  versionedSectionId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  versionedSectionId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
 };
 
 export type PlanVersionResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PlanVersion'] = ResolversParentTypes['PlanVersion']> = {

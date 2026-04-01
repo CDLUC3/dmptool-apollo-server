@@ -48,6 +48,8 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `PlanSectionProgress` so that it returns custom sections, and correct totalQuestions counts that include customQuestions [#167]
+- Updated `PlanSearchResult` `versionedSections` chained resolver to include `versionedTemplateId` [#167]
 - Updated dependencies based on Renovate PRs
 - Updated the `VersionedTemplateSearchResult` to return `versionedTemplateCustomizationId` for the `search` function [#166]
 - Update `domain` to `emailDomain` in `AffiliationEmailDomain` model to match field name in table

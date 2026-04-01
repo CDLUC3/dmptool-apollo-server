@@ -191,9 +191,9 @@ describe('PlanSectionProgress.findByPlanId', () => {
   });
 
   it('should call the correct SQL query', async () => {
-    localQuery.mockResolvedValueOnce([progress]);
-    const planId = casual.integer(1, 99);
-    const sql = `SELECT
+  const planId = casual.integer(1, 99);
+  const versionedTemplateId = casual.integer(1, 99);
+  const sql = `SELECT
       vs.id AS versionedSectionId,
       vs.displayOrder,
       vs.name AS title,
@@ -229,11 +229,24 @@ describe('PlanSectionProgress.findByPlanId', () => {
     GROUP BY vs.id, vs.displayOrder, vs.name, tagAgg.tags
     ORDER BY vs.displayOrder;
 `
-    const result = await PlanSectionProgress.findByPlanId('testing', context, planId);
-    expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, sql, [planId.toString()], 'testing')
-    expect(result).toEqual([progress]);
-  });
+
+  localQuery
+    .mockResolvedValueOnce([progress])  // first call: base sections query
+    .mockResolvedValueOnce([]);         // second call: findTemplateCustomizationId returns no customization
+
+  const result = await PlanSectionProgress.findByPlanId('testing', context, planId, versionedTemplateId);
+
+  expect(localQuery).toHaveBeenCalledTimes(2);
+
+  // Check the FIRST call (base sections), not the last
+  expect(localQuery).toHaveBeenNthCalledWith(1, context, sql, [planId.toString()], 'testing');
+
+  // Check the SECOND call (customization lookup)
+  expect(localQuery).toHaveBeenNthCalledWith(2, context, expect.stringContaining('SELECT templateCustomizationId'), [versionedTemplateId.toString(), context.token.affiliationId], 'testing');
+
+  expect(result).toHaveLength(1);
+});
+
 
   it('should return an empty array if no results are found', async () => {
     localQuery.mockResolvedValueOnce([]);
@@ -241,7 +254,142 @@ describe('PlanSectionProgress.findByPlanId', () => {
     const result = await PlanSectionProgress.findByPlanId('testing', context, projectId);
     expect(result).toEqual([]);
   });
+
+  it('should return base sections only if no template customization exists', async () => {
+    const baseSection = { versionedSectionId: 1, displayOrder: 0, title: 'Base', totalQuestions: 2, answeredQuestions: 1, tags: [] };
+    localQuery
+      .mockResolvedValueOnce([baseSection]) // base sections
+      .mockResolvedValueOnce(undefined);    // findTemplateCustomizationId returns undefined
+    const result = await PlanSectionProgress.findByPlanId('ref', context, 123, 456);
+    expect(result).toHaveLength(1);
+    expect(result[0].versionedSectionId).toBe(1);
+  });
+
+  it('should bump totalQuestions for base sections with extra custom questions', async () => {
+    const baseSection = { versionedSectionId: 1, displayOrder: 0, title: 'Base', totalQuestions: 2, answeredQuestions: 1, tags: [] };
+    localQuery.mockResolvedValueOnce([baseSection]); // base sections
+
+    // Mock the static methods
+    /*eslint-disable @typescript-eslint/no-explicit-any */
+    jest.spyOn(PlanSectionProgress as any, 'findTemplateCustomizationId').mockResolvedValue(99);
+    jest.spyOn(PlanSectionProgress as any, 'fetchCustomSections').mockResolvedValue([]);
+    jest.spyOn(PlanSectionProgress as any, 'fetchExtraQuestionsForBaseSections').mockResolvedValue([{ versionedSectionId: 1, extraCount: 3 }]);
+
+    const result = await PlanSectionProgress.findByPlanId('ref', context, 123, 456);
+    expect(result[0].totalQuestions).toBe(5);
+
+    // Clean up
+    jest.restoreAllMocks();
+  });
+
+  it('should not bump totalQuestions if no extra questions exist', async () => {
+    const baseSection = { versionedSectionId: 1, displayOrder: 0, title: 'Base', totalQuestions: 2, answeredQuestions: 1, tags: [] };
+    localQuery
+      .mockResolvedValueOnce([baseSection]) // base sections
+      .mockResolvedValueOnce(99)            // findTemplateCustomizationId returns 99
+      .mockResolvedValueOnce([], [])        // fetchCustomSections returns []
+      .mockResolvedValueOnce([]);           // fetchExtraQuestionsForBaseSections
+    const result = await PlanSectionProgress.findByPlanId('ref', context, 123, 456);
+    expect(result[0].totalQuestions).toBe(2);
+  });
+
+  it('should insert custom sections after the correct base section', async () => {
+    const baseSection = { versionedSectionId: 1, displayOrder: 0, title: 'Base', totalQuestions: 2, answeredQuestions: 1, tags: [] };
+    const customSection = { id: 10, name: 'Custom', pinnedSectionType: 'BASE', pinnedSectionId: 1, totalQuestions: 3 };
+
+    localQuery.mockResolvedValueOnce([baseSection]); // base sections
+
+    /*eslint-disable @typescript-eslint/no-explicit-any */
+    jest.spyOn(PlanSectionProgress as any, 'findTemplateCustomizationId').mockResolvedValue(99);
+    jest.spyOn(PlanSectionProgress as any, 'fetchCustomSections').mockResolvedValue([customSection]);
+    jest.spyOn(PlanSectionProgress as any, 'fetchExtraQuestionsForBaseSections').mockResolvedValue([]);
+
+    const result = await PlanSectionProgress.findByPlanId('ref', context, 123, 456);
+    expect(result).toHaveLength(2);
+    expect(result[1].sectionType).toBeDefined();
+    expect(result[1].customSectionId).toBe(10);
+    expect(result[1].title).toBe('Custom');
+
+    jest.restoreAllMocks();
+  });
+
+  it('should insert chains of custom sections (custom sections pinned to other custom sections)', async () => {
+    const baseSection = { versionedSectionId: 1, displayOrder: 0, title: 'Base', totalQuestions: 2, answeredQuestions: 1, tags: [] };
+    const customSection1 = { id: 10, name: 'Custom1', pinnedSectionType: 'BASE', pinnedSectionId: 1, totalQuestions: 3 };
+    const customSection2 = { id: 11, name: 'Custom2', pinnedSectionType: 'CUSTOM', pinnedSectionId: 10, totalQuestions: 2 };
+    localQuery.mockResolvedValueOnce([baseSection]); // base sections
+
+    /*eslint-disable @typescript-eslint/no-explicit-any */
+    jest.spyOn(PlanSectionProgress as any, 'findTemplateCustomizationId').mockResolvedValue(99);
+    jest.spyOn(PlanSectionProgress as any, 'fetchCustomSections').mockResolvedValue([customSection1, customSection2]);
+    jest.spyOn(PlanSectionProgress as any, 'fetchExtraQuestionsForBaseSections').mockResolvedValue([]);
+
+    const result = await PlanSectionProgress.findByPlanId('ref', context, 123, 456);
+    expect(result).toHaveLength(3);
+    expect(result[1].customSectionId).toBe(10);
+    expect(result[2].customSectionId).toBe(11);
+    expect(result[2].title).toBe('Custom2');
+  });
+
+  it('should parse tags correctly if tags are a string', async () => {
+    const baseSection = { versionedSectionId: 1, displayOrder: 0, title: 'Base', totalQuestions: 2, answeredQuestions: 1, tags: '[{"id":1,"slug":"foo","name":"Foo","description":"desc"}]' };
+    localQuery.mockResolvedValueOnce([baseSection]);
+    const result = await PlanSectionProgress.findByPlanId('ref', context, 123);
+    expect(Array.isArray(result[0].tags)).toBe(true);
+    expect(result[0].tags[0].slug).toBe('foo');
+  });
+
+  it('should handle empty or malformed tags gracefully', async () => {
+    const baseSection = { versionedSectionId: 1, displayOrder: 0, title: 'Base', totalQuestions: 2, answeredQuestions: 1, tags: 'not-json' };
+    localQuery.mockResolvedValueOnce([baseSection]);
+    const result = await PlanSectionProgress.findByPlanId('ref', context, 123);
+    expect(Array.isArray(result[0].tags)).toBe(true);
+    expect(result[0].tags.length).toBe(0);
+  });
+
+  it('should return an empty array if no base sections are found', async () => {
+    localQuery.mockResolvedValueOnce([]);
+    const result = await PlanSectionProgress.findByPlanId('ref', context, 123);
+    expect(result).toEqual([]);
+  });
+
+  it('should set correct sectionType and IDs for custom and base sections', async () => {
+    const baseSection = { versionedSectionId: 1, displayOrder: 0, title: 'Base', totalQuestions: 2, answeredQuestions: 1, tags: [] };
+    const customSection = { id: 10, name: 'Custom', pinnedSectionType: 'BASE', pinnedSectionId: 1, totalQuestions: 3 };
+
+    localQuery.mockResolvedValueOnce([baseSection]); // base sections
+
+    /*eslint-disable @typescript-eslint/no-explicit-any */
+    jest.spyOn(PlanSectionProgress as any, 'findTemplateCustomizationId').mockResolvedValue(99);
+    jest.spyOn(PlanSectionProgress as any, 'fetchCustomSections').mockResolvedValue([customSection]);
+    jest.spyOn(PlanSectionProgress as any, 'fetchExtraQuestionsForBaseSections').mockResolvedValue([]);
+
+    const result = await PlanSectionProgress.findByPlanId('ref', context, 123, 456);
+    expect(result[0].sectionType).toBeDefined();
+    expect(result[0].versionedSectionId).toBe(1);
+    expect(result[1].sectionType).toBeDefined();
+    expect(result[1].customSectionId).toBe(10);
+  });
+
+  it('should handle circular pinning gracefully (no infinite recursion)', async () => {
+    const baseSection = { versionedSectionId: 1, displayOrder: 0, title: 'Base', totalQuestions: 2, answeredQuestions: 1, tags: [] };
+    const customSection1 = { id: 10, name: 'Custom1', pinnedSectionType: 'BASE', pinnedSectionId: 1, totalQuestions: 3 };
+    // Circular: customSection2 pinned to customSection1, customSection1 pinned to customSection2
+    const customSection2 = { id: 11, name: 'Custom2', pinnedSectionType: 'CUSTOM', pinnedSectionId: 10, totalQuestions: 2 };
+    // Now, customSection1 is also pinned to customSection2 (circular)
+    customSection1.pinnedSectionId = 11;
+    localQuery
+      .mockResolvedValueOnce([baseSection]) // base sections
+      .mockResolvedValueOnce(99)            // findTemplateCustomizationId returns 99
+      .mockResolvedValueOnce([customSection1, customSection2], []) // fetchCustomSections returns both
+      .mockResolvedValueOnce([]);           // fetchExtraQuestionsForBaseSections
+    const result = await PlanSectionProgress.findByPlanId('ref', context, 123, 456);
+    // Should not hang, should return base + both customs at most
+    expect(result.length).toBeGreaterThanOrEqual(1);
+    expect(result.length).toBeLessThanOrEqual(3);
+  });
 });
+
 
 
 describe('PlanProgress', () => {
@@ -457,7 +605,7 @@ describe('Plan.processResult', () => {
     plan.update = mockUpdate;
 
     const newDmpId = getMockDMPId();
-    const updatedPlan = new Plan({...plan, dmpId: newDmpId});
+    const updatedPlan = new Plan({ ...plan, dmpId: newDmpId });
 
     mockGenerateDMPId.mockResolvedValueOnce(newDmpId);
     mockUpdate.mockResolvedValueOnce(updatedPlan);
@@ -477,7 +625,7 @@ describe('Plan.processResult', () => {
     plan.update = mockUpdate;
 
     const newDmpId = getMockDMPId();
-    const updatedPlan = new Plan({...plan, dmpId: newDmpId});
+    const updatedPlan = new Plan({ ...plan, dmpId: newDmpId });
 
     mockGenerateDMPId.mockResolvedValueOnce(newDmpId);
     mockUpdate.mockResolvedValueOnce(updatedPlan);

@@ -49,6 +49,7 @@ export const resolvers: Resolvers = {
       const reference = 'plan resolver';
       try {
         const plan = await Plan.findById(reference, context, planId);
+
         if (!plan) {
           throw NotFoundError(`Plan with ID ${planId} not found`);
         }
@@ -326,7 +327,7 @@ export const resolvers: Resolvers = {
     },
     versionedSections: async (parent: Plan, _, context: MyContext): Promise<PlanSectionProgress[]> => {
       if (parent?.id) {
-        return await PlanSectionProgress.findByPlanId('plan versionedSections resolver', context, parent.id);
+        return await PlanSectionProgress.findByPlanId('plan versionedSections resolver', context, parent.id, parent?.versionedTemplateId);
       }
       return [];
     },
@@ -348,11 +349,17 @@ export const resolvers: Resolvers = {
   },
 
   PlanSearchResult: {
-    versionedSections: async (parent: PlanSearchResult, _, context: MyContext): Promise<PlanSectionProgress[]> => {
+    versionedSections: async (parent, _, context: MyContext): Promise<PlanSectionProgress[]> => {
       if (parent?.id) {
-        return await PlanSectionProgress.findByPlanId('planSearchresult versionedSections resolver', context, parent.id);
+        return await PlanSectionProgress.findByPlanId(
+          'planSearchresult versionedSections resolver',
+          context,
+          parent.id,
+          parent?.versionedTemplateId
+        );
       }
       return [];
     }
-  },
+  }
+
 }

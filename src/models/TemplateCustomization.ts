@@ -1,5 +1,9 @@
 import { MySqlModel } from "./MySqlModel";
 import { VersionedTemplateCustomization } from "./VersionedTemplateCustomization";
+import { VersionedCustomQuestion } from "./VersionedCustomQuestion";
+import { VersionedCustomSection } from "./VersionedCustomSection";
+import { CustomSection } from "./CustomSection";
+import { CustomQuestion } from "./CustomQuestion";
 import { MyContext } from "../context";
 import {
   isNullOrUndefined,
@@ -651,6 +655,65 @@ export class TemplateCustomization extends MySqlModel {
         const created: VersionedTemplateCustomization = await newVersion.create(context);
 
         if (!isNullOrUndefined(created) && !created.hasErrors() && created.id) {
+          // Snapshot custom sections into versionedCustomSections
+          const customSections = await CustomSection.findByCustomizationId(
+            'TemplateCustomization.publish',
+            context,
+            this.id
+          );
+
+          for (const section of customSections) {
+            const versionedSection = new VersionedCustomSection({
+              versionedTemplateCustomizationId: created.id,
+              customSectionId: section.id,
+              pinnedVersionedSectionType: section.pinnedSectionType,
+              pinnedVersionedSectionId: section.pinnedSectionId,
+              name: section.name,
+              introduction: section.introduction,
+              requirements: section.requirements,
+              guidance: section.guidance,
+            });
+            const createdSection = await versionedSection.create(context);
+
+            if (!createdSection || createdSection.hasErrors()) {
+              this.addError('general', `Unable to version custom section: ${section.name}`);
+              continue;
+            }
+
+            // Snapshot custom questions for this section
+            const customQuestions = await CustomQuestion.findByCustomizationAndSectionId(
+              'TemplateCustomization.publish',
+              context,
+              this.id,
+              PinnedSectionTypeEnum.CUSTOM,
+              section.id
+            );
+
+            for (const question of customQuestions) {
+              const versionedQuestion = new VersionedCustomQuestion({
+                versionedTemplateCustomizationId: created.id,
+                customQuestionId: question.id,
+                versionedSectionType: question.sectionType,   // 'CUSTOM' since we're in a custom section
+                versionedSectionId: question.sectionId,
+                pinnedVersionedQuestionType: question.pinnedQuestionType ?? null,
+                pinnedVersionedQuestionId: question.pinnedQuestionId ?? null,
+                questionText: question.questionText,
+                json: question.json,
+                requirementText: question.requirementText ?? null,
+                guidanceText: question.guidanceText ?? null,
+                sampleText: question.sampleText ?? null,
+                useSampleTextAsDefault: question.useSampleTextAsDefault ?? false,
+                required: question.required ?? false,
+              });
+              const createdQuestion = await versionedQuestion.create(context);
+
+              if (!createdQuestion || createdQuestion.hasErrors()) {
+                this.addError('general', `Unable to version custom question in section: ${section.name}`);
+              }
+            }
+          }
+
+
           // Update the status of the customization to reflect the change
           this.status = TemplateCustomizationStatus.PUBLISHED;
           this.isDirty = false;

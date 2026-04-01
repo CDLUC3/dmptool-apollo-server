@@ -5,7 +5,7 @@ import {
   removeNullAndUndefinedFromJSON
 } from "../utils/helpers";
 import { MyContext } from "../context";
-import {DefaultTextAreaQuestion, QuestionSchemaMap} from "@dmptool/types";
+import { DefaultTextAreaQuestion, QuestionSchemaMap } from "@dmptool/types";
 import { PinnedSectionTypeEnum } from "./CustomSection";
 
 /**
@@ -324,4 +324,32 @@ export class CustomQuestion extends MySqlModel {
     );
     return Array.isArray(results) && results.length > 0 ? new CustomQuestion(results[0]) : undefined;
   }
+
+  /**
+ * Find all custom questions for a specific section within a template customization
+ *
+ * @param reference The reference to use for logging errors.
+ * @param context The Apollo context.
+ * @param templateCustomizationId The id of the template customization.
+ * @param sectionId The id of the section (either a versionedSection id or customSection id).
+ * @returns The custom questions.
+ */
+  static async findByCustomizationAndSectionId(
+    reference: string,
+    context: MyContext,
+    templateCustomizationId: number,
+    sectionType: PinnedSectionTypeEnum,
+    sectionId: number
+  ): Promise<CustomQuestion[]> {
+    const results = await CustomQuestion.query(
+      context,
+      `SELECT * FROM ${CustomQuestion.tableName}
+       WHERE templateCustomizationId = ? AND sectionType = ? AND sectionId = ?`,
+      [templateCustomizationId.toString(), sectionType, sectionId.toString()],
+      reference
+    );
+    return Array.isArray(results) ? results.map(r => new CustomQuestion(r)) : [];
+  }
+
+
 }

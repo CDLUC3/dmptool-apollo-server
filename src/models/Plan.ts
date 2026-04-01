@@ -149,15 +149,17 @@ export class PlanSectionProgress {
   private static async findTemplateCustomizationId(
     reference: string,
     context: MyContext,
-    versionedTemplateId: number
+    versionedTemplateId: number,
+    affiliationId: string,
   ): Promise<number | undefined> {
     const sql = `
       SELECT templateCustomizationId
       FROM versionedTemplateCustomizations
       WHERE currentVersionedTemplateId = ?
+      AND affiliationId = ?
       LIMIT 1
     `;
-    const rows = await Plan.query(context, sql, [versionedTemplateId.toString()], reference);
+    const rows = await Plan.query(context, sql, [versionedTemplateId.toString(), affiliationId], reference);
     return Array.isArray(rows) && rows.length > 0
       ? rows[0].templateCustomizationId
       : undefined;
@@ -280,13 +282,14 @@ export class PlanSectionProgress {
     // If there are no base sections the plan is in a bad state — return early
     if (!baseSections.length) return baseSections;
 
-    // If versionedTemplateId wasn't provided, skip customization lookup
-    if (isNullOrUndefined(versionedTemplateId)) return baseSections;
+    const affiliationId = context.token?.affiliationId;
+    if (!affiliationId) return baseSections;
 
     const templateCustomizationId = await this.findTemplateCustomizationId(
       reference,
       context,
-      versionedTemplateId
+      versionedTemplateId,
+      affiliationId
     );
 
     // No customization exists for this template — return base sections as-is

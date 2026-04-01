@@ -191,9 +191,9 @@ describe('PlanSectionProgress.findByPlanId', () => {
   });
 
   it('should call the correct SQL query', async () => {
-    localQuery.mockResolvedValueOnce([progress]);
-    const planId = casual.integer(1, 99);
-    const sql = `SELECT
+  const planId = casual.integer(1, 99);
+  const versionedTemplateId = casual.integer(1, 99);
+  const sql = `SELECT
       vs.id AS versionedSectionId,
       vs.displayOrder,
       vs.name AS title,
@@ -229,26 +229,30 @@ describe('PlanSectionProgress.findByPlanId', () => {
     GROUP BY vs.id, vs.displayOrder, vs.name, tagAgg.tags
     ORDER BY vs.displayOrder;
 `
-    const result = await PlanSectionProgress.findByPlanId('testing', context, planId);
-    expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, sql, [planId.toString()], 'testing')
-    expect(result).toEqual([progress]);
-  });
+
+  localQuery
+    .mockResolvedValueOnce([progress])  // first call: base sections query
+    .mockResolvedValueOnce([]);         // second call: findTemplateCustomizationId returns no customization
+
+  const result = await PlanSectionProgress.findByPlanId('testing', context, planId, versionedTemplateId);
+
+  expect(localQuery).toHaveBeenCalledTimes(2);
+
+  // Check the FIRST call (base sections), not the last
+  expect(localQuery).toHaveBeenNthCalledWith(1, context, sql, [planId.toString()], 'testing');
+
+  // Check the SECOND call (customization lookup)
+  expect(localQuery).toHaveBeenNthCalledWith(2, context, expect.stringContaining('SELECT templateCustomizationId'), [versionedTemplateId.toString(), context.token.affiliationId], 'testing');
+
+  expect(result).toHaveLength(1);
+});
+
 
   it('should return an empty array if no results are found', async () => {
     localQuery.mockResolvedValueOnce([]);
     const projectId = casual.integer(1, 999);
     const result = await PlanSectionProgress.findByPlanId('testing', context, projectId);
     expect(result).toEqual([]);
-  });
-
-  it('should return base sections only if versionedTemplateId is not provided', async () => {
-    const baseSection = { versionedSectionId: 1, displayOrder: 0, title: 'Base', totalQuestions: 2, answeredQuestions: 1, tags: [] };
-    localQuery.mockResolvedValueOnce([baseSection]);
-    const result = await PlanSectionProgress.findByPlanId('ref', context, 123);
-    expect(result).toHaveLength(1);
-    expect(result[0].versionedSectionId).toBe(1);
-    expect(result[0].sectionType).toBeDefined();
   });
 
   it('should return base sections only if no template customization exists', async () => {

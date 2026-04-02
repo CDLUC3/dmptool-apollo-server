@@ -51,6 +51,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated renovate config to rebase when behind the base branch
 - Updated `Answer` model with `versionedCustomSectionId` and `versionedCustomQuestionId`, and added new `findFilledAnswersByCustomQuestionIds` and `findByPlanIdAndVersionedCustomQuestionId` functions, and updated `isValid` function to account for new id fields, and updated `create` function to check both `versionedQuestionId` and `versionedCustomQuestionId` for already existing answer [#159]
 - Updated `publishedQuestions` query in `versionedQuestion` resolver to return both `BASE` and `CUSTOM` versioned questions for the given versionedSectionId. Also, added `publishedCustomQuestions` query to return the `customQuestions` associated with a `customSection` [#159]
 - Updated `PlanSectionProgress` so that it returns custom sections, and correct totalQuestions counts that include customQuestions [#167]

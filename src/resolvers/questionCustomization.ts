@@ -453,7 +453,6 @@ export const resolvers: Resolvers = {
         { input }: { input: MoveCustomQuestionInput },
         context: MyContext
       ): Promise<CustomQuestion> => {
-        console.log("***moveCustomQuestion input", { input }); // --- IGNORE ---
         const ref = 'moveCustomQuestion resolver';
         const { customQuestionId, sectionType, sectionId, pinnedQuestionType, pinnedQuestionId, direction } = input;
 
@@ -521,7 +520,7 @@ export const resolvers: Resolvers = {
           );
 
           if (tailQuestion) {
-            // ✅ Must temporarily free A's current slot FIRST before B can move into it
+            // Must temporarily free A's current slot FIRST before B can move into it
             customization.pinnedQuestionType = null;
             customization.pinnedQuestionId = null;
             const tempMoved = await customization.update(context);

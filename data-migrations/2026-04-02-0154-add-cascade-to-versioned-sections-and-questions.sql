@@ -1,6 +1,6 @@
 -- Add ON DELETE CASCADE to versionedTemplateCustomizationId FKs on all four
 -- child tables. Previously these had no cascade, requiring manual deletion
--- order in application code when rolling back a published snapshot.
+-- in application code when rolling back a published snapshot.
 --
 -- Note: MariaDB requires DROP and ADD of a same-named FK constraint to be
 -- in separate ALTER TABLE statements to avoid a duplicate constraint name error.

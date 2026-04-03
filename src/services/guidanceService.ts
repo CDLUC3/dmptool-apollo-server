@@ -574,21 +574,22 @@ export async function getGuidanceSourcesForPlan(
             });
           }
 
-          if (items.length > 0) {
-            guidanceSources.push({
-              id: `affiliation-${templateOwnerUri}`,
-              type: GuidanceSourceType.TEMPLATE_OWNER,
-              label: affiliation.displayName || affiliation.name,
-              shortName: (affiliation.acronyms && affiliation.acronyms[0]) ||
-                affiliation.displayName ||
-                affiliation.name,
-              orgURI: templateOwnerUri,
-              items,
-              hasGuidance: true
-            });
+          // Always include template owner as a source, even with no guidance for a custom section
+          // so that the Guidance Panel can show "no guidance available"
+          guidanceSources.push({
+            id: `affiliation-${templateOwnerUri}`,
+            type: GuidanceSourceType.TEMPLATE_OWNER,
+            label: affiliation.displayName || affiliation.name,
+            shortName: (affiliation.acronyms && affiliation.acronyms[0]) ||
+              affiliation.displayName ||
+              affiliation.name,
+            orgURI: templateOwnerUri,
+            items,
+            hasGuidance: true
+          });
 
-            processedOrgURIs.add(templateOwnerUri);
-          }
+          processedOrgURIs.add(templateOwnerUri);
+          
         }
       }
     }

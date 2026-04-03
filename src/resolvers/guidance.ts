@@ -291,10 +291,10 @@ export const resolvers: Resolvers = {
             });
 
             const created = await planGuidanceAffiliation.create(context);
-            if (created && created.hasErrors()) {
+            if (created && !created.hasErrors()) {
               return created; // Successfully created
             } else {
-              if (!created.errors['general']) {
+              if (!created?.errors?.general) {
                 created.addError("general", "Unable to add plan guidance affiliation");
               }
               return created;

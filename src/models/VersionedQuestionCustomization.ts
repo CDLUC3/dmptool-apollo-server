@@ -235,7 +235,7 @@ export class VersionedQuestionCustomization extends MySqlModel {
     return Array.isArray(results) && results.length > 0 ? results.map(r => new VersionedQuestionCustomization(r)) : [];
   }
 
-  /**
+/**
  * Find the active versioned question customization for a given template and affiliation.
  * Used to surface customization guidance in the plan guidance panel.
  * 

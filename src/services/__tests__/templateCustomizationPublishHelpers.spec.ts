@@ -8,6 +8,8 @@ import { CustomSection, PinnedSectionTypeEnum } from "../../models/CustomSection
 import { CustomQuestion } from "../../models/CustomQuestion";
 import { SectionCustomization } from "../../models/SectionCustomization";
 import { QuestionCustomization } from "../../models/QuestionCustomization";
+import { VersionedSectionCustomization } from "../../models/VersionedSectionCustomization";
+import { VersionedQuestionCustomization } from "../../models/VersionedQuestionCustomization";
 import {
   PublishableCustomization,
   snapshotCustomizationChildren,
@@ -161,11 +163,95 @@ describe("templateCustomizationPublishHelpers", () => {
       );
     });
 
-    it("should successfully snapshot all children without errors", async () => {
+    it("should add error when versioning a BASE custom question fails", async () => {
+      const mockQuestion = {
+        id: 20,
+        sectionType: PinnedSectionTypeEnum.BASE,
+        sectionId: 7,
+        pinnedQuestionType: null,
+        pinnedQuestionId: null,
+        questionText: "Q?",
+        json: "{}",
+        requirementText: null,
+        guidanceText: null,
+        sampleText: null,
+        useSampleTextAsDefault: false,
+        required: false,
+      };
+      (CustomSection.findByCustomizationId as jest.Mock).mockResolvedValue([]);
+      (CustomQuestion.findByCustomizationAndSectionType as jest.Mock).mockResolvedValue([mockQuestion]);
+      (SectionCustomization.findByCustomizationId as jest.Mock).mockResolvedValue([]);
+      (QuestionCustomization.findByCustomizationId as jest.Mock).mockResolvedValue([]);
+
+      const failedQuestion = new VersionedCustomQuestion({ errors: { general: "DB error" } });
+      (failedQuestion.hasErrors as jest.Mock) = jest.fn().mockReturnValue(true);
+      jest.spyOn(VersionedCustomQuestion.prototype, "create").mockResolvedValue(failedQuestion);
+
+      await snapshotCustomizationChildren(reference, mockContext, customization, created);
+
+      expect(customization.addError).toHaveBeenCalledWith(
+        "general",
+        `Unable to version custom question for base section id: ${mockQuestion.sectionId}`
+      );
+    });
+
+    it("should add error when VersionedSectionCustomization creation fails after section lookup succeeds", async () => {
+      const mockSectionCust = { id: 7, sectionId: 20, guidance: "Some guidance" };
+      (CustomSection.findByCustomizationId as jest.Mock).mockResolvedValue([]);
+      (CustomQuestion.findByCustomizationAndSectionType as jest.Mock).mockResolvedValue([]);
+      (SectionCustomization.findByCustomizationId as jest.Mock).mockResolvedValue([mockSectionCust]);
+      (QuestionCustomization.findByCustomizationId as jest.Mock).mockResolvedValue([]);
+      (VersionedSection.query as jest.Mock).mockResolvedValue([{ id: 100 }]);
+
+      const failedSectionCust = new VersionedSectionCustomization({ errors: { general: "DB error" } });
+      (failedSectionCust.hasErrors as jest.Mock) = jest.fn().mockReturnValue(true);
+      jest.spyOn(VersionedSectionCustomization.prototype, "create").mockResolvedValue(failedSectionCust);
+
+      await snapshotCustomizationChildren(reference, mockContext, customization, created);
+
+      expect(customization.addError).toHaveBeenCalledWith(
+        "general",
+        `Unable to version section customization for sectionId: ${mockSectionCust.sectionId}`
+      );
+    });
+
+    it("should add error when VersionedQuestionCustomization creation fails after question lookup succeeds", async () => {
+      const mockQuestionCust = { id: 8, questionId: 30, guidanceText: null, sampleText: null };
       (CustomSection.findByCustomizationId as jest.Mock).mockResolvedValue([]);
       (CustomQuestion.findByCustomizationAndSectionType as jest.Mock).mockResolvedValue([]);
       (SectionCustomization.findByCustomizationId as jest.Mock).mockResolvedValue([]);
-      (QuestionCustomization.findByCustomizationId as jest.Mock).mockResolvedValue([]);
+      (QuestionCustomization.findByCustomizationId as jest.Mock).mockResolvedValue([mockQuestionCust]);
+      (VersionedQuestion.query as jest.Mock).mockResolvedValue([{ id: 200 }]);
+
+      const failedQuestionCust = new VersionedQuestionCustomization({ errors: { general: "DB error" } });
+      (failedQuestionCust.hasErrors as jest.Mock) = jest.fn().mockReturnValue(true);
+      jest.spyOn(VersionedQuestionCustomization.prototype, "create").mockResolvedValue(failedQuestionCust);
+
+      await snapshotCustomizationChildren(reference, mockContext, customization, created);
+
+      expect(customization.addError).toHaveBeenCalledWith(
+        "general",
+        `Unable to version question customization for questionId: ${mockQuestionCust.questionId}`
+      );
+    });
+
+    it("should successfully snapshot all children including section and question customizations", async () => {
+      const mockSectionCust = { id: 7, sectionId: 20, guidance: "Some guidance" };
+      const mockQuestionCust = { id: 8, questionId: 30, guidanceText: null, sampleText: null };
+      (CustomSection.findByCustomizationId as jest.Mock).mockResolvedValue([]);
+      (CustomQuestion.findByCustomizationAndSectionType as jest.Mock).mockResolvedValue([]);
+      (SectionCustomization.findByCustomizationId as jest.Mock).mockResolvedValue([mockSectionCust]);
+      (QuestionCustomization.findByCustomizationId as jest.Mock).mockResolvedValue([mockQuestionCust]);
+      (VersionedSection.query as jest.Mock).mockResolvedValue([{ id: 100 }]);
+      (VersionedQuestion.query as jest.Mock).mockResolvedValue([{ id: 200 }]);
+
+      const okSectionCust = new VersionedSectionCustomization({ id: 70 });
+      (okSectionCust.hasErrors as jest.Mock) = jest.fn().mockReturnValue(false);
+      jest.spyOn(VersionedSectionCustomization.prototype, "create").mockResolvedValue(okSectionCust);
+
+      const okQuestionCust = new VersionedQuestionCustomization({ id: 80 });
+      (okQuestionCust.hasErrors as jest.Mock) = jest.fn().mockReturnValue(false);
+      jest.spyOn(VersionedQuestionCustomization.prototype, "create").mockResolvedValue(okQuestionCust);
 
       await snapshotCustomizationChildren(reference, mockContext, customization, created);
 

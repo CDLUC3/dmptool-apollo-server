@@ -1311,10 +1311,19 @@ export type MetadataStandardSearchResults = PaginatedQueryResults & {
   totalCount?: Maybe<Scalars['Int']['output']>;
 };
 
+/** Direction to move a custom question relative to the pinned question */
+export type MoveCustomQuestionDirection =
+  /** Move the question below the pinned question */
+  | 'DOWN'
+  /** Move the question above the pinned question */
+  | 'UP';
+
 /** Move a custom question to a different position within the section (null means move to the top of the section) */
 export type MoveCustomQuestionInput = {
   /** the id of the custom question to move */
   customQuestionId: Scalars['Int']['input'];
+  /** Direction to move the question relative to the pinnedQuestion (UP or DOWN) */
+  direction: MoveCustomQuestionDirection;
   /** The identifier of the question this new custom question should appear after (null means it is the first question in the section) */
   pinnedQuestionId?: InputMaybe<Scalars['Int']['input']>;
   /** The type of the question this new custom question should appear after (null means it is the first question in the section) */
@@ -3359,6 +3368,7 @@ export type QueryGuidanceGroupsArgs = {
 
 
 export type QueryGuidanceSourcesForPlanArgs = {
+  customSectionId?: InputMaybe<Scalars['Int']['input']>;
   planId: Scalars['Int']['input'];
   versionedQuestionId?: InputMaybe<Scalars['Int']['input']>;
   versionedSectionId?: InputMaybe<Scalars['Int']['input']>;
@@ -5846,6 +5856,7 @@ export type ResolversTypes = {
   MetadataStandard: ResolverTypeWrapper<MetadataStandard>;
   MetadataStandardErrors: ResolverTypeWrapper<MetadataStandardErrors>;
   MetadataStandardSearchResults: ResolverTypeWrapper<MetadataStandardSearchResults>;
+  MoveCustomQuestionDirection: MoveCustomQuestionDirection;
   MoveCustomQuestionInput: MoveCustomQuestionInput;
   MoveCustomSectionInput: MoveCustomSectionInput;
   Mutation: ResolverTypeWrapper<Record<PropertyKey, never>>;

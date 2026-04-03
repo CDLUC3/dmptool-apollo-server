@@ -7,7 +7,7 @@ export const typeDefs = gql`
     "Get a specific Guidance item by ID"
     guidance(guidanceId: Int!): Guidance
     "Get all guidance sources for a plan, optionally filtered by section"
-    guidanceSourcesForPlan(planId: Int!, versionedSectionId: Int, versionedQuestionId: Int): [GuidanceSource!]!
+    guidanceSourcesForPlan(planId: Int!, versionedSectionId: Int, versionedQuestionId: Int, customSectionId: Int): [GuidanceSource!]!
   }
 
   extend type Mutation {

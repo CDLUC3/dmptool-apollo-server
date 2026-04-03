@@ -7,18 +7,24 @@ import { VersionedGuidanceGroup } from "../models/VersionedGuidanceGroup";
 import { VersionedGuidance } from "../models/VersionedGuidance";
 import { VersionedSection } from "../models/VersionedSection";
 import { VersionedQuestion } from "../models/VersionedQuestion";
+import { VersionedQuestionCustomization } from "../models/VersionedQuestionCustomization";
+import { VersionedSectionCustomization } from "../models/VersionedSectionCustomization";
+import { VersionedCustomSection } from "../models/VersionedCustomSection";
 import { Plan } from "../models/Plan";
 import { VersionedTemplate } from "../models/VersionedTemplate";
 import { prepareObjectForLogs } from "../logger";
 import { getCurrentDate } from "../utils/helpers";
 import { isSuperAdmin } from "./authService";
+import { GuidanceSourceType } from "../types";
 
-export enum GuidanceSourceType {
-  BEST_PRACTICE = 'BEST_PRACTICE',
-  TEMPLATE_OWNER = 'TEMPLATE_OWNER',
-  USER_AFFILIATION = 'USER_AFFILIATION',
-  USER_SELECTED = 'USER_SELECTED'
-}
+const GuidanceSourceType = {
+  BEST_PRACTICE: 'BEST_PRACTICE' as const,
+  TEMPLATE_OWNER: 'TEMPLATE_OWNER' as const,
+  USER_AFFILIATION: 'USER_AFFILIATION' as const,
+  USER_SELECTED: 'USER_SELECTED' as const,
+  CUSTOMIZATION: 'CUSTOMIZATION' as const,
+};
+
 
 export interface GuidanceItem {
   id?: number;
@@ -35,9 +41,9 @@ export interface GuidanceSource {
   items: GuidanceItem[];
   hasGuidance: boolean;
 }
-interface TagRow { 
-  id: number; 
-  name: string 
+interface TagRow {
+  id: number;
+  name: string
 };
 
 
@@ -288,7 +294,8 @@ export async function getGuidanceSourcesForPlan(
   context: MyContext,
   planId: number,
   versionedSectionId?: number,
-  versionedQuestionId?: number
+  versionedQuestionId?: number,
+  customSectionId?: number
 ): Promise<GuidanceSource[]> {
   const reference = 'getGuidanceSourcesForPlan';
 
@@ -322,6 +329,7 @@ export async function getGuidanceSourcesForPlan(
     // Get section tag IDs and section-level guidance
     let tagsMap: Record<number, string>;
     let guidanceText: string | null = null;
+    let templateOwnerGuidanceText: string | null = null;
 
     // If there is a versionedQuestionId provided, get tags and guidance for that question's section
     if (versionedQuestionId) {
@@ -339,6 +347,34 @@ export async function getGuidanceSourcesForPlan(
       tagsMap = await getSectionTags(context, versionedSectionId);
       const section = await VersionedSection.findById(reference, context, versionedSectionId);
       guidanceText = section?.guidance || null; // Section-level guidance
+    } else if (customSectionId) {
+
+      // Custom sections have their own tags and guidance
+      const customSection = await VersionedCustomSection.findById(reference, context, customSectionId);
+      if (!customSection) return [];
+      guidanceText = customSection?.guidance || null;
+      tagsMap = await getSectionTagsMap(context, versionedTemplateId);
+    }
+
+
+    // Fetch any active customization guidance for this section/question for the user's affiliation (which will override any template-level guidance)
+    let customizationGuidanceText: string | null = null;
+    if (userAffiliationUri) {
+      if (versionedQuestionId) {
+        const questionCustomization = await VersionedQuestionCustomization
+          .findActiveByTemplateAffiliationAndQuestion(
+            reference, context, userAffiliationUri, versionedQuestionId
+          );
+        customizationGuidanceText = questionCustomization?.guidanceText || null;
+
+      } else if (versionedSectionId) {
+        const sectionCustomization = await VersionedSectionCustomization
+          .findActiveByTemplateAffiliationAndSection(
+            reference, context, userAffiliationUri, versionedSectionId
+          );
+
+        customizationGuidanceText = sectionCustomization?.guidance || null;
+      }
     }
 
     // Get template owner info
@@ -348,29 +384,71 @@ export async function getGuidanceSourcesForPlan(
     // If there are no tag ids, then just return the guidanceText from the template owner
     const sectionTagIds = Object.keys(tagsMap).map(Number);
     if (sectionTagIds.length === 0) {
-      // If there's guidance text, return it as template owner's guidance
+      const result: GuidanceSource[] = [];
+
+      // Add primary guidance source (customization or template owner)
       if (guidanceText) {
-        if (templateOwnerUri) {
+        // Custom section guidance belongs to the institution, not the template owner
+        if (customSectionId && userAffiliationUri) {
+          const affiliation = await Affiliation.findByURI(reference, context, userAffiliationUri);
+          if (affiliation) {
+            result.push({
+              id: `customization-${userAffiliationUri}`,
+              type: GuidanceSourceType.USER_AFFILIATION,
+              label: affiliation.displayName || affiliation.name,
+              shortName: (affiliation.acronyms && affiliation.acronyms[0]) ||
+                affiliation.displayName || affiliation.name,
+              orgURI: userAffiliationUri,
+              items: [{ guidanceText }],
+              hasGuidance: true
+            });
+          }
+          // Base section/question guidance with no tags belongs to the template owner
+        } else if (templateOwnerUri) {
           const affiliation = await Affiliation.findByURI(reference, context, templateOwnerUri);
           if (affiliation) {
-            return [{
+            result.push({
               id: `affiliation-${templateOwnerUri}`,
               type: GuidanceSourceType.TEMPLATE_OWNER,
               label: affiliation.displayName || affiliation.name,
               shortName: (affiliation.acronyms && affiliation.acronyms[0]) ||
-                affiliation.displayName ||
-                affiliation.name,
+                affiliation.displayName || affiliation.name,
               orgURI: templateOwnerUri,
-              items: [{
-                title: affiliation.displayName || affiliation.name,
-                guidanceText
-              }],
+              items: [{ title: affiliation.displayName || affiliation.name, guidanceText }],
               hasGuidance: true
-            }];
+            });
           }
         }
       }
-      return [];
+
+      // Still load planGuidance selections so those orgs appear as pills ***
+      // This prevents the user from trying to re-add orgs that already have a planGuidance row
+      const userSelections = await PlanGuidance.findByPlanAndUserId(reference, context, planId, userId);
+      const processedOrgURIs = new Set<string>(result.map(s => s.orgURI));
+
+      for (const selection of userSelections) {
+        const affiliationUri = selection.affiliationId;
+        if (!affiliationUri || processedOrgURIs.has(affiliationUri)) continue;
+
+        const affiliation = await Affiliation.findByURI(reference, context, affiliationUri);
+        if (!affiliation) continue;
+
+        // Include with empty items — they're selected but have no guidance for this custom section.
+        // They still need to appear as pills so the modal shows them as "already added".
+        result.push({
+          id: `affiliation-${affiliationUri}`,
+          type: GuidanceSourceType.USER_SELECTED,
+          label: affiliation.displayName || affiliation.name,
+          shortName: (affiliation.acronyms && affiliation.acronyms[0]) ||
+            affiliation.displayName || affiliation.name,
+          orgURI: affiliationUri,
+          items: [],
+          hasGuidance: false
+        });
+        processedOrgURIs.add(affiliationUri);
+      }
+
+      return result; // Includes all selected orgs
     }
 
     // Get user-selected affiliations from planGuidance table
@@ -435,6 +513,17 @@ export async function getGuidanceSourcesForPlan(
 
           const items = groupGuidanceByTag(tagBasedGuidance, sectionTagIds, tagsMap);
 
+          // For custom sections, the section's guidanceText IS the user's content — prepend it
+          // For versioned sections, customizationGuidanceText is the override — prepend it
+          const customGuidanceText = customSectionId ? guidanceText : customizationGuidanceText;
+          if (customGuidanceText) {
+            items.unshift({
+              title: affiliation.displayName || affiliation.name,
+              guidanceText: customGuidanceText
+            });
+          }
+
+
           if (items.length > 0) {
             guidanceSources.push({
               id: `affiliation-${userAffiliationUri}`,
@@ -476,8 +565,10 @@ export async function getGuidanceSourcesForPlan(
 
           const items = groupGuidanceByTag(tagBasedGuidance, sectionTagIds, tagsMap);
 
-          // If there's section-level guidance, add it FIRST
-          if (guidanceText) {
+          // Only prepend section-level guidanceText for versioned sections.
+          // For custom sections, the section was created by the user's institution —
+          // the template owner has no section-level guidance to contribute here.
+          if (guidanceText && !customSectionId) {
             items.unshift({
               title: affiliation.displayName || affiliation.name,
               guidanceText

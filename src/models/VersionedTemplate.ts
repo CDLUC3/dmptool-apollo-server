@@ -115,8 +115,10 @@ export class VersionedTemplateSearchResult {
       'FROM versionedTemplates vt',
       'LEFT JOIN users u ON u.id = vt.modifiedById',
       'LEFT JOIN affiliations a ON a.uri = vt.ownerId',
-      'LEFT JOIN versionedTemplateCustomizations vtc ON vtc.currentVersionedTemplateId = vt.id',
-      'AND vtc.affiliationId = ?'
+      'LEFT JOIN versionedTemplateCustomizations vtc',
+      'ON vtc.currentVersionedTemplateId = vt.id',
+      'AND vtc.affiliationId=?',
+      'AND vtc.active = 1'
     ].join(' ');
 
     values.unshift(userAffiliationId);

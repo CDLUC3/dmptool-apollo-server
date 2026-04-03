@@ -188,6 +188,7 @@ export class PlanSectionProgress {
       AND vcq.versionedSectionType = 'CUSTOM'
       AND vcq.versionedTemplateCustomizationId = vtc.id
     WHERE vtc.templateCustomizationId = ?
+    AND vtc.active = 1
     GROUP BY vcs.customSectionId, vcs.name, vcs.pinnedVersionedSectionType, vcs.pinnedVersionedSectionId
   `;
     const rows = await Plan.query(context, sql, [templateCustomizationId.toString()], reference);

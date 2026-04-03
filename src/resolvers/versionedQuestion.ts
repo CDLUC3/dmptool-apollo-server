@@ -102,9 +102,11 @@ export const resolvers: Resolvers = {
 
           return ordered;
         }
+        // Unauthorized
         throw context?.token ? ForbiddenError() : AuthenticationError();
       } catch (err) {
         if (err instanceof GraphQLError) throw err;
+        
         context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
         throw InternalServerError();
       }

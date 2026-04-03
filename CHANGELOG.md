@@ -7,7 +7,7 @@
 - Added `findByPosition` function to `CustomQuestion` to assist with reordering of custom questions [#171]
 - Added `findActiveByTemplateAffiliationAndQuestion` to `VersionedQuestionCustomization` and `findActiveByTemplateAffiliationAndSection` to `VersionedSectionCustomization` to help surface custom guidance [#171]
 - Added `MoveCustomQuestionDirection` enum to `questionCustomization` schema [#171]
-- Added new `templateCustomizationPublishHelpers.ts` service to help snapshot child customization records when publishing a templateCustomization [#171]
+- Added new `templateCustomizationPublishHelpers.ts` service to help update snapshot child customization records when publishing a templateCustomization [#171]
 - Added `versionedCustomSectionId` and `versionedCustomQuestionId` files to `answers` table [#159]
 - Added `findByVersionedCustomSectionId` and `findByVersionedSectionIdAndType` functions to VersionedCustomQuestion model [#159]
 - Added `versionedCustomSection` and `versionedCustomQuestion` chained resolvers to `answer` query [#159]

@@ -575,19 +575,19 @@ describe("getGuidanceSourcesForPlan", () => {
     jest.clearAllMocks();
   });
 
-  it("returns [] if plan not found", async () => {
+  it("should return [] if plan not found", async () => {
     (Plan.findById as jest.Mock).mockResolvedValue(null);
     const result = await guidanceService.getGuidanceSourcesForPlan(context, 1);
     expect(result).toEqual([]);
   });
 
-  it("returns [] if versionedTemplateId is missing from plan", async () => {
+  it("should return [] if versionedTemplateId is missing from plan", async () => {
     (Plan.findById as jest.Mock).mockResolvedValue({ id: 1 }); // no versionedTemplateId
     const result = await guidanceService.getGuidanceSourcesForPlan(context, 1);
     expect(result).toEqual([]);
   });
 
-  it("returns [] when section has no tags and no guidanceText", async () => {
+  it("should return [] when section has no tags and no guidanceText", async () => {
     (Plan.findById as jest.Mock).mockResolvedValue({ id: 1, versionedTemplateId: 1 });
     (PlanGuidance.query as jest.Mock).mockResolvedValue([]); // empty tags
     (VersionedSection.findById as jest.Mock).mockResolvedValue({ guidance: null });
@@ -599,7 +599,7 @@ describe("getGuidanceSourcesForPlan", () => {
     expect(result).toEqual([]);
   });
 
-  it("returns [] if versionedQuestionId is provided but question not found", async () => {
+  it("should return [] if versionedQuestionId is provided but question not found", async () => {
     (Plan.findById as jest.Mock).mockResolvedValue(mockPlan);
     (VersionedQuestion.findById as jest.Mock).mockResolvedValue(null);
 
@@ -609,7 +609,7 @@ describe("getGuidanceSourcesForPlan", () => {
     expect(result).toEqual([]);
   });
 
-  it("returns [] if customSectionId is provided but custom section not found", async () => {
+  it("should return [] if customSectionId is provided but custom section not found", async () => {
     (Plan.findById as jest.Mock).mockResolvedValue(mockPlan);
     (VersionedCustomSection.findById as jest.Mock).mockResolvedValue(null);
 
@@ -619,7 +619,7 @@ describe("getGuidanceSourcesForPlan", () => {
     expect(result).toEqual([]);
   });
 
-  it("returns expected guidance sources for a populated plan with versionedSectionId", async () => {
+  it("should return expected guidance sources for a populated plan with versionedSectionId", async () => {
     (Plan.findById as jest.Mock).mockResolvedValue(mockPlan);
     (VersionedTemplate.findById as jest.Mock).mockResolvedValue(mockVersionedTemplate);
     (VersionedSection.findById as jest.Mock).mockResolvedValue({ guidance: null });
@@ -654,7 +654,7 @@ describe("getGuidanceSourcesForPlan", () => {
     ]));
   });
 
-  it("returns guidance sources for the versionedQuestionId path", async () => {
+  it("should return guidance sources for the versionedQuestionId path", async () => {
     (Plan.findById as jest.Mock).mockResolvedValue(mockPlan);
     (VersionedQuestion.findById as jest.Mock).mockResolvedValue({
       id: 10, versionedSectionId: 5, guidanceText: null,
@@ -675,7 +675,7 @@ describe("getGuidanceSourcesForPlan", () => {
     expect(result[0]).toMatchObject({ id: "bestPractice", type: "BEST_PRACTICE" });
   });
 
-  it("returns template owner source when section has guidanceText and no tags", async () => {
+  it("should return template owner source when section has guidanceText and no tags", async () => {
     (Plan.findById as jest.Mock).mockResolvedValue(mockPlan);
     (PlanGuidance.query as jest.Mock).mockResolvedValue([]); // no tags
     (VersionedSection.findById as jest.Mock).mockResolvedValue({ guidance: "Template-level guidance" });
@@ -697,7 +697,7 @@ describe("getGuidanceSourcesForPlan", () => {
     expect(result[0].items[0].guidanceText).toEqual("Template-level guidance");
   });
 
-  it("includes USER_SELECTED empty pill sources for user selections with no guidance when no tags", async () => {
+  it("should include USER_SELECTED empty pill sources for user selections with no guidance when no tags", async () => {
     (Plan.findById as jest.Mock).mockResolvedValue(mockPlan);
     (PlanGuidance.query as jest.Mock).mockResolvedValue([]); // no tags
     (VersionedSection.findById as jest.Mock).mockResolvedValue({ guidance: null });
@@ -719,7 +719,7 @@ describe("getGuidanceSourcesForPlan", () => {
     });
   });
 
-  it("prepends section customization guidanceText to user affiliation items", async () => {
+  it("should prepend section customization guidanceText to user affiliation items", async () => {
     const userAffiliationUri = "https://ror.org/03yrm5c26"; // CDL
     const localContext = { ...context, token: { ...context.token, affiliationId: userAffiliationUri } };
 
@@ -749,7 +749,7 @@ describe("getGuidanceSourcesForPlan", () => {
     expect(userSource.items[0].guidanceText).toEqual("Customized section guidance");
   });
 
-  it("does not prepend guidanceText to template owner items when customSectionId is used", async () => {
+  it("should not prepend guidanceText to template owner items when customSectionId is used", async () => {
     const localContext = { ...context, token: { ...context.token, affiliationId: "https://unrelated.org" } };
 
     (Plan.findById as jest.Mock).mockResolvedValue(mockPlan);

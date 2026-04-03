@@ -623,7 +623,7 @@ export class TemplateCustomization extends MySqlModel {
   }
 
   /**
-   * Publish the customization
+   * Publish the template customization
    *
    * @param context The Apollo context.
    * @returns The published Template customization.
@@ -650,10 +650,11 @@ export class TemplateCustomization extends MySqlModel {
           currentVersionedTemplateId: this.currentVersionedTemplateId,
           active: true,
         });
+
         const created: VersionedTemplateCustomization = await newVersion.create(context);
 
         if (!isNullOrUndefined(created) && !created.hasErrors() && created.id) {
-          // Snapshot all child records into their versioned equivalents
+          // Snapshot all child records into their published, versioned equivalents
           await snapshotCustomizationChildren(ref, context, this, created);
 
           if (this.hasErrors()) {

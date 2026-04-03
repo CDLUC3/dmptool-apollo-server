@@ -238,6 +238,7 @@ export class VersionedQuestionCustomization extends MySqlModel {
   /**
  * Find the active versioned question customization for a given template and affiliation.
  * Used to surface customization guidance in the plan guidance panel.
+ * 
  *
  * @param reference The reference to use for logging errors.
  * @param context The Apollo context.

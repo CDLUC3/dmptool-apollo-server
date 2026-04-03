@@ -22,7 +22,6 @@ const GuidanceSourceType = {
   TEMPLATE_OWNER: 'TEMPLATE_OWNER' as const,
   USER_AFFILIATION: 'USER_AFFILIATION' as const,
   USER_SELECTED: 'USER_SELECTED' as const,
-  CUSTOMIZATION: 'CUSTOMIZATION' as const,
 };
 
 
@@ -329,7 +328,6 @@ export async function getGuidanceSourcesForPlan(
     // Get section tag IDs and section-level guidance
     let tagsMap: Record<number, string>;
     let guidanceText: string | null = null;
-    let templateOwnerGuidanceText: string | null = null;
 
     // If there is a versionedQuestionId provided, get tags and guidance for that question's section
     if (versionedQuestionId) {
@@ -357,7 +355,8 @@ export async function getGuidanceSourcesForPlan(
     }
 
 
-    // Fetch any active customization guidance for this section/question for the user's affiliation (which will override any template-level guidance)
+    // Fetch any active customization guidance for this section/question for the user's affiliation.
+    // This is displayed alongside the template owner's guidance.
     let customizationGuidanceText: string | null = null;
     if (userAffiliationUri) {
       if (versionedQuestionId) {

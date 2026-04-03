@@ -4,8 +4,6 @@ import { VersionedSection } from "../../models/VersionedSection";
 import { VersionedQuestion } from "../../models/VersionedQuestion";
 import { VersionedCustomSection } from "../../models/VersionedCustomSection";
 import { VersionedCustomQuestion } from "../../models/VersionedCustomQuestion";
-import { VersionedSectionCustomization } from "../../models/VersionedSectionCustomization";
-import { VersionedQuestionCustomization } from "../../models/VersionedQuestionCustomization";
 import { CustomSection, PinnedSectionTypeEnum } from "../../models/CustomSection";
 import { CustomQuestion } from "../../models/CustomQuestion";
 import { SectionCustomization } from "../../models/SectionCustomization";

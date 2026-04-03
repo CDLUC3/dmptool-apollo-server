@@ -380,7 +380,9 @@ export class CustomQuestion extends MySqlModel {
   }
 
   /**
-   * Find a custom question by its position within a template customization
+   * Find a custom question by its position within a template customization. This is needed when
+   * calling moveCustomQuestion we need to check whether another customQuestion exists in the position
+   * that we want to move another custom question to. The position is determined by the section and pinned question it is attached to.
    *
    * @param reference The reference to use for logging errors.
    * @param context The Apollo context.

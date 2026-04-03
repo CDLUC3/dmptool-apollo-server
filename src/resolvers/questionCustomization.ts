@@ -455,8 +455,8 @@ export const resolvers: Resolvers = {
       ): Promise<CustomQuestion> => {
         const ref = 'moveCustomQuestion resolver';
         const { customQuestionId, sectionType, sectionId, pinnedQuestionType, pinnedQuestionId, direction } = input;
-
         const customization: CustomQuestion = await CustomQuestion.findById(ref, context, customQuestionId);
+
         if (!customization) throw NotFoundError();
 
         const parent: TemplateCustomization = await getValidatedCustomization(
@@ -486,7 +486,7 @@ export const resolvers: Resolvers = {
         const originalPinnedQuestionId = customization.pinnedQuestionId;
 
         if (occupant && occupant.id !== customQuestionId) {
-          // Step 1: Temporarily free A's slot
+          // Step 1: Temporarily free A's slot to a temporary position that won't conflict with any existing question
           customization.pinnedQuestionType = null;
           customization.pinnedQuestionId = null;
           const tempMoved = await customization.update(context);
@@ -494,7 +494,8 @@ export const resolvers: Resolvers = {
             throw new Error(`Failed to temporarily move question: ${JSON.stringify(tempMoved.errors)}`);
           }
 
-          // Step 2: Place occupant depending on direction
+          // Step 2: Place occupant depending on direction (UP or DOWN). When A moves down to sit where B was, 
+          // then B gets re-pinned from BASE to A. When A moves up to sit where B was, then B gets pinned from BASE to A's original position.
           if (direction === 'DOWN') {
             occupant.sectionType = newSectionType;
             occupant.sectionId = sectionId;

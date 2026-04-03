@@ -3,6 +3,11 @@
 ## v1.1.0
 
 ### Added
+- Added `ON DELETE CASCADE` sql migration script for deletion of `versionedTemplateCustomization` and `templateCustomization` FKs [#171]
+- Added `findByPosition` function to `CustomQuestion` to assist with reordering of custom questions [#171]
+- Added `findActiveByTemplateAffiliationAndQuestion` to `VersionedQuestionCustomization` and `findActiveByTemplateAffiliationAndSection` to `VersionedSectionCustomization` to help surface custom guidance [#171]
+- Added `MoveCustomQuestionDirection` enum to `questionCustomization` schema [#171]
+- Added new `templateCustomizationPublishHelpers.ts` service to help snapshot child customization records when publishing a templateCustomization [#171]
 - Added `versionedCustomSectionId` and `versionedCustomQuestionId` files to `answers` table [#159]
 - Added `findByVersionedCustomSectionId` and `findByVersionedSectionIdAndType` functions to VersionedCustomQuestion model [#159]
 - Added `versionedCustomSection` and `versionedCustomQuestion` chained resolvers to `answer` query [#159]
@@ -51,6 +56,11 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated the `publish` function in `TemplateCustomization` to `snapshotCustomizationChildren` and `rollbackPublishedSnapshot` helper functions to snapshot all child records into published versions [#171]
+- Updated `findByVersionedCustomSectionId` and `findByVersionedSectionIdAndType` in `VersionedCustomQuestion` to only grab records related to `active` `versionedTemplateCustomization` [#171]
+- Updated `guidanceSourcesForPlan` resolver in `guidance` resolver to pass in `customSectionId` [#171]
+- Updated `moveCustomQuestion` resolver in `questionCustomization` resolver to help with accurate reordering. Added `direction` variable to help with that [#171]
+- Updated `getGuidanceSourcesForPlan` function in `guidanceService` [#171]
 - Updated `Answer` model with `versionedCustomSectionId` and `versionedCustomQuestionId`, and added new `findFilledAnswersByCustomQuestionIds` and `findByPlanIdAndVersionedCustomQuestionId` functions, and updated `isValid` function to account for new id fields, and updated `create` function to check both `versionedQuestionId` and `versionedCustomQuestionId` for already existing answer [#159]
 - Updated `publishedQuestions` query in `versionedQuestion` resolver to return both `BASE` and `CUSTOM` versioned questions for the given versionedSectionId. Also, added `publishedCustomQuestions` query to return the `customQuestions` associated with a `customSection` [#159]
 - Updated `PlanSectionProgress` so that it returns custom sections, and correct totalQuestions counts that include customQuestions [#167]

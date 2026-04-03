@@ -1,3 +1,6 @@
+-- Add ON DELETE CASCADE to the versioned* FKs to their respective parent tables, 
+-- to ensure that when a template customization is deleted, 
+-- all associated versioned records are also deleted so that we don't have orphaned versioned records that reference deleted template customizations.
 ALTER TABLE customQuestions
   DROP FOREIGN KEY fk_customQs_templateCustId,
   ADD CONSTRAINT fk_customQs_templateCustId_cascade 
@@ -23,7 +26,7 @@ ALTER TABLE versionedTemplateCustomizations
   ADD CONSTRAINT fk_vTemplateCust_templateId_cascade 
     FOREIGN KEY (templateCustomizationId) REFERENCES templateCustomizations(id) ON DELETE CASCADE;
 
-    ALTER TABLE versionedCustomQuestions
+ALTER TABLE versionedCustomQuestions
   DROP FOREIGN KEY fk_vCustomQs_questionId,
   ADD CONSTRAINT fk_vCustomQs_questionId_cascade
     FOREIGN KEY (customQuestionId) REFERENCES customQuestions(id) ON DELETE CASCADE;

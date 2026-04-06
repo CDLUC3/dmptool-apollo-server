@@ -125,6 +125,10 @@ feature/171/JS-update-guidance-resolver-to-include-custom-guidance
 - In `preparePaginationOptions` function, wrapped each cursorField with `COALESCE` to handle `NULL` values in SQL `CONCAT`, otherwise if any cursorField is NULL, it would just return a null value due to the way `CONCAT` works [#107]
 - Fixed breaking cloning of template. The `addTemplate` was updated to accept a `copyFromVersionedTemplateId` so that we copy from versioned template, section and questions, when it's not a template from the user's org. Otherwise we check for `copyFromTemplateId` to copy/clone from templates, sections and questions, and if neither are present, we continue to create a new record for `templates` table [#1006]
 - Fixed issue with templates not cloning with sections and questions by updating the `addTemplate` mutation to clone from non-versioned template, section and question [#1006]
+
+### Chore
+- Added override for `lodash` to `4.18.1` to address high vulnerability issue
+
 ## v1.0
 
 ### Updated

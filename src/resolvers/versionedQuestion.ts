@@ -41,7 +41,6 @@ export const resolvers: Resolvers = {
             VersionedCustomQuestion.findByVersionedSectionIdAndType(reference, context, versionedSectionId, 'BASE')
           ]);
 
-          // Fetch answers for both sets
           const baseIds = baseQuestions.map(q => q.id);
           const customIds = customQuestions.map(q => q.id);
 
@@ -53,20 +52,26 @@ export const resolvers: Resolvers = {
           const baseAnswersMap = new Set(baseAnswers.map(a => a.versionedQuestionId));
           const customAnswersMap = new Set(customAnswers.map(a => a.versionedCustomQuestionId));
 
-          return [
-            ...baseQuestions.map(q => ({
-              id: q.id,
-              questionText: q.questionText,
-              requirementText: q.requirementText,
-              guidanceText: q.guidanceText,
-              sampleText: q.sampleText,
-              required: q.required,
-              hasAnswer: baseAnswersMap.has(q.id),
-              questionType: 'BASE' as CustomizableObjectOwnership,
-              versionedQuestionId: q.id,
-              customQuestionId: undefined,
-            })),
-            ...customQuestions.map(q => ({
+          // Build ordered list starting with base questions
+          const ordered: PublishedQuestionResult[] = baseQuestions.map(q => ({
+            id: q.id,
+            questionText: q.questionText,
+            requirementText: q.requirementText,
+            guidanceText: q.guidanceText,
+            sampleText: q.sampleText,
+            required: q.required,
+            hasAnswer: baseAnswersMap.has(q.id),
+            questionType: 'BASE' as CustomizableObjectOwnership,
+            versionedQuestionId: q.id,
+            customQuestionId: undefined,
+          }));
+
+          // Sort custom questions by id (same as injectCustomQuestions)
+          const sortedCustom = [...customQuestions].sort((a, b) => a.id - b.id);
+
+          // Splice each custom question in after its pinned question
+          for (const q of sortedCustom) {
+            const result: PublishedQuestionResult = {
               id: q.id,
               questionText: q.questionText,
               requirementText: q.requirementText,
@@ -77,15 +82,31 @@ export const resolvers: Resolvers = {
               questionType: 'CUSTOM' as CustomizableObjectOwnership,
               versionedQuestionId: undefined,
               customQuestionId: q.id,
-            })),
+            };
 
-          ];
+            if (q.pinnedVersionedQuestionId === null) {
+              // No pin — goes first
+              ordered.unshift(result);
+            } else {
+              const pinIdx = ordered.findIndex(o =>
+                o.questionType === q.pinnedVersionedQuestionType && o.id === q.pinnedVersionedQuestionId
+              );
+              if (pinIdx !== -1) {
+                ordered.splice(pinIdx + 1, 0, result);
+              } else {
+                // Pinned question not found — append to end
+                ordered.push(result);
+              }
+            }
+          }
+
+          return ordered;
         }
-        // Unauthorized!
+        // Unauthorized
         throw context?.token ? ForbiddenError() : AuthenticationError();
       } catch (err) {
         if (err instanceof GraphQLError) throw err;
-
+        
         context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
         throw InternalServerError();
       }

@@ -825,7 +825,13 @@ describe("VersionedCustomQuestion", () => {
 
       expect(mockQuery).toHaveBeenCalledWith(
         mockContext,
-        expect.stringContaining("SELECT * FROM versionedCustomQuestions"),
+        expect.stringContaining("SELECT vcq.* FROM versionedCustomQuestions as vcq"),
+        ["300"],
+        "test.ref"
+      );
+      expect(mockQuery).toHaveBeenCalledWith(
+        mockContext,
+        expect.stringContaining("vtc.active = 1"),
         ["300"],
         "test.ref"
       );
@@ -878,7 +884,13 @@ describe("VersionedCustomQuestion", () => {
 
       expect(mockQuery).toHaveBeenCalledWith(
         mockContext,
-        expect.stringContaining("SELECT * FROM versionedCustomQuestions"),
+        expect.stringContaining("SELECT vcq.* FROM versionedCustomQuestions as vcq"),
+        ["BASE", "300"],
+        "test.ref"
+      );
+      expect(mockQuery).toHaveBeenCalledWith(
+        mockContext,
+        expect.stringContaining("vtc.active = 1"),
         ["BASE", "300"],
         "test.ref"
       );

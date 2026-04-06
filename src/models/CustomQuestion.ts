@@ -379,4 +379,49 @@ export class CustomQuestion extends MySqlModel {
     return Array.isArray(results) ? results.map(r => new CustomQuestion(r)) : [];
   }
 
+  /**
+   * Find a custom question by its position within a template customization. This is needed when
+   * calling moveCustomQuestion we need to check whether another customQuestion exists in the position
+   * that we want to move another custom question to. The position is determined by the section and pinned question it is attached to.
+   *
+   * @param reference The reference to use for logging errors.
+   * @param context The Apollo context.
+   * @param templateCustomizationId The id of the template customization.
+   * @param sectionType The type of the section.
+   * @param sectionId The id of the section.
+   * @param pinnedQuestionType The type of the pinned question.
+   * @param pinnedQuestionId The id of the pinned question.
+   * @returns The custom question or null if not found.
+   */
+  static async findByPosition(
+    reference: string,
+    context: MyContext,
+    templateCustomizationId: number,
+    sectionType: string,
+    sectionId: number,
+    pinnedQuestionType: string | null,
+    pinnedQuestionId: number | null
+  ): Promise<CustomQuestion | null> {
+    const sql = `
+    SELECT * FROM customQuestions 
+    WHERE templateCustomizationId = ?
+      AND sectionType = ?
+      AND sectionId = ?
+      AND pinnedQuestionType <=> ?
+      AND pinnedQuestionId <=> ?
+    LIMIT 1
+  `;
+    // <=> is MySQL's NULL-safe equality operator.  It correctly handles the case where pinnedQuestionId is null, 
+    // since null = null is false in SQL but null <=> null is true.
+    const results = await CustomQuestion.query(context, sql, [
+      templateCustomizationId.toString(),
+      sectionType,
+      sectionId.toString(),
+      pinnedQuestionType,
+      pinnedQuestionId?.toString() ?? null,
+    ], reference);
+
+    return Array.isArray(results) && results.length > 0 ? new CustomQuestion(results[0]) : null;
+
+  }
 }

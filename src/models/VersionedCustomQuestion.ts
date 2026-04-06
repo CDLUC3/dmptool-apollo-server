@@ -330,10 +330,13 @@ export class VersionedCustomQuestion extends MySqlModel {
     versionedCustomSectionId: number
   ): Promise<VersionedCustomQuestion[]> {
     const sql = `
-    SELECT * FROM ${VersionedCustomQuestion.tableName}
-    WHERE versionedSectionType = 'CUSTOM'
-      AND versionedSectionId = ?
-    ORDER BY pinnedVersionedQuestionType ASC, pinnedVersionedQuestionId ASC
+    SELECT vcq.* FROM ${VersionedCustomQuestion.tableName} as vcq
+    JOIN versionedTemplateCustomizations as vtc
+      ON vcq.versionedTemplateCustomizationId = vtc.id
+    WHERE vcq.versionedSectionType = 'CUSTOM'
+      AND vcq.versionedSectionId = ?
+      AND vtc.active = 1
+    ORDER BY vcq.pinnedVersionedQuestionType ASC, vcq.pinnedVersionedQuestionId ASC
   `;
     const results = await VersionedCustomQuestion.query(
       context, sql, [versionedCustomSectionId.toString()], reference
@@ -350,9 +353,13 @@ export class VersionedCustomQuestion extends MySqlModel {
     versionedSectionId: number,
     sectionType: 'BASE' | 'CUSTOM'
   ): Promise<VersionedCustomQuestion[]> {
-    const sql = `SELECT * FROM versionedCustomQuestions 
-    WHERE versionedSectionType = ? AND versionedSectionId = ?
-    ORDER BY pinnedVersionedQuestionType ASC, pinnedVersionedQuestionId ASC`;
+    const sql = `SELECT vcq.* FROM versionedCustomQuestions as vcq
+    JOIN versionedTemplateCustomizations as vtc
+      ON vcq.versionedTemplateCustomizationId = vtc.id 
+    WHERE vcq.versionedSectionType = ? 
+      AND vcq.versionedSectionId = ?
+      AND vtc.active = 1
+    ORDER BY vcq.pinnedVersionedQuestionType ASC, vcq.pinnedVersionedQuestionId ASC`;
     const results = await VersionedCustomQuestion.query(
       context, sql, [sectionType, versionedSectionId.toString()], reference
     );

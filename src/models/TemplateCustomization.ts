@@ -1,9 +1,5 @@
 import { MySqlModel } from "./MySqlModel";
 import { VersionedTemplateCustomization } from "./VersionedTemplateCustomization";
-import { VersionedCustomQuestion } from "./VersionedCustomQuestion";
-import { VersionedCustomSection } from "./VersionedCustomSection";
-import { CustomSection } from "./CustomSection";
-import { CustomQuestion } from "./CustomQuestion";
 import { MyContext } from "../context";
 import {
   isNullOrUndefined,
@@ -12,6 +8,10 @@ import {
 } from "../utils/helpers";
 import { PinnedSectionTypeEnum } from "./CustomSection";
 import { PinnedQuestionTypeEnum } from "./CustomQuestion";
+import {
+  snapshotCustomizationChildren,
+  rollbackPublishedSnapshot,
+} from "../services/templateCustomizationPublishHelpers";
 
 /**
  * The status of the customization.
@@ -623,12 +623,13 @@ export class TemplateCustomization extends MySqlModel {
   }
 
   /**
-   * Publish the customization
+   * Publish the template customization
    *
    * @param context The Apollo context.
    * @returns The published Template customization.
    */
   async publish(context: MyContext): Promise<TemplateCustomization> {
+    const ref = 'TemplateCustomization.publish';
 
     if (!this.id) {
       // Cannot publish it if it hasn't been saved yet!
@@ -643,123 +644,36 @@ export class TemplateCustomization extends MySqlModel {
       if (await this.isValid()) {
 
         // Create a new published version of the customization
-        const newVersion = new VersionedTemplateCustomization(
-          {
-            affiliationId: this.affiliationId,
-            templateCustomizationId: this.id,
-            currentVersionedTemplateId: this.currentVersionedTemplateId,
-            active: true
-          }
-        )
+        const newVersion = new VersionedTemplateCustomization({
+          affiliationId: this.affiliationId,
+          templateCustomizationId: this.id,
+          currentVersionedTemplateId: this.currentVersionedTemplateId,
+          active: true,
+        });
 
         const created: VersionedTemplateCustomization = await newVersion.create(context);
 
         if (!isNullOrUndefined(created) && !created.hasErrors() && created.id) {
-          // Snapshot custom sections into versionedCustomSections
-          const customSections = await CustomSection.findByCustomizationId(
-            'TemplateCustomization.publish',
-            context,
-            this.id
-          );
+          // Snapshot all child records into their published, versioned equivalents
+          await snapshotCustomizationChildren(ref, context, this, created);
 
-          for (const section of customSections) {
-            const versionedSection = new VersionedCustomSection({
-              versionedTemplateCustomizationId: created.id,
-              customSectionId: section.id,
-              pinnedVersionedSectionType: section.pinnedSectionType,
-              pinnedVersionedSectionId: section.pinnedSectionId,
-              name: section.name,
-              introduction: section.introduction,
-              requirements: section.requirements,
-              guidance: section.guidance,
-            });
-            const createdSection = await versionedSection.create(context);
+          if (this.hasErrors()) {
+            // Roll back: remove all child rows and the incomplete snapshot,
+            // then restore the prior active version.
+            await rollbackPublishedSnapshot(
+              context, created.id, this.latestPublishedVersionId);
+          } else {
+            // Update the status of the customization to reflect the change
+            this.status = TemplateCustomizationStatus.PUBLISHED;
+            this.isDirty = false;
+            this.latestPublishedVersionId = created.id;
+            this.latestPublishedDate = created.created;
+            // noTouch=true so the update method will not set isDirty to true
+            const published: TemplateCustomization = await this.update(context, true);
 
-            if (!createdSection || createdSection.hasErrors()) {
-              this.addError('general', `Unable to version custom section: ${section.name}`);
-              continue;
+            if (!published) {
+              this.addError('general', 'Unable to publish');
             }
-
-            // Snapshot custom questions for this section
-            const customQuestions = await CustomQuestion.findByCustomizationAndSectionId(
-              'TemplateCustomization.publish',
-              context,
-              this.id,
-              PinnedSectionTypeEnum.CUSTOM,
-              section.id
-            );
-
-            for (const question of customQuestions) {
-              const versionedQuestion = new VersionedCustomQuestion({
-                versionedTemplateCustomizationId: created.id,
-                customQuestionId: question.id,
-                versionedSectionType: question.sectionType,   // 'CUSTOM' since we're in a custom section
-                versionedSectionId: question.sectionId,
-                pinnedVersionedQuestionType: question.pinnedQuestionType ?? null,
-                pinnedVersionedQuestionId: question.pinnedQuestionId ?? null,
-                questionText: question.questionText,
-                json: question.json,
-                requirementText: question.requirementText ?? null,
-                guidanceText: question.guidanceText ?? null,
-                sampleText: question.sampleText ?? null,
-                useSampleTextAsDefault: question.useSampleTextAsDefault ?? false,
-                required: question.required ?? false,
-              });
-              const createdQuestion = await versionedQuestion.create(context);
-
-              if (!createdQuestion || createdQuestion.hasErrors()) {
-                this.addError('general', `Unable to version custom question in section: ${section.name}`);
-              }
-            }
-          }
-
-          // Snapshot custom questions attached to BASE sections — these are NOT
-          // covered by the loop above since that loop only iterates custom sections.
-          // findByCustomizationAndSectionType(BASE) returns all custom questions
-          // where sectionType = 'BASE', regardless of which specific base section
-          // they belong to.
-          const baseCustomQuestions = await CustomQuestion.findByCustomizationAndSectionType(
-            'TemplateCustomization.publish',
-            context,
-            this.id,
-            PinnedSectionTypeEnum.BASE
-          );
-
-          for (const question of baseCustomQuestions) {
-            const versionedQuestion = new VersionedCustomQuestion({
-              versionedTemplateCustomizationId: created.id,
-              customQuestionId: question.id,
-              versionedSectionType: question.sectionType,           // 'BASE'
-              versionedSectionId: question.sectionId,               // the versionedSection id
-              pinnedVersionedQuestionType: question.pinnedQuestionType ?? null,
-              pinnedVersionedQuestionId: question.pinnedQuestionId ?? null,
-              questionText: question.questionText,
-              json: question.json,
-              requirementText: question.requirementText ?? null,
-              guidanceText: question.guidanceText ?? null,
-              sampleText: question.sampleText ?? null,
-              useSampleTextAsDefault: question.useSampleTextAsDefault ?? false,
-              required: question.required ?? false,
-            });
-            const createdQuestion = await versionedQuestion.create(context);
-
-            if (!createdQuestion || createdQuestion.hasErrors()) {
-              this.addError(
-                'general',
-                `Unable to version custom question for base section id: ${question.sectionId}`
-              );
-            }
-          }
-
-          // Update the status of the customization to reflect the change
-          this.status = TemplateCustomizationStatus.PUBLISHED;
-          this.isDirty = false;
-          this.latestPublishedVersionId = created.id;
-          this.latestPublishedDate = created.created;
-          const published: TemplateCustomization = await this.update(context, true); // noTouch=true, the update method will not set isDirty to true
-
-          if (!published) {
-            this.addError('general', 'Unable to publish');
           }
         } else {
           this.errors = created?.errors ?? this.errors;

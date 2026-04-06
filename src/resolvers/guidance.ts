@@ -95,7 +95,7 @@ export const resolvers: Resolvers = {
     // ============================================================================
     guidanceSourcesForPlan: async (
       _,
-      { planId, versionedSectionId, versionedQuestionId },
+      { planId, versionedSectionId, versionedQuestionId, customSectionId },
       context: MyContext
     ): Promise<GuidanceSource[]> => {
       const reference = 'guidanceSourcesForPlan resolver';
@@ -113,7 +113,8 @@ export const resolvers: Resolvers = {
               context,
               planId,
               versionedSectionId,
-              versionedQuestionId
+              versionedQuestionId,
+              customSectionId
             );
 
             return sources;
@@ -290,10 +291,10 @@ export const resolvers: Resolvers = {
             });
 
             const created = await planGuidanceAffiliation.create(context);
-            if (created && created.hasErrors()) {
+            if (created && !created.hasErrors()) {
               return created; // Successfully created
             } else {
-              if (!created.errors['general']) {
+              if (!created?.errors?.general) {
                 created.addError("general", "Unable to add plan guidance affiliation");
               }
               return created;

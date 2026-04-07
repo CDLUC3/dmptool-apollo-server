@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added `publishedCustomQuestion` query resolver and added to schema [#172]
 - Added `ON DELETE CASCADE` sql migration script for deletion of `versionedTemplateCustomization` and `templateCustomization` FKs [#171]
 - Added `findByPosition` function to `CustomQuestion` to assist with reordering of custom questions [#171]
 - Added `findActiveByTemplateAffiliationAndQuestion` to `VersionedQuestionCustomization` and `findActiveByTemplateAffiliationAndSection` to `VersionedSectionCustomization` to help surface custom guidance [#171]
@@ -56,7 +57,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
-feature/171/JS-update-guidance-resolver-to-include-custom-guidance
+- Updated `guidanceSourcesForPlan` query to pass in `customQuestionId` and updated `getGuidanceSourcesForPlan` service to add `customQuestion` guidance [#172]
 - Updated renovate config to rebase when behind the base branch
 - Updated `Answer` model with `versionedCustomSectionId` and `versionedCustomQuestionId`, and added new `findFilledAnswersByCustomQuestionIds` and `findByPlanIdAndVersionedCustomQuestionId` functions, and updated `isValid` function to account for new id fields, and updated `create` function to check both `versionedQuestionId` and `versionedCustomQuestionId` for already existing answer [#159]
 - Updated `publishedQuestions` query in `versionedQuestion` resolver to return both `BASE` and `CUSTOM` versioned questions for the given versionedSectionId. Also, added `publishedCustomQuestions` query to return the `customQuestions` associated with a `customSection` [#159]

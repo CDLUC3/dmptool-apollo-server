@@ -19,7 +19,7 @@ import { VersionedQuestionCondition } from '../../models/VersionedQuestionCondit
 import { VersionedTemplate } from '../../models/VersionedTemplate';
 import { VersionedTemplateCustomization } from '../../models/VersionedTemplateCustomization';
 import { Affiliation } from '../../models/Affiliation';
-import { User, UserRole } from "../../models/User";
+import { UserRole } from "../../models/User";
 import { buildContext, mockToken } from "../../__mocks__/context";
 
 jest.mock('../../context.ts');
@@ -73,17 +73,6 @@ afterEach(() => {
 });
 
 describe('versionedQuestion resolvers', () => {
-  let user: User;
-
-  beforeEach(() => {
-    user = new User({
-      id: casual.integer(1, 999),
-      givenName: casual.first_name,
-      surName: casual.last_name,
-      role: UserRole.RESEARCHER,
-      affiliationId,
-    });
-  });
 
   // ============================================================================
   // Query: publishedQuestion

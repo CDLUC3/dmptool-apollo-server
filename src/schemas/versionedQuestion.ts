@@ -8,6 +8,8 @@ export const typeDefs = gql`
     publishedCustomQuestions(versionedCustomSectionId: Int!, planId: Int!): [PublishedQuestion]
     "Get a specific VersionedQuestion based on versionedQuestionId"
     publishedQuestion(versionedQuestionId: Int!): VersionedQuestion
+    "Get a specific published custom question based on versionedCustomQuestionId"
+    publishedCustomQuestion(versionedCustomQuestionId: Int!): VersionedCustomQuestion
   }
 
   "A snapshot of a Question when it became published."
@@ -113,6 +115,9 @@ export const typeDefs = gql`
     useSampleTextAsDefault: Boolean
     "Whether this question is required"
     required: Boolean
+
+    "Owner affiliation for the question"
+    ownerAffiliation: Affiliation
 
     "Errors associated with the Object"
     errors: VersionedCustomQuestionErrors

@@ -3176,6 +3176,8 @@ export type Query = {
   projectMembers?: Maybe<Array<Maybe<ProjectMember>>>;
   /** Search for VersionedQuestions that belong to Section specified by sectionId */
   publishedConditionsForQuestion?: Maybe<Array<Maybe<VersionedQuestionCondition>>>;
+  /** Get a specific published custom question based on versionedCustomQuestionId */
+  publishedCustomQuestion?: Maybe<VersionedCustomQuestion>;
   /** Fetch all published custom questions for the specified versioned section */
   publishedCustomQuestions?: Maybe<Array<Maybe<PublishedQuestion>>>;
   /** Fetch a specific VersionedCustomSection for a plan - resolved via the caller's affiliation */
@@ -3368,6 +3370,7 @@ export type QueryGuidanceGroupsArgs = {
 
 
 export type QueryGuidanceSourcesForPlanArgs = {
+  customQuestionId?: InputMaybe<Scalars['Int']['input']>;
   customSectionId?: InputMaybe<Scalars['Int']['input']>;
   planId: Scalars['Int']['input'];
   versionedQuestionId?: InputMaybe<Scalars['Int']['input']>;
@@ -3495,6 +3498,11 @@ export type QueryProjectMembersArgs = {
 
 export type QueryPublishedConditionsForQuestionArgs = {
   versionedQuestionId: Scalars['Int']['input'];
+};
+
+
+export type QueryPublishedCustomQuestionArgs = {
+  versionedCustomQuestionId: Scalars['Int']['input'];
 };
 
 
@@ -5112,6 +5120,8 @@ export type VersionedCustomQuestion = {
   modified?: Maybe<Scalars['String']['output']>;
   /** The user who last modified the Object */
   modifiedById?: Maybe<Scalars['Int']['output']>;
+  /** Owner affiliation for the question */
+  ownerAffiliation?: Maybe<Affiliation>;
   /** The id of the question this custom question is pinned after */
   pinnedVersionedQuestionId?: Maybe<Scalars['Int']['output']>;
   /** The type of question this custom question is pinned after (null = first question in section) */
@@ -7336,6 +7346,7 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   projectMember?: Resolver<Maybe<ResolversTypes['ProjectMember']>, ParentType, ContextType, RequireFields<QueryProjectMemberArgs, 'projectMemberId'>>;
   projectMembers?: Resolver<Maybe<Array<Maybe<ResolversTypes['ProjectMember']>>>, ParentType, ContextType, RequireFields<QueryProjectMembersArgs, 'projectId'>>;
   publishedConditionsForQuestion?: Resolver<Maybe<Array<Maybe<ResolversTypes['VersionedQuestionCondition']>>>, ParentType, ContextType, RequireFields<QueryPublishedConditionsForQuestionArgs, 'versionedQuestionId'>>;
+  publishedCustomQuestion?: Resolver<Maybe<ResolversTypes['VersionedCustomQuestion']>, ParentType, ContextType, RequireFields<QueryPublishedCustomQuestionArgs, 'versionedCustomQuestionId'>>;
   publishedCustomQuestions?: Resolver<Maybe<Array<Maybe<ResolversTypes['PublishedQuestion']>>>, ParentType, ContextType, RequireFields<QueryPublishedCustomQuestionsArgs, 'planId' | 'versionedCustomSectionId'>>;
   publishedCustomSection?: Resolver<Maybe<ResolversTypes['VersionedCustomSection']>, ParentType, ContextType, RequireFields<QueryPublishedCustomSectionArgs, 'customSectionId' | 'planId'>>;
   publishedQuestion?: Resolver<Maybe<ResolversTypes['VersionedQuestion']>, ParentType, ContextType, RequireFields<QueryPublishedQuestionArgs, 'versionedQuestionId'>>;
@@ -7972,6 +7983,7 @@ export type VersionedCustomQuestionResolvers<ContextType = MyContext, ParentType
   json?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  ownerAffiliation?: Resolver<Maybe<ResolversTypes['Affiliation']>, ParentType, ContextType>;
   pinnedVersionedQuestionId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   pinnedVersionedQuestionType?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   questionText?: Resolver<ResolversTypes['String'], ParentType, ContextType>;

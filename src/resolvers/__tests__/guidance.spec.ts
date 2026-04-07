@@ -250,8 +250,8 @@ describe('guidance resolvers', () => {
   describe('Query.guidanceSourcesForPlan', () => {
     beforeEach(() => {
       query = `
-        query guidanceSourcesForPlan($planId: Int!, $versionedSectionId: Int, $versionedQuestionId: Int) {
-          guidanceSourcesForPlan(planId: $planId, versionedSectionId: $versionedSectionId, versionedQuestionId: $versionedQuestionId) {
+        query guidanceSourcesForPlan($planId: Int!, $versionedSectionId: Int, $versionedQuestionId: Int, $customSectionId: Int, $customQuestionId: Int) {
+          guidanceSourcesForPlan(planId: $planId, versionedSectionId: $versionedSectionId, versionedQuestionId: $versionedQuestionId, customSectionId: $customSectionId, customQuestionId: $customQuestionId) {
             id
             type
             label
@@ -304,6 +304,7 @@ describe('guidance resolvers', () => {
         1,
         5,
         10,
+        undefined,
         undefined
       );
     });
@@ -329,6 +330,56 @@ describe('guidance resolvers', () => {
 
       expect(result.body.singleResult.errors).toBeDefined();
       expect(result.body.singleResult.errors[0].message).toEqual('Forbidden');
+    });
+
+    it('should call getGuidanceSourcesForPlan with customSectionId when provided', async () => {
+      const mockPlan = { id: 1, projectId: 100 };
+      const mockProject = { id: 100 };
+
+      (Plan.findById as jest.Mock).mockResolvedValue(mockPlan);
+      (Project.findById as jest.Mock).mockResolvedValue(mockProject);
+      (hasPermissionOnProject as jest.Mock).mockResolvedValue(true);
+      (getGuidanceSourcesForPlan as jest.Mock).mockResolvedValue([]);
+
+      await executeQuery(
+        query,
+        { planId: 1, customSectionId: 7 },
+        researcherToken
+      );
+
+      expect(getGuidanceSourcesForPlan).toHaveBeenCalledWith(
+        expect.any(Object),
+        1,
+        undefined,
+        undefined,
+        7,
+        undefined
+      );
+    });
+
+    it('should call getGuidanceSourcesForPlan with customQuestionId when provided', async () => {
+      const mockPlan = { id: 1, projectId: 100 };
+      const mockProject = { id: 100 };
+
+      (Plan.findById as jest.Mock).mockResolvedValue(mockPlan);
+      (Project.findById as jest.Mock).mockResolvedValue(mockProject);
+      (hasPermissionOnProject as jest.Mock).mockResolvedValue(true);
+      (getGuidanceSourcesForPlan as jest.Mock).mockResolvedValue([]);
+
+      await executeQuery(
+        query,
+        { planId: 1, versionedSectionId: 5, customQuestionId: 42 },
+        researcherToken
+      );
+
+      expect(getGuidanceSourcesForPlan).toHaveBeenCalledWith(
+        expect.any(Object),
+        1,
+        5,
+        undefined,
+        undefined,
+        42
+      );
     });
   });
 

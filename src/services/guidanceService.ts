@@ -10,6 +10,7 @@ import { VersionedQuestion } from "../models/VersionedQuestion";
 import { VersionedQuestionCustomization } from "../models/VersionedQuestionCustomization";
 import { VersionedSectionCustomization } from "../models/VersionedSectionCustomization";
 import { VersionedCustomSection } from "../models/VersionedCustomSection";
+import { VersionedCustomQuestion } from "../models/VersionedCustomQuestion";
 import { Plan } from "../models/Plan";
 import { VersionedTemplate } from "../models/VersionedTemplate";
 import { prepareObjectForLogs } from "../logger";
@@ -294,7 +295,8 @@ export async function getGuidanceSourcesForPlan(
   planId: number,
   versionedSectionId?: number,
   versionedQuestionId?: number,
-  customSectionId?: number
+  customSectionId?: number,
+  customQuestionId?: number
 ): Promise<GuidanceSource[]> {
   const reference = 'getGuidanceSourcesForPlan';
 
@@ -340,6 +342,20 @@ export async function getGuidanceSourcesForPlan(
       // Get tags for the question's section
       tagsMap = await getSectionTags(context, question.versionedSectionId);
       guidanceText = question.guidanceText || null; // Question-level guidance
+    } else if (customQuestionId) {
+      // Custom question: guidance is owned by the user's institution
+      const customQuestion = await VersionedCustomQuestion.findById(
+        reference, context, customQuestionId
+      );
+      if (!customQuestion) return [];
+      guidanceText = customQuestion.guidanceText || null;
+      // Get tags from the parent section (which may be BASE or CUSTOM)
+      if (customQuestion.versionedSectionType === 'BASE') {
+        tagsMap = await getSectionTags(context, customQuestion.versionedSectionId);
+      } else {
+        // CUSTOM parent section — fall back to template-wide tags
+        tagsMap = await getSectionTagsMap(context, versionedTemplateId);
+      }
     } else if (versionedSectionId) { // Otherwise, get tags and guidance for the section id provided
 
       tagsMap = await getSectionTags(context, versionedSectionId);
@@ -374,6 +390,8 @@ export async function getGuidanceSourcesForPlan(
 
         customizationGuidanceText = sectionCustomization?.guidance || null;
       }
+      // customQuestionId: guidanceText is already on the VersionedCustomQuestion itself —
+      // no separate customization record exists for custom questions
     }
 
     // Get template owner info
@@ -387,8 +405,8 @@ export async function getGuidanceSourcesForPlan(
 
       // Add primary guidance source (customization or template owner)
       if (guidanceText) {
-        // Custom section guidance belongs to the institution, not the template owner
-        if (customSectionId && userAffiliationUri) {
+        // Custom section/question guidance belongs to the institution, not the template owner
+        if ((customSectionId || customQuestionId) && userAffiliationUri) {
           const affiliation = await Affiliation.findByURI(reference, context, userAffiliationUri);
           if (affiliation) {
             result.push({
@@ -512,9 +530,9 @@ export async function getGuidanceSourcesForPlan(
 
           const items = groupGuidanceByTag(tagBasedGuidance, sectionTagIds, tagsMap);
 
-          // For custom sections, the section's guidanceText IS the user's content — prepend it
+          // For custom sections/questions, the guidanceText IS the user's content — prepend it
           // For versioned sections, customizationGuidanceText is the override — prepend it
-          const customGuidanceText = customSectionId ? guidanceText : customizationGuidanceText;
+          const customGuidanceText = (customSectionId || customQuestionId) ? guidanceText : customizationGuidanceText;
           if (customGuidanceText) {
             items.unshift({
               title: affiliation.displayName || affiliation.name,
@@ -564,10 +582,10 @@ export async function getGuidanceSourcesForPlan(
 
           const items = groupGuidanceByTag(tagBasedGuidance, sectionTagIds, tagsMap);
 
-          // Only prepend section-level guidanceText for versioned sections.
-          // For custom sections, the section was created by the user's institution —
-          // the template owner has no section-level guidance to contribute here.
-          if (guidanceText && !customSectionId) {
+          // Only prepend section-level guidanceText for versioned sections/questions.
+          // For custom sections/questions, the content was created by the user's institution —
+          // the template owner has no guidance to contribute here.
+          if (guidanceText && !customSectionId && !customQuestionId) {
             items.unshift({
               title: affiliation.displayName || affiliation.name,
               guidanceText
@@ -589,7 +607,7 @@ export async function getGuidanceSourcesForPlan(
           });
 
           processedOrgURIs.add(templateOwnerUri);
-          
+
         }
       }
     }

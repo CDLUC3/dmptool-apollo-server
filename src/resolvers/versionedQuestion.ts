@@ -171,9 +171,7 @@ export const resolvers: Resolvers = {
       const reference = 'publishedCustomQuestion resolver';
       try {
         if (isAuthorized(context?.token)) {
-          const temp = await VersionedCustomQuestion.findById(reference, context, versionedCustomQuestionId);
-          console.log("***Response from publishedCustomQuestion resolver: ", temp);
-          return temp;
+          return await VersionedCustomQuestion.findById(reference, context, versionedCustomQuestionId);
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();
       } catch (err) {

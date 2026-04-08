@@ -224,6 +224,44 @@ export class PlanSectionProgress {
   }
 
   /**
+   * Fetch the count of custom questions that have been answered by section type for a given plan and template customization. 
+   * This allows us to credit answered custom questions in the progress calculation for both base and custom sections.
+   * @param reference
+   * @param context 
+   * @param planId 
+   * @param templateCustomizationId 
+   * @returns 
+   */
+  private static async fetchAnsweredCustomQuestions(
+    reference: string,
+    context: MyContext,
+    planId: number,
+    templateCustomizationId: number,
+  ): Promise<{ sectionId: number; sectionType: string; answeredCount: number }[]> {
+    const sql = `
+    SELECT
+      vcq.versionedSectionId  AS sectionId,
+      vcq.versionedSectionType AS sectionType,
+      COUNT(DISTINCT a.versionedCustomQuestionId) AS answeredCount
+    FROM answers a
+    JOIN versionedCustomQuestions vcq
+      ON vcq.id = a.versionedCustomQuestionId
+    JOIN versionedTemplateCustomizations vtc
+      ON vtc.id = vcq.versionedTemplateCustomizationId
+    WHERE a.planId = ?
+      AND vtc.templateCustomizationId = ?
+      AND NULLIF(TRIM(a.json), '') IS NOT NULL
+    GROUP BY vcq.versionedSectionId, vcq.versionedSectionType
+  `;
+    const rows = await Plan.query(
+      context, sql,
+      [planId.toString(), templateCustomizationId.toString()],
+      reference
+    );
+    return Array.isArray(rows) ? rows : [];
+  }
+
+  /**
    * Return the progress information for the plan by section, including any
    * custom sections or custom questions added via a template customization
    *
@@ -233,6 +271,8 @@ export class PlanSectionProgress {
    * @returns The progress information for the section or an empty array if the section does not exist
    */
   static async findByPlanId(reference: string, context: MyContext, planId: number, versionedTemplateId?: number): Promise<PlanSectionProgress[]> {
+    // First fetch base sections and their question counts, which we will use as the foundation to build out the full section list with custom sections 
+    // and adjusted question counts
     const sql = `SELECT
       vs.id AS versionedSectionId,
       vs.displayOrder,
@@ -294,35 +334,53 @@ export class PlanSectionProgress {
     );
 
     // No customization exists for this template — return base sections as-is
+    // totalQuestions and answeredQuestions will reflect only the base questions in this case
     if (!templateCustomizationId) return baseSections;
 
     // Fetch custom sections and extra question counts in parallel
-    const [customSectionRows, extraQuestionRows] = await Promise.all([
+    const [customSectionTotals, baseCustomQuestionTotals, answeredCustomTotals] = await Promise.all([
       this.fetchCustomSections(reference, context, templateCustomizationId),
       this.fetchExtraQuestionsForBaseSections(reference, context, templateCustomizationId),
+      this.fetchAnsweredCustomQuestions(reference, context, planId, templateCustomizationId),
     ]);
 
+    // Build answered-count maps keyed by sectionId, split by section type ("Base" vs "Custom") since they have different sectionId spaces
+    const answeredCustomByBaseSection = new Map<number, number>();
+    const answeredCustomByCustomSection = new Map<number, number>();
+
+    for (const row of answeredCustomTotals) {
+      if (row.sectionType === 'BASE') {
+        answeredCustomByBaseSection.set(row.sectionId, Number(row.answeredCount));
+      } else if (row.sectionType === 'CUSTOM') {
+        answeredCustomByCustomSection.set(row.sectionId, Number(row.answeredCount));
+      }
+    }
+
     // Bump totalQuestions on base sections that have extra custom questions
-    if (extraQuestionRows.length) {
+    if (baseCustomQuestionTotals.length) {
       const extraBySection = new Map<number, number>(
-        extraQuestionRows.map((r) => [r.versionedSectionId, Number(r.extraCount)])
+        baseCustomQuestionTotals.map((r) => [r.versionedSectionId, Number(r.extraCount)])
       );
       for (const section of baseSections) {
         const extra = extraBySection.get(section.versionedSectionId) ?? 0;
         if (extra > 0) section.totalQuestions += extra;
+
+        // Also credit answered custom questions on this base section
+        const answeredExtra = answeredCustomByBaseSection.get(section.versionedSectionId) ?? 0;
+        if (answeredExtra > 0) section.answeredQuestions += answeredExtra;
       }
     }
 
     // Build a map: pinnedId → custom sections pinned to it
-    const pinnedToMap = new Map<number, typeof customSectionRows>();
-    for (const cs of customSectionRows) {
+    const pinnedToMap = new Map<number, typeof customSectionTotals>();
+    for (const cs of customSectionTotals) {
       const existing = pinnedToMap.get(cs.pinnedSectionId) ?? [];
       existing.push(cs);
       pinnedToMap.set(cs.pinnedSectionId, existing);
     }
 
     // Recursively collect custom sections inserted after a given target id
-    function collectAfter(targetId: number, result: typeof customSectionRows, visited = new Set<number>()) {
+    function collectAfter(targetId: number, result: typeof customSectionTotals, visited = new Set<number>()) {
       if (visited.has(targetId)) return;
       visited.add(targetId);
       const pinned = (pinnedToMap.get(targetId) ?? []).sort((a, b) => a.id - b.id);
@@ -339,7 +397,7 @@ export class PlanSectionProgress {
     for (const base of baseSections) {
       orderedSections.push(new PlanSectionProgress({ ...base, displayOrder: displayOrder++ }));
 
-      const chain: typeof customSectionRows = [];
+      const chain: typeof customSectionTotals = [];
       collectAfter(base.versionedSectionId, chain);
 
       for (const cs of chain) {
@@ -350,7 +408,7 @@ export class PlanSectionProgress {
           title: cs.name,
           displayOrder: displayOrder++,
           totalQuestions: Number(cs.totalQuestions),
-          answeredQuestions: 0,
+          answeredQuestions: answeredCustomByCustomSection.get(cs.id) ?? 0,
           tags: [],
         }));
       }
@@ -386,24 +444,26 @@ export class PlanProgress {
    * @param planId The ID of the plan to return progress information for
    * @returns The overall progress information for the plan or null if the plan does not exist
    */
-  static async findByPlanId(reference: string, context: MyContext, planId: number): Promise<PlanProgress> {
-    const sql = `SELECT COUNT(DISTINCT vq.id) AS totalQuestions,
-        COUNT(DISTINCT CASE
-            WHEN a.id IS NOT NULL AND NULLIF(TRIM(a.json), '') IS NOT NULL
-            THEN vq.id
-        END) AS answeredQuestions
-        FROM plans p
-            JOIN versionedTemplates vt ON vt.id = p.versionedTemplateId
-            JOIN versionedSections  vs ON vs.versionedTemplateId = vt.id
-            JOIN versionedQuestions vq ON vq.versionedSectionId = vs.id
-            LEFT JOIN answers a
-                ON a.planId = p.id
-                AND a.versionedQuestionId = vq.id
-        WHERE p.id = ?;
-`
+  static async findByPlanId(
+    reference: string,
+    context: MyContext,
+    planId: number,
+    versionedTemplateId?: number  // add this param
+  ): Promise<PlanProgress> {
+    // Reuse PlanSectionProgress which already handles custom questions correctly
+    const sections = await PlanSectionProgress.findByPlanId(
+      reference,
+      context,
+      planId,
+      versionedTemplateId
+    );
 
-    const results = await Plan.query(context, sql, [planId?.toString()], reference);
-    return Array.isArray(results) && results.length > 0 ? new PlanProgress(results[0]) : null;
+    if (!sections.length) return null;
+
+    const totalQuestions = sections.reduce((sum, s) => sum + s.totalQuestions, 0);
+    const answeredQuestions = sections.reduce((sum, s) => sum + s.answeredQuestions, 0);
+
+    return new PlanProgress({ totalQuestions, answeredQuestions });
   }
 }
 

@@ -333,7 +333,7 @@ export const resolvers: Resolvers = {
     },
     progress: async (parent: Plan, _, context: MyContext): Promise<PlanProgress> => {
       if (parent?.id) {
-        return await PlanProgress.findByPlanId('plan progress resolver', context, parent.id);
+        return await PlanProgress.findByPlanId('plan progress resolver', context, parent.id, parent?.versionedTemplateId);
       }
       return null;
     },

@@ -44,12 +44,14 @@ export class Answer extends MySqlModel {
   async isValid(): Promise<boolean> {
     await super.isValid();
     const hasBase = !!this.versionedSectionId && !!this.versionedQuestionId;
-    const hasCustom = !!this.versionedCustomSectionId && !!this.versionedCustomQuestionId;
+    const hasCustomInCustomSection = !!this.versionedCustomSectionId && !!this.versionedCustomQuestionId;
+    const hasCustomInBaseSection = !!this.versionedSectionId && !!this.versionedCustomQuestionId;
 
-    if (!hasBase && !hasCustom) {
+    // three valid combinations: 1) base section and question, 2) custom section and custom question, 3) base section and custom question (for when a custom question is added to a base section)
+    if (!hasBase && !hasCustomInCustomSection && !hasCustomInBaseSection) {
       this.addError('general', 'Answer must belong to either a base or custom section and question');
     }
-    if (hasBase && hasCustom) {
+    if (hasBase && hasCustomInCustomSection) {
       this.addError('general', 'Answer cannot belong to both a base and custom section simultaneously');
     }
 
@@ -131,7 +133,7 @@ export class Answer extends MySqlModel {
       return row;
     });
 
-// Only stringify and re-assign if we actually changed something
+    // Only stringify and re-assign if we actually changed something
     if (modified) {
       this.json = JSON.stringify(parsedJSON);
     }
@@ -157,8 +159,12 @@ export class Answer extends MySqlModel {
       } else {
         // Save the record and then fetch it
         const newId = await Answer.insert(context, Answer.tableName, this, reference);
-        const response = await Answer.findById(reference, context, newId);
-        return response;
+        if (!newId) {
+          this.addError('general', 'Failed to save answer');
+        } else {
+          const response = await Answer.findById(reference, context, newId);
+          return response;
+        }
       }
     }
     // Otherwise return as-is with all the errors

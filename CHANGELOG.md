@@ -57,6 +57,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `answerByVersionedQuestionId` query and `addAnswer` mutation to pass in `versionedCustomSectionId` and `versionedCustomQuestionid` variables so that we can get and save the correct answers [#173]
 - Updated sql query in `findActiveByTemplateAffiliationAndQuestion` function in `VersionedQuestionCustomization` model to include `affiliationId` so that we can get the name of the org that made the customization [#173]
 - Updated `publishedQuestion` resolver in `versionedQuestion.ts` to return customization info, including customized sample answer and name of org that made the customization [#173]
 - Updated `VersionedQuestion` schema to include `customizationId`, `customizationGuidanceText`, `customizationSampleText` and `customizationOwnerAffiliation` fields [#173]

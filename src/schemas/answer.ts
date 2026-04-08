@@ -6,7 +6,7 @@ export const typeDefs = gql`
     answers(projectId: Int!, planId: Int!, versionedSectionId: Int!): [Answer]
 
     "Get an answer by versionedQuestionId"
-    answerByVersionedQuestionId(projectId: Int!, planId: Int!, versionedQuestionId: Int!): Answer
+    answerByVersionedQuestionId(projectId: Int!, planId: Int!, versionedQuestionId: Int, versionedCustomQuestionId: Int): Answer
 
     "Get the specific answer"
     answer(projectId: Int!, answerId: Int!): Answer

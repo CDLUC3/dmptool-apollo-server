@@ -512,7 +512,8 @@ describe("VersionedQuestionCustomization", () => {
   });
 
   describe("findActiveByTemplateAffiliationAndQuestion", () => {
-    const expectedSql = `SELECT vqc.* FROM versionedQuestionCustomizations AS vqc
+    const expectedSql = `SELECT vqc.*, vtc.affiliationId as customizationAffiliationId
+      FROM versionedQuestionCustomizations AS vqc
      JOIN versionedTemplateCustomizations AS vtc
        ON vqc.versionedTemplateCustomizationId = vtc.id
      WHERE vtc.active = 1

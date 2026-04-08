@@ -18,6 +18,7 @@ import { Answer } from '../../models/Answer';
 import { VersionedQuestionCondition } from '../../models/VersionedQuestionCondition';
 import { VersionedTemplate } from '../../models/VersionedTemplate';
 import { VersionedTemplateCustomization } from '../../models/VersionedTemplateCustomization';
+import { VersionedQuestionCustomization } from '../../models/VersionedQuestionCustomization';
 import { Affiliation } from '../../models/Affiliation';
 import { UserRole } from "../../models/User";
 import { buildContext, mockToken } from "../../__mocks__/context";
@@ -29,6 +30,7 @@ jest.mock('../../models/VersionedQuestion');
 jest.mock('../../models/VersionedCustomQuestion');
 jest.mock('../../models/Answer');
 jest.mock('../../models/VersionedQuestionCondition');
+jest.mock('../../models/VersionedQuestionCustomization');
 
 let testServer: ApolloServer;
 let affiliationId: string;
@@ -112,6 +114,7 @@ describe('versionedQuestion resolvers', () => {
 
       (VersionedQuestion.findById as jest.Mock).mockResolvedValue(mockQuestion);
       (VersionedQuestionCondition.findByVersionedQuestionId as jest.Mock).mockResolvedValue([]);
+      (VersionedQuestionCustomization.findActiveByTemplateAffiliationAndQuestion as jest.Mock).mockResolvedValue(null);
 
       const result = await executeQuery(query, { versionedQuestionId: 1 }, researcherToken);
 
@@ -123,10 +126,96 @@ describe('versionedQuestion resolvers', () => {
         expect.any(Object),
         1
       );
+      expect(VersionedQuestionCustomization.findActiveByTemplateAffiliationAndQuestion).toHaveBeenCalledWith(
+        'publishedQuestion resolver',
+        expect.any(Object),
+        affiliationId,
+        1
+      );
+    });
+
+    it('should return customization fields when a customization exists', async () => {
+      const mockQuestion = {
+        id: 1,
+        questionText: 'What is your data management plan?',
+        requirementText: 'Required by funder',
+        guidanceText: 'Original guidance',
+        sampleText: 'Original sample',
+        required: true,
+        versionedTemplateId: 10,
+        versionedSectionId: 5,
+      };
+      const mockCustomization = {
+        id: 99,
+        guidanceText: 'Org custom guidance',
+        sampleText: 'Org custom sample',
+      };
+
+      (VersionedQuestion.findById as jest.Mock).mockResolvedValue(mockQuestion);
+      (VersionedQuestionCondition.findByVersionedQuestionId as jest.Mock).mockResolvedValue([]);
+      (VersionedQuestionCustomization.findActiveByTemplateAffiliationAndQuestion as jest.Mock).mockResolvedValue(mockCustomization);
+
+      const custQuery = `
+        query publishedQuestion($versionedQuestionId: Int!) {
+          publishedQuestion(versionedQuestionId: $versionedQuestionId) {
+            id
+            guidanceText
+            sampleText
+            customizationId
+            customizationGuidanceText
+            customizationSampleText
+          }
+        }
+      `;
+
+      const result = await executeQuery(custQuery, { versionedQuestionId: 1 }, researcherToken);
+
+      expect(result.body.singleResult.errors).toBeUndefined();
+      const q = result.body.singleResult.data.publishedQuestion;
+      expect(q.id).toEqual(1);
+      expect(q.guidanceText).toEqual('Original guidance');
+      expect(q.sampleText).toEqual('Original sample');
+      expect(q.customizationId).toEqual(99);
+      expect(q.customizationGuidanceText).toEqual('Org custom guidance');
+      expect(q.customizationSampleText).toEqual('Org custom sample');
+    });
+
+    it('should return null customization fields when no customization exists', async () => {
+      const mockQuestion = {
+        id: 1,
+        questionText: 'Test question',
+        required: false,
+        versionedTemplateId: 10,
+        versionedSectionId: 5,
+      };
+
+      (VersionedQuestion.findById as jest.Mock).mockResolvedValue(mockQuestion);
+      (VersionedQuestionCondition.findByVersionedQuestionId as jest.Mock).mockResolvedValue([]);
+      (VersionedQuestionCustomization.findActiveByTemplateAffiliationAndQuestion as jest.Mock).mockResolvedValue(null);
+
+      const custQuery = `
+        query publishedQuestion($versionedQuestionId: Int!) {
+          publishedQuestion(versionedQuestionId: $versionedQuestionId) {
+            id
+            customizationId
+            customizationGuidanceText
+            customizationSampleText
+          }
+        }
+      `;
+
+      const result = await executeQuery(custQuery, { versionedQuestionId: 1 }, researcherToken);
+
+      expect(result.body.singleResult.errors).toBeUndefined();
+      const q = result.body.singleResult.data.publishedQuestion;
+      expect(q.customizationId).toBeNull();
+      expect(q.customizationGuidanceText).toBeNull();
+      expect(q.customizationSampleText).toBeNull();
     });
 
     it('should return null when question is not found', async () => {
       (VersionedQuestion.findById as jest.Mock).mockResolvedValue(null);
+      (VersionedQuestionCustomization.findActiveByTemplateAffiliationAndQuestion as jest.Mock).mockResolvedValue(null);
 
       const result = await executeQuery(query, { versionedQuestionId: 999 }, researcherToken);
 
@@ -156,6 +245,7 @@ describe('versionedQuestion resolvers', () => {
 
       (VersionedQuestion.findById as jest.Mock).mockResolvedValue(mockQuestion);
       (VersionedQuestionCondition.findByVersionedQuestionId as jest.Mock).mockResolvedValue(mockConditions);
+      (VersionedQuestionCustomization.findActiveByTemplateAffiliationAndQuestion as jest.Mock).mockResolvedValue(null);
 
       const result = await executeQuery(query, { versionedQuestionId: 1 }, researcherToken);
 
@@ -182,6 +272,7 @@ describe('versionedQuestion resolvers', () => {
 
       (VersionedQuestion.findById as jest.Mock).mockResolvedValue(mockQuestion);
       (VersionedQuestionCondition.findByVersionedQuestionId as jest.Mock).mockResolvedValue([]);
+      (VersionedQuestionCustomization.findActiveByTemplateAffiliationAndQuestion as jest.Mock).mockResolvedValue(null);
       jest.spyOn(VersionedTemplate, 'findById').mockResolvedValue(mockTemplate as unknown as VersionedTemplate);
       jest.spyOn(Affiliation, 'findByURI').mockResolvedValue(mockAffiliation as unknown as Affiliation);
 
@@ -206,6 +297,73 @@ describe('versionedQuestion resolvers', () => {
         expect.any(Object),
         10
       );
+    });
+
+    it('should resolve customizationOwnerAffiliation via chained resolver', async () => {
+      const mockQuestion = {
+        id: 1,
+        questionText: 'Test question',
+        required: false,
+        versionedTemplateId: 10,
+        versionedSectionId: 5,
+      };
+      const mockCustomization = { id: 99, guidanceText: 'Custom guidance', sampleText: null };
+      const mockAffiliation = { uri: affiliationId, name: 'Org University', displayName: 'Org University' };
+
+      (VersionedQuestion.findById as jest.Mock).mockResolvedValue(mockQuestion);
+      (VersionedQuestionCondition.findByVersionedQuestionId as jest.Mock).mockResolvedValue([]);
+      (VersionedQuestionCustomization.findActiveByTemplateAffiliationAndQuestion as jest.Mock).mockResolvedValue(mockCustomization);
+      jest.spyOn(Affiliation, 'findByURI').mockResolvedValue(mockAffiliation as unknown as Affiliation);
+
+      const custOwnerQuery = `
+        query publishedQuestion($versionedQuestionId: Int!) {
+          publishedQuestion(versionedQuestionId: $versionedQuestionId) {
+            id
+            customizationOwnerAffiliation {
+              uri
+              name
+            }
+          }
+        }
+      `;
+
+      const result = await executeQuery(custOwnerQuery, { versionedQuestionId: 1 }, researcherToken);
+
+      expect(result.body.singleResult.errors).toBeUndefined();
+      expect(result.body.singleResult.data.publishedQuestion.customizationOwnerAffiliation.name).toEqual('Org University');
+      expect(Affiliation.findByURI).toHaveBeenCalledWith(
+        'VersionedQuestion.customizationOwnerAffiliation resolver',
+        expect.any(Object),
+        affiliationId
+      );
+    });
+
+    it('should return null customizationOwnerAffiliation when no customization exists', async () => {
+      const mockQuestion = {
+        id: 1,
+        questionText: 'Test question',
+        required: false,
+        versionedTemplateId: 10,
+        versionedSectionId: 5,
+      };
+
+      (VersionedQuestion.findById as jest.Mock).mockResolvedValue(mockQuestion);
+      (VersionedQuestionCondition.findByVersionedQuestionId as jest.Mock).mockResolvedValue([]);
+      (VersionedQuestionCustomization.findActiveByTemplateAffiliationAndQuestion as jest.Mock).mockResolvedValue(null);
+
+      const custOwnerQuery = `
+        query publishedQuestion($versionedQuestionId: Int!) {
+          publishedQuestion(versionedQuestionId: $versionedQuestionId) {
+            id
+            customizationOwnerAffiliation { uri }
+          }
+        }
+      `;
+
+      const result = await executeQuery(custOwnerQuery, { versionedQuestionId: 1 }, researcherToken);
+
+      expect(result.body.singleResult.errors).toBeUndefined();
+      expect(result.body.singleResult.data.publishedQuestion.customizationOwnerAffiliation).toBeNull();
     });
   });
 

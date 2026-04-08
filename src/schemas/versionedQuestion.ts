@@ -50,6 +50,12 @@ export const typeDefs = gql`
     "To indicate whether the question is required to be completed"
     required: Boolean
 
+    "For question customization info"
+    customizationId: Int
+    customizationGuidanceText: String
+    customizationSampleText: String
+    customizationOwnerAffiliation: Affiliation
+
     "The conditional logic associated with this VersionedQuestion"
     versionedQuestionConditions: [VersionedQuestionCondition!]
     "Owner affiliation for the question"

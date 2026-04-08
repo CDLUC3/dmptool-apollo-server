@@ -5295,6 +5295,11 @@ export type VersionedQuestion = {
   created?: Maybe<Scalars['String']['output']>;
   /** The user who created the Object */
   createdById?: Maybe<Scalars['Int']['output']>;
+  customizationGuidanceText?: Maybe<Scalars['String']['output']>;
+  /** For question customization info */
+  customizationId?: Maybe<Scalars['Int']['output']>;
+  customizationOwnerAffiliation?: Maybe<Affiliation>;
+  customizationSampleText?: Maybe<Scalars['String']['output']>;
   /** The display order of the VersionedQuestion */
   displayOrder?: Maybe<Scalars['Int']['output']>;
   /** Errors associated with the Object */
@@ -8083,6 +8088,10 @@ export type VersionedGuidanceGroupErrorsResolvers<ContextType = MyContext, Paren
 export type VersionedQuestionResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['VersionedQuestion'] = ResolversParentTypes['VersionedQuestion']> = {
   created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   createdById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  customizationGuidanceText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  customizationId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  customizationOwnerAffiliation?: Resolver<Maybe<ResolversTypes['Affiliation']>, ParentType, ContextType>;
+  customizationSampleText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   displayOrder?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   errors?: Resolver<Maybe<ResolversTypes['VersionedQuestionErrors']>, ParentType, ContextType>;
   guidanceText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;

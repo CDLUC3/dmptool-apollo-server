@@ -24,6 +24,7 @@ import { VersionedQuestion } from "../../models/VersionedQuestion";
 import { VersionedSectionCustomization } from "../../models/VersionedSectionCustomization";
 import { VersionedQuestionCustomization } from "../../models/VersionedQuestionCustomization";
 import { VersionedCustomSection } from "../../models/VersionedCustomSection";
+import { VersionedCustomQuestion } from "../../models/VersionedCustomQuestion";
 import { Affiliation } from "../../models/Affiliation";
 import { isSuperAdmin } from "../authService";
 
@@ -150,6 +151,12 @@ jest.mock("../../models/VersionedCustomSection", () => ({
   },
 }));
 
+jest.mock("../../models/VersionedCustomQuestion", () => ({
+  VersionedCustomQuestion: {
+    findById: jest.fn(),
+  },
+}));
+
 jest.mock("../../models/Affiliation", () => ({
   Affiliation: {
     findByURI: jest.fn(),
@@ -203,7 +210,7 @@ describe("hasPermissionOnGuidanceGroup", () => {
     context = await buildMockContextWithToken(logger);
     jest.clearAllMocks();
   });
-  
+
   it("returns true if user is from the same org", async () => {
     (GuidanceGroup.findById as jest.Mock).mockResolvedValue({ affiliationId: "abc" });
     const localContext = { token: { affiliationId: "abc" } };
@@ -239,16 +246,16 @@ describe("publishGuidanceGroup", () => {
   beforeEach(async () => {
     context = await buildMockContextWithToken(logger);
     jest.clearAllMocks();
-    
-    group = { 
-      id: 1, 
-      bestPractice: true, 
-      optionalSubset: false, 
-      name: "g", 
-      description: "desc", 
-      update: jest.fn().mockResolvedValue({ hasErrors: () => false }) 
+
+    group = {
+      id: 1,
+      bestPractice: true,
+      optionalSubset: false,
+      name: "g",
+      description: "desc",
+      update: jest.fn().mockResolvedValue({ hasErrors: () => false })
     };
-    
+
     VersionedGuidanceGroupMock.mockImplementation((data: Record<string, unknown>) => ({
       ...data,
       create: jest.fn().mockResolvedValue({
@@ -260,11 +267,11 @@ describe("publishGuidanceGroup", () => {
       hasErrors: () => false,
       update: jest.fn().mockResolvedValue({ hasErrors: () => false }),
     }));
-    
+
     VersionedGuidanceGroupMock.findByGuidanceGroupId.mockResolvedValue([{ version: 1 }]);
     VersionedGuidanceGroupMock.deactivateAll.mockResolvedValue(true);
     GuidanceMock.findByGuidanceGroupId.mockResolvedValue([{ id: 1, tagId: 2, guidanceText: "txt" }]);
-    
+
     VersionedGuidanceMock.mockImplementation((data: Record<string, unknown>) => ({
       ...data,
       create: jest.fn().mockResolvedValue({ hasErrors: () => false }),
@@ -289,7 +296,7 @@ describe("publishGuidanceGroup", () => {
       modifiedById: 0,
       update: jest.fn(),
     };
-    
+
     await expect(guidanceService.publishGuidanceGroup(context, invalidGroup as GuidanceGroup)).rejects.toThrow();
   });
 
@@ -299,7 +306,7 @@ describe("publishGuidanceGroup", () => {
       create: jest.fn().mockResolvedValue({ hasErrors: () => true }),
       hasErrors: () => true,
     }));
-    
+
     await expect(guidanceService.publishGuidanceGroup(context, group as GuidanceGroup)).rejects.toThrow();
   });
 
@@ -309,7 +316,7 @@ describe("publishGuidanceGroup", () => {
       create: jest.fn().mockResolvedValue({ hasErrors: () => true }),
       hasErrors: () => true,
     }));
-    
+
     await expect(guidanceService.publishGuidanceGroup(context, group as GuidanceGroup)).rejects.toThrow();
   });
 });
@@ -320,7 +327,7 @@ describe("unpublishGuidanceGroup", () => {
     jest.clearAllMocks();
     group = { id: 1 };
   });
-  
+
   it("unpublishes a group and returns true", async () => {
     VersionedGuidanceGroupMock.deactivateAll.mockResolvedValue(true);
     const result = await guidanceService.unpublishGuidanceGroup(context, group as GuidanceGroup);
@@ -339,7 +346,7 @@ describe("unpublishGuidanceGroup", () => {
       modifiedById: 0,
       update: jest.fn(),
     };
-    
+
     await expect(guidanceService.unpublishGuidanceGroup(context, invalidGroup as GuidanceGroup)).rejects.toThrow();
   });
 
@@ -354,14 +361,14 @@ describe("markGuidanceGroupAsDirty", () => {
     context = await buildMockContextWithToken(logger);
     jest.clearAllMocks();
   });
-  
+
   it("marks group as dirty if active version exists", async () => {
     const group = { isDirty: false, update: jest.fn().mockResolvedValue({}) };
     (GuidanceGroup.findById as jest.Mock).mockResolvedValue(group);
     VersionedGuidanceGroupMock.findActiveByGuidanceGroupId.mockResolvedValue(true);
-    
+
     await guidanceService.markGuidanceGroupAsDirty(context, 1);
-    
+
     expect(group.isDirty).toBe(true);
     expect(group.update).toHaveBeenCalled();
   });
@@ -375,20 +382,20 @@ describe("markGuidanceGroupAsDirty", () => {
     const group = { isDirty: false, update: jest.fn().mockResolvedValue({}) };
     (GuidanceGroup.findById as jest.Mock).mockResolvedValue(group);
     VersionedGuidanceGroupMock.findActiveByGuidanceGroupId.mockResolvedValue(null);
-    
+
     await expect(guidanceService.markGuidanceGroupAsDirty(context, 1)).resolves.toBeUndefined();
   });
 
   it("logs and throws on error", async () => {
     (GuidanceGroup.findById as jest.Mock).mockRejectedValue(new Error("fail"));
-    
+
     await expect(guidanceService.markGuidanceGroupAsDirty(context, 1)).rejects.toThrow();
     expect(context.logger.error).toHaveBeenCalled();
   });
 });
 
 describe("getSectionTags", () => {
-  beforeEach(async() => {
+  beforeEach(async () => {
     context = await buildMockContextWithToken(logger);
   });
   it("returns tags map", async () => {
@@ -406,7 +413,7 @@ describe("getSectionTags", () => {
 });
 
 describe("getSectionTagsMap", () => {
-  beforeEach(async() => {
+  beforeEach(async () => {
     context = await buildMockContextWithToken(logger);
   });
   it("returns tags map", async () => {
@@ -438,39 +445,39 @@ describe("getAffiliationsWithGuidanceForTemplate", () => {
   it("returns all affiliations with associated section tag guidance", async () => {
     const mockTemplate = { id: 1, ownerId: "https://ror.org/021nxhr62" };
     (VersionedTemplate.findById as jest.Mock).mockResolvedValue(mockTemplate);
-    
+
     // Mock section guidance check - has guidance
     (Affiliation.query as jest.Mock).mockResolvedValueOnce([{ count: 1 }]); // sections with guidance
     (Affiliation.query as jest.Mock).mockResolvedValueOnce([{ count: 0 }]); // questions without guidance
-    
+
     // Mock getSectionTagsMap returning empty (no tags)
     (PlanGuidance.query as jest.Mock).mockResolvedValue([]);
-    
+
     const result = await guidanceService.getAffiliationsWithGuidanceForTemplate(context, 1);
-    
+
     expect(result).toEqual(["https://ror.org/021nxhr62"]);
   });
 
   it("returns template owner URI if template has question guidance", async () => {
     const mockTemplate = { id: 1, ownerId: "https://ror.org/021nxhr62" };
     (VersionedTemplate.findById as jest.Mock).mockResolvedValue(mockTemplate);
-    
+
     // Mock question guidance check - has guidance
     (Affiliation.query as jest.Mock).mockResolvedValueOnce([{ count: 0 }]); // sections without guidance
     (Affiliation.query as jest.Mock).mockResolvedValueOnce([{ count: 1 }]); // questions with guidance
-    
+
     // Mock getSectionTagsMap returning empty (no tags)
     (PlanGuidance.query as jest.Mock).mockResolvedValue([]);
-    
+
     const result = await guidanceService.getAffiliationsWithGuidanceForTemplate(context, 1);
-    
+
     expect(result).toEqual(["https://ror.org/021nxhr62"]);
   });
 
   it("returns ALL affiliations that have the correct tag-based guidance", async () => {
     const mockTemplate = { id: 1, ownerId: "https://ror.org/021nxhr62" };
     (VersionedTemplate.findById as jest.Mock).mockResolvedValue(mockTemplate);
-    
+
     // Mock Affiliation.query calls in sequence
     (Affiliation.query as jest.Mock)
       .mockResolvedValueOnce([{ count: 0 }]) // sections check
@@ -480,15 +487,15 @@ describe("getAffiliationsWithGuidanceForTemplate", () => {
         { affiliationId: "https://ror.org/01cwqze88" }, // NSF
         { affiliationId: "https://ror.org/03yrm5c26" }  // NIH
       ]);
-    
+
     // Mock getSectionTagIds returning tag IDs
     (PlanGuidance.query as jest.Mock).mockResolvedValue([
       { tagId: 1 },
       { tagId: 2 }
     ]);
-    
+
     const result = await guidanceService.getAffiliationsWithGuidanceForTemplate(context, 1);
-    
+
     expect(result).toEqual([
       "https://ror.org/021nxhr62",
       "https://ror.org/01cwqze88",
@@ -498,72 +505,72 @@ describe("getAffiliationsWithGuidanceForTemplate", () => {
 
   it("does not duplicate template owner URI if they match user affiliation", async () => {
     const mockTemplate = { id: 1, ownerId: "https://ror.org/021nxhr62" };
-    const userContext = { 
-      ...context, 
-      token: { ...context.token, affiliationId: "https://ror.org/021nxhr62" } 
+    const userContext = {
+      ...context,
+      token: { ...context.token, affiliationId: "https://ror.org/021nxhr62" }
     };
-    
+
     (VersionedTemplate.findById as jest.Mock).mockResolvedValue(mockTemplate);
-    
+
     // Mock Affiliation.query calls in sequence
     (Affiliation.query as jest.Mock)
       .mockResolvedValueOnce([{ count: 1 }]) // sections check - has guidance
       .mockResolvedValueOnce([{ count: 0 }]) // questions check
       .mockResolvedValueOnce([{ count: 1 }]); // template owner tag-based guidance check
     // Should not check user affiliation since it's the same as template owner
-    
+
     // Mock getSectionTagIds returning tag IDs
     (PlanGuidance.query as jest.Mock).mockResolvedValue([
       { tagId: 1 }
     ]);
-    
+
     const result = await guidanceService.getAffiliationsWithGuidanceForTemplate(userContext, 1);
-    
+
     expect(result).toEqual(["https://ror.org/021nxhr62"]);
   });
 
   it("returns [] if no section/question guidance and no tag-based guidance", async () => {
     const mockTemplate = { id: 1, ownerId: "https://ror.org/021nxhr62" };
     (VersionedTemplate.findById as jest.Mock).mockResolvedValue(mockTemplate);
-    
+
     // Mock Affiliation.query calls in sequence
     (Affiliation.query as jest.Mock)
       .mockResolvedValueOnce([{ count: 0 }]) // sections check
       .mockResolvedValueOnce([{ count: 0 }]) // questions check
       .mockResolvedValueOnce([{ count: 0 }]); // template owner tag-based guidance check
-    
+
     // Mock getSectionTagIds returning tag IDs
     (PlanGuidance.query as jest.Mock).mockResolvedValue([
       { tagId: 1 }
     ]);
-    
+
     const result = await guidanceService.getAffiliationsWithGuidanceForTemplate(context, 1);
-    
+
     expect(result).toEqual([]);
   });
 
   it("returns [] if template has no tags and no section/question guidance", async () => {
     const mockTemplate = { id: 1, ownerId: "https://ror.org/021nxhr62" };
     (VersionedTemplate.findById as jest.Mock).mockResolvedValue(mockTemplate);
-    
+
     // Mock Affiliation.query calls in sequence
     (Affiliation.query as jest.Mock)
       .mockResolvedValueOnce([{ count: 0 }]) // sections check - no guidance
       .mockResolvedValueOnce([{ count: 0 }]); // questions check - no guidance
-    
+
     // Mock getSectionTagIds returning no tags
     (PlanGuidance.query as jest.Mock).mockResolvedValue([]);
-    
+
     const result = await guidanceService.getAffiliationsWithGuidanceForTemplate(context, 1);
-    
+
     expect(result).toEqual([]);
   });
 
   it("logs error and returns [] on exception", async () => {
     (VersionedTemplate.findById as jest.Mock).mockRejectedValue(new Error("Database error"));
-    
+
     const result = await guidanceService.getAffiliationsWithGuidanceForTemplate(context, 1);
-    
+
     expect(result).toEqual([]);
     expect(context.logger.error).toHaveBeenCalled();
   });
@@ -774,6 +781,141 @@ describe("getGuidanceSourcesForPlan", () => {
     const templateOwnerSource = result.find(s => s.type === "TEMPLATE_OWNER");
     expect(templateOwnerSource).toBeDefined();
     // guidanceText must NOT be prepended for template owner when customSectionId is provided
+    expect(templateOwnerSource.items).toHaveLength(1);
+    expect(templateOwnerSource.items[0].guidanceText).toEqual("NSF tag guidance");
+  });
+
+  it("should return [] if customQuestionId is provided but custom question not found", async () => {
+    (Plan.findById as jest.Mock).mockResolvedValue(mockPlan);
+    (VersionedCustomQuestion.findById as jest.Mock).mockResolvedValue(null);
+
+    const result = await guidanceService.getGuidanceSourcesForPlan(
+      context, mockPlan.id, undefined, undefined, undefined, 99
+    );
+    expect(result).toEqual([]);
+  });
+
+  it("should use section tags when customQuestionId refers to a BASE-section question", async () => {
+    (Plan.findById as jest.Mock).mockResolvedValue(mockPlan);
+    (VersionedCustomQuestion.findById as jest.Mock).mockResolvedValue({
+      id: 42,
+      versionedSectionType: 'BASE',
+      versionedSectionId: 7,
+      guidanceText: null,
+    });
+    // getSectionTags is called with sectionId 7 — PlanGuidance.query receives ["7"]
+    (PlanGuidance.query as jest.Mock).mockResolvedValue([{ id: 1, name: "Data Sharing" }]);
+    (VersionedTemplate.findById as jest.Mock).mockResolvedValue(mockVersionedTemplate);
+    (PlanGuidance.findByPlanAndUserId as jest.Mock).mockResolvedValue([]);
+    (VersionedGuidance.findBestPracticeByTagIds as jest.Mock).mockResolvedValue(
+      mockBestPracticeGuidance
+    );
+    (VersionedGuidance.findByAffiliationAndTagIds as jest.Mock).mockResolvedValue([]);
+
+    const result = await guidanceService.getGuidanceSourcesForPlan(
+      context, mockPlan.id, undefined, undefined, undefined, 42
+    );
+
+    expect(VersionedCustomQuestion.findById).toHaveBeenCalled();
+    // getSectionTags uses the versionedSectionId (7), not the versionedTemplateId (973)
+    expect((PlanGuidance.query as jest.Mock).mock.calls[0][2]).toEqual(["7"]);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ id: "bestPractice", type: "BEST_PRACTICE" });
+  });
+
+  it("should use template-wide tags when customQuestionId refers to a CUSTOM-section question", async () => {
+    (Plan.findById as jest.Mock).mockResolvedValue(mockPlan);
+    (VersionedCustomQuestion.findById as jest.Mock).mockResolvedValue({
+      id: 42,
+      versionedSectionType: 'CUSTOM',
+      versionedSectionId: 7,
+      guidanceText: null,
+    });
+    // getSectionTagsMap is called with versionedTemplateId — PlanGuidance.query receives ["973"]
+    (PlanGuidance.query as jest.Mock).mockResolvedValue([{ id: 2, name: "Preservation" }]);
+    (VersionedTemplate.findById as jest.Mock).mockResolvedValue(mockVersionedTemplate);
+    (PlanGuidance.findByPlanAndUserId as jest.Mock).mockResolvedValue([]);
+    (VersionedGuidance.findBestPracticeByTagIds as jest.Mock).mockResolvedValue(
+      mockBestPracticeGuidance
+    );
+    (VersionedGuidance.findByAffiliationAndTagIds as jest.Mock).mockResolvedValue([]);
+
+    const result = await guidanceService.getGuidanceSourcesForPlan(
+      context, mockPlan.id, undefined, undefined, undefined, 42
+    );
+
+    expect(VersionedCustomQuestion.findById).toHaveBeenCalled();
+    // getSectionTagsMap uses the versionedTemplateId (973), not the versionedSectionId
+    expect((PlanGuidance.query as jest.Mock).mock.calls[0][2]).toEqual(["973"]);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ id: "bestPractice", type: "BEST_PRACTICE" });
+  });
+
+  it("should attribute guidanceText to user affiliation when customQuestionId is provided and no tags", async () => {
+    const userAffiliationUri = "https://ror.org/03yrm5c26"; // CDL
+    const localContext = {
+      ...context,
+      token: { ...context.token, affiliationId: userAffiliationUri },
+    };
+
+    (Plan.findById as jest.Mock).mockResolvedValue(mockPlan);
+    (VersionedCustomQuestion.findById as jest.Mock).mockResolvedValue({
+      id: 42,
+      versionedSectionType: 'BASE',
+      versionedSectionId: 7,
+      guidanceText: "Custom question guidance text",
+    });
+    (PlanGuidance.query as jest.Mock).mockResolvedValue([]); // no tags
+    (VersionedTemplate.findById as jest.Mock).mockResolvedValue(mockVersionedTemplate);
+    (PlanGuidance.findByPlanAndUserId as jest.Mock).mockResolvedValue([
+      { affiliationId: userAffiliationUri },
+    ]);
+    (Affiliation.findByURI as jest.Mock).mockResolvedValue(mockAffiliationCDL);
+
+    const result = await guidanceService.getGuidanceSourcesForPlan(
+      localContext as MyContext, mockPlan.id, undefined, undefined, undefined, 42
+    );
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      type: "USER_AFFILIATION",
+      orgURI: userAffiliationUri,
+      hasGuidance: true,
+    });
+    expect(result[0].items[0].guidanceText).toEqual("Custom question guidance text");
+  });
+
+  it("should not prepend guidanceText to template owner items when customQuestionId is used", async () => {
+    const localContext = {
+      ...context,
+      token: { ...context.token, affiliationId: "https://unrelated.org" },
+    };
+
+    (Plan.findById as jest.Mock).mockResolvedValue(mockPlan);
+    (VersionedCustomQuestion.findById as jest.Mock).mockResolvedValue({
+      id: 42,
+      versionedSectionType: 'BASE',
+      versionedSectionId: 7,
+      guidanceText: "Custom question guidance",
+    });
+    (PlanGuidance.query as jest.Mock).mockResolvedValue([{ id: 1, name: "Data Sharing" }]);
+    (VersionedTemplate.findById as jest.Mock).mockResolvedValue(mockVersionedTemplate);
+    (PlanGuidance.findByPlanAndUserId as jest.Mock).mockResolvedValue([
+      { affiliationId: mockVersionedTemplate.ownerId },
+    ]);
+    (VersionedGuidance.findBestPracticeByTagIds as jest.Mock).mockResolvedValue([]);
+    (VersionedGuidance.findByAffiliationAndTagIds as jest.Mock).mockResolvedValue([
+      { tagId: 1, guidanceText: "NSF tag guidance" },
+    ]);
+    (Affiliation.findByURI as jest.Mock).mockResolvedValue(mockAffiliationNSF);
+
+    const result = await guidanceService.getGuidanceSourcesForPlan(
+      localContext as MyContext, mockPlan.id, undefined, undefined, undefined, 42
+    );
+
+    const templateOwnerSource = result.find(s => s.type === "TEMPLATE_OWNER");
+    expect(templateOwnerSource).toBeDefined();
+    // guidanceText must NOT be prepended to template owner when customQuestionId is provided
     expect(templateOwnerSource.items).toHaveLength(1);
     expect(templateOwnerSource.items[0].guidanceText).toEqual("NSF tag guidance");
   });

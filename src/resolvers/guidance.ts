@@ -95,7 +95,7 @@ export const resolvers: Resolvers = {
     // ============================================================================
     guidanceSourcesForPlan: async (
       _,
-      { planId, versionedSectionId, versionedQuestionId, customSectionId },
+      { planId, versionedSectionId, versionedQuestionId, customSectionId, customQuestionId },
       context: MyContext
     ): Promise<GuidanceSource[]> => {
       const reference = 'guidanceSourcesForPlan resolver';
@@ -114,7 +114,8 @@ export const resolvers: Resolvers = {
               planId,
               versionedSectionId,
               versionedQuestionId,
-              customSectionId
+              customSectionId,
+              customQuestionId
             );
 
             return sources;

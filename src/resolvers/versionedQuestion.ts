@@ -10,6 +10,8 @@ import { isAuthorized } from "../services/authService";
 import { GraphQLError } from "graphql";
 import { normaliseDateTime } from "../utils/helpers";
 import { VersionedTemplate } from "../models/VersionedTemplate";
+import { VersionedTemplateCustomization } from "../models/VersionedTemplateCustomization";
+import { VersionedQuestionCustomization } from "../models/VersionedQuestionCustomization";
 import { Affiliation } from "../models/Affiliation";
 
 
@@ -106,7 +108,7 @@ export const resolvers: Resolvers = {
         throw context?.token ? ForbiddenError() : AuthenticationError();
       } catch (err) {
         if (err instanceof GraphQLError) throw err;
-        
+
         context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
         throw InternalServerError();
       }
@@ -150,12 +152,28 @@ export const resolvers: Resolvers = {
       }
     },
 
-    publishedQuestion: async (_, { versionedQuestionId }, context: MyContext): Promise<VersionedQuestion> => {
+    // Return the VersionedQuestion for the specified versionedQuestionId which includes customization
+    // sample text, guidance text, and info on the org that customized it
+    publishedQuestion: async (_, { versionedQuestionId }, context: MyContext) => {
       const reference = 'publishedQuestion resolver';
       try {
         if (isAuthorized(context?.token)) {
-          // Grab the versionedSection so we can get the section, and then the templateId
-          return await VersionedQuestion.findById(reference, context, versionedQuestionId);
+          const [question, customization] = await Promise.all([
+            VersionedQuestion.findById(reference, context, versionedQuestionId),
+            VersionedQuestionCustomization.findActiveByTemplateAffiliationAndQuestion(
+              reference, context, context.token.affiliationId, versionedQuestionId
+            ),
+          ]);
+
+          if (!question) return null;
+
+          return {
+            ...question,
+            customizationId: customization?.id ?? null,
+            customizationGuidanceText: customization?.guidanceText ?? null,
+            customizationSampleText: customization?.sampleText ?? null,
+            customizationAffiliationId: customization ? context.token.affiliationId : null,
+          };
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();
       } catch (err) {
@@ -164,6 +182,42 @@ export const resolvers: Resolvers = {
         context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
         throw InternalServerError();
       }
+    },
+
+    publishedCustomQuestion: async (_, { versionedCustomQuestionId }, context: MyContext): Promise<VersionedCustomQuestion> => {
+      const reference = 'publishedCustomQuestion resolver';
+      try {
+        if (isAuthorized(context?.token)) {
+          return await VersionedCustomQuestion.findById(reference, context, versionedCustomQuestionId);
+        }
+        throw context?.token ? ForbiddenError() : AuthenticationError();
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    },
+  },
+
+  VersionedCustomQuestion: {
+    ownerAffiliation: async (parent: VersionedCustomQuestion, _, context: MyContext): Promise<Affiliation | null> => {
+      const reference = 'VersionedCustomQuestion.ownerAffiliation resolver';
+      const vtc = await VersionedTemplateCustomization.findById(
+        reference, context, parent.versionedTemplateCustomizationId
+      );
+      if (!vtc?.currentVersionedTemplateId) return null;
+      const versionedTemplate = await VersionedTemplate.findById(
+        reference, context, vtc.currentVersionedTemplateId
+      );
+      if (!versionedTemplate?.ownerId) return null;
+      return await Affiliation.findByURI(reference, context, versionedTemplate.ownerId);
+    },
+    created: (parent: VersionedCustomQuestion) => {
+      return normaliseDateTime(parent.created);
+    },
+    modified: (parent: VersionedCustomQuestion) => {
+      return normaliseDateTime(parent.modified);
     },
   },
 
@@ -188,6 +242,14 @@ export const resolvers: Resolvers = {
         reference,
         context,
         versionedTemplate.ownerId
+      );
+    },
+    customizationOwnerAffiliation: async (parent: VersionedQuestion & { customizationAffiliationId?: string }, _, context: MyContext): Promise<Affiliation | null> => {
+      if (!parent.customizationAffiliationId) return null;
+      return await Affiliation.findByURI(
+        'VersionedQuestion.customizationOwnerAffiliation resolver',
+        context,
+        parent.customizationAffiliationId
       );
     },
     created: (parent: VersionedQuestion) => {

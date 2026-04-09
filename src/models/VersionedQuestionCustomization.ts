@@ -235,18 +235,18 @@ export class VersionedQuestionCustomization extends MySqlModel {
     return Array.isArray(results) && results.length > 0 ? results.map(r => new VersionedQuestionCustomization(r)) : [];
   }
 
-/**
- * Find the active versioned question customization for a given template and affiliation.
- * Used to surface customization guidance in the plan guidance panel.
- * 
- *
- * @param reference The reference to use for logging errors.
- * @param context The Apollo context.
- * @param templateId The base template id.
- * @param affiliationId The affiliation id.
- * @param versionedQuestionId The versioned question id.
- * @returns The active versioned question customization, or undefined if none exists.
- */
+  /**
+   * Find the active versioned question customization for a given template and affiliation.
+   * Used to surface customization guidance in the plan guidance panel.
+   * 
+   *
+   * @param reference The reference to use for logging errors.
+   * @param context The Apollo context.
+   * @param templateId The base template id.
+   * @param affiliationId The affiliation id.
+   * @param versionedQuestionId The versioned question id.
+   * @returns The active versioned question customization, or undefined if none exists.
+   */
   static async findActiveByTemplateAffiliationAndQuestion(
     reference: string,
     context: MyContext,
@@ -255,7 +255,8 @@ export class VersionedQuestionCustomization extends MySqlModel {
   ): Promise<VersionedQuestionCustomization | undefined> {
     const results = await VersionedQuestionCustomization.query(
       context,
-      `SELECT vqc.* FROM ${VersionedQuestionCustomization.tableName} AS vqc
+      `SELECT vqc.*, vtc.affiliationId as customizationAffiliationId
+      FROM ${VersionedQuestionCustomization.tableName} AS vqc
      JOIN versionedTemplateCustomizations AS vtc
        ON vqc.versionedTemplateCustomizationId = vtc.id
      WHERE vtc.active = 1

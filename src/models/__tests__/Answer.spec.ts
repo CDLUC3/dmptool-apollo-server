@@ -492,6 +492,8 @@ describe('create', () => {
     (Answer.findByPlanIdAndVersionedQuestionId as jest.Mock) = mockFindByPlanIdAndVersionedQuestionId;
     mockFindByPlanIdAndVersionedQuestionId.mockResolvedValueOnce(null);
 
+    insertQuery.mockResolvedValueOnce(casual.integer(1, 9999));
+
     const mockFindById = jest.fn();
     (Answer.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(answer);

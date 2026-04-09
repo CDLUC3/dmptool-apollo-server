@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added `fetchAnswerCustomQuestion` to `Plan` model in order to get answered counts for custom questions [#161]
 - Added `publishedCustomQuestion` query resolver and added to schema [#173]
 - Added `ON DELETE CASCADE` sql migration script for deletion of `versionedTemplateCustomization` and `templateCustomization` FKs [#171]
 - Added `findByPosition` function to `CustomQuestion` to assist with reordering of custom questions [#171]
@@ -57,6 +58,8 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `PlanProgress.findByPlanId` to use `fetchAnswerCustomQuestions` and return answered question counts that include the custom questions [#161]
+- Updated `PlanProgress.findByPlanId` to reuse the `PlanSectionProgress.findByPlanId` function to return `totalQuestions` and `answeredQuestions` [#161]
 - Updated `answerByVersionedQuestionId` query and `addAnswer` mutation to pass in `versionedCustomSectionId` and `versionedCustomQuestionid` variables so that we can get and save the correct answers [#173]
 - Updated sql query in `findActiveByTemplateAffiliationAndQuestion` function in `VersionedQuestionCustomization` model to include `affiliationId` so that we can get the name of the org that made the customization [#173]
 - Updated `publishedQuestion` resolver in `versionedQuestion.ts` to return customization info, including customized sample answer and name of org that made the customization [#173]

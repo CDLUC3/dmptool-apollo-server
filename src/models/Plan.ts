@@ -448,7 +448,7 @@ export class PlanProgress {
     reference: string,
     context: MyContext,
     planId: number,
-    versionedTemplateId?: number  // add this param
+    versionedTemplateId?: number
   ): Promise<PlanProgress> {
     // Reuse PlanSectionProgress which already handles custom questions correctly
     const sections = await PlanSectionProgress.findByPlanId(

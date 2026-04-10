@@ -58,6 +58,8 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `nodemailer` 
+- Updated `relatedWorksTables.spec.ts` to fix linter issues
 - Updated `PlanProgress.findByPlanId` to use `fetchAnswerCustomQuestions` and return answered question counts that include the custom questions [#161]
 - Updated `PlanProgress.findByPlanId` to reuse the `PlanSectionProgress.findByPlanId` function to return `totalQuestions` and `answeredQuestions` [#161]
 - Updated the `batch_update_related_works` stored procedure to operate on batches of DMPs and improve speed of stored procedure by joining based on plan ID rather than plan ID or DMP DOI. Updated the unit tests to use `@testcontainers/mysql` so that they can run in CI, are self-contained and don't affect local tables.

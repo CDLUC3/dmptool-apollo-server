@@ -163,8 +163,8 @@ let container: StartedMySqlContainer;
 let connection: Connection;
 let planAId: number;
 
-const testPlanDOIs = ['https://doi.org/10.11111/2A3B4C'];
-const testWorkDOIs = ['10.1234/fake-doi-001', '10.5678/sample.abc.2025'];
+const testPlanDOIs: string[] = ['https://doi.org/10.11111/2A3B4C'];
+const testWorkDOIs: string[] = ['10.1234/fake-doi-001', '10.5678/sample.abc.2025'];
 
 beforeAll(async () => {
   container = await new MySqlContainer('mysql:8.0').withDatabase('dmptool').withRootPassword('test').start();
@@ -443,7 +443,7 @@ describe('Related Works Tables', () => {
       publicationDate: '2025-02-02',
       title: 'Title: Climate Resilience of Eel-Reef Mutualisms: A Longitudinal Study',
       abstractText: 'An abstract abstract',
-      authors: [...workVersion2.authors.slice(0, 1), { ...workVersion2.authors[1]!, givenName: 'Daniel' }],
+      authors: [...workVersion2.authors.slice(0, 1), { ...workVersion2.authors[1] ?? {}, givenName: 'Daniel' }],
       institutions: [{ name: 'University of California', ror: '01an7q238' }],
       funders: [{ name: 'National Science Foundation, USA', ror: '021nxhr62' }],
       awards: [{ awardId: 'ABC' }, { awardId: '123' }],
@@ -638,11 +638,11 @@ describe('Related Works Tables', () => {
     await connection.query('CALL cleanup_orphan_works');
 
     // Verify: Plan A has 2 works (one from test 4, one just added), Plan B has 1
-    const [beforeRows] = await connection.execute<any[]>(
+    const [beforeRows] = await connection.execute<ResultSetHeader[]>(
       'SELECT r.*, p.dmpId FROM relatedWorks r JOIN plans p ON r.planId = p.id ORDER BY p.dmpId, r.id',
     );
-    const planABefore = beforeRows.filter((r: any) => r.dmpId === testPlanDOIs[0]);
-    const planBBefore = beforeRows.filter((r: any) => r.dmpId === planBDoi);
+    const planABefore = beforeRows.filter((r: ResultSetHeader) => r['dmpId'] === testPlanDOIs[0]);
+    const planBBefore = beforeRows.filter((r: ResultSetHeader) => r['dmpId'] === planBDoi);
     expect(planABefore).toHaveLength(2);
     expect(planBBefore).toHaveLength(1);
 
@@ -654,11 +654,11 @@ describe('Related Works Tables', () => {
 
     // Plan A: stale pending work deleted, only the staged one remains
     // Plan B: untouched — its PENDING work must still be there
-    const [afterRows] = await connection.execute<any[]>(
+    const [afterRows] = await connection.execute<ResultSetHeader[]>(
       'SELECT r.*, p.dmpId FROM relatedWorks r JOIN plans p ON r.planId = p.id ORDER BY p.dmpId, r.id',
     );
-    const planAAfter = afterRows.filter((r: any) => r.dmpId === testPlanDOIs[0]);
-    const planBAfter = afterRows.filter((r: any) => r.dmpId === planBDoi);
+    const planAAfter = afterRows.filter((r: ResultSetHeader) => r['dmpId'] === testPlanDOIs[0]);
+    const planBAfter = afterRows.filter((r: ResultSetHeader) => r['dmpId'] === planBDoi);
 
     expect(planAAfter).toHaveLength(1);
     expect(planBAfter).toHaveLength(1);
@@ -669,10 +669,10 @@ describe('Related Works Tables', () => {
     const planBDoi = 'https://doi.org/10.22222/PLAN_B';
 
     // Capture current scores before the update
-    const [beforeRows] = await connection.execute<any[]>(
+    const [beforeRows] = await connection.execute<ResultSetHeader[]>(
       'SELECT r.score, r.scoreMax, r.sourceType, p.dmpId FROM relatedWorks r JOIN plans p ON r.planId = p.id',
     );
-    const planABefore = beforeRows.find((r: any) => r.dmpId === testPlanDOIs[0]);
+    const planABefore = beforeRows.find((r: ResultSetHeader) => r['dmpId'] === testPlanDOIs[0]);
 
     // Stage Plan A's work with status=ACCEPTED and different score/sourceType
     await connection.query('CALL create_related_works_staging_tables');
@@ -689,21 +689,21 @@ describe('Related Works Tables', () => {
     ]);
     await connection.query('CALL batch_update_related_works(?)', [false]);
 
-    const [afterRows] = await connection.execute<any[]>(
+    const [afterRows] = await connection.execute<ResultSetHeader[]>(
       'SELECT r.score, r.sourceType, r.status, p.dmpId FROM relatedWorks r JOIN plans p ON r.planId = p.id ORDER BY p.dmpId',
     );
-    const planAAfter = afterRows.find((r: any) => r.dmpId === testPlanDOIs[0]);
-    const planBAfter = afterRows.find((r: any) => r.dmpId === planBDoi);
+    const planAAfter:ResultSetHeader = afterRows.find((r: ResultSetHeader) => r['dmpId'] === testPlanDOIs[0]);
+    const planBAfter:ResultSetHeader = afterRows.find((r: ResultSetHeader) => r['dmpId'] === planBDoi);
 
     // Status should be updated
-    expect(planAAfter.status).toBe('ACCEPTED');
+    expect(planAAfter['status']).toBe('ACCEPTED');
 
     // Score and sourceType should NOT be updated (systemMatched=false only touches status)
-    expect(planAAfter.score).toBe(planABefore.score);
-    expect(planAAfter.sourceType).toBe(planABefore.sourceType);
+    expect(planAAfter['score']).toBe(planABefore['score']);
+    expect(planAAfter['sourceType']).toBe(planABefore['sourceType']);
 
     // Plan B's PENDING work should NOT be deleted (no PENDING deletion in systemMatched=false path)
     expect(planBAfter).toBeDefined();
-    expect(planBAfter.status).toBe('PENDING');
+    expect(planBAfter['status']).toBe('PENDING');
   });
 });

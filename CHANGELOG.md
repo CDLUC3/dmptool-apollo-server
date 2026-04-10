@@ -3,6 +3,17 @@
 ## v1.1.0
 
 ### Added
+- Added `fetchAnswerCustomQuestion` to `Plan` model in order to get answered counts for custom questions [#161]
+- Added `publishedCustomQuestion` query resolver and added to schema [#173]
+- Added `ON DELETE CASCADE` sql migration script for deletion of `versionedTemplateCustomization` and `templateCustomization` FKs [#171]
+- Added `findByPosition` function to `CustomQuestion` to assist with reordering of custom questions [#171]
+- Added `findActiveByTemplateAffiliationAndQuestion` to `VersionedQuestionCustomization` and `findActiveByTemplateAffiliationAndSection` to `VersionedSectionCustomization` to help surface custom guidance [#171]
+- Added `MoveCustomQuestionDirection` enum to `questionCustomization` schema [#171]
+- Added new `templateCustomizationPublishHelpers.ts` service to help update snapshot child customization records when publishing a templateCustomization [#171]
+- Added `versionedCustomSectionId` and `versionedCustomQuestionId` files to `answers` table [#159]
+- Added `findByVersionedCustomSectionId` and `findByVersionedSectionIdAndType` functions to VersionedCustomQuestion model [#159]
+- Added `versionedCustomSection` and `versionedCustomQuestion` chained resolvers to `answer` query [#159]
+- Added logic to set a default output type for each entry in a `ResearchOutputTable` answer.
 - Added `guidanceText` and `sampleText` fields to `addQuestionCustomization` and added `json`, `questionText`, `requirementText`, `guidanceText`, `sampleText`, `useSampleTextAsDefault` and `required` to `addCustomQuestionInput` [#130]
 - Added `questionCustomizationByVersionedQuestion` resolver [#130]
 - Added `findByCustomizationAndVersionedQuestion` method to `QuestionCustomization` model [#130]
@@ -47,6 +58,24 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `nodemailer` 
+- Updated `relatedWorksTables.spec.ts` to fix linter issues
+- Updated `PlanProgress.findByPlanId` to use `fetchAnswerCustomQuestions` and return answered question counts that include the custom questions [#161]
+- Updated `PlanProgress.findByPlanId` to reuse the `PlanSectionProgress.findByPlanId` function to return `totalQuestions` and `answeredQuestions` [#161]
+- Updated the `batch_update_related_works` stored procedure to operate on batches of DMPs and improve speed of stored procedure by joining based on plan ID rather than plan ID or DMP DOI. Updated the unit tests to use `@testcontainers/mysql` so that they can run in CI, are self-contained and don't affect local tables.
+- Updated `answerByVersionedQuestionId` query and `addAnswer` mutation to pass in `versionedCustomSectionId` and `versionedCustomQuestionid` variables so that we can get and save the correct answers [#173]
+- Updated sql query in `findActiveByTemplateAffiliationAndQuestion` function in `VersionedQuestionCustomization` model to include `affiliationId` so that we can get the name of the org that made the customization [#173]
+- Updated `publishedQuestion` resolver in `versionedQuestion.ts` to return customization info, including customized sample answer and name of org that made the customization [#173]
+- Updated `VersionedQuestion` schema to include `customizationId`, `customizationGuidanceText`, `customizationSampleText` and `customizationOwnerAffiliation` fields [#173]
+- Updated `guidanceSourcesForPlan` query to pass in `customQuestionId` and updated `getGuidanceSourcesForPlan` service to add `customQuestion` guidance [#173]
+- Updated renovate config to rebase when behind the base branch
+- Updated `Answer` model with `versionedCustomSectionId` and `versionedCustomQuestionId`, and added new `findFilledAnswersByCustomQuestionIds` and `findByPlanIdAndVersionedCustomQuestionId` functions, and updated `isValid` function to account for new id fields, and updated `create` function to check both `versionedQuestionId` and `versionedCustomQuestionId` for already existing answer [#159]
+- Updated `publishedQuestions` query in `versionedQuestion` resolver to return both `BASE` and `CUSTOM` versioned questions for the given versionedSectionId. Also, added `publishedCustomQuestions` query to return the `customQuestions` associated with a `customSection` [#159]
+- Updated `PlanSectionProgress` so that it returns custom sections, and correct totalQuestions counts that include customQuestions [#167]
+- Updated `PlanSearchResult` `versionedSections` chained resolver to include `versionedTemplateId` [#167]
+- Updated dependencies based on Renovate PRs
+- Updated the `VersionedTemplateSearchResult` to return `versionedTemplateCustomizationId` for the `search` function [#166]
+- Update `domain` to `emailDomain` in `AffiliationEmailDomain` model to match field name in table
 - Update buildspec to use `--omit=dev` instead of `--production` on `npm` commands
 - Updated `re3data-os-populate.ts` because `fetchWithTimeout` kept erroring out when we populate the OpenSearch data. We needed to add a `catch` and `retries` because a single failed attempt would kill the entire sync. [#118]
 - Moved the data migration script that populates the researchOutputTypes db table to `local-only` directory, because it was not 
@@ -86,6 +115,8 @@
 - Updates to appease newer version of eslint
 
 ### Removed
+- Removed old dependabot config
+- Removed override for `minimatch` and `immutable` dependencies
 - Removed the `unique_vTemplateCusts` restriction from `versionedTemplateCustomizations` table, because it was not allowing the publishing of a templateCustomization more than twice, because the combination of `templateCustomizationId` and `active` had to be unique [#428]
 - Removed `src/datasources/dynamo` data source. Writes to Dynamo are now being handled by the `generateMaDMPRecord` Lambda Function.
 - Removed `src/models/PlanVersion`
@@ -105,6 +136,10 @@
 - In `preparePaginationOptions` function, wrapped each cursorField with `COALESCE` to handle `NULL` values in SQL `CONCAT`, otherwise if any cursorField is NULL, it would just return a null value due to the way `CONCAT` works [#107]
 - Fixed breaking cloning of template. The `addTemplate` was updated to accept a `copyFromVersionedTemplateId` so that we copy from versioned template, section and questions, when it's not a template from the user's org. Otherwise we check for `copyFromTemplateId` to copy/clone from templates, sections and questions, and if neither are present, we continue to create a new record for `templates` table [#1006]
 - Fixed issue with templates not cloning with sections and questions by updating the `addTemplate` mutation to clone from non-versioned template, section and question [#1006]
+
+### Chore
+- Added override for `lodash` to `4.18.1` to address high vulnerability issue
+
 ## v1.0
 
 ### Updated

@@ -29,6 +29,7 @@ describe('Answer', () => {
     versionedSectionId: casual.integer(1, 9999),
     json: "{\"type\":\"textArea\",\"answer\":\"California\",\"meta\":{\"schemaVersion\":\"${CURRENT_SCHEMA_VERSION}\"}}"
   }
+
   beforeEach(() => {
     answer = new Answer(answerData);
   });
@@ -37,6 +38,8 @@ describe('Answer', () => {
     expect(answer.planId).toEqual(answerData.planId);
     expect(answer.versionedSectionId).toEqual(answerData.versionedSectionId);
     expect(answer.versionedQuestionId).toEqual(answerData.versionedQuestionId);
+    expect(answer.versionedCustomSectionId).toBeUndefined();
+    expect(answer.versionedCustomQuestionId).toBeUndefined();
     expect(answer.json).toEqual(answerData.json);
   });
 
@@ -48,14 +51,14 @@ describe('Answer', () => {
     answer.versionedSectionId = null;
     expect(await answer.isValid()).toBe(false);
     expect(Object.keys(answer.errors).length).toBe(1);
-    expect(answer.errors['versionedSectionId']).toBeTruthy();
+    expect(answer.errors['general']).toBeTruthy();
   });
 
   it('should return false when calling isValid if the versionedQuestionId field is missing', async () => {
     answer.versionedQuestionId = null;
     expect(await answer.isValid()).toBe(false);
     expect(Object.keys(answer.errors).length).toBe(1);
-    expect(answer.errors['versionedQuestionId']).toBeTruthy();
+    expect(answer.errors['general']).toBeTruthy();
   });
 
   it('should return false when calling isValid if the planId field is missing', async () => {
@@ -63,6 +66,203 @@ describe('Answer', () => {
     expect(await answer.isValid()).toBe(false);
     expect(Object.keys(answer.errors).length).toBe(1);
     expect(answer.errors['planId']).toBeTruthy();
+  });
+
+  it('prepForSave should NOT add the default output type column if the answer is NOT a ResearchOutputTableAnswer', async () => {
+    answer.json = `{"type":"textArea","answer":"California","meta":{"schemaVersion":"${CURRENT_SCHEMA_VERSION}"}}`;
+    answer.prepForSave();
+    expect(answer.json).toEqual(answer.json);
+  });
+
+  it('prepForSave should NOT add the default output type column if the answer is a ResearchOutputTableAnswer but has one defined', async () => {
+    answer.json = JSON.stringify({
+      type: "researchOutputTable",
+      columnHeadings: ["Title", "Type"],
+      answer: [{
+        columns: [
+          {
+            type: "text",
+            commonStandardId: 'title',
+            answer: "",
+            meta: { schemaVersion: CURRENT_SCHEMA_VERSION },
+          },
+          {
+            type: "selectBox",
+            commonStandardId: 'type',
+            answer: "",
+            meta: { schemaVersion: CURRENT_SCHEMA_VERSION },
+          }
+        ]
+      }],
+      meta: {
+        schemaVersion: CURRENT_SCHEMA_VERSION,
+      }
+    });
+    answer.prepForSave();
+    expect(answer.json).toEqual(answer.json);
+  });
+
+  it('prepForSave should add the default output type column if the answer is a ResearchOutputTableAnswer and it is missing', async () => {
+    const baseJSON = {
+      type: "researchOutputTable",
+      columnHeadings: ["Title", "Type"],
+      answer: [{
+        columns: [
+          {
+            type: "text",
+            commonStandardId: 'title',
+            answer: "",
+            meta: { schemaVersion: CURRENT_SCHEMA_VERSION },
+          }
+        ]
+      }],
+      meta: {
+        schemaVersion: CURRENT_SCHEMA_VERSION,
+      }
+    };
+    answer.json = JSON.stringify(baseJSON);
+
+    const expectedJSON = JSON.stringify({
+      type: "researchOutputTable",
+      columnHeadings: ["Title", "Type"],
+      answer: [{
+        columns: [
+          ...baseJSON.answer[0].columns,
+          {
+            type: "selectBox",
+            commonStandardId: 'type',
+            answer: "Unknown",
+            meta: { schemaVersion: CURRENT_SCHEMA_VERSION },
+          }
+        ]
+      }],
+      meta: { schemaVersion: CURRENT_SCHEMA_VERSION }
+    });
+    answer.prepForSave();
+    expect(answer.json).toEqual(expectedJSON);
+  });
+
+  it('prepForSave should add the default output type column if the answer is a ResearchOutputTableAnswer and it is blank', async () => {
+    const baseJSON = {
+      type: "researchOutputTable",
+      columnHeadings: ["Title", "Type"],
+      answer: [
+        {
+          columns: [
+            {
+              type: "text",
+              commonStandardId: 'title',
+              answer: "",
+              meta: { schemaVersion: CURRENT_SCHEMA_VERSION },
+            },
+            {
+              type: "selectBox",
+              commonStandardId: 'type',
+              answer: "dataset",
+              meta: { schemaVersion: CURRENT_SCHEMA_VERSION },
+            }
+          ]
+        },
+        {
+          columns: [
+            {
+              type: "text",
+              commonStandardId: 'title',
+              answer: "",
+              meta: { schemaVersion: CURRENT_SCHEMA_VERSION },
+            },
+            {
+              type: "selectBox",
+              commonStandardId: 'type',
+              answer: "",
+              meta: { schemaVersion: CURRENT_SCHEMA_VERSION },
+            }
+          ]
+        }
+      ],
+      meta: {
+        schemaVersion: CURRENT_SCHEMA_VERSION,
+      }
+    };
+    answer.json = JSON.stringify(baseJSON);
+
+    const expectedJSON = baseJSON;
+    expectedJSON.answer[1].columns[1].answer = "Unknown";
+    answer.prepForSave();
+    expect(answer.json).toEqual(JSON.stringify(expectedJSON));
+  });
+});
+
+describe('Answer - CUSTOM question', () => {
+  let answer;
+
+  const customAnswerData = {
+    planId: casual.integer(1, 9999),
+    versionedCustomSectionId: casual.integer(1, 9999),
+    versionedCustomQuestionId: casual.integer(1, 9999),
+    json: `{"type":"textArea","answer":"California","meta":{"schemaVersion":"${CURRENT_SCHEMA_VERSION}"}}`
+  };
+
+  beforeEach(() => {
+    answer = new Answer(customAnswerData);
+  });
+
+  it('should initialize options as expected', () => {
+    expect(answer.planId).toEqual(customAnswerData.planId);
+    expect(answer.versionedCustomSectionId).toEqual(customAnswerData.versionedCustomSectionId);
+    expect(answer.versionedCustomQuestionId).toEqual(customAnswerData.versionedCustomQuestionId);
+    expect(answer.versionedSectionId).toBeUndefined();
+    expect(answer.versionedQuestionId).toBeUndefined();
+    expect(answer.json).toEqual(customAnswerData.json);
+  });
+
+  it('should return true when calling isValid if object is valid', async () => {
+    expect(await answer.isValid()).toBe(true);
+  });
+
+  it('should return false when calling isValid if versionedCustomSectionId is missing', async () => {
+    answer.versionedCustomSectionId = null;
+    expect(await answer.isValid()).toBe(false);
+    expect(Object.keys(answer.errors).length).toBe(1);
+    expect(answer.errors['general']).toBeTruthy();
+  });
+
+  it('should return false when calling isValid if versionedCustomQuestionId is missing', async () => {
+    answer.versionedCustomQuestionId = null;
+    expect(await answer.isValid()).toBe(false);
+    expect(Object.keys(answer.errors).length).toBe(1);
+    expect(answer.errors['general']).toBeTruthy();
+  });
+
+  it('should return false when calling isValid if planId is missing', async () => {
+    answer.planId = null;
+    expect(await answer.isValid()).toBe(false);
+    expect(Object.keys(answer.errors).length).toBe(1);
+    expect(answer.errors['planId']).toBeTruthy();
+  });
+});
+
+describe('Answer - invalid combinations', () => {
+  it('should return false when both base and custom IDs are set', async () => {
+    const answer = new Answer({
+      planId: casual.integer(1, 9999),
+      versionedSectionId: casual.integer(1, 9999),
+      versionedQuestionId: casual.integer(1, 9999),
+      versionedCustomSectionId: casual.integer(1, 9999),
+      versionedCustomQuestionId: casual.integer(1, 9999),
+      json: `{"type":"textArea","answer":"California","meta":{"schemaVersion":"${CURRENT_SCHEMA_VERSION}"}}`
+    });
+    expect(await answer.isValid()).toBe(false);
+    expect(answer.errors['general']).toBeTruthy();
+  });
+
+  it('should return false when neither base nor custom IDs are set', async () => {
+    const answer = new Answer({
+      planId: casual.integer(1, 9999),
+      json: `{"type":"textArea","answer":"California","meta":{"schemaVersion":"${CURRENT_SCHEMA_VERSION}"}}`
+    });
+    expect(await answer.isValid()).toBe(false);
+    expect(answer.errors['general']).toBeTruthy();
   });
 });
 
@@ -147,7 +347,7 @@ describe('findBy Queries', () => {
     // Mock the localQuery to return an array of answers, these are the same answer repeated, but the mock simply
     // returns what is written here if it's called. So mocking additional different answers doesn't add additional value to the test.
     localQuery.mockResolvedValueOnce([answer, answer, answer]);
-    const questionIds = [ casual.integer(1, 9999), casual.integer(1, 9999), casual.integer(1, 9999)];
+    const questionIds = [casual.integer(1, 9999), casual.integer(1, 9999), casual.integer(1, 9999)];
     const result = await Answer.findFilledAnswersByQuestionIds('testing', context, planId, questionIds);
     const expectedSql = 'SELECT * FROM answers WHERE planId = ? AND versionedQuestionId IN (?, ?, ?) AND json IS NOT NULL AND json != \'\'';
     const vals = questionIds.map(String)
@@ -291,6 +491,8 @@ describe('create', () => {
     const mockFindByPlanIdAndVersionedQuestionId = jest.fn();
     (Answer.findByPlanIdAndVersionedQuestionId as jest.Mock) = mockFindByPlanIdAndVersionedQuestionId;
     mockFindByPlanIdAndVersionedQuestionId.mockResolvedValueOnce(null);
+
+    insertQuery.mockResolvedValueOnce(casual.integer(1, 9999));
 
     const mockFindById = jest.fn();
     (Answer.findById as jest.Mock) = mockFindById;

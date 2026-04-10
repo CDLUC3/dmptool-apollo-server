@@ -79,6 +79,8 @@ export const typeDefs = gql`
     modifiedByName: String
     "The timestamp when the Template was last modified"
     modified: String
+    "The id of the template customization (undefined means the template has not been customized yet)"
+    versionedTemplateCustomizationId: Int
   }
 
   type CustomizableTemplateSearchResults implements PaginatedQueryResults {

@@ -2,14 +2,23 @@ import { MyContext } from "../context";
 import { MySqlModel } from "./MySqlModel";
 import {
   isNullOrUndefined,
-  removeNullAndUndefinedFromJSON
+  removeNullAndUndefinedFromJSON,
 } from "../utils/helpers";
-import { AnswerSchemaMap } from "@dmptool/types";
+import {
+  AnswerSchemaMap,
+  AnyResearchOutputTableColumnAnswerType,
+  ResearchOutputTableRowAnswerType,
+  CURRENT_SCHEMA_VERSION,
+  QuestionFormatsEnum,
+  SelectBoxAnswerType
+} from "@dmptool/types";
 
 export class Answer extends MySqlModel {
   public planId: number;
   public versionedSectionId: number;
   public versionedQuestionId: number;
+  public versionedCustomSectionId?: number;
+  public versionedCustomQuestionId?: number;
   public json: string;
 
   private static tableName = 'answers';
@@ -20,6 +29,8 @@ export class Answer extends MySqlModel {
     this.planId = options.planId;
     this.versionedSectionId = options.versionedSectionId;
     this.versionedQuestionId = options.versionedQuestionId;
+    this.versionedCustomSectionId = options.versionedCustomSectionId;
+    this.versionedCustomQuestionId = options.versionedCustomQuestionId;
     this.json = options.json;
     // Ensure json is stored as a string
     try {
@@ -32,10 +43,19 @@ export class Answer extends MySqlModel {
   // Validation to be used prior to saving the record
   async isValid(): Promise<boolean> {
     await super.isValid();
+    const hasBase = !!this.versionedSectionId && !!this.versionedQuestionId;
+    const hasCustomInCustomSection = !!this.versionedCustomSectionId && !!this.versionedCustomQuestionId;
+    const hasCustomInBaseSection = !!this.versionedSectionId && !!this.versionedCustomQuestionId;
+
+    // three valid combinations: 1) base section and question, 2) custom section and custom question, 3) base section and custom question (for when a custom question is added to a base section)
+    if (!hasBase && !hasCustomInCustomSection && !hasCustomInBaseSection) {
+      this.addError('general', 'Answer must belong to either a base or custom section and question');
+    }
+    if (hasBase && hasCustomInCustomSection) {
+      this.addError('general', 'Answer cannot belong to both a base and custom section simultaneously');
+    }
 
     if (!this.planId) this.addError('planId', 'Plan can\'t be blank');
-    if (!this.versionedSectionId) this.addError('versionedSectionId', 'Section can\'t be blank');
-    if (!this.versionedQuestionId) this.addError('versionedQuestionId', 'Question can\'t be blank');
 
     // If json is not null or undefined and the type is in the schema map
     if (!isNullOrUndefined(this.json) && this.errors['json'] === undefined) {
@@ -68,20 +88,70 @@ export class Answer extends MySqlModel {
   prepForSave(): void {
     // Remove leading/trailing blank spaces
     this.json = this.json?.trim();
+
+    const parsedJSON = JSON.parse(this.json);
+
+    // If this is not a research output table, we don't need to do anything further
+    if (parsedJSON.type !== QuestionFormatsEnum.enum.researchOutputTable) {
+      return;
+    }
+
+    // Extract the output type columns
+    let modified = false;
+
+    // Process each output in the table
+    parsedJSON.answer = parsedJSON.answer.map((row: ResearchOutputTableRowAnswerType) => {
+      const columns: AnyResearchOutputTableColumnAnswerType[] = row.columns || [];
+      const typeCol = columns.find((col: AnyResearchOutputTableColumnAnswerType) => {
+        return col.commonStandardId === 'type';
+      }) as SelectBoxAnswerType;
+
+      // If the output type column is missing or empty/null
+      if (!typeCol || !typeCol.answer || typeCol.answer.trim() === '') {
+        modified = true;
+
+        // Create the default column object
+        const defaultTypeCol: SelectBoxAnswerType = {
+          type: "selectBox",
+          commonStandardId: 'type',
+          answer: "Unknown",
+          meta: { schemaVersion: CURRENT_SCHEMA_VERSION },
+        } as unknown as SelectBoxAnswerType;
+
+        // Return the row with the updated columns list
+        return {
+          ...row,
+          columns: [
+            ...columns.filter((col: AnyResearchOutputTableColumnAnswerType) => {
+              return col.commonStandardId !== 'type';
+            }),
+            defaultTypeCol
+          ]
+        };
+      }
+
+      return row;
+    });
+
+    // Only stringify and re-assign if we actually changed something
+    if (modified) {
+      this.json = JSON.stringify(parsedJSON);
+    }
   }
 
   //Create a new Answer
   async create(context: MyContext): Promise<Answer> {
     const reference = 'Answer.create';
 
+    this.prepForSave();
+
     // First make sure the record is valid
     if (await this.isValid()) {
-      const current = await Answer.findByPlanIdAndVersionedQuestionId(
-        reference,
-        context,
-        this.planId,
-        this.versionedQuestionId
-      );
+      // Check if an answer already exists for this planId and versionedQuestionId or versionedCustomQuestionId (depending on which one is being used)
+      const current = this.versionedQuestionId
+        ? await Answer.findByPlanIdAndVersionedQuestionId(reference, context, this.planId, this.versionedQuestionId)
+        : await Answer.findByPlanIdAndVersionedCustomQuestionId(reference, context, this.planId, this.versionedCustomQuestionId);
+
 
       // Then make sure it doesn't already exist
       if (current) {
@@ -89,8 +159,12 @@ export class Answer extends MySqlModel {
       } else {
         // Save the record and then fetch it
         const newId = await Answer.insert(context, Answer.tableName, this, reference);
-        const response = await Answer.findById(reference, context, newId);
-        return response;
+        if (!newId) {
+          this.addError('general', 'Failed to save answer');
+        } else {
+          const response = await Answer.findById(reference, context, newId);
+          return response;
+        }
       }
     }
     // Otherwise return as-is with all the errors
@@ -99,6 +173,8 @@ export class Answer extends MySqlModel {
 
   //Update an existing Answer
   async update(context: MyContext, noTouch = false): Promise<Answer> {
+    this.prepForSave();
+
     if (await this.isValid()) {
       if (this.id) {
         await Answer.update(context, Answer.tableName, this, 'Answer.update', [], noTouch);
@@ -149,6 +225,18 @@ export class Answer extends MySqlModel {
     return Array.isArray(results) && results.length > 0 ? new Answer(results[0]) : null;
   }
 
+  static async findByPlanIdAndVersionedCustomQuestionId(
+    reference: string,
+    context: MyContext,
+    planId: number,
+    versionedCustomQuestionId: number
+  ): Promise<Answer> {
+    const sql = `SELECT * FROM answers WHERE planId = ? AND versionedCustomQuestionId = ?`;
+    const results = await Answer.query(context, sql, [planId.toString(), versionedCustomQuestionId.toString()], reference);
+    return Array.isArray(results) && results.length > 0 ? new Answer(results[0]) : null;
+  }
+
+
   // Fetch all of the answers for a versionedSectionId
   static async findByPlanIdAndVersionedSectionId(
     reference: string,
@@ -180,6 +268,24 @@ export class Answer extends MySqlModel {
     const placeholders = questionIds.map(() => '?').join(', ');
     const sql = `SELECT * FROM answers WHERE planId = ? AND versionedQuestionId IN (${placeholders}) AND json IS NOT NULL AND json != ''`;
     const results = await Answer.query(context, sql, [String(planId), ...questionIds.map(String)], reference);
+    return Array.isArray(results) && results.length > 0 ? results.map((ans) => new Answer(ans)) : [];
+  }
+
+  // Given a list of question ids, return all filled answers for custom questions
+  static async findFilledAnswersByCustomQuestionIds(
+    reference: string,
+    context: MyContext,
+    planId: number,
+    customQuestionIds: number[]
+  ): Promise<Answer[]> {
+    if (!Array.isArray(customQuestionIds) || customQuestionIds.length === 0) return [];
+
+    const placeholders = customQuestionIds.map(() => '?').join(', ');
+    const sql = `SELECT * FROM answers 
+    WHERE planId = ? 
+    AND versionedCustomQuestionId IN (${placeholders}) 
+    AND json IS NOT NULL AND json != ''`;
+    const results = await Answer.query(context, sql, [String(planId), ...customQuestionIds.map(String)], reference);
     return Array.isArray(results) && results.length > 0 ? results.map((ans) => new Answer(ans)) : [];
   }
 };

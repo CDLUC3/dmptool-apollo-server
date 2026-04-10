@@ -12,6 +12,8 @@ import { isAuthorized } from "../services/authService";
 import { sendProjectCollaboratorsCommentsAddedEmail } from '../services/emailService';
 import { canDeleteComment } from "../services/commentPermissions";
 import { Resolvers } from "../types";
+import { VersionedCustomQuestion } from "../models/VersionedCustomQuestion";
+import { VersionedCustomSection } from "../models/VersionedCustomSection";
 import { Answer } from "../models/Answer";
 import { VersionedQuestion } from "../models/VersionedQuestion";
 import { VersionedSection } from "../models/VersionedSection";
@@ -51,8 +53,8 @@ export const resolvers: Resolvers = {
     },
 
     // return the answer for the given versionedQuestionId
-    answerByVersionedQuestionId: async (_, { planId, versionedQuestionId }, context: MyContext): Promise<Answer> => {
-      const reference = 'planSectionAnswers resolver';
+    answerByVersionedQuestionId: async (_, { planId, versionedQuestionId, versionedCustomQuestionId }, context: MyContext): Promise<Answer> => {
+      const reference = 'answerByVersionedQuestionId resolver';
       try {
         if (isAuthorized(context.token)) {
           const plan = await Plan.findById(reference, context, planId);
@@ -61,8 +63,14 @@ export const resolvers: Resolvers = {
           }
           const project = await Project.findById(reference, context, plan.projectId);
           if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.COMMENT)) {
-            const temp = await Answer.findByPlanIdAndVersionedQuestionId(reference, context, planId, versionedQuestionId);
-            return temp;
+            if (versionedCustomQuestionId) {
+              return await Answer.findByPlanIdAndVersionedCustomQuestionId(
+                reference, context, planId, versionedCustomQuestionId
+              );
+            }
+            return await Answer.findByPlanIdAndVersionedQuestionId(
+              reference, context, planId, versionedQuestionId
+            );
           }
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();
@@ -101,7 +109,7 @@ export const resolvers: Resolvers = {
 
   Mutation: {
     // Create a new answer
-    addAnswer: async (_, { planId, versionedSectionId, versionedQuestionId, json }, context: MyContext): Promise<Answer> => {
+    addAnswer: async (_, { planId, versionedSectionId, versionedQuestionId, versionedCustomSectionId, versionedCustomQuestionId, json }, context: MyContext): Promise<Answer> => {
       const reference = 'addAnswer resolver';
       try {
         if (isAuthorized(context.token)) {
@@ -112,7 +120,7 @@ export const resolvers: Resolvers = {
 
           const project = await Project.findById(reference, context, plan.projectId);
           if (await hasPermissionOnProject(context, project)) {
-            const answer = new Answer({ planId, versionedSectionId, versionedQuestionId, json });
+            const answer = new Answer({ planId, versionedSectionId, versionedQuestionId, versionedCustomSectionId, versionedCustomQuestionId, json });
             const newAnswer = await answer.create(context);
             if (newAnswer && !newAnswer.hasErrors()) {
               // Update the maDMP version of the Plan
@@ -314,6 +322,20 @@ export const resolvers: Resolvers = {
     versionedQuestion: async (parent: Answer, _, context: MyContext): Promise<VersionedQuestion> => {
       if (parent?.versionedQuestionId) {
         return await VersionedQuestion.findById('Answer versionedQuestion resolver', context, parent.versionedQuestionId);
+      }
+      return null;
+    },
+    // The section the answer's question belongs to
+    versionedCustomSection: async (parent: Answer, _, context: MyContext): Promise<VersionedCustomSection> => {
+      if (parent?.versionedCustomSectionId) {
+        return await VersionedCustomSection.findById('Answer versionedCustomSection resolver', context, parent.versionedCustomSectionId);
+      }
+      return null;
+    },
+    // The question the answer is associated with
+    versionedCustomQuestion: async (parent: Answer, _, context: MyContext): Promise<VersionedCustomQuestion> => {
+      if (parent?.versionedCustomQuestionId) {
+        return await VersionedCustomQuestion.findById('Answer versionedCustomQuestion resolver', context, parent.versionedCustomQuestionId);
       }
       return null;
     },

@@ -8,6 +8,8 @@ export const typeDefs = gql`
     publishedSections(term: String!, paginationOptions: PaginationOptions): VersionedSectionSearchResults
     "Fetch a specific VersionedSection"
     publishedSection(versionedSectionId: Int!): VersionedSection
+    "Fetch a specific VersionedCustomSection for a plan - resolved via the caller's affiliation"
+    publishedCustomSection(customSectionId: Int!, planId: Int!): VersionedCustomSection
     "Get all of the best practice VersionedSection"
     bestPracticeSections: [VersionedSection]
   }
@@ -112,5 +114,53 @@ export const typeDefs = gql`
     guidance: String
     tagIds: String
     versionedQuestionIds: String
+  }
+
+  "A snapshot of a CustomSection when the template customization was published."
+  type VersionedCustomSection {
+    "The unique identifier for the Object"
+    id: Int
+    "The user who created the Object"
+    createdById: Int
+    "The timestamp when the Object was created"
+    created: String
+    "The user who last modified the Object"
+    modifiedById: Int
+    "The timestamp when the Object was last modified"
+    modified: String
+
+    "The VersionedTemplateCustomization this snapshot belongs to"
+    versionedTemplateCustomizationId: Int!
+    "The CustomSection this is a snapshot of"
+    customSectionId: Int!
+
+    "The type of base section this custom section is pinned after (null = prepend to template)"
+    pinnedVersionedSectionType: String
+    "The id of the base section this custom section is pinned after"
+    pinnedVersionedSectionId: Int
+
+    "The custom section name/title"
+    name: String!
+    "The custom section introduction"
+    introduction: String
+    "Requirements that a user must consider in this section"
+    requirements: String
+    "Guidance to help the user with this section"
+    guidance: String
+
+    "The custom questions associated with this VersionedCustomSection"
+    questions: [VersionedCustomQuestion!]
+
+    "Errors associated with the Object"
+    errors: VersionedCustomSectionErrors
+  }
+
+  "A collection of errors related to the VersionedCustomSection"
+  type VersionedCustomSectionErrors {
+    "General error messages"
+    general: String
+    versionedTemplateCustomizationId: String
+    customSectionId: String
+    name: String
   }
 `;

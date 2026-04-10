@@ -176,7 +176,7 @@ export const resolvers: Resolvers = {
      * @throws UnauthorizedError when the JWT token is not present
      * @throws InternalServerError when a fatal error has occurred
      */
-    removeTemplateCustomization: authenticatedResolver(
+        removeTemplateCustomization: authenticatedResolver(
       'removeTemplateCustomization resolver',
       UserRole.ADMIN,
       async (

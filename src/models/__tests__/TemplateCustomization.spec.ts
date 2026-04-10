@@ -4,8 +4,8 @@ import {
   TemplateCustomizationStatus,
   TemplateCustomizationOverview,
 } from '../TemplateCustomization';
-import { VersionedTemplate } from '../VersionedTemplate';
 import { VersionedTemplateCustomization } from '../VersionedTemplateCustomization';
+import * as publishHelpers from '../../services/templateCustomizationPublishHelpers';
 import { MyContext } from '../../context';
 
 describe('TemplateCustomization', () => {
@@ -129,154 +129,6 @@ describe('TemplateCustomization', () => {
     });
   });
 
-  describe('publish()', () => {
-    it('should add error when id is not set', async () => {
-      const customization = new TemplateCustomization({
-        affiliationId: 'affil-123',
-        templateId: 1,
-        currentVersionedTemplateId: 10,
-        status: 'DRAFT',
-        migrationStatus: 'OK',
-        errors: {}
-      });
-
-      const result = await customization.publish(mockContext);
-
-      expect(result.errors.general).toBe('Customization has never been saved');
-    });
-
-    it('should add error when validation fails', async () => {
-      const customization = new TemplateCustomization({
-        id: 1,
-        affiliationId: null,
-        templateId: 1,
-        currentVersionedTemplateId: 10,
-        status: 'DRAFT',
-        migrationStatus: 'OK',
-        errors: {}
-      });
-
-      const result = await customization.publish(mockContext);
-
-      expect(result.errors.affiliationId).toBe('Affiliation can\'t be blank');
-    });
-
-    it('should add error when the customization is already published', async () => {
-      const customization = new TemplateCustomization({
-        id: 1,
-        affiliationId: null,
-        templateId: 1,
-        currentVersionedTemplateId: 10,
-        status: 'PUBLISHED',
-        latestPublishedVersionId: 100,
-        latestPublishedDate: '2026-01-01 12:13:14',
-        migrationStatus: 'OK',
-        errors: {}
-      });
-
-      const result = await customization.publish(mockContext);
-
-      expect(result.errors.general).toBe('Customization is already published!');
-    });
-
-    it('should add error when drift is detected', async () => {
-      const customization = new TemplateCustomization({
-        id: 1,
-        affiliationId: 'affil-123',
-        templateId: 1,
-        currentVersionedTemplateId: 10,
-        latestPublishedVersionId: null,
-        status: 'DRAFT',
-        migrationStatus: 'OK',
-        errors: {}
-      });
-
-      const mockTemplate = { id: 15 } as undefined as VersionedTemplate;
-      jest.spyOn(VersionedTemplate, 'findActiveByTemplateId').mockResolvedValue(mockTemplate);
-
-      const result = await customization.publish(mockContext);
-
-      expect(result.errors.general).toBe('Unable to create version');
-    });
-
-    it('should add error when versioned customization creation fails', async () => {
-      const customization = new TemplateCustomization({
-        id: 1,
-        affiliationId: 'affil-123',
-        templateId: 1,
-        currentVersionedTemplateId: 10,
-        status: 'DRAFT',
-        migrationStatus: 'OK',
-        errors: {}
-      });
-
-      const mockTemplate = { id: 10 } as undefined as VersionedTemplate;
-      const createSpy = jest.spyOn(VersionedTemplateCustomization.prototype, 'create').mockResolvedValue(null);
-      jest.spyOn(VersionedTemplate, 'findActiveByTemplateId').mockResolvedValue(mockTemplate);
-
-      await customization.publish(mockContext);
-
-      expect(createSpy).toHaveBeenCalled();
-    });
-
-    it('should add error when update fails after successful version creation', async () => {
-      const customization = new TemplateCustomization({
-        id: 1,
-        affiliationId: 'affil-123',
-        templateId: 1,
-        currentVersionedTemplateId: 10,
-        status: 'DRAFT',
-        migrationStatus: 'OK',
-        errors: {}
-      });
-
-      const mockVersionedCustomization = {
-        id: 100,
-        created: new Date()
-      } as undefined as VersionedTemplateCustomization;
-      const mockTemplate = { id: 10 } as undefined as VersionedTemplate;
-      jest.spyOn(VersionedTemplate, 'findActiveByTemplateId').mockResolvedValue(mockTemplate);
-      jest.spyOn(VersionedTemplateCustomization.prototype, 'create').mockResolvedValue(new VersionedTemplateCustomization(mockVersionedCustomization));
-      customization.update = jest.fn().mockResolvedValue(null);
-
-      const result = await customization.publish(mockContext);
-
-      expect(result.errors.general).toBe('Unable to publish');
-    });
-
-    it('should successfully publish customization', async () => {
-      const customization = new TemplateCustomization({
-        id: 1,
-        affiliationId: 'affil-123',
-        templateId: 1,
-        currentVersionedTemplateId: 10,
-        status: 'DRAFT',
-        migrationStatus: 'OK',
-        errors: {}
-      });
-
-      const mockVersionedCustomization = {
-        id: 100,
-        created: new Date()
-      } as undefined as VersionedTemplateCustomization;
-      const mockUpdatedCustomization = new TemplateCustomization({
-        ...customization,
-        status: TemplateCustomizationStatus.PUBLISHED
-      }) as undefined as TemplateCustomization;
-      const mockTemplate = { id: 10 } as undefined as VersionedTemplate;
-      jest.spyOn(VersionedTemplate, 'findActiveByTemplateId').mockResolvedValue(mockTemplate);
-      jest.spyOn(VersionedTemplateCustomization.prototype, 'create').mockResolvedValue(new VersionedTemplateCustomization(mockVersionedCustomization));
-      customization.update = jest.fn().mockResolvedValue(mockUpdatedCustomization);
-
-      const result = await customization.publish(mockContext);
-
-      expect(customization.status).toBe(TemplateCustomizationStatus.PUBLISHED);
-      expect(customization.isDirty).toBe(false);
-      expect(customization.latestPublishedVersionId).toBe(100);
-      expect(result).toBeInstanceOf(TemplateCustomization);
-    });
-  });
-
   describe('unpublish()', () => {
     it('should add error when id is not set', async () => {
       const customization = new TemplateCustomization({
@@ -391,7 +243,7 @@ describe('TemplateCustomization', () => {
       const mockVersionedCustomization = {
         id: 100,
         active: true,
-        update: jest.fn().mockResolvedValue({id: 100})
+        update: jest.fn().mockResolvedValue({ id: 100 })
       } as undefined as VersionedTemplateCustomization;
       jest.spyOn(VersionedTemplateCustomization, 'findById').mockResolvedValue(mockVersionedCustomization);
       customization.update = jest.fn().mockResolvedValue(null);
@@ -420,7 +272,7 @@ describe('TemplateCustomization', () => {
       const mockVersionedCustomization = {
         id: 100,
         active: true,
-        update: jest.fn().mockResolvedValue({id: 100})
+        update: jest.fn().mockResolvedValue({ id: 100 })
       } as undefined as VersionedTemplateCustomization;
       jest.spyOn(VersionedTemplateCustomization, 'findById').mockResolvedValue(mockVersionedCustomization);
       customization.update = jest.fn().mockResolvedValue(mockUpdatedCustomization);
@@ -432,6 +284,147 @@ describe('TemplateCustomization', () => {
       expect(customization.latestPublishedVersionId).toBeUndefined();
       expect(customization.latestPublishedDate).toBeUndefined();
       expect(result).toBe(mockUpdatedCustomization);
+    });
+  });
+
+  describe('publish()', () => {
+    it('should add error when id is not set', async () => {
+      const customization = new TemplateCustomization({
+        affiliationId: 'affil-123',
+        templateId: 1,
+        currentVersionedTemplateId: 10,
+        status: 'DRAFT',
+        migrationStatus: 'OK',
+        errors: {}
+      });
+
+      const result = await customization.publish(mockContext);
+
+      expect(result.errors.general).toBe('Customization has never been saved');
+    });
+
+    it('should add error when already published and not dirty', async () => {
+      const customization = new TemplateCustomization({
+        id: 1,
+        affiliationId: 'affil-123',
+        templateId: 1,
+        currentVersionedTemplateId: 10,
+        status: 'PUBLISHED',
+        isDirty: false,
+        migrationStatus: 'OK',
+        errors: {}
+      });
+
+      const result = await customization.publish(mockContext);
+
+      expect(result.errors.general).toBe('Customization is already published!');
+    });
+
+    it('should add error when validation fails', async () => {
+      const customization = new TemplateCustomization({
+        id: 1,
+        affiliationId: null,
+        templateId: 1,
+        currentVersionedTemplateId: 10,
+        status: 'DRAFT',
+        migrationStatus: 'OK',
+        errors: {}
+      });
+
+      const result = await customization.publish(mockContext);
+
+      expect(result.errors.affiliationId).toBeDefined();
+    });
+
+    it('should return errors when version creation fails', async () => {
+      const customization = new TemplateCustomization({
+        id: 1,
+        affiliationId: 'affil-123',
+        templateId: 1,
+        currentVersionedTemplateId: 10,
+        status: 'DRAFT',
+        migrationStatus: 'OK',
+        errors: {}
+      });
+
+      const mockFailed = new VersionedTemplateCustomization({ errors: { general: 'DB error' } });
+      jest.spyOn(VersionedTemplateCustomization.prototype, 'create').mockResolvedValue(mockFailed);
+
+      const result = await customization.publish(mockContext);
+
+      expect(result.errors.general).toBe('DB error');
+    });
+
+    it('should rollback and return errors when snapshotting children fails', async () => {
+      const customization = new TemplateCustomization({
+        id: 1,
+        affiliationId: 'affil-123',
+        templateId: 1,
+        currentVersionedTemplateId: 10,
+        status: 'DRAFT',
+        migrationStatus: 'OK',
+        errors: {}
+      });
+
+      const mockCreated = new VersionedTemplateCustomization({ id: 99 });
+      jest.spyOn(VersionedTemplateCustomization.prototype, 'create').mockResolvedValue(mockCreated);
+      jest.spyOn(publishHelpers, 'snapshotCustomizationChildren').mockImplementation(
+        async (_ref, _ctx, custObj) => {
+          custObj.addError('general', 'snapshot failed');
+        }
+      );
+      const rollbackSpy = jest.spyOn(publishHelpers, 'rollbackPublishedSnapshot').mockResolvedValue();
+
+      const result = await customization.publish(mockContext);
+
+      expect(rollbackSpy).toHaveBeenCalledWith(mockContext, 99, customization.latestPublishedVersionId);
+      expect(result.errors.general).toBe('snapshot failed');
+    });
+
+    it('should add error when update fails after successful snapshot', async () => {
+      const customization = new TemplateCustomization({
+        id: 1,
+        affiliationId: 'affil-123',
+        templateId: 1,
+        currentVersionedTemplateId: 10,
+        status: 'DRAFT',
+        migrationStatus: 'OK',
+        errors: {}
+      });
+
+      const mockCreated = new VersionedTemplateCustomization({ id: 99 });
+      jest.spyOn(VersionedTemplateCustomization.prototype, 'create').mockResolvedValue(mockCreated);
+      jest.spyOn(publishHelpers, 'snapshotCustomizationChildren').mockResolvedValue();
+      customization.update = jest.fn().mockResolvedValue(null);
+
+      const result = await customization.publish(mockContext);
+
+      expect(result.errors.general).toBe('Unable to publish');
+    });
+
+    it('should successfully publish customization', async () => {
+      const customization = new TemplateCustomization({
+        id: 1,
+        affiliationId: 'affil-123',
+        templateId: 1,
+        currentVersionedTemplateId: 10,
+        status: 'DRAFT',
+        migrationStatus: 'OK',
+        errors: {}
+      });
+
+      const mockCreated = new VersionedTemplateCustomization({ id: 99, created: new Date('2025-01-01') });
+      jest.spyOn(VersionedTemplateCustomization.prototype, 'create').mockResolvedValue(mockCreated);
+      jest.spyOn(publishHelpers, 'snapshotCustomizationChildren').mockResolvedValue();
+      const mockUpdated = new TemplateCustomization({ ...customization, status: TemplateCustomizationStatus.PUBLISHED });
+      customization.update = jest.fn().mockResolvedValue(mockUpdated);
+
+      const result = await customization.publish(mockContext);
+
+      expect(customization.status).toBe(TemplateCustomizationStatus.PUBLISHED);
+      expect(customization.isDirty).toBe(false);
+      expect(customization.latestPublishedVersionId).toBe(99);
+      expect(result.errors).toEqual({});
     });
   });
 
@@ -461,7 +454,7 @@ describe('TemplateCustomization', () => {
         errors: {}
       });
 
-      const mockExisting = new TemplateCustomization({id: 100});
+      const mockExisting = new TemplateCustomization({ id: 100 });
       const findFirstSpy = jest.spyOn(TemplateCustomization, 'findByAffiliationAndTemplate').mockResolvedValue(mockExisting);
 
       const result = await customization.create(mockContext);
@@ -485,7 +478,7 @@ describe('TemplateCustomization', () => {
         errors: {}
       });
 
-      const mockCreated = new TemplateCustomization({id: 100, ...customization});
+      const mockCreated = new TemplateCustomization({ id: 100, ...customization });
       jest.spyOn(TemplateCustomization, 'findByAffiliationAndTemplate').mockResolvedValue(null);
       const findBySpy = jest.spyOn(TemplateCustomization, 'findById').mockResolvedValue(mockCreated);
       const insertSpy = jest.spyOn(TemplateCustomization, 'insert').mockResolvedValue(100);

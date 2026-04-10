@@ -250,7 +250,7 @@ export class PlanSectionProgress {
       ON vtc.id = vcq.versionedTemplateCustomizationId
     WHERE a.planId = ?
       AND vtc.templateCustomizationId = ?
-      AND NULLIF(TRIM(a.json), '') IS NOT NULL
+      AND JSON_TYPE(a.json) = 'OBJECT'
     GROUP BY vcq.versionedSectionId, vcq.versionedSectionType
   `;
     const rows = await Plan.query(
@@ -279,7 +279,7 @@ export class PlanSectionProgress {
       vs.name AS title,
       COUNT(DISTINCT vq.id) AS totalQuestions,
       COUNT(DISTINCT CASE
-          WHEN a.id IS NOT NULL AND NULLIF(TRIM(a.json), '') IS NOT NULL
+          WHEN a.id IS NOT NULL AND JSON_TYPE(a.json) = 'OBJECT'
           THEN vq.id
         END) AS answeredQuestions,
       COALESCE(tagAgg.tags, JSON_ARRAY()) AS tags

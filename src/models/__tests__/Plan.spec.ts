@@ -200,7 +200,7 @@ describe('PlanSectionProgress.findByPlanId', () => {
       vs.name AS title,
       COUNT(DISTINCT vq.id) AS totalQuestions,
       COUNT(DISTINCT CASE
-          WHEN a.id IS NOT NULL AND NULLIF(TRIM(a.json), '') IS NOT NULL
+          WHEN a.id IS NOT NULL AND JSON_TYPE(a.json) = 'OBJECT'
           THEN vq.id
         END) AS answeredQuestions,
       COALESCE(tagAgg.tags, JSON_ARRAY()) AS tags

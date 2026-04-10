@@ -60,6 +60,7 @@
 ### Updated
 - Updated `PlanProgress.findByPlanId` to use `fetchAnswerCustomQuestions` and return answered question counts that include the custom questions [#161]
 - Updated `PlanProgress.findByPlanId` to reuse the `PlanSectionProgress.findByPlanId` function to return `totalQuestions` and `answeredQuestions` [#161]
+- Updated the `batch_update_related_works` stored procedure to operate on batches of DMPs and improve speed of stored procedure by joining based on plan ID rather than plan ID or DMP DOI. Updated the unit tests to use `@testcontainers/mysql` so that they can run in CI, are self-contained and don't affect local tables.
 - Updated `answerByVersionedQuestionId` query and `addAnswer` mutation to pass in `versionedCustomSectionId` and `versionedCustomQuestionid` variables so that we can get and save the correct answers [#173]
 - Updated sql query in `findActiveByTemplateAffiliationAndQuestion` function in `VersionedQuestionCustomization` model to include `affiliationId` so that we can get the name of the org that made the customization [#173]
 - Updated `publishedQuestion` resolver in `versionedQuestion.ts` to return customization info, including customized sample answer and name of org that made the customization [#173]

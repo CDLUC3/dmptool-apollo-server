@@ -29,11 +29,11 @@ The script accepts the following options (also available via environment variabl
 - `--verbose` (flag) — More logging.
 
 Environment variables
-- `OS_COLLECTION_ENDPOINT` — OpenSearch endpoint (overridable via `--node`).
 - `RE3DATA_API_BASE` — change the re3data API base URL (default `https://www.re3data.org/api/v1`).
-- `RE3DATA_INDEX` — Index prefix (overridable via `--index`).
-- `RE3DATA_ALIAS` — Alias name (overridable via `--alias`).
-- `RE3DATA_BATCH_SIZE` — Batch size default (overridable via `--batch-size`).
+- `OPENSEARCH_NODE` — OpenSearch endpoint (overridable via `--node`).
+- `OPENSEARCH_INDEX` — Index prefix (overridable via `--index`).
+- `OPENSEARCH_ALIAS` — Alias name (overridable via `--alias`).
+- `OPENSEARCH_BATCH_SIZE` — Batch size default (overridable via `--batch-size`).
 
 Examples
 

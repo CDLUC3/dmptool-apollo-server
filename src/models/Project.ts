@@ -11,9 +11,11 @@ import { isNullOrUndefined, validateDate } from "../utils/helpers";
 import { MySqlModel } from "./MySqlModel";
 import { PlanStatus } from "./Plan";
 import { ProjectFilterOptions } from "../types";
+import { generalConfig } from "../config/generalConfig";
 
 export class ProjectSearchResult {
   public id: number;
+  public provenance: string;
   public title: string;
   public abstractText?: string;
   public startDate?: string;
@@ -35,6 +37,7 @@ export class ProjectSearchResult {
 
   constructor(options) {
     this.id = options.id;
+    this.provenance = options.provenance;
     this.title = options.title;
     this.abstractText = options.abstractText;
     this.startDate = options.startDate;
@@ -119,7 +122,7 @@ export class ProjectSearchResult {
       values.push(affiliationId);
     }
 
-  const sqlStatement = 'SELECT p.id, p.title, p.abstractText, p.startDate, p.endDate, p.isTestProject, ' +
+  const sqlStatement = 'SELECT p.id, p.provenance, p.title, p.abstractText, p.startDate, p.endDate, p.isTestProject, ' +
                           'researchDomains.description as researchDomain, ' +
                           'p.createdById, p.created, TRIM(CONCAT(cu.givenName, CONCAT(\' \', cu.surName))) as createdByName, ' +
                           'p.modifiedById, p.modified, TRIM(CONCAT(mu.givenName, CONCAT(\' \', mu.surName))) as modifiedByName, ' +
@@ -212,6 +215,7 @@ export class ProjectSearchResult {
 }
 
 export class Project extends MySqlModel {
+  public provenance: string;
   public title: string;
   public abstractText?: string;
   public startDate?: string;
@@ -224,6 +228,7 @@ export class Project extends MySqlModel {
   constructor(options) {
     super(options.id, options.created, options.createdById, options.modified, options.modifiedById, options.errors);
 
+    this.provenance = options.provenance;
     this.title = options.title;
     this.abstractText = options.abstractText;
     this.startDate = options.startDate;
@@ -258,6 +263,11 @@ export class Project extends MySqlModel {
 
   // Ensure data integrity
   prepForSave(): void {
+    // Make sure the provenance is set
+    this.provenance = this.provenance == null
+      ? generalConfig.maDMPProvenanceName.replace(' ', '-').toLowerCase()
+      : this.provenance?.trim();
+
     // Remove leading/trailing blank spaces
     this.title = this.title?.trim();
     this.abstractText = this.abstractText?.trim();

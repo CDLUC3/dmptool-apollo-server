@@ -20,6 +20,8 @@ export const generalConfig = {
 
   env,
   domain: process.env.DOMAIN,
+  // Used to define which maDMP metadata records are owned by the application.
+  maDMPProvenanceName: process.env.APP_NAME,
   applicationName: env === 'prd' ? process.env.APP_NAME : `${process.env.APP_NAME} (${env})`,
   defaultAffiliatioURI: process.env.DEFAULT_AFFILIATION_URI,
   defaultSearchLimit: Number.parseInt(process.env.DEFAULT_SEARCH_LIMIT) || 20,

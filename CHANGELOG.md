@@ -3,6 +3,8 @@
 ## v1.1.0
 
 ### Added
+- Added a `generalConfig.maDMPProvenanceName` to pull in the provenance name for this application.
+- Added `provenance` column to the `projects` table and updated the model to reflect this change. This stores the name of the system that created the project.
 - Added `fetchAnswerCustomQuestion` to `Plan` model in order to get answered counts for custom questions [#161]
 - Added `publishedCustomQuestion` query resolver and added to schema [#173]
 - Added `ON DELETE CASCADE` sql migration script for deletion of `versionedTemplateCustomization` and `templateCustomization` FKs [#171]

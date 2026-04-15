@@ -32,6 +32,7 @@ describe('ProjectSearchResult', () => {
 
     projectSearchResult = new ProjectSearchResult({
       id: casual.integer(1, 9),
+      provenance: 'test-app',
       title: casual.sentence,
       abstractText: casual.sentences(5),
       startDate: casual.date('YYYY-MM-DD'),
@@ -71,6 +72,7 @@ describe('ProjectSearchResult', () => {
     it('returns the matching ProjectSearchResults when userId and term are specified', async () => {
       const queryResult = {
         id: projectSearchResult.id,
+        provenance: projectSearchResult.provenance,
         title: projectSearchResult.title,
         abstractText: projectSearchResult.abstractText,
         startDate: projectSearchResult.startDate,
@@ -92,7 +94,7 @@ describe('ProjectSearchResult', () => {
 
       const term = 'Test';
       const result = await ProjectSearchResult.search('Test', context, term, projectSearchResult.createdById);
-      const sql = 'SELECT p.id, p.title, p.abstractText, p.startDate, p.endDate, p.isTestProject, ' +
+      const sql = 'SELECT p.id, p.provenance, p.title, p.abstractText, p.startDate, p.endDate, p.isTestProject, ' +
                             'researchDomains.description as researchDomain, ' +
                             'p.createdById, p.created, TRIM(CONCAT(cu.givenName, CONCAT(\' \', cu.surName))) as createdByName, ' +
                             'p.modifiedById, p.modified, TRIM(CONCAT(mu.givenName, CONCAT(\' \', mu.surName))) as modifiedByName, ' +
@@ -167,6 +169,7 @@ describe('Project', () => {
   let project;
 
   const projectData = {
+    provenance: 'test-app',
     title: casual.sentence,
     abstractText: casual.sentences(4),
     startDate: '2024-12-13',
@@ -178,6 +181,7 @@ describe('Project', () => {
   });
 
   it('should initialize options as expected', () => {
+    expect(project.provenance).toEqual(projectData.provenance);
     expect(project.title).toEqual(projectData.title);
     expect(project.abstractText).toEqual(projectData.abstractText);
     expect(project.startDate).toEqual(projectData.startDate);
@@ -242,6 +246,7 @@ describe('Project', () => {
 
       project = new Project({
         id: casual.integer(1, 999),
+        provenance: 'test-app',
         title: casual.sentence,
         abstractText: casual.sentences(4),
         startDate: '2024-12-13',
@@ -336,6 +341,7 @@ describe('Project', () => {
 
       project = new Project({
         id: casual.integer(1, 999),
+        provenance: 'test-app',
         title: casual.sentence,
         abstractText: casual.sentences(4),
         startDate: '2024-12-13',
@@ -445,6 +451,7 @@ describe('Project', () => {
       mockFindById.mockResolvedValueOnce(project);
 
       const result = await project.create(context);
+      expect(result.provenance).toEqual(generalConfig.maDMPProvenanceName);
       expect(mockFindBy).toHaveBeenCalledTimes(1);
       expect(mockFindById).toHaveBeenCalledTimes(1);
       expect(insertQuery).toHaveBeenCalledTimes(1);
@@ -459,6 +466,7 @@ describe('Project', () => {
     beforeEach(() => {
       project = new Project({
         id: casual.integer(1, 999),
+        provenance: 'test-app',
         title: casual.sentence,
       });
     })

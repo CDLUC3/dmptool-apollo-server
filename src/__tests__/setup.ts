@@ -93,6 +93,7 @@ jest.mock('../config/generalConfig', () => ({
   generalConfig: {
     env: 'test',
     domain: 'localhost:3000',
+    maDMPProvenanceName: 'test-app',
     applicationName: 'My test app',
     defaultAffiliatioURI: 'https://ror.org/1234abcd',
     defaultSearchLimit: 5,

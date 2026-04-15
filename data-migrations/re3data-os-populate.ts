@@ -1,8 +1,9 @@
-import { DOMParser } from '@xmldom/xmldom';
+import { Document, DOMParser } from '@xmldom/xmldom';
 import * as xpath from 'xpath';
 import { Client } from '@opensearch-project/opensearch';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
+import { XPathSelect } from "xpath";
 
 // --- Configuration ---
 const RE3DATA_API_BASE = process.env.RE3DATA_API_BASE || 'https://www.re3data.org/api/v1';
@@ -268,9 +269,11 @@ async function syncRe3Data() {
 
     const listXml = await listResponse.text();
 
-    const doc = new DOMParser().parseFromString(listXml);
-    const repoNodes = xpath.select("//repository/id", doc) as Node[];
-    const repoIds = repoNodes.map(n => n.textContent).filter(Boolean) as string[];
+    const doc: Document = new DOMParser().parseFromString(listXml, 'XML');
+    const select: XPathSelect = xpath.useNamespaces({});
+    const repoIds: string[] = select(
+      "//repository/id[normalize-space(text())!='']/text()", doc as unknown as Node
+    ) as unknown as string[];
 
     console.log(`Found ${repoIds.length} repositories. Starting bulk sync...`);
 
@@ -301,7 +304,7 @@ async function syncRe3Data() {
         }
         const detailXml = await detailResponse.text();
 
-        const repoDoc = new DOMParser().parseFromString(detailXml);
+        const repoDoc: Node = new DOMParser().parseFromString(detailXml, 'XML') as unknown as Node;
 
         const repositoryData = {
           id: id,

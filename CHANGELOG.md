@@ -58,6 +58,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Fixed some typescipt issues with the re3data import script
 - Updated `nodemailer` 
 - Updated `relatedWorksTables.spec.ts` to fix linter issues
 - Updated `PlanProgress.findByPlanId` to use `fetchAnswerCustomQuestions` and return answered question counts that include the custom questions [#161]

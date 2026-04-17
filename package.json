@@ -1,6 +1,6 @@
 {
   "name": "dmptool-apollo-server",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Apollo GraphQL server for the DMP Tool system",
   "main": "index.js",
   "scripts": {
@@ -40,7 +40,7 @@
     "flatted": "3.4.2",
     "handlebars": "4.7.9",
     "lodash": "4.18.1",
-    "path-to-regexp": "8.4.1",
+    "path-to-regexp": "8.4.2",
     "picomatch": "4.0.4",
     "protobufjs": "8.0.1"
   },

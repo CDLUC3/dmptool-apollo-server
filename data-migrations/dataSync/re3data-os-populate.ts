@@ -4,6 +4,8 @@ import { Client } from '@opensearch-project/opensearch';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import { XPathSelect } from "xpath";
+import { AwsSigv4Signer } from '@opensearch-project/opensearch/aws';
+import { defaultProvider } from '@aws-sdk/credential-providers';
 
 // --- Configuration ---
 const RE3DATA_API_BASE = process.env.RE3DATA_API_BASE || 'https://www.re3data.org/api/v1';
@@ -32,6 +34,15 @@ const OPENSEARCH_CONFIG = {
   indexPrefix: argv.index || DEFAULT_OPENSEARCH.index,
   batchSize: argv['batch-size'] || DEFAULT_OPENSEARCH.batchSize
 };
+
+const client = new Client({
+  ...AwsSigv4Signer({
+    region: 'us-west-2',
+    service: 'aoss',
+    getCredentials: defaultProvider(),
+  }),
+  node: OPENSEARCH_CONFIG.node,
+});
 
 const ALIAS_NAME = argv.alias || process.env.OPENSEARCH_ALIAS || 're3data';
 
@@ -92,12 +103,6 @@ process.on('uncaughtException', (err) => {
 
 // Index mapping & settings (from open-search-init.sh)
 const INDEX_BODY = {
-  settings: {
-    index: {
-      number_of_shards: 1,
-      number_of_replicas: 0
-    }
-  },
   mappings: {
     properties: {
       id: { type: 'keyword', copy_to: 'search_all' },
@@ -134,7 +139,7 @@ const INDEX_BODY = {
 
 async function listIndicesWithPrefix(prefix: string): Promise<string[]> {
   try {
-    const res = await client.cat.indices({ index: `${prefix}*`, format: 'json' });
+    const res = await client.indices.get({ index: `${prefix}*` });
     const body = (res && ((res as unknown) as { body?: unknown }).body) ?? res;
     if (!Array.isArray(body)) return [];
     return (body as unknown[])

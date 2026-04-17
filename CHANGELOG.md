@@ -58,6 +58,8 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Moved `re3data-os-populate.ts` to `data-migration/dataSync` directory.
+- Updated `re3data-os-populate.ts` to work with OpenSearch serverless collections
 - Fixed some typescipt issues with the re3data import script
 - Updated `nodemailer` 
 - Updated `relatedWorksTables.spec.ts` to fix linter issues

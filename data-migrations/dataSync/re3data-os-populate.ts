@@ -273,7 +273,7 @@ async function syncRe3Data() {
 
     const listXml = await listResponse.text();
 
-    const doc: Document = new DOMParser().parseFromString(listXml, '"application/xml"');
+    const doc: Document = new DOMParser().parseFromString(listXml, 'application/xml');
     const select: XPathSelect = xpath.useNamespaces({});
     const repoIds: string[] = select(
       "//repository/id[normalize-space(text())!='']/text()", doc as unknown as Node
@@ -308,7 +308,7 @@ async function syncRe3Data() {
         }
         const detailXml = await detailResponse.text();
 
-        const repoDoc: Node = new DOMParser().parseFromString(detailXml, '"application/xml"') as unknown as Node;
+        const repoDoc: Node = new DOMParser().parseFromString(detailXml, 'application/xml') as unknown as Node;
 
         const repositoryData = {
           id: id,

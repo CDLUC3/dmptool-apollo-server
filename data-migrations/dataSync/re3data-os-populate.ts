@@ -5,7 +5,7 @@ import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import { XPathSelect } from "xpath";
 import { AwsSigv4Signer } from '@opensearch-project/opensearch/aws';
-import { defaultProvider } from '@aws-sdk/credential-providers';
+import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 
 // --- Configuration ---
 const RE3DATA_API_BASE = process.env.RE3DATA_API_BASE || 'https://www.re3data.org/api/v1';
@@ -39,7 +39,7 @@ const client = new Client({
   ...AwsSigv4Signer({
     region: 'us-west-2',
     service: 'aoss',
-    getCredentials: defaultProvider(),
+    getCredentials: fromNodeProviderChain(),
   }),
   node: OPENSEARCH_CONFIG.node,
 });
@@ -49,7 +49,6 @@ const ALIAS_NAME = argv.alias || process.env.OPENSEARCH_ALIAS || 're3data';
 const DRY_RUN = Boolean(argv['dry-run']);
 const VERBOSE = Boolean(argv.verbose);
 
-const client = new Client({ node: OPENSEARCH_CONFIG.node });
 const ns = { r3d: 'http://www.re3data.org/schema/2-2' };
 
 const getText = (node: Node, path: string): string => {

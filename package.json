@@ -1,6 +1,6 @@
 {
   "name": "dmptool-apollo-server",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Apollo GraphQL server for the DMP Tool system",
   "main": "index.js",
   "scripts": {
@@ -36,7 +36,7 @@
     "npm": ">=11.3.0"
   },
   "overrides": {
-    "fast-xml-parser": "5.5.9",
+    "fast-xml-parser": "5.6.0",
     "flatted": "3.4.2",
     "handlebars": "4.7.9",
     "lodash": "4.18.1",

@@ -27,6 +27,8 @@ const argv = yargs(hideBin(process.argv))
   .help()
   .parseSync();
 
+const ALIAS_NAME = argv.alias || process.env.OPENSEARCH_ALIAS || 're3data';
+
 const OPENSEARCH_CONFIG = {
   node: argv.node || DEFAULT_OPENSEARCH.node,
   indexPrefix: argv.index || DEFAULT_OPENSEARCH.index,
@@ -60,7 +62,7 @@ const ensureArray = (val: any) => {
 };
 
 async function syncRe3Data() {
-  console.log(`Starting sync to ${argv.node}`);
+  console.log(`Starting sync to ${OPENSEARCH_CONFIG.node}`);
 
   try {
     // Get Repo List
@@ -75,7 +77,7 @@ async function syncRe3Data() {
     console.log(`Found ${repoIds.length} repositories to process.`);
 
     // Prepare the Index
-    const newIndexName = `${argv.index}-${Date.now()}`;
+    const newIndexName = `${OPENSEARCH_CONFIG.indexPrefix}-${Date.now()}`;
     await client.indices.create({
       index: newIndexName,
       body: {
@@ -149,14 +151,14 @@ async function syncRe3Data() {
     }
 
     // Alias Swap
-    console.log(`Sync complete. Swapping alias ${argv.alias} to ${newIndexName}`);
+    console.log(`Sync complete. Swapping alias ${ALIAS_NAME} to ${newIndexName}`);
 
     // Check if alias exists to avoid 404 error on removal
-    const aliasExists = await client.indices.existsAlias({ name: argv.alias });
+    const aliasExists = await client.indices.existsAlias({ name: ALIAS_NAME });
 
-    const actions: any[] = [{ add: {index: newIndexName, alias: argv.alias } }];
+    const actions: any[] = [{ add: {index: newIndexName, alias: ALIAS_NAME } }];
     if (aliasExists) {
-      actions.unshift({ remove: {index: `${argv.index}-*`, alias: argv.alias } });
+      actions.unshift({ remove: {index: `${OPENSEARCH_CONFIG.indexPrefix}-*`, alias: ALIAS_NAME } });
     }
 
     await client.indices.updateAliases({body: { actions }});

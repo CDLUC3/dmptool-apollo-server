@@ -454,31 +454,100 @@ export const resolvers: Resolvers = {
         context: MyContext
       ): Promise<CustomQuestion> => {
         const ref = 'moveCustomQuestion resolver';
-        const { customQuestionId, sectionType, sectionId, pinnedQuestionType, pinnedQuestionId } = input;
+        const { customQuestionId, sectionType, sectionId, pinnedQuestionType, pinnedQuestionId, direction } = input;
+        const customization: CustomQuestion = await CustomQuestion.findById(ref, context, customQuestionId);
 
-        const customization: CustomQuestion = await CustomQuestion.findById(
-          ref,
-          context,
-          customQuestionId
-        );
         if (!customization) throw NotFoundError();
 
-        // Fetch the parent template customization and verify the user has access
         const parent: TemplateCustomization = await getValidatedCustomization(
-          ref,
-          context,
-          customization.templateCustomizationId
+          ref, context, customization.templateCustomizationId
         );
 
         const newPinType: PinnedQuestionTypeEnum = PinnedQuestionTypeEnum[pinnedQuestionType];
-        // Section info cannot be null, but pinned question info can
-        customization.sectionType = PinnedSectionTypeEnum[sectionType];
-        customization.sectionId = sectionId;
-        customization.pinnedQuestionType = isNullOrUndefined(newPinType) ? null : newPinType;
-        customization.pinnedQuestionId = isNullOrUndefined(pinnedQuestionId) ? null : pinnedQuestionId;
-        const moved: CustomQuestion = await customization.update(context);
+        const newSectionType = PinnedSectionTypeEnum[sectionType];
+        const newPinnedQuestionType = isNullOrUndefined(newPinType) ? null : newPinType;
+        const newPinnedQuestionId = isNullOrUndefined(pinnedQuestionId) ? null : pinnedQuestionId;
 
-        // If it was successfully moved, update the parent's isDirty flag
+        // Check if another question already occupies this exact position
+        const occupant = await CustomQuestion.findByPosition(
+          ref,
+          context,
+          parent.id,
+          newSectionType,
+          sectionId,
+          newPinnedQuestionType,
+          newPinnedQuestionId
+        );
+
+        // Save customization's original position before any changes
+        const originalSectionType = customization.sectionType;
+        const originalSectionId = customization.sectionId;
+        const originalPinnedQuestionType = customization.pinnedQuestionType;
+        const originalPinnedQuestionId = customization.pinnedQuestionId;
+
+        if (occupant && occupant.id !== customQuestionId) {
+          // Step 1: Temporarily free A's slot to a temporary position that won't conflict with any existing question
+          customization.pinnedQuestionType = null;
+          customization.pinnedQuestionId = null;
+          const tempMoved = await customization.update(context);
+          if (tempMoved.hasErrors()) {
+            throw new Error(`Failed to temporarily move question: ${JSON.stringify(tempMoved.errors)}`);
+          }
+
+          // Step 2: Place occupant depending on direction (UP or DOWN). When A moves down to sit where B was, 
+          // then B gets re-pinned from BASE to A. When A moves up to sit where B was, then B gets pinned from BASE to A's original position.
+          if (direction === 'DOWN') {
+            occupant.sectionType = newSectionType;
+            occupant.sectionId = sectionId;
+            occupant.pinnedQuestionType = PinnedQuestionTypeEnum.CUSTOM;
+            occupant.pinnedQuestionId = customQuestionId;
+          } else {
+            occupant.sectionType = originalSectionType;
+            occupant.sectionId = originalSectionId;
+            occupant.pinnedQuestionType = originalPinnedQuestionType;
+            occupant.pinnedQuestionId = originalPinnedQuestionId;
+          }
+
+          const swapped = await occupant.update(context);
+          if (swapped.hasErrors()) {
+            throw new Error(`Failed to swap occupant: ${JSON.stringify(swapped.errors)}`);
+          }
+        } else if (direction === 'UP') {
+          // No occupant at target, but something may be chained after A
+          const tailQuestion = await CustomQuestion.findByPosition(
+            ref, context, parent.id,
+            originalSectionType, originalSectionId,
+            PinnedQuestionTypeEnum.CUSTOM, customQuestionId
+          );
+
+          if (tailQuestion) {
+            // Must temporarily free A's current slot FIRST before B can move into it
+            customization.pinnedQuestionType = null;
+            customization.pinnedQuestionId = null;
+            const tempMoved = await customization.update(context);
+            if (tempMoved.hasErrors()) {
+              throw new Error(`Failed to temporarily move question: ${JSON.stringify(tempMoved.errors)}`);
+            }
+
+            // Now B can safely move to A's vacated slot
+            tailQuestion.sectionType = originalSectionType;
+            tailQuestion.sectionId = originalSectionId;
+            tailQuestion.pinnedQuestionType = originalPinnedQuestionType;
+            tailQuestion.pinnedQuestionId = originalPinnedQuestionId;
+            const reanch = await tailQuestion.update(context);
+            if (reanch.hasErrors()) {
+              throw new Error(`Failed to re-anchor tail question: ${JSON.stringify(reanch.errors)}`);
+            }
+          }
+        }
+
+        // Step 3: Move A into its final target position
+        customization.sectionType = newSectionType;
+        customization.sectionId = sectionId;
+        customization.pinnedQuestionType = newPinnedQuestionType;
+        customization.pinnedQuestionId = newPinnedQuestionId;
+        const moved = await customization.update(context);
+
         if (moved && !moved.hasErrors() && !parent.isDirty) {
           await markTemplateCustomizationAsDirty(ref, context, parent.id, moved);
         }

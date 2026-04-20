@@ -15,7 +15,7 @@ import { resolvers } from '../../resolver';
 import { logger } from "../../logger";
 import { JWTAccessToken } from "../../services/tokenService";
 import { QuestionCustomization } from '../../models/QuestionCustomization';
-import { CustomQuestion } from '../../models/CustomQuestion';
+import { CustomQuestion, PinnedQuestionTypeEnum } from '../../models/CustomQuestion';
 import { VersionedQuestion } from '../../models/VersionedQuestion';
 import { PinnedSectionTypeEnum } from '../../models/CustomSection';
 import { User, UserRole } from "../../models/User";
@@ -810,13 +810,14 @@ describe('questionCustomization resolver', () => {
       `;
     });
 
-    it('should move custom section successfully', async () => {
+    it('should move custom question successfully when no occupant exists', async () => {
       const input = {
         customQuestionId: 1,
         sectionType: 'BASE',
         sectionId: 2,
         pinnedQuestionType: 'BASE',
-        pinnedQuestionId: 10
+        pinnedQuestionId: 10,
+        direction: 'DOWN'
       };
       const mockCustomization = {
         id: 1,
@@ -832,26 +833,30 @@ describe('questionCustomization resolver', () => {
       const mockMoved = {
         ...mockCustomization,
         pinnedQuestionType: PinnedSectionTypeEnum.BASE,
-        pinnedQuestionId: 10
+        pinnedQuestionId: 10,
+        hasErrors: jest.fn().mockReturnValue(false)
       };
 
       (CustomQuestion.findById as jest.Mock).mockResolvedValue(mockCustomization);
       (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
+      (CustomQuestion.findByPosition as jest.Mock).mockResolvedValue(null);
       mockCustomization.update.mockResolvedValue(mockMoved);
 
       const result = await executeQuery(query, { input }, adminToken);
 
       expect(result.body.singleResult.data.moveCustomQuestion.id).toEqual(1);
+      expect(CustomQuestion.findByPosition).toHaveBeenCalledTimes(1);
       expect(markTemplateCustomizationAsDirty).toHaveBeenCalled();
     });
 
-    it('should throw NotFoundError when custom section is not found', async () => {
+    it('should throw NotFoundError when custom question is not found', async () => {
       const input = {
         customQuestionId: 999,
         sectionType: 'BASE',
         sectionId: 2,
         pinnedQuestionType: 'BASE',
-        pinnedQuestionId: 10
+        pinnedQuestionId: 10,
+        direction: 'DOWN'
       };
 
       (CustomQuestion.findById as jest.Mock).mockResolvedValue(null);
@@ -863,17 +868,20 @@ describe('questionCustomization resolver', () => {
       expect(result.body.singleResult.errors[0].message).toEqual('Not Found');
     });
 
-    it('should handle null QuestionType and QuestionId', async () => {
+    it('should handle null pinnedQuestionType and pinnedQuestionId', async () => {
       const input = {
         customQuestionId: 1,
         sectionType: 'BASE',
         sectionId: 2,
         pinnedQuestionType: null,
-        pinnedQuestionId: null
+        pinnedQuestionId: null,
+        direction: 'DOWN'
       };
       const mockCustomization = {
         id: 1,
         templateCustomizationId: 10,
+        pinnedQuestionType: null,
+        pinnedQuestionId: null,
         hasErrors: jest.fn().mockReturnValue(false),
         update: jest.fn()
       } as undefined as CustomQuestion;
@@ -882,18 +890,217 @@ describe('questionCustomization resolver', () => {
         ...mockCustomization,
         sectionType: PinnedSectionTypeEnum.BASE,
         sectionId: 2,
-        pinnedSectionType: null,
-        pinnedSectionId: null
+        pinnedQuestionType: null,
+        pinnedQuestionId: null,
+        hasErrors: jest.fn().mockReturnValue(false)
       } as undefined as CustomQuestion;
 
       (CustomQuestion.findById as jest.Mock).mockResolvedValue(mockCustomization);
       (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
+      (CustomQuestion.findByPosition as jest.Mock).mockResolvedValue(null);
       jest.spyOn(mockCustomization, 'update').mockResolvedValue(mockMoved);
 
       await executeQuery(query, { input }, adminToken);
 
       expect(mockCustomization.pinnedQuestionType).toBeNull();
       expect(mockCustomization.pinnedQuestionId).toBeNull();
+    });
+
+    it('should swap positions with occupant when moving DOWN', async () => {
+      const input = {
+        customQuestionId: 1,
+        sectionType: 'BASE',
+        sectionId: 2,
+        pinnedQuestionType: 'BASE',
+        pinnedQuestionId: 5,
+        direction: 'DOWN'
+      };
+      const mockCustomization = {
+        id: 1,
+        templateCustomizationId: 10,
+        sectionType: PinnedSectionTypeEnum.BASE,
+        sectionId: 2,
+        pinnedQuestionType: null,
+        pinnedQuestionId: null,
+        hasErrors: jest.fn().mockReturnValue(false),
+        update: jest.fn()
+      };
+      const mockOccupant = {
+        id: 2,
+        templateCustomizationId: 10,
+        sectionType: PinnedSectionTypeEnum.BASE,
+        sectionId: 2,
+        pinnedQuestionType: PinnedQuestionTypeEnum.BASE,
+        pinnedQuestionId: 5,
+        hasErrors: jest.fn().mockReturnValue(false),
+        update: jest.fn()
+      };
+      const mockParent = { id: 10, isDirty: false };
+      const mockTempMoved = {
+        ...mockCustomization,
+        hasErrors: jest.fn().mockReturnValue(false)
+      };
+      const mockMoved = {
+        ...mockCustomization,
+        pinnedQuestionType: PinnedSectionTypeEnum.BASE,
+        pinnedQuestionId: 5,
+        hasErrors: jest.fn().mockReturnValue(false)
+      };
+      const mockSwapped = {
+        ...mockOccupant,
+        hasErrors: jest.fn().mockReturnValue(false)
+      };
+
+      (CustomQuestion.findById as jest.Mock).mockResolvedValue(mockCustomization);
+      (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
+      (CustomQuestion.findByPosition as jest.Mock).mockResolvedValue(mockOccupant);
+      mockCustomization.update
+        .mockResolvedValueOnce(mockTempMoved)
+        .mockResolvedValueOnce(mockMoved);
+      mockOccupant.update.mockResolvedValue(mockSwapped);
+
+      const result = await executeQuery(query, { input }, adminToken);
+
+      expect(result.body.singleResult.data.moveCustomQuestion.id).toEqual(1);
+      expect(mockCustomization.update).toHaveBeenCalledTimes(2);
+      expect(mockOccupant.update).toHaveBeenCalledTimes(1);
+      expect(mockOccupant.pinnedQuestionType).toEqual(PinnedQuestionTypeEnum.CUSTOM);
+      expect(mockOccupant.pinnedQuestionId).toEqual(1);
+      expect(markTemplateCustomizationAsDirty).toHaveBeenCalled();
+    });
+
+    it('should swap positions with occupant when moving UP', async () => {
+      const originalSectionType = PinnedSectionTypeEnum.BASE;
+      const originalSectionId = 2;
+      const originalPinnedQuestionType = PinnedQuestionTypeEnum.BASE;
+      const originalPinnedQuestionId = 5;
+      const input = {
+        customQuestionId: 1,
+        sectionType: 'BASE',
+        sectionId: 2,
+        pinnedQuestionType: null,
+        pinnedQuestionId: null,
+        direction: 'UP'
+      };
+      const mockCustomization = {
+        id: 1,
+        templateCustomizationId: 10,
+        sectionType: originalSectionType,
+        sectionId: originalSectionId,
+        pinnedQuestionType: originalPinnedQuestionType,
+        pinnedQuestionId: originalPinnedQuestionId,
+        hasErrors: jest.fn().mockReturnValue(false),
+        update: jest.fn()
+      };
+      const mockOccupant = {
+        id: 2,
+        sectionType: null,
+        sectionId: null,
+        pinnedQuestionType: null,
+        pinnedQuestionId: null,
+        hasErrors: jest.fn().mockReturnValue(false),
+        update: jest.fn()
+      };
+      const mockParent = { id: 10, isDirty: false };
+      const mockTempMoved = {
+        ...mockCustomization,
+        hasErrors: jest.fn().mockReturnValue(false)
+      };
+      const mockMoved = {
+        ...mockCustomization,
+        pinnedQuestionType: null,
+        pinnedQuestionId: null,
+        hasErrors: jest.fn().mockReturnValue(false)
+      };
+      const mockSwapped = {
+        ...mockOccupant,
+        hasErrors: jest.fn().mockReturnValue(false)
+      };
+
+      (CustomQuestion.findById as jest.Mock).mockResolvedValue(mockCustomization);
+      (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
+      (CustomQuestion.findByPosition as jest.Mock).mockResolvedValue(mockOccupant);
+      mockCustomization.update
+        .mockResolvedValueOnce(mockTempMoved)
+        .mockResolvedValueOnce(mockMoved);
+      mockOccupant.update.mockResolvedValue(mockSwapped);
+
+      const result = await executeQuery(query, { input }, adminToken);
+
+      expect(result.body.singleResult.data.moveCustomQuestion.id).toEqual(1);
+      expect(mockOccupant.sectionType).toEqual(originalSectionType);
+      expect(mockOccupant.sectionId).toEqual(originalSectionId);
+      expect(mockOccupant.pinnedQuestionType).toEqual(originalPinnedQuestionType);
+      expect(mockOccupant.pinnedQuestionId).toEqual(originalPinnedQuestionId);
+      expect(markTemplateCustomizationAsDirty).toHaveBeenCalled();
+    });
+
+    it('should re-anchor tail question when moving UP with no occupant', async () => {
+      const originalSectionType = PinnedSectionTypeEnum.BASE;
+      const originalSectionId = 2;
+      const originalPinnedQuestionType = PinnedQuestionTypeEnum.CUSTOM;
+      const originalPinnedQuestionId = 3;
+      const input = {
+        customQuestionId: 1,
+        sectionType: 'BASE',
+        sectionId: 2,
+        pinnedQuestionType: null,
+        pinnedQuestionId: null,
+        direction: 'UP'
+      };
+      const mockCustomization = {
+        id: 1,
+        templateCustomizationId: 10,
+        sectionType: originalSectionType,
+        sectionId: originalSectionId,
+        pinnedQuestionType: originalPinnedQuestionType,
+        pinnedQuestionId: originalPinnedQuestionId,
+        hasErrors: jest.fn().mockReturnValue(false),
+        update: jest.fn()
+      };
+      const mockTailQuestion = {
+        id: 3,
+        sectionType: null,
+        sectionId: null,
+        pinnedQuestionType: null,
+        pinnedQuestionId: null,
+        hasErrors: jest.fn().mockReturnValue(false),
+        update: jest.fn()
+      };
+      const mockParent = { id: 10, isDirty: false };
+      const mockTempMoved = {
+        ...mockCustomization,
+        hasErrors: jest.fn().mockReturnValue(false)
+      };
+      const mockMoved = {
+        ...mockCustomization,
+        hasErrors: jest.fn().mockReturnValue(false)
+      };
+      const mockReanchored = {
+        ...mockTailQuestion,
+        hasErrors: jest.fn().mockReturnValue(false)
+      };
+
+      (CustomQuestion.findById as jest.Mock).mockResolvedValue(mockCustomization);
+      (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
+      (CustomQuestion.findByPosition as jest.Mock)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(mockTailQuestion);
+      mockCustomization.update
+        .mockResolvedValueOnce(mockTempMoved)
+        .mockResolvedValueOnce(mockMoved);
+      mockTailQuestion.update.mockResolvedValue(mockReanchored);
+
+      const result = await executeQuery(query, { input }, adminToken);
+
+      expect(result.body.singleResult.data.moveCustomQuestion.id).toEqual(1);
+      expect(CustomQuestion.findByPosition).toHaveBeenCalledTimes(2);
+      expect(mockTailQuestion.update).toHaveBeenCalledTimes(1);
+      expect(mockTailQuestion.sectionType).toEqual(originalSectionType);
+      expect(mockTailQuestion.sectionId).toEqual(originalSectionId);
+      expect(mockTailQuestion.pinnedQuestionType).toEqual(originalPinnedQuestionType);
+      expect(mockTailQuestion.pinnedQuestionId).toEqual(originalPinnedQuestionId);
+      expect(markTemplateCustomizationAsDirty).toHaveBeenCalled();
     });
   });
 });

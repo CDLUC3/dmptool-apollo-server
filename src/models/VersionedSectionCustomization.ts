@@ -231,4 +231,38 @@ export class VersionedSectionCustomization extends MySqlModel {
     );
     return Array.isArray(results) && results.length > 0 ? results.map(r => new VersionedSectionCustomization(r)) : [];
   }
+
+
+  /**
+ * Find the active versioned section customization for a given affiliation and section.
+ * Used to surface customization guidance in the plan guidance panel.
+ *
+ * @param reference The reference to use for logging errors.
+ * @param context The Apollo context.
+ * @param affiliationId The affiliation id.
+ * @param versionedSectionId The versioned section id.
+ * @returns The active versioned section customization, or undefined if none exists.
+ */
+  static async findActiveByTemplateAffiliationAndSection(
+    reference: string,
+    context: MyContext,
+    affiliationId: string,
+    versionedSectionId: number
+  ): Promise<VersionedSectionCustomization | undefined> {
+    const results = await VersionedSectionCustomization.query(
+      context,
+      `SELECT vsc.* FROM ${VersionedSectionCustomization.tableName} AS vsc
+     JOIN versionedTemplateCustomizations AS vtc
+       ON vsc.versionedTemplateCustomizationId = vtc.id
+     WHERE vtc.active = 1
+       AND vtc.affiliationId = ?
+       AND vsc.versionedSectionId = ?
+     LIMIT 1`,
+      [affiliationId, versionedSectionId.toString()],
+      reference
+    );
+    return Array.isArray(results) && results.length > 0
+      ? new VersionedSectionCustomization(results[0])
+      : undefined;
+  }
 }

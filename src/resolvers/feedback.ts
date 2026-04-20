@@ -108,15 +108,18 @@ export const resolvers: Resolvers = {
         if (isAdmin(context.token)) {
           // Check to see if planId exists in our records
           const plan = await Plan.findById(reference, context, planId);
-          if (!planId) {
+          if (!plan) {
             throw NotFoundError(`Plan with ID ${planId} not found`);
           }
 
-          // Get versionedTemplate associated with the plan
-          const versionedTemplate = await VersionedTemplate.findById(reference, context, plan.versionedTemplateId);
+          // Fetch the plan creator to compare affiliations
+          const planCreator = await User.findById(reference, context, plan.createdById);
+          if (!planCreator) {
+            throw NotFoundError(`User who created plan ${planId} not found`);
+          }
 
           // If the user is a superAdmin or an admin for the same affiliation
-          if (isSuperAdmin(context.token) || (isAdmin(context.token) && context.token.affiliationId === versionedTemplate.ownerId)) {
+          if (isSuperAdmin(context.token) || (isAdmin(context.token) && context.token.affiliationId === planCreator.affiliationId)) {
 
             // Check that user has permissions to access feedback
             const projectId = plan.projectId;

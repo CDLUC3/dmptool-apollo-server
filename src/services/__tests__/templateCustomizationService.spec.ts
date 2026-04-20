@@ -1,7 +1,7 @@
 import { MyContext } from "../../context";
 import {
   TemplateCustomization,
-  TemplateCustomizationMigrationStatus
+  TemplateCustomizationMigrationStatus,
 } from "../../models/TemplateCustomization";
 import {
   handleFunderTemplateRepublication,

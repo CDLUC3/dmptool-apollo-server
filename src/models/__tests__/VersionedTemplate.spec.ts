@@ -85,14 +85,21 @@ describe('VersionedTemplateSearchResult', () => {
 
       const term = versionedTemplateSearchResult.name.split(0, 5)[0];
       const result = await VersionedTemplateSearchResult.search('Test', context, term);
-      const sql = 'SELECT vt.id, vt.templateId, vt.name, vt.description, vt.version, vt.visibility, vt.bestPractice, \
-                            vt.modified, vt.modifiedById, TRIM(CONCAT(u.givenName, CONCAT(\' \', u.surName))) as modifiedByName, \
-                            a.id as ownerId, vt.ownerId as ownerURI, a.displayName as ownerDisplayName, \
-                            a.searchName as ownerSearchName \
-                          FROM versionedTemplates vt \
-                            LEFT JOIN users u ON u.id = vt.modifiedById \
-                            LEFT JOIN affiliations a ON a.uri = vt.ownerId';
-      const vals = [TemplateVersionType.PUBLISHED, `%${term.toLowerCase()}%`, `%${term.toLowerCase()}%`];
+      const affiliationId = context.token.affiliationId;
+      const sql =
+            'SELECT vt.id, vt.templateId, vt.name, vt.description, vt.version, vt.visibility, vt.bestPractice, ' +
+            'vt.modified, vt.modifiedById, TRIM(CONCAT(u.givenName, " ", u.surName)) as modifiedByName, ' +
+            'a.id as ownerId, vt.ownerId as ownerURI, a.displayName as ownerDisplayName, ' +
+            'a.searchName as ownerSearchName, ' +
+            'vtc.id as versionedTemplateCustomizationId ' +
+            'FROM versionedTemplates vt ' +
+            'LEFT JOIN users u ON u.id = vt.modifiedById ' +
+            'LEFT JOIN affiliations a ON a.uri = vt.ownerId ' +
+            'LEFT JOIN versionedTemplateCustomizations vtc ' +
+            'ON vtc.currentVersionedTemplateId = vt.id ' +
+            'AND vtc.affiliationId=? ' +
+            'AND vtc.active = 1';
+      const vals = [affiliationId, TemplateVersionType.PUBLISHED, `%${term.toLowerCase()}%`, `%${term.toLowerCase()}%`];
       const whereFilters = ['vt.active = 1 AND vt.versionType = ?',
                             '(LOWER(vt.name) LIKE ? OR LOWER(a.searchName) LIKE ?)'];
 

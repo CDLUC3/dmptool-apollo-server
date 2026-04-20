@@ -5,24 +5,19 @@ import { prepareObjectForLogs } from "../logger";
 // This is the entry point for SSO response information from our Shibboleth SP
 export const ssoCallbackController = async (req: Request, res: Response) => {
 
+  const samlPayload = {
+    uid: req.headers['x-shib-eppn'],
+    email: req.headers['x-shib-mail'],
+    affiliation: req.headers['x-shib-affiliation'],
+    displayName: req.headers['x-shib-displayname'],
+    givenName: req.headers['x-shib-givenname'],
+    surName: req.headers['x-shib-sn'],
+    sessionId: req.headers['x-shib-session-id'],
+  };
 
-console.log('ssoCallbackController PATH', req.path);
-console.log('ssoCallbackController QUERY', req.query);
-console.log('ssoCallbackController BODY', req.body);
-console.log('ssoCallbackController HEADERS', req.headers);
-console.log('ssoCallbackController COOKIES', req.cookies);
-console.log('ssoCallbackController PARAMS', req.params);
-console.log('ssoCallbackController SIGNED COOKIES', req.signedCookies);
+  console.log('SAML PAYLOAD', samlPayload);
 
-const sessionId = req.cookies.find(cookie => cookie.name.startsWith('_shibsession_'))?.value;
-console.log('ssoCallbackController PAYLOAD', {
-  uid: req.headers['uid'] || req.headers['remote-user'],
-  email: req.headers['mail'],
-  displayName: req.headers['displayname'],
-  sessionId
-});
-
-  const { email, entityId } = req.body;
+  // const { email, entityId } = req.body;
   const ref = 'ssoCallbackController';
 
   const context = buildContext(
@@ -53,10 +48,11 @@ console.log('ssoCallbackController PAYLOAD', {
     //       If not, add the SSO JWT to the cookies as `dmps`
     //               then redirect the user to the signup page
 
-    res.status(301).location(`/`).send();
+    // res.status(301).location(`/`).send();
+    res.status(200).json({ success: true, message: samlPayload });
 
   } catch (err) {
-    context.logger.error(prepareObjectForLogs({ email, entityId, err }), 'SSO Passthrough 500 error');
+    context.logger.error(prepareObjectForLogs({ samlPayload, err }), 'SSO Passthrough 500 error');
     res.status(500).json({ success: false, message: 'Internal server error.' });
   }
 }

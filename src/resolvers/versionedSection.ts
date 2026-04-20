@@ -1,16 +1,23 @@
 import { Resolvers, VersionedSectionSearchResults } from "../types";
 import { MyContext } from "../context";
 import { VersionedSection, VersionedSectionSearchResult } from "../models/VersionedSection";
+import { VersionedCustomSection } from "../models/VersionedCustomSection";
 import { Section } from "../models/Section";
 import { Tag } from "../models/Tag";
 import { VersionedTemplate } from "../models/VersionedTemplate";
-import { AuthenticationError, ForbiddenError, InternalServerError } from "../utils/graphQLErrors";
+import {
+  AuthenticationError,
+  ForbiddenError,
+  InternalServerError,
+  NotFoundError
+} from "../utils/graphQLErrors";
 import { VersionedQuestion } from "../models/VersionedQuestion";
 import { prepareObjectForLogs } from "../logger";
 import { GraphQLError } from "graphql";
 import { PaginationOptionsForCursors, PaginationOptionsForOffsets, PaginationType } from "../types/general";
 import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
 import { isAuthorized } from "../services/authService";
+import { VersionedCustomQuestion } from "../models/VersionedCustomQuestion";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -32,8 +39,8 @@ export const resolvers: Resolvers = {
       const reference = 'publishedSections resolver';
       try {
         const opts = !isNullOrUndefined(paginationOptions) && paginationOptions.type === PaginationType.OFFSET
-                    ? paginationOptions as PaginationOptionsForOffsets
-                    : { ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors;
+          ? paginationOptions as PaginationOptionsForOffsets
+          : { ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors;
 
         // Find published versionedSections with similar names for the current user
         return await VersionedSectionSearchResult.search(reference, context, term, opts);
@@ -58,8 +65,43 @@ export const resolvers: Resolvers = {
         context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
         throw InternalServerError();
       }
+    },
+    // Get published, custom section
+    publishedCustomSection: async (
+      _,
+      { customSectionId, planId },
+      context: MyContext
+    ): Promise<VersionedCustomSection> => {
+      const reference = 'publishedCustomSection resolver';
+      try {
+        if (!isAuthorized(context.token)) {
+          throw context?.token ? ForbiddenError() : AuthenticationError();
+        }
+
+        const affiliationId = context.token.affiliationId;
+        if (!affiliationId) throw ForbiddenError();
+
+        const result = await VersionedCustomSection.findByPlanAndSectionId(
+          reference,
+          context,
+          planId,
+          customSectionId,
+          affiliationId
+        );
+
+        if (!result) {
+          throw NotFoundError(`Custom section with ID ${customSectionId} not found`);
+        }
+
+        return result;
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
     }
   },
+
 
   VersionedSection: {
     // Chained resolver to fetch the Section related to VersionedSection
@@ -86,6 +128,21 @@ export const resolvers: Resolvers = {
       return normaliseDateTime(parent.created);
     },
     modified: (parent: VersionedSection) => {
+      return normaliseDateTime(parent.modified);
+    }
+  },
+  VersionedCustomSection: {
+    questions: async (parent: VersionedCustomSection, _, context: MyContext): Promise<VersionedCustomQuestion[]> => {
+      return await VersionedCustomQuestion.findByVersionedCustomSectionId(
+        'Chained VersionedCustomSection.questions',
+        context,
+        parent.id
+      );
+    },
+    created: (parent: VersionedCustomSection) => {
+      return normaliseDateTime(parent.created);
+    },
+    modified: (parent: VersionedCustomSection) => {
       return normaliseDateTime(parent.modified);
     }
   }

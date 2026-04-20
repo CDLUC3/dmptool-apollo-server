@@ -510,4 +510,72 @@ describe("VersionedQuestionCustomization", () => {
       expect(result).toEqual([]);
     });
   });
+
+  describe("findActiveByTemplateAffiliationAndQuestion", () => {
+    const expectedSql = `SELECT vqc.*, vtc.affiliationId as customizationAffiliationId
+      FROM versionedQuestionCustomizations AS vqc
+     JOIN versionedTemplateCustomizations AS vtc
+       ON vqc.versionedTemplateCustomizationId = vtc.id
+     WHERE vtc.active = 1
+       AND vtc.affiliationId = ?
+       AND vqc.versionedQuestionId = ?
+     LIMIT 1`;
+
+    it("should find the active VersionedQuestionCustomization by affiliation and question", async () => {
+      const mockQuery = jest.spyOn(MySqlModel, "query").mockResolvedValue([
+        {
+          id: 1,
+          versionedTemplateCustomizationId: 100,
+          questionCustomizationId: 200,
+          versionedQuestionId: 300,
+          guidanceText: "Test guidance",
+        },
+      ]);
+
+      const result = await VersionedQuestionCustomization.findActiveByTemplateAffiliationAndQuestion(
+        "test.ref",
+        mockContext,
+        "affil-123",
+        300
+      );
+
+      expect(mockQuery).toHaveBeenCalledWith(
+        mockContext,
+        expectedSql,
+        ["affil-123", "300"],
+        "test.ref"
+      );
+      expect(result).toBeInstanceOf(VersionedQuestionCustomization);
+      expect(result.id).toBe(1);
+      expect(result.versionedTemplateCustomizationId).toBe(100);
+      expect(result.versionedQuestionId).toBe(300);
+      expect(result.guidanceText).toBe("Test guidance");
+    });
+
+    it("should return undefined when not found", async () => {
+      jest.spyOn(MySqlModel, "query").mockResolvedValue([]);
+
+      const result = await VersionedQuestionCustomization.findActiveByTemplateAffiliationAndQuestion(
+        "test.ref",
+        mockContext,
+        "affil-123",
+        300
+      );
+
+      expect(result).toBeUndefined();
+    });
+
+    it("should return undefined when query result is not an array", async () => {
+      jest.spyOn(MySqlModel, "query").mockResolvedValue(null);
+
+      const result = await VersionedQuestionCustomization.findActiveByTemplateAffiliationAndQuestion(
+        "test.ref",
+        mockContext,
+        "affil-123",
+        300
+      );
+
+      expect(result).toBeUndefined();
+    });
+  });
 });

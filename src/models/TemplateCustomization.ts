@@ -8,6 +8,10 @@ import {
 } from "../utils/helpers";
 import { PinnedSectionTypeEnum } from "./CustomSection";
 import { PinnedQuestionTypeEnum } from "./CustomQuestion";
+import {
+  snapshotCustomizationChildren,
+  rollbackPublishedSnapshot,
+} from "../services/templateCustomizationPublishHelpers";
 
 /**
  * The status of the customization.
@@ -619,12 +623,13 @@ export class TemplateCustomization extends MySqlModel {
   }
 
   /**
-   * Publish the customization
+   * Publish the template customization
    *
    * @param context The Apollo context.
    * @returns The published Template customization.
    */
   async publish(context: MyContext): Promise<TemplateCustomization> {
+    const ref = 'TemplateCustomization.publish';
 
     if (!this.id) {
       // Cannot publish it if it hasn't been saved yet!
@@ -639,27 +644,36 @@ export class TemplateCustomization extends MySqlModel {
       if (await this.isValid()) {
 
         // Create a new published version of the customization
-        const newVersion = new VersionedTemplateCustomization(
-          {
-            affiliationId: this.affiliationId,
-            templateCustomizationId: this.id,
-            currentVersionedTemplateId: this.currentVersionedTemplateId,
-            active: true
-          }
-        )
+        const newVersion = new VersionedTemplateCustomization({
+          affiliationId: this.affiliationId,
+          templateCustomizationId: this.id,
+          currentVersionedTemplateId: this.currentVersionedTemplateId,
+          active: true,
+        });
 
         const created: VersionedTemplateCustomization = await newVersion.create(context);
 
         if (!isNullOrUndefined(created) && !created.hasErrors() && created.id) {
-          // Update the status of the customization to reflect the change
-          this.status = TemplateCustomizationStatus.PUBLISHED;
-          this.isDirty = false;
-          this.latestPublishedVersionId = created.id;
-          this.latestPublishedDate = created.created;
-          const published: TemplateCustomization = await this.update(context, true); // noTouch=true, the update method will not set isDirty to true
+          // Snapshot all child records into their published, versioned equivalents
+          await snapshotCustomizationChildren(ref, context, this, created);
 
-          if (!published) {
-            this.addError('general', 'Unable to publish');
+          if (this.hasErrors()) {
+            // Roll back: remove all child rows and the incomplete snapshot,
+            // then restore the prior active version.
+            await rollbackPublishedSnapshot(
+              context, created.id, this.latestPublishedVersionId);
+          } else {
+            // Update the status of the customization to reflect the change
+            this.status = TemplateCustomizationStatus.PUBLISHED;
+            this.isDirty = false;
+            this.latestPublishedVersionId = created.id;
+            this.latestPublishedDate = created.created;
+            // noTouch=true so the update method will not set isDirty to true
+            const published: TemplateCustomization = await this.update(context, true);
+
+            if (!published) {
+              this.addError('general', 'Unable to publish');
+            }
           }
         } else {
           this.errors = created?.errors ?? this.errors;

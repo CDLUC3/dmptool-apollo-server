@@ -5,7 +5,7 @@ import {
   removeNullAndUndefinedFromJSON
 } from "../utils/helpers";
 import { MyContext } from "../context";
-import {DefaultTextAreaQuestion, QuestionSchemaMap} from "@dmptool/types";
+import { DefaultTextAreaQuestion, QuestionSchemaMap } from "@dmptool/types";
 import { PinnedSectionTypeEnum } from "./CustomSection";
 
 /**
@@ -323,5 +323,105 @@ export class CustomQuestion extends MySqlModel {
       reference
     );
     return Array.isArray(results) && results.length > 0 ? new CustomQuestion(results[0]) : undefined;
+  }
+
+  /**
+ * Find all custom questions for a specific section within a template customization
+ *
+ * @param reference The reference to use for logging errors.
+ * @param context The Apollo context.
+ * @param templateCustomizationId The id of the template customization.
+ * @param sectionId The id of the section (either a versionedSection id or customSection id).
+ * @returns The custom questions.
+ */
+  static async findByCustomizationAndSectionId(
+    reference: string,
+    context: MyContext,
+    templateCustomizationId: number,
+    sectionType: PinnedSectionTypeEnum,
+    sectionId: number
+  ): Promise<CustomQuestion[]> {
+    const results = await CustomQuestion.query(
+      context,
+      `SELECT * FROM ${CustomQuestion.tableName}
+       WHERE templateCustomizationId = ? AND sectionType = ? AND sectionId = ?`,
+      [templateCustomizationId.toString(), sectionType, sectionId.toString()],
+      reference
+    );
+    return Array.isArray(results) ? results.map(r => new CustomQuestion(r)) : [];
+  }
+
+
+  /**
+   * Find all custom questions of a specific section type within a template customization.
+   * For example, find all custom questions added to BASE sections (as opposed to CUSTOM sections).
+   *
+   * @param reference The reference to use for logging errors.
+   * @param context The Apollo context.
+   * @param templateCustomizationId The id of the template customization.
+   * @param sectionType The type of the section to filter by (either 'BASE' or 'CUSTOM').
+   * @returns The custom questions.
+   */
+  static async findByCustomizationAndSectionType(
+    reference: string,
+    context: MyContext,
+    templateCustomizationId: number,
+    sectionType: PinnedSectionTypeEnum,
+    // No sectionId — we want ALL questions of this type across all sections
+  ): Promise<CustomQuestion[]> {
+    const results = await CustomQuestion.query(
+      context,
+      `SELECT * FROM ${CustomQuestion.tableName}
+     WHERE templateCustomizationId = ? AND sectionType = ?`,
+      [templateCustomizationId.toString(), sectionType],
+      reference
+    );
+    return Array.isArray(results) ? results.map(r => new CustomQuestion(r)) : [];
+  }
+
+  /**
+   * Find a custom question by its position within a template customization. This is needed when
+   * calling moveCustomQuestion we need to check whether another customQuestion exists in the position
+   * that we want to move another custom question to. The position is determined by the section and pinned question it is attached to.
+   *
+   * @param reference The reference to use for logging errors.
+   * @param context The Apollo context.
+   * @param templateCustomizationId The id of the template customization.
+   * @param sectionType The type of the section.
+   * @param sectionId The id of the section.
+   * @param pinnedQuestionType The type of the pinned question.
+   * @param pinnedQuestionId The id of the pinned question.
+   * @returns The custom question or null if not found.
+   */
+  static async findByPosition(
+    reference: string,
+    context: MyContext,
+    templateCustomizationId: number,
+    sectionType: string,
+    sectionId: number,
+    pinnedQuestionType: string | null,
+    pinnedQuestionId: number | null
+  ): Promise<CustomQuestion | null> {
+    const sql = `
+    SELECT * FROM customQuestions 
+    WHERE templateCustomizationId = ?
+      AND sectionType = ?
+      AND sectionId = ?
+      AND pinnedQuestionType <=> ?
+      AND pinnedQuestionId <=> ?
+    LIMIT 1
+  `;
+    // <=> is MySQL's NULL-safe equality operator.  It correctly handles the case where pinnedQuestionId is null, 
+    // since null = null is false in SQL but null <=> null is true.
+    const results = await CustomQuestion.query(context, sql, [
+      templateCustomizationId.toString(),
+      sectionType,
+      sectionId.toString(),
+      pinnedQuestionType,
+      pinnedQuestionId?.toString() ?? null,
+    ], reference);
+
+    return Array.isArray(results) && results.length > 0 ? new CustomQuestion(results[0]) : null;
+
   }
 }

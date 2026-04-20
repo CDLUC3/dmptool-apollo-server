@@ -214,5 +214,15 @@ export const typeDefs = gql`
     pinnedQuestionType: CustomizableObjectOwnership
     "The identifier of the question this new custom question should appear after (null means it is the first question in the section)"
     pinnedQuestionId: Int
+    "Direction to move the question relative to the pinnedQuestion (UP or DOWN)"
+    direction: MoveCustomQuestionDirection!
+  }
+
+  "Direction to move a custom question relative to the pinned question"
+  enum MoveCustomQuestionDirection {
+    "Move the question above the pinned question"
+    UP
+    "Move the question below the pinned question"
+    DOWN
   }
 `;

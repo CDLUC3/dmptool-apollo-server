@@ -726,4 +726,129 @@ describe("CustomQuestion", () => {
       expect(result).toBeUndefined();
     });
   });
+
+  describe("findByPosition", () => {
+    const expectedSql = `
+    SELECT * FROM customQuestions 
+    WHERE templateCustomizationId = ?
+      AND sectionType = ?
+      AND sectionId = ?
+      AND pinnedQuestionType <=> ?
+      AND pinnedQuestionId <=> ?
+    LIMIT 1
+  `;
+
+    it("should find a CustomQuestion by position with pinnedQuestion values", async () => {
+      const mockQuery = jest.spyOn(MySqlModel, "query").mockResolvedValue([
+        {
+          id: 1,
+          templateCustomizationId: 100,
+          sectionType: PinnedSectionTypeEnum.BASE,
+          sectionId: 200,
+          pinnedQuestionType: PinnedQuestionTypeEnum.BASE,
+          pinnedQuestionId: 300,
+          json: {
+            type: "text",
+            attributes: { maxLength: 100 },
+            meta: { schemaVersion: "1.0" }
+          },
+          questionText: "Test Question",
+        },
+      ]);
+
+      const result = await CustomQuestion.findByPosition(
+        "test.ref",
+        mockContext,
+        100,
+        PinnedSectionTypeEnum.BASE,
+        200,
+        PinnedQuestionTypeEnum.BASE,
+        300
+      );
+
+      expect(mockQuery).toHaveBeenCalledWith(
+        mockContext,
+        expectedSql,
+        ["100", PinnedSectionTypeEnum.BASE, "200", PinnedQuestionTypeEnum.BASE, "300"],
+        "test.ref"
+      );
+      expect(result).toBeInstanceOf(CustomQuestion);
+      expect(result.id).toBe(1);
+      expect(result.templateCustomizationId).toBe(100);
+      expect(result.sectionId).toBe(200);
+      expect(result.pinnedQuestionId).toBe(300);
+    });
+
+    it("should return null when no record is found", async () => {
+      jest.spyOn(MySqlModel, "query").mockResolvedValue([]);
+
+      const result = await CustomQuestion.findByPosition(
+        "test.ref",
+        mockContext,
+        100,
+        PinnedSectionTypeEnum.BASE,
+        200,
+        PinnedQuestionTypeEnum.BASE,
+        300
+      );
+
+      expect(result).toBeNull();
+    });
+
+    it("should handle null pinnedQuestionType and pinnedQuestionId", async () => {
+      const mockQuery = jest.spyOn(MySqlModel, "query").mockResolvedValue([
+        {
+          id: 2,
+          templateCustomizationId: 100,
+          sectionType: PinnedSectionTypeEnum.BASE,
+          sectionId: 200,
+          pinnedQuestionType: null,
+          pinnedQuestionId: null,
+          json: {
+            type: "text",
+            attributes: { maxLength: 100 },
+            meta: { schemaVersion: "1.0" }
+          },
+          questionText: "First Question",
+        },
+      ]);
+
+      const result = await CustomQuestion.findByPosition(
+        "test.ref",
+        mockContext,
+        100,
+        PinnedSectionTypeEnum.BASE,
+        200,
+        null,
+        null
+      );
+
+      expect(mockQuery).toHaveBeenCalledWith(
+        mockContext,
+        expectedSql,
+        ["100", PinnedSectionTypeEnum.BASE, "200", null, null],
+        "test.ref"
+      );
+      expect(result).toBeInstanceOf(CustomQuestion);
+      expect(result.id).toBe(2);
+      expect(result.pinnedQuestionType).toBeUndefined();
+      expect(result.pinnedQuestionId).toBeNull();
+    });
+
+    it("should return null when query result is not an array", async () => {
+      jest.spyOn(MySqlModel, "query").mockResolvedValue(null);
+
+      const result = await CustomQuestion.findByPosition(
+        "test.ref",
+        mockContext,
+        100,
+        PinnedSectionTypeEnum.BASE,
+        200,
+        null,
+        null
+      );
+
+      expect(result).toBeNull();
+    });
+  });
 });

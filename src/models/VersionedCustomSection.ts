@@ -231,6 +231,39 @@ export class VersionedCustomSection extends MySqlModel {
     return Array.isArray(results) && results.length > 0 ? new VersionedCustomSection(results[0]) : undefined;
   }
 
+  // Find the custom section version for a specific plan and custom section id, if it exists
+  static async findByPlanAndSectionId(
+    reference: string,
+    context: MyContext,
+    planId: number,
+    customSectionId: number,
+    affiliationId: string
+  ): Promise<VersionedCustomSection> {
+    const sql = `
+    SELECT vcs.*
+    FROM versionedCustomSections vcs
+    INNER JOIN versionedTemplateCustomizations vtc
+      ON vcs.versionedTemplateCustomizationId = vtc.id
+    INNER JOIN plans p
+      ON vtc.currentVersionedTemplateId = p.versionedTemplateId
+    WHERE p.id = ?
+      AND vcs.customSectionId = ?
+      AND vtc.affiliationId = ?
+      AND vtc.active = 1
+    ORDER BY vtc.modified DESC
+    LIMIT 1
+  `;
+    const results = await VersionedCustomSection.query(
+      context,
+      sql,
+      [planId.toString(), customSectionId.toString(), affiliationId],
+      reference
+    );
+    return Array.isArray(results) && results.length > 0
+      ? new VersionedCustomSection(results[0])
+      : undefined;
+  }
+
   /**
    * Find all the custom section versions for a specific template customization version
    *

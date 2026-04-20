@@ -284,7 +284,7 @@ describe("VersionedCustomQuestion", () => {
         {
           id: 1,
           versionedTemplateCustomizationId: 100,
-        customQuestionId: 200,
+          customQuestionId: 200,
           versionedSectionType: PinnedSectionTypeEnum.BASE,
           versionedSectionId: 300,
           json: {
@@ -794,6 +794,124 @@ describe("VersionedCustomQuestion", () => {
         "test.ref"
       );
       expect(result).toBeUndefined();
+    });
+  });
+
+  describe("findByVersionedCustomSectionId", () => {
+    it("should find VersionedCustomQuestions by versioned custom section id", async () => {
+      const mockQuery = jest.spyOn(MySqlModel, "query").mockResolvedValue([
+        {
+          id: 1,
+          versionedTemplateCustomizationId: 100,
+          customQuestionId: 200,
+          versionedSectionType: PinnedSectionTypeEnum.CUSTOM,
+          versionedSectionId: 300,
+          pinnedVersionedQuestionType: PinnedQuestionTypeEnum.CUSTOM,
+          pinnedVersionedQuestionId: 400,
+          json: JSON.stringify({
+            type: "text",
+            attributes: { maxLength: 100 },
+            meta: { schemaVersion: "1.0" }
+          }),
+          questionText: "Test Question",
+        },
+      ]);
+
+      const result = await VersionedCustomQuestion.findByVersionedCustomSectionId(
+        "test.ref",
+        mockContext,
+        300
+      );
+
+      expect(mockQuery).toHaveBeenCalledWith(
+        mockContext,
+        expect.stringContaining("SELECT vcq.* FROM versionedCustomQuestions as vcq"),
+        ["300"],
+        "test.ref"
+      );
+      expect(mockQuery).toHaveBeenCalledWith(
+        mockContext,
+        expect.stringContaining("vtc.active = 1"),
+        ["300"],
+        "test.ref"
+      );
+      expect(Array.isArray(result)).toBe(true);
+      expect(result.length).toBe(1);
+      expect(result[0]).toBeInstanceOf(VersionedCustomQuestion);
+      expect(result[0].versionedSectionType).toBe("CUSTOM");
+      expect(result[0].versionedSectionId).toBe(300);
+    });
+
+    it("should return an empty array when not found", async () => {
+      jest.spyOn(MySqlModel, "query").mockResolvedValue([]);
+
+      const result = await VersionedCustomQuestion.findByVersionedCustomSectionId(
+        "test.ref",
+        mockContext,
+        999
+      );
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe("findByVersionedSectionIdAndType", () => {
+    it("should find VersionedCustomQuestions by section id and type", async () => {
+      const mockQuery = jest.spyOn(MySqlModel, "query").mockResolvedValue([
+        {
+          id: 1,
+          versionedTemplateCustomizationId: 100,
+          customQuestionId: 200,
+          versionedSectionType: PinnedSectionTypeEnum.BASE,
+          versionedSectionId: 300,
+          pinnedVersionedQuestionType: PinnedQuestionTypeEnum.CUSTOM,
+          pinnedVersionedQuestionId: 400,
+          json: JSON.stringify({
+            type: "text",
+            attributes: { maxLength: 100 },
+            meta: { schemaVersion: "1.0" }
+          }),
+          questionText: "Test Question",
+        },
+      ]);
+
+      const result = await VersionedCustomQuestion.findByVersionedSectionIdAndType(
+        "test.ref",
+        mockContext,
+        300,
+        "BASE"
+      );
+
+      expect(mockQuery).toHaveBeenCalledWith(
+        mockContext,
+        expect.stringContaining("SELECT vcq.* FROM versionedCustomQuestions as vcq"),
+        ["BASE", "300"],
+        "test.ref"
+      );
+      expect(mockQuery).toHaveBeenCalledWith(
+        mockContext,
+        expect.stringContaining("vtc.active = 1"),
+        ["BASE", "300"],
+        "test.ref"
+      );
+      expect(Array.isArray(result)).toBe(true);
+      expect(result.length).toBe(1);
+      expect(result[0]).toBeInstanceOf(VersionedCustomQuestion);
+      expect(result[0].versionedSectionType).toBe("BASE");
+      expect(result[0].versionedSectionId).toBe(300);
+    });
+
+    it("should return an empty array when not found", async () => {
+      jest.spyOn(MySqlModel, "query").mockResolvedValue([]);
+
+      const result = await VersionedCustomQuestion.findByVersionedSectionIdAndType(
+        "test.ref",
+        mockContext,
+        999,
+        "CUSTOM"
+      );
+
+      expect(result).toEqual([]);
     });
   });
 });

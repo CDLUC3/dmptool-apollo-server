@@ -38,7 +38,7 @@ services:
       - "./docker/redis:/var/lib/redis"
 
   opensearch:
-    image: "opensearchproject/opensearch:1.3.0"
+    image: "opensearchproject/opensearch:1.3.20"
     container_name: opensearch
     environment:
       - cluster.name=opensearch-cluster # Name the cluster

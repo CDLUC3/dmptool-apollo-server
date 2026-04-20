@@ -67,6 +67,7 @@ const planToPlanSearchResult = (plan: Plan): PlanSearchResult => {
     funding: casual.company_name,
     members: casual.full_name,
     templateTitle: casual.title,
+    versionedTemplateId: plan.versionedTemplateId,
   }
 }
 

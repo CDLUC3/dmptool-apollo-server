@@ -15,6 +15,7 @@ import { PaginationOptionsForCursors, PaginationOptionsForOffsets, PaginationTyp
 import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
 import { GuidanceGroup } from "../models/GuidanceGroup";
 import { getAffiliationsWithGuidanceForTemplate } from "../services/guidanceService";
+import { ResolversParentTypes } from "../types";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -27,11 +28,11 @@ export const resolvers: Resolvers = {
     affiliations: async (_, { name, funderOnly, paginationOptions }, context: MyContext): Promise<AffiliationSearchResults> => {
       const reference = 'affiliations resolver';
       try {
-        const opts = !isNullOrUndefined(paginationOptions) && paginationOptions.type === PaginationType.OFFSET
+        const opts = !isNullOrUndefined(paginationOptions) && paginationOptions?.type === PaginationType.OFFSET
           ? paginationOptions as PaginationOptionsForOffsets
           : { ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors;
 
-        return await AffiliationSearch.search(reference, context, name, funderOnly, opts);
+        return await AffiliationSearch.search(reference, context, name, funderOnly ?? false, opts);
       } catch (err) {
         context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
         throw InternalServerError();
@@ -61,7 +62,7 @@ export const resolvers: Resolvers = {
           };
         }
 
-        const opts = !isNullOrUndefined(paginationOptions) && paginationOptions.type === PaginationType.OFFSET
+        const opts = !isNullOrUndefined(paginationOptions) && paginationOptions?.type === PaginationType.OFFSET
           ? paginationOptions as PaginationOptionsForOffsets
           : { ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors;
 
@@ -69,7 +70,7 @@ export const resolvers: Resolvers = {
         return await AffiliationSearch.searchManagedWithPublishedGuidance(
           reference, 
           context, 
-          name, 
+          name ?? undefined,
           affiliationUris,
           opts
         );
@@ -141,8 +142,8 @@ export const resolvers: Resolvers = {
     updateAffiliation: async (_, { input }, context: MyContext): Promise<Affiliation> => {
       const reference = 'updateAffiliation resolver';
       try {
-        let existing = await Affiliation.findById(reference, context, input.id);
-        existing = existing || await Affiliation.findByURI(reference, context, input.uri);
+        let existing = input.id ? await Affiliation.findById(reference, context, input.id) : null;
+        existing = existing || (input.uri ? await Affiliation.findByURI(reference, context, input.uri) : null);
 
         // If the record doesn't exist
         if (!existing) {
@@ -198,7 +199,7 @@ export const resolvers: Resolvers = {
   },
 
   Affiliation: {
-    guidanceGroups: async (parent: Affiliation, _, context: MyContext): Promise<GuidanceGroup[]> => {
+    guidanceGroups: async (parent: ResolversParentTypes['Affiliation'], _, context: MyContext): Promise<GuidanceGroup[]> => {
       const reference = 'Affiliation.guidanceGroups resolver';
       try {
         // Require authentication
@@ -239,11 +240,11 @@ export const resolvers: Resolvers = {
         throw InternalServerError();
       }
     },
-    created: (parent: Affiliation) => {
-      return normaliseDateTime(parent.created);
+    created: (parent: ResolversParentTypes['Affiliation']) => {
+      return normaliseDateTime(parent.created ?? null);
     },
-    modified: (parent: Affiliation) => {
-      return normaliseDateTime(parent.modified);
+    modified: (parent: ResolversParentTypes['Affiliation']) => {
+      return normaliseDateTime(parent.modified ?? null);
     }
   }
 }

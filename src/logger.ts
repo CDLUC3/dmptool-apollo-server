@@ -118,8 +118,8 @@ export function initLogger(baseLogger: Logger, contextFields: LoggerContext): Lo
 }
 
 // Filter out undefined fields for cleaner logs
-export function prepareObjectForLogs(obj: object): object {
-  if (isNullOrUndefined(obj)) return {};
+export function prepareObjectForLogs(obj: unknown): object {
+  if (isNullOrUndefined(obj) || typeof obj !== 'object') return {};
 
   const cleansed = redactSensitiveInfo(obj, new WeakSet());
   return Object.fromEntries(

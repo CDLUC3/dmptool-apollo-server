@@ -159,6 +159,8 @@ async function syncRe3Data() {
           synDate: new Date().toISOString(),
         };
 
+        console.log(`Indexing ${id} - ${doc.name} ...`);
+
         currentBatch.push({ index: { _index: newIndexName, _id: id } });
         currentBatch.push(doc);
 

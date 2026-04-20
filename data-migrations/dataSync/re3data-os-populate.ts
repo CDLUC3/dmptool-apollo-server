@@ -154,8 +154,8 @@ async function syncRe3Data() {
           upload_types: ensureArray(r.dataUpload).map((u: any) => getVal(u.dataUploadType)),
           certificates: ensureArray(r.certificate).map(c => getVal(c)),
           software: ensureArray(r.software).map((s: any) => getVal(s.softwareName)),
-          created: getVal(r.created),
-          modified: getVal(r.modified),
+          created: getVal(r.entryDate),
+          modified: getVal(r.lastUpdate),
           synDate: new Date().toISOString(),
         };
 

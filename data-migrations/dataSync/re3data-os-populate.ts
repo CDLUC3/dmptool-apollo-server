@@ -160,6 +160,7 @@ async function syncRe3Data() {
         };
 
         console.log(`Indexing ${id} - ${doc.name} ...`);
+        console.log(doc)
 
         currentBatch.push({ index: { _index: newIndexName, _id: id } });
         currentBatch.push(doc);

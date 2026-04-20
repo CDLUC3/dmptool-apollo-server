@@ -71,7 +71,7 @@ async function syncRe3Data() {
     const listObj = parser.parse(listXml);
 
     // Adjusting based on re3data API structure
-    let repoIds = ensureArray(listObj.repositories?.repository).map(r => r.id);
+    let repoIds = ensureArray(listObj.list?.repository).map(r => r.id);
 
     if (argv.limit) repoIds = repoIds.slice(0, argv.limit);
     console.log(`Found ${repoIds.length} repositories to process.`);

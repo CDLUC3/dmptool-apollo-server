@@ -27,7 +27,10 @@ const argv = yargs(hideBin(process.argv))
   .help()
   .parseSync();
 
-const ALIAS_NAME = argv.alias || process.env.OPENSEARCH_ALIAS || 're3data';
+const ALIAS_NAME: string = argv.alias || process.env.OPENSEARCH_ALIAS || 're3data';
+const REPOSITORY_LIMIT: number | undefined = argv.limit
+  ? Number(argv.limit) || Number(process.env.REPOSITORY_LIMIT)
+  : process.env.REPOSITORY_LIMIT ? Number(process.env.REPOSITORY_LIMIT) : undefined;
 
 const OPENSEARCH_CONFIG = {
   node: argv.node || DEFAULT_OPENSEARCH.node,
@@ -84,7 +87,7 @@ async function syncRe3Data() {
     // Adjusting based on re3data API structure
     let repoIds = ensureArray(listObj.list?.repository).map(r => r.id);
 
-    if (argv.limit) repoIds = repoIds.slice(0, argv.limit);
+    if (REPOSITORY_LIMIT) repoIds = repoIds.slice(0, REPOSITORY_LIMIT);
     console.log(`Found ${repoIds.length} repositories to process.`);
 
     // Prepare the Index

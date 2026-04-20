@@ -8,6 +8,13 @@ import { hideBin } from 'yargs/helpers';
 // --- Configuration ---
 const RE3DATA_API_BASE = process.env.RE3DATA_API_BASE || 'https://www.re3data.org/api/v1';
 
+const DEFAULT_OPENSEARCH = {
+  node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
+  // index here is treated as the prefix for blue-green indices, e.g. "re3data-idx"
+  index: process.env.OPENSEARCH_INDEX || 're3data-idx',
+  batchSize: Number(process.env.OPENSEARCH_BATCH_SIZE || 100)
+};
+
 // Allow overrides from CLI args
 const argv = yargs(hideBin(process.argv))
   .option('limit', { type: 'number', description: 'Limit number of repositories to process' })
@@ -20,13 +27,19 @@ const argv = yargs(hideBin(process.argv))
   .help()
   .parseSync();
 
+const OPENSEARCH_CONFIG = {
+  node: argv.node || DEFAULT_OPENSEARCH.node,
+  indexPrefix: argv.index || DEFAULT_OPENSEARCH.index,
+  batchSize: argv['batch-size'] || DEFAULT_OPENSEARCH.batchSize
+};
+
 const client = new Client({
   ...AwsSigv4Signer({
     region: 'us-west-2',
     service: 'aoss', // OpenSearch Serverless
     getCredentials: fromNodeProviderChain(),
   }),
-  node: argv.node,
+  node: OPENSEARCH_CONFIG.node,
 });
 
 const parser = new XMLParser({

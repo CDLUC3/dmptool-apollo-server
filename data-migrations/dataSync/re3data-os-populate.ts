@@ -86,7 +86,11 @@ async function syncRe3Data() {
             id: { type: 'keyword' },
             name: { type: 'text', fields: { keyword: { type: 'keyword' } } },
             subjects: { type: 'keyword' },
-            created: { type: 'date' }
+            uri: { type: 'keyword' },
+            repositoryTypes: { type: 'keyword' },
+            created: { type: 'date' },
+            modified: { type: 'date' },
+            synDate: { type: 'date' },
           }
         }
       }
@@ -102,7 +106,7 @@ async function syncRe3Data() {
         const detailRes = await fetch(`${RE3DATA_API_BASE}/repository/${id}`);
         const detailXml = await detailRes.text();
         const detailObj = parser.parse(detailXml);
-        const r = detailObj.repository; // Root element
+        const r = detailObj.re3data?.repository; // Root element
 
         const doc = {
           id: id,

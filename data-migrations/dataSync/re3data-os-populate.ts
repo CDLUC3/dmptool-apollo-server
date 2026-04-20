@@ -122,9 +122,7 @@ async function syncRe3Data() {
           provider_types: ensureArray(r.providerType),
           keywords: ensureArray(r.keyword),
           access: ensureArray(r.databaseAccess).map((a: any) =>
-            a.databaseAccessRestriction
-              ? `${a.databaseAccessType} (${a.databaseAccessRestriction.join(', ')})`
-              : a.databaseAccessType
+            `${a.databaseAccessType} (${ensureArray(a.databaseAccessRestriction).join(', ')})`
           ),
           pid_system: ensureArray(r.pidSystem),
           policies: ensureArray(r.policy).map((p: any) => p.policyName),

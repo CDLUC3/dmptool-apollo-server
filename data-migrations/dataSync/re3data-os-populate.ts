@@ -1,8 +1,11 @@
-import { DOMParser } from '@xmldom/xmldom';
+import { Document, DOMParser } from '@xmldom/xmldom';
 import * as xpath from 'xpath';
 import { Client } from '@opensearch-project/opensearch';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
+import { XPathSelect } from "xpath";
+import { AwsSigv4Signer } from '@opensearch-project/opensearch/aws';
+import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 
 // --- Configuration ---
 const RE3DATA_API_BASE = process.env.RE3DATA_API_BASE || 'https://www.re3data.org/api/v1';
@@ -32,12 +35,20 @@ const OPENSEARCH_CONFIG = {
   batchSize: argv['batch-size'] || DEFAULT_OPENSEARCH.batchSize
 };
 
+const client = new Client({
+  ...AwsSigv4Signer({
+    region: 'us-west-2',
+    service: 'aoss',
+    getCredentials: fromNodeProviderChain(),
+  }),
+  node: OPENSEARCH_CONFIG.node,
+});
+
 const ALIAS_NAME = argv.alias || process.env.OPENSEARCH_ALIAS || 're3data';
 
 const DRY_RUN = Boolean(argv['dry-run']);
 const VERBOSE = Boolean(argv.verbose);
 
-const client = new Client({ node: OPENSEARCH_CONFIG.node });
 const ns = { r3d: 'http://www.re3data.org/schema/2-2' };
 
 const getText = (node: Node, path: string): string => {
@@ -91,12 +102,6 @@ process.on('uncaughtException', (err) => {
 
 // Index mapping & settings (from open-search-init.sh)
 const INDEX_BODY = {
-  settings: {
-    index: {
-      number_of_shards: 1,
-      number_of_replicas: 0
-    }
-  },
   mappings: {
     properties: {
       id: { type: 'keyword', copy_to: 'search_all' },
@@ -133,7 +138,7 @@ const INDEX_BODY = {
 
 async function listIndicesWithPrefix(prefix: string): Promise<string[]> {
   try {
-    const res = await client.cat.indices({ index: `${prefix}*`, format: 'json' });
+    const res = await client.indices.get({ index: `${prefix}*` });
     const body = (res && ((res as unknown) as { body?: unknown }).body) ?? res;
     if (!Array.isArray(body)) return [];
     return (body as unknown[])
@@ -268,9 +273,11 @@ async function syncRe3Data() {
 
     const listXml = await listResponse.text();
 
-    const doc = new DOMParser().parseFromString(listXml);
-    const repoNodes = xpath.select("//repository/id", doc) as Node[];
-    const repoIds = repoNodes.map(n => n.textContent).filter(Boolean) as string[];
+    const doc: Document = new DOMParser().parseFromString(listXml, 'application/xml');
+    const select: XPathSelect = xpath.useNamespaces({});
+    const repoIds: string[] = select(
+      "//repository/id[normalize-space(text())!='']/text()", doc as unknown as Node
+    ) as unknown as string[];
 
     console.log(`Found ${repoIds.length} repositories. Starting bulk sync...`);
 
@@ -301,7 +308,7 @@ async function syncRe3Data() {
         }
         const detailXml = await detailResponse.text();
 
-        const repoDoc = new DOMParser().parseFromString(detailXml);
+        const repoDoc: Node = new DOMParser().parseFromString(detailXml, 'application/xml') as unknown as Node;
 
         const repositoryData = {
           id: id,

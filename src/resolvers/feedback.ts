@@ -152,7 +152,6 @@ export const resolvers: Resolvers = {
     requestFeedback: async (_, { planId, messageToOrg }, context: MyContext): Promise<PlanFeedback | null> => {
       const reference = 'requestFeedback resolver';
 
-      console.log("***Context in requestFeedback resolver: ", context); //context.token?.affiliationId
       try {
         if (isAuthorized(context.token)) {
           const plan = await Plan.findById(reference, context, planId);
@@ -194,7 +193,7 @@ export const resolvers: Resolvers = {
             }
 
             const affiliation = await Affiliation.findByURI(reference, context, affiliationId);
-            // Send emails to
+            // Send emails to the feedback recipients
             await sendFeedbackRequestEmail(context, affiliation.feedbackEmails, messageToOrg ?? '');
 
 

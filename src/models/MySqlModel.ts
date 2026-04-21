@@ -157,10 +157,9 @@ export class MySqlModel {
   // Get the default pagination options
   static getDefaultPaginationOptions(): PaginationOptionsForCursors {
     return {
-      type: PaginationType.CURSOR,
       limit: generalConfig.defaultSearchLimit,
-      cursor: undefined,
-    };
+      cursor: null,
+    } as PaginationOptionsForCursors;
   }
 
   // Determine the pagination limit base on the provided limit or the default
@@ -228,10 +227,10 @@ export class MySqlModel {
 
     } else {
       opts = paginationOptions as PaginationOptionsForCursors;
-      const {sortField} = opts;
+      const { sortField } = opts;
       // If a sort field was provided and its in the list of available sort fields
       const cursorFields = isNullOrUndefined(opts.cursorField) ? ['id'] : [opts.cursorField];
-      if(sortField && sortFields.includes(sortField)){
+      if (sortField && sortFields.includes(sortField)) {
         cursorFields.unshift(sortField);
       }
 
@@ -414,7 +413,7 @@ export class MySqlModel {
       apolloContext.logger.error(prepareObjectForLogs(err), msg);
       return {
         limit: generalConfig.defaultSearchLimit,
-        currentOffset: undefined,
+        currentOffset: null,
         totalCount: 0,
         hasNextPage: false,
         hasPreviousPage: false,
@@ -502,7 +501,7 @@ export class MySqlModel {
       apolloContext.logger.error(prepareObjectForLogs(err), msg);
       return {
         limit: generalConfig.defaultSearchLimit,
-        nextCursor: undefined,
+        nextCursor: null,
         totalCount: 0,
         hasNextPage: false,
         items: []
@@ -584,7 +583,7 @@ export class MySqlModel {
                  WHERE id = ?`;
 
     const vals = props.map((entry) => this.prepareValue(entry.value, typeof (entry.value)));
-    if(!obj.id){
+    if (!obj.id) {
       const msg = `${reference}, ERROR: Cannot update record in ${table} because id is not set.`;
       apolloContext.logger.error(msg);
       return null;

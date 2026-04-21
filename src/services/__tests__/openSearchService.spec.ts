@@ -4,9 +4,6 @@ import { MyContext } from '../../context';
 import { GraphQLError } from 'graphql';
 
 jest.mock('../../datasources/openSearch');
-jest.mock('../../config', () => ({
-  awsConfig: { opensearch: {} },
-}));
 
 describe('OpenSearchService', () => {
   const mockContext = {

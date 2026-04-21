@@ -1,6 +1,7 @@
 import pino, { Logger } from 'pino';
 import { ecsFormat } from '@elastic/ecs-pino-format';
 import { isNullOrUndefined } from "./utils/helpers";
+import {generalConfig} from "./config/generalConfig";
 
 /*
  * Logger using Pino and the Elastic Common Schema format to facilitate
@@ -26,14 +27,20 @@ export const REDACTION_MESSAGE = '[MASKED]';
 
 const logLevel = process.env.LOG_LEVEL || 'info';
 
-export const logger: Logger = pino({
+const basePinoConfig = {
   level: logLevel,
   redact: {
     paths: REDACTION_KEYS,
     censor: REDACTION_MESSAGE
   },
   ...ecsFormat()
-});
+};
+
+export const logger: Logger = process.env.NODE_ENV === 'production'
+  ? pino(basePinoConfig, pino.destination({ sync: true }))
+  : pino(basePinoConfig);
+
+process.stdout.write('!!! APOLLO LOG TEST !!!\n');
 
 export interface LoggerContext {
   app: string;

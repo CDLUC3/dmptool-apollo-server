@@ -1,7 +1,6 @@
 import pino, { Logger } from 'pino';
 import { ecsFormat } from '@elastic/ecs-pino-format';
 import { isNullOrUndefined } from "./utils/helpers";
-import {generalConfig} from "./config/generalConfig";
 
 /*
  * Logger using Pino and the Elastic Common Schema format to facilitate

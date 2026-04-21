@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added `messageToOrg` field in `feedback` table [#189]
 - Added `fetchAnswerCustomQuestion` to `Plan` model in order to get answered counts for custom questions [#161]
 - Added `publishedCustomQuestion` query resolver and added to schema [#173]
 - Added `ON DELETE CASCADE` sql migration script for deletion of `versionedTemplateCustomization` and `templateCustomization` FKs [#171]
@@ -58,6 +59,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `requestFeedback` resolver to save `messageToOrg` in `feedback` table, as well as to email the message to `feedbackEmails` from the `affiliations` table [#189]
 - Moved `re3data-os-populate.ts` to `data-migration/dataSync` directory.
 - Updated `re3data-os-populate.ts` to work with OpenSearch serverless collections
 - Fixed some typescipt issues with the re3data import script
@@ -134,6 +136,7 @@
 - Removed `ioredis` package
 
 ### Fixed
+- Fixed some new `type` errors in `feedback` resolver and `emailService` brought on by a recent update to `typescript-eslint` [#189]
 - Had issue running `nuke-db.sh` and `process.sh`, so I turned off SSL by using `--ssl=off` instead
 - Fixed `fetchTemplateData` query in `TemplateCustomization` model because `questionCustomizationHasSampleText` was incorrectly returning true [#130] 
 - In `preparePaginationOptions` function, wrapped each cursorField with `COALESCE` to handle `NULL` values in SQL `CONCAT`, otherwise if any cursorField is NULL, it would just return a null value due to the way `CONCAT` works [#107]
@@ -141,6 +144,7 @@
 - Fixed issue with templates not cloning with sections and questions by updating the `addTemplate` mutation to clone from non-versioned template, section and question [#1006]
 
 ### Chore
+- Added `@types/nodemailer` [#189]
 - Added override for `lodash` to `4.18.1` to address high vulnerability issue
 
 ## v1.0

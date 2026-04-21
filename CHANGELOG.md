@@ -59,6 +59,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `@dmptool/utils` to `v2.0.0` to get `download` updates to capture customizations
 - Updated graphql codegen dependencies
 - Moved `re3data-os-populate.ts` to `data-migration/dataSync` directory.
 - Updated `re3data-os-populate.ts` to work with OpenSearch serverless collections

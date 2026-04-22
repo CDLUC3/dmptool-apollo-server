@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added new `OPENSEARCH_SERVERLESS_NODE` environment variable
 - Added `messageToOrg` field in `feedback` table [#189]
 - Added override for `@node-oauth/oauth2-server`
 - Added `fetchAnswerCustomQuestion` to `Plan` model in order to get answered counts for custom questions [#161]
@@ -60,7 +61,10 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
-- Refactored `re3data-os-populate.ts` to use `fast-sml-parser` and to write to an AWS servless OpenSearch instance
+- Updated re3data-os-populate.ts to write to an AWS Serverless OpenSearch (AOSS) instance
+- Updated OpenSearch datasource to include a new serverlessClient property and createOpenSearchServerlessClient function.
+- Addressed an issue where the Apollo server logs were not properly piping to the CloudWatch logs in the new combined ApolloShib ECS tasks.
+- Refactored `re3data-os-populate.ts` to use `fast-sml-parser` instead of `xml-dom`
 - Updated graphql codegen dependencies
 - Moved `re3data-os-populate.ts` to `data-migration/dataSync` directory.
 - Updated `re3data-os-populate.ts` to work with OpenSearch serverless collections

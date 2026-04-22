@@ -1,3 +1,4 @@
+import { MyContext } from "../../context";
 const mockSendEmail = jest.fn().mockResolvedValue(true);
 
 jest.mock('nodemailer', () => ({
@@ -23,7 +24,7 @@ import { generalConfig } from "../../config/generalConfig";
 import { emailConfig } from "../../config/emailConfig";
 import { User } from "../../models/User";
 
-let context;
+let context: MyContext;
 
 const subjectPrefix = `${generalConfig.applicationName}`;
 process.env.NODE_ENV = 'test';
@@ -213,6 +214,40 @@ describe('sendEmail', () => {
   it('should return false and does not send email when no collaborator emails provided', async () => {
     const sent = await sendProjectCollaboratorsCommentsAddedEmail(context, []);
 
+    expect(sent).toBe(false);
+    expect(mockSendEmail).not.toHaveBeenCalled();
+  });
+
+  it('should send feedback request emails to all collaborators', async () => {
+    jest.spyOn(logger, 'info');
+    const emails = Array.from({ length: 3 }, () => casual.email);
+    const feedbackMessage = casual.sentence;
+    // Import here to avoid hoisting issues
+    const { sendFeedbackRequestEmail } = await import('../emailService');
+    const sent = await sendFeedbackRequestEmail(context, emails, feedbackMessage);
+
+    const expectedSubject = `${subjectPrefix} - ${emailSubjects.feedbackRequest}`;
+
+    expect(sent).toBe(true);
+    expect(logger.info).toHaveBeenCalledTimes(emails.length);
+    expect(mockSendEmail).toHaveBeenCalledTimes(emails.length);
+    for (const email of emails) {
+      expect(mockSendEmail).toHaveBeenCalledWith({
+        "bcc": "",
+        "cc": "",
+        "from": `"${generalConfig.applicationName}" <${emailConfig.doNotReplyAddress}>`,
+        "html": feedbackMessage,
+        "replyTo": emailConfig.helpDeskAddress,
+        "sender": emailConfig.doNotReplyAddress,
+        "subject": expectedSubject,
+        "to": email,
+      });
+    }
+  });
+
+  it('should return false and not send feedback request email when no collaborator emails provided', async () => {
+    const { sendFeedbackRequestEmail } = await import('../emailService');
+    const sent = await sendFeedbackRequestEmail(context, [], 'Some feedback message');
     expect(sent).toBe(false);
     expect(mockSendEmail).not.toHaveBeenCalled();
   });

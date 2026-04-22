@@ -1,7 +1,7 @@
 // TODO: Store the automated email in a table so we can eventually have a UI page for
 //       SuperAdmins to update them.
 //       Load the appropriate message and send it out
-import nodemailer from 'nodemailer';
+import nodemailer, { TransportOptions } from 'nodemailer';
 import { MyContext } from "../context";
 import { User } from "../models/User";
 import { awsConfig } from "../config/awsConfig";
@@ -13,7 +13,8 @@ export const emailSubjects = {
   emailConfirmation: 'Please confirm your email address',
   projectCollaboration: 'You were invited to collaborate on a data management plan',
   templateCollaboration: 'You were invited to collaborate on a template',
-  projectCollaboratorCommentsAdded: 'New comments added to the plan'
+  projectCollaboratorCommentsAdded: 'New comments added to the plan',
+  feedbackRequest: 'You have been requested to provide feedback on a data management plan',
 }
 
 export const emailMessages = {
@@ -41,7 +42,7 @@ const transporter = nodemailer.createTransport({
     user: awsConfig.sesAccessKey,
     pass: awsConfig.sesAccessSecret,
   },
-});
+} as TransportOptions);
 
 // Function to either send or log an email notification based on the environment
 const sendEmail = async (
@@ -58,7 +59,7 @@ const sendEmail = async (
   // Add the App name to the start of the subject line. We include the env when not in production
   const subjectLine = `${generalConfig.applicationName} - ${subject}`;
 
-  if (['development'].includes(process.env.NODE_ENV)) {
+  if (['development'].includes(process.env.NODE_ENV || '')) {
     // When running in development mode, we do not have access to AWS SES and we probably don't want to
     // actually send emails to people by accident, so just log the message
     context.logger.info(
@@ -127,11 +128,17 @@ export const sendTemplateCollaborationEmail = async (
   if (userId) {
     const user = await User.findById('sendTemplateCollaborationEmail', context, userId);
     // Bail out if the user has asked us not to send these notifications
-    if (!user.notify_on_template_shared) {
+    if (!user?.notify_on_template_shared) {
+      return false;
+    }
+
+    const emailAddress = await user.getEmail(context);
+    if (!emailAddress) {
+      context.logger.error(prepareObjectForLogs({ userId }), `User with ID ${userId} does not have an email address and cannot be sent a template collaboration email`);
       return false;
     }
     // Use the user's primary email address, regardless of what was provided
-    toAddress = await user.getEmail(context);
+    toAddress = emailAddress;
   }
 
   return await sendEmail(
@@ -158,11 +165,16 @@ export const sendProjectCollaborationEmail = async (
   if (userId) {
     const user = await User.findById('sendProjectCollaborationEmail', context, userId);
     // Bail out if the user has asked us not to send these notifications
-    if (!user.notify_on_template_shared) {
+    if (!user?.notify_on_template_shared) {
+      return false;
+    }
+    const emailAddress = await user.getEmail(context);
+    if (!emailAddress) {
+      context.logger.error(prepareObjectForLogs({ userId }), `User with ID ${userId} does not have an email address and cannot be sent a project collaboration email`);
       return false;
     }
     // Use the user's primary email address, regardless of what was provided
-    toAddress = await user.getEmail(context);
+    toAddress = emailAddress;
   }
 
   return await sendEmail(
@@ -196,6 +208,30 @@ export const sendProjectCollaboratorsCommentsAddedEmail = async (
       [],
       emailSubjects.projectCollaboratorCommentsAdded,
       message,
+    );
+  }
+  return true;
+}
+
+export const sendFeedbackRequestEmail = async (
+  context: MyContext,
+  collaboratorEmails: string[],
+  feedbackRequestMessage: string,
+): Promise<boolean> => {
+  if (collaboratorEmails.length === 0) {
+    return false;
+  };
+
+  // Send each feedback email recipient their own email
+  for (const email of collaboratorEmails) {
+    await sendEmail(
+      context,
+      'FeedbackRequest',
+      [email],
+      [],
+      [],
+      emailSubjects.feedbackRequest,
+      feedbackRequestMessage
     );
   }
   return true;

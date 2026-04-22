@@ -20,7 +20,7 @@ export const typeDefs = gql`
 
   extend type Mutation {
     "Request a round of admin feedback"
-    requestFeedback(planId: Int!): PlanFeedback
+    requestFeedback(planId: Int!, messageToOrg: String): PlanFeedback
     "Mark the feedback round as complete"
     completeFeedback(planId: Int!, planFeedbackId: Int!, summaryText: String): PlanFeedback
     "Add feedback comment for an answer within a round of feedback"
@@ -58,6 +58,8 @@ export const typeDefs = gql`
     completedBy: User
     "An overall summary that can be sent to the user upon completion"
     summaryText: String
+    "Message user sent to org when requesting feedback, which can be NULL"
+    messageToOrg: String
 
     "The specific contextual commentary"
     feedbackComments: [PlanFeedbackComment!]

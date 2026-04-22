@@ -2024,6 +2024,7 @@ export type MutationRemoveUserEmailArgs = {
 
 
 export type MutationRequestFeedbackArgs = {
+  messageToOrg?: InputMaybe<Scalars['String']['input']>;
   planId: Scalars['Int']['input'];
 };
 
@@ -2447,6 +2448,8 @@ export type PlanFeedback = {
   feedbackComments?: Maybe<Array<PlanFeedbackComment>>;
   /** The unique identifer for the Object */
   id?: Maybe<Scalars['Int']['output']>;
+  /** Message user sent to org when requesting feedback, which can be NULL */
+  messageToOrg?: Maybe<Scalars['String']['output']>;
   /** The timestamp when the Object was last modifed */
   modified?: Maybe<Scalars['String']['output']>;
   /** The user who last modified the Object */
@@ -6973,6 +6976,7 @@ export type PlanFeedbackResolvers<ContextType = MyContext, ParentType extends Re
   errors?: Resolver<Maybe<ResolversTypes['PlanFeedbackErrors']>, ParentType, ContextType>;
   feedbackComments?: Resolver<Maybe<Array<ResolversTypes['PlanFeedbackComment']>>, ParentType, ContextType>;
   id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  messageToOrg?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   plan?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType>;

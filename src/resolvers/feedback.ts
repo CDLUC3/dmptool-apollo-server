@@ -10,7 +10,7 @@ import {
 
 import { isAuthorized } from "../services/authService";
 import { hasPermissionOnProject } from "../services/projectService";
-import { sendProjectCollaboratorsCommentsAddedEmail } from '../services/emailService';
+import { sendProjectCollaboratorsCommentsAddedEmail, sendFeedbackRequestEmail } from '../services/emailService';
 import { isAdmin, isSuperAdmin } from "../services/authService";
 import { canDeleteComment } from "../services/commentPermissions";
 import { Project } from "../models/Project";
@@ -20,6 +20,7 @@ import { User } from "../models/User";
 import { ProjectCollaborator } from "../models/Collaborator";
 import { PlanFeedbackComment } from "../models/PlanFeedbackComment";
 import { VersionedTemplate } from "../models/VersionedTemplate";
+import { Affiliation } from "../models/Affiliation";
 import { ResolversParentTypes } from "../types";
 import { Resolvers, PlanFeedbackStatusEnum } from "../types";
 import { getCurrentDate } from "../utils/helpers";
@@ -40,7 +41,7 @@ export const resolvers: Resolvers = {
         if (isAdmin(context.token)) {
           // Check to see if planId exists in our records
           const plan = await Plan.findById(reference, context, planId);
-          if (!planId) {
+          if (!plan) {
             throw NotFoundError(`Plan with ID ${planId} not found`);
           }
 
@@ -77,7 +78,7 @@ export const resolvers: Resolvers = {
         if (isAuthorized(context.token)) {
           // Check to see if planId exists in our records
           const plan = await Plan.findById(reference, context, planId);
-          if (!planId) {
+          if (!plan) {
             throw NotFoundError(`Plan with ID ${planId} not found`);
           }
 
@@ -112,6 +113,10 @@ export const resolvers: Resolvers = {
             throw NotFoundError(`Plan with ID ${planId} not found`);
           }
 
+          if (!plan.createdById) {
+            throw NotFoundError(`Plan with ID ${planId} has no creator`);
+          }
+
           // Fetch the plan creator to compare affiliations
           const planCreator = await User.findById(reference, context, plan.createdById);
           if (!planCreator) {
@@ -144,7 +149,7 @@ export const resolvers: Resolvers = {
 
   Mutation: {
     //Request a round of admin feedback
-    requestFeedback: async (_, { planId }, context: MyContext): Promise<PlanFeedback> => {
+    requestFeedback: async (_, { planId, messageToOrg }, context: MyContext): Promise<PlanFeedback | null> => {
       const reference = 'requestFeedback resolver';
 
       try {
@@ -177,9 +182,20 @@ export const resolvers: Resolvers = {
           if (await hasPermissionOnProject(context, project)) {
             const feedbackComment = new PlanFeedback({
               planId,
+              messageToOrg: messageToOrg ?? '',
               requestedById: context.token.id,
               requested: getCurrentDate()
             });
+
+            const affiliationId = context.token.affiliationId;
+            if (!affiliationId) {
+              throw NotFoundError(`Affiliation for user not found`);
+            }
+
+            const affiliation = await Affiliation.findByURI(reference, context, affiliationId);
+            // Send emails to the feedback recipients
+            await sendFeedbackRequestEmail(context, affiliation.feedbackEmails, messageToOrg ?? '');
+
 
             return await feedbackComment.create(context);
           }
@@ -208,6 +224,10 @@ export const resolvers: Resolvers = {
 
           if (await hasPermissionOnProject(context, project)) {
             const feedback = await PlanFeedback.findById(reference, context, planFeedbackId);
+            if (!feedback) {
+              throw NotFoundError(`PlanFeedback with ID ${planFeedbackId} not found`);
+            }
+
 
             const newFeedback = new PlanFeedback({
               id: feedback.id,
@@ -216,10 +236,15 @@ export const resolvers: Resolvers = {
               requestedById: feedback.requestedById,
               completedById: context.token.id,
               completed: getCurrentDate(),
-              summaryText: summaryText
+              summaryText: summaryText ?? ''
             });
 
-            return await newFeedback.update(context);
+            const updatedFeedback = await newFeedback.update(context);
+            if (!updatedFeedback) {
+              throw NotFoundError(`PlanFeedback with ID ${planFeedbackId} not found`);
+            }
+            return updatedFeedback;
+
           }
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();
@@ -251,6 +276,10 @@ export const resolvers: Resolvers = {
             if (!project) {
               throw NotFoundError(`Project with ID ${plan.projectId} not found`);
             }
+            if (!project.id) {
+              throw NotFoundError(`Project with ID ${plan.projectId} has no ID`);
+            }
+
 
             const feedback = await PlanFeedback.findById(reference, context, planFeedbackId);
             if (!feedback) {
@@ -380,33 +409,34 @@ export const resolvers: Resolvers = {
 
   PlanFeedback: {
     // The plan the feedback is associated with
-    plan: async (parent, _, context: MyContext): Promise<Plan> => {
+    plan: async (parent, _, context: MyContext): Promise<Plan | null> => {
       if (parent?.plan?.id) {
         return await Plan.findById('Feedback plan resolver', context, parent.plan?.id);
       }
       return null;
     },
     // The user id that the feedback belongs to
-    requestedBy: async (parent: PlanFeedbackParent, _, context: MyContext): Promise<User> => {
+    requestedBy: async (parent: PlanFeedbackParent, _, context: MyContext): Promise<User | null> => {
       if (parent?.requestedById) {
         return await User.findById('User resolver', context, parent?.requestedById);
       }
       return null;
     },
     // The completed by user id that the feedback belongs to
-    completedBy: async (parent: PlanFeedbackParent, _, context: MyContext): Promise<User> => {
+    completedBy: async (parent: PlanFeedbackParent, _, context: MyContext): Promise<User | null> => {
       if (parent?.completedById) {
         return await User.findById('User resolver', context, parent?.completedById);
       }
       return null;
     },
     feedbackComments: async (parent, _, context: MyContext): Promise<PlanFeedbackComment[]> => {
+      if (!parent.id) return [];
       return await PlanFeedbackComment.findByFeedbackId('Chained PlanFeedback.feedbackComments', context, parent.id)
     }
   },
   PlanFeedbackComment: {
     // Resolver to get the user who created the comment
-    user: async (parent: PlanFeedbackComment, _, context: MyContext): Promise<User> => {
+    user: async (parent: ResolversParentTypes['PlanFeedbackComment'], _, context: MyContext): Promise<User | null> => {
       if (parent?.createdById) {
         return await User.findById('PlanFeedbackComment user resolver', context, parent.createdById);
       }

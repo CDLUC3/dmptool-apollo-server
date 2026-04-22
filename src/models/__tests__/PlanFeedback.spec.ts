@@ -219,6 +219,7 @@ describe('create', () => {
 
   beforeEach(() => {
     insertQuery = jest.fn();
+    insertQuery.mockResolvedValueOnce({ insertId: 123 });
     (PlanFeedback.insert as jest.Mock) = insertQuery;
 
     planFeedback = new PlanFeedback({
@@ -256,7 +257,6 @@ describe('create', () => {
     const mockFindById = jest.fn();
     (PlanFeedback.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(planFeedback);
-
     const result = await planFeedback.create(context);
     expect(mockFindById).toHaveBeenCalledTimes(1);
     expect(insertQuery).toHaveBeenCalledTimes(1);

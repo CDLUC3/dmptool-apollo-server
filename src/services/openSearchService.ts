@@ -343,6 +343,9 @@ console.log(body);
           },
         };
 
+const indexExists = await this.serverlessClient.indices.exists({ index: 're3data' });
+context.logger.debug({ index: 're3data', exists: indexExists }, 'Re3data Index exists?');
+
       response = await this.serverlessClient.search({
         index: 're3data',
         body,
@@ -366,8 +369,7 @@ console.log(body);
       }
       const aggs = (response as { body: { aggregations: { unique_subjects: { buckets: AggregationBucket[] } } } }).body.aggregations;
 
-console.log('RESPONSE FROM OPENSEARCH: ');
-console.log(aggs);
+context.logger.debug({ firstSubject: aggs?.unique_subjects?.buckets[0] }, 'SUBJECTS RESPONSE FROM OPENSEARCH: ');
 
       return aggs.unique_subjects.buckets.map((bucket: AggregationBucket) => {
         if (includeCount) {
@@ -376,6 +378,9 @@ console.log(aggs);
         return { subject: bucket.key };
       });
     } catch (err) {
+
+context.logger.debug({ err }, 'OOPS WE HAD AN ERROR')
+
       context.logger.error(prepareObjectForLogs(err), `Error converting OpenSearch aggregation response for re3data subjects`);
 
       throw new GraphQLError("Unexpected response format from search service.", {

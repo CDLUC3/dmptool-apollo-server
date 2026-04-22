@@ -279,6 +279,11 @@ export class OpenSearchService {
               uri: uris,
             },
           },
+          sort: {
+            name: {
+              order: 'asc',
+            },
+          }
         },
       });
     } catch (err) {
@@ -295,10 +300,6 @@ export class OpenSearchService {
 
     try {
       const body = (response as { body: { hits: { hits: OpenSearchRe3DataHit[] } } }).body;
-
-console.log('RESPONSE FROM OPENSEARCH: ');
-console.log(body);
-
       return body.hits.hits.map((hit: OpenSearchRe3DataHit) => {
         return convertRe3DataToCamelCase(hit._source);
       });
@@ -329,7 +330,7 @@ console.log(body);
                 size: maxResults,
               },
             },
-          },
+          }
         }
         : {
           size: 0,
@@ -342,9 +343,6 @@ console.log(body);
             },
           },
         };
-
-const indexExists = await this.serverlessClient.indices.exists({ index: 're3data' });
-context.logger.debug({ index: 're3data', exists: indexExists }, 'Re3data Index exists?');
 
       response = await this.serverlessClient.search({
         index: 're3data',
@@ -368,9 +366,6 @@ context.logger.debug({ index: 're3data', exists: indexExists }, 'Re3data Index e
         doc_count: number;
       }
       const aggs = (response as { body: { aggregations: { unique_subjects: { buckets: AggregationBucket[] } } } }).body.aggregations;
-
-context.logger.debug({ firstSubject: aggs?.unique_subjects?.buckets[0] }, 'SUBJECTS RESPONSE FROM OPENSEARCH: ');
-
       return aggs.unique_subjects.buckets.map((bucket: AggregationBucket) => {
         if (includeCount) {
           return { subject: bucket.key, count: bucket.doc_count };
@@ -378,9 +373,6 @@ context.logger.debug({ firstSubject: aggs?.unique_subjects?.buckets[0] }, 'SUBJE
         return { subject: bucket.key };
       });
     } catch (err) {
-
-context.logger.debug({ err }, 'OOPS WE HAD AN ERROR')
-
       context.logger.error(prepareObjectForLogs(err), `Error converting OpenSearch aggregation response for re3data subjects`);
 
       throw new GraphQLError("Unexpected response format from search service.", {

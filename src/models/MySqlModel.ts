@@ -57,7 +57,7 @@ export class MySqlModel {
   async isValid(): Promise<boolean> {
     if (!validateDate(this.created)) this.addError('created', 'Created date can\'t be blank');
 
-    if (!validateDate(this.modified)) this.addError('modified', 'Modified date can\'t be blank');
+    if (!validateDate(this.modified ?? '')) this.addError('modified', 'Modified date can\'t be blank');
 
     if (this.createdById === null) this.addError('createdById', 'Created by can\'t be blank');
 
@@ -148,7 +148,7 @@ export class MySqlModel {
       const results = await MySqlModel.query(apolloContext, sql, [id.toString()], reference);
       return results && results.length === 1;
     } catch (err) {
-      const msg = `${reference}, ERROR: ${err.message}`;
+      const msg = `${reference}, ERROR: ${err instanceof Error ? err.message : String(err)}`;
       apolloContext.logger.error(prepareObjectForLogs(err), msg);
       return false;
     }
@@ -203,7 +203,7 @@ export class MySqlModel {
         return Array.isArray(countResponse) && countResponse.length > 0 ? countResponse?.[0]?.total : 0;
       }
     } catch (err) {
-      const msg = `${reference}, ERROR: ${err.message}`;
+      const msg = `${reference}, ERROR: ${err instanceof Error ? err.message : String(err)}`;
       apolloContext.logger.error(prepareObjectForLogs(err), msg);
       return 0;
     }
@@ -227,11 +227,11 @@ export class MySqlModel {
 
     } else {
       opts = paginationOptions as PaginationOptionsForCursors;
-      const cursorFields = isNullOrUndefined(opts.cursorField) ? ['id'] : [opts.cursorField];
-
+      const { sortField } = opts;
       // If a sort field was provided and its in the list of available sort fields
-      if (!isNullOrUndefined(paginationOptions.sortField) && sortFields.includes(paginationOptions.sortField)) {
-        cursorFields.unshift(paginationOptions.sortField);
+      const cursorFields = isNullOrUndefined(opts.cursorField) ? ['id'] : [opts.cursorField];
+      if (sortField && sortFields.includes(sortField)) {
+        cursorFields.unshift(sortField);
       }
 
       // Wrap each field with COALESCE to handle NULL values in SQL CONCAT
@@ -275,7 +275,7 @@ export class MySqlModel {
         const resp = await dataSources.sqlDataSource.query(apolloContext, sql, vals);
         return Array.isArray(resp) ? resp : [resp];
       } catch (err) {
-        const msg = `${reference}, ERROR: ${err.message}`;
+        const msg = `${reference}, ERROR: ${err instanceof Error ? err.message : String(err)}`;
         apolloContext.logger.error(prepareObjectForLogs(err), msg);
         return [];
       }
@@ -337,7 +337,8 @@ export class MySqlModel {
         );
       }
     } catch (err) {
-      const msg = `${reference}, ERROR: ${err.message}`;
+      const msg = `${reference}, ERROR: ${err instanceof Error ? err.message : String(err)}`;
+
       apolloContext.logger.error(prepareObjectForLogs(err), msg);
       return {
         limit: generalConfig.defaultSearchLimit,
@@ -408,7 +409,7 @@ export class MySqlModel {
         availableSortFields: options.availableSortFields ?? [],
       };
     } catch (err) {
-      const msg = `${reference}, ERROR: ${err.message}`;
+      const msg = `${reference}, ERROR: ${err instanceof Error ? err.message : String(err)}`;
       apolloContext.logger.error(prepareObjectForLogs(err), msg);
       return {
         limit: generalConfig.defaultSearchLimit,
@@ -495,7 +496,8 @@ export class MySqlModel {
         availableSortFields: options.availableSortFields ?? [],
       };
     } catch (err) {
-      const msg = `${reference}, ERROR: ${err.message}`;
+      const msg = `${reference}, ERROR: ${err instanceof Error ? err.message : String(err)}`;
+
       apolloContext.logger.error(prepareObjectForLogs(err), msg);
       return {
         limit: generalConfig.defaultSearchLimit,
@@ -519,7 +521,7 @@ export class MySqlModel {
     obj: MySqlModel & { userId?: number },
     reference = 'undefined caller',
     skipKeys?: string[]
-  ): Promise<number> {
+  ): Promise<number | null> {
     // If the createdById and modifiedById have not alredy been set, use the value in the token or the userId
     if (!obj.createdById) {
       obj.createdById = apolloContext?.token?.id ?? obj.userId;
@@ -558,7 +560,7 @@ export class MySqlModel {
     reference = 'undefined caller',
     skipKeys?: string[],
     noTouch?: boolean,
-  ): Promise<MySqlModel> {
+  ): Promise<MySqlModel | null> {
     // Update the modifier info
     if (noTouch !== true) {
       // Only update the modifiedById if we have a token otherwise leave it as is
@@ -581,6 +583,11 @@ export class MySqlModel {
                  WHERE id = ?`;
 
     const vals = props.map((entry) => this.prepareValue(entry.value, typeof (entry.value)));
+    if (!obj.id) {
+      const msg = `${reference}, ERROR: Cannot update record in ${table} because id is not set.`;
+      apolloContext.logger.error(msg);
+      return null;
+    }
     // Make sure the record id is the last value
     vals.push(obj.id.toString());
 

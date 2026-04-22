@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added `messageToOrg` field in `feedback` table [#189]
 - Added override for `@node-oauth/oauth2-server`
 - Added `fetchAnswerCustomQuestion` to `Plan` model in order to get answered counts for custom questions [#161]
 - Added `publishedCustomQuestion` query resolver and added to schema [#173]
@@ -138,6 +139,7 @@
 - Removed `ioredis` package
 
 ### Fixed
+- Fixed some new `type` errors in `feedback` resolver and `emailService` brought on by a recent update to `typescript-eslint` [#189]
 - Had issue running `nuke-db.sh` and `process.sh`, so I turned off SSL by using `--ssl=off` instead
 - Fixed `fetchTemplateData` query in `TemplateCustomization` model because `questionCustomizationHasSampleText` was incorrectly returning true [#130] 
 - In `preparePaginationOptions` function, wrapped each cursorField with `COALESCE` to handle `NULL` values in SQL `CONCAT`, otherwise if any cursorField is NULL, it would just return a null value due to the way `CONCAT` works [#107]
@@ -145,6 +147,7 @@
 - Fixed issue with templates not cloning with sections and questions by updating the `addTemplate` mutation to clone from non-versioned template, section and question [#1006]
 
 ### Chore
+- Added `@types/nodemailer` [#189]
 - Added override for `lodash` to `4.18.1` to address high vulnerability issue
 
 ## v1.0

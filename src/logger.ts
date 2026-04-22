@@ -42,8 +42,6 @@ export const logger: Logger = process.env.NODE_ENV === 'production'
   ? pino(basePinoConfig, pino.destination({ sync: true, dest: 1 }))
   : pino(basePinoConfig);
 
-process.stdout.write('!!! APOLLO LOG TEST !!!\n');
-
 export interface LoggerContext {
   app: string;
   env: string;

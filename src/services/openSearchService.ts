@@ -267,6 +267,8 @@ export class OpenSearchService {
     }
 
     let response: unknown;
+
+    context.logger.debug({ uris }, 'Fetching URIs from OpenSearch re3data index');
     try {
       response = await this.serverlessClient.search({
         index: 're3data',
@@ -293,6 +295,10 @@ export class OpenSearchService {
 
     try {
       const body = (response as { body: { hits: { hits: OpenSearchRe3DataHit[] } } }).body;
+
+console.log('RESPONSE FROM OPENSEARCH: ');
+console.log(body);
+
       return body.hits.hits.map((hit: OpenSearchRe3DataHit) => {
         return convertRe3DataToCamelCase(hit._source);
       });
@@ -312,6 +318,7 @@ export class OpenSearchService {
   public async findRe3DataSubjects(context: MyContext, includeCount: boolean, maxResults: number): Promise<{ subject: string; count?: number }[]> {
     let response: unknown;
     try {
+      context.logger.debug('Fetching Subjects from OpenSearch re3data index');
       const body = includeCount
         ? {
           size: 0,
@@ -358,6 +365,10 @@ export class OpenSearchService {
         doc_count: number;
       }
       const aggs = (response as { body: { aggregations: { unique_subjects: { buckets: AggregationBucket[] } } } }).body.aggregations;
+
+console.log('RESPONSE FROM OPENSEARCH: ');
+console.log(aggs);
+
       return aggs.unique_subjects.buckets.map((bucket: AggregationBucket) => {
         if (includeCount) {
           return { subject: bucket.key, count: bucket.doc_count };

@@ -177,8 +177,12 @@ export class OpenSearchService {
     }
 
     // Handle multiple subjects: match repositories that have ANY of the provided subjects
+    // handle case insensitivity and trim whitespace
     if (subjects && subjects.length > 0) {
-      const validSubjects = subjects.filter(s => s?.trim());
+      const validSubjects = subjects
+        .filter(s => s?.trim())
+        .map(s => s.trim().replace(/\b\w/g, c => c.toUpperCase())); // "economics" → "Economics"
+
       if (validSubjects.length > 0) {
         filter.push({
           terms: { subjects: validSubjects },
@@ -206,6 +210,7 @@ export class OpenSearchService {
               filter,
             },
           },
+          sort: [{ "name.keyword": { order: 'asc' } }],
         },
       });
     } catch (err) {

@@ -61,11 +61,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
-<<<<<<< Updated upstream
-=======
 - Updated `planFeedbackStatus` query resolver to return a feedback `id` as well, so frontend can use it to delete the feedback [#191]
-- Made further updates to `repositories` query resolver and related functions to address an issue with the paginated data being returned. Also realized that previous sorting only applied on a page-by-page level, so fixed that as well.[#118]
->>>>>>> Stashed changes
 - Updated `repositories` query resolver to have the response alphabetically sorted on name [#118]
 - Updated graphql codegen dependencies
 - Moved `re3data-os-populate.ts` to `data-migration/dataSync` directory.

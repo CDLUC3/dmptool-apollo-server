@@ -61,10 +61,12 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+<<<<<<< HEAD
 - Updated re3data-os-populate.ts to write to an AWS Serverless OpenSearch (AOSS) instance
 - Updated OpenSearch datasource to include a new serverlessClient property and createOpenSearchServerlessClient function.
 - Addressed an issue where the Apollo server logs were not properly piping to the CloudWatch logs in the new combined ApolloShib ECS tasks.
 - Refactored `re3data-os-populate.ts` to use `fast-sml-parser` instead of `xml-dom`
+- Updated `repositories` query resolver to have the response alphabetically sorted on name [#118]
 - Updated graphql codegen dependencies
 - Moved `re3data-os-populate.ts` to `data-migration/dataSync` directory.
 - Updated `re3data-os-populate.ts` to work with OpenSearch serverless collections

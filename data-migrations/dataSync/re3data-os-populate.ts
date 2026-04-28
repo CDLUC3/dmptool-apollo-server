@@ -56,6 +56,29 @@ const parser = new XMLParser({
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 /**
+ * List all of the existing indices that match the given prefix
+ *
+ * @param prefix
+ * @returns the list of indices
+ */
+async function listIndicesWithPrefix(prefix: string): Promise<string[]> {
+  try {
+    const res = await client.indices.get({ index: `${prefix}*` });
+    const body = (res && ((res as unknown) as { body?: unknown }).body) ?? res;
+    if (!Array.isArray(body)) return [];
+    return (body as unknown[])
+      .map(row => {
+        const r = row as Record<string, unknown>;
+        return (r.index as string) ?? (r['i'] as string) ?? Object.values(r)[2];
+      })
+      .filter(Boolean) as string[];
+  } catch (err) {
+    console.warn('No existing indices found or error listing indices:', err);
+    return [];
+  }
+}
+
+/**
  * Helper to ensure we always get an array from XML fields
  * (fast-xml-parser returns a single object if only one element exists)
  */
@@ -123,13 +146,13 @@ async function syncRe3Data(): Promise<void> {
         const detailXml: string = await detailRes.text();
         const detailObj = parser.parse(detailXml) as Record<string, unknown>;
         const re3data = detailObj.re3data as Record<string, unknown> | undefined;
-        const r = re3data?.repository as Record<string, unknown> | undefined;
+        let r = re3data?.repository as Record<string, unknown> | undefined;
 
         if (!r) {
           // If the root isn't 're3data', try just 'repository' (sometimes happens
           // with fast-xml-parser NSPrefix removal)
-          const fallbackR: unknown = detailObj.repository;
-          if (!fallbackR) {
+          r = detailObj.repository as Record<string, unknown> | undefined;
+          if (!r) {
             console.error(`[${id}] Could not find repository root in XML`);
             continue;
           }
@@ -148,10 +171,11 @@ async function syncRe3Data(): Promise<void> {
           ),
           provider_types: ensureArray(r.providerType).map((k: unknown): string => getVal(k)),
           keywords: ensureArray(r.keyword).map((k: unknown): string => getVal(k)),
-          access: ensureArray(r.databaseAccess).map((a: Record<string, unknown>): string => {
-            const restrictions = ensureArray(a.databaseAccessRestriction).map(r => getVal(r));
-            return `${getVal(a.databaseAccessType)} (${restrictions.join(', ')})`
-            }),
+          access: ensureArray(r.dataAccess).map((a: Record<string, unknown>): string => {
+            const restrictions = ensureArray(a.dataAccessRestriction).map(r => getVal(r));
+            const typ = getVal(a.dataAccessType);
+            return restrictions ? `${typ} (${restrictions.join(' & ')})` : typ;
+          }).join(', '),
           pid_system: ensureArray(r.pidSystem).map((ps: unknown): string => getVal(ps)),
           policies: ensureArray(r.policy).map((p: Record<string, unknown>): string => getVal(p.policyName)),
           upload_types: ensureArray(r.dataUpload).map((u: Record<string, unknown>): string => getVal(u.dataUploadType)),
@@ -168,7 +192,7 @@ async function syncRe3Data(): Promise<void> {
         currentBatch.push({ index: { _index: newIndexName, _id: id } });
         currentBatch.push(doc);
 
-        if (currentBatch.length / 2 >= argv['batch-size'] || i === repoIds.length - 1) {
+        if (currentBatch.length / 2 >= OPENSEARCH_CONFIG.batchSize || i === repoIds.length - 1) {
           const { body } = await client.bulk({ body: currentBatch });
           if (!body.errors) {
             successCount += (currentBatch.length / 2);
@@ -198,6 +222,19 @@ async function syncRe3Data(): Promise<void> {
 
     await client.indices.updateAliases({ body: { actions } });
     console.log("Alias updated successfully.");
+
+    // Clean up old indices that match the prefix
+    const existing = await listIndicesWithPrefix(OPENSEARCH_CONFIG.indexPrefix);
+    const toDelete = existing.filter(n => n !== newIndexName);
+    for (const idx of toDelete) {
+      try {
+        console.log(`Deleting old index ${idx}...`);
+        const resp = await client.indices.delete({ index: idx });
+        console.log('Delete response:', ((resp as unknown) as { body?: unknown }).body || resp);
+      } catch (err) {
+        console.warn(`Failed to delete old index ${idx}:`, err instanceof Error ? err.message : err);
+      }
+    }
 
   } catch (error) {
     console.error("Critical Failure:", error);

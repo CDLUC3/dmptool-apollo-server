@@ -105,11 +105,11 @@ describe('RepositoryService', () => {
 
       // Results should have re3data first, then custom
       expect(result.items).toHaveLength(2);
-      expect(result.items[0]).toEqual(mockRe3DataResults.repositories[0]);
-      expect(result.items[1]).toEqual(mockCustomResults.items[0]);
-      expect(result.limit).toBe(mockPaginationOptions.limit);
-      // totalCount should be from re3data (primary source)
-      expect(result.totalCount).toBe(mockRe3DataResults.total);
+      expect(result.items[0]).toEqual(mockCustomResults.items[0]); //custom repo first
+      expect(result.items[1]).toEqual(mockRe3DataResults.repositories[0]); //re3data repo second
+      // totalCount is re3data.total + customTotal = 100 + 1 = 101
+      expect(result.totalCount).toBe(101);//combined total count from both sources
+
     });
 
     it('should return only custom results when re3data search fails', async () => {
@@ -334,13 +334,13 @@ describe('RepositoryService', () => {
       expect(result.hasNextPage).toBe(true);
       expect(result.hasPreviousPage).toBe(false);
       expect(result.limit).toBe(10);
-      // totalCount should be from re3data (primary pagination source): 250
-      expect(result.totalCount).toBe(250);
-      // items should include re3data first, then custom results
+      // // items should include custom results, then re3data results
       expect(result.items).toHaveLength(3);
-      expect(result.items[0]).toEqual(mockRe3DataResults.repositories[0]);
-      expect(result.items[1]).toEqual(mockRe3DataResults.repositories[1]);
-      expect(result.items[2]).toEqual(mockCustomResults.items[0]);
+      expect(result.items[0]).toEqual(mockCustomResults.items[0]); //custom first
+      expect(result.items[1]).toEqual(mockRe3DataResults.repositories[0]);
+      expect(result.items[2]).toEqual(mockRe3DataResults.repositories[1]);
+      // totalCount = 250 + 100 = 350
+      expect(result.totalCount).toBe(350); // totalCount should be combined from both sources
     });
 
     it('should log and rethrow if Repository.search fails', async () => {
@@ -487,6 +487,204 @@ describe('RepositoryService', () => {
         const call = (openSearchService.openSearchFindRe3Data as jest.Mock).mock.calls[0];
         expect(call[3]).toBe(expectedFormat);
       }
+    });
+
+    it('should only show custom repos on the first page when re3data has results', async () => {
+      const reference = 'test-reference';
+
+      const mockCustomResults: PaginatedQueryResults<Repository> = {
+        items: [{ id: 1, name: 'Custom Repo' } as Repository],
+        limit: 10,
+        totalCount: 1,
+        currentOffset: 0,
+        hasNextPage: false,
+        hasPreviousPage: false,
+        availableSortFields: ['name', 'created'],
+      };
+
+      const mockRe3DataResults = {
+        repositories: [{ id: 'r3d1', name: 'Re3Data Repo' }],
+        total: 50,
+      };
+
+      (Repository.search as jest.Mock).mockResolvedValue(mockCustomResults);
+      (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValue(mockRe3DataResults);
+
+      // Page 2 (from=10): custom repos should NOT appear
+      const offsetOptions = {
+        type: PaginationType.OFFSET,
+        offset: 10,
+        limit: 10,
+        sortField: 'name',
+        sortDir: 'ASC',
+      };
+
+      const result = await RepositoryService.searchCombined(
+        reference, mockContext, null, null, null, null, offsetOptions,
+      );
+
+      // Custom repo should not be in results on page 2, and re3data repo should be present
+      expect(result.items).not.toContainEqual(mockCustomResults.items[0]);
+      expect(result.items).toEqual(mockRe3DataResults.repositories);
+    });
+
+    it('should sort custom repos alphabetically before merging', async () => {
+      const reference = 'test-reference';
+
+      const mockCustomResults: PaginatedQueryResults<Repository> = {
+        items: [
+          { id: 3, name: 'Zebra Repo' } as Repository,
+          { id: 1, name: 'Alpha Repo' } as Repository,
+          { id: 2, name: 'Middle Repo' } as Repository,
+        ],
+        limit: 10,
+        totalCount: 3,
+        currentOffset: 0,
+        hasNextPage: false,
+        hasPreviousPage: false,
+        availableSortFields: ['name', 'created'],
+      };
+
+      const mockRe3DataResults = {
+        repositories: [{ id: 'r3d1', name: 'Re3Data Repo' }],
+        total: 50,
+      };
+
+      (Repository.search as jest.Mock).mockResolvedValueOnce(mockCustomResults);
+      (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValueOnce(mockRe3DataResults);
+
+      const result = await RepositoryService.searchCombined(
+        reference, mockContext, null, null, null, null, mockPaginationOptions,
+      );
+
+      // Custom repos should appear sorted alphabetically at the start
+      expect(result.items[0]).toMatchObject({ name: 'Alpha Repo' });
+      expect(result.items[1]).toMatchObject({ name: 'Middle Repo' });
+      expect(result.items[2]).toMatchObject({ name: 'Zebra Repo' });
+    });
+
+    it('should always fetch custom repos from offset 0 regardless of pagination', async () => {
+      const reference = 'test-reference';
+      const offsetOptions = {
+        type: PaginationType.OFFSET,
+        offset: 20,
+        limit: 10,
+        sortField: 'name',
+        sortDir: 'ASC',
+      };
+
+      const mockCustomResults: PaginatedQueryResults<Repository> = {
+        items: [],
+        limit: 10,
+        totalCount: 0,
+        currentOffset: 0,
+        hasNextPage: false,
+        hasPreviousPage: false,
+        availableSortFields: ['name', 'created'],
+      };
+
+      (Repository.search as jest.Mock).mockResolvedValueOnce(mockCustomResults);
+      (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValueOnce({
+        repositories: [],
+        total: 0,
+      });
+
+      await RepositoryService.searchCombined(
+        reference, mockContext, null, null, null, null, offsetOptions,
+      );
+
+      expect(Repository.search).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.anything(),
+        null,
+        [],
+        null,
+        null,
+        expect.objectContaining({ offset: 0 }), // always 0
+      );
+    });
+
+    it('should paginate custom repos directly when re3data returns nothing', async () => {
+      const reference = 'test-reference';
+      const offsetOptions = {
+        type: PaginationType.OFFSET,
+        offset: 5,
+        limit: 3,
+        sortField: 'name',
+        sortDir: 'ASC',
+      };
+
+      const customItems = Array.from({ length: 10 }, (_, i) => ({
+        id: i + 1,
+        name: `Custom Repo ${String(i + 1).padStart(2, '0')}`,
+      } as Repository));
+
+      const mockCustomResults: PaginatedQueryResults<Repository> = {
+        items: customItems,
+        limit: 1000,
+        totalCount: 10,
+        currentOffset: 0,
+        hasNextPage: false,
+        hasPreviousPage: false,
+        availableSortFields: ['name', 'created'],
+      };
+
+      (Repository.search as jest.Mock).mockResolvedValueOnce(mockCustomResults);
+      (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValueOnce({
+        repositories: [],
+        total: 0,
+      });
+
+      const result = await RepositoryService.searchCombined(
+        reference, mockContext, null, null, null, null, offsetOptions,
+      );
+
+      // Should slice custom items from offset 5, limit 3 → gives indices 5,6,7 (Custom Repo 06, 07, 08)
+      expect(result.items).toHaveLength(3);
+      expect(result.items[0]).toMatchObject({ name: 'Custom Repo 06' });
+      expect(result.totalCount).toBe(10);
+      expect(result.hasNextPage).toBe(true); // 5 + 3 < 10
+      expect(result.hasPreviousPage).toBe(true); // from > 0
+    });
+
+    it('should set hasNextPage false when on last page of custom-only results', async () => {
+      const reference = 'test-reference';
+      const offsetOptions = {
+        type: PaginationType.OFFSET,
+        offset: 8,
+        limit: 5,
+        sortField: 'name',
+        sortDir: 'ASC',
+      };
+
+      const customItems = Array.from({ length: 10 }, (_, i) => ({
+        id: i + 1,
+        name: `Custom Repo ${i + 1}`,
+      } as Repository));
+
+      const mockCustomResults: PaginatedQueryResults<Repository> = {
+        items: customItems,
+        limit: 1000,
+        totalCount: 10,
+        currentOffset: 0,
+        hasNextPage: false,
+        hasPreviousPage: false,
+        availableSortFields: ['name', 'created'],
+      };
+
+      (Repository.search as jest.Mock).mockResolvedValueOnce(mockCustomResults);
+      (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValueOnce({
+        repositories: [],
+        total: 0,
+      });
+
+      const result = await RepositoryService.searchCombined(
+        reference, mockContext, null, null, null, null, offsetOptions,
+      );
+
+      // from=8, limit=5: only 2 items remain (indices 8,9), 8+5=13 >= 10
+      expect(result.items).toHaveLength(2);
+      expect(result.hasNextPage).toBe(false); // No next page since only 2 items remain on the page
     });
   });
 
@@ -781,11 +979,11 @@ describe('RepositoryService', () => {
 
       // Results should have re3data first (3), then custom (5) = 8 total items
       expect(result.items).toHaveLength(8);
-      expect(result.items.slice(0, 3)).toEqual(mockRe3DataResults.repositories);
-      expect(result.items.slice(3, 8)).toEqual(mockCustomResults.items);
-      // totalCount should be from re3data (primary source): 250
-      expect(result.totalCount).toBe(250);
-      expect(result.hasNextPage).toBe(true); // re3data has more results
+      expect(result.items.slice(0, 5)).toEqual(mockCustomResults.items); // custom first
+      expect(result.items.slice(5, 8)).toEqual(mockRe3DataResults.repositories);
+      // totalCount = 250 + 100 = 350
+      expect(result.totalCount).toBe(350);
+
     });
   });
 });

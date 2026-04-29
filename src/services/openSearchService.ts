@@ -112,7 +112,7 @@ export class OpenSearchService {
     // Fetch data from OpenSearch
     let response: unknown;
     try {
-      response = await this.searchClient.search({
+      response = await this.client.search({
         index: 'works-index',
         body: {
           size: maxResults,

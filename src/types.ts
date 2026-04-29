@@ -2373,6 +2373,8 @@ export type Plan = {
   featured?: Maybe<Scalars['Boolean']['output']>;
   /** Feedback associated with the plan */
   feedback?: Maybe<Array<PlanFeedback>>;
+  /** Feedback status */
+  feedbackStatus?: Maybe<PlanFeedbackStatus>;
   /** The funding for the plan */
   fundings?: Maybe<Array<PlanFunding>>;
   /** The unique identifer for the Object */
@@ -6947,6 +6949,7 @@ export type PlanResolvers<ContextType = MyContext, ParentType extends ResolversP
   errors?: Resolver<Maybe<ResolversTypes['PlanErrors']>, ParentType, ContextType>;
   featured?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
   feedback?: Resolver<Maybe<Array<ResolversTypes['PlanFeedback']>>, ParentType, ContextType>;
+  feedbackStatus?: Resolver<Maybe<ResolversTypes['PlanFeedbackStatus']>, ParentType, ContextType>;
   fundings?: Resolver<Maybe<Array<ResolversTypes['PlanFunding']>>, ParentType, ContextType>;
   id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   languageId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;

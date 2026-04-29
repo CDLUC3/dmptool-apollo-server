@@ -171,6 +171,9 @@ export const typeDefs = gql`
 
     "Feedback associated with the plan"
     feedback: [PlanFeedback!]
+
+    "Feedback status"
+    feedbackStatus: PlanFeedbackStatus
   }
 
   "The error messages for the plan"

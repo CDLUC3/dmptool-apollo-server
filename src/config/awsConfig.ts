@@ -48,5 +48,9 @@ export const awsConfig = {
     password: process.env.OPENSEARCH_PASSWORD || null,
     awsRegion: process.env.OPENSEARCH_REGION || null,
     awsService: process.env.OPENSEARCH_SERVICE || null,
+  },
+
+  opensearchServerless: {
+    node: process.env.OPENSEARCH_SERVERLESS_NODE || 'https://host.docker.internal:9200',
   }
 }

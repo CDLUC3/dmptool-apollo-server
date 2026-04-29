@@ -3,7 +3,10 @@ import { MyContext } from '../context';
 import { OpenSearchWork, WorkType } from '../types';
 import { awsConfig } from '../config/awsConfig';
 import { prepareObjectForLogs } from '../logger';
-import { createOpenSearchClient, OpenSearchConfig } from "../datasources/openSearch";
+import {
+  createOpenSearchClient,
+  createOpenSearchServerlessClient, OpenSearchConfig, OpenSearchServerlessConfig
+} from "../datasources/openSearch";
 import {
   OpenSearchRe3DataRecord,
   Re3DataRepositoryRecord,
@@ -87,9 +90,11 @@ interface OpenSearchRe3DataHit {
 
 export class OpenSearchService {
   private client: Client;
+  private serverlessClient: Client;
 
   constructor() {
     this.client = createOpenSearchClient(awsConfig.opensearch as OpenSearchConfig);
+    this.serverlessClient = createOpenSearchServerlessClient(awsConfig.opensearchServerless as OpenSearchServerlessConfig);
   }
 
   public async findWorkByIdentifier(reference: string, context: MyContext, doi: string | null | undefined, maxResults: number): Promise<OpenSearchWork[]> {
@@ -262,8 +267,10 @@ export class OpenSearchService {
     }
 
     let response: unknown;
+
+    context.logger.debug({ uris }, 'Fetching URIs from OpenSearch re3data index');
     try {
-      response = await this.client.search({
+      response = await this.serverlessClient.search({
         index: 're3data',
         body: {
           size: uris.length,
@@ -272,6 +279,11 @@ export class OpenSearchService {
               uri: uris,
             },
           },
+          sort: {
+            name: {
+              order: 'asc',
+            },
+          }
         },
       });
     } catch (err) {
@@ -307,6 +319,7 @@ export class OpenSearchService {
   public async findRe3DataSubjects(context: MyContext, includeCount: boolean, maxResults: number): Promise<{ subject: string; count?: number }[]> {
     let response: unknown;
     try {
+      context.logger.debug('Fetching Subjects from OpenSearch re3data index');
       const body = includeCount
         ? {
           size: 0,
@@ -317,7 +330,7 @@ export class OpenSearchService {
                 size: maxResults,
               },
             },
-          },
+          }
         }
         : {
           size: 0,
@@ -331,7 +344,7 @@ export class OpenSearchService {
           },
         };
 
-      response = await this.client.search({
+      response = await this.serverlessClient.search({
         index: 're3data',
         body,
       });
@@ -387,7 +400,7 @@ export class OpenSearchService {
         },
       };
 
-      response = await this.client.search({
+      response = await this.serverlessClient.search({
         index: 're3data',
         body,
       });

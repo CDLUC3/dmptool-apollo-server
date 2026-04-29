@@ -1,12 +1,12 @@
-import { createOpenSearchClient } from '../../datasources/openSearch';
+import {
+  createOpenSearchClient,
+  createOpenSearchServerlessClient
+} from '../../datasources/openSearch';
 import { OpenSearchService } from '../openSearchService';
 import { MyContext } from '../../context';
 import { GraphQLError } from 'graphql';
 
 jest.mock('../../datasources/openSearch');
-jest.mock('../../config', () => ({
-  awsConfig: { opensearch: {} },
-}));
 
 describe('OpenSearchService', () => {
   const mockContext = {
@@ -19,6 +19,7 @@ describe('OpenSearchService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (createOpenSearchClient as jest.Mock).mockReturnValue({ search: mockSearch });
+    (createOpenSearchServerlessClient as jest.Mock).mockReturnValue({ search: mockSearch });
     service = new OpenSearchService();
   });
 

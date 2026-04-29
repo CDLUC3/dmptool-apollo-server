@@ -26,14 +26,21 @@ export const REDACTION_MESSAGE = '[MASKED]';
 
 const logLevel = process.env.LOG_LEVEL || 'info';
 
-export const logger: Logger = pino({
+const basePinoConfig = {
   level: logLevel,
   redact: {
     paths: REDACTION_KEYS,
     censor: REDACTION_MESSAGE
   },
   ...ecsFormat()
-});
+};
+
+export const logger: Logger = process.env.NODE_ENV === 'production'
+  // In the AWS environment, this application runs on a container with other processes,
+  // so we need to redirect the logs so they make it to the correct place so supervisord
+  // can pick them up. We also need to run synchronously
+  ? pino(basePinoConfig, pino.destination({ sync: true, dest: 1 }))
+  : pino(basePinoConfig);
 
 export interface LoggerContext {
   app: string;

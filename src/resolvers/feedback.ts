@@ -22,7 +22,7 @@ import { PlanFeedbackComment } from "../models/PlanFeedbackComment";
 import { VersionedTemplate } from "../models/VersionedTemplate";
 import { Affiliation } from "../models/Affiliation";
 import { ResolversParentTypes } from "../types";
-import { Resolvers, PlanFeedbackStatusEnum } from "../types";
+import { Resolvers, PlanFeedbackStatus } from "../types";
 import { getCurrentDate } from "../utils/helpers";
 
 type PlanFeedbackParent = ResolversParentTypes['PlanFeedback'] & {
@@ -102,7 +102,7 @@ export const resolvers: Resolvers = {
     },
 
     // Get the current feedback status for a plan
-    planFeedbackStatus: async (_, { planId }, context: MyContext): Promise<PlanFeedbackStatusEnum> => {
+    planFeedbackStatus: async (_, { planId }, context: MyContext): Promise<PlanFeedbackStatus> => {
       const reference = 'planFeedbackStatus resolver';
       try {
         // if the user is an admin

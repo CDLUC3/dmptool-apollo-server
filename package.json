@@ -1,6 +1,6 @@
 {
   "name": "dmptool-apollo-server",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Apollo GraphQL server for the DMP Tool system",
   "main": "index.js",
   "scripts": {
@@ -37,7 +37,7 @@
   },
   "overrides": {
     "@node-oauth/oauth2-server": "5.3.0",
-    "fast-xml-parser": "5.5.9"
+    "fast-xml-parser": "5.7.0"
   },
   "dependencies": {
     "@apollo/datasource-rest": "^6.4.1",

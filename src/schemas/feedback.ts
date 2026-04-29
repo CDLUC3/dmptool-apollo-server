@@ -15,7 +15,7 @@ export const typeDefs = gql`
     planFeedbackComments(planId: Int!, planFeedbackId: Int!): [PlanFeedbackComment]
 
     "Get the feedback status for a plan (NONE, REQUESTED, COMPLETED)"
-    planFeedbackStatus(planId: Int!): PlanFeedbackStatusEnum
+    planFeedbackStatus(planId: Int!): PlanFeedbackStatus
   }
 
   extend type Mutation {
@@ -109,5 +109,13 @@ export const typeDefs = gql`
     answer: String
     planFeedback: String
     comment: String
+  }
+
+  "Info on the Plan Feedback Status"
+  type PlanFeedbackStatus {
+  "The status of the plan feedback (NONE, REQUESTED, COMPLETED)"
+  status: PlanFeedbackStatusEnum  
+  "The id of the feedback request if it exists"
+  id: Int
   }
 `;

@@ -1,6 +1,6 @@
 import { MyContext } from "../context";
 import { MySqlModel } from "./MySqlModel";
-import { PlanFeedbackStatusEnum } from "../types";
+import { PlanFeedbackStatus } from "../types";
 
 interface PlanFeedbackOptions {
   id?: number;
@@ -68,7 +68,7 @@ export class PlanFeedback extends MySqlModel {
       // Save the record and then fetch it
       const newId = await PlanFeedback.insert(context, PlanFeedback.tableName, this, reference);
       // If no id was returned then something went wrong with the insert and we should log an error and return the object with an error message
-      if(!newId){
+      if (!newId) {
         const msg = `${reference}, ERROR: Failed to create PlanFeedback.`;
         context.logger.error(msg);
         // Something went wrong with the insert and we don't have an id for the new record so we should log an error and return the object with an error message
@@ -148,17 +148,25 @@ export class PlanFeedback extends MySqlModel {
     reference: string,
     context: MyContext,
     planId: number
-  ): Promise<PlanFeedbackStatusEnum> {
+  ): Promise<PlanFeedbackStatus> {
     // Aggregate: total rows and how many are open (completed IS NULL)
-    const sql = `SELECT COUNT(*) as total, SUM(completed IS NULL) as open FROM ${PlanFeedback.tableName} WHERE planId = ?`;
+    const sql = `
+      SELECT id, completed
+      FROM ${PlanFeedback.tableName}
+      WHERE planId = ?
+      ORDER BY id DESC
+      LIMIT 1
+    `;
     const results = await PlanFeedback.query(context, sql, [planId?.toString()], reference);
-    const row = Array.isArray(results) && results.length > 0 ? results[0] : { total: 0, open: 0 };
+    const row = Array.isArray(results) && results.length > 0 ? results[0] : null;
 
-    const total = Number(row.total) || 0;
-    const open = Number(row.open) || 0;
+    if (!row) {
+      return { status: 'NONE', id: null };
+    }
 
-    if (total === 0) return 'NONE';
-    if (open > 0) return 'REQUESTED';
-    return 'COMPLETED';
+    return {
+      status: row.completed ? 'COMPLETED' : 'REQUESTED',
+      id: row.id,
+    }
   }
 };

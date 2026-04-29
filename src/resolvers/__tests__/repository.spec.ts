@@ -28,9 +28,6 @@ jest.mock('../../datasources/cache');
 jest.mock('../../services/openSearchService');
 jest.mock('../../models/Repository');
 jest.mock('../../services/repositoryService');
-jest.mock('../../config/awsConfig', () => ({
-  awsConfig: { opensearch: { useSSL: false, host: 'localhost', port: 9200 } },
-}));
 
 let testServer: ApolloServer;
 let token: JWTAccessToken;

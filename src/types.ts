@@ -2510,6 +2510,15 @@ export type PlanFeedbackErrors = {
   summaryText?: Maybe<Scalars['String']['output']>;
 };
 
+/** Info on the Plan Feedback Status */
+export type PlanFeedbackStatus = {
+  __typename?: 'PlanFeedbackStatus';
+  /** The id of the feedback request if it exists */
+  id?: Maybe<Scalars['Int']['output']>;
+  /** The status of the plan feedback (NONE, REQUESTED, COMPLETED) */
+  status?: Maybe<PlanFeedbackStatusEnum>;
+};
+
 export type PlanFeedbackStatusEnum =
   | 'COMPLETED'
   | 'NONE'
@@ -3156,7 +3165,7 @@ export type Query = {
   /** Get all of the comments associated with the round of admin feedback */
   planFeedbackComments?: Maybe<Array<Maybe<PlanFeedbackComment>>>;
   /** Get the feedback status for a plan (NONE, REQUESTED, COMPLETED) */
-  planFeedbackStatus?: Maybe<PlanFeedbackStatusEnum>;
+  planFeedbackStatus?: Maybe<PlanFeedbackStatus>;
   /** Get all of the Funding information for the specific Plan */
   planFundings?: Maybe<Array<Maybe<PlanFunding>>>;
   /** Get all of the Users that are Members for the specific Plan */
@@ -5892,6 +5901,7 @@ export type ResolversTypes = {
   PlanFeedbackComment: ResolverTypeWrapper<PlanFeedbackComment>;
   PlanFeedbackCommentErrors: ResolverTypeWrapper<PlanFeedbackCommentErrors>;
   PlanFeedbackErrors: ResolverTypeWrapper<PlanFeedbackErrors>;
+  PlanFeedbackStatus: ResolverTypeWrapper<PlanFeedbackStatus>;
   PlanFeedbackStatusEnum: PlanFeedbackStatusEnum;
   PlanFunding: ResolverTypeWrapper<PlanFunding>;
   PlanFundingErrors: ResolverTypeWrapper<PlanFundingErrors>;
@@ -6130,6 +6140,7 @@ export type ResolversParentTypes = {
   PlanFeedbackComment: PlanFeedbackComment;
   PlanFeedbackCommentErrors: PlanFeedbackCommentErrors;
   PlanFeedbackErrors: PlanFeedbackErrors;
+  PlanFeedbackStatus: PlanFeedbackStatus;
   PlanFunding: PlanFunding;
   PlanFundingErrors: PlanFundingErrors;
   PlanGuidance: PlanGuidance;
@@ -7014,6 +7025,11 @@ export type PlanFeedbackErrorsResolvers<ContextType = MyContext, ParentType exte
   summaryText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 };
 
+export type PlanFeedbackStatusResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PlanFeedbackStatus'] = ResolversParentTypes['PlanFeedbackStatus']> = {
+  id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  status?: Resolver<Maybe<ResolversTypes['PlanFeedbackStatusEnum']>, ParentType, ContextType>;
+};
+
 export type PlanFundingResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PlanFunding'] = ResolversParentTypes['PlanFunding']> = {
   created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   createdById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
@@ -7344,7 +7360,7 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   plan?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType, RequireFields<QueryPlanArgs, 'planId'>>;
   planFeedback?: Resolver<Maybe<Array<Maybe<ResolversTypes['PlanFeedback']>>>, ParentType, ContextType, RequireFields<QueryPlanFeedbackArgs, 'planId'>>;
   planFeedbackComments?: Resolver<Maybe<Array<Maybe<ResolversTypes['PlanFeedbackComment']>>>, ParentType, ContextType, RequireFields<QueryPlanFeedbackCommentsArgs, 'planFeedbackId' | 'planId'>>;
-  planFeedbackStatus?: Resolver<Maybe<ResolversTypes['PlanFeedbackStatusEnum']>, ParentType, ContextType, RequireFields<QueryPlanFeedbackStatusArgs, 'planId'>>;
+  planFeedbackStatus?: Resolver<Maybe<ResolversTypes['PlanFeedbackStatus']>, ParentType, ContextType, RequireFields<QueryPlanFeedbackStatusArgs, 'planId'>>;
   planFundings?: Resolver<Maybe<Array<Maybe<ResolversTypes['PlanFunding']>>>, ParentType, ContextType, RequireFields<QueryPlanFundingsArgs, 'planId'>>;
   planMembers?: Resolver<Maybe<Array<Maybe<ResolversTypes['PlanMember']>>>, ParentType, ContextType, RequireFields<QueryPlanMembersArgs, 'planId'>>;
   plans?: Resolver<Maybe<Array<ResolversTypes['PlanSearchResult']>>, ParentType, ContextType, RequireFields<QueryPlansArgs, 'projectId'>>;
@@ -8353,6 +8369,7 @@ export type Resolvers<ContextType = MyContext> = {
   PlanFeedbackComment?: PlanFeedbackCommentResolvers<ContextType>;
   PlanFeedbackCommentErrors?: PlanFeedbackCommentErrorsResolvers<ContextType>;
   PlanFeedbackErrors?: PlanFeedbackErrorsResolvers<ContextType>;
+  PlanFeedbackStatus?: PlanFeedbackStatusResolvers<ContextType>;
   PlanFunding?: PlanFundingResolvers<ContextType>;
   PlanFundingErrors?: PlanFundingErrorsResolvers<ContextType>;
   PlanGuidance?: PlanGuidanceResolvers<ContextType>;

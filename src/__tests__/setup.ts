@@ -44,6 +44,9 @@ jest.mock('../config/awsConfig', () => ({
       password: 'password',
       awsRegion: 'us-west-2',
       awsService: 'es',
+    },
+    opensearchServerless: {
+      node: 'https://test.aoss.example.com:9200',
     }
   }
 }));

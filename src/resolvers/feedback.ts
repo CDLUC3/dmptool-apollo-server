@@ -105,38 +105,32 @@ export const resolvers: Resolvers = {
     planFeedbackStatus: async (_, { planId }, context: MyContext): Promise<PlanFeedbackStatus> => {
       const reference = 'planFeedbackStatus resolver';
       try {
-        // if the user is an admin
-        if (isAdmin(context.token)) {
-          // Check to see if planId exists in our records
-          const plan = await Plan.findById(reference, context, planId);
-          if (!plan) {
-            throw NotFoundError(`Plan with ID ${planId} not found`);
-          }
-
-          if (!plan.createdById) {
-            throw NotFoundError(`Plan with ID ${planId} has no creator`);
-          }
-
-          // Fetch the plan creator to compare affiliations
-          const planCreator = await User.findById(reference, context, plan.createdById);
-          if (!planCreator) {
-            throw NotFoundError(`User who created plan ${planId} not found`);
-          }
-
-          // If the user is a superAdmin or an admin for the same affiliation
-          if (isSuperAdmin(context.token) || (isAdmin(context.token) && context.token.affiliationId === planCreator.affiliationId)) {
-
-            // Check that user has permissions to access feedback
-            const projectId = plan.projectId;
-            const project = await Project.findById(reference, context, projectId);
-            if (!project) {
-              throw NotFoundError(`Project with ID ${projectId} not found`);
-            }
-            if (await hasPermissionOnProject(context, project)) {
-              return await PlanFeedback.statusForPlan(reference, context, planId);
-            }
-          }
+        // Check to see if planId exists in our records
+        const plan = await Plan.findById(reference, context, planId);
+        if (!plan) {
+          throw NotFoundError(`Plan with ID ${planId} not found`);
         }
+
+        if (!plan.createdById) {
+          throw NotFoundError(`Plan with ID ${planId} has no creator`);
+        }
+
+        // Fetch the plan creator to compare affiliations
+        const planCreator = await User.findById(reference, context, plan.createdById);
+        if (!planCreator) {
+          throw NotFoundError(`User who created plan ${planId} not found`);
+        }
+
+        const projectId = plan.projectId;
+        const project = await Project.findById(reference, context, projectId);
+        if (!project) {
+          throw NotFoundError(`Project with ID ${projectId} not found`);
+        }
+        if (await hasPermissionOnProject(context, project)) {
+          return await PlanFeedback.statusForPlan(reference, context, planId);
+        }
+
+
         throw context?.token ? ForbiddenError() : AuthenticationError();
       } catch (err) {
         if (err instanceof GraphQLError) throw err;

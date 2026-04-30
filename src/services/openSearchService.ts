@@ -97,6 +97,12 @@ export class OpenSearchService {
     this.serverlessClient = createOpenSearchServerlessClient(awsConfig.opensearchServerless as OpenSearchServerlessConfig);
   }
 
+  // Selects the correct OpenSearch client based on environment
+  private get searchClient(): Client {
+    const useServerless = process.env.OPENSEARCH_AUTH_TYPE === 'aws';
+    return useServerless ? this.serverlessClient : this.client;
+  }
+
   public async findWorkByIdentifier(reference: string, context: MyContext, doi: string | null | undefined, maxResults: number): Promise<OpenSearchWork[]> {
     // If doi is empty, whitespace, null or undefined return no results
     if (!doi?.trim()) {
@@ -182,8 +188,12 @@ export class OpenSearchService {
     }
 
     // Handle multiple subjects: match repositories that have ANY of the provided subjects
+    // handle case insensitivity and trim whitespace
     if (subjects && subjects.length > 0) {
-      const validSubjects = subjects.filter(s => s?.trim());
+      const validSubjects = subjects
+        .filter(s => s?.trim())
+        .map(s => s.trim().replace(/\b\w/g, c => c.toUpperCase())); // "economics" → "Economics"
+
       if (validSubjects.length > 0) {
         filter.push({
           terms: { subjects: validSubjects },
@@ -211,6 +221,7 @@ export class OpenSearchService {
               filter,
             },
           },
+          sort: [{ "name.keyword": { order: 'asc' } }],
         },
       });
     } catch (err) {
@@ -270,7 +281,7 @@ export class OpenSearchService {
 
     context.logger.debug({ uris }, 'Fetching URIs from OpenSearch re3data index');
     try {
-      response = await this.serverlessClient.search({
+      response = await this.searchClient.search({
         index: 're3data',
         body: {
           size: uris.length,
@@ -344,7 +355,7 @@ export class OpenSearchService {
           },
         };
 
-      response = await this.serverlessClient.search({
+      response = await this.searchClient.search({
         index: 're3data',
         body,
       });
@@ -400,7 +411,7 @@ export class OpenSearchService {
         },
       };
 
-      response = await this.serverlessClient.search({
+      response = await this.searchClient.search({
         index: 're3data',
         body,
       });

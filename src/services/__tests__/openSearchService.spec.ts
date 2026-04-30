@@ -230,6 +230,7 @@ describe('OpenSearchService', () => {
               ],
             },
           },
+          sort: [{ "name.keyword": { order: 'asc' } }],
         },
       });
 
@@ -283,6 +284,7 @@ describe('OpenSearchService', () => {
               filter: [],
             },
           },
+          sort: [{ "name.keyword": { order: 'asc' } }],
         },
       });
 
@@ -313,6 +315,66 @@ describe('OpenSearchService', () => {
       expect(mockContext.logger.error).toHaveBeenCalledWith(
         expect.any(Object),
         expect.stringContaining('Error converting OpenSearch response'),
+      );
+    });
+
+    test('Normalizes subject casing to title case before filtering', async () => {
+      mockSearch.mockResolvedValue({
+        body: { hits: { total: { value: 0 }, hits: [] } },
+      });
+
+      await service.findRe3Data(null, mockContext, ['economics', 'life sciences'], null, 10, 0);
+
+      expect(mockSearch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          body: expect.objectContaining({
+            query: expect.objectContaining({
+              bool: expect.objectContaining({
+                filter: [{ terms: { subjects: ['Economics', 'Life Sciences'] } }],
+              }),
+            }),
+          }),
+        })
+      );
+    });
+
+    test('Filters out empty or whitespace-only subjects', async () => {
+      mockSearch.mockResolvedValue({
+        body: { hits: { total: { value: 0 }, hits: [] } },
+      });
+
+      await service.findRe3Data(null, mockContext, ['', '   ', null], null, 10, 0);
+
+      expect(mockSearch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          body: expect.objectContaining({
+            query: expect.objectContaining({
+              bool: expect.objectContaining({
+                filter: [], // all subjects were invalid, so no filter pushed
+              }),
+            }),
+          }),
+        })
+      );
+    });
+
+    test('Trims whitespace from subjects before title-casing', async () => {
+      mockSearch.mockResolvedValue({
+        body: { hits: { total: { value: 0 }, hits: [] } },
+      });
+
+      await service.findRe3Data(null, mockContext, ['  economics  '], null, 10, 0);
+
+      expect(mockSearch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          body: expect.objectContaining({
+            query: expect.objectContaining({
+              bool: expect.objectContaining({
+                filter: [{ terms: { subjects: ['Economics'] } }],
+              }),
+            }),
+          }),
+        })
       );
     });
   });

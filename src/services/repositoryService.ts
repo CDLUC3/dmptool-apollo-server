@@ -78,29 +78,57 @@ export const RepositoryService = {
         repositoryType,
         {
           ...options,
+          offset: 0, // Always fetch from beginning for custom results
           limit: 1000, // Get all custom results to supplement re3data
         },
       );
 
-      // Combine results - re3data first (primary source), then custom
-      const combinedItems: object[] = [
-        ...re3dataResponse.repositories,
-        ...(customResults.items || []),
-      ];
-
-      // Calculate pagination based on re3data (primary source)
       const limit = options.limit || 10;
-      const hasNextPage = from + re3dataResponse.repositories.length < re3dataResponse.total;
+      const customItems = (customResults.items || [])
+        .sort((a: { name?: string | null }, b: { name?: string | null }) =>
+          (a.name ?? '').localeCompare(b.name ?? '')
+        );
+
+      const customTotal = customResults.totalCount ?? 0;
+
+      // If re3data has results, show custom repos on first page only
+      // If re3data has NO results, paginate custom repos directly
+      let items: object[];
+      let totalCount: number;
+      let hasNextPage: boolean;
+
+      if (re3dataResponse.total > 0 && re3dataResponse.repositories.length > 0) {
+        const isFirstPage = from === 0;
+        items = [
+          ...(isFirstPage ? customItems : []),
+          ...re3dataResponse.repositories,
+        ];
+        totalCount = re3dataResponse.total + customTotal;
+        hasNextPage = from + re3dataResponse.repositories.length < re3dataResponse.total;
+      } else if (re3dataResponse.total > 0 && re3dataResponse.repositories.length === 0) {
+        // Offset is beyond re3data results — paginate remaining custom repos
+        // Adjust offset relative to re3data's total (custom repos start after re3data)
+        const customFrom = from - re3dataResponse.total;
+        items = customItems.slice(customFrom, customFrom + limit);
+        totalCount = re3dataResponse.total + customTotal;
+        hasNextPage = customFrom + limit < customTotal;
+      } else {
+        // re3data found nothing — paginate custom repos instead
+        items = customItems.slice(from, from + limit);
+        totalCount = customTotal;
+        hasNextPage = from + limit < customTotal;
+      }
 
       return {
-        items: combinedItems,
+        items,
         limit,
-        totalCount: re3dataResponse.total,
+        totalCount,
         currentOffset: from,
         hasNextPage,
         hasPreviousPage: from > 0,
         availableSortFields: ['name', 'created'],
       };
+
     } catch (err) {
       context.logger.error(
         prepareObjectForLogs(err),

@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added `feedbackStatus` to the plan query, so the client can know whether to display feedback notification at top of question page [#196]
 - Added new `OPENSEARCH_SERVERLESS_NODE` environment variable
 - Added a `PlanFeedbackStatus` type that can be returned by `planFeedbackStatus`, which now includes the feedback `id` [#191]
 - Added `messageToOrg` field in `feedback` table [#189]
@@ -147,6 +148,7 @@
 - Removed `ioredis` package
 
 ### Fixed
+- Fixed bug in `openSearchService` that was throwing an error and not returning repositories [#196]
 - Fixed some new `type` errors in `feedback` resolver and `emailService` brought on by a recent update to `typescript-eslint` [#189]
 - Had issue running `nuke-db.sh` and `process.sh`, so I turned off SSL by using `--ssl=off` instead
 - Fixed `fetchTemplateData` query in `TemplateCustomization` model because `questionCustomizationHasSampleText` was incorrectly returning true [#130] 

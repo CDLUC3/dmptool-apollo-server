@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added `feedbackStatus` to the plan query, so the client can know whether to display feedback notification at top of question page [#196]
 - Added new `OPENSEARCH_SERVERLESS_NODE` environment variable
 - Added a `PlanFeedbackStatus` type that can be returned by `planFeedbackStatus`, which now includes the feedback `id` [#191]
 - Added `messageToOrg` field in `feedback` table [#189]
@@ -62,6 +63,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `planFeedbackStatus` query resolver so that it doesn't require a user to be admin in order to access that data, since the client uses it to display data in the right sidebar for any user [#196]
 - Made further updates to `repositories` query resolver and related functions to address an issue with the paginated data being returned. Also realized that previous sorting only applied on a page-by-page level, so fixed that as well.[#118]
 - Updated re3data-os-populate.ts to write to an AWS Serverless OpenSearch (AOSS) instance
 - Updated OpenSearch datasource to include a new serverlessClient property and createOpenSearchServerlessClient function.
@@ -147,6 +149,7 @@
 - Removed `ioredis` package
 
 ### Fixed
+- Fixed bug in `openSearchService` that was throwing an error and not returning repositories [#196]
 - Fixed some new `type` errors in `feedback` resolver and `emailService` brought on by a recent update to `typescript-eslint` [#189]
 - Had issue running `nuke-db.sh` and `process.sh`, so I turned off SSL by using `--ssl=off` instead
 - Fixed `fetchTemplateData` query in `TemplateCustomization` model because `questionCustomizationHasSampleText` was incorrectly returning true [#130] 

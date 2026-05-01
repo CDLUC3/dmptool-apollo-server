@@ -9,7 +9,7 @@ import { hasPermissionOnProject } from "../services/projectService";
 import { PlanMember } from "../models/Member";
 import { PlanFunding } from "../models/Funding";
 import { PlanFeedback } from "../models/PlanFeedback";
-import { Resolvers } from "../types";
+import { PlanFeedbackStatus, Resolvers } from "../types";
 import { VersionedTemplate } from "../models/VersionedTemplate";
 import { Answer } from "../models/Answer";
 import { ProjectCollaboratorAccessLevel } from "../models/Collaborator";
@@ -318,6 +318,13 @@ export const resolvers: Resolvers = {
         return await PlanFeedback.findByPlanId('plan feedback resolver', context, parent.id);
       }
       return [];
+    },
+    feedbackStatus: async (parent: Plan, _, context: MyContext): Promise<PlanFeedbackStatus> => {
+      if (parent?.id) {
+        // Use the same logic as in planFeedbackStatus query
+        return await PlanFeedback.statusForPlan('plan.feedbackStatus resolver', context, parent.id);
+      }
+      return null;
     },
     answers: async (parent: Plan, _, context: MyContext): Promise<Answer[]> => {
       if (parent?.id) {

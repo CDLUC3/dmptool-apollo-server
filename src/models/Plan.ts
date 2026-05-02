@@ -82,29 +82,29 @@ export class PlanSearchResult {
    */
   static async findByProjectId(reference: string, context: MyContext, projectId: number): Promise<PlanSearchResult[]> {
     const sql = 'SELECT p.id, ' +
-                'CONCAT(cu.givenName, CONCAT(\' \', cu.surName)) createdBy, p.created, ' +
-                'CONCAT(cm.givenName, CONCAT(\' \', cm.surName)) modifiedBy, p.modified, ' +
-                'p.versionedTemplateId, p.title, p.status, p.visibility, p.dmpId, ' +
-                'CONCAT(cr.givenName, CONCAT(\' \', cr.surName)) registeredBy, p.registered, p.featured, ' +
-                'GROUP_CONCAT(DISTINCT CONCAT(prc.givenName, CONCAT(\' \', prc.surName, ' +
-                  'CONCAT(\' (\', CONCAT(r.label, \')\'))))) members, ' +
-                'GROUP_CONCAT(DISTINCT fundings.name) funding ' +
-              'FROM plans p ' +
-                'LEFT JOIN users cu ON cu.id = p.createdById ' +
-                'LEFT JOIN users cm ON cm.id = p.modifiedById ' +
-                'LEFT JOIN users cr ON cr.id = p.registeredById ' +
-                'LEFT JOIN planMembers plc ON plc.planId = p.id ' +
-                  'LEFT JOIN projectMembers prc ON prc.id = plc.projectMemberId ' +
-                  'LEFT JOIN planMemberRoles plcr ON plc.id = plcr.planMemberId ' +
-                    'LEFT JOIN memberRoles r ON plcr.memberRoleId = r.id ' +
-                'LEFT JOIN planFundings ON planFundings.planId = p.id ' +
-                  'LEFT JOIN projectFundings ON projectFundings.id = planFundings.projectFundingId ' +
-                    'LEFT JOIN affiliations fundings ON projectFundings.affiliationId = fundings.uri ' +
-              'WHERE p.projectId = ? ' +
-              'GROUP BY p.id, cu.givenName, cu.surName, cm.givenName, cm.surName, ' +
-                'p.title, p.status, p.visibility, ' +
-                'p.dmpId, cr.givenName, cr.surName, p.registered, p.featured ' +
-              'ORDER BY p.created DESC;';
+      'CONCAT(cu.givenName, CONCAT(\' \', cu.surName)) createdBy, p.created, ' +
+      'CONCAT(cm.givenName, CONCAT(\' \', cm.surName)) modifiedBy, p.modified, ' +
+      'p.versionedTemplateId, p.title, p.status, p.visibility, p.dmpId, ' +
+      'CONCAT(cr.givenName, CONCAT(\' \', cr.surName)) registeredBy, p.registered, p.featured, ' +
+      'GROUP_CONCAT(DISTINCT CONCAT(prc.givenName, CONCAT(\' \', prc.surName, ' +
+      'CONCAT(\' (\', CONCAT(r.label, \')\'))))) members, ' +
+      'GROUP_CONCAT(DISTINCT fundings.name) funding ' +
+      'FROM plans p ' +
+      'LEFT JOIN users cu ON cu.id = p.createdById ' +
+      'LEFT JOIN users cm ON cm.id = p.modifiedById ' +
+      'LEFT JOIN users cr ON cr.id = p.registeredById ' +
+      'LEFT JOIN planMembers plc ON plc.planId = p.id ' +
+      'LEFT JOIN projectMembers prc ON prc.id = plc.projectMemberId ' +
+      'LEFT JOIN planMemberRoles plcr ON plc.id = plcr.planMemberId ' +
+      'LEFT JOIN memberRoles r ON plcr.memberRoleId = r.id ' +
+      'LEFT JOIN planFundings ON planFundings.planId = p.id ' +
+      'LEFT JOIN projectFundings ON projectFundings.id = planFundings.projectFundingId ' +
+      'LEFT JOIN affiliations fundings ON projectFundings.affiliationId = fundings.uri ' +
+      'WHERE p.projectId = ? ' +
+      'GROUP BY p.id, cu.givenName, cu.surName, cm.givenName, cm.surName, ' +
+      'p.title, p.status, p.visibility, ' +
+      'p.dmpId, cr.givenName, cr.surName, p.registered, p.featured ' +
+      'ORDER BY p.created DESC;';
     const results = await Plan.query(context, sql, [projectId?.toString()], reference);
     return Array.isArray(results) ? results.map((entry) => new PlanSearchResult(entry)) : [];
   }
@@ -152,11 +152,18 @@ export class PlanSectionProgress {
     versionedTemplateId: number,
     affiliationId: string,
   ): Promise<number | undefined> {
+    // Join via templateId so the lookup works regardless of which specific
+    // versioned template the customization was published against (e.g. after
+    // a funder re-publishes their template the versionedTemplateId changes
+    // but the base templateId stays the same).
     const sql = `
-      SELECT templateCustomizationId
-      FROM versionedTemplateCustomizations
-      WHERE currentVersionedTemplateId = ?
-      AND affiliationId = ?
+      SELECT vtc.templateCustomizationId
+      FROM versionedTemplateCustomizations vtc
+      JOIN templateCustomizations tc ON tc.id = vtc.templateCustomizationId
+      JOIN versionedTemplates vt ON vt.templateId = tc.templateId
+      WHERE vt.id = ?
+        AND vtc.affiliationId = ?
+        AND vtc.active = 1
       LIMIT 1
     `;
     const rows = await Plan.query(context, sql, [versionedTemplateId.toString(), affiliationId], reference);
@@ -173,7 +180,7 @@ export class PlanSectionProgress {
     reference: string,
     context: MyContext,
     templateCustomizationId: number,
-  ): Promise<{ id: number; name: string; pinnedSectionType: string; pinnedSectionId: number; totalQuestions: number }[]> {
+  ): Promise<{ id: number; name: string; pinnedSectionType: string; pinnedSectionId: number | null; totalQuestions: number }[]> {
     const sql = `
     SELECT
       vcs.customSectionId AS id,
@@ -371,8 +378,8 @@ export class PlanSectionProgress {
       }
     }
 
-    // Build a map: pinnedId → custom sections pinned to it
-    const pinnedToMap = new Map<number, typeof customSectionTotals>();
+    // Build a map: pinnedId → custom sections pinned to it (null key = goes first)
+    const pinnedToMap = new Map<number | null, typeof customSectionTotals>();
     for (const cs of customSectionTotals) {
       const existing = pinnedToMap.get(cs.pinnedSectionId) ?? [];
       existing.push(cs);
@@ -390,27 +397,53 @@ export class PlanSectionProgress {
       }
     }
 
-    // Walk base sections in order, inserting custom section chains after each one
     const orderedSections: PlanSectionProgress[] = [];
     let displayOrder = 0;
 
+    // Helper to push a custom section and its recursively-pinned children
+    const pushCustomChain = (cs: (typeof customSectionTotals)[0]) => {
+      orderedSections.push(new PlanSectionProgress({
+        sectionType: PlanSectionType.CUSTOM,
+        customSectionId: cs.id,
+        versionedSectionId: null,
+        title: cs.name,
+        displayOrder: displayOrder++,
+        totalQuestions: Number(cs.totalQuestions),
+        answeredQuestions: answeredCustomByCustomSection.get(cs.id) ?? 0,
+        tags: [],
+      }));
+      const chain: typeof customSectionTotals = [];
+      collectAfter(cs.id, chain);
+      for (const chained of chain) {
+        orderedSections.push(new PlanSectionProgress({
+          sectionType: PlanSectionType.CUSTOM,
+          customSectionId: chained.id,
+          versionedSectionId: null,
+          title: chained.name,
+          displayOrder: displayOrder++,
+          totalQuestions: Number(chained.totalQuestions),
+          answeredQuestions: answeredCustomByCustomSection.get(chained.id) ?? 0,
+          tags: [],
+        }));
+      }
+    };
+
+    // Null-pinned custom sections appear BEFORE all base sections (mirrors
+    // injectCustomSections which does sections.unshift() for null-pinned).
+    const nullPinned = (pinnedToMap.get(null) ?? []).sort((a, b) => a.id - b.id);
+    for (const cs of nullPinned) {
+      pushCustomChain(cs);
+    }
+
+    // Walk base sections in displayOrder, inserting custom section chains after
+    // their pinned base section.
     for (const base of baseSections) {
       orderedSections.push(new PlanSectionProgress({ ...base, displayOrder: displayOrder++ }));
 
       const chain: typeof customSectionTotals = [];
       collectAfter(base.versionedSectionId, chain);
-
       for (const cs of chain) {
-        orderedSections.push(new PlanSectionProgress({
-          sectionType: PlanSectionType.CUSTOM,
-          customSectionId: cs.id,
-          versionedSectionId: null,
-          title: cs.name,
-          displayOrder: displayOrder++,
-          totalQuestions: Number(cs.totalQuestions),
-          answeredQuestions: answeredCustomByCustomSection.get(cs.id) ?? 0,
-          tags: [],
-        }));
+        pushCustomChain(cs);
       }
     }
 

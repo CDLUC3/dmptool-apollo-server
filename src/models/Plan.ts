@@ -180,7 +180,7 @@ export class PlanSectionProgress {
     reference: string,
     context: MyContext,
     templateCustomizationId: number,
-  ): Promise<{ id: number; name: string; pinnedSectionType: string; pinnedSectionId: number | null; totalQuestions: number }[]> {
+  ): Promise<{ id: number; name: string; pinnedSectionType: string; pinnedSectionId: number; totalQuestions: number }[]> {
     const sql = `
     SELECT
       vcs.customSectionId AS id,
@@ -378,8 +378,8 @@ export class PlanSectionProgress {
       }
     }
 
-    // Build a map: pinnedId → custom sections pinned to it (null key = goes last)
-    const pinnedToMap = new Map<number | null, typeof customSectionTotals>();
+    // Build a map: pinnedId → custom sections pinned to it
+    const pinnedToMap = new Map<number, typeof customSectionTotals>();
     for (const cs of customSectionTotals) {
       const existing = pinnedToMap.get(cs.pinnedSectionId) ?? [];
       existing.push(cs);
@@ -397,53 +397,27 @@ export class PlanSectionProgress {
       }
     }
 
+    // Walk base sections in order, inserting custom section chains after each one
     const orderedSections: PlanSectionProgress[] = [];
     let displayOrder = 0;
 
-    // Helper to push a custom section and its recursively-pinned children
-    const pushCustomChain = (cs: (typeof customSectionTotals)[0]) => {
-      orderedSections.push(new PlanSectionProgress({
-        sectionType: PlanSectionType.CUSTOM,
-        customSectionId: cs.id,
-        versionedSectionId: null,
-        title: cs.name,
-        displayOrder: displayOrder++,
-        totalQuestions: Number(cs.totalQuestions),
-        answeredQuestions: answeredCustomByCustomSection.get(cs.id) ?? 0,
-        tags: [],
-      }));
-      const chain: typeof customSectionTotals = [];
-      collectAfter(cs.id, chain);
-      for (const chained of chain) {
-        orderedSections.push(new PlanSectionProgress({
-          sectionType: PlanSectionType.CUSTOM,
-          customSectionId: chained.id,
-          versionedSectionId: null,
-          title: chained.name,
-          displayOrder: displayOrder++,
-          totalQuestions: Number(chained.totalQuestions),
-          answeredQuestions: answeredCustomByCustomSection.get(chained.id) ?? 0,
-          tags: [],
-        }));
-      }
-    };
-
-    // Null-pinned custom sections appear BEFORE all base sections (mirrors
-    // injectCustomSections which does sections.unshift() for null-pinned).
-    const nullPinned = (pinnedToMap.get(null) ?? []).sort((a, b) => a.id - b.id);
-    for (const cs of nullPinned) {
-      pushCustomChain(cs);
-    }
-
-    // Walk base sections in displayOrder, inserting custom section chains after
-    // their pinned base section.
     for (const base of baseSections) {
       orderedSections.push(new PlanSectionProgress({ ...base, displayOrder: displayOrder++ }));
 
       const chain: typeof customSectionTotals = [];
       collectAfter(base.versionedSectionId, chain);
+
       for (const cs of chain) {
-        pushCustomChain(cs);
+        orderedSections.push(new PlanSectionProgress({
+          sectionType: PlanSectionType.CUSTOM,
+          customSectionId: cs.id,
+          versionedSectionId: null,
+          title: cs.name,
+          displayOrder: displayOrder++,
+          totalQuestions: Number(cs.totalQuestions),
+          answeredQuestions: answeredCustomByCustomSection.get(cs.id) ?? 0,
+          tags: [],
+        }));
       }
     }
 

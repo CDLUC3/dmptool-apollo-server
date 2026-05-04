@@ -63,6 +63,9 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated the `findTemplateCustomizationId` method sql query to guarantee that correct templateCustomizationId is retrieved [#200]
+- Updated `updateQuestionDisplayOrder` method in `question.ts` to mark the template as dirty whenever there is reordering. Did the same thing for `updateSectionDisplayOrder` in `section.ts` [#200]
+- Updated `handleFunderTemplateRepublication` to set correct `customization.currentVersionedTemplateId` after marking the old one as stale [#200]
 - Updated `planFeedbackStatus` query resolver so that it doesn't require a user to be admin in order to access that data, since the client uses it to display data in the right sidebar for any user [#196]
 - Made further updates to `repositories` query resolver and related functions to address an issue with the paginated data being returned. Also realized that previous sorting only applied on a page-by-page level, so fixed that as well.[#118]
 - Updated re3data-os-populate.ts to write to an AWS Serverless OpenSearch (AOSS) instance

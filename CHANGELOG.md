@@ -3,6 +3,8 @@
 ## v1.1.0
 
 ### Added
+- Added a `planByAlternateIdentifier` resolver and schema to facilitate finding Plans by a alternate id
+- Added `AlternateIdentifier` table and model to store alternate identifiers for Plans/DMPs
 - Added new `OPENSEARCH_SERVERLESS_NODE` environment variable
 - Added a `PlanFeedbackStatus` type that can be returned by `planFeedbackStatus`, which now includes the feedback `id` [#191]
 - Added `messageToOrg` field in `feedback` table [#189]

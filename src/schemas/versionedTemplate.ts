@@ -13,6 +13,9 @@ export const typeDefs = gql`
 
     "Get all of the customizable templates for the current user's affiliation (user must be an Admin)"
     customizableTemplates(term: String, status: String, migrationStatus: String, paginationOptions: PaginationOptions): CustomizableTemplateSearchResults
+
+    "Get the default best practice template."
+    defaultTemplate: VersionedTemplate
   }
 
   "Template version type"

@@ -18,6 +18,7 @@ import {
   ensureDefaultPlanContact,
   saveMaDMPVersion
 } from "../services/planService";
+import {AlternateIdentifier} from "../models/AlternateIdentifier";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -66,6 +67,37 @@ export const resolvers: Resolvers = {
         throw InternalServerError();
       }
     },
+
+    // Lookup a Plan by its alternate identifier
+    planByAlternateIdentifier: async(_, { alternateIdentifier }, context: MyContext): Promise<Plan> => {
+      const reference = 'planByAlternateIdentifier resolver';
+      try {
+        const identifier: AlternateIdentifier = await AlternateIdentifier.findByAlternateIdentifier(
+          reference,
+          context,
+          alternateIdentifier
+        );
+        if (!alternateIdentifier) {
+          throw NotFoundError('Alternate identifier not found');
+        }
+
+        const plan = await Plan.findById(reference, context, identifier.planId);
+        if (!plan) {
+          throw NotFoundError(`Plan with ID not found`);
+        }
+
+        const project = await Project.findById(reference, context, plan.projectId);
+        if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.COMMENT)) {
+          return plan;
+        }
+        throw context?.token ? ForbiddenError() : AuthenticationError();
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    }
   },
 
   Mutation: {

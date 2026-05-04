@@ -12,9 +12,12 @@ export const typeDefs = gql`
     "Create a new Template. Leave the 'copyFromTemplateId' blank to create a new template from scratch"
     addTemplate(name: String!, copyFromTemplateId: Int, copyFromVersionedTemplateId: Int): Template
     "Update a Template"
-    updateTemplate(templateId: Int!, name: String!, bestPractice: Boolean, isDefault: Boolean): Template
+    updateTemplate(templateId: Int!, name: String!, bestPractice: Boolean): Template
     "Archive a Template (unpublishes any associated PublishedTemplate"
     archiveTemplate(templateId: Int!): Template
+
+    "Designates the specified Template as the default (SuperAdmin only)"
+    markAsDefaultTemplate(templateId: Int!): Template
 
     "Publish the template or save as a draft"
     createTemplateVersion(templateId: Int!, comment: String, versionType: TemplateVersionType, latestPublishVisibility: TemplateVisibility!): Template

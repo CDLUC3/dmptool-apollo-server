@@ -164,6 +164,28 @@ export class Template extends MySqlModel {
     return Object.keys(this.errors).length === 0;
   }
 
+  // Change the default template (if another template is already the default this
+  // will remove that designation from the prior default)
+  async markAsDefault(reference: string, context: MyContext): Promise<boolean> {
+    const markSQL = `UPDATE ${this.tableName} SET isDefault 1 WHERE id = ?;`;
+    const unmarkSQL = `UPDATE ${this.tableName} SET isDefault 0 WHERE id != ?;`;
+    const rollbackSQL = `UPDATE ${this.tableName} SET isDefault 0 WHERE id = ?;`;
+
+    // MArk the specified template
+    const marked = await Template.query(context, markSQL, [this.id.toString()], reference);
+    if (marked) {
+      // Unmark the old template
+      const unmarked = await Template.query(context, unmarkSQL, [this.id.toString()], reference);
+
+      if (!unmarked) {
+        // The unmarking of the old template failed, so roll it back
+        await Template.query(context, rollbackSQL, [this.id.toString()], reference);
+      }
+      return true;
+    }
+    return false;
+  };
+
   // Save the current record
   async create(context: MyContext): Promise<Template> {
     // First make sure the record is valid

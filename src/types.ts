@@ -1429,6 +1429,8 @@ export type Mutation = {
   guidance?: Maybe<Scalars['String']['output']>;
   /** The introduction to the custom section */
   introduction?: Maybe<Scalars['String']['output']>;
+  /** Designates the specified Template as the default (SuperAdmin only) */
+  markAsDefaultTemplate?: Maybe<Template>;
   /** Merge two licenses */
   mergeLicenses?: Maybe<License>;
   /** Merge two metadata standards */
@@ -1826,6 +1828,11 @@ export type MutationCreateTemplateVersionArgs = {
 
 export type MutationDeactivateUserArgs = {
   userId: Scalars['Int']['input'];
+};
+
+
+export type MutationMarkAsDefaultTemplateArgs = {
+  templateId: Scalars['Int']['input'];
 };
 
 
@@ -2243,7 +2250,6 @@ export type MutationUpdateTagArgs = {
 
 export type MutationUpdateTemplateArgs = {
   bestPractice?: InputMaybe<Scalars['Boolean']['input']>;
-  isDefault?: InputMaybe<Scalars['Boolean']['input']>;
   name: Scalars['String']['input'];
   templateId: Scalars['Int']['input'];
 };
@@ -6837,6 +6843,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   deactivateUser?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationDeactivateUserArgs, 'userId'>>;
   guidance?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   introduction?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  markAsDefaultTemplate?: Resolver<Maybe<ResolversTypes['Template']>, ParentType, ContextType, RequireFields<MutationMarkAsDefaultTemplateArgs, 'templateId'>>;
   mergeLicenses?: Resolver<Maybe<ResolversTypes['License']>, ParentType, ContextType, RequireFields<MutationMergeLicensesArgs, 'licenseToKeepId' | 'licenseToRemoveId'>>;
   mergeMetadataStandards?: Resolver<Maybe<ResolversTypes['MetadataStandard']>, ParentType, ContextType, RequireFields<MutationMergeMetadataStandardsArgs, 'metadataStandardToKeepId' | 'metadataStandardToRemoveId'>>;
   mergeRepositories?: Resolver<Maybe<ResolversTypes['CustomRepository']>, ParentType, ContextType, RequireFields<MutationMergeRepositoriesArgs, 'repositoryToKeepId' | 'repositoryToRemoveId'>>;

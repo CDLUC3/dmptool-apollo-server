@@ -4,6 +4,7 @@
 
 ### Added
 - Added `defaultTemplate` query to the `versionedTemplate` schema and a corresponding resolver
+- Added `markAsDefaultTemplate` mutation to the `template` resolver (superadmin only)
 - Added `isDefault` flag to `Template` and `VersionedTemplate`
 - Added `feedbackStatus` to the plan query, so the client can know whether to display feedback notification at top of question page [#196]
 - Added new `OPENSEARCH_SERVERLESS_NODE` environment variable

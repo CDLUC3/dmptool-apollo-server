@@ -229,9 +229,36 @@ export const resolvers: Resolvers = {
       }
     },
 
+    // Mark the specified template as the default
+    markAsDefaultTemplate: async (_, { templateId }, context: MyContext): Promise<Template> => {
+      const reference = 'markAsDefaultTemplate resolver';
+      try {
+        if (isSuperAdmin(context.token)) {
+          const template = await Template.findById(reference, context, templateId);
+          if (!template) {
+            throw NotFoundError('Template does not exist');
+          }
+
+          if (await template.markAsDefault(reference, context)) {
+            // Refetch the updated template and return it
+            return await Template.findById(reference, context, templateId);
+          } else {
+            template.addError('general', 'Unable to mark the template as the default');
+          }
+          return template
+        }
+        throw context?.token ? ForbiddenError() : AuthenticationError();
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    },
+
     // Update the specified template
     //    - called by the Template options page
-    updateTemplate: async (_, { templateId, name, bestPractice, isDefault }, context: MyContext): Promise<Template> => {
+    updateTemplate: async (_, { templateId, name, bestPractice }, context: MyContext): Promise<Template> => {
       const reference = 'updateTemplate resolver';
       try {
         if (isAdmin(context.token)) {
@@ -240,11 +267,10 @@ export const resolvers: Resolvers = {
           // Need to create an instance of template in order to access the "update" method below
           const templateInstance = new Template({ ...template });
 
-          // Only allow the bestPractice and isDefault flags to be changed if the user is a Super admin!
-          if (isSuperAdmin(context.token)) {
-            templateInstance.bestPractice = bestPractice !== undefined ? bestPractice : template.bestPractice;
-            templateInstance.isDefault = isDefault !== undefined ? isDefault : template.isDefault;
-          }
+          // Only allow the bestPractice flag to be changed if the user is a Super admin!
+          templateInstance.bestPractice = isSuperAdmin(context.token) && bestPractice !== undefined
+            ? bestPractice
+            : template.bestPractice;
 
           if (templateInstance) {
             if (await hasPermissionOnTemplate(context, template)) {

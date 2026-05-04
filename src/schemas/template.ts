@@ -12,7 +12,7 @@ export const typeDefs = gql`
     "Create a new Template. Leave the 'copyFromTemplateId' blank to create a new template from scratch"
     addTemplate(name: String!, copyFromTemplateId: Int, copyFromVersionedTemplateId: Int): Template
     "Update a Template"
-    updateTemplate(templateId: Int!, name: String!, bestPractice: Boolean): Template
+    updateTemplate(templateId: Int!, name: String!, bestPractice: Boolean, isDefault: Boolean): Template
     "Archive a Template (unpublishes any associated PublishedTemplate"
     archiveTemplate(templateId: Int!): Template
 
@@ -40,6 +40,8 @@ export const typeDefs = gql`
     latestPublishVisibility: TemplateVisibility
     "Whether or not this Template is designated as a 'Best Practice' template"
     bestPractice: Boolean
+    "Whether or not this is the default template"
+    isDefault: Boolean
     "The last published version"
     latestPublishVersion: String
     "The last published date"
@@ -119,6 +121,8 @@ export const typeDefs = gql`
     isDirty: Boolean!
     "Whether or not this Template is designated as a 'Best Practice' template"
     bestPractice: Boolean!
+    "Whether or not this is the default template"
+    isDefault: Boolean
     "The Sections associated with the template"
     sections: [Section]
     "The template's language"

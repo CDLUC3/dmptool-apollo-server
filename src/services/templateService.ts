@@ -85,6 +85,7 @@ export const generateTemplateVersion = async (
     versionedById: versionerId,
     visibility: latestPublishVisibility || template.latestPublishVisibility,
     bestPactice: template.bestPractice,
+    isDefault: template.isDefault || false,
     languageId: template.languageId,
     versionType,
     comment,

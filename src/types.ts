@@ -2243,6 +2243,7 @@ export type MutationUpdateTagArgs = {
 
 export type MutationUpdateTemplateArgs = {
   bestPractice?: InputMaybe<Scalars['Boolean']['input']>;
+  isDefault?: InputMaybe<Scalars['Boolean']['input']>;
   name: Scalars['String']['input'];
   templateId: Scalars['Int']['input'];
 };
@@ -3118,6 +3119,8 @@ export type Query = {
   customizableTemplates?: Maybe<CustomizableTemplateSearchResults>;
   /** Get all of the research output types */
   defaultResearchOutputTypes?: Maybe<Array<Maybe<ResearchOutputType>>>;
+  /** Get the default best practice template. */
+  defaultTemplate?: Maybe<VersionedTemplate>;
   /** Search for a User to add as a collaborator */
   findCollaborator?: Maybe<CollaboratorSearchResults>;
   /** Find a work with an identifier */
@@ -4479,6 +4482,8 @@ export type Template = {
   errors?: Maybe<TemplateErrors>;
   /** The unique identifer for the Object */
   id?: Maybe<Scalars['Int']['output']>;
+  /** Whether or not this is the default template */
+  isDefault?: Maybe<Scalars['Boolean']['output']>;
   /** Whether or not the Template has had any changes since it was last published */
   isDirty: Scalars['Boolean']['output'];
   /** The template's language */
@@ -4652,6 +4657,8 @@ export type TemplateSearchResult = {
   description?: Maybe<Scalars['String']['output']>;
   /** The unique identifer for the Object */
   id?: Maybe<Scalars['Int']['output']>;
+  /** Whether or not this is the default template */
+  isDefault?: Maybe<Scalars['Boolean']['output']>;
   /** Whether or not the Template has had any changes since it was last published */
   isDirty?: Maybe<Scalars['Boolean']['output']>;
   /** The last published date */
@@ -5543,6 +5550,8 @@ export type VersionedTemplate = {
   errors?: Maybe<VersionedTemplateErrors>;
   /** The unique identifer for the Object */
   id?: Maybe<Scalars['Int']['output']>;
+  /** Whether or not this is the default template */
+  isDefault?: Maybe<Scalars['Boolean']['output']>;
   /** The timestamp when the Object was last modifed */
   modified?: Maybe<Scalars['String']['output']>;
   /** The user who last modified the Object */
@@ -5591,6 +5600,8 @@ export type VersionedTemplateSearchResult = {
   description?: Maybe<Scalars['String']['output']>;
   /** The unique identifer for the Object */
   id?: Maybe<Scalars['Int']['output']>;
+  /** Whether or not this is the default template */
+  isDefault?: Maybe<Scalars['Boolean']['output']>;
   /** The timestamp when the Template was last modified */
   modified?: Maybe<Scalars['String']['output']>;
   /** The name of the last person who modified the Template */
@@ -7339,6 +7350,7 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   customSection?: Resolver<Maybe<ResolversTypes['CustomSection']>, ParentType, ContextType, RequireFields<QueryCustomSectionArgs, 'customSectionId'>>;
   customizableTemplates?: Resolver<Maybe<ResolversTypes['CustomizableTemplateSearchResults']>, ParentType, ContextType, Partial<QueryCustomizableTemplatesArgs>>;
   defaultResearchOutputTypes?: Resolver<Maybe<Array<Maybe<ResolversTypes['ResearchOutputType']>>>, ParentType, ContextType>;
+  defaultTemplate?: Resolver<Maybe<ResolversTypes['VersionedTemplate']>, ParentType, ContextType>;
   findCollaborator?: Resolver<Maybe<ResolversTypes['CollaboratorSearchResults']>, ParentType, ContextType, RequireFields<QueryFindCollaboratorArgs, 'term'>>;
   findWorkByIdentifier?: Resolver<Maybe<ResolversTypes['RelatedWorkSearchResults']>, ParentType, ContextType, Partial<QueryFindWorkByIdentifierArgs>>;
   guidance?: Resolver<Maybe<ResolversTypes['Guidance']>, ParentType, ContextType, RequireFields<QueryGuidanceArgs, 'guidanceId'>>;
@@ -7795,6 +7807,7 @@ export type TemplateResolvers<ContextType = MyContext, ParentType extends Resolv
   description?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   errors?: Resolver<Maybe<ResolversTypes['TemplateErrors']>, ParentType, ContextType>;
   id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  isDefault?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
   isDirty?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   languageId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   latestPublishDate?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -7893,6 +7906,7 @@ export type TemplateSearchResultResolvers<ContextType = MyContext, ParentType ex
   createdByName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   description?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  isDefault?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
   isDirty?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
   latestPublishDate?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   latestPublishVersion?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -8239,6 +8253,7 @@ export type VersionedTemplateResolvers<ContextType = MyContext, ParentType exten
   description?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   errors?: Resolver<Maybe<ResolversTypes['VersionedTemplateErrors']>, ParentType, ContextType>;
   id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  isDefault?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
   modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
@@ -8269,6 +8284,7 @@ export type VersionedTemplateSearchResultResolvers<ContextType = MyContext, Pare
   bestPractice?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
   description?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  isDefault?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
   modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   modifiedByName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;

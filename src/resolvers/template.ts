@@ -102,7 +102,7 @@ export const resolvers: Resolvers = {
           if (copyFromTemplateId) {
             // Copy from a working template (must be owned by admin)
             const originalTemplate = await Template.findById(reference, context, copyFromTemplateId);
-            
+
             if (originalTemplate) {
               // Check if the admin owns this template
               if (originalTemplate.ownerId === context.token.affiliationId) {
@@ -112,7 +112,7 @@ export const resolvers: Resolvers = {
                 template.name = name;
                 template.sourceTemplateId = copyFromTemplateId;
                 template.sourceVersionedTemplateId = null;
-              } 
+              }
             } else {
               // Template not found
               template = new Template({ name, ownerId: context.token.affiliationId });
@@ -122,7 +122,7 @@ export const resolvers: Resolvers = {
           } else if (copyFromVersionedTemplateId) {
             // Copy from a published versioned template (any published template)
             const versionedTemplate = await VersionedTemplate.findById(reference, context, copyFromVersionedTemplateId);
-            
+
             if (versionedTemplate) {
               adminOwnsTemplate = false; // Always copy from versioned tables
               template = cloneTemplate(context.token?.id, context.token.affiliationId, versionedTemplate);
@@ -231,7 +231,7 @@ export const resolvers: Resolvers = {
 
     // Update the specified template
     //    - called by the Template options page
-    updateTemplate: async (_, { templateId, name, bestPractice }, context: MyContext): Promise<Template> => {
+    updateTemplate: async (_, { templateId, name, bestPractice, isDefault }, context: MyContext): Promise<Template> => {
       const reference = 'updateTemplate resolver';
       try {
         if (isAdmin(context.token)) {
@@ -240,10 +240,11 @@ export const resolvers: Resolvers = {
           // Need to create an instance of template in order to access the "update" method below
           const templateInstance = new Template({ ...template });
 
-          // Only allow the bestPractice flag to be changed if the user is a Super admin!
-          templateInstance.bestPractice = isSuperAdmin(context.token) && bestPractice !== undefined
-            ? bestPractice
-            : template.bestPractice;
+          // Only allow the bestPractice and isDefault flags to be changed if the user is a Super admin!
+          if (isSuperAdmin(context.token)) {
+            templateInstance.bestPractice = bestPractice !== undefined ? bestPractice : template.bestPractice;
+            templateInstance.isDefault = isDefault !== undefined ? isDefault : template.isDefault;
+          }
 
           if (templateInstance) {
             if (await hasPermissionOnTemplate(context, template)) {

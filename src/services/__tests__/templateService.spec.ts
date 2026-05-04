@@ -204,6 +204,7 @@ describe('template versioning', () => {
         latestPublishVersion: '',
         isDirty: true,
         bestPractice: false,
+        isDefault: true,
         createdById: casual.integer(1, 999),
         created: tstamp,
         modifiedById: casual.integer(1, 999),
@@ -366,6 +367,7 @@ describe('template versioning', () => {
     expect(newVersion.ownerId).toEqual(tmplt.ownerId);
     expect(newVersion.visibility).toEqual(latestPublishVisibility);
     expect(newVersion.bestPractice).toEqual(tmplt.bestPractice);
+    expect(newVersion.isDefault).toEqual(tmplt.isDefault);
     expect(newVersion.version).toEqual('v1');
     expect(newVersion.versionedById).toEqual(context.token.id);
     expect(newVersion.comment).toEqual(comment);
@@ -397,6 +399,7 @@ describe('template versioning', () => {
       active: true,
       latestPublishVisibility: getRandomEnumValue(TemplateVisibility),
       bestPractice: true,
+      isDefault: false,
     });
     versionedTemplateStore.push(oldVersion);
     const comment = casual.sentences(3);
@@ -431,6 +434,7 @@ describe('template versioning', () => {
     expect(newVersion.ownerId).toEqual(tmplt.ownerId);
     expect(newVersion.visibility).toEqual(latestPublishVisibility);
     expect(newVersion.bestPractice).toEqual(tmplt.bestPractice);
+    expect(newVersion.isDefault).toEqual(tmplt.isDefault);
     expect(newVersion.version).toEqual('v2');
     expect(newVersion.versionedById).toEqual(context.token.id);
     expect(newVersion.comment).toEqual(comment);

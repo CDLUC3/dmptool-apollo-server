@@ -206,6 +206,9 @@ export const resolvers: Resolvers = {
                 newDisplayOrder
               );
 
+              // Update the associated template to set isDirty=1
+              await Template.markTemplateAsDirty('Question resolver - updateQuestionDisplayOrder', context, question.templateId);
+
               return { questions: reordered ?? [] };
 
             } catch (err) {

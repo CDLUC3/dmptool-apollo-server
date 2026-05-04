@@ -325,6 +325,8 @@ export const resolvers: Resolvers = {
                 newDisplayOrder
               );
 
+              await Template.markTemplateAsDirty(reference, context, section.templateId);
+
               return { sections: reorderedSections ?? [] };
 
             } catch (err) {

@@ -225,12 +225,12 @@ export const sendProjectCollaboratorsCommentsAddedEmail = async (
 
 export const sendFeedbackCompleteEmail = async (
   context: MyContext,
-  planOwnerUserId: number,
+  feedbackRequestedById: number,
   adminName: string,
   planTitle: string,
   planURL: string,
 ): Promise<boolean> => {
-  const user = await User.findById('sendFeedbackCompleteEmail', context, planOwnerUserId);
+  const user = await User.findById('sendFeedbackCompleteEmail', context, feedbackRequestedById);
   if (!user?.notify_on_feedback_complete) {
     return false;
   }
@@ -238,8 +238,8 @@ export const sendFeedbackCompleteEmail = async (
   const emailAddress = await user.getEmail(context);
   if (!emailAddress) {
     context.logger.error(
-      prepareObjectForLogs({ planOwnerUserId }),
-      `User with ID ${planOwnerUserId} does not have an email address and cannot be sent a feedback complete email`
+      prepareObjectForLogs({ feedbackRequestedById }),
+      `User with ID ${feedbackRequestedById} does not have an email address and cannot be sent a feedback complete email`
     );
     return false;
   }

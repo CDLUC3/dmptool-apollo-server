@@ -2389,7 +2389,7 @@ export type Plan = {
   /** The user who last modified the Object */
   modifiedById?: Maybe<Scalars['Int']['output']>;
   /** The user who created the plan */
-  planOwner?: Maybe<User>;
+  planCreator?: Maybe<User>;
   /** The progress the user has made within the plan */
   progress?: Maybe<PlanProgress>;
   /** The project the plan is associated with */
@@ -6959,7 +6959,7 @@ export type PlanResolvers<ContextType = MyContext, ParentType extends ResolversP
   members?: Resolver<Maybe<Array<ResolversTypes['PlanMember']>>, ParentType, ContextType>;
   modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  planOwner?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType>;
+  planCreator?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType>;
   progress?: Resolver<Maybe<ResolversTypes['PlanProgress']>, ParentType, ContextType>;
   project?: Resolver<Maybe<ResolversTypes['Project']>, ParentType, ContextType>;
   registered?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;

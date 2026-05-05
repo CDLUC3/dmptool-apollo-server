@@ -226,7 +226,6 @@ export const resolvers: Resolvers = {
               throw NotFoundError(`PlanFeedback with ID ${planFeedbackId} not found`);
             }
 
-
             const newFeedback = new PlanFeedback({
               id: feedback.id,
               planId: feedback.planId,
@@ -243,13 +242,13 @@ export const resolvers: Resolvers = {
             }
 
             if (sendEmail) {
-              const planURL = `/projects/${project.id}/plans/${planId}`;
+              const planURL = `/projects/${project.id}/dmp/${planId}`;
               const adminName = [context.token.givenName, context.token.surName]
                 .filter(Boolean).join(' ');
 
               await sendFeedbackCompleteEmail(
                 context,
-                plan.createdById,
+                feedback.requestedById,
                 adminName,
                 plan.title,
                 planURL,

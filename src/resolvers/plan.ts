@@ -56,6 +56,10 @@ export const resolvers: Resolvers = {
         }
 
         const project = await Project.findById(reference, context, plan.projectId);
+        if (!project) {
+          throw NotFoundError(`Project with ID ${plan.projectId} not found`);
+        }
+
         if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.COMMENT)) {
           return plan;
         }
@@ -286,7 +290,7 @@ export const resolvers: Resolvers = {
 
   Plan: {
     // The user who owns/created the plan
-    planOwner: async (parent: Plan, _, context: MyContext): Promise<User> => {
+    planCreator: async (parent: Plan, _, context: MyContext): Promise<User> => {
       if (parent?.createdById) {
         return await User.findById('plan.createdBy resolver', context, parent.createdById);
       }

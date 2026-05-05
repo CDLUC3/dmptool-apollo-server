@@ -8,7 +8,12 @@ import { VersionedSection } from '../models/VersionedSection';
 import { VersionedQuestion } from "../models/VersionedQuestion";
 import { User, UserRole } from '../models/User';
 import { MyContext } from "../context";
-import { cloneTemplate, generateTemplateVersion, hasPermissionOnTemplate } from "../services/templateService";
+import {
+  cloneTemplate,
+  generateTemplateVersion,
+  hasPermissionOnTemplate,
+  setDefaultTemplate
+} from "../services/templateService";
 import { cloneSection } from "../services/sectionService";
 import { cloneQuestion } from "../services/questionService";
 import { isAdmin, isSuperAdmin } from "../services/authService";
@@ -239,7 +244,7 @@ export const resolvers: Resolvers = {
             throw NotFoundError('Template does not exist');
           }
 
-          if (await template.markAsDefault(reference, context)) {
+          if (await setDefaultTemplate(reference, context, template)) {
             // Refetch the updated template and return it
             return await Template.findById(reference, context, templateId);
           } else {

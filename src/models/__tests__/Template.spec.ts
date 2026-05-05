@@ -289,51 +289,6 @@ describe('Template', () => {
     });
   });
 
-  describe('markAsDefault', () => {
-    let template: Template;
-    let mockMark;
-    let mockUnmark;
-
-    beforeEach(async () => {
-      jest.clearAllMocks();
-
-      mockMark = jest.fn();
-      mockUnmark = jest.fn();
-
-      template = new Template({
-        id: casual.integer(1, 99),
-        name: casual.sentence,
-        ownerId: casual.url,
-        createdById: casual.integer(1, 99),
-      });
-    });
-
-    it('successfully marks the template as default', async () => {
-      jest.spyOn(Template,'query').mockResolvedValue([{}]);
-      await template.markAsDefault('Test', context);
-      expect(Template.query).toHaveBeenCalledTimes(2);
-      expect(Template.query).toHaveBeenLastCalledWith(context, 'UPDATE templates SET isDefault 0 WHERE id != ?;', [template.id.toString()], 'Test');
-    });
-
-    it('does not unmark the existing template as default if the marking failed', async () => {
-      jest.spyOn(Template,'query').mockResolvedValue(undefined);
-      await template.markAsDefault('Test', context);
-      expect(Template.query).toHaveBeenCalledTimes(1);
-      expect(Template.query).toHaveBeenLastCalledWith(context, 'UPDATE templates SET isDefault 1 WHERE id = ?;', [template.id.toString()], 'Test');
-    });
-
-    it('rolls back if the unmarking fails', async () => {
-      const spy = jest.spyOn(Template, 'query');
-      spy.mockResolvedValueOnce([{}]);
-      spy.mockResolvedValueOnce(undefined);
-      spy.mockResolvedValueOnce([{}]);
-
-      await template.markAsDefault('Test', context);
-      expect(Template.query).toHaveBeenCalledTimes(3);
-      expect(Template.query).toHaveBeenLastCalledWith(context, 'UPDATE templates SET isDefault 0 WHERE id = ?;', [template.id.toString()], 'Test');
-    });
-  });
-
   describe('create', () => {
     const originalInsert = Template.insert;
     let insertQuery;

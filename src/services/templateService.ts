@@ -199,3 +199,70 @@ export const cloneTemplate = (
 
   return templateCopy;
 }
+
+/**
+ * Set the default template (if another template is already the default this
+ * will remove that designation from the prior default)
+ * This also marks the VersionedTemplates
+ *
+ * @param reference The reference for logging
+ * @param context The Apollo context
+ * @param template the template that will become the default
+ * @returns true if successful
+ */
+export const setDefaultTemplate = async (
+  reference: string,
+  context: MyContext,
+  template: Template
+): Promise<boolean> => {
+  const tSQL = `UPDATE templates SET isDefault = ? WHERE id = ?;`;
+  const vtSQL = `UPDATE versionedTemplates SET isDefault = ? WHERE templateId = ?;`;
+
+  const currentDefault: VersionedTemplate = await VersionedTemplate.defaultTemplate(reference, context);
+
+  const newId = template.id.toString();
+  const oldId = currentDefault?.templateId?.toString();
+
+  // Mark the specified template as the default
+  context.logger.debug({ newDefault: template.id }, 'Setting new default template.');
+  const tMarked = await Template.query(context, tSQL, ['1', newId], reference);
+  if (tMarked) {
+    // Set the versionedTemplates
+    const vtMarked = await VersionedTemplate.query(context, vtSQL, ['1', newId], reference);
+
+console.log(`vtMarked: ${vtMarked}, oldId: ${oldId}`);
+
+    // If we did NOT successfully mark the new versioned templates
+    if (!vtMarked) {
+      // The marking of the versioned templates failed, so roll it back
+      context.logger.debug({newDefault: template.id}, 'Mark VersionedTemplate as default failed, rolling back changes.');
+      await Template.query(context, tSQL, ['0', newId], reference);
+      return false;
+    }
+
+    // If there was a prior default
+    if (oldId) {
+      // Unmark the old template
+      context.logger.debug({newDefault: template.id}, 'Removing default designation from other templates.');
+      const tUnmarked = await Template.query(context, tSQL, ['0', oldId], reference);
+      // Unmark the old versionedTemplates
+      const vtUnmarked = await VersionedTemplate.query(context, vtSQL, ['0', oldId], reference);
+
+console.log(`vUnmarked: ${tUnmarked}, vtUnmarked: ${vtUnmarked}`);
+
+      if (!tUnmarked || !vtUnmarked) {
+        // The unmarking of the old templates failed, so roll it all back
+        context.logger.debug({newDefault: template.id}, 'Mark as default failed, rolling back changes.');
+        await Template.query(context, tSQL, ['1', oldId], reference);
+        await VersionedTemplate.query(context, vtSQL, ['1', oldId], reference);
+        await Template.query(context, tSQL, ['0', newId], reference);
+        await VersionedTemplate.query(context, vtSQL, ['0', newId], reference);
+        return false;
+      }
+    }
+    // New default was set
+    return true;
+  }
+  // Couldn't mark the new template as the default
+  return false;
+};

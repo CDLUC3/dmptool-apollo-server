@@ -4,6 +4,7 @@
 
 ### Added
 - Added `planOwner` field to the `plan` query response so that client can get plan owner affiliation.uri for feedback pages [#198]
+- Added `feedback.spec.ts` unit tests for the feedback resolver [#198]
 - Added `feedbackStatus` to the plan query, so the client can know whether to display feedback notification at top of question page [#196]
 - Added new `OPENSEARCH_SERVERLESS_NODE` environment variable
 - Added a `PlanFeedbackStatus` type that can be returned by `planFeedbackStatus`, which now includes the feedback `id` [#191]

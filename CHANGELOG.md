@@ -63,6 +63,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `requestFeedback` resolver and `emailService` for that resolver with new message [#260]
 - Updated the `findTemplateCustomizationId` method sql query to guarantee that correct templateCustomizationId is retrieved [#200]
 - Updated `updateQuestionDisplayOrder` method in `question.ts` to mark the template as dirty whenever there is reordering. Did the same thing for `updateSectionDisplayOrder` in `section.ts` [#200]
 - Updated `handleFunderTemplateRepublication` to set correct `customization.currentVersionedTemplateId` after marking the old one as stale [#200]

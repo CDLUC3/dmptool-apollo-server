@@ -231,7 +231,7 @@ describe('sendEmail', () => {
 
     const expectedSubject = `${subjectPrefix} - ${emailSubjects.feedbackRequest}`;
     const domain = generalConfig.domain;
-    const expectedHtml = emailMessages.feedbackRequest
+    const baseHtml = emailMessages.feedbackRequest
       .replace('%{planOwnerName}', planOwnerName)
       .replace('%{feedbackRequestMessage}', feedbackMessage)
       .replace('%{planUrl}', `${domain}${planURL}`)
@@ -244,6 +244,7 @@ describe('sendEmail', () => {
     expect(logger.info).toHaveBeenCalledTimes(emails.length);
     expect(mockSendEmail).toHaveBeenCalledTimes(emails.length);
     for (const email of emails) {
+      const expectedHtml = baseHtml.replace('%{adminEmail}', email);
       expect(mockSendEmail).toHaveBeenCalledWith({
         "bcc": "",
         "cc": "",

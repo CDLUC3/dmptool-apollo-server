@@ -31,6 +31,7 @@ export const emailMessages = {
 <p>New comments were added to the plan.</p>
 `,
   feedbackRequest: `
+<p>Dear %{adminEmail},</p>
 <p>A DMP Tool user, %{planOwnerName} has submitted a request for feedback on their data management plan: "<a href="%{planUrl}">%{planTitle}</a>".</p>
 <p>Comment from requestor: %{feedbackRequestMessage}</p>
 <p>Please log into the DMP Tool in order to view this plan</p>
@@ -235,7 +236,7 @@ export const sendFeedbackRequestEmail = async (
   };
 
   const domain = generalConfig.domain;
-  const message = emailMessages.feedbackRequest
+  const baseMessage = emailMessages.feedbackRequest
     .replace('%{planOwnerName}', planOwnerName)
     .replace('%{feedbackRequestMessage}', feedbackRequestMessage)
     .replace('%{planUrl}', `${domain}${planURL}`)
@@ -246,6 +247,7 @@ export const sendFeedbackRequestEmail = async (
 
   // Send each feedback email recipient their own email
   for (const email of collaboratorEmails) {
+    const message = baseMessage.replace('%{adminEmail}', email);
     await sendEmail(
       context,
       'FeedbackRequest',

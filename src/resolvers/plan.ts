@@ -77,12 +77,12 @@ export const resolvers: Resolvers = {
           context,
           alternateIdentifier
         );
-        if (!alternateIdentifier) {
+        if (isNullOrUndefined(identifier)) {
           throw NotFoundError('Alternate identifier not found');
         }
 
         const plan = await Plan.findById(reference, context, identifier.planId);
-        if (!plan) {
+        if (isNullOrUndefined(plan)) {
           throw NotFoundError(`Plan with ID not found`);
         }
 

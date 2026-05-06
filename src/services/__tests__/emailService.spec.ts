@@ -218,7 +218,7 @@ describe('sendEmail', () => {
     expect(mockSendEmail).not.toHaveBeenCalled();
   });
 
-  it.only('should send feedback request emails to all collaborators', async () => {
+  it('should send feedback request emails to all collaborators', async () => {
     jest.spyOn(logger, 'info');
     const emails = Array.from({ length: 3 }, () => casual.email);
     const planOwnerName = `${casual.first_name} ${casual.last_name}`;

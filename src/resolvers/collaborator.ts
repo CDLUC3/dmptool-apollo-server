@@ -8,7 +8,7 @@ import { User } from '../models/User';
 import { MyContext } from "../context";
 import { Template } from "../models/Template";
 import { Project } from "../models/Project";
-import {isAdmin, isAuthorized, isSuperAdmin} from "../services/authService";
+import { isAdmin, isAuthorized, isSuperAdmin } from "../services/authService";
 import {
   AuthenticationError,
   BadRequestError,
@@ -18,6 +18,10 @@ import {
 } from "../utils/graphQLErrors";
 import { hasPermissionOnTemplate } from "../services/templateService";
 import { hasPermissionOnProject } from "../services/projectService";
+import {
+  validateProjectCollaboratorAccessChange,
+  demoteExistingPrimaryCollaborator,
+} from "../services/collaboratorService";
 import { sendProjectCollaborationEmail } from '../services/emailService';
 import { prepareObjectForLogs } from "../logger";
 import { GraphQLError } from "graphql";
@@ -34,7 +38,7 @@ export const resolvers: Resolvers = {
         // if the user is an admin
         if (isAdmin(context.token)) {
           const template = await Template.findById(reference, context, templateId);
-          if (isNullOrUndefined(template)){
+          if (isNullOrUndefined(template)) {
             throw NotFoundError();
           }
 
@@ -252,9 +256,10 @@ export const resolvers: Resolvers = {
         throw InternalServerError();
       }
     },
-    // Add a collaborator to a Project
+    // Update a collaborator on a Project
     updateProjectCollaborator: async (_, { projectCollaboratorId, accessLevel }, context: MyContext): Promise<ProjectCollaborator> => {
       const reference = 'updateProjectCollaborator resolver';
+
       try {
         const projectCollaborator = await ProjectCollaborator.findById(reference, context, projectCollaboratorId);
 
@@ -266,8 +271,20 @@ export const resolvers: Resolvers = {
         // Get project info to check permissions
         const project = await Project.findById(reference, context, projectCollaborator.projectId);
 
+        await validateProjectCollaboratorAccessChange(
+          context,
+          project.id,
+          projectCollaborator.accessLevel,
+          accessLevel as ProjectCollaboratorAccessLevel
+        );
+
         // If the user has permission on the Project
         if (await hasPermissionOnProject(context, project)) {
+          // Demote any existing PRIMARY to OWN before promoting this collaborator
+          if (accessLevel === ProjectCollaboratorAccessLevel.PRIMARY) {
+            await demoteExistingPrimaryCollaborator(context, project.id, projectCollaboratorId);
+          }
+
           const newProjectCollaborator = new ProjectCollaborator({
             ...projectCollaborator,
             accessLevel: accessLevel

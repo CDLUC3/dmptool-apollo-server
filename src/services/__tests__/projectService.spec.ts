@@ -13,9 +13,9 @@ import {
 } from "../projectService";
 import { ProjectCollaborator, ProjectCollaboratorAccessLevel } from "../../models/Collaborator";
 import { User } from "../../models/User";
-import {ProjectMember} from "../../models/Member";
-import {MemberRole} from "../../models/MemberRole";
-import {MyContext} from "../../context";
+import { ProjectMember } from "../../models/Member";
+import { MemberRole } from "../../models/MemberRole";
+import { MyContext } from "../../context";
 
 // Pulling context in here so that the mysql gets mocked
 jest.mock('../../context.ts');
@@ -198,7 +198,7 @@ describe('setCurrentUserAsProjectOwner', () => {
     const collaborator = new ProjectCollaborator({
       projectId: project.id,
       email: context.token.email,
-      accessLevel: ProjectCollaboratorAccessLevel.OWN,
+      accessLevel: ProjectCollaboratorAccessLevel.PRIMARY,
       invitedById: context.token.id,
     });
     jest.spyOn(ProjectCollaborator, 'insert').mockResolvedValue(newId);

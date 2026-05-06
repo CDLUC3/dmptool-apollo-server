@@ -17,7 +17,7 @@ import { Project } from "../models/Project";
 import { Plan } from "../models/Plan";
 import { PlanFeedback } from "../models/PlanFeedback";
 import { User } from "../models/User";
-import { ProjectCollaborator } from "../models/Collaborator";
+import { ProjectCollaborator, ProjectCollaboratorAccessLevel } from "../models/Collaborator";
 import { PlanFeedbackComment } from "../models/PlanFeedbackComment";
 import { VersionedTemplate } from "../models/VersionedTemplate";
 import { Affiliation } from "../models/Affiliation";
@@ -173,7 +173,8 @@ export const resolvers: Resolvers = {
             throw ForbiddenError(`There is already feedback in progress for plan ${planId}`);
           }
 
-          if (await hasPermissionOnProject(context, project)) {
+          //Feedback request can only be made by ADMINs and SUPERADMINs or a collaborator with PRIMARY access
+          if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.PRIMARY)) {
             const feedbackComment = new PlanFeedback({
               planId,
               messageToOrg: messageToOrg ?? '',

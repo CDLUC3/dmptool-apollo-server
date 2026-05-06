@@ -4,9 +4,9 @@ import { ProjectCollaborator, ProjectCollaboratorAccessLevel } from "../models/C
 import { Project } from "../models/Project";
 import { User } from "../models/User";
 import { isAdmin, isSuperAdmin } from "./authService";
-import {isNullOrUndefined} from "../utils/helpers";
-import {ProjectMember} from "../models/Member";
-import {MemberRole} from "../models/MemberRole";
+import { isNullOrUndefined } from "../utils/helpers";
+import { ProjectMember } from "../models/Member";
+import { MemberRole } from "../models/MemberRole";
 
 // Determine whether the specified user has permission to access the Section
 export const hasPermissionOnProject = async (
@@ -41,14 +41,24 @@ export const hasPermissionOnProject = async (
     if (Array.isArray(collaborators) && collaborators.length > 0) {
       const collab = collaborators.find((collaborator) => collaborator.userId === context.token.id);
       if (collab) {
+        if (!collab.accessLevel) return false;
+
         switch (requiredAccessLevel) {
           case ProjectCollaboratorAccessLevel.COMMENT:
+            // Any collaborator level satisfies COMMENT
             return true;
           case ProjectCollaboratorAccessLevel.EDIT:
-            return collab.accessLevel === ProjectCollaboratorAccessLevel.OWN ||
-                   collab.accessLevel === ProjectCollaboratorAccessLevel.EDIT;
+            // EDIT, OWN, or PRIMARY can edit
+            return collab.accessLevel === ProjectCollaboratorAccessLevel.EDIT ||
+              collab.accessLevel === ProjectCollaboratorAccessLevel.OWN ||
+              collab.accessLevel === ProjectCollaboratorAccessLevel.PRIMARY;
           case ProjectCollaboratorAccessLevel.OWN:
-            return collab.accessLevel === ProjectCollaboratorAccessLevel.OWN;
+            // OWN or PRIMARY can do owner-level actions
+            return collab.accessLevel === ProjectCollaboratorAccessLevel.OWN ||
+              collab.accessLevel === ProjectCollaboratorAccessLevel.PRIMARY;
+          case ProjectCollaboratorAccessLevel.PRIMARY:
+            // Only PRIMARY has full access
+            return collab.accessLevel === ProjectCollaboratorAccessLevel.PRIMARY;
           default:
             return false;
         }
@@ -67,12 +77,12 @@ export const setCurrentUserAsProjectOwner = async (
   projectId: number,
 ): Promise<boolean> => {
   if (!isNullOrUndefined(context.token)) {
-    // Automatically add the current user as a projectCollaborator with acccessLevel = OWN
+    // Automatically add the current user as a projectCollaborator with acccessLevel = PRIMARY (Full Access)
     const collaborator = new ProjectCollaborator({
       projectId: projectId,
       email: context.token.email,
       userId: context.token.id,
-      accessLevel: 'OWN',
+      accessLevel: 'PRIMARY',
     });
     // Create the ProjectCollaborator record but skip sending an email notification
     // because the user already knows they can edit their own project!

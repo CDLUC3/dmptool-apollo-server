@@ -15,6 +15,7 @@ export const emailSubjects = {
   templateCollaboration: 'You were invited to collaborate on a template',
   projectCollaboratorCommentsAdded: 'New comments added to the plan',
   feedbackRequest: 'You have been requested to provide feedback on a data management plan',
+  feedbackComplete: 'Feedback on your data management plan is complete',
 }
 
 export const emailMessages = {
@@ -29,6 +30,15 @@ export const emailMessages = {
 `,
   projectCollaboratorCommentsAdded: `
 <p>New comments were added to the plan.</p>
+`,
+  feedbackComplete: `
+<p>Hello %{planOwnerName},</p>
+<p>%{adminName} has finished providing feedback on the plan "<a href="%{planUrl}">%{planTitle}</a>".
+Comments can be found in the 'Write plan' tab on the right side of the page (Guidance/Comments).</p>
+<p>Thank you,<br>The DMP Tool team</p>
+<p><small>You may change your notification preferences on your <a href="%{profileUrl}">profile page</a>.
+Please do not reply to this email. If you have any questions or need help, please contact us at
+<a href="mailto:%{helpDeskEmail}">%{helpDeskEmail}</a> or visit the <a href="%{helpUrl}">Help Page</a>.</small></p>
 `,
   feedbackRequest: `
 <p>Dear %{adminEmail},</p>
@@ -183,7 +193,7 @@ export const sendProjectCollaborationEmail = async (
       context.logger.error(prepareObjectForLogs({ userId }), `User with ID ${userId} does not have an email address and cannot be sent a project collaboration email`);
       return false;
     }
-    // Use the user's primary email address, regardless of what was provided
+
     toAddress = emailAddress;
   }
 
@@ -221,6 +231,49 @@ export const sendProjectCollaboratorsCommentsAddedEmail = async (
     );
   }
   return true;
+}
+
+export const sendFeedbackCompleteEmail = async (
+  context: MyContext,
+  feedbackRequestedById: number,
+  adminName: string,
+  planTitle: string,
+  planURL: string,
+): Promise<boolean> => {
+  const user = await User.findById('sendFeedbackCompleteEmail', context, feedbackRequestedById);
+  if (!user?.notify_on_feedback_complete) {
+    return false;
+  }
+
+  const emailAddress = await user.getEmail(context);
+  if (!emailAddress) {
+    context.logger.error(
+      prepareObjectForLogs({ feedbackRequestedById }),
+      `User with ID ${feedbackRequestedById} does not have an email address and cannot be sent a feedback complete email`
+    );
+    return false;
+  }
+
+  const planOwnerName = [user.givenName, user.surName].filter(Boolean).join(' ');
+  const domain = generalConfig.domain;
+  const message = emailMessages.feedbackComplete
+    .replace('%{planOwnerName}', planOwnerName)
+    .replace('%{adminName}', adminName)
+    .replace('%{planUrl}', `${domain}${planURL}`)
+    .replace('%{planTitle}', planTitle)
+    .replace('%{profileUrl}', `${domain}/account/profile`)
+    .replace('%{helpDeskEmail}', emailConfig.helpDeskAddress)
+    .replace('%{helpUrl}', `${domain}/help`);
+
+  return await sendEmail(
+    context,
+    'FeedbackComplete',
+    [emailAddress],
+    [],
+    [],
+    emailSubjects.feedbackComplete,
+    message
+  );
 }
 
 export const sendFeedbackRequestEmail = async (

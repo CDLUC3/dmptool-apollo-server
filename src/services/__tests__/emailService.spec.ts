@@ -18,7 +18,8 @@ import {
   sendEmailConfirmationNotification,
   sendProjectCollaborationEmail,
   sendTemplateCollaborationEmail,
-  sendProjectCollaboratorsCommentsAddedEmail
+  sendProjectCollaboratorsCommentsAddedEmail,
+  sendFeedbackCompleteEmail,
 } from "../emailService";
 import { generalConfig } from "../../config/generalConfig";
 import { emailConfig } from "../../config/emailConfig";
@@ -216,6 +217,98 @@ describe('sendEmail', () => {
 
     expect(sent).toBe(false);
     expect(mockSendEmail).not.toHaveBeenCalled();
+  });
+
+  it('should send plan owner an email when feedback is complete', async () => {
+    jest.spyOn(logger, 'info');
+    const email = casual.email;
+    const planOwnerUserId = casual.integer(1, 99);
+    const adminName = `${casual.first_name} ${casual.last_name}`;
+    const planTitle = casual.sentence;
+    const planURL = casual.url;
+    const user = new User({
+      id: planOwnerUserId,
+      givenName: casual.first_name,
+      surName: casual.last_name,
+      notify_on_feedback_complete: true,
+    });
+    (User.findById as jest.Mock) = jest.fn().mockResolvedValueOnce(user);
+    jest.spyOn(User.prototype, 'getEmail').mockResolvedValue(email);
+    const sent = await sendFeedbackCompleteEmail(context, planOwnerUserId, adminName, planTitle, planURL);
+
+    const expectedSubject = `${subjectPrefix} - ${emailSubjects.feedbackComplete}`;
+    const planOwnerName = [user.givenName, user.surName].filter(Boolean).join(' ');
+    const domain = generalConfig.domain;
+    const expectedMessage = emailMessages.feedbackComplete
+      .replace('%{planOwnerName}', planOwnerName)
+      .replace('%{adminName}', adminName)
+      .replace('%{planUrl}', `${domain}${planURL}`)
+      .replace('%{planTitle}', planTitle)
+      .replace('%{profileUrl}', `${domain}/account/profile`)
+      .replace('%{helpDeskEmail}', emailConfig.helpDeskAddress)
+      .replace('%{helpUrl}', `${domain}/help`);
+
+    expect(sent).toBe(true);
+    expect(logger.info).toHaveBeenCalledTimes(1);
+    // sendEmail should have been called once
+    expect(mockSendEmail).toHaveBeenCalledTimes(1);
+    expect(mockSendEmail).toHaveBeenCalledWith({
+      "bcc": "",
+      "cc": "",
+      "from": `"${generalConfig.applicationName}" <${emailConfig.doNotReplyAddress}>`,
+      "html": expectedMessage,
+      "replyTo": emailConfig.helpDeskAddress,
+      "sender": emailConfig.doNotReplyAddress,
+      "subject": expectedSubject,
+      "to": email,
+    });
+  });
+
+  it('should return false when user has notify_on_feedback_complete disabled', async () => {
+    const planOwnerUserId = casual.integer(1, 99);
+    const user = new User({
+      id: planOwnerUserId,
+      givenName: casual.first_name,
+      surName: casual.last_name,
+      notify_on_feedback_complete: false,
+    });
+    (User.findById as jest.Mock) = jest.fn().mockResolvedValueOnce(user);
+
+    const sent = await sendFeedbackCompleteEmail(
+      context,
+      planOwnerUserId,
+      casual.full_name,
+      casual.sentence,
+      casual.url,
+    );
+
+    expect(sent).toBe(false);
+    expect(mockSendEmail).not.toHaveBeenCalled();
+  });
+
+  it('should log an error and return false when the plan owner has no email address', async () => {
+    jest.spyOn(context.logger, 'error');
+    const planOwnerUserId = casual.integer(1, 99);
+    const user = new User({
+      id: planOwnerUserId,
+      givenName: casual.first_name,
+      surName: casual.last_name,
+      notify_on_feedback_complete: true,
+    });
+    (User.findById as jest.Mock) = jest.fn().mockResolvedValueOnce(user);
+    jest.spyOn(User.prototype, 'getEmail').mockResolvedValue(null);
+
+    const sent = await sendFeedbackCompleteEmail(
+      context,
+      planOwnerUserId,
+      casual.full_name,
+      casual.sentence,
+      casual.url,
+    );
+
+    expect(sent).toBe(false);
+    expect(mockSendEmail).not.toHaveBeenCalled();
+    expect(context.logger.error).toHaveBeenCalledTimes(1);
   });
 
   it('should send feedback request emails to all collaborators', async () => {

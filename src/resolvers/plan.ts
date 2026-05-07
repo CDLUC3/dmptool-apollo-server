@@ -4,6 +4,7 @@ import { Plan, PlanSearchResult, PlanSectionProgress, PlanProgress, PlanStatus, 
 import { prepareObjectForLogs } from "../logger";
 import { AuthenticationError, ForbiddenError, InternalServerError, NotFoundError } from "../utils/graphQLErrors";
 import { Project } from "../models/Project";
+import { User } from "../models/User";
 import { isAuthorized } from "../services/authService";
 import { hasPermissionOnProject } from "../services/projectService";
 import { PlanMember } from "../models/Member";
@@ -55,6 +56,10 @@ export const resolvers: Resolvers = {
         }
 
         const project = await Project.findById(reference, context, plan.projectId);
+        if (!project) {
+          throw NotFoundError(`Project with ID ${plan.projectId} not found`);
+        }
+
         if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.COMMENT)) {
           return plan;
         }
@@ -284,6 +289,13 @@ export const resolvers: Resolvers = {
   },
 
   Plan: {
+    // The user who owns/created the plan
+    planCreator: async (parent: Plan, _, context: MyContext): Promise<User> => {
+      if (parent?.createdById) {
+        return await User.findById('plan.createdBy resolver', context, parent.createdById);
+      }
+      return null;
+    },
     // The project the plan is associated with
     project: async (parent: Plan, _, context: MyContext): Promise<Project> => {
       if (parent?.projectId) {

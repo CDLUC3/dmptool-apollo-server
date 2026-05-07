@@ -10,7 +10,11 @@ import {
 
 import { isAuthorized } from "../services/authService";
 import { hasPermissionOnProject } from "../services/projectService";
-import { sendProjectCollaboratorsCommentsAddedEmail, sendFeedbackRequestEmail } from '../services/emailService';
+import {
+  sendProjectCollaboratorsCommentsAddedEmail,
+  sendFeedbackRequestEmail,
+  sendFeedbackCompleteEmail
+} from '../services/emailService';
 import { isAdmin, isSuperAdmin } from "../services/authService";
 import { canDeleteComment } from "../services/commentPermissions";
 import { Project } from "../models/Project";
@@ -204,7 +208,7 @@ export const resolvers: Resolvers = {
       }
     },
     // Mark the feedback round as complete
-    completeFeedback: async (_, { planId, planFeedbackId, summaryText }, context: MyContext): Promise<PlanFeedback> => {
+    completeFeedback: async (_, { planId, planFeedbackId, summaryText, sendEmail = true }, context: MyContext): Promise<PlanFeedback> => {
       const reference = 'completeFeedback resolver';
       try {
         if (isAuthorized(context.token)) {
@@ -223,7 +227,6 @@ export const resolvers: Resolvers = {
               throw NotFoundError(`PlanFeedback with ID ${planFeedbackId} not found`);
             }
 
-
             const newFeedback = new PlanFeedback({
               id: feedback.id,
               planId: feedback.planId,
@@ -238,6 +241,21 @@ export const resolvers: Resolvers = {
             if (!updatedFeedback) {
               throw NotFoundError(`PlanFeedback with ID ${planFeedbackId} not found`);
             }
+
+            if (sendEmail) {
+              const planURL = `/projects/${project.id}/dmp/${planId}`;
+              const adminName = [context.token.givenName, context.token.surName]
+                .filter(Boolean).join(' ');
+
+              await sendFeedbackCompleteEmail(
+                context,
+                feedback.requestedById,
+                adminName,
+                plan.title,
+                planURL,
+              );
+            }
+
             return updatedFeedback;
 
           }

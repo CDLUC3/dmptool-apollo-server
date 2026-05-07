@@ -666,8 +666,6 @@ export class Plan extends MySqlModel {
           .map((plan: Plan): string | undefined => plan.title)
           .filter((title: string | undefined): title is string => typeof title === 'string');
 
-console.log('existingPlans', existingPlans);
-
         this.title = resolveNamingCollision(this.title, existingPlanTitles);
 
         // Create the new Plan

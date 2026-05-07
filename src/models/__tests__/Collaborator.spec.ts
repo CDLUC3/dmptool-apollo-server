@@ -623,6 +623,30 @@ describe('ProjectCollaborator', () => {
       expect(result).toEqual([]);
     });
 
+    it('findByUserIdAndProjectId returns the Collaborator', async () => {
+      localQuery.mockResolvedValueOnce([projectCollaborator]);
+
+      const userId = casual.integer(1, 999);
+      const projectId = projectCollaborator.projectId;
+      const result = await ProjectCollaborator.findByUserIdAndProjectId('Test', context, userId, projectId);
+      const expectedSql = 'SELECT * FROM projectCollaborators WHERE userId = ? AND projectId = ?';
+      expect(localQuery).toHaveBeenCalledTimes(1);
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [userId.toString(), projectId.toString()], 'Test')
+      expect(result).toEqual(projectCollaborator);
+    });
+
+    it('findByUserIdAndProjectId returns null if there is no Collaborator', async () => {
+      localQuery.mockResolvedValueOnce([]);
+
+      const userId = casual.integer(1, 999);
+      const projectId = projectCollaborator.projectId;
+      const result = await ProjectCollaborator.findByUserIdAndProjectId('Test', context, userId, projectId);
+      const expectedSql = 'SELECT * FROM projectCollaborators WHERE userId = ? AND projectId = ?';
+      expect(localQuery).toHaveBeenCalledTimes(1);
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [userId.toString(), projectId.toString()], 'Test')
+      expect(result).toEqual(null);
+    });
+
     it('findByProjectIdAndEmail returns the Collaborator', async () => {
       localQuery.mockResolvedValueOnce([projectCollaborator]);
 
@@ -943,13 +967,13 @@ describe('ProjectCollaborator', () => {
 
     it('returns paginated results when projects exist', async () => {
       const projects = [
-        new Project({id: casual.integer(1, 99)}),
-        new Project({id: casual.integer(100, 199)})
+        new Project({ id: casual.integer(1, 99) }),
+        new Project({ id: casual.integer(100, 199) })
       ];
       const mockFindByAffiliation = jest.fn().mockResolvedValueOnce(projects);
       (Project.findByAffiliation as jest.Mock) = mockFindByAffiliation;
 
-      const collaborators = Array.from({length: 3}, () => ({
+      const collaborators = Array.from({ length: 3 }, () => ({
         id: casual.integer(1, 99),
         givenName: casual.first_name,
         surName: casual.last_name,
@@ -957,7 +981,7 @@ describe('ProjectCollaborator', () => {
         cursorId: casual.uuid
       }));
       localQuery.mockResolvedValueOnce(collaborators);
-      localQuery.mockResolvedValueOnce([{total: collaborators.length}]);
+      localQuery.mockResolvedValueOnce([{ total: collaborators.length }]);
 
       const result = await ProjectCollaborator.findPotentialCollaboratorsByTerm('Test', context, 'search');
       expect(result.items).toHaveLength(collaborators.length);

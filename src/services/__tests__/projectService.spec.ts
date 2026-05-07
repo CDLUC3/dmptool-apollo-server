@@ -127,6 +127,26 @@ describe('hasPermissionOnProject', () => {
     expect(mockQuery).toHaveBeenCalledTimes(0);
     expect(mockCollaboratorQuery).toHaveBeenCalledTimes(1);
   });
+
+  it('returns false if user has EDIT but PRIMARY is required', async () => {
+    mockIsSuperAdmin.mockResolvedValueOnce(false);
+    mockIsAdmin.mockResolvedValueOnce(false);
+    context.token = { id: casual.integer(1, 9999) };
+    mockCollaboratorQuery.mockResolvedValueOnce([
+      { userId: context.token.id, accessLevel: ProjectCollaboratorAccessLevel.EDIT }
+    ]);
+    expect(await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.PRIMARY)).toBe(false);
+  });
+
+  it('returns true if user has PRIMARY and PRIMARY is required', async () => {
+    mockIsSuperAdmin.mockResolvedValueOnce(false);
+    mockIsAdmin.mockResolvedValueOnce(false);
+    context.token = { id: casual.integer(1, 9999) };
+    mockCollaboratorQuery.mockResolvedValueOnce([
+      { userId: context.token.id, accessLevel: ProjectCollaboratorAccessLevel.PRIMARY }
+    ]);
+    expect(await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.PRIMARY)).toBe(true);
+  });
 });
 
 describe('setCurrentUserAsProjectOwner', () => {

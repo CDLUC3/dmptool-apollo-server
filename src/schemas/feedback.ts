@@ -22,7 +22,7 @@ export const typeDefs = gql`
     "Request a round of admin feedback"
     requestFeedback(planId: Int!, messageToOrg: String): PlanFeedback
     "Mark the feedback round as complete"
-    completeFeedback(planId: Int!, planFeedbackId: Int!, summaryText: String): PlanFeedback
+    completeFeedback(planId: Int!, planFeedbackId: Int!, summaryText: String, sendEmail: Boolean): PlanFeedback
     "Add feedback comment for an answer within a round of feedback"
     addFeedbackComment(planId: Int!, planFeedbackId: Int!, answerId: Int!, commentText: String!): PlanFeedbackComment
     "Update feedback comment for an answer within a round of feedback"

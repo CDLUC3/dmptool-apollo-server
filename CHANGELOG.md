@@ -3,6 +3,9 @@
 ## v1.1.0
 
 ### Added
+- Added `planCreator` field to the `plan` query response so that client can get plan owner affiliation.uri for feedback pages [#198]
+- Added `sendFeedbackCompleteEmail` to `emailService` [#198]
+- Added `feedback.spec.ts` unit tests for the feedback resolver [#198]
 - Added `feedbackStatus` to the plan query, so the client can know whether to display feedback notification at top of question page [#196]
 - Added new `OPENSEARCH_SERVERLESS_NODE` environment variable
 - Added a `PlanFeedbackStatus` type that can be returned by `planFeedbackStatus`, which now includes the feedback `id` [#191]
@@ -63,6 +66,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `completedFeedback` resolver to send an email to the feedback requestor when feedback is marked as complete, and added a `sendEmail` boolean flag to input variables to stop an email from being sent [#198]
 - Updated the `findTemplateCustomizationId` method sql query to guarantee that correct templateCustomizationId is retrieved [#200]
 - Updated `updateQuestionDisplayOrder` method in `question.ts` to mark the template as dirty whenever there is reordering. Did the same thing for `updateSectionDisplayOrder` in `section.ts` [#200]
 - Updated `handleFunderTemplateRepublication` to set correct `customization.currentVersionedTemplateId` after marking the old one as stale [#200]

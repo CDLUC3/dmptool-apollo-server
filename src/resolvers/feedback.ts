@@ -192,9 +192,17 @@ export const resolvers: Resolvers = {
             }
 
             const affiliation = await Affiliation.findByURI(reference, context, affiliationId);
-            // Send emails to the feedback recipients
-            await sendFeedbackRequestEmail(context, affiliation.feedbackEmails, messageToOrg ?? '');
 
+            if (affiliation.feedbackEmails.length === 0) {
+              context.logger.warn(prepareObjectForLogs({ affiliationId }), `Affiliation with ID ${affiliationId} has no feedback emails configured, so no notifications will be sent when requesting feedback`);
+            }
+
+            const planURL = `/projects/${project.id}/dmp/${planId}`;
+            const planOwnerName = [context.token.givenName, context.token.surname].filter(Boolean).join(' ');
+            const planTitle = plan.title || 'Untitled Plan';
+
+            // Send emails to the feedback recipients
+            await sendFeedbackRequestEmail(context, planOwnerName, planURL, planTitle, affiliation.feedbackEmails, messageToOrg ?? '');
 
             return await feedbackComment.create(context);
           }

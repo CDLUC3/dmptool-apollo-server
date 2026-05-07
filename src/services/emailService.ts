@@ -40,6 +40,16 @@ Comments can be found in the 'Write plan' tab on the right side of the page (Gui
 Please do not reply to this email. If you have any questions or need help, please contact us at
 <a href="mailto:%{helpDeskEmail}">%{helpDeskEmail}</a> or visit the <a href="%{helpUrl}">Help Page</a>.</small></p>
 `,
+  feedbackRequest: `
+<p>Dear %{adminEmail},</p>
+<p>A DMP Tool user, %{planOwnerName} has submitted a request for feedback on their data management plan: "<a href="%{planUrl}">%{planTitle}</a>".</p>
+<p>Comment from requestor: %{feedbackRequestMessage}</p>
+<p>Please log into the DMP Tool in order to view this plan</p>
+<p>Thank you,<br>The DMP Tool team</p>
+<p><small>You may change your notification preferences on your <a href="%{profileUrl}">profile page</a>.
+Please do not reply to this email. If you have any questions or need help, please contact us at
+<a href="mailto:%{helpDeskEmail}">%{helpDeskEmail}</a> or visit the <a href="%{helpUrl}">Help Page</a>.</small></p>
+`,
 }
 
 const transporter = nodemailer.createTransport({
@@ -268,6 +278,9 @@ export const sendFeedbackCompleteEmail = async (
 
 export const sendFeedbackRequestEmail = async (
   context: MyContext,
+  planOwnerName: string,
+  planURL: string,
+  planTitle: string,
   collaboratorEmails: string[],
   feedbackRequestMessage: string,
 ): Promise<boolean> => {
@@ -275,8 +288,19 @@ export const sendFeedbackRequestEmail = async (
     return false;
   };
 
+  const domain = generalConfig.domain;
+  const baseMessage = emailMessages.feedbackRequest
+    .replace('%{planOwnerName}', planOwnerName)
+    .replace('%{feedbackRequestMessage}', feedbackRequestMessage)
+    .replace('%{planUrl}', `${domain}${planURL}`)
+    .replace('%{planTitle}', planTitle)
+    .replace('%{profileUrl}', `${domain}/account/profile`)
+    .replace('%{helpDeskEmail}', emailConfig.helpDeskAddress)
+    .replace('%{helpUrl}', `${domain}/help`);
+
   // Send each feedback email recipient their own email
   for (const email of collaboratorEmails) {
+    const message = baseMessage.replace('%{adminEmail}', email);
     await sendEmail(
       context,
       'FeedbackRequest',
@@ -284,7 +308,7 @@ export const sendFeedbackRequestEmail = async (
       [],
       [],
       emailSubjects.feedbackRequest,
-      feedbackRequestMessage
+      message
     );
   }
   return true;

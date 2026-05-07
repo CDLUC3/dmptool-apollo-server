@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added new `resolveNamingCollision` helper method and updated `Plan.create` to use it to prevent duplicate plan names. 
 - Added `feedbackStatus` to the plan query, so the client can know whether to display feedback notification at top of question page [#196]
 - Added new `OPENSEARCH_SERVERLESS_NODE` environment variable
 - Added a `PlanFeedbackStatus` type that can be returned by `planFeedbackStatus`, which now includes the feedback `id` [#191]

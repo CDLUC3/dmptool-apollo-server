@@ -223,7 +223,7 @@ export class TemplateCollaborator extends Collaborator {
 
 // The type of access the collaborator can have on a Project
 export enum ProjectCollaboratorAccessLevel {
-  // The user is able to perform all actions on a Plan (typically restricted to the owner/creator), and their affiliation is the organization associated with the project
+  // The user is able to perform all actions on a Plan (typically restricted to the owner/creator)
   PRIMARY = 'PRIMARY',
   // Has admin rights to project (can invite other users, edit the plans and publish them)
   OWN = 'OWN',

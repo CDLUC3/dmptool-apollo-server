@@ -2805,7 +2805,7 @@ export type ProjectCollaboratorAccessLevel =
   | 'EDIT'
   /** Has admin rights to project (can invite other users, edit the plans and publish them) */
   | 'OWN'
-  /** The user is able to perform all actions on a Plan (typically restricted to the owner/creator), and their affiliation is the organization associated with the project */
+  /** The user is able to perform all actions on a Plan (typically restricted to the owner/creator) */
   | 'PRIMARY';
 
 /** A collection of errors related to the ProjectCollaborator */

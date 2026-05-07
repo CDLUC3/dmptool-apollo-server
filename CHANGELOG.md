@@ -66,6 +66,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Refactored the `saveMaDMPVersion` function in `planService` to use the shared functionality from `@dmptool/utils` package to write directly to Dynamo rather than sending SQS messages.
 - Updated `requestFeedback` resolver and `emailService` for that resolver with new message [#260]
 - Updated `completedFeedback` resolver to send an email to the feedback requestor when feedback is marked as complete, and added a `sendEmail` boolean flag to input variables to stop an email from being sent [#198]
 - Updated the `findTemplateCustomizationId` method sql query to guarantee that correct templateCustomizationId is retrieved [#200]

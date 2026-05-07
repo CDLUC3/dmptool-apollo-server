@@ -1,5 +1,7 @@
 import * as dotenv from 'dotenv';
 import { verifyCriticalEnvVariable } from "../utils/helpers";
+import {ConnectionParams} from "@dmptool/utils";
+import {Logger} from "pino";
 
 dotenv.config();
 
@@ -23,4 +25,17 @@ export const mysqlPoolConfig = {
   user: isTest ? process.env.MYSQL_TEST_USER : process.env.MYSQL_USER,
   password: isTest ? process.env.MYSQL_TEST_PASSWORD : process.env.MYSQL_PASSWORD,
   connectionLimit: Number(process.env.MYSQL_CONNECTION_LIMIT) || 5,
+};
+
+/**
+ * Get the connection parameters for the MySQL database. (needed by @dmptool/utils)
+ *
+ * @param logger The Pino logger
+ * @returns The connection parameters
+ */
+export const getRDSConnectionParams = (logger: Logger): ConnectionParams => {
+  return {
+    ...mysqlPoolConfig,
+    logger,
+  };
 };

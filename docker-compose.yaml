@@ -138,6 +138,11 @@ services:
       # (we use the same OpenSearch instance in this local environment)
       - "OPENSEARCH_SERVERLESS_NODE=http://opensearch:9200"
 
+      # DynamoDB table used to store maDMP versions
+      - "DYNAMO_ENDPOINT=http://localstack:4566"
+      - "DYNAMODB_TABLE_NAME=localDMPTable"
+      - "MAX_ATTEMPTS=3"
+
       # LocalStack managed SQS queue
       - "SQS_GENERATE_MADMP_QUEUE_URL=http://localstack:4566/000000000000/generateMaDMPRecord"
     volumes:

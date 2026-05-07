@@ -101,7 +101,7 @@ export const resolvers: Resolvers = {
               }
 
               // Generate the initial maDMP version of the record
-              await saveMaDMPVersion(reference, context, created.id, created.registered);
+              await saveMaDMPVersion(reference, context, created.id);
             }
 
             return created;
@@ -137,7 +137,7 @@ export const resolvers: Resolvers = {
 
               if (deleted) {
                 // Delete the maDMP versions of the record
-                await saveMaDMPVersion(reference, context, deleted.id, deleted.registered, true);
+                await saveMaDMPVersion(reference, context, deleted.id, true);
               }
             } else {
               return plan;
@@ -213,7 +213,7 @@ export const resolvers: Resolvers = {
 
                   if (published && !published.hasErrors()) {
                     // Update the maDMP version of the record
-                    await saveMaDMPVersion(reference, context, plan.id, plan.registered);
+                    await saveMaDMPVersion(reference, context, plan.id);
                   }
                   return published;
                 }
@@ -246,7 +246,7 @@ export const resolvers: Resolvers = {
 
             if (updated && !updated.hasErrors()) {
               // Update the maDMP version of the record
-              await saveMaDMPVersion(reference, context, updated.id, updated.registered);
+              await saveMaDMPVersion(reference, context, updated.id);
             }
           }
         }
@@ -274,7 +274,7 @@ export const resolvers: Resolvers = {
 
             if (updated && !updated.hasErrors()) {
               // Update the maDMP version of the record
-              await saveMaDMPVersion(reference, context, updated.id, updated.registered);
+              await saveMaDMPVersion(reference, context, updated.id);
             }
           }
         }

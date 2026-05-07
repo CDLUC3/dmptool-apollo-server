@@ -271,6 +271,7 @@ export const resolvers: Resolvers = {
         // Get project info to check permissions
         const project = await Project.findById(reference, context, projectCollaborator.projectId);
 
+        // Validate that an access level change is allowed:
         await validateProjectCollaboratorAccessChange(
           context,
           project.id,

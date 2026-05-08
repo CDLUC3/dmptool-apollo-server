@@ -70,6 +70,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Refactored the `saveMaDMPVersion` function in `planService` to use the shared functionality from `@dmptool/utils` package to write directly to Dynamo rather than sending SQS messages.
 - Updated `updateProjectCollaborator` resolver to use new collaborator service functions to validate access level change and to demote an existing `primary` permission, before promoting another collaborator [#227]
 - Updated permissions for who can `requestFeedback` [#227]
 - Updated `projectService` to include new `ProjectCollaboratorAccessLevel.PRIMARY [#227]

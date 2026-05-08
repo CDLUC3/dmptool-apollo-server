@@ -2803,8 +2803,10 @@ export type ProjectCollaboratorAccessLevel =
   | 'COMMENT'
   /** The user is able to perform most actions on a Project/Plan except (publish, mark as complete and change access) */
   | 'EDIT'
+  /** Has admin rights to project (can invite other users, edit the plans and publish them) */
+  | 'OWN'
   /** The user is able to perform all actions on a Plan (typically restricted to the owner/creator) */
-  | 'OWN';
+  | 'PRIMARY';
 
 /** A collection of errors related to the ProjectCollaborator */
 export type ProjectCollaboratorErrors = {

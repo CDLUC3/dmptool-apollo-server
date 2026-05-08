@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added local seed data for a Template that includes a research output question type, and a project/plan that uses it.
 - Added `planCreator` field to the `plan` query response so that client can get plan owner affiliation.uri for feedback pages [#198]
 - Added `sendFeedbackCompleteEmail` to `emailService` [#198]
 - Added `feedback.spec.ts` unit tests for the feedback resolver [#198]

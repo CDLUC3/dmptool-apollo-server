@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added local seed data for a Template that includes a research output question type, and a project/plan that uses it.
 - Added `PRIMARY` ProjectCollaboratorAccessLevel [#227]
 - Added `findByUserIdAndProjectId function to Collaborator model [#227]
 - Added new `collaboratorService` [#227]

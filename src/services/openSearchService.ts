@@ -284,7 +284,8 @@ export class OpenSearchService {
       response = await this.searchClient.search({
         index: 're3data',
         body: {
-          size: uris.length,
+          // Request more than uris.length to handle duplicate documents per URI
+          size: uris.length * 10,
           query: {
             terms: {
               uri: uris,
@@ -311,9 +312,19 @@ export class OpenSearchService {
 
     try {
       const body = (response as { body: { hits: { hits: OpenSearchRe3DataHit[] } } }).body;
-      return body.hits.hits.map((hit: OpenSearchRe3DataHit) => {
+      const records = body.hits.hits.map((hit: OpenSearchRe3DataHit) => {
         return convertRe3DataToCamelCase(hit._source);
       });
+
+      // Deduplicate by URI, keeping the most recently modified record
+      const byUri = new Map<string, Re3DataRepositoryRecord>();
+      for (const record of records) {
+        const existing = byUri.get(record.uri);
+        if (!existing || record.modified > existing.modified) {
+          byUri.set(record.uri, record);
+        }
+      }
+      return Array.from(byUri.values());
     } catch (err) {
       context.logger.error(prepareObjectForLogs(err), `Error converting OpenSearch response for re3data by URIs`);
 

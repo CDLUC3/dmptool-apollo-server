@@ -157,6 +157,7 @@
 - Removed `ioredis` package
 
 ### Fixed
+- Fixed an issue with duplicate URIs being returned to `findRe3DataByURIs` by deduping [#33]
 - Fixed bug in `openSearchService` that was throwing an error and not returning repositories [#196]
 - Fixed some new `type` errors in `feedback` resolver and `emailService` brought on by a recent update to `typescript-eslint` [#189]
 - Had issue running `nuke-db.sh` and `process.sh`, so I turned off SSL by using `--ssl=off` instead

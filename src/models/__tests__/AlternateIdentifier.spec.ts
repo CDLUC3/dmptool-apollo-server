@@ -88,6 +88,15 @@ describe('queries', () => {
     const expectedSql = 'SELECT * FROM alternateIdentifiers WHERE alternateIdentifier = ?';
     expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, [identifier], 'Testing')
   });
+
+  it('findByPlanId performs the expected query', async () => {
+    const planId = casual.integer(1, 999);
+    const querySpy = jest.spyOn(AlternateIdentifier, 'query').mockResolvedValueOnce([mockIdentifier]);
+    await AlternateIdentifier.findByPlanId('Testing', context, planId);
+    expect(querySpy).toHaveBeenCalledTimes(1);
+    const expectedSql = 'SELECT * FROM alternateIdentifiers WHERE planId = ?';
+    expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, [planId.toString()], 'Testing')
+  })
 });
 
 describe('create', () => {

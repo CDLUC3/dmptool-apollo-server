@@ -152,11 +152,18 @@ export class PlanSectionProgress {
     versionedTemplateId: number,
     affiliationId: string,
   ): Promise<number | undefined> {
+    // Join via templateId so the lookup works regardless of which specific
+    // versioned template the customization was published against (e.g. after
+    // a funder re-publishes their template the versionedTemplateId changes
+    // but the base templateId stays the same).
     const sql = `
-      SELECT templateCustomizationId
-      FROM versionedTemplateCustomizations
-      WHERE currentVersionedTemplateId = ?
-      AND affiliationId = ?
+      SELECT vtc.templateCustomizationId
+      FROM versionedTemplateCustomizations vtc
+      JOIN templateCustomizations tc ON tc.id = vtc.templateCustomizationId
+      JOIN versionedTemplates vt ON vt.templateId = tc.templateId
+      WHERE vt.id = ?
+        AND vtc.affiliationId = ?
+        AND vtc.active = 1
       LIMIT 1
     `;
     const rows = await Plan.query(context, sql, [versionedTemplateId.toString(), affiliationId], reference);

@@ -239,7 +239,7 @@ describe('PlanSectionProgress.findByPlanId', () => {
 
     expect(localQuery).toHaveBeenCalledTimes(2);
     expect(localQuery).toHaveBeenNthCalledWith(1, context, sql, [planId.toString()], 'testing');
-    expect(localQuery).toHaveBeenNthCalledWith(2, context, expect.stringContaining('SELECT templateCustomizationId'), [versionedTemplateId.toString(), context.token.affiliationId], 'testing');
+    expect(localQuery).toHaveBeenNthCalledWith(2, context, expect.stringContaining('SELECT vtc.templateCustomizationId'), [versionedTemplateId.toString(), context.token.affiliationId], 'testing');
     expect(result).toHaveLength(1);
   });
 
@@ -1078,3 +1078,4 @@ describe('delete', () => {
     expect(mockFindById).toHaveBeenCalledTimes(1);
   });
 });
+

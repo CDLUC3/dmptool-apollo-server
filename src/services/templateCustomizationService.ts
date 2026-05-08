@@ -170,8 +170,10 @@ export const handleFunderTemplateRepublication = async (
 
   if (Array.isArray(customizations) && customizations.length > 0) {
     await Promise.all(customizations.map(async (customization: TemplateCustomization) => {
-      // Mark all impacted customizations as stale
+      // Mark all impacted customizations as stale and point them at the new
+      // versioned template so that plan lookups continue to resolve against new versioned template
       customization.migrationStatus = TemplateCustomizationMigrationStatus.STALE;
+      customization.currentVersionedTemplateId = newVersionedTemplateId;
       await customization.update(context, true);
 
       // TODO: Process all SectionCustomizations and QuestionCustomizations and

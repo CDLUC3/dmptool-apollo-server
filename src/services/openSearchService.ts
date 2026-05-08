@@ -291,7 +291,7 @@ export class OpenSearchService {
             },
           },
           sort: {
-            name: {
+            "name.keyword": {
               order: 'asc',
             },
           }

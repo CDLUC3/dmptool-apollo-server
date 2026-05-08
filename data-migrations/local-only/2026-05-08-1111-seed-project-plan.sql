@@ -54,7 +54,7 @@ VALUES (1,1,'https://ror.org/021nxhr62','PLANNED',NULL,NULL,NULL,1,'2026-05-08 1
 
 INSERT INTO `projectCollaborators`
 VALUES (1,1,'super@example.com',1,1,'OWN','2026-05-08 17:51:47',1,'2026-05-08 17:51:47',1),
-       (2,1,'researcher@example.com',1,3,'OWN','2026-05-08 18:01:32',1,'2026-05-08 18:01:44',1),
+       (2,1,'researcher@example.com',1,3,'PRIMARY','2026-05-08 18:01:32',1,'2026-05-08 18:01:44',1),
        (3,1,'admin@example.com',1,2,'EDIT','2026-05-08 18:02:35',1,'2026-05-08 18:02:35',1);
 
 INSERT INTO `plans`

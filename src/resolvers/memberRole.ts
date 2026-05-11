@@ -5,11 +5,13 @@ import { MemberRole } from "../models/MemberRole";
 import { MyContext } from '../context';
 import { isSuperAdmin } from '../services/authService';
 import {
-  AuthenticationError, ForbiddenError, InternalServerError,
+  AuthenticationError,
+  ForbiddenError,
+  InternalServerError,
   NotFoundError
 } from '../utils/graphQLErrors';
 import { GraphQLError } from 'graphql';
-import {isNullOrUndefined, normaliseDateTime} from "../utils/helpers";
+import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
 
 export const resolvers: Resolvers = {
   Query: {

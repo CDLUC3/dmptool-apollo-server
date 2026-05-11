@@ -230,10 +230,8 @@ export const setDefaultTemplate = async (
     // Set the versionedTemplates
     const vtMarked = await VersionedTemplate.query(context, vtSQL, ['1', newId], reference);
 
-console.log(`vtMarked: ${vtMarked}, oldId: ${oldId}`);
-
     // If we did NOT successfully mark the new versioned templates
-    if (!vtMarked) {
+    if (!Array.isArray(vtMarked) || vtMarked.length !== 1) {
       // The marking of the versioned templates failed, so roll it back
       context.logger.debug({newDefault: template.id}, 'Mark VersionedTemplate as default failed, rolling back changes.');
       await Template.query(context, tSQL, ['0', newId], reference);
@@ -248,9 +246,7 @@ console.log(`vtMarked: ${vtMarked}, oldId: ${oldId}`);
       // Unmark the old versionedTemplates
       const vtUnmarked = await VersionedTemplate.query(context, vtSQL, ['0', oldId], reference);
 
-console.log(`vUnmarked: ${tUnmarked}, vtUnmarked: ${vtUnmarked}`);
-
-      if (!tUnmarked || !vtUnmarked) {
+      if (!Array.isArray(tUnmarked) || tUnmarked.length < 1 || !Array.isArray(vtUnmarked) || vtUnmarked.length < 1) {
         // The unmarking of the old templates failed, so roll it all back
         context.logger.debug({newDefault: template.id}, 'Mark as default failed, rolling back changes.');
         await Template.query(context, tSQL, ['1', oldId], reference);

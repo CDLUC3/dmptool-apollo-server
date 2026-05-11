@@ -502,8 +502,8 @@ describe('setDefaultTemplate', () => {
   });
 
   it('does not unmark the existing template as default if the marking failed', async () => {
-    jest.spyOn(VersionedTemplate, 'defaultTemplate').mockResolvedValue(undefined);
-    jest.spyOn(Template,'query').mockResolvedValue(undefined);
+    jest.spyOn(VersionedTemplate, 'defaultTemplate').mockResolvedValue(oldTemplate);
+    jest.spyOn(Template,'query').mockResolvedValue([]);
     await setDefaultTemplate('Test', context, template);
     expect(Template.query).toHaveBeenCalledTimes(1);
     expect(Template.query).toHaveBeenLastCalledWith(context, 'UPDATE templates SET isDefault = ? WHERE id = ?;', ['1', template.id.toString()], 'Test');
@@ -512,7 +512,7 @@ describe('setDefaultTemplate', () => {
   it('rolls back if marking the versionedTemplates as default fails', async () => {
     jest.spyOn(VersionedTemplate, 'defaultTemplate').mockResolvedValue(undefined);
     jest.spyOn(Template,'query').mockResolvedValue([{}]);
-    jest.spyOn(VersionedTemplate,'query').mockResolvedValue(undefined);
+    jest.spyOn(VersionedTemplate,'query').mockResolvedValue([]);
     await setDefaultTemplate('Test', context, template);
     expect(Template.query).toHaveBeenCalledTimes(2);
     expect(Template.query).toHaveBeenLastCalledWith(context, 'UPDATE templates SET isDefault = ? WHERE id = ?;', ['0', template.id.toString()], 'Test');
@@ -525,7 +525,7 @@ describe('setDefaultTemplate', () => {
     tSpy.mockResolvedValueOnce([{}]); // Mark new template as default
     vtSpy.mockResolvedValueOnce([{}]); // Mark new versionedTemplate as default
     tSpy.mockResolvedValueOnce([{}]); // Unmark old template as default
-    vtSpy.mockResolvedValueOnce(undefined); // Unmark old versionedTemplate as default (FAIL)
+    vtSpy.mockResolvedValueOnce([]); // Unmark old versionedTemplate as default (FAIL)
     tSpy.mockResolvedValueOnce([{}]); // Mark old template as default (Rollback)
     vtSpy.mockResolvedValueOnce([{}]); // Mark old versionedTemplate as default (Rollback)
     tSpy.mockResolvedValueOnce([{}]); // Unmark new template as default (Rollback)

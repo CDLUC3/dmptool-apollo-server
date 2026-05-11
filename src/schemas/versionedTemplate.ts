@@ -68,6 +68,8 @@ export const typeDefs = gql`
     visibility: TemplateVisibility
     "Whether or not this Template is designated as a 'Best Practice' template"
     bestPractice: Boolean
+    "Whether or not this is the default template"
+    isDefault: Boolean
     "The id of the affiliation that owns the Template"
     ownerId: Int
     "The URI of the affiliation that owns the Template"
@@ -177,6 +179,8 @@ export const typeDefs = gql`
     visibility: TemplateVisibility!
     "Whether or not this Template is designated as a 'Best Practice' template"
     bestPractice: Boolean!
+    "Whether or not this is the default template"
+    isDefault: Boolean
 
     "The VersionedSections that go with the VersionedTemplate"
     versionedSections: [VersionedSection!]

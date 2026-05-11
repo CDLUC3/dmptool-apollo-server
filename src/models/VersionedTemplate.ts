@@ -31,6 +31,7 @@ export class VersionedTemplateSearchResult {
   public version: string;
   public visibility: TemplateVisibility;
   public bestPractice: boolean;
+  public isDefault: boolean;
   public ownerId: number;
   public ownerURI: string;
   public ownerSearchName: string;
@@ -48,6 +49,7 @@ export class VersionedTemplateSearchResult {
     this.version = options.version;
     this.visibility = options.visibility;
     this.bestPractice = options.bestPractice;
+    this.isDefault = options.isDefault;
     this.ownerId = options.ownerId;
     this.ownerSearchName = options.ownerName;
     this.ownerURI = options.ownerURI;
@@ -110,7 +112,7 @@ export class VersionedTemplateSearchResult {
       'SELECT vt.id, vt.templateId, vt.name, vt.description, vt.version, vt.visibility, vt.bestPractice,',
       'vt.modified, vt.modifiedById, TRIM(CONCAT(u.givenName, " ", u.surName)) as modifiedByName,',
       'a.id as ownerId, vt.ownerId as ownerURI, a.displayName as ownerDisplayName,',
-      'a.searchName as ownerSearchName,',
+      'a.searchName as ownerSearchName, vt.isDefault,',
       'vtc.id as versionedTemplateCustomizationId',
       'FROM versionedTemplates vt',
       'LEFT JOIN users u ON u.id = vt.modifiedById',
@@ -146,7 +148,7 @@ export class VersionedTemplateSearchResult {
     const sql = 'SELECT vt.id, vt.templateId, vt.name, vt.description, vt.version, vt.visibility, vt.bestPractice, ' +
                 'vt.modified, vt.modifiedById, TRIM(CONCAT(u.givenName, CONCAT(\' \', u.surName))) as modifiedByName, ' +
                 'a.id as ownerId, vt.ownerId as ownerURI, a.displayName as ownerDisplayName, ' +
-                'a.searchName as ownerSearchName ' +
+                'a.searchName as ownerSearchName, vt.isDefault ' +
               'FROM versionedTemplates vt ' +
                 'LEFT JOIN users u ON u.id = vt.modifiedById ' +
                 'LEFT JOIN affiliations a ON a.uri = vt.ownerId ' +
@@ -384,6 +386,7 @@ export class VersionedTemplate extends MySqlModel {
 
   public visibility: TemplateVisibility;
   public bestPractice: boolean;
+  public isDefault: boolean;
   public languageId: string;
 
   private tableName = 'versionedTemplates';
@@ -405,6 +408,7 @@ export class VersionedTemplate extends MySqlModel {
 
     this.visibility = options.visibility ?? TemplateVisibility.ORGANIZATION;
     this.bestPractice = options.bestPractice ?? false;
+    this.isDefault = options.isDefault ?? false;
     this.languageId = options.languageId ?? defaultLanguageId;
   }
 
@@ -554,5 +558,12 @@ export class VersionedTemplate extends MySqlModel {
   static async deactivateByTemplateId(reference: string, context: MyContext, templateId: number): Promise<void> {
     const sql = 'UPDATE versionedTemplates SET active = 0 WHERE templateId = ?';
     await VersionedTemplate.query(context, sql, [templateId.toString()], reference);
+  }
+
+  // Fetch the latest version of the default best practice template
+  static async defaultTemplate(reference: string, context: MyContext): Promise<VersionedTemplate> {
+    const sql = `SELECT * FROM versionedTemplates WHERE active = 1 AND isDefault = 1 ORDER BY id LIMIT 1;`;
+    const results = await VersionedTemplate.query(context, sql, [], reference);
+    return Array.isArray(results) && results.length > 0 ? new VersionedTemplate(results[0]) : undefined;
   }
 }

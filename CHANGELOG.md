@@ -3,6 +3,10 @@
 ## v1.1.0
 
 ### Added
+- Added `defaultTemplate` query to the `versionedTemplate` schema and a corresponding resolver
+- Added `markAsDefaultTemplate` mutation to the `template` resolver (superadmin only)
+- Added `setDefaultTemplate` function to the `TemplateService`
+- Added `isDefault` flag to `Template` and `VersionedTemplate`
 - Added a `addAlternateIdentifierToPlan` and `removeAlternateIdentifierFromPlan` resolvers and schema to facilitate adding and removing alternate identifiers for a Plan
 - Added a `planByAlternateIdentifier` resolver and schema to facilitate finding Plans by a alternate id
 - Added `AlternateIdentifier` table and model to store alternate identifiers for Plans/DMPs
@@ -74,6 +78,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `TemplateService` to ensure that the `isDefault` flag is propagated when creating a template version
 - Updated `Plan` schema to include `alternateIdentifiers` as a chained resolver.
 - Refactored the `saveMaDMPVersion` function in `planService` to use the shared functionality from `@dmptool/utils` package to write directly to Dynamo rather than sending SQS messages.
 - Updated `updateProjectCollaborator` resolver to use new collaborator service functions to validate access level change and to demote an existing `primary` permission, before promoting another collaborator [#227]

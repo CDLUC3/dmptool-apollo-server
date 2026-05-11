@@ -142,7 +142,24 @@ export const resolvers: Resolvers = {
         context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
         throw InternalServerError();
       }
-    }
+    },
+
+    /**
+     * Fetch the default best practice template.
+     *
+     * @param _ The Apollo parent object (not applicable here)
+     * @param context
+     */
+    defaultTemplate: async (_, __, context: MyContext): Promise<VersionedTemplate> => {
+      try {
+        return await VersionedTemplate.defaultTemplate("defaultTemplate resolver", context);
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
+        context.logger.error(prepareObjectForLogs(err), `Failure in defaultTemplate resolver`);
+        throw InternalServerError();
+      }
+    },
   },
 
   VersionedTemplate: {

@@ -8,7 +8,12 @@ import { VersionedSection } from '../models/VersionedSection';
 import { VersionedQuestion } from "../models/VersionedQuestion";
 import { User, UserRole } from '../models/User';
 import { MyContext } from "../context";
-import { cloneTemplate, generateTemplateVersion, hasPermissionOnTemplate } from "../services/templateService";
+import {
+  cloneTemplate,
+  generateTemplateVersion,
+  hasPermissionOnTemplate,
+  setDefaultTemplate
+} from "../services/templateService";
 import { cloneSection } from "../services/sectionService";
 import { cloneQuestion } from "../services/questionService";
 import { isAdmin, isSuperAdmin } from "../services/authService";
@@ -102,7 +107,7 @@ export const resolvers: Resolvers = {
           if (copyFromTemplateId) {
             // Copy from a working template (must be owned by admin)
             const originalTemplate = await Template.findById(reference, context, copyFromTemplateId);
-            
+
             if (originalTemplate) {
               // Check if the admin owns this template
               if (originalTemplate.ownerId === context.token.affiliationId) {
@@ -112,7 +117,7 @@ export const resolvers: Resolvers = {
                 template.name = name;
                 template.sourceTemplateId = copyFromTemplateId;
                 template.sourceVersionedTemplateId = null;
-              } 
+              }
             } else {
               // Template not found
               template = new Template({ name, ownerId: context.token.affiliationId });
@@ -122,7 +127,7 @@ export const resolvers: Resolvers = {
           } else if (copyFromVersionedTemplateId) {
             // Copy from a published versioned template (any published template)
             const versionedTemplate = await VersionedTemplate.findById(reference, context, copyFromVersionedTemplateId);
-            
+
             if (versionedTemplate) {
               adminOwnsTemplate = false; // Always copy from versioned tables
               template = cloneTemplate(context.token?.id, context.token.affiliationId, versionedTemplate);
@@ -220,6 +225,33 @@ export const resolvers: Resolvers = {
           return newTemplate;
         }
         // Unauthorized!
+        throw context?.token ? ForbiddenError() : AuthenticationError();
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    },
+
+    // Mark the specified template as the default
+    markAsDefaultTemplate: async (_, { templateId }, context: MyContext): Promise<Template> => {
+      const reference = 'markAsDefaultTemplate resolver';
+      try {
+        if (isSuperAdmin(context.token)) {
+          const template = await Template.findById(reference, context, templateId);
+          if (!template) {
+            throw NotFoundError('Template does not exist');
+          }
+
+          if (await setDefaultTemplate(reference, context, template)) {
+            // Refetch the updated template and return it
+            return await Template.findById(reference, context, templateId);
+          } else {
+            template.addError('general', 'Unable to mark the template as the default');
+          }
+          return template
+        }
         throw context?.token ? ForbiddenError() : AuthenticationError();
       } catch (err) {
         if (err instanceof GraphQLError) throw err;

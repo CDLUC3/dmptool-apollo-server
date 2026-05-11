@@ -3,6 +3,10 @@
 ## v1.1.0
 
 ### Added
+- Added local seed data for a Template that includes a research output question type, and a project/plan that uses it.
+- Added `PRIMARY` ProjectCollaboratorAccessLevel [#227]
+- Added `findByUserIdAndProjectId function to Collaborator model [#227]
+- Added new `collaboratorService` [#227]
 - Added `planCreator` field to the `plan` query response so that client can get plan owner affiliation.uri for feedback pages [#198]
 - Added `sendFeedbackCompleteEmail` to `emailService` [#198]
 - Added `feedback.spec.ts` unit tests for the feedback resolver [#198]
@@ -66,6 +70,10 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Refactored the `saveMaDMPVersion` function in `planService` to use the shared functionality from `@dmptool/utils` package to write directly to Dynamo rather than sending SQS messages.
+- Updated `updateProjectCollaborator` resolver to use new collaborator service functions to validate access level change and to demote an existing `primary` permission, before promoting another collaborator [#227]
+- Updated permissions for who can `requestFeedback` [#227]
+- Updated `projectService` to include new `ProjectCollaboratorAccessLevel.PRIMARY [#227]
 - Updated `requestFeedback` resolver and `emailService` for that resolver with new message [#260]
 - Updated `completedFeedback` resolver to send an email to the feedback requestor when feedback is marked as complete, and added a `sendEmail` boolean flag to input variables to stop an email from being sent [#198]
 - Updated the `findTemplateCustomizationId` method sql query to guarantee that correct templateCustomizationId is retrieved [#200]
@@ -167,6 +175,7 @@
 - Fixed issue with templates not cloning with sections and questions by updating the `addTemplate` mutation to clone from non-versioned template, section and question [#1006]
 
 ### Chore
+- Updated `fast-xml-parser` to `v1.2.0` and `uuid` to `11.1.1` to address vulnerabilities.
 - Added `@types/nodemailer` [#189]
 - Added override for `lodash` to `4.18.1` to address high vulnerability issue
 

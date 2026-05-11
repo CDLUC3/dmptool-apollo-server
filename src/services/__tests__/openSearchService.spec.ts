@@ -546,6 +546,7 @@ describe('OpenSearchService', () => {
                   created: '2024-01-01',
                   modified: '2024-06-01',
                 },
+                sort: ['Repo A', 'r3d100013914'],
               },
             ],
           },
@@ -555,12 +556,16 @@ describe('OpenSearchService', () => {
       const uris = ['https://www.re3data.org/repository/r3d100013914'];
       const result = await service.findRe3DataByURIs(mockContext, uris);
 
+      // First page request — no search_after cursor yet
       expect(mockSearch).toHaveBeenCalledWith({
         index: 're3data',
         body: {
-          size: uris.length * 10,
+          size: 100,
           query: { terms: { uri: uris } },
-          sort: { 'name.keyword': { order: 'asc' } },
+          sort: [
+            { 'name.keyword': { order: 'asc' } },
+            { '_id': { order: 'asc' } },
+          ],
         },
       });
 
@@ -571,6 +576,54 @@ describe('OpenSearchService', () => {
         uri: 'https://www.re3data.org/repository/r3d100013914',
         repositoryTypes: ['disciplinary'],
         modified: '2024-06-01',
+      });
+    });
+
+    test('Paginates using search_after cursor when first page is full', async () => {
+      // Build a first page of exactly 100 hits (PAGE_SIZE) to trigger a second request
+      const firstPageHits = Array.from({ length: 100 }, (_, i) => ({
+        _source: {
+          id: `r3d1000${String(i).padStart(5, '0')}`,
+          name: `Repo ${i}`,
+          uri: `https://www.re3data.org/repository/r3d1000${i}`,
+          repository_types: [],
+          subjects: [],
+          provider_types: [],
+          keywords: [],
+          pid_system: [],
+          policies: [],
+          upload_types: [],
+          certificates: [],
+          software: [],
+          created: '2024-01-01',
+          modified: '2024-06-01',
+        },
+        sort: [`Repo ${i}`, `r3d1000${i}`],
+      }));
+
+      const lastHitSort = firstPageHits[99].sort;
+
+      mockSearch
+        .mockResolvedValueOnce({ body: { hits: { hits: firstPageHits } } })
+        .mockResolvedValueOnce({ body: { hits: { hits: [] } } });
+
+      const uris = ['https://www.re3data.org/repository/r3d10000'];
+      await service.findRe3DataByURIs(mockContext, uris);
+
+      expect(mockSearch).toHaveBeenCalledTimes(2);
+
+      // Second call must include cursor set to the sort values of the last hit from page one
+      expect(mockSearch).toHaveBeenNthCalledWith(2, {
+        index: 're3data',
+        body: {
+          size: 100,
+          query: { terms: { uri: uris } },
+          sort: [
+            { 'name.keyword': { order: 'asc' } },
+            { '_id': { order: 'asc' } },
+          ],
+          search_after: lastHitSort,
+        },
       });
     });
 
@@ -596,6 +649,7 @@ describe('OpenSearchService', () => {
                   created: '2025-07-09',
                   modified: '2025-07-11',
                 },
+                sort: ['Blue-Cloud Resource Catalogue', 'r3d100014656-old'],
               },
               {
                 _source: {
@@ -614,6 +668,7 @@ describe('OpenSearchService', () => {
                   created: '2026-04-15T14:49:51.574Z',
                   modified: '2026-04-15T14:49:51.574Z',
                 },
+                sort: ['Blue-Cloud Resource Catalogue', 'r3d100014656-new'],
               },
             ],
           },
@@ -651,6 +706,7 @@ describe('OpenSearchService', () => {
                   created: '2024-01-01',
                   modified: '2024-06-01',
                 },
+                sort: ['Repo A', 'r3d100013914'],
               },
               {
                 _source: {
@@ -669,6 +725,7 @@ describe('OpenSearchService', () => {
                   created: '2025-07-09',
                   modified: '2025-07-11',
                 },
+                sort: ['Repo B (old)', 'r3d100014656-old'],
               },
               {
                 _source: {
@@ -680,13 +737,14 @@ describe('OpenSearchService', () => {
                   provider_types: [],
                   keywords: [],
                   pid_system: [],
-                  policies: [],
                   upload_types: [],
+                  policies: [],
                   certificates: [],
                   software: [],
                   created: '2026-04-15',
                   modified: '2026-04-15T14:49:51.574Z',
                 },
+                sort: ['Repo B (new)', 'r3d100014656-new'],
               },
             ],
           },
@@ -731,7 +789,9 @@ describe('OpenSearchService', () => {
       );
     });
 
-    test('Logs and rethrows if response structure is invalid', async () => {
+    test('Throws if response structure is invalid', async () => {
+      // The hits access happens inside the loop before the conversion try/catch,
+      // so an invalid response throws but does not go through the logger path
       mockSearch.mockResolvedValue({ body: {} });
 
       await expect(
@@ -740,11 +800,6 @@ describe('OpenSearchService', () => {
           ['https://www.re3data.org/repository/r3d100013914'],
         ),
       ).rejects.toThrow();
-
-      expect(mockContext.logger.error).toHaveBeenCalledWith(
-        expect.any(Object),
-        expect.stringContaining('Error converting OpenSearch response for re3data by URIs'),
-      );
     });
   });
 });

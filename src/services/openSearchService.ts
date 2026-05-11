@@ -272,49 +272,69 @@ export class OpenSearchService {
   }
 
   public async findRe3DataByURIs(context: MyContext, uris: string[]): Promise<Re3DataRepositoryRecord[]> {
-    // If no URIs provided, return empty array
     if (!uris || uris.length === 0) {
       return [];
     }
 
-    let response: unknown;
-
+    console.log("***URIs", uris);
     context.logger.debug({ uris }, 'Fetching URIs from OpenSearch re3data index');
-    try {
-      response = await this.searchClient.search({
-        index: 're3data',
-        body: {
-          // Request more than uris.length to handle duplicate documents per URI
-          size: uris.length * 10,
-          query: {
-            terms: {
-              uri: uris,
-            },
-          },
-          sort: {
-            "name.keyword": {
-              order: 'asc',
-            },
-          }
-        },
-      });
-    } catch (err) {
-      context.logger.error(prepareObjectForLogs(err), `Error fetching re3data repositories by URIs from OpenSearch`);
 
-      throw new GraphQLError("Service temporarily unavailable", {
-        extensions: {
-          code: "SERVICE_UNAVAILABLE",
-          service: "opensearch",
-          details: "We are having trouble connecting to the search service, if the error persists please report the error."
-        }
-      });
+    const PAGE_SIZE = 100;
+    const allHits: OpenSearchRe3DataHit[] = [];
+    let cursor: unknown[] | undefined;
+
+    while (true) {
+      const body: Record<string, unknown> = {
+        size: PAGE_SIZE,
+        query: {
+          terms: { uri: uris },
+        },
+        sort: [
+          { "name.keyword": { order: 'asc' } },
+          { "_id": { order: 'asc' } },  // Tiebreaker to ensure stable pagination
+        ],
+      };
+
+      // Add cursor if we have one
+      if (cursor) {
+        body.search_after = cursor;
+      }
+
+      let response: unknown;
+      try {
+        response = await this.searchClient.search({
+          index: 're3data',
+          body,
+        });
+      } catch (err) {
+        context.logger.error(prepareObjectForLogs(err), `Error fetching re3data repositories by URIs from OpenSearch`);
+
+        throw new GraphQLError("Service temporarily unavailable", {
+          extensions: {
+            code: "SERVICE_UNAVAILABLE",
+            service: "opensearch",
+            details: "We are having trouble connecting to the search service, if the error persists please report the error."
+          }
+        });
+      }
+
+      console.log("***Response", response);
+      const hits = (response as { body: { hits: { hits: (OpenSearchRe3DataHit & { sort: unknown[] })[] } } })
+        .body.hits.hits;
+
+      console.log("***Hits", hits);
+      if (hits.length === 0) break;
+
+      allHits.push(...hits);
+      cursor = hits[hits.length - 1].sort;
+
+      console.log("***Cursor for next page", cursor);
+      // If we got fewer results than the page size, we've reached the last page
+      if (hits.length < PAGE_SIZE) break;
     }
 
     try {
-      const body = (response as { body: { hits: { hits: OpenSearchRe3DataHit[] } } }).body;
-      const records = body.hits.hits.map((hit: OpenSearchRe3DataHit) => {
-        return convertRe3DataToCamelCase(hit._source);
-      });
+      const records = allHits.map((hit) => convertRe3DataToCamelCase(hit._source));
 
       // Deduplicate by URI, keeping the most recently modified record
       const byUri = new Map<string, Re3DataRepositoryRecord>();
@@ -324,6 +344,7 @@ export class OpenSearchService {
           byUri.set(record.uri, record);
         }
       }
+
       return Array.from(byUri.values());
     } catch (err) {
       context.logger.error(prepareObjectForLogs(err), `Error converting OpenSearch response for re3data by URIs`);

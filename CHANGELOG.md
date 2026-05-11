@@ -7,6 +7,10 @@
 - Added `markAsDefaultTemplate` mutation to the `template` resolver (superadmin only)
 - Added `setDefaultTemplate` function to the `TemplateService`
 - Added `isDefault` flag to `Template` and `VersionedTemplate`
+- Added a `addAlternateIdentifierToPlan` and `removeAlternateIdentifierFromPlan` resolvers and schema to facilitate adding and removing alternate identifiers for a Plan
+- Added a `planByAlternateIdentifier` resolver and schema to facilitate finding Plans by a alternate id
+- Added `AlternateIdentifier` table and model to store alternate identifiers for Plans/DMPs
+- Added new `resolveNamingCollision` helper method and updated `Plan.create` to use it to prevent duplicate plan names. 
 - Added local seed data for a Template that includes a research output question type, and a project/plan that uses it.
 - Added `PRIMARY` ProjectCollaboratorAccessLevel [#227]
 - Added `findByUserIdAndProjectId function to Collaborator model [#227]
@@ -75,6 +79,7 @@
 
 ### Updated
 - Updated `TemplateService` to ensure that the `isDefault` flag is propagated when creating a template version
+- Updated `Plan` schema to include `alternateIdentifiers` as a chained resolver.
 - Refactored the `saveMaDMPVersion` function in `planService` to use the shared functionality from `@dmptool/utils` package to write directly to Dynamo rather than sending SQS messages.
 - Updated `updateProjectCollaborator` resolver to use new collaborator service functions to validate access level change and to demote an existing `primary` permission, before promoting another collaborator [#227]
 - Updated permissions for who can `requestFeedback` [#227]

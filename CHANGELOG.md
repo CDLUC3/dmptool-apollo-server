@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added new `setDefaultMemberRole` mutation to member roles resolver.
 - Added local seed data for a Template that includes a research output question type, and a project/plan that uses it.
 - Added `PRIMARY` ProjectCollaboratorAccessLevel [#227]
 - Added `findByUserIdAndProjectId function to Collaborator model [#227]
@@ -70,6 +71,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `MemberRole` schema to include `isDefault` flag and added a `setDefaultMemberRole` mutation.
 - Refactored the `saveMaDMPVersion` function in `planService` to use the shared functionality from `@dmptool/utils` package to write directly to Dynamo rather than sending SQS messages.
 - Updated `updateProjectCollaborator` resolver to use new collaborator service functions to validate access level change and to demote an existing `primary` permission, before promoting another collaborator [#227]
 - Updated permissions for who can `requestFeedback` [#227]

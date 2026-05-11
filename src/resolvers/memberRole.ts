@@ -4,9 +4,12 @@ import { Resolvers } from "../types";
 import { MemberRole } from "../models/MemberRole";
 import { MyContext } from '../context';
 import { isSuperAdmin } from '../services/authService';
-import { AuthenticationError, ForbiddenError, InternalServerError } from '../utils/graphQLErrors';
+import {
+  AuthenticationError, ForbiddenError, InternalServerError,
+  NotFoundError
+} from '../utils/graphQLErrors';
 import { GraphQLError } from 'graphql';
-import { normaliseDateTime } from "../utils/helpers";
+import {isNullOrUndefined, normaliseDateTime} from "../utils/helpers";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -104,6 +107,46 @@ export const resolvers: Resolvers = {
           const sql = 'DELETE FROM memberRoles WHERE id = ?';
           await context.dataSources.sqlDataSource.query(context, sql, [id.toString()]);
           return original;
+        }
+        throw context?.token ? ForbiddenError() : AuthenticationError();
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    },
+
+    // Set the default member role
+    setDefaultMemberRole: async (_, { id }, context) => {
+      const reference = 'setDefaultMemberRole resolver';
+      const original = await MemberRole.findById(reference, context, id);
+      if (isNullOrUndefined(original)) {
+        throw NotFoundError();
+      }
+
+      try {
+        // If the current user is a superAdmin or an Admin and this is their Affiliation
+        if (isSuperAdmin(context.token)) {
+          const setSql = 'UPDATE memberRoles SET isDefault = true WHERE id = ?';
+          const unsetSql = 'UPDATE memberRoles SET isDefault = false WHERE isDefault = true';
+          // Fetch the original
+          const original = await MemberRole.defaultRole(context, reference);
+          const newOne = await MemberRole.findById(reference, context, id);
+
+          try {
+            // Unset the original and then set the new one
+            await context.dataSources.sqlDataSource.query(context, unsetSql, []);
+            await context.dataSources.sqlDataSource.query(context, setSql, [id.toString()]);
+            newOne.isDefault = true;
+          } catch (err) {
+            context.logger.error(err, "Unable to set the default member role");
+            // Something went wrong so revert the changes
+            await context.dataSources.sqlDataSource.query(context, unsetSql, []);
+            await context.dataSources.sqlDataSource.query(context, setSql, [original.id.toString()]);
+            newOne.addError('general', 'Unable to set the default member role at this time. Please try again later.');
+          }
+          return newOne;
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();
       } catch (err) {

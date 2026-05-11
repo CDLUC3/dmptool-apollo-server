@@ -11,6 +11,7 @@ import {
   randomFloatInRange,
   randomHex,
   randomIntInRange,
+  resolveNamingCollision,
   stripIdentifierBaseURL,
   stringToEnumValue,
   formatORCID,
@@ -466,5 +467,30 @@ describe('reorderDisplayOrder', () => {
     expect(reorderedSections[0].displayOrder).toBe(1);
     expect(reorderedSections[1].displayOrder).toBe(2);
     expect(reorderedSections[2].displayOrder).toBe(3);
+  });
+});
+
+describe('resolveNamingCollision', () => {
+  it('should return the original value when there is no collision', () => {
+    expect(resolveNamingCollision('Test', ['Alpha', 'Beta'])).toBe('Test');
+  });
+
+  it('should append 1 when the base value already exists', () => {
+    expect(resolveNamingCollision('Test', ['Test'])).toBe('Test 1');
+  });
+
+  it('should append the next highest number when numbered variants exist', () => {
+    expect(resolveNamingCollision('Test', ['Test', 'Test 1', 'Test 3'])).toBe('Test 4');
+  });
+
+  it('should ignore partial matches and only use exact base and "base N" values', () => {
+    const existingValues = ['Test', 'Testing', 'Test-2', 'Test 2x', 'Test 2'];
+    expect(resolveNamingCollision('Test', existingValues)).toBe('Test 3');
+  });
+
+  it('should handle base values that contain regex special characters', () => {
+    const baseValue = 'Plan (A)+?';
+    const existingValues = [baseValue, `${baseValue} 1`, `${baseValue} 7`];
+    expect(resolveNamingCollision(baseValue, existingValues)).toBe(`${baseValue} 8`);
   });
 });

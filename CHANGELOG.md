@@ -6,6 +6,7 @@
 - Added a `addAlternateIdentifierToPlan` and `removeAlternateIdentifierFromPlan` resolvers and schema to facilitate adding and removing alternate identifiers for a Plan
 - Added a `planByAlternateIdentifier` resolver and schema to facilitate finding Plans by a alternate id
 - Added `AlternateIdentifier` table and model to store alternate identifiers for Plans/DMPs
+- Added new `resolveNamingCollision` helper method and updated `Plan.create` to use it to prevent duplicate plan names. 
 - Added local seed data for a Template that includes a research output question type, and a project/plan that uses it.
 - Added `PRIMARY` ProjectCollaboratorAccessLevel [#227]
 - Added `findByUserIdAndProjectId function to Collaborator model [#227]

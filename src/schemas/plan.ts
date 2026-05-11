@@ -124,6 +124,8 @@ export const typeDefs = gql`
     id: Int
     "The user who created the Object"
     createdById: Int
+    "The user who created the plan"
+    planCreator: User
     "The timestamp when the Object was created"
     created: String
     "The user who last modified the Object"

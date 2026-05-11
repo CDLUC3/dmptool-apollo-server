@@ -18,7 +18,8 @@ import {
   sendEmailConfirmationNotification,
   sendProjectCollaborationEmail,
   sendTemplateCollaborationEmail,
-  sendProjectCollaboratorsCommentsAddedEmail
+  sendProjectCollaboratorsCommentsAddedEmail,
+  sendFeedbackCompleteEmail,
 } from "../emailService";
 import { generalConfig } from "../../config/generalConfig";
 import { emailConfig } from "../../config/emailConfig";
@@ -218,37 +219,135 @@ describe('sendEmail', () => {
     expect(mockSendEmail).not.toHaveBeenCalled();
   });
 
+  it('should send plan owner an email when feedback is complete', async () => {
+    jest.spyOn(logger, 'info');
+    const email = casual.email;
+    const planOwnerUserId = casual.integer(1, 99);
+    const adminName = `${casual.first_name} ${casual.last_name}`;
+    const planTitle = casual.sentence;
+    const planURL = casual.url;
+    const user = new User({
+      id: planOwnerUserId,
+      givenName: casual.first_name,
+      surName: casual.last_name,
+      notify_on_feedback_complete: true,
+    });
+    (User.findById as jest.Mock) = jest.fn().mockResolvedValueOnce(user);
+    jest.spyOn(User.prototype, 'getEmail').mockResolvedValue(email);
+    const sent = await sendFeedbackCompleteEmail(context, planOwnerUserId, adminName, planTitle, planURL);
+
+    const expectedSubject = `${subjectPrefix} - ${emailSubjects.feedbackComplete}`;
+    const planOwnerName = [user.givenName, user.surName].filter(Boolean).join(' ');
+    const domain = generalConfig.domain;
+    const expectedMessage = emailMessages.feedbackComplete
+      .replace('%{planOwnerName}', planOwnerName)
+      .replace('%{adminName}', adminName)
+      .replace('%{planUrl}', `${domain}${planURL}`)
+      .replace('%{planTitle}', planTitle)
+      .replace('%{profileUrl}', `${domain}/account/profile`)
+      .replace('%{helpDeskEmail}', emailConfig.helpDeskAddress)
+      .replace('%{helpUrl}', `${domain}/help`);
+
+    expect(sent).toBe(true);
+    expect(logger.info).toHaveBeenCalledTimes(1);
+    // sendEmail should have been called once
+    expect(mockSendEmail).toHaveBeenCalledTimes(1);
+    expect(mockSendEmail).toHaveBeenCalledWith({
+      "bcc": "",
+      "cc": "",
+      "from": `"${generalConfig.applicationName}" <${emailConfig.doNotReplyAddress}>`,
+      "html": expectedMessage,
+      "replyTo": emailConfig.helpDeskAddress,
+      "sender": emailConfig.doNotReplyAddress,
+      "subject": expectedSubject,
+      "to": email,
+    });
+  });
+
+  it('should return false when user has notify_on_feedback_complete disabled', async () => {
+    const planOwnerUserId = casual.integer(1, 99);
+    const user = new User({
+      id: planOwnerUserId,
+      givenName: casual.first_name,
+      surName: casual.last_name,
+      notify_on_feedback_complete: false,
+    });
+    (User.findById as jest.Mock) = jest.fn().mockResolvedValueOnce(user);
+
+    const sent = await sendFeedbackCompleteEmail(
+      context,
+      planOwnerUserId,
+      casual.full_name,
+      casual.sentence,
+      casual.url,
+    );
+
+    expect(sent).toBe(false);
+    expect(mockSendEmail).not.toHaveBeenCalled();
+  });
+
+  it('should log an error and return false when the plan owner has no email address', async () => {
+    jest.spyOn(context.logger, 'error');
+    const planOwnerUserId = casual.integer(1, 99);
+    const user = new User({
+      id: planOwnerUserId,
+      givenName: casual.first_name,
+      surName: casual.last_name,
+      notify_on_feedback_complete: true,
+    });
+    (User.findById as jest.Mock) = jest.fn().mockResolvedValueOnce(user);
+    jest.spyOn(User.prototype, 'getEmail').mockResolvedValue(null);
+
+    const sent = await sendFeedbackCompleteEmail(
+      context,
+      planOwnerUserId,
+      casual.full_name,
+      casual.sentence,
+      casual.url,
+    );
+
+    expect(sent).toBe(false);
+    expect(mockSendEmail).not.toHaveBeenCalled();
+    expect(context.logger.error).toHaveBeenCalledTimes(1);
+  });
+
   it('should send feedback request emails to all collaborators', async () => {
     jest.spyOn(logger, 'info');
     const emails = Array.from({ length: 3 }, () => casual.email);
+    const planOwnerName = `${casual.first_name} ${casual.last_name}`;
+    const planURL = `/plans/${casual.uuid}`;
+    const planTitle = casual.sentence;
     const feedbackMessage = casual.sentence;
     // Import here to avoid hoisting issues
     const { sendFeedbackRequestEmail } = await import('../emailService');
-    const sent = await sendFeedbackRequestEmail(context, emails, feedbackMessage);
+    const sent = await sendFeedbackRequestEmail(context, planOwnerName, planURL, planTitle, emails, feedbackMessage);
 
     const expectedSubject = `${subjectPrefix} - ${emailSubjects.feedbackRequest}`;
+    const domain = generalConfig.domain;
+    const baseHtml = emailMessages.feedbackRequest
+      .replace('%{planOwnerName}', planOwnerName)
+      .replace('%{feedbackRequestMessage}', feedbackMessage)
+      .replace('%{planUrl}', `${domain}${planURL}`)
+      .replace('%{planTitle}', planTitle)
+      .replace('%{profileUrl}', `${domain}/account/profile`)
+      .replace('%{helpDeskEmail}', emailConfig.helpDeskAddress)
+      .replace('%{helpUrl}', `${domain}/help`);
 
     expect(sent).toBe(true);
     expect(logger.info).toHaveBeenCalledTimes(emails.length);
     expect(mockSendEmail).toHaveBeenCalledTimes(emails.length);
     for (const email of emails) {
+      const expectedHtml = baseHtml.replace('%{adminEmail}', email);
       expect(mockSendEmail).toHaveBeenCalledWith({
         "bcc": "",
         "cc": "",
         "from": `"${generalConfig.applicationName}" <${emailConfig.doNotReplyAddress}>`,
-        "html": feedbackMessage,
+        "html": expectedHtml,
         "replyTo": emailConfig.helpDeskAddress,
         "sender": emailConfig.doNotReplyAddress,
         "subject": expectedSubject,
         "to": email,
       });
     }
-  });
-
-  it('should return false and not send feedback request email when no collaborator emails provided', async () => {
-    const { sendFeedbackRequestEmail } = await import('../emailService');
-    const sent = await sendFeedbackRequestEmail(context, [], 'Some feedback message');
-    expect(sent).toBe(false);
-    expect(mockSendEmail).not.toHaveBeenCalled();
   });
 });

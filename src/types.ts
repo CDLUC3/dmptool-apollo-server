@@ -1812,6 +1812,7 @@ export type MutationArchiveTemplateArgs = {
 export type MutationCompleteFeedbackArgs = {
   planFeedbackId: Scalars['Int']['input'];
   planId: Scalars['Int']['input'];
+  sendEmail?: InputMaybe<Scalars['Boolean']['input']>;
   summaryText?: InputMaybe<Scalars['String']['input']>;
 };
 
@@ -2387,6 +2388,8 @@ export type Plan = {
   modified?: Maybe<Scalars['String']['output']>;
   /** The user who last modified the Object */
   modifiedById?: Maybe<Scalars['Int']['output']>;
+  /** The user who created the plan */
+  planCreator?: Maybe<User>;
   /** The progress the user has made within the plan */
   progress?: Maybe<PlanProgress>;
   /** The project the plan is associated with */
@@ -2800,8 +2803,10 @@ export type ProjectCollaboratorAccessLevel =
   | 'COMMENT'
   /** The user is able to perform most actions on a Project/Plan except (publish, mark as complete and change access) */
   | 'EDIT'
+  /** Has admin rights to project (can invite other users, edit the plans and publish them) */
+  | 'OWN'
   /** The user is able to perform all actions on a Plan (typically restricted to the owner/creator) */
-  | 'OWN';
+  | 'PRIMARY';
 
 /** A collection of errors related to the ProjectCollaborator */
 export type ProjectCollaboratorErrors = {
@@ -6956,6 +6961,7 @@ export type PlanResolvers<ContextType = MyContext, ParentType extends ResolversP
   members?: Resolver<Maybe<Array<ResolversTypes['PlanMember']>>, ParentType, ContextType>;
   modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  planCreator?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType>;
   progress?: Resolver<Maybe<ResolversTypes['PlanProgress']>, ParentType, ContextType>;
   project?: Resolver<Maybe<ResolversTypes['Project']>, ParentType, ContextType>;
   registered?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;

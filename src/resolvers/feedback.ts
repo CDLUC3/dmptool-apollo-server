@@ -10,14 +10,18 @@ import {
 
 import { isAuthorized } from "../services/authService";
 import { hasPermissionOnProject } from "../services/projectService";
-import { sendProjectCollaboratorsCommentsAddedEmail, sendFeedbackRequestEmail } from '../services/emailService';
+import {
+  sendProjectCollaboratorsCommentsAddedEmail,
+  sendFeedbackRequestEmail,
+  sendFeedbackCompleteEmail
+} from '../services/emailService';
 import { isAdmin, isSuperAdmin } from "../services/authService";
 import { canDeleteComment } from "../services/commentPermissions";
 import { Project } from "../models/Project";
 import { Plan } from "../models/Plan";
 import { PlanFeedback } from "../models/PlanFeedback";
 import { User } from "../models/User";
-import { ProjectCollaborator } from "../models/Collaborator";
+import { ProjectCollaborator, ProjectCollaboratorAccessLevel } from "../models/Collaborator";
 import { PlanFeedbackComment } from "../models/PlanFeedbackComment";
 import { VersionedTemplate } from "../models/VersionedTemplate";
 import { Affiliation } from "../models/Affiliation";
@@ -173,7 +177,8 @@ export const resolvers: Resolvers = {
             throw ForbiddenError(`There is already feedback in progress for plan ${planId}`);
           }
 
-          if (await hasPermissionOnProject(context, project)) {
+          //Feedback request can only be made by ADMINs and SUPERADMINs or a collaborator with PRIMARY access
+          if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.PRIMARY)) {
             const feedbackComment = new PlanFeedback({
               planId,
               messageToOrg: messageToOrg ?? '',
@@ -187,9 +192,17 @@ export const resolvers: Resolvers = {
             }
 
             const affiliation = await Affiliation.findByURI(reference, context, affiliationId);
-            // Send emails to the feedback recipients
-            await sendFeedbackRequestEmail(context, affiliation.feedbackEmails, messageToOrg ?? '');
 
+            if (affiliation.feedbackEmails.length === 0) {
+              context.logger.warn(prepareObjectForLogs({ affiliationId }), `Affiliation with ID ${affiliationId} has no feedback emails configured, so no notifications will be sent when requesting feedback`);
+            }
+
+            const planURL = `/projects/${project.id}/dmp/${planId}`;
+            const planOwnerName = [context.token.givenName, context.token.surname].filter(Boolean).join(' ');
+            const planTitle = plan.title || 'Untitled Plan';
+
+            // Send emails to the feedback recipients
+            await sendFeedbackRequestEmail(context, planOwnerName, planURL, planTitle, affiliation.feedbackEmails, messageToOrg ?? '');
 
             return await feedbackComment.create(context);
           }
@@ -203,7 +216,7 @@ export const resolvers: Resolvers = {
       }
     },
     // Mark the feedback round as complete
-    completeFeedback: async (_, { planId, planFeedbackId, summaryText }, context: MyContext): Promise<PlanFeedback> => {
+    completeFeedback: async (_, { planId, planFeedbackId, summaryText, sendEmail = true }, context: MyContext): Promise<PlanFeedback> => {
       const reference = 'completeFeedback resolver';
       try {
         if (isAuthorized(context.token)) {
@@ -222,7 +235,6 @@ export const resolvers: Resolvers = {
               throw NotFoundError(`PlanFeedback with ID ${planFeedbackId} not found`);
             }
 
-
             const newFeedback = new PlanFeedback({
               id: feedback.id,
               planId: feedback.planId,
@@ -237,6 +249,21 @@ export const resolvers: Resolvers = {
             if (!updatedFeedback) {
               throw NotFoundError(`PlanFeedback with ID ${planFeedbackId} not found`);
             }
+
+            if (sendEmail) {
+              const planURL = `/projects/${project.id}/dmp/${planId}`;
+              const adminName = [context.token.givenName, context.token.surName]
+                .filter(Boolean).join(' ');
+
+              await sendFeedbackCompleteEmail(
+                context,
+                feedback.requestedById,
+                adminName,
+                plan.title,
+                planURL,
+              );
+            }
+
             return updatedFeedback;
 
           }

@@ -508,4 +508,33 @@ describe('setDefaultTemplate', () => {
     expect(Template.query).toHaveBeenCalledTimes(1);
     expect(Template.query).toHaveBeenLastCalledWith(context, 'UPDATE templates SET isDefault = ? WHERE id = ?;', ['1', template.id.toString()], 'Test');
   });
+
+  it('rolls back if marking the versionedTemplates as default fails', async () => {
+    jest.spyOn(VersionedTemplate, 'defaultTemplate').mockResolvedValue(undefined);
+    jest.spyOn(Template,'query').mockResolvedValue([{}]);
+    jest.spyOn(VersionedTemplate,'query').mockResolvedValue(undefined);
+    await setDefaultTemplate('Test', context, template);
+    expect(Template.query).toHaveBeenCalledTimes(2);
+    expect(Template.query).toHaveBeenLastCalledWith(context, 'UPDATE templates SET isDefault = ? WHERE id = ?;', ['0', template.id.toString()], 'Test');
+  });
+
+  it('rolls back if the unmarking fails', async () => {
+    jest.spyOn(VersionedTemplate, 'defaultTemplate').mockResolvedValue(oldTemplate);
+    const tSpy = jest.spyOn(Template, 'query');
+    const vtSpy = jest.spyOn(VersionedTemplate, 'query');
+    tSpy.mockResolvedValueOnce([{}]); // Mark new template as default
+    vtSpy.mockResolvedValueOnce([{}]); // Mark new versionedTemplate as default
+    tSpy.mockResolvedValueOnce([{}]); // Unmark old template as default
+    vtSpy.mockResolvedValueOnce(undefined); // Unmark old versionedTemplate as default (FAIL)
+    tSpy.mockResolvedValueOnce([{}]); // Mark old template as default (Rollback)
+    vtSpy.mockResolvedValueOnce([{}]); // Mark old versionedTemplate as default (Rollback)
+    tSpy.mockResolvedValueOnce([{}]); // Unmark new template as default (Rollback)
+    vtSpy.mockResolvedValueOnce([{}]); // Unmark new versionedTemplate as default (Rollback)
+
+    await setDefaultTemplate('Test', context, template);
+    expect(Template.query).toHaveBeenCalledTimes(4);
+    expect(VersionedTemplate.query).toHaveBeenCalledTimes(4);
+    expect(Template.query).toHaveBeenLastCalledWith(context, 'UPDATE templates SET isDefault = ? WHERE id = ?;', ['0', template.id.toString()], 'Test');
+    expect(VersionedTemplate.query).toHaveBeenLastCalledWith(context, 'UPDATE versionedTemplates SET isDefault = ? WHERE templateId = ?;', ['0', template.id.toString()], 'Test');
+  });
 });

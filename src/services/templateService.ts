@@ -226,39 +226,17 @@ export const setDefaultTemplate = async (
   // Mark the specified template as the default
   context.logger.debug({ newDefault: template.id }, 'Setting new default template.');
   const tMarked = await Template.query(context, tSQL, ['1', newId], reference);
-  if (tMarked) {
+  if (Array.isArray(tMarked) && tMarked.length > 0) {
     // Set the versionedTemplates
-    const vtMarked = await VersionedTemplate.query(context, vtSQL, ['1', newId], reference);
-
-console.log(`vtMarked: ${vtMarked}, oldId: ${oldId}`);
-
-    // If we did NOT successfully mark the new versioned templates
-    if (!vtMarked) {
-      // The marking of the versioned templates failed, so roll it back
-      context.logger.debug({newDefault: template.id}, 'Mark VersionedTemplate as default failed, rolling back changes.');
-      await Template.query(context, tSQL, ['0', newId], reference);
-      return false;
-    }
+    await VersionedTemplate.query(context, vtSQL, ['1', newId], reference);
 
     // If there was a prior default
     if (oldId) {
       // Unmark the old template
       context.logger.debug({newDefault: template.id}, 'Removing default designation from other templates.');
-      const tUnmarked = await Template.query(context, tSQL, ['0', oldId], reference);
+      Template.query(context, tSQL, ['0', oldId], reference);
       // Unmark the old versionedTemplates
-      const vtUnmarked = await VersionedTemplate.query(context, vtSQL, ['0', oldId], reference);
-
-console.log(`vUnmarked: ${tUnmarked}, vtUnmarked: ${vtUnmarked}`);
-
-      if (!tUnmarked || !vtUnmarked) {
-        // The unmarking of the old templates failed, so roll it all back
-        context.logger.debug({newDefault: template.id}, 'Mark as default failed, rolling back changes.');
-        await Template.query(context, tSQL, ['1', oldId], reference);
-        await VersionedTemplate.query(context, vtSQL, ['1', oldId], reference);
-        await Template.query(context, tSQL, ['0', newId], reference);
-        await VersionedTemplate.query(context, vtSQL, ['0', newId], reference);
-        return false;
-      }
+      await VersionedTemplate.query(context, vtSQL, ['0', oldId], reference);
     }
     // New default was set
     return true;

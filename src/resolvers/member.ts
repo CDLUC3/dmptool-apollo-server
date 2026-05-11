@@ -256,7 +256,7 @@ export const resolvers: Resolvers = {
                 const plans = await Plan.findByProjectId(reference, context, member.projectId);
                 for (const plan of plans) {
                   // Update the maDMP version of the Plan
-                  await saveMaDMPVersion(reference, context, plan.id, plan.registered);
+                  await saveMaDMPVersion(reference, context, plan.id);
                 }
               }
 
@@ -299,7 +299,7 @@ export const resolvers: Resolvers = {
               const plans = await Plan.findByProjectId(reference, context, member.projectId);
               for (const plan of plans) {
                 // Update the maDMP version of the Plan
-                await saveMaDMPVersion(reference, context, plan.id, plan.registered);
+                await saveMaDMPVersion(reference, context, plan.id);
               }
             }
             return removed;
@@ -372,7 +372,7 @@ export const resolvers: Resolvers = {
             }
 
             // Update the maDMP version of the Plan
-            await saveMaDMPVersion(reference, context, plan.id, plan.registered);
+            await saveMaDMPVersion(reference, context, plan.id);
 
             return created;
           }
@@ -498,7 +498,7 @@ export const resolvers: Resolvers = {
               const plan = await Plan.findById(reference, context, member.planId);
               if (plan) {
                 // Update the maDMP version of the Plan
-                await saveMaDMPVersion(reference, context, plan.id, plan.registered);
+                await saveMaDMPVersion(reference, context, plan.id);
               }
             }
             return removed;

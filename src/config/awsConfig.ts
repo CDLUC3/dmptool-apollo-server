@@ -1,5 +1,7 @@
 import * as dotenv from 'dotenv';
 import { verifyCriticalEnvVariable } from '../utils/helpers';
+import {DynamoConnectionParams} from "@dmptool/utils";
+import {Logger} from "pino";
 
 dotenv.config();
 
@@ -33,8 +35,11 @@ export const awsConfig = {
   sesBouncedEmailBucket: process.env.SES_BOUNCED_EMAIL_BUCKET,
 
   // SQS configuration
-  sqs: {
-    generateMaDMPQueueUrl: process.env.SQS_GENERATE_MADMP_QUEUE_URL,
+  dynamo: {
+    region: process.env.AWS_REGION || 'us-west-2',
+    tableName: process.env.DYNAMO_TABLE_NAME || 'maDMPs',
+    endpoint: process.env.DYNAMO_ENDPOINT,
+    maxAttempts: Number(process.env.DYNAMO_MAX_ATTEMPTS) || 3,
   },
 
   // OpenSearch config
@@ -54,3 +59,16 @@ export const awsConfig = {
     node: process.env.OPENSEARCH_SERVERLESS_NODE || 'https://host.docker.internal:9200',
   }
 }
+
+/**
+ * Get the connection parameters for the MySQL database. (needed by @dmptool/utils)
+ *
+ * @param logger The Pino logger
+ * @returns The connection parameters
+ */
+export const getDynamoConnectionParams = (logger: Logger): DynamoConnectionParams => {
+  return {
+    logger,
+    ...awsConfig.dynamo
+  };
+};

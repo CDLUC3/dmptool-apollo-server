@@ -7,6 +7,13 @@
 - Added `markAsDefaultTemplate` mutation to the `template` resolver (superadmin only)
 - Added `setDefaultTemplate` function to the `TemplateService`
 - Added `isDefault` flag to `Template` and `VersionedTemplate`
+- Added local seed data for a Template that includes a research output question type, and a project/plan that uses it.
+- Added `PRIMARY` ProjectCollaboratorAccessLevel [#227]
+- Added `findByUserIdAndProjectId function to Collaborator model [#227]
+- Added new `collaboratorService` [#227]
+- Added `planCreator` field to the `plan` query response so that client can get plan owner affiliation.uri for feedback pages [#198]
+- Added `sendFeedbackCompleteEmail` to `emailService` [#198]
+- Added `feedback.spec.ts` unit tests for the feedback resolver [#198]
 - Added `feedbackStatus` to the plan query, so the client can know whether to display feedback notification at top of question page [#196]
 - Added new `OPENSEARCH_SERVERLESS_NODE` environment variable
 - Added a `PlanFeedbackStatus` type that can be returned by `planFeedbackStatus`, which now includes the feedback `id` [#191]
@@ -68,6 +75,12 @@
 
 ### Updated
 - Updated `TemplateService` to ensure that the `isDefault` flag is propagated when creating a template version
+- Refactored the `saveMaDMPVersion` function in `planService` to use the shared functionality from `@dmptool/utils` package to write directly to Dynamo rather than sending SQS messages.
+- Updated `updateProjectCollaborator` resolver to use new collaborator service functions to validate access level change and to demote an existing `primary` permission, before promoting another collaborator [#227]
+- Updated permissions for who can `requestFeedback` [#227]
+- Updated `projectService` to include new `ProjectCollaboratorAccessLevel.PRIMARY [#227]
+- Updated `requestFeedback` resolver and `emailService` for that resolver with new message [#260]
+- Updated `completedFeedback` resolver to send an email to the feedback requestor when feedback is marked as complete, and added a `sendEmail` boolean flag to input variables to stop an email from being sent [#198]
 - Updated the `findTemplateCustomizationId` method sql query to guarantee that correct templateCustomizationId is retrieved [#200]
 - Updated `updateQuestionDisplayOrder` method in `question.ts` to mark the template as dirty whenever there is reordering. Did the same thing for `updateSectionDisplayOrder` in `section.ts` [#200]
 - Updated `handleFunderTemplateRepublication` to set correct `customization.currentVersionedTemplateId` after marking the old one as stale [#200]
@@ -166,6 +179,7 @@
 - Fixed issue with templates not cloning with sections and questions by updating the `addTemplate` mutation to clone from non-versioned template, section and question [#1006]
 
 ### Chore
+- Updated `fast-xml-parser` to `v1.2.0` and `uuid` to `11.1.1` to address vulnerabilities.
 - Added `@types/nodemailer` [#189]
 - Added override for `lodash` to `4.18.1` to address high vulnerability issue
 

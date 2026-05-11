@@ -13,6 +13,9 @@ export const typeDefs = gql`
 
     "Get all of the customizable templates for the current user's affiliation (user must be an Admin)"
     customizableTemplates(term: String, status: String, migrationStatus: String, paginationOptions: PaginationOptions): CustomizableTemplateSearchResults
+
+    "Get the default best practice template."
+    defaultTemplate: VersionedTemplate
   }
 
   "Template version type"
@@ -65,6 +68,8 @@ export const typeDefs = gql`
     visibility: TemplateVisibility
     "Whether or not this Template is designated as a 'Best Practice' template"
     bestPractice: Boolean
+    "Whether or not this is the default template"
+    isDefault: Boolean
     "The id of the affiliation that owns the Template"
     ownerId: Int
     "The URI of the affiliation that owns the Template"
@@ -174,6 +179,8 @@ export const typeDefs = gql`
     visibility: TemplateVisibility!
     "Whether or not this Template is designated as a 'Best Practice' template"
     bestPractice: Boolean!
+    "Whether or not this is the default template"
+    isDefault: Boolean
 
     "The VersionedSections that go with the VersionedTemplate"
     versionedSections: [VersionedSection!]

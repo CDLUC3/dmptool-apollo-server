@@ -17,6 +17,7 @@ export class TemplateSearchResult {
   public description?: string;
   public latestPublishVisibility?: TemplateVisibility;
   public bestPractice: boolean;
+  public isDefault: boolean;
   public latestPublishVersion?: string;
   public latestPublishDate?: string;
   public isDirty: boolean;
@@ -35,6 +36,7 @@ export class TemplateSearchResult {
     this.description = options.description;
     this.latestPublishVisibility = options.latestPublishVisibility;
     this.bestPractice = options.bestPractice;
+    this.isDefault = options.isDefault ?? false;
     this.latestPublishVersion = options.latestPublishVersion;
     this.latestPublishDate = options.latestPublishDate;
     this.isDirty = options.isDirty;
@@ -85,7 +87,7 @@ export class TemplateSearchResult {
     }
 
     const sqlStatement = 'SELECT t.id, t.name, t.description, t.latestPublishVisibility, t.bestPractice, t.isDirty, ' +
-                                't.latestPublishVersion, t.latestPublishDate, t.ownerId, a.displayName, ' +
+                                't.latestPublishVersion, t.latestPublishDate, t.ownerId, a.displayName, t.isDefault, ' +
                                 't.createdById, TRIM(CONCAT(cu.givenName, CONCAT(\' \', cu.surName))) as createdByName, t.created, ' +
                                 't.modifiedById, TRIM(CONCAT(mu.givenName, CONCAT(\' \', mu.surName))) as modifiedByName, t.modified ' +
                           'FROM templates t ' +
@@ -120,6 +122,7 @@ export class Template extends MySqlModel {
   public latestPublishDate?: string;
   public isDirty: boolean;
   public bestPractice: boolean;
+  public isDefault: boolean;
   public languageId: string;
 
   private tableName = 'templates';
@@ -137,6 +140,7 @@ export class Template extends MySqlModel {
     this.latestPublishDate = options.latestPublishDate ?? null;
     this.isDirty = options.isDirty ?? true;
     this.bestPractice = options.bestPractice ?? false;
+    this.isDefault = options.isDefault ?? false;
     this.languageId = options.languageId ?? defaultLanguageId;
   }
 

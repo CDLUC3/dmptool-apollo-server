@@ -270,3 +270,40 @@ export function reorderDisplayOrder<T extends { id?: number, displayOrder?: numb
   }
   return ordered;
 }
+
+/**
+ * Generates a unique string by appending an incremental suffix if the string
+ * exists in the array. (e.g. "Test", "Test 1", "Test 2", etc.)
+ *
+ * @param newValue - The desired val (e.g., "Test")
+ * @param existingValues - Array of current vals
+ * @returns A unique val
+ */
+export const resolveNamingCollision = (
+  newValue: string,
+  existingValues: string[]
+): string => {
+  // If the title is already free, just return it
+  if (!existingValues.includes(newValue)) return newValue;
+
+  // Identify all values that match the pattern "Test" or "Test N"
+  // This regex looks for the base value followed by an optional space and digits
+  const escapedBase = newValue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const valRegex = new RegExp(`^${escapedBase}(?: (\\d+))?$`);
+
+  const existingNumbers: number[] = existingValues
+    .map((value: string): number | null => {
+      const match: RegExpMatchArray | null = value.match(valRegex);
+      if (!match) return null;
+      // match[1] is the number (e.g., "1" from "Test 1")
+      // If it's just "Test", we treat it as 0
+      return match[1] ? parseInt(match[1], 10) : 0;
+    })
+    .filter((n): n is number => n !== null);
+
+  // Find the maximum existing number and add 1
+  const maxNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) : 0;
+  const nextNumber = maxNumber + 1;
+
+  return `${newValue} ${nextNumber}`;
+}

@@ -15,6 +15,7 @@ import { defaultLanguageId } from "../Language";
 import { generalConfig } from "../../config/generalConfig";
 import { getCurrentDate } from "../../utils/helpers";
 import { PlanGuidance } from "../Guidance";
+import { Project } from "../Project";
 import { VersionedTemplate } from "../VersionedTemplate";
 
 jest.mock('../../context.ts');
@@ -944,6 +945,56 @@ describe('create', () => {
     expect(planGuidanceCreate).toHaveBeenCalledTimes(2);
     const calls = planGuidanceCreate.mock.calls.map(call => call[0]);
     expect(calls).toEqual([context, context]);
+  });
+
+  it('Properly adds a numeric suffix to the title if it already exists', async () => {
+    const planGuidanceCreate = jest
+      .spyOn(PlanGuidance.prototype, 'create')
+      .mockResolvedValue(undefined);
+    const projectFindById = jest
+      .spyOn(Project, 'findById')
+      .mockResolvedValue({ title: 'My Project' } as Project);
+    const planFindByProjectId = jest
+      .spyOn(Plan, 'findByProjectId')
+      .mockResolvedValue([
+        new Plan({ ...planData, id: 1, title: 'My Project' }),
+        new Plan({ ...planData, id: 2, title: 'My Project 1' }),
+        new Plan({ ...planData, id: 3, title: 'My Project 3' }),
+      ]);
+    const planFindById = jest.spyOn(Plan, 'findById');
+    jest.spyOn(VersionedTemplate, 'findById').mockResolvedValue(undefined);
+
+    insertQuery.mockResolvedValueOnce(123);
+    const createdPlan = new Plan({ ...planData, id: 123, title: 'My Project 4' });
+    planFindById.mockResolvedValueOnce(createdPlan);
+
+    const collisionPlan = new Plan({ ...planData, title: null });
+    jest.spyOn(collisionPlan, 'generateDMPId').mockResolvedValue(getMockDMPId());
+
+    const result = await collisionPlan.create(context);
+
+    expect(projectFindById).toHaveBeenCalledWith(
+      'Plan.create',
+      context,
+      collisionPlan.projectId
+    );
+    expect(planFindByProjectId).toHaveBeenCalledWith(
+      'Plan.create',
+      context,
+      collisionPlan.projectId
+    );
+    expect(insertQuery).toHaveBeenCalledWith(
+      context,
+      'plans',
+      expect.objectContaining({ title: 'My Project 4' }),
+      'Plan.create'
+    );
+    expect(result.title).toBe('My Project 4');
+
+    planGuidanceCreate.mockRestore();
+    projectFindById.mockRestore();
+    planFindByProjectId.mockRestore();
+    planFindById.mockRestore();
   });
 });
 

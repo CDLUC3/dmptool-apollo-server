@@ -7,6 +7,9 @@ export const typeDefs = gql`
 
     "Get a specific plan"
     plan(planId: Int!): Plan
+
+    "Lookup a plan by an alternate identifier"
+    planByAlternateIdentifier(alternateIdentifier: String!): Plan
   }
 
   extend type Mutation {
@@ -22,6 +25,11 @@ export const typeDefs = gql`
     updatePlanTitle(planId: Int!, title: String!): Plan
     "Archive a plan"
     archivePlan(planId: Int!): Plan
+
+    "Assign an alternate identifier to the plan"
+    addAlternateIdentifierToPlan(planId: Int!, alternateIdentifier: String!): AlternateIdentifier
+    "Assign an alternate identifier to the plan"
+    removeAlternateIdentifierFromPlan(planId: Int!, alternateIdentifier: String!): AlternateIdentifier
   }
 
   type PlanSearchResult {
@@ -176,6 +184,31 @@ export const typeDefs = gql`
 
     "Feedback status"
     feedbackStatus: PlanFeedbackStatus
+
+    "Alternate identifiers for the plan"
+    alternateIdentifiers: [AlternateIdentifier!]
+  }
+
+  type AlternateIdentifier {
+    "The unique identifer for the Object"
+    id: Int
+    "The user who created the Object"
+    createdById: Int
+    "The user who created the plan"
+    planCreator: User
+    "The timestamp when the Object was created"
+    created: String
+    "The user who last modified the Object"
+    modifiedById: Int
+    "The timestamp when the Object was last modifed"
+    modified: String
+    "Errors associated with the Object"
+    errors: AlternateIdentifierErrors
+
+    "The alternate identifier"
+    alternateIdentifier: String
+    "The plan associated with the alternate identifier"
+    plan: Plan
   }
 
   "The error messages for the plan"
@@ -200,5 +233,12 @@ export const typeDefs = gql`
     timestamp: String
     "The DMPHub URL for the version"
     url: String
+  }
+
+  "Errors associated with the AlternateIdentifier"
+  type AlternateIdentifierErrors {
+    general: String
+    alternateIdentifier: String
+    planId: String
   }
 `;

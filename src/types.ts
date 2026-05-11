@@ -529,6 +529,36 @@ export type AffiliationType =
   | 'NONPROFIT'
   | 'OTHER';
 
+export type AlternateIdentifier = {
+  __typename?: 'AlternateIdentifier';
+  /** The alternate identifier */
+  alternateIdentifier?: Maybe<Scalars['String']['output']>;
+  /** The timestamp when the Object was created */
+  created?: Maybe<Scalars['String']['output']>;
+  /** The user who created the Object */
+  createdById?: Maybe<Scalars['Int']['output']>;
+  /** Errors associated with the Object */
+  errors?: Maybe<AlternateIdentifierErrors>;
+  /** The unique identifer for the Object */
+  id?: Maybe<Scalars['Int']['output']>;
+  /** The timestamp when the Object was last modifed */
+  modified?: Maybe<Scalars['String']['output']>;
+  /** The user who last modified the Object */
+  modifiedById?: Maybe<Scalars['Int']['output']>;
+  /** The plan associated with the alternate identifier */
+  plan?: Maybe<Plan>;
+  /** The user who created the plan */
+  planCreator?: Maybe<User>;
+};
+
+/** Errors associated with the AlternateIdentifier */
+export type AlternateIdentifierErrors = {
+  __typename?: 'AlternateIdentifierErrors';
+  alternateIdentifier?: Maybe<Scalars['String']['output']>;
+  general?: Maybe<Scalars['String']['output']>;
+  planId?: Maybe<Scalars['String']['output']>;
+};
+
 /** An answer to a question on a Data Managament Plan (DMP) */
 export type Answer = {
   __typename?: 'Answer';
@@ -1351,6 +1381,8 @@ export type Mutation = {
   activateUser?: Maybe<User>;
   /** Create a new Affiliation */
   addAffiliation?: Maybe<Affiliation>;
+  /** Assign an alternate identifier to the plan */
+  addAlternateIdentifierToPlan?: Maybe<AlternateIdentifier>;
   /** Answer a question */
   addAnswer?: Maybe<Answer>;
   /** Add comment for an answer  */
@@ -1453,6 +1485,8 @@ export type Mutation = {
   publishTemplateCustomization: TemplateCustomizationOverview;
   /** Delete an Affiliation (only applicable to AffiliationProvenance == DMPTOOL) */
   removeAffiliation?: Maybe<Affiliation>;
+  /** Assign an alternate identifier to the plan */
+  removeAlternateIdentifierFromPlan?: Maybe<AlternateIdentifier>;
   /** Remove answer comment */
   removeAnswerComment?: Maybe<AnswerComment>;
   /** Remove a custom question */
@@ -1607,6 +1641,12 @@ export type MutationActivateUserArgs = {
 
 export type MutationAddAffiliationArgs = {
   input: AffiliationInput;
+};
+
+
+export type MutationAddAlternateIdentifierToPlanArgs = {
+  alternateIdentifier: Scalars['String']['input'];
+  planId: Scalars['Int']['input'];
 };
 
 
@@ -1887,6 +1927,12 @@ export type MutationPublishTemplateCustomizationArgs = {
 
 export type MutationRemoveAffiliationArgs = {
   affiliationId: Scalars['Int']['input'];
+};
+
+
+export type MutationRemoveAlternateIdentifierFromPlanArgs = {
+  alternateIdentifier: Scalars['String']['input'];
+  planId: Scalars['Int']['input'];
 };
 
 
@@ -2360,6 +2406,8 @@ export type PaginationType =
 /** A Data Managament Plan (DMP) */
 export type Plan = {
   __typename?: 'Plan';
+  /** Alternate identifiers for the plan */
+  alternateIdentifiers?: Maybe<Array<AlternateIdentifier>>;
   /** Answers associated with the plan */
   answers?: Maybe<Array<Answer>>;
   /** The timestamp when the Object was created */
@@ -3123,6 +3171,8 @@ export type Query = {
   customizableTemplates?: Maybe<CustomizableTemplateSearchResults>;
   /** Get all of the research output types */
   defaultResearchOutputTypes?: Maybe<Array<Maybe<ResearchOutputType>>>;
+  /** Get the default best practice template. */
+  defaultTemplate?: Maybe<VersionedTemplate>;
   /** Search for a User to add as a collaborator */
   findCollaborator?: Maybe<CollaboratorSearchResults>;
   /** Find a work with an identifier */
@@ -3167,6 +3217,8 @@ export type Query = {
   myVersionedTemplates?: Maybe<Array<Maybe<VersionedTemplateSearchResult>>>;
   /** Get a specific plan */
   plan?: Maybe<Plan>;
+  /** Lookup a plan by an alternate identifier */
+  planByAlternateIdentifier?: Maybe<Plan>;
   /** Get all rounds of admin feedback for the plan */
   planFeedback?: Maybe<Array<Maybe<PlanFeedback>>>;
   /** Get all of the comments associated with the round of admin feedback */
@@ -3452,6 +3504,11 @@ export type QueryMyTemplatesArgs = {
 
 export type QueryPlanArgs = {
   planId: Scalars['Int']['input'];
+};
+
+
+export type QueryPlanByAlternateIdentifierArgs = {
+  alternateIdentifier: Scalars['String']['input'];
 };
 
 
@@ -5838,6 +5895,8 @@ export type ResolversTypes = {
   AffiliationSearch: ResolverTypeWrapper<AffiliationSearch>;
   AffiliationSearchResults: ResolverTypeWrapper<AffiliationSearchResults>;
   AffiliationType: AffiliationType;
+  AlternateIdentifier: ResolverTypeWrapper<AlternateIdentifier>;
+  AlternateIdentifierErrors: ResolverTypeWrapper<AlternateIdentifierErrors>;
   Answer: ResolverTypeWrapper<Answer>;
   AnswerComment: ResolverTypeWrapper<AnswerComment>;
   AnswerCommentErrors: ResolverTypeWrapper<AnswerCommentErrors>;
@@ -6083,6 +6142,8 @@ export type ResolversParentTypes = {
   AffiliationLinkInput: AffiliationLinkInput;
   AffiliationSearch: AffiliationSearch;
   AffiliationSearchResults: AffiliationSearchResults;
+  AlternateIdentifier: AlternateIdentifier;
+  AlternateIdentifierErrors: AlternateIdentifierErrors;
   Answer: Answer;
   AnswerComment: AnswerComment;
   AnswerCommentErrors: AnswerCommentErrors;
@@ -6367,6 +6428,24 @@ export type AffiliationSearchResultsResolvers<ContextType = MyContext, ParentTyp
   nextCursor?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   totalCount?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type AlternateIdentifierResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['AlternateIdentifier'] = ResolversParentTypes['AlternateIdentifier']> = {
+  alternateIdentifier?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  createdById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  errors?: Resolver<Maybe<ResolversTypes['AlternateIdentifierErrors']>, ParentType, ContextType>;
+  id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  plan?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType>;
+  planCreator?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType>;
+};
+
+export type AlternateIdentifierErrorsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['AlternateIdentifierErrors'] = ResolversParentTypes['AlternateIdentifierErrors']> = {
+  alternateIdentifier?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  general?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  planId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 };
 
 export type AnswerResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['Answer'] = ResolversParentTypes['Answer']> = {
@@ -6792,6 +6871,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   _empty?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   activateUser?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationActivateUserArgs, 'userId'>>;
   addAffiliation?: Resolver<Maybe<ResolversTypes['Affiliation']>, ParentType, ContextType, RequireFields<MutationAddAffiliationArgs, 'input'>>;
+  addAlternateIdentifierToPlan?: Resolver<Maybe<ResolversTypes['AlternateIdentifier']>, ParentType, ContextType, RequireFields<MutationAddAlternateIdentifierToPlanArgs, 'alternateIdentifier' | 'planId'>>;
   addAnswer?: Resolver<Maybe<ResolversTypes['Answer']>, ParentType, ContextType, RequireFields<MutationAddAnswerArgs, 'planId'>>;
   addAnswerComment?: Resolver<Maybe<ResolversTypes['AnswerComment']>, ParentType, ContextType, RequireFields<MutationAddAnswerCommentArgs, 'answerId' | 'commentText'>>;
   addCustomQuestion?: Resolver<ResolversTypes['CustomQuestion'], ParentType, ContextType, RequireFields<MutationAddCustomQuestionArgs, 'input'>>;
@@ -6843,6 +6923,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   publishPlan?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType, RequireFields<MutationPublishPlanArgs, 'planId'>>;
   publishTemplateCustomization?: Resolver<ResolversTypes['TemplateCustomizationOverview'], ParentType, ContextType, RequireFields<MutationPublishTemplateCustomizationArgs, 'templateCustomizationId'>>;
   removeAffiliation?: Resolver<Maybe<ResolversTypes['Affiliation']>, ParentType, ContextType, RequireFields<MutationRemoveAffiliationArgs, 'affiliationId'>>;
+  removeAlternateIdentifierFromPlan?: Resolver<Maybe<ResolversTypes['AlternateIdentifier']>, ParentType, ContextType, RequireFields<MutationRemoveAlternateIdentifierFromPlanArgs, 'alternateIdentifier' | 'planId'>>;
   removeAnswerComment?: Resolver<Maybe<ResolversTypes['AnswerComment']>, ParentType, ContextType, RequireFields<MutationRemoveAnswerCommentArgs, 'answerCommentId' | 'answerId'>>;
   removeCustomQuestion?: Resolver<ResolversTypes['CustomQuestion'], ParentType, ContextType, RequireFields<MutationRemoveCustomQuestionArgs, 'customQuestionId'>>;
   removeCustomSection?: Resolver<ResolversTypes['CustomSection'], ParentType, ContextType, RequireFields<MutationRemoveCustomSectionArgs, 'customSectionId'>>;
@@ -6947,6 +7028,7 @@ export type PaginatedQueryResultsResolvers<ContextType = MyContext, ParentType e
 };
 
 export type PlanResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['Plan'] = ResolversParentTypes['Plan']> = {
+  alternateIdentifiers?: Resolver<Maybe<Array<ResolversTypes['AlternateIdentifier']>>, ParentType, ContextType>;
   answers?: Resolver<Maybe<Array<ResolversTypes['Answer']>>, ParentType, ContextType>;
   created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   createdById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
@@ -7345,6 +7427,7 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   customSection?: Resolver<Maybe<ResolversTypes['CustomSection']>, ParentType, ContextType, RequireFields<QueryCustomSectionArgs, 'customSectionId'>>;
   customizableTemplates?: Resolver<Maybe<ResolversTypes['CustomizableTemplateSearchResults']>, ParentType, ContextType, Partial<QueryCustomizableTemplatesArgs>>;
   defaultResearchOutputTypes?: Resolver<Maybe<Array<Maybe<ResolversTypes['ResearchOutputType']>>>, ParentType, ContextType>;
+  defaultTemplate?: Resolver<Maybe<ResolversTypes['VersionedTemplate']>, ParentType, ContextType>;
   findCollaborator?: Resolver<Maybe<ResolversTypes['CollaboratorSearchResults']>, ParentType, ContextType, RequireFields<QueryFindCollaboratorArgs, 'term'>>;
   findWorkByIdentifier?: Resolver<Maybe<ResolversTypes['RelatedWorkSearchResults']>, ParentType, ContextType, Partial<QueryFindWorkByIdentifierArgs>>;
   guidance?: Resolver<Maybe<ResolversTypes['Guidance']>, ParentType, ContextType, RequireFields<QueryGuidanceArgs, 'guidanceId'>>;
@@ -7367,6 +7450,7 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   myTemplates?: Resolver<Maybe<ResolversTypes['TemplateSearchResults']>, ParentType, ContextType, Partial<QueryMyTemplatesArgs>>;
   myVersionedTemplates?: Resolver<Maybe<Array<Maybe<ResolversTypes['VersionedTemplateSearchResult']>>>, ParentType, ContextType>;
   plan?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType, RequireFields<QueryPlanArgs, 'planId'>>;
+  planByAlternateIdentifier?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType, RequireFields<QueryPlanByAlternateIdentifierArgs, 'alternateIdentifier'>>;
   planFeedback?: Resolver<Maybe<Array<Maybe<ResolversTypes['PlanFeedback']>>>, ParentType, ContextType, RequireFields<QueryPlanFeedbackArgs, 'planId'>>;
   planFeedbackComments?: Resolver<Maybe<Array<Maybe<ResolversTypes['PlanFeedbackComment']>>>, ParentType, ContextType, RequireFields<QueryPlanFeedbackCommentsArgs, 'planFeedbackId' | 'planId'>>;
   planFeedbackStatus?: Resolver<Maybe<ResolversTypes['PlanFeedbackStatus']>, ParentType, ContextType, RequireFields<QueryPlanFeedbackStatusArgs, 'planId'>>;
@@ -8325,6 +8409,8 @@ export type Resolvers<ContextType = MyContext> = {
   AffiliationLink?: AffiliationLinkResolvers<ContextType>;
   AffiliationSearch?: AffiliationSearchResolvers<ContextType>;
   AffiliationSearchResults?: AffiliationSearchResultsResolvers<ContextType>;
+  AlternateIdentifier?: AlternateIdentifierResolvers<ContextType>;
+  AlternateIdentifierErrors?: AlternateIdentifierErrorsResolvers<ContextType>;
   Answer?: AnswerResolvers<ContextType>;
   AnswerComment?: AnswerCommentResolvers<ContextType>;
   AnswerCommentErrors?: AnswerCommentErrorsResolvers<ContextType>;

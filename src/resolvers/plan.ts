@@ -88,10 +88,14 @@ export const resolvers: Resolvers = {
 
         const plan = await Plan.findById(reference, context, identifier.planId);
         if (isNullOrUndefined(plan)) {
-          throw NotFoundError(`Plan with ID not found`);
+          throw NotFoundError(`Plan with ID, ${identifier.planId}, not found`);
         }
 
         const project = await Project.findById(reference, context, plan.projectId);
+        if (isNullOrUndefined(project)) {
+          throw NotFoundError(`Project with ID, ${plan.projectId}, not found`);
+        }
+
         if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.COMMENT)) {
           return plan;
         }

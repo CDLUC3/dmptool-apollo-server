@@ -158,6 +158,7 @@ describe('create', () => {
     const mockFindBy = jest.fn();
     (AlternateIdentifier.findByAlternateIdentifier as jest.Mock) = mockFindBy;
     mockFindBy.mockResolvedValueOnce(null);
+    insertQuery.mockResolvedValueOnce(123);
 
     const mockFindById = jest.fn();
     (AlternateIdentifier.findById as jest.Mock) = mockFindById;

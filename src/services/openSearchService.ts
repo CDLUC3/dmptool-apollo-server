@@ -276,7 +276,6 @@ export class OpenSearchService {
       return [];
     }
 
-    console.log("***URIs", uris);
     context.logger.debug({ uris }, 'Fetching URIs from OpenSearch re3data index');
 
     const PAGE_SIZE = 100;
@@ -318,17 +317,14 @@ export class OpenSearchService {
         });
       }
 
-      console.log("***Response", response);
       const hits = (response as { body: { hits: { hits: (OpenSearchRe3DataHit & { sort: unknown[] })[] } } })
         .body.hits.hits;
 
-      console.log("***Hits", hits);
       if (hits.length === 0) break;
 
       allHits.push(...hits);
       cursor = hits[hits.length - 1].sort;
 
-      console.log("***Cursor for next page", cursor);
       // If we got fewer results than the page size, we've reached the last page
       if (hits.length < PAGE_SIZE) break;
     }

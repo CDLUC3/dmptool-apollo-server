@@ -8,6 +8,8 @@ export const typeDefs = gql`
     "Get a specific plan"
     plan(planId: Int!): Plan
 
+    "Lookup a plan by its DMP id"
+    planByDMPId(dmpId: String!): Plan
     "Lookup a plan by an alternate identifier"
     planByAlternateIdentifier(alternateIdentifier: String!): Plan
   }

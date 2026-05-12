@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added override for `@node-oauth/oauth2-server`
 - Added `fetchAnswerCustomQuestion` to `Plan` model in order to get answered counts for custom questions [#161]
 - Added `publishedCustomQuestion` query resolver and added to schema [#173]
 - Added `ON DELETE CASCADE` sql migration script for deletion of `versionedTemplateCustomization` and `templateCustomization` FKs [#171]
@@ -58,6 +59,10 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated graphql codegen dependencies
+- Moved `re3data-os-populate.ts` to `data-migration/dataSync` directory.
+- Updated `re3data-os-populate.ts` to work with OpenSearch serverless collections
+- Fixed some typescipt issues with the re3data import script
 - Updated `nodemailer` 
 - Updated `relatedWorksTables.spec.ts` to fix linter issues
 - Updated `PlanProgress.findByPlanId` to use `fetchAnswerCustomQuestions` and return answered question counts that include the custom questions [#161]
@@ -115,6 +120,7 @@
 - Updates to appease newer version of eslint
 
 ### Removed
+- Removed old overrides for `"flatted`, `handlebars`, `lodash`, `path-to-regexp`, `picomatch`, and `protobufjs`
 - Removed old dependabot config
 - Removed override for `minimatch` and `immutable` dependencies
 - Removed the `unique_vTemplateCusts` restriction from `versionedTemplateCustomizations` table, because it was not allowing the publishing of a templateCustomization more than twice, because the combination of `templateCustomizationId` and `active` had to be unique [#428]

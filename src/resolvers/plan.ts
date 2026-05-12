@@ -73,6 +73,32 @@ export const resolvers: Resolvers = {
       }
     },
 
+    // Find a Plan by its DMP id
+    planByDMPId: async(_, { dmpId }, context: MyContext): Promise<Plan> => {
+      const reference = 'planByDMPId resolver';
+      try {
+        const plan = await Plan.findByDMPId(reference, context, dmpId);
+        if (isNullOrUndefined(plan)) {
+          throw NotFoundError(`Plan with DMP id, ${dmpId}, not found`);
+        }
+
+        const project = await Project.findById(reference, context, plan.projectId);
+        if (isNullOrUndefined(project)) {
+          throw NotFoundError(`Project with ID, ${plan.projectId}, not found`);
+        }
+
+        if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.COMMENT)) {
+          return plan;
+        }
+        throw context?.token ? ForbiddenError() : AuthenticationError();
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    },
+
     // Lookup a Plan by its alternate identifier
     planByAlternateIdentifier: async(_, { alternateIdentifier }, context: MyContext): Promise<Plan> => {
       const reference = 'planByAlternateIdentifier resolver';

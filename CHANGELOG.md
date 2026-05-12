@@ -4,6 +4,7 @@
 
 ### Added
 - Added new `setDefaultMemberRole` mutation to member roles resolver.
+- Added `findByDMPId` to plan resolver
 - Added `defaultTemplate` query to the `versionedTemplate` schema and a corresponding resolver
 - Added `markAsDefaultTemplate` mutation to the `template` resolver (superadmin only)
 - Added `setDefaultTemplate` function to the `TemplateService`

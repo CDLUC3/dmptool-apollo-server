@@ -3235,6 +3235,8 @@ export type Query = {
   plan?: Maybe<Plan>;
   /** Lookup a plan by an alternate identifier */
   planByAlternateIdentifier?: Maybe<Plan>;
+  /** Lookup a plan by its DMP id */
+  planByDMPId?: Maybe<Plan>;
   /** Get all rounds of admin feedback for the plan */
   planFeedback?: Maybe<Array<Maybe<PlanFeedback>>>;
   /** Get all of the comments associated with the round of admin feedback */
@@ -3525,6 +3527,11 @@ export type QueryPlanArgs = {
 
 export type QueryPlanByAlternateIdentifierArgs = {
   alternateIdentifier: Scalars['String']['input'];
+};
+
+
+export type QueryPlanByDmpIdArgs = {
+  dmpId: Scalars['String']['input'];
 };
 
 
@@ -7478,6 +7485,7 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   myVersionedTemplates?: Resolver<Maybe<Array<Maybe<ResolversTypes['VersionedTemplateSearchResult']>>>, ParentType, ContextType>;
   plan?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType, RequireFields<QueryPlanArgs, 'planId'>>;
   planByAlternateIdentifier?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType, RequireFields<QueryPlanByAlternateIdentifierArgs, 'alternateIdentifier'>>;
+  planByDMPId?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType, RequireFields<QueryPlanByDmpIdArgs, 'dmpId'>>;
   planFeedback?: Resolver<Maybe<Array<Maybe<ResolversTypes['PlanFeedback']>>>, ParentType, ContextType, RequireFields<QueryPlanFeedbackArgs, 'planId'>>;
   planFeedbackComments?: Resolver<Maybe<Array<Maybe<ResolversTypes['PlanFeedbackComment']>>>, ParentType, ContextType, RequireFields<QueryPlanFeedbackCommentsArgs, 'planFeedbackId' | 'planId'>>;
   planFeedbackStatus?: Resolver<Maybe<ResolversTypes['PlanFeedbackStatus']>, ParentType, ContextType, RequireFields<QueryPlanFeedbackStatusArgs, 'planId'>>;

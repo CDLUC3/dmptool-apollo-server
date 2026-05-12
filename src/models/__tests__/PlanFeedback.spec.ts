@@ -219,6 +219,7 @@ describe('create', () => {
 
   beforeEach(() => {
     insertQuery = jest.fn();
+    insertQuery.mockResolvedValueOnce({ insertId: 123 });
     (PlanFeedback.insert as jest.Mock) = insertQuery;
 
     planFeedback = new PlanFeedback({
@@ -256,7 +257,6 @@ describe('create', () => {
     const mockFindById = jest.fn();
     (PlanFeedback.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(planFeedback);
-
     const result = await planFeedback.create(context);
     expect(mockFindById).toHaveBeenCalledTimes(1);
     expect(insertQuery).toHaveBeenCalledTimes(1);
@@ -329,25 +329,24 @@ describe('statusForPlan', () => {
     localQuery.mockResolvedValueOnce([]);
     const planId = casual.integer(1, 9999);
     const result = await PlanFeedback.statusForPlan('testing', context, planId);
-    const expectedSql = 'SELECT COUNT(*) as total, SUM(completed IS NULL) as open FROM feedback WHERE planId = ?';
+    const expectedSql = `\n      SELECT id, completed\n      FROM feedback\n      WHERE planId = ?\n      ORDER BY id DESC\n      LIMIT 1\n    `;
 
     expect(localQuery).toHaveBeenCalledTimes(1);
     expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [planId.toString()], 'testing');
-    expect(result).toEqual('NONE');
+    expect(result).toEqual({ status: 'NONE', id: null });
   });
 
-  it('returns REQUESTED when there is at least one open feedback (completed IS NULL)', async () => {
-    // simulate SQL returning counts as strings (like DB drivers often do)
-    localQuery.mockResolvedValueOnce([{ total: '2', open: '1' }]);
+  it('returns REQUESTED when the latest feedback is open (completed IS NULL)', async () => {
     const planId = casual.integer(1, 9999);
+    localQuery.mockResolvedValueOnce([{ id: 42, completed: null }]);
     const result = await PlanFeedback.statusForPlan('testing', context, planId);
-    expect(result).toEqual('REQUESTED');
+    expect(result).toEqual({ status: 'REQUESTED', id: 42 });
   });
 
-  it('returns COMPLETED when all feedback rows are completed', async () => {
-    localQuery.mockResolvedValueOnce([{ total: '3', open: '0' }]);
+  it('returns COMPLETED when the latest feedback is completed', async () => {
     const planId = casual.integer(1, 9999);
+    localQuery.mockResolvedValueOnce([{ id: 99, completed: '2024-04-24' }]);
     const result = await PlanFeedback.statusForPlan('testing', context, planId);
-    expect(result).toEqual('COMPLETED');
+    expect(result).toEqual({ status: 'COMPLETED', id: 99 });
   });
 });

@@ -230,7 +230,7 @@ export const resolvers: Resolvers = {
             const plans = await Plan.findByProjectId(reference, context, project.id);
             for (const plan of plans) {
               // Update the maDMP version of the Plan
-              await saveMaDMPVersion(reference, context, plan.id, plan.registered);
+              await saveMaDMPVersion(reference, context, plan.id);
             }
           }
 
@@ -267,7 +267,7 @@ export const resolvers: Resolvers = {
 
             if (deleted && !deleted.hasErrors()) {
               // Delete the maDMP versions of the Plan
-              await saveMaDMPVersion(reference, context, deleted.id, deleted.registered, true);
+              await saveMaDMPVersion(reference, context, deleted.id, true);
             }
           }
 

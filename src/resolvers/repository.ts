@@ -58,7 +58,8 @@ export const resolvers: Resolvers = {
           return {
             ...results,
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            items: results.items as any,
+            items: results.items as any[],
+
           } as RepositorySearchResults;
         }
         // Unauthorized access

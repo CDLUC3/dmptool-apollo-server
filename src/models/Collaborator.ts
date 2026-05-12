@@ -223,7 +223,9 @@ export class TemplateCollaborator extends Collaborator {
 
 // The type of access the collaborator can have on a Project
 export enum ProjectCollaboratorAccessLevel {
-  // Can do everything on a Project or Plan
+  // The user is able to perform all actions on a Plan (typically restricted to the owner/creator)
+  PRIMARY = 'PRIMARY',
+  // Has admin rights to project (can invite other users, edit the plans and publish them)
   OWN = 'OWN',
   // Can edit a Project's and Plan's info (except publish, mark as complete, and change access levels)
   EDIT = 'EDIT',
@@ -386,6 +388,19 @@ export class ProjectCollaborator extends Collaborator {
     return Array.isArray(results) ? results.map((entry) => new ProjectCollaborator(entry)) : [];
   }
 
+
+  // Get collaborator by userId and projectId
+  static async findByUserIdAndProjectId(
+    reference: string,
+    context: MyContext,
+    userId: number,
+    projectId: number
+  ): Promise<ProjectCollaborator> {
+    const sql = 'SELECT * FROM projectCollaborators WHERE userId = ? AND projectId = ?';
+    const results = await ProjectCollaborator.query(context, sql, [userId?.toString(), projectId?.toString()], reference);
+    return Array.isArray(results) && results.length > 0 ? new ProjectCollaborator(results[0]) : null;
+  }
+
   // Get the specified ProjectCollaborator
   static async findByProjectIdAndEmail(
     reference: string,
@@ -434,7 +449,7 @@ export class ProjectCollaborator extends Collaborator {
 
       } else {
         // Finally, call the ORCID API to get the person's details
-        const orcidAPI: OrcidAPI = new OrcidAPI({cache: context.cache});
+        const orcidAPI: OrcidAPI = new OrcidAPI({ cache: context.cache });
         const orcidData: OrcidPerson = await orcidAPI.getPerson(context, orcidId, reference);
 
         if (isNullOrUndefined(orcidData)) {

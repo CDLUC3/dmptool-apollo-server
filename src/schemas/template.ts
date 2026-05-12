@@ -16,6 +16,9 @@ export const typeDefs = gql`
     "Archive a Template (unpublishes any associated PublishedTemplate"
     archiveTemplate(templateId: Int!): Template
 
+    "Designates the specified Template as the default (SuperAdmin only)"
+    markAsDefaultTemplate(templateId: Int!): Template
+
     "Publish the template or save as a draft"
     createTemplateVersion(templateId: Int!, comment: String, versionType: TemplateVersionType, latestPublishVisibility: TemplateVisibility!): Template
   }
@@ -40,6 +43,8 @@ export const typeDefs = gql`
     latestPublishVisibility: TemplateVisibility
     "Whether or not this Template is designated as a 'Best Practice' template"
     bestPractice: Boolean
+    "Whether or not this is the default template"
+    isDefault: Boolean
     "The last published version"
     latestPublishVersion: String
     "The last published date"
@@ -119,6 +124,8 @@ export const typeDefs = gql`
     isDirty: Boolean!
     "Whether or not this Template is designated as a 'Best Practice' template"
     bestPractice: Boolean!
+    "Whether or not this is the default template"
+    isDefault: Boolean
     "The Sections associated with the template"
     sections: [Section]
     "The template's language"

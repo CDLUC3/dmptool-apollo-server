@@ -3,6 +3,26 @@
 ## v1.1.0
 
 ### Added
+- Added `findByDMPId` to plan resolver
+- Added `defaultTemplate` query to the `versionedTemplate` schema and a corresponding resolver
+- Added `markAsDefaultTemplate` mutation to the `template` resolver (superadmin only)
+- Added `setDefaultTemplate` function to the `TemplateService`
+- Added `isDefault` flag to `Template` and `VersionedTemplate`
+- Added a `addAlternateIdentifierToPlan` and `removeAlternateIdentifierFromPlan` resolvers and schema to facilitate adding and removing alternate identifiers for a Plan
+- Added a `planByAlternateIdentifier` resolver and schema to facilitate finding Plans by a alternate id
+- Added `AlternateIdentifier` table and model to store alternate identifiers for Plans/DMPs
+- Added new `resolveNamingCollision` helper method and updated `Plan.create` to use it to prevent duplicate plan names. 
+- Added local seed data for a Template that includes a research output question type, and a project/plan that uses it.
+- Added `PRIMARY` ProjectCollaboratorAccessLevel [#227]
+- Added `findByUserIdAndProjectId function to Collaborator model [#227]
+- Added new `collaboratorService` [#227]
+- Added `planCreator` field to the `plan` query response so that client can get plan owner affiliation.uri for feedback pages [#198]
+- Added `sendFeedbackCompleteEmail` to `emailService` [#198]
+- Added `feedback.spec.ts` unit tests for the feedback resolver [#198]
+- Added `feedbackStatus` to the plan query, so the client can know whether to display feedback notification at top of question page [#196]
+- Added new `OPENSEARCH_SERVERLESS_NODE` environment variable
+- Added a `PlanFeedbackStatus` type that can be returned by `planFeedbackStatus`, which now includes the feedback `id` [#191]
+- Added `messageToOrg` field in `feedback` table [#189]
 - Added override for `@node-oauth/oauth2-server`
 - Added `fetchAnswerCustomQuestion` to `Plan` model in order to get answered counts for custom questions [#161]
 - Added `publishedCustomQuestion` query resolver and added to schema [#173]
@@ -59,6 +79,25 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `TemplateService` to ensure that the `isDefault` flag is propagated when creating a template version
+- Updated `Plan` schema to include `alternateIdentifiers` as a chained resolver.
+- Refactored the `saveMaDMPVersion` function in `planService` to use the shared functionality from `@dmptool/utils` package to write directly to Dynamo rather than sending SQS messages.
+- Updated `updateProjectCollaborator` resolver to use new collaborator service functions to validate access level change and to demote an existing `primary` permission, before promoting another collaborator [#227]
+- Updated permissions for who can `requestFeedback` [#227]
+- Updated `projectService` to include new `ProjectCollaboratorAccessLevel.PRIMARY [#227]
+- Updated `requestFeedback` resolver and `emailService` for that resolver with new message [#260]
+- Updated `completedFeedback` resolver to send an email to the feedback requestor when feedback is marked as complete, and added a `sendEmail` boolean flag to input variables to stop an email from being sent [#198]
+- Updated the `findTemplateCustomizationId` method sql query to guarantee that correct templateCustomizationId is retrieved [#200]
+- Updated `updateQuestionDisplayOrder` method in `question.ts` to mark the template as dirty whenever there is reordering. Did the same thing for `updateSectionDisplayOrder` in `section.ts` [#200]
+- Updated `handleFunderTemplateRepublication` to set correct `customization.currentVersionedTemplateId` after marking the old one as stale [#200]
+- Updated `planFeedbackStatus` query resolver so that it doesn't require a user to be admin in order to access that data, since the client uses it to display data in the right sidebar for any user [#196]
+- Made further updates to `repositories` query resolver and related functions to address an issue with the paginated data being returned. Also realized that previous sorting only applied on a page-by-page level, so fixed that as well.[#118]
+- Updated re3data-os-populate.ts to write to an AWS Serverless OpenSearch (AOSS) instance
+- Updated OpenSearch datasource to include a new serverlessClient property and createOpenSearchServerlessClient function.
+- Addressed an issue where the Apollo server logs were not properly piping to the CloudWatch logs in the new combined ApolloShib ECS tasks.
+- Refactored `re3data-os-populate.ts` to use `fast-sml-parser` instead of `xml-dom`
+- Updated `planFeedbackStatus` query resolver to return a feedback `id` as well, so frontend can use it to delete the feedback [#191]
+- Updated `repositories` query resolver to have the response alphabetically sorted on name [#118]
 - Updated graphql codegen dependencies
 - Moved `re3data-os-populate.ts` to `data-migration/dataSync` directory.
 - Updated `re3data-os-populate.ts` to work with OpenSearch serverless collections
@@ -137,6 +176,9 @@
 - Removed `ioredis` package
 
 ### Fixed
+- Fixed an issue with duplicate URIs being returned to `findRe3DataByURIs` by deduping [#33]
+- Fixed bug in `openSearchService` that was throwing an error and not returning repositories [#196]
+- Fixed some new `type` errors in `feedback` resolver and `emailService` brought on by a recent update to `typescript-eslint` [#189]
 - Had issue running `nuke-db.sh` and `process.sh`, so I turned off SSL by using `--ssl=off` instead
 - Fixed `fetchTemplateData` query in `TemplateCustomization` model because `questionCustomizationHasSampleText` was incorrectly returning true [#130] 
 - In `preparePaginationOptions` function, wrapped each cursorField with `COALESCE` to handle `NULL` values in SQL `CONCAT`, otherwise if any cursorField is NULL, it would just return a null value due to the way `CONCAT` works [#107]
@@ -144,6 +186,8 @@
 - Fixed issue with templates not cloning with sections and questions by updating the `addTemplate` mutation to clone from non-versioned template, section and question [#1006]
 
 ### Chore
+- Updated `fast-xml-parser` to `v1.2.0` and `uuid` to `11.1.1` to address vulnerabilities.
+- Added `@types/nodemailer` [#189]
 - Added override for `lodash` to `4.18.1` to address high vulnerability issue
 
 ## v1.0

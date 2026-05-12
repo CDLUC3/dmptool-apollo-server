@@ -15,14 +15,14 @@ export const typeDefs = gql`
     planFeedbackComments(planId: Int!, planFeedbackId: Int!): [PlanFeedbackComment]
 
     "Get the feedback status for a plan (NONE, REQUESTED, COMPLETED)"
-    planFeedbackStatus(planId: Int!): PlanFeedbackStatusEnum
+    planFeedbackStatus(planId: Int!): PlanFeedbackStatus
   }
 
   extend type Mutation {
     "Request a round of admin feedback"
-    requestFeedback(planId: Int!): PlanFeedback
+    requestFeedback(planId: Int!, messageToOrg: String): PlanFeedback
     "Mark the feedback round as complete"
-    completeFeedback(planId: Int!, planFeedbackId: Int!, summaryText: String): PlanFeedback
+    completeFeedback(planId: Int!, planFeedbackId: Int!, summaryText: String, sendEmail: Boolean): PlanFeedback
     "Add feedback comment for an answer within a round of feedback"
     addFeedbackComment(planId: Int!, planFeedbackId: Int!, answerId: Int!, commentText: String!): PlanFeedbackComment
     "Update feedback comment for an answer within a round of feedback"
@@ -58,6 +58,8 @@ export const typeDefs = gql`
     completedBy: User
     "An overall summary that can be sent to the user upon completion"
     summaryText: String
+    "Message user sent to org when requesting feedback, which can be NULL"
+    messageToOrg: String
 
     "The specific contextual commentary"
     feedbackComments: [PlanFeedbackComment!]
@@ -107,5 +109,13 @@ export const typeDefs = gql`
     answer: String
     planFeedback: String
     comment: String
+  }
+
+  "Info on the Plan Feedback Status"
+  type PlanFeedbackStatus {
+  "The status of the plan feedback (NONE, REQUESTED, COMPLETED)"
+  status: PlanFeedbackStatusEnum  
+  "The id of the feedback request if it exists"
+  id: Int
   }
 `;

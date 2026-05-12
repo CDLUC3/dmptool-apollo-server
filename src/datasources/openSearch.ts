@@ -2,6 +2,10 @@ import { Client, ClientOptions } from "@opensearch-project/opensearch";
 import { AwsSigv4Signer } from "@opensearch-project/opensearch/aws";
 import { fromNodeProviderChain } from "@aws-sdk/credential-providers";
 
+export interface OpenSearchServerlessConfig {
+  node: string;
+}
+
 export interface OpenSearchConfig {
   host: string;
   port: number;
@@ -12,6 +16,17 @@ export interface OpenSearchConfig {
   password: string | null;
   awsRegion: string | null;
   awsService: 'es' | 'aoss' | null;
+}
+
+export function createOpenSearchServerlessClient(config: OpenSearchServerlessConfig): Client {
+  return new Client({
+    ...AwsSigv4Signer({
+      region: 'us-west-2',
+      service: 'aoss', // OpenSearch Serverless
+      getCredentials: fromNodeProviderChain(),
+    }),
+    node: config.node,
+  });
 }
 
 export function createOpenSearchClient(config: OpenSearchConfig): Client {

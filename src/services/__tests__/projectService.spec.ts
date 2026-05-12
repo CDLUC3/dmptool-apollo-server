@@ -13,9 +13,9 @@ import {
 } from "../projectService";
 import { ProjectCollaborator, ProjectCollaboratorAccessLevel } from "../../models/Collaborator";
 import { User } from "../../models/User";
-import {ProjectMember} from "../../models/Member";
-import {MemberRole} from "../../models/MemberRole";
-import {MyContext} from "../../context";
+import { ProjectMember } from "../../models/Member";
+import { MemberRole } from "../../models/MemberRole";
+import { MyContext } from "../../context";
 
 // Pulling context in here so that the mysql gets mocked
 jest.mock('../../context.ts');
@@ -127,6 +127,26 @@ describe('hasPermissionOnProject', () => {
     expect(mockQuery).toHaveBeenCalledTimes(0);
     expect(mockCollaboratorQuery).toHaveBeenCalledTimes(1);
   });
+
+  it('returns false if user has EDIT but PRIMARY is required', async () => {
+    mockIsSuperAdmin.mockResolvedValueOnce(false);
+    mockIsAdmin.mockResolvedValueOnce(false);
+    context.token = { id: casual.integer(1, 9999) };
+    mockCollaboratorQuery.mockResolvedValueOnce([
+      { userId: context.token.id, accessLevel: ProjectCollaboratorAccessLevel.EDIT }
+    ]);
+    expect(await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.PRIMARY)).toBe(false);
+  });
+
+  it('returns true if user has PRIMARY and PRIMARY is required', async () => {
+    mockIsSuperAdmin.mockResolvedValueOnce(false);
+    mockIsAdmin.mockResolvedValueOnce(false);
+    context.token = { id: casual.integer(1, 9999) };
+    mockCollaboratorQuery.mockResolvedValueOnce([
+      { userId: context.token.id, accessLevel: ProjectCollaboratorAccessLevel.PRIMARY }
+    ]);
+    expect(await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.PRIMARY)).toBe(true);
+  });
 });
 
 describe('setCurrentUserAsProjectOwner', () => {
@@ -198,7 +218,7 @@ describe('setCurrentUserAsProjectOwner', () => {
     const collaborator = new ProjectCollaborator({
       projectId: project.id,
       email: context.token.email,
-      accessLevel: ProjectCollaboratorAccessLevel.OWN,
+      accessLevel: ProjectCollaboratorAccessLevel.PRIMARY,
       invitedById: context.token.id,
     });
     jest.spyOn(ProjectCollaborator, 'insert').mockResolvedValue(newId);

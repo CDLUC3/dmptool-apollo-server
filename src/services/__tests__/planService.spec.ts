@@ -13,9 +13,15 @@ import { PlanMember, ProjectMember } from "../../models/Member";
 import casual from "casual";
 import { Project } from "../../models/Project";
 import { Plan } from "../../models/Plan";
-import { sendMessage } from '@dmptool/utils';
-import { awsConfig } from '../../config/awsConfig';
+import {
+  createDMP,
+  deleteDMP, DMPExists, planToDMPCommonStandard,
+  tombstoneDMP,
+  updateDMP
+} from '@dmptool/utils';
+import { getDynamoConnectionParams } from '../../config/awsConfig';
 import { generalConfig } from '../../config/generalConfig';
+import { DMPToolDMPType } from "@dmptool/types";
 
 jest.mock('@dmptool/utils');
 
@@ -245,7 +251,44 @@ describe('saveMaDMPVersion', () => {
   let context: MyContext;
   const reference = 'test-reference';
   const planId = 123;
-  const mockSendMessage = sendMessage as jest.MockedFunction<typeof sendMessage>;
+  const mockExists = DMPExists as jest.MockedFunction<typeof DMPExists>;
+  const mockPlanToMaDMP = planToDMPCommonStandard as jest.MockedFunction<typeof planToDMPCommonStandard>;
+  const mockCreate = createDMP as jest.MockedFunction<typeof createDMP>;
+  const mockUpdate = updateDMP as jest.MockedFunction<typeof updateDMP>;
+  const mockDelete = deleteDMP as jest.MockedFunction<typeof deleteDMP>;
+  const mockTombstone = tombstoneDMP as jest.MockedFunction<typeof tombstoneDMP>;
+
+  const mockMaDMP: DMPToolDMPType = {
+    dmp: {
+      contact: {
+        contact_id: [{
+          identifier: "http://example.com/contacts/123",
+          type: "url"
+        }],
+        mbox: "tester@example.com",
+        name: "Test Contact"
+      },
+      created: "2021-01-01 03:11:23Z",
+      dataset: [{
+        title: "Test Dataset",
+        dataset_id: {
+          identifier: "http://example.com/datasets/123",
+          type: "other"
+        },
+        personal_data: "unknown",
+        sensitive_data: "no"
+      }],
+      dmp_id: {
+        identifier: "http://example.com/dmps/123",
+        type: "other"
+      },
+      ethical_issues_exist: "unknown",
+      language: "eng",
+      modified: "2021-01-01 02:23:11Z",
+      provenance: "test-system",
+      title: "Test DMP"
+    }
+  }
 
   beforeEach(async () => {
     context = await buildMockContextWithToken(logger);
@@ -255,116 +298,108 @@ describe('saveMaDMPVersion', () => {
     jest.clearAllMocks();
   });
 
-  it('should send SQS message and return true when shouldDelete is true and plan is not registered', async () => {
-    mockSendMessage.mockResolvedValue({ status: 200, message: "Ok" });
+  it('should call createDMP when shouldDelete is false and a latest maDMP version does NOT exist', async () => {
+    mockExists.mockResolvedValue(false);
+    mockPlanToMaDMP.mockResolvedValue(mockMaDMP);
+    mockCreate.mockResolvedValue(mockMaDMP);
 
-    const result = await saveMaDMPVersion(reference, context, planId, undefined, true);
-
-    expect(result).toBe(true);
-    expect(mockSendMessage).toHaveBeenCalledWith(
-      context.logger,
-      awsConfig.sqs.generateMaDMPQueueUrl,
-      reference,
-      'generate_madmp_record',
-      {
-        Env: generalConfig.env,
-        jti: context.token.jti,
-        planId,
-        shouldTombstone: false,
-        shouldDelete: true
-      },
-      awsConfig.region,
-      process.env.NODE_ENV !== 'development'
-    );
-  });
-
-  it('should send SQS message with shouldTombstone when shouldDelete is true and plan is registered', async () => {
-    mockSendMessage.mockResolvedValue({ status: 200, message: "Ok" });
-    const registered = '2024-01-01';
-
-    const result = await saveMaDMPVersion(reference, context, planId, registered, true);
+    const dmpId: string = mockMaDMP.dmp.dmp_id.identifier;
+    const result = await saveMaDMPVersion(reference, context, planId, false);
 
     expect(result).toBe(true);
-    expect(mockSendMessage).toHaveBeenCalledWith(
-      context.logger,
-      awsConfig.sqs.generateMaDMPQueueUrl,
-      reference,
-      'generate_madmp_record',
-      {
-        Env: generalConfig.env,
-        jti: context.token.jti,
-        planId,
-        shouldTombstone: true,
-        shouldDelete: false
-      },
-      awsConfig.region,
-      process.env.NODE_ENV !== 'development'
-    );
+    expect(mockCreate).toHaveBeenCalledWith(getDynamoConnectionParams(context.logger), generalConfig.domain, dmpId, mockMaDMP);
   });
 
-  it('should send SQS message with shouldDelete and shouldTombstone false when shouldDelete is false', async () => {
-    mockSendMessage.mockResolvedValue({ status: 200, message: "Ok" });
+  it('should call updateDMP when shouldDelete is false and a latest maDMP version exists', async () => {
+    mockExists.mockResolvedValue(true);
+    mockPlanToMaDMP.mockResolvedValue(mockMaDMP);
+    mockUpdate.mockResolvedValue(mockMaDMP);
 
-    const result = await saveMaDMPVersion(reference, context, planId, undefined, false);
+    const dmpId: string = mockMaDMP.dmp.dmp_id.identifier;
+    const result = await saveMaDMPVersion(reference, context, planId, false);
 
     expect(result).toBe(true);
-    expect(mockSendMessage).toHaveBeenCalledWith(
-      context.logger,
-      awsConfig.sqs.generateMaDMPQueueUrl,
-      reference,
-      'generate_madmp_record',
-      {
-        Env: generalConfig.env,
-        jti: context.token.jti,
-        planId,
-        shouldTombstone: false,
-        shouldDelete: false
-      },
-      awsConfig.region,
-      process.env.NODE_ENV !== 'development'
-    );
+    expect(mockUpdate).toHaveBeenCalledWith(getDynamoConnectionParams(context.logger), generalConfig.domain, dmpId, mockMaDMP, 3600000);
   });
 
-  it('should return false and log error when sendMessage fails', async () => {
-    mockSendMessage.mockResolvedValue({ status: 500, message: "Fail" });
-    const loggerErrorSpy = jest.spyOn(context.logger, 'error');
+  it('should call deleteDMP when shouldDelete is true and plan is not registered', async () => {
+    mockExists.mockResolvedValue(true);
+    mockPlanToMaDMP.mockResolvedValue(mockMaDMP);
+    mockDelete.mockResolvedValue(mockMaDMP);
 
-    const result = await saveMaDMPVersion(reference, context, planId, undefined, false);
+    const dmpId: string = mockMaDMP.dmp.dmp_id.identifier;
+    const result = await saveMaDMPVersion(reference, context, planId, true);
+
+    expect(result).toBe(true);
+    expect(mockDelete).toHaveBeenCalledWith(getDynamoConnectionParams(context.logger), generalConfig.domain, dmpId);
+  });
+
+  it('should call tombstoneDMP when shouldDelete is true and plan is registered', async () => {
+    mockExists.mockResolvedValue(true);
+    mockPlanToMaDMP.mockResolvedValue({ dmp: { ...mockMaDMP['dmp'], registered: '2026-01-01T13:12:11Z' } });
+    mockTombstone.mockResolvedValue(mockMaDMP);
+
+    const dmpId: string = mockMaDMP.dmp.dmp_id.identifier;
+    const result = await saveMaDMPVersion(reference, context, planId, true);
+
+    expect(result).toBe(true);
+    expect(mockTombstone).toHaveBeenCalledWith(getDynamoConnectionParams(context.logger), generalConfig.domain, dmpId);
+  });
+
+
+  it('should return false id planId is undefined', async () => {
+    const result = await saveMaDMPVersion(reference, context, undefined, true);
 
     expect(result).toBe(false);
-    expect(loggerErrorSpy).toHaveBeenCalledWith(
-      {
-        jti: context.token.jti,
-        planId,
-        queueURL: awsConfig.sqs.generateMaDMPQueueUrl,
-        message: "Fail",
-        status: 500
-      },
-      'Unable to send a message to SQS to trigger generateMaDMPRecord Lambda function.'
-    );
   });
 
-  it('should use default value false for shouldDelete when not provided', async () => {
-    mockSendMessage.mockResolvedValue({ status: 200, message: "Ok" });
+  it('should return false id plan could not be converted to maDMP JSON', async () => {
+    mockExists.mockResolvedValue(true);
+    mockPlanToMaDMP.mockResolvedValue(undefined);
 
-    const result = await saveMaDMPVersion(reference, context, planId, undefined);
+    const result = await saveMaDMPVersion(reference, context, planId, true);
 
-    expect(result).toBe(true);
-    expect(mockSendMessage).toHaveBeenCalledWith(
-      context.logger,
-      awsConfig.sqs.generateMaDMPQueueUrl,
-      reference,
-      'generate_madmp_record',
-      {
-        Env: generalConfig.env,
-        jti: context.token.jti,
-        planId,
-        shouldTombstone: false,
-        shouldDelete: false
-      },
-      awsConfig.region,
-      process.env.NODE_ENV !== 'development'
-    );
+    expect(result).toBe(false);
+  });
+
+  it('should return false id createDMP failed', async () => {
+    mockExists.mockResolvedValue(false);
+    mockPlanToMaDMP.mockResolvedValue(mockMaDMP);
+    mockCreate.mockResolvedValue(undefined);
+
+    const result = await saveMaDMPVersion(reference, context, planId, false);
+
+    expect(result).toBe(false);
+  });
+
+  it('should return false id updateDMP failed', async () => {
+    mockExists.mockResolvedValue(true);
+    mockPlanToMaDMP.mockResolvedValue(mockMaDMP);
+    mockUpdate.mockResolvedValue(undefined);
+
+    const result = await saveMaDMPVersion(reference, context, planId, false);
+
+    expect(result).toBe(false);
+  });
+
+  it('should return false id deleteDMP failed', async () => {
+    mockExists.mockResolvedValue(true);
+    mockPlanToMaDMP.mockResolvedValue(mockMaDMP);
+    mockDelete.mockResolvedValue(undefined);
+
+    const result = await saveMaDMPVersion(reference, context, planId, true);
+
+    expect(result).toBe(false);
+  });
+
+  it('should return false id tombstoneDMP failed', async () => {
+    mockExists.mockResolvedValue(true);
+    mockPlanToMaDMP.mockResolvedValue({ dmp: { ...mockMaDMP['dmp'], registered: '2026-01-01T13:12:11Z' } });
+    mockTombstone.mockResolvedValue(undefined);
+
+    const result = await saveMaDMPVersion(reference, context, planId, true);
+
+    expect(result).toBe(false);
   });
 });
 

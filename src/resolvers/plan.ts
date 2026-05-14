@@ -354,9 +354,6 @@ export const resolvers: Resolvers = {
     // Assign an alternate identifier to the plan
     addAlternateIdentifierToPlan: async (_, { planId, alternateIdentifier }, context: MyContext): Promise<Plan> => {
       const reference = 'add alternate identifier to plan resolver';
-
-console.log('TOKEN', context.token)
-
       try {
         if (isAuthorized(context.token)) {
           const plan = await Plan.findById(reference, context, planId);
@@ -364,9 +361,6 @@ console.log('TOKEN', context.token)
             throw NotFoundError(`Plan with id ${planId} not found`);
           }
           const project = await Project.findById(reference, context, plan.projectId);
-
-console.log('PLAN', plan)
-console.log('PROJECT', project)
 
           if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.OWN)) {
             const identifier: AlternateIdentifier = new AlternateIdentifier({ planId, alternateIdentifier });

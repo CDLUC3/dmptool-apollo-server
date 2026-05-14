@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added a new `researchDomainByURI` resolver
 - Added override for protobufjs
 - Added `findByDMPId` to plan resolver
 - Added `defaultTemplate` query to the `versionedTemplate` schema and a corresponding resolver

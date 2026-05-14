@@ -3,7 +3,6 @@
 ## v1.1.0
 
 ### Added
-- Added new `setDefaultMemberRole` mutation to member roles resolver.
 - Added override for protobufjs
 - Added `findByDMPId` to plan resolver
 - Added `defaultTemplate` query to the `versionedTemplate` schema and a corresponding resolver
@@ -81,6 +80,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `saveMaDMPVersion` function to include a `dmpId` argument and to properly convert the app name to a maDMP acceptable format
 - Updated `MemberRole` schema to include `isDefault` flag and added a `setDefaultMemberRole` mutation.
 - Updated `TemplateService` to ensure that the `isDefault` flag is propagated when creating a template version
 - Updated `Plan` schema to include `alternateIdentifiers` as a chained resolver.

@@ -17,8 +17,6 @@ export const typeDefs = gql`
     updateMemberRole(id: Int!, url: URL!, label: String!, displayOrder: Int!, description: String): MemberRole
     "Delete the member role"
     removeMemberRole(id: Int!): MemberRole
-    "Mark the member role as the default role"
-    setDefaultMemberRole(id: Int!): MemberRole
   }
 
   type MemberRole {

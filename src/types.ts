@@ -484,14 +484,18 @@ export type AffiliationSearch = {
   __typename?: 'AffiliationSearch';
   /** The acronyms for the affiliation */
   acronyms?: Maybe<Array<Scalars['String']['output']>>;
+  /** The aliases for the affiliation */
+  aliases?: Maybe<Array<Scalars['String']['output']>>;
   /** Has an API that be used to search for project/award information */
   apiTarget?: Maybe<Scalars['String']['output']>;
-  /** The official display name */
+  /** A user display name for the affiliation (typically the name with domain or country appended) */
   displayName: Scalars['String']['output'];
   /** Whether or not this affiliation is a funder */
   funder: Scalars['Boolean']['output'];
   /** The unique identifer for the affiliation */
   id: Scalars['Int']['output'];
+  /** The official name for the affiliation (defined by the system of provenance) */
+  name: Scalars['String']['output'];
   /** The categories the Affiliation belongs to */
   types?: Maybe<Array<AffiliationType>>;
   /** The URI of the affiliation (typically the ROR id) */
@@ -6441,10 +6445,12 @@ export type AffiliationLinkResolvers<ContextType = MyContext, ParentType extends
 
 export type AffiliationSearchResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['AffiliationSearch'] = ResolversParentTypes['AffiliationSearch']> = {
   acronyms?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
+  aliases?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
   apiTarget?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   displayName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   funder?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   types?: Resolver<Maybe<Array<ResolversTypes['AffiliationType']>>, ParentType, ContextType>;
   uri?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
 };

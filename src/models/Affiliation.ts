@@ -300,18 +300,24 @@ export class Affiliation extends MySqlModel {
 export class AffiliationSearch {
   public id!: number;
   public uri!: string;
+  public name!: string;
   public displayName!: string;
   public funder!: boolean;
   public types: AffiliationType[];
+  public aliases: string[];
+  public acronyms: string[];
   public apiTarget!: string;
 
   // Initialize a new AffiliationSearch result
   constructor(options) {
     this.id = options.id;
     this.uri = options.uri;
+    this.name = options.name;
     this.displayName = options.displayName;
     this.funder = options.funder ?? false;
     this.types = options.types ?? [AffiliationType.OTHER];
+    this.aliases = options.aliases ?? [];
+    this.acronyms = options.acronyms ?? [];
 
     // We're proxying calls to funder APIs through the DMPHub API for now. This may change in the future
     this.apiTarget = options.apiTarget;

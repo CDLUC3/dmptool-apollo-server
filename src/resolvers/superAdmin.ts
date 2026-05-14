@@ -21,7 +21,7 @@ export const resolvers: Resolvers = {
         if (isNullOrUndefined(plan)) throw NotFoundError();
 
         // Synchronize the Plan with its latest maDMP version in the DynamoDB table
-        if (await saveMaDMPVersion(reference, context, plan.id)) {
+        if (await saveMaDMPVersion(reference, context, plan.id, plan.dmpId)) {
           return true;
         }
 

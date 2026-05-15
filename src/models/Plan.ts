@@ -497,6 +497,9 @@ export class Plan extends MySqlModel {
   public registeredById: number;
   public registered: string;
 
+  // This is set when plan query is called to relay that plan is not editable by the user (i.e. readOnly = true means the user cannot edit the plan)
+  public readOnly: boolean;
+
   private static tableName = 'plans';
 
   constructor(options) {

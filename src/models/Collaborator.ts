@@ -237,6 +237,7 @@ export enum ProjectCollaboratorAccessLevel {
 export class ProjectCollaborator extends Collaborator {
   public projectId: number;
   public accessLevel: ProjectCollaboratorAccessLevel;
+  public affiliationId: string;
 
   private tableName = 'projectCollaborators';
 
@@ -245,6 +246,7 @@ export class ProjectCollaborator extends Collaborator {
 
     this.projectId = options.projectId ?? null;
     this.accessLevel = options.accessLevel ?? ProjectCollaboratorAccessLevel.COMMENT;
+    this.affiliationId = options.affiliationId ?? null;
   }
 
   // Verify that the projectId is present
@@ -576,5 +578,23 @@ export class ProjectCollaborator extends Collaborator {
       hasNextPage,
       availableSortFields: ['u.surName', 'u.givenName', 'ue.email'],
     };
+  }
+
+  // Get primary user for project
+  static async findPrimaryUserByProjectId(
+    reference: string,
+    context: MyContext,
+    projectId: number,
+  ): Promise<ProjectCollaborator> {
+    const sql = `SELECT  pc.id AS collaboratorId, pc.projectId, pc.email, pc.accessLevel, pc.created AS collaboratorCreated,
+    u.id AS userId, u.affiliationId, u.active
+    FROM projectCollaborators pc
+    INNER JOIN users u ON pc.userId = u.id
+    WHERE pc.projectId = ? AND u.active = 1
+    AND pc.accessLevel = "PRIMARY"
+    `;
+    const vals = [projectId?.toString()];
+    const results = await ProjectCollaborator.query(context, sql, vals, reference);
+    return Array.isArray(results) && results.length > 0 ? new ProjectCollaborator(results[0]) : null;
   }
 }

@@ -4,7 +4,8 @@ import { Plan, PlanSearchResult, PlanSectionProgress, PlanProgress, PlanStatus, 
 import { prepareObjectForLogs } from "../logger";
 import { AuthenticationError, ForbiddenError, InternalServerError, NotFoundError } from "../utils/graphQLErrors";
 import { Project } from "../models/Project";
-import { User } from "../models/User";
+import { User, UserRole } from "../models/User";
+import { ProjectCollaborator } from "../models/Collaborator";
 import { isAuthorized } from "../services/authService";
 import { hasPermissionOnProject } from "../services/projectService";
 import { PlanMember } from "../models/Member";
@@ -19,7 +20,14 @@ import {
   ensureDefaultPlanContact,
   saveMaDMPVersion
 } from "../services/planService";
-import {AlternateIdentifier} from "../models/AlternateIdentifier";
+import { AlternateIdentifier } from "../models/AlternateIdentifier";
+
+const WRITE_ACCESS_LEVELS = new Set([
+  ProjectCollaboratorAccessLevel.OWN,
+  ProjectCollaboratorAccessLevel.PRIMARY,
+  ProjectCollaboratorAccessLevel.EDIT,
+]);
+
 
 export const resolvers: Resolvers = {
   Query: {
@@ -49,6 +57,8 @@ export const resolvers: Resolvers = {
     // Find the plan by its id
     plan: async (_, { planId }, context: MyContext): Promise<Plan> => {
       const reference = 'plan resolver';
+      console.log("***Context token", context.token);
+
       try {
         const plan = await Plan.findById(reference, context, planId);
 
@@ -62,6 +72,28 @@ export const resolvers: Resolvers = {
         }
 
         if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.COMMENT)) {
+          const userId = context.token?.id;
+          const projectId = project.id;
+          // If user is a collaborator on the project, then readOnly = false
+          const callerCollaborator = await ProjectCollaborator.findByUserIdAndProjectId(
+            reference, context, context.token?.id, project.id
+          );
+          console.log("***Caller collaborator", callerCollaborator);
+          if (WRITE_ACCESS_LEVELS.has(callerCollaborator?.accessLevel)) {
+            return Object.assign(plan, { readOnly: false }) as Plan & { readOnly: boolean };
+          }
+
+          // Super Admins always have readOnly access to all plans
+          if (context.token?.role === UserRole.SUPERADMIN) {
+            return Object.assign(plan, { readOnly: true }) as Plan & { readOnly: boolean };
+          }
+
+          // If the user is an ADMIN under the same org as the primary, they have readOnly access
+          const primaryCollaborator = await ProjectCollaborator.findPrimaryUserByProjectId(reference, context, project.id);
+          if ((primaryCollaborator.affiliationId === context.token?.affiliationId) && context.token?.role === UserRole.ADMIN) {
+            return Object.assign(plan, { readOnly: true }) as Plan & { readOnly: boolean };
+          }
+
           return plan;
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();
@@ -74,7 +106,7 @@ export const resolvers: Resolvers = {
     },
 
     // Find a Plan by its DMP id
-    planByDMPId: async(_, { dmpId }, context: MyContext): Promise<Plan> => {
+    planByDMPId: async (_, { dmpId }, context: MyContext): Promise<Plan> => {
       const reference = 'planByDMPId resolver';
       try {
         const plan = await Plan.findByDMPId(reference, context, dmpId);
@@ -100,7 +132,7 @@ export const resolvers: Resolvers = {
     },
 
     // Lookup a Plan by its alternate identifier
-    planByAlternateIdentifier: async(_, { alternateIdentifier }, context: MyContext): Promise<Plan> => {
+    planByAlternateIdentifier: async (_, { alternateIdentifier }, context: MyContext): Promise<Plan> => {
       const reference = 'planByAlternateIdentifier resolver';
       try {
         const identifier: AlternateIdentifier = await AlternateIdentifier.findByAlternateIdentifier(

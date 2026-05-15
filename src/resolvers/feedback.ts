@@ -280,100 +280,65 @@ export const resolvers: Resolvers = {
     addFeedbackComment: async (_, { planId, planFeedbackId, answerId, commentText }, context: MyContext): Promise<PlanFeedbackComment> => {
       const reference = 'addFeedbackComment resolver';
       try {
-        // if the user is an admin
-        if (isAdmin(context.token)) {
-          const plan = await Plan.findById(reference, context, planId);
-          if (!plan) {
-            throw NotFoundError(`Plan with ID ${planId} not found`);
-          }
+        // All collaborators can always submit feedback comments, but org admins/superadmins can only submit feedback comments when feedback is open
+        const plan = await Plan.findById(reference, context, planId);
+        if (!plan) throw NotFoundError(`Plan with ID ${planId} not found`);
 
-          // Get versionedTemplate associated with the plan
-          const versionedTemplate = await VersionedTemplate.findById(reference, context, plan.versionedTemplateId);
+        const project = await Project.findById(reference, context, plan.projectId);
+        if (!project?.id) throw NotFoundError(`Project with ID ${plan.projectId} not found`);
 
-          // If the user is a superAdmin or an admin for the same affiliation
-          if (isSuperAdmin(context.token) || (isAdmin(context.token) && context.token.affiliationId === versionedTemplate.ownerId)) {
+        const primaryCollaborator = await ProjectCollaborator.findPrimaryUserByProjectId(reference, context, project.id);
 
-            const project = await Project.findById(reference, context, plan.projectId);
-            if (!project) {
-              throw NotFoundError(`Project with ID ${plan.projectId} not found`);
-            }
-            if (!project.id) {
-              throw NotFoundError(`Project with ID ${plan.projectId} has no ID`);
-            }
+        const isCollaborator = await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.COMMENT);
+        const isAdminOfSameOrg = isSuperAdmin(context.token) || (isAdmin(context.token) && context.token.affiliationId === primaryCollaborator.affiliationId);
 
+        if (!isCollaborator && !isAdminOfSameOrg) {
+          throw context?.token ? ForbiddenError() : AuthenticationError();
+        }
 
-            const feedback = await PlanFeedback.findById(reference, context, planFeedbackId);
-            if (!feedback) {
-              throw NotFoundError(`Feedback with ID ${planFeedbackId} not found`);
-            }
+        // Admins/superadmins who are not collaborators can only comment when feedback is open
+        if (!isCollaborator && isAdminOfSameOrg) {
+          const feedback = await PlanFeedback.findById(reference, context, planFeedbackId);
+          if (!feedback) throw NotFoundError(`Feedback with ID ${planFeedbackId} not found`);
 
-            // ADMINs and SUPERADMINS can only add comments if feedback is requested and has not yet been completed
-            if (!feedback.requested || (feedback.requested && feedback.completed !== null)) {
-              throw ForbiddenError(`Feedback with ID ${planFeedbackId} is not requested`);
-            }
-
-            // Send out email to project collaborators to let them know that comments were added
-            // Get project collaborators emails, minus the user's own email
-            const collaborators = await ProjectCollaborator.findByProjectId(reference, context, project.id);
-            // Filter out the user's own email if it exists in the collaborators list
-            const collaboratorEmails = collaborators.map(c => c.email).filter(email => email !== context.token.email);
-
-            await sendProjectCollaboratorsCommentsAddedEmail(context, collaboratorEmails)
-
-            const feedbackComment = new PlanFeedbackComment({ answerId, feedbackId: planFeedbackId, commentText });
-            return await feedbackComment.create(context);
-
+          if (!feedback.requested || feedback.completed !== null) {
+            throw ForbiddenError(`Feedback with ID ${planFeedbackId} is not requested or is already completed`);
           }
         }
-        throw context?.token ? ForbiddenError() : AuthenticationError();
+
+        // Notify collaborators (excluding the commenter) that a comment was added
+        const collaborators = await ProjectCollaborator.findByProjectId(reference, context, project.id);
+        const collaboratorEmails = collaborators.map(c => c.email).filter(email => email !== context.token.email);
+        await sendProjectCollaboratorsCommentsAddedEmail(context, collaboratorEmails);
+
+        const feedbackComment = new PlanFeedbackComment({ answerId, feedbackId: planFeedbackId, commentText });
+        return await feedbackComment.create(context);
+
       } catch (err) {
         if (err instanceof GraphQLError) throw err;
-
         context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
         throw InternalServerError();
       }
     },
-    //Update feedback comment for an answer within a round of feedback
+    // Update feedback comment for an answer within a round of feedback
     updateFeedbackComment: async (_, { planId, planFeedbackCommentId, commentText }, context: MyContext): Promise<PlanFeedbackComment> => {
       const reference = 'updateFeedbackComment resolver';
+      console.log("***Updating feedback comment with ID", planFeedbackCommentId);
       try {
-        // if the user is an admin
-        if (isAdmin(context.token)) {
-          const plan = await Plan.findById(reference, context, planId);
-          if (!plan) {
-            throw NotFoundError(`Plan with ID ${planId} not found`);
-          }
+        if (!context?.token) throw AuthenticationError();
 
-          // Get versionedTemplate associated with the plan
-          const versionedTemplate = await VersionedTemplate.findById(reference, context, plan.versionedTemplateId);
+        const feedbackComment = await PlanFeedbackComment.findById(reference, context, planFeedbackCommentId);
+        if (!feedbackComment) throw NotFoundError(`Feedback comment with ID ${planFeedbackCommentId} not found`);
 
-          // If the user is a superAdmin or an admin for the same affiliation
-          if (isSuperAdmin(context.token) || (isAdmin(context.token) && context.token.affiliationId === versionedTemplate.ownerId)) {
-
-            const project = await Project.findById(reference, context, plan.projectId);
-            if (!project) {
-              throw NotFoundError(`Project with ID ${plan.projectId} not found`);
-            }
-
-            // Get referenced feedbackComment
-            const feedbackComment = await PlanFeedbackComment.findById(reference, context, planFeedbackCommentId);
-
-            if (!feedbackComment) {
-              throw NotFoundError(`Feedback comment with id ${planFeedbackCommentId} not found`);
-            }
-
-            // Only user who added the comment can update it
-            if (feedbackComment.createdById === context.token.id) {
-              // Update the comment
-              feedbackComment.commentText = commentText;
-              return await feedbackComment.update(context);
-            }
-          }
+        if (feedbackComment.createdById !== context.token.id) {
+          throw ForbiddenError(`You can only update your own comments`);
         }
-        throw context?.token ? ForbiddenError() : AuthenticationError();
+
+        feedbackComment.commentText = commentText;
+        return await feedbackComment.update(context);
+
       } catch (err) {
         if (err instanceof GraphQLError) throw err;
-
         context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
         throw InternalServerError();
       }
@@ -382,50 +347,35 @@ export const resolvers: Resolvers = {
     removeFeedbackComment: async (_, { planId, planFeedbackCommentId }, context: MyContext): Promise<PlanFeedbackComment> => {
       const reference = 'removeFeedbackComment resolver';
       try {
-        if (isAuthorized(context.token)) {
-          const plan = await Plan.findById(reference, context, planId);
-          if (!plan) {
-            throw NotFoundError(`Plan with ID ${planId} not found`);
-          }
-          const project = await Project.findById(reference, context, plan.projectId);
-          if (!project) {
-            throw NotFoundError(`Project with ID ${plan.projectId} not found`);
-          }
+        if (!context?.token) throw AuthenticationError();
 
-          if (await hasPermissionOnProject(context, project)) {
-            // Get referenced feedbackComment
-            const feedbackComment = await PlanFeedbackComment.findById(reference, context, planFeedbackCommentId);
+        const feedbackComment = await PlanFeedbackComment.findById(reference, context, planFeedbackCommentId);
+        if (!feedbackComment) throw NotFoundError(`Feedback comment with ID ${planFeedbackCommentId} not found`);
 
-            if (!feedbackComment) {
-              throw NotFoundError(`Feedback comment with id ${planFeedbackCommentId} not found`);
-            }
+        const plan = await Plan.findById(reference, context, planId);
+        if (!plan) throw NotFoundError(`Plan with ID ${planId} not found`);
 
-            // Get project collaborators emails
-            const collaborators = await ProjectCollaborator.findByProjectId(reference, context, plan.projectId);
+        const project = await Project.findById(reference, context, plan.projectId);
+        if (!project?.id) throw NotFoundError(`Project with ID ${plan.projectId} not found`);
 
-            // Allow deletion by comment creator, plan creator, or OWN-level collaborator
-            if (canDeleteComment({
-              commentCreatedById: feedbackComment.createdById,
-              planCreatedById: plan.createdById,
-              userId: context.token.id,
-              collaborators
-            })) {
-              // Delete the comment
-              return await feedbackComment.delete(context);
-            }
+        const primaryCollaborator = await ProjectCollaborator.findPrimaryUserByProjectId(reference, context, project.id);
+        const isPrimaryCollaborator = primaryCollaborator?.userId === context.token.id;
+        const isOwnComment = feedbackComment.createdById === context.token.id;
 
-            throw ForbiddenError(`Inadequate permission to delete feedback comment ${feedbackComment.id}`)
 
-          }
+        // Primary collaborator can delete anyone's comments; others can only delete their own
+        if (!isPrimaryCollaborator && !isOwnComment) {
+          throw ForbiddenError(`You can only remove your own comments`);
         }
-        throw context?.token ? ForbiddenError() : AuthenticationError();
+
+        return await feedbackComment.delete(context);
+
       } catch (err) {
         if (err instanceof GraphQLError) throw err;
-
         context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
         throw InternalServerError();
       }
-    }
+    },
   },
 
   PlanFeedback: {

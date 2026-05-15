@@ -191,7 +191,7 @@ export const typeDefs = gql`
     alternateIdentifiers: [AlternateIdentifier!]
 
     "Indicates that the plan is not editable by the user (i.e. readOnly = true means the user cannot edit the plan)"
-    readOnly: Boolean!
+    readOnly: Boolean
   }
 
   type AlternateIdentifier {

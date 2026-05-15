@@ -130,7 +130,7 @@ export const resolvers: Resolvers = {
         if (!project) {
           throw NotFoundError(`Project with ID ${projectId} not found`);
         }
-        if (await hasPermissionOnProject(context, project)) {
+        if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.COMMENT)) {
           return await PlanFeedback.statusForPlan(reference, context, planId);
         }
 
@@ -280,40 +280,42 @@ export const resolvers: Resolvers = {
     addFeedbackComment: async (_, { planId, planFeedbackId, answerId, commentText }, context: MyContext): Promise<PlanFeedbackComment> => {
       const reference = 'addFeedbackComment resolver';
       try {
-        // All collaborators can always submit feedback comments, but org admins/superadmins can only submit feedback comments when feedback is open
-        const plan = await Plan.findById(reference, context, planId);
-        if (!plan) throw NotFoundError(`Plan with ID ${planId} not found`);
+        if (isAuthorized(context.token)) {
+          // All collaborators can always submit feedback comments, but org admins/superadmins can only submit feedback comments when feedback is open
+          const plan = await Plan.findById(reference, context, planId);
+          if (!plan) throw NotFoundError(`Plan with ID ${planId} not found`);
 
-        const project = await Project.findById(reference, context, plan.projectId);
-        if (!project?.id) throw NotFoundError(`Project with ID ${plan.projectId} not found`);
+          const project = await Project.findById(reference, context, plan.projectId);
+          if (!project?.id) throw NotFoundError(`Project with ID ${plan.projectId} not found`);
 
-        const primaryCollaborator = await ProjectCollaborator.findPrimaryUserByProjectId(reference, context, project.id);
+          const primaryCollaborator = await ProjectCollaborator.findPrimaryUserByProjectId(reference, context, project.id);
 
-        const isCollaborator = await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.COMMENT);
-        const isAdminOfSameOrg = isSuperAdmin(context.token) || (isAdmin(context.token) && context.token.affiliationId === primaryCollaborator.affiliationId);
+          const isCollaborator = await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.COMMENT);
+          const isAdminOfSameOrg = isSuperAdmin(context.token) || (isAdmin(context.token) && context.token.affiliationId === primaryCollaborator.affiliationId);
 
-        if (!isCollaborator && !isAdminOfSameOrg) {
-          throw context?.token ? ForbiddenError() : AuthenticationError();
-        }
-
-        // Admins/superadmins who are not collaborators can only comment when feedback is open
-        if (!isCollaborator && isAdminOfSameOrg) {
-          const feedback = await PlanFeedback.findById(reference, context, planFeedbackId);
-          if (!feedback) throw NotFoundError(`Feedback with ID ${planFeedbackId} not found`);
-
-          if (!feedback.requested || feedback.completed !== null) {
-            throw ForbiddenError(`Feedback with ID ${planFeedbackId} is not requested or is already completed`);
+          if (!isCollaborator && !isAdminOfSameOrg) {
+            throw context?.token ? ForbiddenError() : AuthenticationError();
           }
+
+          // Admins/superadmins who are not collaborators can only comment when feedback is open
+          if (!isCollaborator && isAdminOfSameOrg) {
+            const feedback = await PlanFeedback.findById(reference, context, planFeedbackId);
+            if (!feedback) throw NotFoundError(`Feedback with ID ${planFeedbackId} not found`);
+
+            if (!feedback.requested || feedback.completed !== null) {
+              throw ForbiddenError(`Feedback with ID ${planFeedbackId} is not requested or is already completed`);
+            }
+          }
+
+          // Notify collaborators (excluding the commenter) that a comment was added
+          const collaborators = await ProjectCollaborator.findByProjectId(reference, context, project.id);
+          const collaboratorEmails = collaborators.map(c => c.email).filter(email => email !== context.token.email);
+          await sendProjectCollaboratorsCommentsAddedEmail(context, collaboratorEmails);
+
+          const feedbackComment = new PlanFeedbackComment({ answerId, feedbackId: planFeedbackId, commentText });
+          return await feedbackComment.create(context);
         }
-
-        // Notify collaborators (excluding the commenter) that a comment was added
-        const collaborators = await ProjectCollaborator.findByProjectId(reference, context, project.id);
-        const collaboratorEmails = collaborators.map(c => c.email).filter(email => email !== context.token.email);
-        await sendProjectCollaboratorsCommentsAddedEmail(context, collaboratorEmails);
-
-        const feedbackComment = new PlanFeedbackComment({ answerId, feedbackId: planFeedbackId, commentText });
-        return await feedbackComment.create(context);
-
+        throw context?.token ? ForbiddenError() : AuthenticationError();
       } catch (err) {
         if (err instanceof GraphQLError) throw err;
         context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
@@ -323,20 +325,25 @@ export const resolvers: Resolvers = {
     // Update feedback comment for an answer within a round of feedback
     updateFeedbackComment: async (_, { planId, planFeedbackCommentId, commentText }, context: MyContext): Promise<PlanFeedbackComment> => {
       const reference = 'updateFeedbackComment resolver';
-      console.log("***Updating feedback comment with ID", planFeedbackCommentId);
       try {
-        if (!context?.token) throw AuthenticationError();
+        if (isAuthorized(context.token)) {
+          const plan = await Plan.findById(reference, context, planId);
+          if (!plan) throw NotFoundError(`Plan with ID ${planId} not found`);
 
-        const feedbackComment = await PlanFeedbackComment.findById(reference, context, planFeedbackCommentId);
-        if (!feedbackComment) throw NotFoundError(`Feedback comment with ID ${planFeedbackCommentId} not found`);
+          const project = await Project.findById(reference, context, plan.projectId);
+          if (!project?.id) throw NotFoundError(`Project with ID ${plan.projectId} not found`);
 
-        if (feedbackComment.createdById !== context.token.id) {
-          throw ForbiddenError(`You can only update your own comments`);
+          const feedbackComment = await PlanFeedbackComment.findById(reference, context, planFeedbackCommentId);
+          if (!feedbackComment) throw NotFoundError(`Feedback comment with ID ${planFeedbackCommentId} not found`);
+
+          if (feedbackComment.createdById !== context.token.id) {
+            throw ForbiddenError(`You can only update your own comments`);
+          }
+
+          feedbackComment.commentText = commentText;
+          return await feedbackComment.update(context);
         }
-
-        feedbackComment.commentText = commentText;
-        return await feedbackComment.update(context);
-
+        throw context?.token ? ForbiddenError() : AuthenticationError();
       } catch (err) {
         if (err instanceof GraphQLError) throw err;
         context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
@@ -347,29 +354,30 @@ export const resolvers: Resolvers = {
     removeFeedbackComment: async (_, { planId, planFeedbackCommentId }, context: MyContext): Promise<PlanFeedbackComment> => {
       const reference = 'removeFeedbackComment resolver';
       try {
-        if (!context?.token) throw AuthenticationError();
+        if (isAuthorized(context.token)) {
+          const plan = await Plan.findById(reference, context, planId);
+          if (!plan) throw NotFoundError(`Plan with ID ${planId} not found`);
 
-        const feedbackComment = await PlanFeedbackComment.findById(reference, context, planFeedbackCommentId);
-        if (!feedbackComment) throw NotFoundError(`Feedback comment with ID ${planFeedbackCommentId} not found`);
+          const project = await Project.findById(reference, context, plan.projectId);
+          if (!project?.id) throw NotFoundError(`Project with ID ${plan.projectId} not found`);
 
-        const plan = await Plan.findById(reference, context, planId);
-        if (!plan) throw NotFoundError(`Plan with ID ${planId} not found`);
+          const feedbackComment = await PlanFeedbackComment.findById(reference, context, planFeedbackCommentId);
+          if (!feedbackComment) throw NotFoundError(`Feedback comment with ID ${planFeedbackCommentId} not found`);
 
-        const project = await Project.findById(reference, context, plan.projectId);
-        if (!project?.id) throw NotFoundError(`Project with ID ${plan.projectId} not found`);
+          const primaryCollaborator = await ProjectCollaborator.findPrimaryUserByProjectId(reference, context, project.id);
 
-        const primaryCollaborator = await ProjectCollaborator.findPrimaryUserByProjectId(reference, context, project.id);
-        const isPrimaryCollaborator = primaryCollaborator?.userId === context.token.id;
-        const isOwnComment = feedbackComment.createdById === context.token.id;
+          // A comment can be deleted by the comment creator or a PRIMARY-level collaborator
+          if (canDeleteComment({
+            commentCreatedById: feedbackComment.createdById,
+            userId: context.token.id,
+            primaryCollaborator
+          })) {
+            return await feedbackComment.delete(context);
+          }
 
-
-        // Primary collaborator can delete anyone's comments; others can only delete their own
-        if (!isPrimaryCollaborator && !isOwnComment) {
-          throw ForbiddenError(`You can only remove your own comments`);
+          throw ForbiddenError(`Inadequate permission to delete feedback comment ${feedbackComment.id}`);
         }
-
-        return await feedbackComment.delete(context);
-
+        throw context?.token ? ForbiddenError() : AuthenticationError();
       } catch (err) {
         if (err instanceof GraphQLError) throw err;
         context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);

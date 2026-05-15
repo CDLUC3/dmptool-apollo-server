@@ -25,7 +25,6 @@ import { AlternateIdentifier } from "../models/AlternateIdentifier";
 const WRITE_ACCESS_LEVELS = new Set([
   ProjectCollaboratorAccessLevel.OWN,
   ProjectCollaboratorAccessLevel.PRIMARY,
-  ProjectCollaboratorAccessLevel.EDIT,
 ]);
 
 
@@ -57,8 +56,6 @@ export const resolvers: Resolvers = {
     // Find the plan by its id
     plan: async (_, { planId }, context: MyContext): Promise<Plan> => {
       const reference = 'plan resolver';
-      console.log("***Context token", context.token);
-
       try {
         const plan = await Plan.findById(reference, context, planId);
 
@@ -72,13 +69,10 @@ export const resolvers: Resolvers = {
         }
 
         if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.COMMENT)) {
-          const userId = context.token?.id;
-          const projectId = project.id;
           // If user is a collaborator on the project, then readOnly = false
           const callerCollaborator = await ProjectCollaborator.findByUserIdAndProjectId(
             reference, context, context.token?.id, project.id
           );
-          console.log("***Caller collaborator", callerCollaborator);
           if (WRITE_ACCESS_LEVELS.has(callerCollaborator?.accessLevel)) {
             return Object.assign(plan, { readOnly: false }) as Plan & { readOnly: boolean };
           }
@@ -94,7 +88,7 @@ export const resolvers: Resolvers = {
             return Object.assign(plan, { readOnly: true }) as Plan & { readOnly: boolean };
           }
 
-          return plan;
+          return Object.assign(plan, { readOnly: true }) as Plan & { readOnly: boolean };
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();
       } catch (err) {
@@ -334,6 +328,7 @@ export const resolvers: Resolvers = {
             throw NotFoundError(`Plan with id ${planId} not found`);
           }
           const project = await Project.findById(reference, context, plan.projectId);
+
           if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.OWN)) {
             plan.status = status as PlanStatus;
             const updated = await plan.update(context);
@@ -342,6 +337,7 @@ export const resolvers: Resolvers = {
               // Update the maDMP version of the record
               await saveMaDMPVersion(reference, context, updated.id);
             }
+            return updated;
           }
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();
@@ -370,6 +366,7 @@ export const resolvers: Resolvers = {
               // Update the maDMP version of the record
               await saveMaDMPVersion(reference, context, updated.id);
             }
+            return updated;
           }
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();

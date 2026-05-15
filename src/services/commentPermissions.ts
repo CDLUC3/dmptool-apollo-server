@@ -1,21 +1,16 @@
 import { ProjectCollaborator } from "../models/Collaborator";
 
-// Can delete a comment if comment creator, plan creator, or OWN-level collaborator
+// Can delete a comment if comment creator or Primary-level collaborator
 export function canDeleteComment({
   commentCreatedById,
-  planCreatedById,
   userId,
-  collaborators
+  primaryCollaborator
 }: {
   commentCreatedById?: number,
-  planCreatedById?: number,
   userId: number,
-  collaborators: ProjectCollaborator[]
+  primaryCollaborator?: ProjectCollaborator | null
 }): boolean {
-  const isCommentCreator = commentCreatedById === userId;
-  const isPlanCreator = planCreatedById === userId;
-  const isOwnCollaborator = collaborators.some(
-    c => c.userId === userId && c.accessLevel === "OWN"
-  );
-  return isCommentCreator || isPlanCreator || isOwnCollaborator;
+  const isOwnComment = commentCreatedById === userId;
+  const isPrimaryCollaborator = primaryCollaborator?.userId === userId;
+  return isOwnComment || isPrimaryCollaborator;
 }

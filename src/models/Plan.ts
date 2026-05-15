@@ -498,7 +498,7 @@ export class Plan extends MySqlModel {
   public registered: string;
 
   // This is set when plan query is called to relay that plan is not editable by the user (i.e. readOnly = true means the user cannot edit the plan)
-  public readOnly: boolean;
+  public readOnly?: boolean;
 
   private static tableName = 'plans';
 
@@ -672,7 +672,7 @@ export class Plan extends MySqlModel {
         this.title = resolveNamingCollision(this.title, existingPlanTitles);
 
         // Create the new Plan
-        const newId = await Plan.insert(context, Plan.tableName, this, reference);
+        const newId = await Plan.insert(context, Plan.tableName, this, reference, ['readOnly']);
 
         // Create the original version snapshot of the DMP
         if (newId) {
@@ -772,13 +772,11 @@ export class Plan extends MySqlModel {
         this.prepForSave();
 
         // Update the plan
-        let updated = await Plan.update(context, Plan.tableName, this, reference, [], noTouch) as Plan;
-        if (updated) {
-          updated = new Plan(updated);
-          if (updated && !updated.hasErrors()) {
-            return new Plan(updated);
-          }
+        const result = await Plan.update(context, Plan.tableName, this, reference, ['readOnly'], noTouch);
+        if (result) {
+          return await Plan.findById(reference, context, this.id);
         }
+        this.addError('general', 'Unable to update the plan');
       }
     } else {
       // This plan has never been saved before so we cannot update it!

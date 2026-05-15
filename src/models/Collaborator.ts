@@ -234,10 +234,13 @@ export enum ProjectCollaboratorAccessLevel {
 }
 
 // An individual that has permission to work on a Project and it's plans
+export interface ProjectCollaboratorWithUser extends ProjectCollaborator {
+  affiliationId: string | null;
+}
+
 export class ProjectCollaborator extends Collaborator {
   public projectId: number;
   public accessLevel: ProjectCollaboratorAccessLevel;
-  public affiliationId: string;
 
   private tableName = 'projectCollaborators';
 
@@ -246,7 +249,6 @@ export class ProjectCollaborator extends Collaborator {
 
     this.projectId = options.projectId ?? null;
     this.accessLevel = options.accessLevel ?? ProjectCollaboratorAccessLevel.COMMENT;
-    this.affiliationId = options.affiliationId ?? null;
   }
 
   // Verify that the projectId is present
@@ -270,6 +272,7 @@ export class ProjectCollaborator extends Collaborator {
       this.email,
     );
 
+    console.log("***Current collaborator", currentCollaborator);
     if (currentCollaborator) {
       currentCollaborator.addError('general', 'Collaborator has already been added');
       return currentCollaborator
@@ -398,6 +401,7 @@ export class ProjectCollaborator extends Collaborator {
     userId: number,
     projectId: number
   ): Promise<ProjectCollaborator> {
+    console.log("***User ID and projectId***", userId, projectId);
     const sql = 'SELECT * FROM projectCollaborators WHERE userId = ? AND projectId = ?';
     const results = await ProjectCollaborator.query(context, sql, [userId?.toString(), projectId?.toString()], reference);
     return Array.isArray(results) && results.length > 0 ? new ProjectCollaborator(results[0]) : null;
@@ -585,7 +589,7 @@ export class ProjectCollaborator extends Collaborator {
     reference: string,
     context: MyContext,
     projectId: number,
-  ): Promise<ProjectCollaborator> {
+  ): Promise<ProjectCollaboratorWithUser | null> {
     const sql = `SELECT  pc.id AS collaboratorId, pc.projectId, pc.email, pc.accessLevel, pc.created AS collaboratorCreated,
     u.id AS userId, u.affiliationId, u.active
     FROM projectCollaborators pc
@@ -595,6 +599,7 @@ export class ProjectCollaborator extends Collaborator {
     `;
     const vals = [projectId?.toString()];
     const results = await ProjectCollaborator.query(context, sql, vals, reference);
-    return Array.isArray(results) && results.length > 0 ? new ProjectCollaborator(results[0]) : null;
+    if (!Array.isArray(results) || results.length === 0) return null;
+    return Object.assign(new ProjectCollaborator(results[0]), { affiliationId: results[0].affiliationId ?? null }) as ProjectCollaboratorWithUser;
   }
 }

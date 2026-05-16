@@ -770,6 +770,8 @@ export class Plan extends MySqlModel {
 
         // Update the plan
         const result = await Plan.update(context, Plan.tableName, this, reference, [], noTouch);
+        // The result of the update function is just a boolean indicating whether the update query succeeded or not, 
+        // so if it succeeded we need to re-query to get the updated plan with all the new values
         if (result) {
           return await Plan.findById(reference, context, this.id);
         }

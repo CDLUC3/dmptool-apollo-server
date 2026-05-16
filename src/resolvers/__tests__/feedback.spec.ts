@@ -102,6 +102,7 @@ beforeEach(async () => {
   );
   jest.spyOn(User, 'findById').mockResolvedValue(new User({ id: casual.integer(1, 9999) }));
   jest.spyOn(ProjectCollaborator, 'findByProjectId').mockResolvedValue([]);
+  jest.spyOn(ProjectCollaborator, 'findPrimaryUserByProjectId').mockResolvedValue(null);
   jest.spyOn(Affiliation, 'findByURI').mockResolvedValue(
     new Affiliation({ uri: affiliationId, feedbackEmails: [casual.email] })
   );
@@ -547,7 +548,7 @@ describe('addFeedbackComment mutation', () => {
     expect(resp.body.singleResult.errors[0].extensions.code).toEqual('UNAUTHENTICATED');
   });
 
-  it('returns a 403 when the user is not an admin', async () => {
+  it('returns a 403 when the user is neither a collaborator nor an admin', async () => {
     const resp = await executeQuery(
       query, { planId, planFeedbackId, answerId, commentText: casual.sentence }, researcherToken
     );
@@ -569,9 +570,16 @@ describe('addFeedbackComment mutation', () => {
   });
 
   it('returns a 404 when the feedback record is not found', async () => {
+    const primaryCollaborator = Object.assign(
+      new ProjectCollaborator({ projectId: project.id, email: casual.email }),
+      { affiliationId }
+    );
+    jest.spyOn(ProjectCollaborator, 'findPrimaryUserByProjectId').mockResolvedValue(
+      primaryCollaborator as import('../../models/Collaborator').ProjectCollaboratorWithUser
+    );
     jest.spyOn(PlanFeedback, 'findById').mockResolvedValue(null);
     const resp = await executeQuery(
-      query, { planId, planFeedbackId, answerId, commentText: casual.sentence }, superAdminToken
+      query, { planId, planFeedbackId, answerId, commentText: casual.sentence }, adminToken
     );
 
     assert(resp.body.kind === 'single');
@@ -580,6 +588,13 @@ describe('addFeedbackComment mutation', () => {
   });
 
   it('returns a 403 when the feedback round is already completed', async () => {
+    const primaryCollaborator = Object.assign(
+      new ProjectCollaborator({ projectId: project.id, email: casual.email }),
+      { affiliationId }
+    );
+    jest.spyOn(ProjectCollaborator, 'findPrimaryUserByProjectId').mockResolvedValue(
+      primaryCollaborator as import('../../models/Collaborator').ProjectCollaboratorWithUser
+    );
     const completedFeedback = new PlanFeedback({
       ...feedback,
       completed: getCurrentDate(),
@@ -587,7 +602,7 @@ describe('addFeedbackComment mutation', () => {
     jest.spyOn(PlanFeedback, 'findById').mockResolvedValue(completedFeedback);
 
     const resp = await executeQuery(
-      query, { planId, planFeedbackId, answerId, commentText: casual.sentence }, superAdminToken
+      query, { planId, planFeedbackId, answerId, commentText: casual.sentence }, adminToken
     );
 
     assert(resp.body.kind === 'single');
@@ -601,6 +616,24 @@ describe('addFeedbackComment mutation', () => {
       query,
       { planId, planFeedbackId, answerId, commentText: casual.sentence },
       superAdminToken,
+    );
+
+    assert(resp.body.kind === 'single');
+    expect(resp.body.singleResult.errors).toBeUndefined();
+    expect(resp.body.singleResult.data.addFeedbackComment.id).toEqual(feedbackComment.id);
+    expect(PlanFeedbackComment.prototype.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('adds the comment when the user is a collaborator even if feedback is not open', async () => {
+    // Collaborators can always comment regardless of feedback state
+    project.createdById = researcherToken.id;
+    const closedFeedback = new PlanFeedback({ ...feedback, completed: getCurrentDate() });
+    jest.spyOn(PlanFeedback, 'findById').mockResolvedValue(closedFeedback);
+
+    const resp = await executeQuery(
+      query,
+      { planId, planFeedbackId, answerId, commentText: casual.sentence },
+      researcherToken,
     );
 
     assert(resp.body.kind === 'single');
@@ -654,7 +687,8 @@ describe('updateFeedbackComment mutation', () => {
     expect(resp.body.singleResult.errors[0].extensions.code).toEqual('UNAUTHENTICATED');
   });
 
-  it('returns a 403 when the user is not an admin', async () => {
+  it('returns a 403 when the user is not the comment creator', async () => {
+    // feedbackComment.createdById does not match researcherToken.id
     const resp = await executeQuery(
       query,
       { planId, planFeedbackCommentId: feedbackComment.id, commentText: casual.sentence },
@@ -722,6 +756,24 @@ describe('updateFeedbackComment mutation', () => {
     expect(resp.body.singleResult.data.updateFeedbackComment.id).toEqual(updatedComment.id);
     expect(PlanFeedbackComment.prototype.update).toHaveBeenCalledTimes(1);
   });
+
+  it('allows a non-admin researcher to update their own comment', async () => {
+    feedbackComment.createdById = researcherToken.id;
+    const newText = casual.sentence;
+    const updatedComment = new PlanFeedbackComment({ ...feedbackComment, commentText: newText });
+    jest.spyOn(PlanFeedbackComment.prototype, 'update').mockResolvedValue(updatedComment);
+
+    const resp = await executeQuery(
+      query,
+      { planId, planFeedbackCommentId: feedbackComment.id, commentText: newText },
+      researcherToken,
+    );
+
+    assert(resp.body.kind === 'single');
+    expect(resp.body.singleResult.errors).toBeUndefined();
+    expect(resp.body.singleResult.data.updateFeedbackComment.id).toEqual(updatedComment.id);
+    expect(PlanFeedbackComment.prototype.update).toHaveBeenCalledTimes(1);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -763,7 +815,8 @@ describe('removeFeedbackComment mutation', () => {
     expect(resp.body.singleResult.errors[0].extensions.code).toEqual('NOT_FOUND');
   });
 
-  it('returns a 403 when the user has no permission on the project', async () => {
+  it('returns a 403 when the user is not the comment creator or a PRIMARY collaborator', async () => {
+    // feedbackComment.createdById is random and primaryCollaborator is null (global mock)
     const resp = await executeQuery(
       query, { planId, planFeedbackCommentId: feedbackComment.id }, researcherToken
     );
@@ -785,10 +838,8 @@ describe('removeFeedbackComment mutation', () => {
     expect(resp.body.singleResult.errors[0].extensions.code).toEqual('NOT_FOUND');
   });
 
-  it('returns a 403 when the user has no permission to delete the comment', async () => {
-    project.createdById = researcherToken.id;
-    // feedbackComment.createdById and plan.createdById don't match researcherToken.id
-    // and no OWN-level collaborators
+  it('returns a 403 when the user is neither the comment creator nor the PRIMARY collaborator', async () => {
+    // feedbackComment.createdById is random and primaryCollaborator is null (global mock)
     const resp = await executeQuery(
       query, { planId, planFeedbackCommentId: feedbackComment.id }, researcherToken
     );
@@ -796,6 +847,28 @@ describe('removeFeedbackComment mutation', () => {
     assert(resp.body.kind === 'single');
     expect(resp.body.singleResult.errors).toBeDefined();
     expect(resp.body.singleResult.errors[0].extensions.code).toEqual('FORBIDDEN');
+  });
+
+  it('deletes the comment when the user is the PRIMARY collaborator', async () => {
+    // feedbackComment.createdById does NOT match researcherToken.id
+    // but researcherToken IS the primary collaborator
+    const primaryCollaborator = Object.assign(
+      new ProjectCollaborator({ projectId: project.id, email: researcherToken.email }),
+      { affiliationId: researcherToken.affiliationId }
+    );
+    primaryCollaborator.userId = researcherToken.id;
+    jest.spyOn(ProjectCollaborator, 'findPrimaryUserByProjectId').mockResolvedValue(
+      primaryCollaborator as import('../../models/Collaborator').ProjectCollaboratorWithUser
+    );
+
+    const resp = await executeQuery(
+      query, { planId, planFeedbackCommentId: feedbackComment.id }, researcherToken
+    );
+
+    assert(resp.body.kind === 'single');
+    expect(resp.body.singleResult.errors).toBeUndefined();
+    expect(resp.body.singleResult.data.removeFeedbackComment.id).toEqual(feedbackComment.id);
+    expect(PlanFeedbackComment.prototype.delete).toHaveBeenCalledTimes(1);
   });
 
   it('deletes the comment and returns it when the user is the comment creator', async () => {

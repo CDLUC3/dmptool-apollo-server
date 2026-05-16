@@ -272,7 +272,6 @@ export class ProjectCollaborator extends Collaborator {
       this.email,
     );
 
-    console.log("***Current collaborator", currentCollaborator);
     if (currentCollaborator) {
       currentCollaborator.addError('general', 'Collaborator has already been added');
       return currentCollaborator
@@ -401,7 +400,6 @@ export class ProjectCollaborator extends Collaborator {
     userId: number,
     projectId: number
   ): Promise<ProjectCollaborator> {
-    console.log("***User ID and projectId***", userId, projectId);
     const sql = 'SELECT * FROM projectCollaborators WHERE userId = ? AND projectId = ?';
     const results = await ProjectCollaborator.query(context, sql, [userId?.toString(), projectId?.toString()], reference);
     return Array.isArray(results) && results.length > 0 ? new ProjectCollaborator(results[0]) : null;

@@ -564,52 +564,47 @@ export async function getGuidanceSourcesForPlan(
     // 3. Template Owner's Guidance
     // ============================================================
     if (templateOwnerUri && !processedOrgURIs.has(templateOwnerUri)) {
-      const templateOwnerSelection = userSelections.find(
-        selection => selection.affiliationId === templateOwnerUri
-      );
+      const affiliation = await Affiliation.findByURI(reference, context, templateOwnerUri);
 
-      if (templateOwnerSelection) {
-        const affiliation = await Affiliation.findByURI(reference, context, templateOwnerUri);
+      if (affiliation) {
+        // Fetch TAG-BASED guidance
+        const tagBasedGuidance = await VersionedGuidance.findByAffiliationAndTagIds(
+          reference,
+          context,
+          templateOwnerUri,
+          sectionTagIds
+        );
 
-        if (affiliation) {
-          // Fetch TAG-BASED guidance
-          const tagBasedGuidance = await VersionedGuidance.findByAffiliationAndTagIds(
-            reference,
-            context,
-            templateOwnerUri,
-            sectionTagIds
-          );
+        const items = groupGuidanceByTag(tagBasedGuidance, sectionTagIds, tagsMap);
 
-          const items = groupGuidanceByTag(tagBasedGuidance, sectionTagIds, tagsMap);
-
-          // Only prepend section-level guidanceText for versioned sections/questions.
-          // For custom sections/questions, the content was created by the user's institution —
-          // the template owner has no guidance to contribute here.
-          if (guidanceText && !customSectionId && !customQuestionId) {
-            items.unshift({
-              title: affiliation.displayName || affiliation.name,
-              guidanceText
-            });
-          }
-
-          // Always include template owner as a source, even with no guidance for a custom section
-          // so that the Guidance Panel can show "no guidance available"
-          guidanceSources.push({
-            id: `affiliation-${templateOwnerUri}`,
-            type: GuidanceSourceType.TEMPLATE_OWNER,
-            label: affiliation.displayName || affiliation.name,
-            shortName: (affiliation.acronyms && affiliation.acronyms[0]) ||
-              affiliation.displayName ||
-              affiliation.name,
-            orgURI: templateOwnerUri,
-            items,
-            hasGuidance: true
+        // Only prepend section-level guidanceText for versioned sections/questions.
+        // For custom sections/questions, the content was created by the user's institution —
+        // the template owner has no guidance to contribute here.
+        if (guidanceText && !customSectionId && !customQuestionId) {
+          items.unshift({
+            title: affiliation.displayName || affiliation.name,
+            guidanceText
           });
-
-          processedOrgURIs.add(templateOwnerUri);
-
         }
+
+        // Always include template owner as a source, even with no guidance for a custom section
+        // so that the Guidance Panel can show "no guidance available"
+        guidanceSources.push({
+          id: `affiliation-${templateOwnerUri}`,
+          type: GuidanceSourceType.TEMPLATE_OWNER,
+          label: affiliation.displayName || affiliation.name,
+          shortName: (affiliation.acronyms && affiliation.acronyms[0]) ||
+            affiliation.displayName ||
+            affiliation.name,
+          orgURI: templateOwnerUri,
+          items,
+          hasGuidance: true
+        });
+
+        processedOrgURIs.add(templateOwnerUri);
+
       }
+
     }
 
     // ============================================================

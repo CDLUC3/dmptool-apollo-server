@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added a new `researchDomainByURI` resolver
 - Added override for protobufjs
 - Added `findByDMPId` to plan resolver
 - Added `defaultTemplate` query to the `versionedTemplate` schema and a corresponding resolver
@@ -179,6 +180,7 @@
 - Removed `ioredis` package
 
 ### Fixed
+- Fixed error in `data-migrations/local-only/2026-05-08-1111-seed-project-plan.sql` when inserting data for `templates` and `versionedTemplates` tables which were missing the new `isDefault` value.
 - Fixed an issue with duplicate URIs being returned to `findRe3DataByURIs` by deduping [#33]
 - Fixed bug in `openSearchService` that was throwing an error and not returning repositories [#196]
 - Fixed some new `type` errors in `feedback` resolver and `emailService` brought on by a recent update to `typescript-eslint` [#189]

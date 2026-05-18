@@ -3306,6 +3306,8 @@ export type Query = {
   repository?: Maybe<CustomRepository>;
   /** return all distinct subject area keywords across all repositories */
   repositorySubjectAreas?: Maybe<Array<Scalars['String']['output']>>;
+  /** Get for research domains by its URI */
+  researchDomainByURI?: Maybe<ResearchDomain>;
   /** Get the research output type by it's id */
   researchOutputType?: Maybe<ResearchOutputType>;
   /** Get the research output type by it's name */
@@ -3718,6 +3720,11 @@ export type QueryRepositoriesByUrIsArgs = {
 
 
 export type QueryRepositoryArgs = {
+  uri: Scalars['String']['input'];
+};
+
+
+export type QueryResearchDomainByUriArgs = {
   uri: Scalars['String']['input'];
 };
 
@@ -7514,6 +7521,7 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   repositoriesByURIs?: Resolver<Maybe<Array<ResolversTypes['CustomRepository']>>, ParentType, ContextType, RequireFields<QueryRepositoriesByUrIsArgs, 'uris'>>;
   repository?: Resolver<Maybe<ResolversTypes['CustomRepository']>, ParentType, ContextType, RequireFields<QueryRepositoryArgs, 'uri'>>;
   repositorySubjectAreas?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
+  researchDomainByURI?: Resolver<Maybe<ResolversTypes['ResearchDomain']>, ParentType, ContextType, RequireFields<QueryResearchDomainByUriArgs, 'uri'>>;
   researchOutputType?: Resolver<Maybe<ResolversTypes['ResearchOutputType']>, ParentType, ContextType, RequireFields<QueryResearchOutputTypeArgs, 'id'>>;
   researchOutputTypeByName?: Resolver<Maybe<ResolversTypes['ResearchOutputType']>, ParentType, ContextType, RequireFields<QueryResearchOutputTypeByNameArgs, 'name'>>;
   searchExternalProjects?: Resolver<Maybe<Array<Maybe<ResolversTypes['ExternalProject']>>>, ParentType, ContextType, RequireFields<QuerySearchExternalProjectsArgs, 'input'>>;

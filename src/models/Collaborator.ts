@@ -592,7 +592,7 @@ export class ProjectCollaborator extends Collaborator {
     u.id AS userId, u.affiliationId, u.active
     FROM projectCollaborators pc
     INNER JOIN users u ON pc.userId = u.id
-    WHERE pc.projectId = ? AND u.active = 1
+    WHERE pc.projectId = ?
     AND pc.accessLevel = "PRIMARY"
     `;
     const vals = [projectId?.toString()];

@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added `findPrimaryUserByProjectId` method to `Collaborator` model [#225]
 - Added a new `researchDomainByURI` resolver
 - Added override for protobufjs
 - Added `findByDMPId` to plan resolver

@@ -21,6 +21,7 @@ import { GraphQLError } from "graphql";
 import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
 import { hasPublishedFlag } from "./guidanceGroup";
 import { Plan } from "../models/Plan";
+import { ProjectCollaboratorAccessLevel } from "../models/Collaborator";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -108,7 +109,7 @@ export const resolvers: Resolvers = {
           }
 
           const project = await Project.findById(reference, context, plan.projectId);
-          if (await hasPermissionOnProject(context, project)) {
+          if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.COMMENT)) {
             const sources = await getGuidanceSourcesForPlan(
               context,
               planId,

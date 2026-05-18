@@ -2455,6 +2455,8 @@ export type Plan = {
   progress?: Maybe<PlanProgress>;
   /** The project the plan is associated with */
   project?: Maybe<Project>;
+  /** Indicates that the plan is not editable by the user (i.e. readOnly = true means the user cannot edit the plan) */
+  readOnly?: Maybe<Scalars['Boolean']['output']>;
   /** The timestamp for when the Plan was registered */
   registered?: Maybe<Scalars['String']['output']>;
   /** The individual who registered the plan */
@@ -7085,6 +7087,7 @@ export type PlanResolvers<ContextType = MyContext, ParentType extends ResolversP
   planCreator?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType>;
   progress?: Resolver<Maybe<ResolversTypes['PlanProgress']>, ParentType, ContextType>;
   project?: Resolver<Maybe<ResolversTypes['Project']>, ParentType, ContextType>;
+  readOnly?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
   registered?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   registeredById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   status?: Resolver<Maybe<ResolversTypes['PlanStatus']>, ParentType, ContextType>;

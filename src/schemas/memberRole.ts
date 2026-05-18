@@ -41,6 +41,8 @@ export const typeDefs = gql`
     uri: String!
     "A longer description of the member role useful for tooltips"
     description: String
+    "Whether this is the default role"
+    isDefault: Boolean
   }
 
   "A collection of errors related to the member role"

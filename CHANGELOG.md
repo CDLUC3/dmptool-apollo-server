@@ -4,6 +4,7 @@
 
 ### Added
 - Added `findPrimaryUserByProjectId` method to `Collaborator` model [#225]
+- Added a new `researchDomainByURI` resolver
 - Added override for protobufjs
 - Added `findByDMPId` to plan resolver
 - Added `defaultTemplate` query to the `versionedTemplate` schema and a corresponding resolver
@@ -81,9 +82,8 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
-- Updated `plan` query resolver to return `readOnly` info based on different criteria, that include use of new `primary` collaborator access level [#225]
-- Updated `removeAnswerComment` answer mutation to use updated `canDeleteComment` helper function at `src/services/contentPermissions` [#225]
-- Updated `addFeedbackComment`, `updateFeedbackComment` and `removeFeedbackComment` in `feedback` resolver to use new logic to determine authorization [#225]
+- Updated `saveMaDMPVersion` function to include a `dmpId` argument and to properly convert the app name to a maDMP acceptable format
+- Updated `MemberRole` schema to include `isDefault` flag and added a `setDefaultMemberRole` mutation.
 - Updated `TemplateService` to ensure that the `isDefault` flag is propagated when creating a template version
 - Updated `Plan` schema to include `alternateIdentifiers` as a chained resolver.
 - Refactored the `saveMaDMPVersion` function in `planService` to use the shared functionality from `@dmptool/utils` package to write directly to Dynamo rather than sending SQS messages.

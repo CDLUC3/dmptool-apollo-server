@@ -171,6 +171,7 @@ export const ensureDefaultPlanContact = async (
  * @param reference A value to help identify the caller to help with logging
  * @param context The apollo context object
  * @param planId The id of the plan to create a version snapshot for
+ * @param dmpId The DMP id of the plan
  * @param shouldDelete If true, delete the version snapshots
  * @returns true if the version snapshot was created successfully, false otherwise
  */
@@ -178,15 +179,21 @@ export async function saveMaDMPVersion(
   reference: string,
   context: MyContext,
   planId: number,
+  dmpId: string,
   shouldDelete = false,
 ): Promise<boolean> {
   if (isNullOrUndefined(planId)) return false;
+
+  // Convert the App name into a URI safe string
+  const appName: string = generalConfig.applicationName
+    .toLowerCase()
+    .replace(/[ ()]/g, (match: string) => (match === ' ' ? '-' : ''));
 
   // Generate the current maDMP JSON record based on the current RDS data
   context.logger.debug({ planId }, 'Generating maDMP JSON for the Plan.')
   const maDMP: DMPToolDMPType = await planToDMPCommonStandard(
     getRDSConnectionParams(context.logger),
-    generalConfig.applicationName,
+    appName,
     generalConfig.domain,
     EnvironmentEnum[generalConfig.env.toUpperCase()] as EnvironmentEnum,
     planId,
@@ -194,12 +201,6 @@ export async function saveMaDMPVersion(
   );
   if (isNullOrUndefined(maDMP)) {
     context.logger.error({ planId, reference }, 'Unable to generate maDMP JSON for the Plan.')
-    return false;
-  }
-
-  const dmpId: string = maDMP.dmp?.dmp_id?.identifier;
-  if (isNullOrUndefined(dmpId)) {
-    context.logger.error({ planId, reference }, 'DMP id was missing from generated maDMP JSON.')
     return false;
   }
 

@@ -4,7 +4,11 @@ import { Resolvers } from "../types";
 import { MemberRole } from "../models/MemberRole";
 import { MyContext } from '../context';
 import { isSuperAdmin } from '../services/authService';
-import { AuthenticationError, ForbiddenError, InternalServerError } from '../utils/graphQLErrors';
+import {
+  AuthenticationError,
+  ForbiddenError,
+  InternalServerError,
+} from '../utils/graphQLErrors';
 import { GraphQLError } from 'graphql';
 import { normaliseDateTime } from "../utils/helpers";
 

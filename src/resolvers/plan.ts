@@ -189,7 +189,7 @@ export const resolvers: Resolvers = {
               }
 
               // Generate the initial maDMP version of the record
-              await saveMaDMPVersion(reference, context, created.id);
+              await saveMaDMPVersion(reference, context, created.id, created.dmpId);
             }
 
             return created;
@@ -225,7 +225,7 @@ export const resolvers: Resolvers = {
 
               if (deleted) {
                 // Delete the maDMP versions of the record
-                await saveMaDMPVersion(reference, context, deleted.id, true);
+                await saveMaDMPVersion(reference, context, deleted.id, deleted.dmpId, true);
               }
             } else {
               return plan;
@@ -301,7 +301,7 @@ export const resolvers: Resolvers = {
 
                   if (published && !published.hasErrors()) {
                     // Update the maDMP version of the record
-                    await saveMaDMPVersion(reference, context, plan.id);
+                    await saveMaDMPVersion(reference, context, plan.id, plan.dmpId);
                   }
                   return published;
                 }
@@ -335,7 +335,7 @@ export const resolvers: Resolvers = {
 
             if (updated && !updated.hasErrors()) {
               // Update the maDMP version of the record
-              await saveMaDMPVersion(reference, context, updated.id);
+              await saveMaDMPVersion(reference, context, updated.id, updated.dmpId);
             }
             return updated;
           }
@@ -364,7 +364,7 @@ export const resolvers: Resolvers = {
 
             if (updated && !updated.hasErrors()) {
               // Update the maDMP version of the record
-              await saveMaDMPVersion(reference, context, updated.id);
+              await saveMaDMPVersion(reference, context, updated.id, updated.dmpId);
             }
             return updated;
           }
@@ -388,14 +388,16 @@ export const resolvers: Resolvers = {
             throw NotFoundError(`Plan with id ${planId} not found`);
           }
           const project = await Project.findById(reference, context, plan.projectId);
+
           if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.OWN)) {
             const identifier: AlternateIdentifier = new AlternateIdentifier({ planId, alternateIdentifier });
 
             const created: AlternateIdentifier = await identifier.create(context);
             if (created && !created.hasErrors()) {
               // Update the maDMP version of the record
-              await saveMaDMPVersion(reference, context, planId);
+              await saveMaDMPVersion(reference, context, planId, plan.dmpId);
             }
+            return plan;
           }
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();
@@ -433,8 +435,9 @@ export const resolvers: Resolvers = {
             const deleted = await identifier.delete(context);
             if (deleted && !deleted.hasErrors()) {
               // Update the maDMP version of the record
-              await saveMaDMPVersion(reference, context, planId);
+              await saveMaDMPVersion(reference, context, planId, plan.dmpId);
             }
+            return plan;
           }
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();

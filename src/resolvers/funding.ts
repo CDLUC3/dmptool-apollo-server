@@ -141,7 +141,7 @@ export const resolvers: Resolvers = {
               const plans = await Plan.findByProjectId(reference, context, funding.projectId);
               for (const plan of plans) {
                 // Update the maDMP version of the Plan
-                await saveMaDMPVersion(reference, context, plan.id);
+                await saveMaDMPVersion(reference, context, plan.id, plan.dmpId);
               }
             }
             return updated;
@@ -174,7 +174,7 @@ export const resolvers: Resolvers = {
               const plans = await Plan.findByProjectId(reference, context, funding.projectId);
               for (const plan of plans) {
                 // Update the maDMP version of the Plan
-                await saveMaDMPVersion(reference, context, plan.id);
+                await saveMaDMPVersion(reference, context, plan.id, plan.dmpId);
               }
             }
             return removed;
@@ -239,7 +239,7 @@ export const resolvers: Resolvers = {
             }
 
             // Update the maDMP version of the Plan
-            await saveMaDMPVersion(reference, context, returnedPlan.id);
+            await saveMaDMPVersion(reference, context, returnedPlan.id, returnedPlan.dmpId);
 
             // We want to return the Plan and attach one set of errors for any failed fundings
             return returnedPlan;
@@ -320,7 +320,7 @@ export const resolvers: Resolvers = {
           }
 
           // Update the maDMP version of the Plan
-          await saveMaDMPVersion(reference, context, plan.id);
+          await saveMaDMPVersion(reference, context, plan.id, plan.dmpId);
 
           return await PlanFunding.findByPlanId(reference, context, plan.id);
         }
@@ -350,7 +350,7 @@ export const resolvers: Resolvers = {
 
             if (deletedFunding && !deletedFunding.hasErrors()) {
               // Update the maDMP version of the Plan
-              await saveMaDMPVersion(reference, context, plan.id);
+              await saveMaDMPVersion(reference, context, plan.id, plan.dmpId);
             }
 
             return deletedFunding;

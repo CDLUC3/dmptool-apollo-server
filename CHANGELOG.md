@@ -81,6 +81,8 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `saveMaDMPVersion` function to include a `dmpId` argument and to properly convert the app name to a maDMP acceptable format
+- Updated `MemberRole` schema to include `isDefault` flag and added a `setDefaultMemberRole` mutation.
 - Updated `TemplateService` to ensure that the `isDefault` flag is propagated when creating a template version
 - Updated `Plan` schema to include `alternateIdentifiers` as a chained resolver.
 - Refactored the `saveMaDMPVersion` function in `planService` to use the shared functionality from `@dmptool/utils` package to write directly to Dynamo rather than sending SQS messages.

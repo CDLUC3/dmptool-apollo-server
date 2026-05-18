@@ -8,10 +8,9 @@ import { MyContext } from '../context';
 import { isAuthorized } from '../services/authService';
 import { AuthenticationError, ForbiddenError, InternalServerError, NotFoundError } from '../utils/graphQLErrors';
 import { hasPermissionOnProject } from '../services/projectService';
-import {saveMaDMPVersion, updateMemberRoles} from '../services/planService';
+import { saveMaDMPVersion, updateMemberRoles } from '../services/planService';
 import { GraphQLError } from 'graphql';
 import { Plan } from '../models/Plan';
-// import { updateVersion } from '../models/PlanVersion';
 import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
 import { ProjectCollaboratorAccessLevel } from "../models/Collaborator";
 import { processOtherAffiliationName } from '../services/affiliationService';
@@ -256,7 +255,7 @@ export const resolvers: Resolvers = {
                 const plans = await Plan.findByProjectId(reference, context, member.projectId);
                 for (const plan of plans) {
                   // Update the maDMP version of the Plan
-                  await saveMaDMPVersion(reference, context, plan.id);
+                  await saveMaDMPVersion(reference, context, plan.id, plan.dmpId);
                 }
               }
 
@@ -299,7 +298,7 @@ export const resolvers: Resolvers = {
               const plans = await Plan.findByProjectId(reference, context, member.projectId);
               for (const plan of plans) {
                 // Update the maDMP version of the Plan
-                await saveMaDMPVersion(reference, context, plan.id);
+                await saveMaDMPVersion(reference, context, plan.id, plan.dmpId);
               }
             }
             return removed;
@@ -372,7 +371,7 @@ export const resolvers: Resolvers = {
             }
 
             // Update the maDMP version of the Plan
-            await saveMaDMPVersion(reference, context, plan.id);
+            await saveMaDMPVersion(reference, context, plan.id, plan.dmpId);
 
             return created;
           }
@@ -498,7 +497,7 @@ export const resolvers: Resolvers = {
               const plan = await Plan.findById(reference, context, member.planId);
               if (plan) {
                 // Update the maDMP version of the Plan
-                await saveMaDMPVersion(reference, context, plan.id);
+                await saveMaDMPVersion(reference, context, plan.id, plan.dmpId);
               }
             }
             return removed;

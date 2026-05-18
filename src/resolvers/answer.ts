@@ -124,7 +124,7 @@ export const resolvers: Resolvers = {
             const newAnswer = await answer.create(context);
             if (newAnswer && !newAnswer.hasErrors()) {
               // Update the maDMP version of the Plan
-              await saveMaDMPVersion(reference, context, plan.id);
+              await saveMaDMPVersion(reference, context, plan.id, plan.dmpId);
             }
             return newAnswer;
           }
@@ -158,7 +158,7 @@ export const resolvers: Resolvers = {
 
             if (updatedAnswer && !updatedAnswer.hasErrors()) {
               // Update the maDMP version of the Plan
-              await saveMaDMPVersion(reference, context, plan.id);
+              await saveMaDMPVersion(reference, context, plan.id, plan.dmpId);
             }
 
             return updatedAnswer;

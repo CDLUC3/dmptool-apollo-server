@@ -8,7 +8,9 @@ const config: CodegenConfig = {
       config: {
         contextType: "./context#MyContext",
         enumsAsTypes: true,
-
+        scalars: {
+          URL: "string",
+        }
       },
     },
   },

@@ -64,6 +64,7 @@ describe('VersionedTemplateSearchResult', () => {
       version: `v${casual.integer(1, 9)}`,
       visibility: getRandomEnumValue(TemplateVisibility),
       bestPractice: casual.boolean,
+      isDefault: casual.boolean,
       ownerId: casual.integer(1, 99),
       ownerURI: casual.url,
       ownerSearchName: casual.name,
@@ -90,7 +91,7 @@ describe('VersionedTemplateSearchResult', () => {
             'SELECT vt.id, vt.templateId, vt.name, vt.description, vt.version, vt.visibility, vt.bestPractice, ' +
             'vt.modified, vt.modifiedById, TRIM(CONCAT(u.givenName, " ", u.surName)) as modifiedByName, ' +
             'a.id as ownerId, vt.ownerId as ownerURI, a.displayName as ownerDisplayName, ' +
-            'a.searchName as ownerSearchName, ' +
+            'a.searchName as ownerSearchName, vt.isDefault, ' +
             'vtc.id as versionedTemplateCustomizationId ' +
             'FROM versionedTemplates vt ' +
             'LEFT JOIN users u ON u.id = vt.modifiedById ' +
@@ -138,7 +139,7 @@ describe('VersionedTemplateSearchResult', () => {
       const sql = 'SELECT vt.id, vt.templateId, vt.name, vt.description, vt.version, vt.visibility, vt.bestPractice, ' +
                     'vt.modified, vt.modifiedById, TRIM(CONCAT(u.givenName, CONCAT(\' \', u.surName))) as modifiedByName, ' +
                     'a.id as ownerId, vt.ownerId as ownerURI, a.displayName as ownerDisplayName, ' +
-                    'a.searchName as ownerSearchName ' +
+                    'a.searchName as ownerSearchName, vt.isDefault ' +
                   'FROM versionedTemplates vt ' +
                     'LEFT JOIN users u ON u.id = vt.modifiedById ' +
                     'LEFT JOIN affiliations a ON a.uri = vt.ownerId ' +
@@ -492,6 +493,8 @@ describe('VersionedTemplate', () => {
   let name;
   let versionedById;
   let versioned;
+  let bestPractice;
+  let isDefault;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -501,6 +504,8 @@ describe('VersionedTemplate', () => {
     version = casual.word;
     name = casual.sentence;
     versionedById = casual.integer(1, 999);
+    bestPractice = casual.boolean;
+    isDefault = casual.boolean;
 
     versioned = new VersionedTemplate({
       templateId,
@@ -508,6 +513,8 @@ describe('VersionedTemplate', () => {
       name,
       ownerId,
       versionedById,
+      bestPractice,
+      isDefault,
       created: casual.date('YYYY-MM-DD HH:mm:ss'),
       createdById: casual.integer(1, 999),
       modified: casual.date('YYYY-MM-DD HH:mm:ss'),
@@ -523,6 +530,8 @@ describe('VersionedTemplate', () => {
     expect(versioned.ownerId).toEqual(ownerId);
     expect(versioned.versionedById).toEqual(versionedById);
     expect(versioned.visibility).toEqual(TemplateVisibility.ORGANIZATION);
+    expect(versioned.bestPractice).toEqual(bestPractice);
+    expect(versioned.isDefault).toEqual(isDefault)
     expect(versioned.languageId).toEqual(defaultLanguageId);
     expect(versioned.created).toBeTruthy();
     expect(versioned.active).toBe(false);
@@ -702,6 +711,24 @@ describe('VersionedTemplate', () => {
       expect(localQuery).toHaveBeenCalledTimes(1);
       expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'Test')
       expect(result).toEqual(null);
+    });
+
+    it('defaultTemplate returns the VersionedTemplate', async () => {
+      localQuery.mockResolvedValueOnce([versionedTemplate]);
+      const result = await VersionedTemplate.defaultTemplate('Test', context);
+      const expectedSql = 'SELECT * FROM versionedTemplates WHERE active = 1 AND isDefault = 1 ORDER BY id LIMIT 1;';
+      expect(localQuery).toHaveBeenCalledTimes(1);
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [], 'Test')
+      expect(result).toEqual(versionedTemplate);
+      expect(result).toBeInstanceOf(VersionedTemplate);
+      expect(Object.keys(result.errors).length).toBe(0);
+    });
+
+    it('defaultTemplate returns undefined if there is no default VersionedTemplate', async () => {
+      localQuery.mockResolvedValueOnce([]);
+      const result = await VersionedTemplate.defaultTemplate('Test', context);
+      expect(localQuery).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(undefined);
     });
   });
 

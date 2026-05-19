@@ -1,7 +1,7 @@
 // TODO: Store the automated email in a table so we can eventually have a UI page for
 //       SuperAdmins to update them.
 //       Load the appropriate message and send it out
-import nodemailer from 'nodemailer';
+import nodemailer, { TransportOptions } from 'nodemailer';
 import { MyContext } from "../context";
 import { User } from "../models/User";
 import { awsConfig } from "../config/awsConfig";
@@ -13,7 +13,9 @@ export const emailSubjects = {
   emailConfirmation: 'Please confirm your email address',
   projectCollaboration: 'You were invited to collaborate on a data management plan',
   templateCollaboration: 'You were invited to collaborate on a template',
-  projectCollaboratorCommentsAdded: 'New comments added to the plan'
+  projectCollaboratorCommentsAdded: 'New comments added to the plan',
+  feedbackRequest: 'You have been requested to provide feedback on a data management plan',
+  feedbackComplete: 'Feedback on your data management plan is complete',
 }
 
 export const emailMessages = {
@@ -29,6 +31,25 @@ export const emailMessages = {
   projectCollaboratorCommentsAdded: `
 <p>New comments were added to the plan.</p>
 `,
+  feedbackComplete: `
+<p>Hello %{planOwnerName},</p>
+<p>%{adminName} has finished providing feedback on the plan "<a href="%{planUrl}">%{planTitle}</a>".
+Comments can be found in the 'Write plan' tab on the right side of the page (Guidance/Comments).</p>
+<p>Thank you,<br>The DMP Tool team</p>
+<p><small>You may change your notification preferences on your <a href="%{profileUrl}">profile page</a>.
+Please do not reply to this email. If you have any questions or need help, please contact us at
+<a href="mailto:%{helpDeskEmail}">%{helpDeskEmail}</a> or visit the <a href="%{helpUrl}">Help Page</a>.</small></p>
+`,
+  feedbackRequest: `
+<p>Dear %{adminEmail},</p>
+<p>A DMP Tool user, %{planOwnerName} has submitted a request for feedback on their data management plan: "<a href="%{planUrl}">%{planTitle}</a>".</p>
+<p>Comment from requestor: %{feedbackRequestMessage}</p>
+<p>Please log into the DMP Tool in order to view this plan</p>
+<p>Thank you,<br>The DMP Tool team</p>
+<p><small>You may change your notification preferences on your <a href="%{profileUrl}">profile page</a>.
+Please do not reply to this email. If you have any questions or need help, please contact us at
+<a href="mailto:%{helpDeskEmail}">%{helpDeskEmail}</a> or visit the <a href="%{helpUrl}">Help Page</a>.</small></p>
+`,
 }
 
 const transporter = nodemailer.createTransport({
@@ -41,7 +62,7 @@ const transporter = nodemailer.createTransport({
     user: awsConfig.sesAccessKey,
     pass: awsConfig.sesAccessSecret,
   },
-});
+} as TransportOptions);
 
 // Function to either send or log an email notification based on the environment
 const sendEmail = async (
@@ -58,7 +79,7 @@ const sendEmail = async (
   // Add the App name to the start of the subject line. We include the env when not in production
   const subjectLine = `${generalConfig.applicationName} - ${subject}`;
 
-  if (['development'].includes(process.env.NODE_ENV)) {
+  if (['development'].includes(process.env.NODE_ENV || '')) {
     // When running in development mode, we do not have access to AWS SES and we probably don't want to
     // actually send emails to people by accident, so just log the message
     context.logger.info(
@@ -127,11 +148,17 @@ export const sendTemplateCollaborationEmail = async (
   if (userId) {
     const user = await User.findById('sendTemplateCollaborationEmail', context, userId);
     // Bail out if the user has asked us not to send these notifications
-    if (!user.notify_on_template_shared) {
+    if (!user?.notify_on_template_shared) {
+      return false;
+    }
+
+    const emailAddress = await user.getEmail(context);
+    if (!emailAddress) {
+      context.logger.error(prepareObjectForLogs({ userId }), `User with ID ${userId} does not have an email address and cannot be sent a template collaboration email`);
       return false;
     }
     // Use the user's primary email address, regardless of what was provided
-    toAddress = await user.getEmail(context);
+    toAddress = emailAddress;
   }
 
   return await sendEmail(
@@ -158,11 +185,16 @@ export const sendProjectCollaborationEmail = async (
   if (userId) {
     const user = await User.findById('sendProjectCollaborationEmail', context, userId);
     // Bail out if the user has asked us not to send these notifications
-    if (!user.notify_on_template_shared) {
+    if (!user?.notify_on_template_shared) {
       return false;
     }
-    // Use the user's primary email address, regardless of what was provided
-    toAddress = await user.getEmail(context);
+    const emailAddress = await user.getEmail(context);
+    if (!emailAddress) {
+      context.logger.error(prepareObjectForLogs({ userId }), `User with ID ${userId} does not have an email address and cannot be sent a project collaboration email`);
+      return false;
+    }
+
+    toAddress = emailAddress;
   }
 
   return await sendEmail(
@@ -196,6 +228,87 @@ export const sendProjectCollaboratorsCommentsAddedEmail = async (
       [],
       emailSubjects.projectCollaboratorCommentsAdded,
       message,
+    );
+  }
+  return true;
+}
+
+export const sendFeedbackCompleteEmail = async (
+  context: MyContext,
+  feedbackRequestedById: number,
+  adminName: string,
+  planTitle: string,
+  planURL: string,
+): Promise<boolean> => {
+  const user = await User.findById('sendFeedbackCompleteEmail', context, feedbackRequestedById);
+  if (!user?.notify_on_feedback_complete) {
+    return false;
+  }
+
+  const emailAddress = await user.getEmail(context);
+  if (!emailAddress) {
+    context.logger.error(
+      prepareObjectForLogs({ feedbackRequestedById }),
+      `User with ID ${feedbackRequestedById} does not have an email address and cannot be sent a feedback complete email`
+    );
+    return false;
+  }
+
+  const planOwnerName = [user.givenName, user.surName].filter(Boolean).join(' ');
+  const domain = generalConfig.domain;
+  const message = emailMessages.feedbackComplete
+    .replace('%{planOwnerName}', planOwnerName)
+    .replace('%{adminName}', adminName)
+    .replace('%{planUrl}', `${domain}${planURL}`)
+    .replace('%{planTitle}', planTitle)
+    .replace('%{profileUrl}', `${domain}/account/profile`)
+    .replace('%{helpDeskEmail}', emailConfig.helpDeskAddress)
+    .replace('%{helpUrl}', `${domain}/help`);
+
+  return await sendEmail(
+    context,
+    'FeedbackComplete',
+    [emailAddress],
+    [],
+    [],
+    emailSubjects.feedbackComplete,
+    message
+  );
+}
+
+export const sendFeedbackRequestEmail = async (
+  context: MyContext,
+  planOwnerName: string,
+  planURL: string,
+  planTitle: string,
+  collaboratorEmails: string[],
+  feedbackRequestMessage: string,
+): Promise<boolean> => {
+  if (collaboratorEmails.length === 0) {
+    return false;
+  };
+
+  const domain = generalConfig.domain;
+  const baseMessage = emailMessages.feedbackRequest
+    .replace('%{planOwnerName}', planOwnerName)
+    .replace('%{feedbackRequestMessage}', feedbackRequestMessage)
+    .replace('%{planUrl}', `${domain}${planURL}`)
+    .replace('%{planTitle}', planTitle)
+    .replace('%{profileUrl}', `${domain}/account/profile`)
+    .replace('%{helpDeskEmail}', emailConfig.helpDeskAddress)
+    .replace('%{helpUrl}', `${domain}/help`);
+
+  // Send each feedback email recipient their own email
+  for (const email of collaboratorEmails) {
+    const message = baseMessage.replace('%{adminEmail}', email);
+    await sendEmail(
+      context,
+      'FeedbackRequest',
+      [email],
+      [],
+      [],
+      emailSubjects.feedbackRequest,
+      message
     );
   }
   return true;

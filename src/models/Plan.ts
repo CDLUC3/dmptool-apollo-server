@@ -1,7 +1,13 @@
 // Represents an entry from the projectPlans table
 import { generalConfig } from "../config/generalConfig";
 import { MyContext } from "../context";
-import { getCurrentDate, isNullOrUndefined, randomHex, valueIsEmpty } from "../utils/helpers";
+import {
+  getCurrentDate,
+  isNullOrUndefined,
+  randomHex,
+  resolveNamingCollision,
+  valueIsEmpty
+} from "../utils/helpers";
 import { MySqlModel } from "./MySqlModel";
 import { PlanGuidance } from "./Guidance";
 import { VersionedTemplate } from "./VersionedTemplate";
@@ -152,11 +158,18 @@ export class PlanSectionProgress {
     versionedTemplateId: number,
     affiliationId: string,
   ): Promise<number | undefined> {
+    // Join via templateId so the lookup works regardless of which specific
+    // versioned template the customization was published against (e.g. after
+    // a funder re-publishes their template the versionedTemplateId changes
+    // but the base templateId stays the same).
     const sql = `
-      SELECT templateCustomizationId
-      FROM versionedTemplateCustomizations
-      WHERE currentVersionedTemplateId = ?
-      AND affiliationId = ?
+      SELECT vtc.templateCustomizationId
+      FROM versionedTemplateCustomizations vtc
+      JOIN templateCustomizations tc ON tc.id = vtc.templateCustomizationId
+      JOIN versionedTemplates vt ON vt.templateId = tc.templateId
+      WHERE vt.id = ?
+        AND vtc.affiliationId = ?
+        AND vtc.active = 1
       LIMIT 1
     `;
     const rows = await Plan.query(context, sql, [versionedTemplateId.toString(), affiliationId], reference);
@@ -224,13 +237,13 @@ export class PlanSectionProgress {
   }
 
   /**
-   * Fetch the count of custom questions that have been answered by section type for a given plan and template customization. 
+   * Fetch the count of custom questions that have been answered by section type for a given plan and template customization.
    * This allows us to credit answered custom questions in the progress calculation for both base and custom sections.
    * @param reference
-   * @param context 
-   * @param planId 
-   * @param templateCustomizationId 
-   * @returns 
+   * @param context
+   * @param planId
+   * @param templateCustomizationId
+   * @returns
    */
   private static async fetchAnsweredCustomQuestions(
     reference: string,
@@ -271,7 +284,7 @@ export class PlanSectionProgress {
    * @returns The progress information for the section or an empty array if the section does not exist
    */
   static async findByPlanId(reference: string, context: MyContext, planId: number, versionedTemplateId?: number): Promise<PlanSectionProgress[]> {
-    // First fetch base sections and their question counts, which we will use as the foundation to build out the full section list with custom sections 
+    // First fetch base sections and their question counts, which we will use as the foundation to build out the full section list with custom sections
     // and adjusted question counts
     const sql = `SELECT
       vs.id AS versionedSectionId,
@@ -576,6 +589,8 @@ export class Plan extends MySqlModel {
    * @returns The processed Plan object
    */
   static async processResult(context: MyContext, plan: Plan): Promise<Plan> {
+    if (isNullOrUndefined(plan)) return undefined;
+
     // Check to see it the plan has a `dmpId`. If not, it was probably recently
     // migrated, so we need to assign a `dmpId` and send a request to generate the
     // maDMP record.
@@ -632,15 +647,26 @@ export class Plan extends MySqlModel {
       // Generate a new DMP ID
       this.dmpId = await this.generateDMPId(context);
 
-      // If the title is blank use the title of the associated Project
+      // If the title is blank, use the title of the associated Project
       if (isNullOrUndefined(this.title)) {
         const project = await Project.findById(reference, context, this.projectId);
-        this.title = project?.title;
+        this.title = project?.title ?? 'DMP';
       }
 
       // Make sure the record is valid
       if (await this.isValid()) {
         this.prepForSave();
+
+        // Get a list of existing plan titles for the project. We use this to
+        // resolve naming collisions so that a duplicate "Test" becomes "Test 1",
+        // then "Test 2", etc.
+        const existingPlans: Plan[] = await Plan.findByProjectId(reference, context, this.projectId);
+        const existingPlanTitles: string[] = existingPlans
+          .filter((plan: Plan | undefined): boolean => !isNullOrUndefined(plan))
+          .map((plan: Plan): string | undefined => plan.title)
+          .filter((title: string | undefined): title is string => typeof title === 'string');
+
+        this.title = resolveNamingCollision(this.title, existingPlanTitles);
 
         // Create the new Plan
         const newId = await Plan.insert(context, Plan.tableName, this, reference);

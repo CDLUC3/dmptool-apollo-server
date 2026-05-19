@@ -3,7 +3,10 @@ import { MyContext } from '../context';
 import { OpenSearchWork, WorkType } from '../types';
 import { awsConfig } from '../config/awsConfig';
 import { prepareObjectForLogs } from '../logger';
-import { createOpenSearchClient, OpenSearchConfig } from "../datasources/openSearch";
+import {
+  createOpenSearchClient,
+  createOpenSearchServerlessClient, OpenSearchConfig, OpenSearchServerlessConfig
+} from "../datasources/openSearch";
 import {
   OpenSearchRe3DataRecord,
   Re3DataRepositoryRecord,
@@ -87,9 +90,17 @@ interface OpenSearchRe3DataHit {
 
 export class OpenSearchService {
   private client: Client;
+  private serverlessClient: Client;
 
   constructor() {
     this.client = createOpenSearchClient(awsConfig.opensearch as OpenSearchConfig);
+    this.serverlessClient = createOpenSearchServerlessClient(awsConfig.opensearchServerless as OpenSearchServerlessConfig);
+  }
+
+  // Selects the correct OpenSearch client based on environment
+  private get searchClient(): Client {
+    const useServerless = process.env.OPENSEARCH_AUTH_TYPE === 'aws';
+    return useServerless ? this.serverlessClient : this.client;
   }
 
   public async findWorkByIdentifier(reference: string, context: MyContext, doi: string | null | undefined, maxResults: number): Promise<OpenSearchWork[]> {
@@ -177,8 +188,12 @@ export class OpenSearchService {
     }
 
     // Handle multiple subjects: match repositories that have ANY of the provided subjects
+    // handle case insensitivity and trim whitespace
     if (subjects && subjects.length > 0) {
-      const validSubjects = subjects.filter(s => s?.trim());
+      const validSubjects = subjects
+        .filter(s => s?.trim())
+        .map(s => s.trim().replace(/\b\w/g, c => c.toUpperCase())); // "economics" → "Economics"
+
       if (validSubjects.length > 0) {
         filter.push({
           terms: { subjects: validSubjects },
@@ -206,6 +221,7 @@ export class OpenSearchService {
               filter,
             },
           },
+          sort: [{ "name.keyword": { order: 'asc' } }],
         },
       });
     } catch (err) {
@@ -256,41 +272,76 @@ export class OpenSearchService {
   }
 
   public async findRe3DataByURIs(context: MyContext, uris: string[]): Promise<Re3DataRepositoryRecord[]> {
-    // If no URIs provided, return empty array
     if (!uris || uris.length === 0) {
       return [];
     }
 
-    let response: unknown;
-    try {
-      response = await this.client.search({
-        index: 're3data',
-        body: {
-          size: uris.length,
-          query: {
-            terms: {
-              uri: uris,
-            },
-          },
-        },
-      });
-    } catch (err) {
-      context.logger.error(prepareObjectForLogs(err), `Error fetching re3data repositories by URIs from OpenSearch`);
+    context.logger.debug({ uris }, 'Fetching URIs from OpenSearch re3data index');
 
-      throw new GraphQLError("Service temporarily unavailable", {
-        extensions: {
-          code: "SERVICE_UNAVAILABLE",
-          service: "opensearch",
-          details: "We are having trouble connecting to the search service, if the error persists please report the error."
-        }
-      });
+    const PAGE_SIZE = 100;
+    const allHits: OpenSearchRe3DataHit[] = [];
+    let cursor: unknown[] | undefined;
+
+    while (true) {
+      const body: Record<string, unknown> = {
+        size: PAGE_SIZE,
+        query: {
+          terms: { uri: uris },
+        },
+        sort: [
+          { "name.keyword": { order: 'asc' } },
+          { "_id": { order: 'asc' } },  // Tiebreaker to ensure stable pagination
+        ],
+      };
+
+      // Add cursor if we have one
+      if (cursor) {
+        body.search_after = cursor;
+      }
+
+      let response: unknown;
+      try {
+        response = await this.searchClient.search({
+          index: 're3data',
+          body,
+        });
+      } catch (err) {
+        context.logger.error(prepareObjectForLogs(err), `Error fetching re3data repositories by URIs from OpenSearch`);
+
+        throw new GraphQLError("Service temporarily unavailable", {
+          extensions: {
+            code: "SERVICE_UNAVAILABLE",
+            service: "opensearch",
+            details: "We are having trouble connecting to the search service, if the error persists please report the error."
+          }
+        });
+      }
+
+      const hits = (response as { body: { hits: { hits: (OpenSearchRe3DataHit & { sort: unknown[] })[] } } })
+        .body.hits.hits;
+
+      if (hits.length === 0) break;
+
+      allHits.push(...hits);
+      cursor = hits[hits.length - 1].sort;
+
+      // If we got fewer results than the page size, we've reached the last page
+      if (hits.length < PAGE_SIZE) break;
     }
 
     try {
-      const body = (response as { body: { hits: { hits: OpenSearchRe3DataHit[] } } }).body;
-      return body.hits.hits.map((hit: OpenSearchRe3DataHit) => {
-        return convertRe3DataToCamelCase(hit._source);
-      });
+      const records = allHits.map((hit) => convertRe3DataToCamelCase(hit._source));
+
+      // Deduplicate by URI, keeping the most recently modified record
+      const byUri = new Map<string, Re3DataRepositoryRecord>();
+      for (const record of records) {
+        const existing = byUri.get(record.uri);
+        if (!existing || record.modified > existing.modified) {
+          byUri.set(record.uri, record);
+        }
+      }
+
+      return Array.from(byUri.values());
     } catch (err) {
       context.logger.error(prepareObjectForLogs(err), `Error converting OpenSearch response for re3data by URIs`);
 
@@ -307,6 +358,7 @@ export class OpenSearchService {
   public async findRe3DataSubjects(context: MyContext, includeCount: boolean, maxResults: number): Promise<{ subject: string; count?: number }[]> {
     let response: unknown;
     try {
+      context.logger.debug('Fetching Subjects from OpenSearch re3data index');
       const body = includeCount
         ? {
           size: 0,
@@ -317,7 +369,7 @@ export class OpenSearchService {
                 size: maxResults,
               },
             },
-          },
+          }
         }
         : {
           size: 0,
@@ -331,7 +383,7 @@ export class OpenSearchService {
           },
         };
 
-      response = await this.client.search({
+      response = await this.searchClient.search({
         index: 're3data',
         body,
       });
@@ -387,7 +439,7 @@ export class OpenSearchService {
         },
       };
 
-      response = await this.client.search({
+      response = await this.searchClient.search({
         index: 're3data',
         body,
       });

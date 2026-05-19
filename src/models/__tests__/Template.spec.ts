@@ -43,6 +43,7 @@ describe('TemplateSearchResult', () => {
       description: casual.sentences(5),
       latestPublishVisibility: getRandomEnumValue(TemplateVisibility),
       bestPractice: casual.boolean,
+      isDefault: casual.boolean,
       latestPublishVersion: `v${casual.integer(1, 9)}`,
       latestPublishDate: casual.date('YYYY-MM-DD'),
       isDirty: casual.boolean,
@@ -67,7 +68,7 @@ describe('TemplateSearchResult', () => {
       const term = 'test';
       const result = await TemplateSearchResult.findByAffiliationIdAndTerm('Test', context, templateSearchResult.ownerId, term);
       const sql = 'SELECT t.id, t.name, t.description, t.latestPublishVisibility, t.bestPractice, t.isDirty, ' +
-                        't.latestPublishVersion, t.latestPublishDate, t.ownerId, a.displayName, ' +
+                        't.latestPublishVersion, t.latestPublishDate, t.ownerId, a.displayName, t.isDefault, ' +
                         't.createdById, TRIM(CONCAT(cu.givenName, CONCAT(\' \', cu.surName))) as createdByName, t.created, ' +
                         't.modifiedById, TRIM(CONCAT(mu.givenName, CONCAT(\' \', mu.surName))) as modifiedByName, t.modified ' +
                   'FROM templates t ' +
@@ -126,6 +127,7 @@ describe('Template', () => {
     expect(template.modified).toBeTruthy();
     expect(template.latestPublishVersion).toBeFalsy();
     expect(template.isDirty).toBeTruthy();
+    expect(template.isDefault).toBeFalsy();
     expect(template.errors).toEqual({});
     expect(template.languageId).toEqual(defaultLanguageId);
   });
@@ -374,6 +376,7 @@ describe('Template', () => {
         createdById: casual.integer(1, 999),
         ownerId: casual.url,
         name: casual.sentence,
+        isDefault: casual.boolean
       })
     });
 

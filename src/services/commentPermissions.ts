@@ -7,8 +7,8 @@ export function canDeleteComment({
   userId,
   collaborators
 }: {
-  commentCreatedById: number,
-  planCreatedById: number,
+  commentCreatedById?: number,
+  planCreatedById?: number,
   userId: number,
   collaborators: ProjectCollaborator[]
 }): boolean {

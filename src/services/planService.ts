@@ -4,10 +4,18 @@ import { isNullOrUndefined } from "../utils/helpers";
 import { PlanMember, ProjectMember } from "../models/Member";
 import { Plan } from "../models/Plan";
 import { Project } from "../models/Project";
-import { sendMessage } from "@dmptool/utils";
-import { awsConfig } from "../config/awsConfig";
+import {
+  createDMP, deleteDMP,
+  DMPExists,
+  DynamoConnectionParams,
+  EnvironmentEnum,
+  planToDMPCommonStandard, tombstoneDMP,
+  updateDMP
+} from "@dmptool/utils";
+import { getDynamoConnectionParams } from "../config/awsConfig";
 import { generalConfig } from "../config/generalConfig";
-import { prepareObjectForLogs } from "../logger";
+import { DMPToolDMPType } from "@dmptool/types";
+import { getRDSConnectionParams } from "../config/mysqlConfig";
 
 /**
  * Function to help update Plan member roles. It compares the current roles for
@@ -138,8 +146,6 @@ export const ensureDefaultPlanContact = async (
  * - DMP Tool specific extensions to that standard
  * See the @dmptool/types for details on the structure of these formats.
  *
- * These maDMP version records are created via SQS messaging
- *
  * A Plan always has a "latest" version that is the most recent snapshot of the DMP.
  *
  * When a plan is first created, an initial version snapshot is created. this becomes the "latest" version.
@@ -158,51 +164,86 @@ export const ensureDefaultPlanContact = async (
  *
  * Each time a change is made, the "latest" version's modified timestamp is updated to the current timestamp.
  *
+ * Registered/published plans cannot have version snapshots deleted! In that scenario,
+ * the "latest" version is tomb-stoned. This is to ensure that the registered DMP ID (aka DOI)
+ * is not orphaned and does not become a dead link.
+ *
  * @param reference A value to help identify the caller to help with logging
  * @param context The apollo context object
  * @param planId The id of the plan to create a version snapshot for
- * @param registered The publication date of the plan
- * @param shouldDelete If true, the "latest" version will be deleted. This is used when a plan is updated.
+ * @param shouldDelete If true, delete the version snapshots
  * @returns true if the version snapshot was created successfully, false otherwise
  */
 export async function saveMaDMPVersion(
   reference: string,
   context: MyContext,
   planId: number,
-  registered: string | undefined,
   shouldDelete = false,
 ): Promise<boolean> {
-  // Send a message to SQS to trigger the Lambda function that will generate the
-  // maDMP record in the DynamoDB table
-  const sqsResponse = await sendMessage(
-    context.logger,
-    awsConfig.sqs.generateMaDMPQueueUrl,
-    reference,
-    'generate_madmp_record',
-    {
-      Env: generalConfig.env,
-      jti: context.token.jti,
-      planId,
-      // If the plan is published and the request was to delete the maDMP records,
-      // tombstone the DOI instead
-      shouldTombstone: shouldDelete && registered !== undefined,
-      // Otherwise delete the maDMP record if it is not published
-      shouldDelete: shouldDelete && registered === undefined
-    },
-    awsConfig.region,
-    process.env.NODE_ENV !== 'development'
-  )
-  if (!sqsResponse || sqsResponse.status < 200 || sqsResponse.status >= 400) {
-    context.logger.error(
-      prepareObjectForLogs({
-        jti: context.token.jti,
-        planId,
-        queueURL: awsConfig.sqs.generateMaDMPQueueUrl,
-        ...sqsResponse
-      }),
-      'Unable to send a message to SQS to trigger generateMaDMPRecord Lambda function.'
-    );
+  if (isNullOrUndefined(planId)) return false;
+
+  // Generate the current maDMP JSON record based on the current RDS data
+  context.logger.debug({ planId }, 'Generating maDMP JSON for the Plan.')
+  const maDMP: DMPToolDMPType = await planToDMPCommonStandard(
+    getRDSConnectionParams(context.logger),
+    generalConfig.applicationName,
+    generalConfig.domain,
+    EnvironmentEnum[generalConfig.env.toUpperCase()] as EnvironmentEnum,
+    planId,
+    true
+  );
+  if (isNullOrUndefined(maDMP)) {
+    context.logger.error({ planId, reference }, 'Unable to generate maDMP JSON for the Plan.')
     return false;
   }
+
+  const dmpId: string = maDMP.dmp?.dmp_id?.identifier;
+  if (isNullOrUndefined(dmpId)) {
+    context.logger.error({ planId, reference }, 'DMP id was missing from generated maDMP JSON.')
+    return false;
+  }
+
+  // See if the latest version of the maDMP record is in the DynamoDB table
+  const dynamoConfig: DynamoConnectionParams = getDynamoConnectionParams(context.logger);
+  const hasLatestMaDMP: boolean = await DMPExists(dynamoConfig, dmpId)
+
+  if (!hasLatestMaDMP) {
+    // The Plan is new, so create the first maDMP record
+    if (!(await createDMP(dynamoConfig, generalConfig.domain, dmpId, maDMP))) {
+      context.logger.error({planId, dmpId, reference}, 'Unable to create initial maDMP JSON.');
+      return false;
+    }
+    context.logger.debug({ planId, dmpId, reference }, 'Successfully created initial maDMP JSON.');
+
+  } else {
+    // If we are supposed to delete the version snapshots
+    if (shouldDelete) {
+      if (maDMP.dmp.registered) {
+        // If it was already registered/published, tombstone the latest version instead
+        if (!(await tombstoneDMP(dynamoConfig, generalConfig.domain, dmpId))) {
+          context.logger.error({ planId, dmpId, reference }, 'Unable to tombstone maDMP JSON.')
+          return false;
+        }
+        context.logger.debug({ planId, dmpId, reference }, 'Successfully tomb-stoned maDMP JSON.');
+
+      } else {
+        // Otherwise delete the maDMP versions
+        if (!(await deleteDMP(dynamoConfig, generalConfig.domain, dmpId))) {
+          context.logger.error({ planId, dmpId, reference }, 'Unable to tombstone maDMP JSON.')
+          return false;
+        }
+        context.logger.debug({ planId, dmpId, reference }, 'Successfully tomb-stoned maDMP JSON.');
+      }
+    }
+
+    // Otherwise we need to update the maDMP information in the DynamoDB table
+    const gracePeriod: number = generalConfig.versionPlanAfter * 3_600_000 // Convert hours to milliseconds;
+    if (!(await updateDMP(dynamoConfig, generalConfig.domain, dmpId, maDMP, gracePeriod))) {
+      context.logger.error({ planId, dmpId, reference }, 'Unable to save maDMP JSON.');
+      return false;
+    }
+    context.logger.debug({ planId, dmpId, reference }, 'Successfully updated maDMP JSON.');
+  }
+
   return true;
 }

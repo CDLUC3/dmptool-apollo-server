@@ -4,12 +4,13 @@ import { Plan, PlanSearchResult, PlanSectionProgress, PlanProgress, PlanStatus, 
 import { prepareObjectForLogs } from "../logger";
 import { AuthenticationError, ForbiddenError, InternalServerError, NotFoundError } from "../utils/graphQLErrors";
 import { Project } from "../models/Project";
+import { User } from "../models/User";
 import { isAuthorized } from "../services/authService";
 import { hasPermissionOnProject } from "../services/projectService";
 import { PlanMember } from "../models/Member";
 import { PlanFunding } from "../models/Funding";
 import { PlanFeedback } from "../models/PlanFeedback";
-import { Resolvers } from "../types";
+import { PlanFeedbackStatus, Resolvers } from "../types";
 import { VersionedTemplate } from "../models/VersionedTemplate";
 import { Answer } from "../models/Answer";
 import { ProjectCollaboratorAccessLevel } from "../models/Collaborator";
@@ -18,6 +19,7 @@ import {
   ensureDefaultPlanContact,
   saveMaDMPVersion
 } from "../services/planService";
+import {AlternateIdentifier} from "../models/AlternateIdentifier";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -55,6 +57,10 @@ export const resolvers: Resolvers = {
         }
 
         const project = await Project.findById(reference, context, plan.projectId);
+        if (!project) {
+          throw NotFoundError(`Project with ID ${plan.projectId} not found`);
+        }
+
         if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.COMMENT)) {
           return plan;
         }
@@ -66,6 +72,67 @@ export const resolvers: Resolvers = {
         throw InternalServerError();
       }
     },
+
+    // Find a Plan by its DMP id
+    planByDMPId: async(_, { dmpId }, context: MyContext): Promise<Plan> => {
+      const reference = 'planByDMPId resolver';
+      try {
+        const plan = await Plan.findByDMPId(reference, context, dmpId);
+        if (isNullOrUndefined(plan)) {
+          throw NotFoundError(`Plan with DMP id, ${dmpId}, not found`);
+        }
+
+        const project = await Project.findById(reference, context, plan.projectId);
+        if (isNullOrUndefined(project)) {
+          throw NotFoundError(`Project with ID, ${plan.projectId}, not found`);
+        }
+
+        if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.COMMENT)) {
+          return plan;
+        }
+        throw context?.token ? ForbiddenError() : AuthenticationError();
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    },
+
+    // Lookup a Plan by its alternate identifier
+    planByAlternateIdentifier: async(_, { alternateIdentifier }, context: MyContext): Promise<Plan> => {
+      const reference = 'planByAlternateIdentifier resolver';
+      try {
+        const identifier: AlternateIdentifier = await AlternateIdentifier.findByAlternateIdentifier(
+          reference,
+          context,
+          alternateIdentifier
+        );
+        if (isNullOrUndefined(identifier)) {
+          throw NotFoundError('Alternate identifier not found');
+        }
+
+        const plan = await Plan.findById(reference, context, identifier.planId);
+        if (isNullOrUndefined(plan)) {
+          throw NotFoundError(`Plan with ID, ${identifier.planId}, not found`);
+        }
+
+        const project = await Project.findById(reference, context, plan.projectId);
+        if (isNullOrUndefined(project)) {
+          throw NotFoundError(`Project with ID, ${plan.projectId}, not found`);
+        }
+
+        if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.COMMENT)) {
+          return plan;
+        }
+        throw context?.token ? ForbiddenError() : AuthenticationError();
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    }
   },
 
   Mutation: {
@@ -96,7 +163,7 @@ export const resolvers: Resolvers = {
               }
 
               // Generate the initial maDMP version of the record
-              await saveMaDMPVersion(reference, context, created.id, created.registered);
+              await saveMaDMPVersion(reference, context, created.id);
             }
 
             return created;
@@ -132,7 +199,7 @@ export const resolvers: Resolvers = {
 
               if (deleted) {
                 // Delete the maDMP versions of the record
-                await saveMaDMPVersion(reference, context, deleted.id, deleted.registered, true);
+                await saveMaDMPVersion(reference, context, deleted.id, true);
               }
             } else {
               return plan;
@@ -208,7 +275,7 @@ export const resolvers: Resolvers = {
 
                   if (published && !published.hasErrors()) {
                     // Update the maDMP version of the record
-                    await saveMaDMPVersion(reference, context, plan.id, plan.registered);
+                    await saveMaDMPVersion(reference, context, plan.id);
                   }
                   return published;
                 }
@@ -241,7 +308,7 @@ export const resolvers: Resolvers = {
 
             if (updated && !updated.hasErrors()) {
               // Update the maDMP version of the record
-              await saveMaDMPVersion(reference, context, updated.id, updated.registered);
+              await saveMaDMPVersion(reference, context, updated.id);
             }
           }
         }
@@ -269,7 +336,75 @@ export const resolvers: Resolvers = {
 
             if (updated && !updated.hasErrors()) {
               // Update the maDMP version of the record
-              await saveMaDMPVersion(reference, context, updated.id, updated.registered);
+              await saveMaDMPVersion(reference, context, updated.id);
+            }
+          }
+        }
+        throw context?.token ? ForbiddenError() : AuthenticationError();
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    },
+
+    // Assign an alternate identifier to the plan
+    addAlternateIdentifierToPlan: async (_, { planId, alternateIdentifier }, context: MyContext): Promise<Plan> => {
+      const reference = 'add alternate identifier to plan resolver';
+      try {
+        if (isAuthorized(context.token)) {
+          const plan = await Plan.findById(reference, context, planId);
+          if (!plan) {
+            throw NotFoundError(`Plan with id ${planId} not found`);
+          }
+          const project = await Project.findById(reference, context, plan.projectId);
+          if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.OWN)) {
+            const identifier: AlternateIdentifier = new AlternateIdentifier({ planId, alternateIdentifier });
+
+            const created: AlternateIdentifier = await identifier.create(context);
+            if (created && !created.hasErrors()) {
+              // Update the maDMP version of the record
+              await saveMaDMPVersion(reference, context, planId);
+            }
+          }
+        }
+        throw context?.token ? ForbiddenError() : AuthenticationError();
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    },
+
+    // Assign an alternate identifier to the plan
+    removeAlternateIdentifierFromPlan: async (_, { planId, alternateIdentifier }, context: MyContext): Promise<Plan> => {
+      const reference = 'remove alternate identifier from plan resolver';
+      try {
+        if (isAuthorized(context.token)) {
+          const plan = await Plan.findById(reference, context, planId);
+          if (!plan) {
+            throw NotFoundError(`Plan with id ${planId} not found`);
+          }
+          const project = await Project.findById(reference, context, plan.projectId);
+          if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.OWN)) {
+            const identifier: AlternateIdentifier = await AlternateIdentifier.findByAlternateIdentifier(
+              reference,
+              context,
+              alternateIdentifier
+            );
+            if (isNullOrUndefined(identifier)) {
+              throw NotFoundError('Alternate identifier not found');
+            }
+            if (identifier.planId !== planId) {
+              throw ForbiddenError('Alternate identifier belongs to a different plan');
+            }
+
+            const deleted = await identifier.delete(context);
+            if (deleted && !deleted.hasErrors()) {
+              // Update the maDMP version of the record
+              await saveMaDMPVersion(reference, context, planId);
             }
           }
         }
@@ -284,6 +419,13 @@ export const resolvers: Resolvers = {
   },
 
   Plan: {
+    // The user who owns/created the plan
+    planCreator: async (parent: Plan, _, context: MyContext): Promise<User> => {
+      if (parent?.createdById) {
+        return await User.findById('plan.createdBy resolver', context, parent.createdById);
+      }
+      return null;
+    },
     // The project the plan is associated with
     project: async (parent: Plan, _, context: MyContext): Promise<Project> => {
       if (parent?.projectId) {
@@ -319,6 +461,13 @@ export const resolvers: Resolvers = {
       }
       return [];
     },
+    feedbackStatus: async (parent: Plan, _, context: MyContext): Promise<PlanFeedbackStatus> => {
+      if (parent?.id) {
+        // Use the same logic as in planFeedbackStatus query
+        return await PlanFeedback.statusForPlan('plan.feedbackStatus resolver', context, parent.id);
+      }
+      return null;
+    },
     answers: async (parent: Plan, _, context: MyContext): Promise<Answer[]> => {
       if (parent?.id) {
         return await Answer.findByPlanId('plan answers resolver', context, parent.id);
@@ -336,6 +485,12 @@ export const resolvers: Resolvers = {
         return await PlanProgress.findByPlanId('plan progress resolver', context, parent.id, parent?.versionedTemplateId);
       }
       return null;
+    },
+    alternateIdentifiers: async (parent: Plan, _, context: MyContext): Promise<AlternateIdentifier[]> => {
+      if (parent?.id) {
+        return await AlternateIdentifier.findByPlanId('plan alternateIdentifiers chained resolver', context, parent.id);
+      }
+      return [];
     },
     registered: (parent: Plan) => {
       return normaliseDateTime(parent.registered);

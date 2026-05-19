@@ -6,6 +6,8 @@ export const typeDefs = gql`
     topLevelResearchDomains: [ResearchDomain]
     "Get all of the research domains related to the specified top level domain (more nuanced ones)"
     childResearchDomains(parentResearchDomainId: Int!): [ResearchDomain]
+    "Get for research domains by its URI"
+    researchDomainByURI(uri: String!): ResearchDomain
   }
 
   "An aread of research (e.g. Electrical Engineering, Cellular biology, etc.)"

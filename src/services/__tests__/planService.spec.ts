@@ -251,6 +251,7 @@ describe('saveMaDMPVersion', () => {
   let context: MyContext;
   const reference = 'test-reference';
   const planId = 123;
+  const dmpId = "https://doi.org/11.2222/3A4B5c";
   const mockExists = DMPExists as jest.MockedFunction<typeof DMPExists>;
   const mockPlanToMaDMP = planToDMPCommonStandard as jest.MockedFunction<typeof planToDMPCommonStandard>;
   const mockCreate = createDMP as jest.MockedFunction<typeof createDMP>;
@@ -304,7 +305,7 @@ describe('saveMaDMPVersion', () => {
     mockCreate.mockResolvedValue(mockMaDMP);
 
     const dmpId: string = mockMaDMP.dmp.dmp_id.identifier;
-    const result = await saveMaDMPVersion(reference, context, planId, false);
+    const result = await saveMaDMPVersion(reference, context, planId, dmpId, false);
 
     expect(result).toBe(true);
     expect(mockCreate).toHaveBeenCalledWith(getDynamoConnectionParams(context.logger), generalConfig.domain, dmpId, mockMaDMP);
@@ -316,7 +317,7 @@ describe('saveMaDMPVersion', () => {
     mockUpdate.mockResolvedValue(mockMaDMP);
 
     const dmpId: string = mockMaDMP.dmp.dmp_id.identifier;
-    const result = await saveMaDMPVersion(reference, context, planId, false);
+    const result = await saveMaDMPVersion(reference, context, planId, dmpId, false);
 
     expect(result).toBe(true);
     expect(mockUpdate).toHaveBeenCalledWith(getDynamoConnectionParams(context.logger), generalConfig.domain, dmpId, mockMaDMP, 3600000);
@@ -328,7 +329,7 @@ describe('saveMaDMPVersion', () => {
     mockDelete.mockResolvedValue(mockMaDMP);
 
     const dmpId: string = mockMaDMP.dmp.dmp_id.identifier;
-    const result = await saveMaDMPVersion(reference, context, planId, true);
+    const result = await saveMaDMPVersion(reference, context, planId, dmpId, true);
 
     expect(result).toBe(true);
     expect(mockDelete).toHaveBeenCalledWith(getDynamoConnectionParams(context.logger), generalConfig.domain, dmpId);
@@ -340,7 +341,7 @@ describe('saveMaDMPVersion', () => {
     mockTombstone.mockResolvedValue(mockMaDMP);
 
     const dmpId: string = mockMaDMP.dmp.dmp_id.identifier;
-    const result = await saveMaDMPVersion(reference, context, planId, true);
+    const result = await saveMaDMPVersion(reference, context, planId, dmpId, true);
 
     expect(result).toBe(true);
     expect(mockTombstone).toHaveBeenCalledWith(getDynamoConnectionParams(context.logger), generalConfig.domain, dmpId);
@@ -348,7 +349,7 @@ describe('saveMaDMPVersion', () => {
 
 
   it('should return false id planId is undefined', async () => {
-    const result = await saveMaDMPVersion(reference, context, undefined, true);
+    const result = await saveMaDMPVersion(reference, context, undefined, dmpId, true);
 
     expect(result).toBe(false);
   });
@@ -357,7 +358,7 @@ describe('saveMaDMPVersion', () => {
     mockExists.mockResolvedValue(true);
     mockPlanToMaDMP.mockResolvedValue(undefined);
 
-    const result = await saveMaDMPVersion(reference, context, planId, true);
+    const result = await saveMaDMPVersion(reference, context, planId, dmpId, true);
 
     expect(result).toBe(false);
   });
@@ -367,7 +368,7 @@ describe('saveMaDMPVersion', () => {
     mockPlanToMaDMP.mockResolvedValue(mockMaDMP);
     mockCreate.mockResolvedValue(undefined);
 
-    const result = await saveMaDMPVersion(reference, context, planId, false);
+    const result = await saveMaDMPVersion(reference, context, planId, dmpId, false);
 
     expect(result).toBe(false);
   });
@@ -377,7 +378,7 @@ describe('saveMaDMPVersion', () => {
     mockPlanToMaDMP.mockResolvedValue(mockMaDMP);
     mockUpdate.mockResolvedValue(undefined);
 
-    const result = await saveMaDMPVersion(reference, context, planId, false);
+    const result = await saveMaDMPVersion(reference, context, planId, dmpId, false);
 
     expect(result).toBe(false);
   });
@@ -387,7 +388,7 @@ describe('saveMaDMPVersion', () => {
     mockPlanToMaDMP.mockResolvedValue(mockMaDMP);
     mockDelete.mockResolvedValue(undefined);
 
-    const result = await saveMaDMPVersion(reference, context, planId, true);
+    const result = await saveMaDMPVersion(reference, context, planId, dmpId, true);
 
     expect(result).toBe(false);
   });
@@ -397,7 +398,7 @@ describe('saveMaDMPVersion', () => {
     mockPlanToMaDMP.mockResolvedValue({ dmp: { ...mockMaDMP['dmp'], registered: '2026-01-01T13:12:11Z' } });
     mockTombstone.mockResolvedValue(undefined);
 
-    const result = await saveMaDMPVersion(reference, context, planId, true);
+    const result = await saveMaDMPVersion(reference, context, planId, dmpId, true);
 
     expect(result).toBe(false);
   });

@@ -124,7 +124,7 @@ export const resolvers: Resolvers = {
             const newAnswer = await answer.create(context);
             if (newAnswer && !newAnswer.hasErrors()) {
               // Update the maDMP version of the Plan
-              await saveMaDMPVersion(reference, context, plan.id);
+              await saveMaDMPVersion(reference, context, plan.id, plan.dmpId);
             }
             return newAnswer;
           }
@@ -158,7 +158,7 @@ export const resolvers: Resolvers = {
 
             if (updatedAnswer && !updatedAnswer.hasErrors()) {
               // Update the maDMP version of the Plan
-              await saveMaDMPVersion(reference, context, plan.id);
+              await saveMaDMPVersion(reference, context, plan.id, plan.dmpId);
             }
 
             return updatedAnswer;
@@ -275,17 +275,15 @@ export const resolvers: Resolvers = {
             if (!answerComment) {
               throw NotFoundError(`Answer comment ${answerCommentId} not found`);
             }
-            // Get project collaborators emails, minus the user's own email
-            const collaborators = await ProjectCollaborator.findByProjectId(reference, context, plan.projectId);
+            // Get primaryCollaborator for the project to check permissions against
+            const primaryCollaborator = await ProjectCollaborator.findPrimaryUserByProjectId(reference, context, project.id);
 
-            // Allow deletion by comment creator, plan creator, or OWN-level collaborator
+            // A comment can be deleted by the comment creator or a PRIMARY-level collaborator
             if (canDeleteComment({
               commentCreatedById: answerComment.createdById,
-              planCreatedById: plan.createdById,
               userId: context.token.id,
-              collaborators
+              primaryCollaborator
             })) {
-              // Delete the comment
               return await answerComment.delete(context);
             }
 

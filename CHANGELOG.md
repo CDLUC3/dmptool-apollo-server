@@ -3,6 +3,9 @@
 ## v1.1.0
 
 ### Added
+- Added overrides for brace-expansion and ws
+- Added `findPrimaryUserByProjectId` method to `Collaborator` model [#225]
+- Added a new `researchDomainByURI` resolver
 - Added override for protobufjs
 - Added `findByDMPId` to plan resolver
 - Added `defaultTemplate` query to the `versionedTemplate` schema and a corresponding resolver
@@ -80,6 +83,9 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated jest and @dmptool dependencies.
+- Updated `saveMaDMPVersion` function to include a `dmpId` argument and to properly convert the app name to a maDMP acceptable format
+- Updated `MemberRole` schema to include `isDefault` flag and added a `setDefaultMemberRole` mutation.
 - Updated `TemplateService` to ensure that the `isDefault` flag is propagated when creating a template version
 - Updated `Plan` schema to include `alternateIdentifiers` as a chained resolver.
 - Refactored the `saveMaDMPVersion` function in `planService` to use the shared functionality from `@dmptool/utils` package to write directly to Dynamo rather than sending SQS messages.
@@ -160,6 +166,7 @@
 - Updates to appease newer version of eslint
 
 ### Removed
+- Removed overrides for fast-xml-parser, @node-oauth/oauth2-server and protobufjs
 - Removed old overrides for `"flatted`, `handlebars`, `lodash`, `path-to-regexp`, `picomatch`, and `protobufjs`
 - Removed old dependabot config
 - Removed override for `minimatch` and `immutable` dependencies
@@ -177,6 +184,7 @@
 - Removed `ioredis` package
 
 ### Fixed
+- Fixed error in `data-migrations/local-only/2026-05-08-1111-seed-project-plan.sql` when inserting data for `templates` and `versionedTemplates` tables which were missing the new `isDefault` value.
 - Fixed an issue with duplicate URIs being returned to `findRe3DataByURIs` by deduping [#33]
 - Fixed bug in `openSearchService` that was throwing an error and not returning repositories [#196]
 - Fixed some new `type` errors in `feedback` resolver and `emailService` brought on by a recent update to `typescript-eslint` [#189]

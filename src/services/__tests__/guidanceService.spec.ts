@@ -678,7 +678,7 @@ describe("getGuidanceSourcesForPlan", () => {
     );
 
     expect(VersionedQuestion.findById).toHaveBeenCalled();
-    expect(result).toHaveLength(1);
+    expect(result).toHaveLength(2);
     expect(result[0]).toMatchObject({ id: "bestPractice", type: "BEST_PRACTICE" });
   });
 
@@ -819,7 +819,7 @@ describe("getGuidanceSourcesForPlan", () => {
     expect(VersionedCustomQuestion.findById).toHaveBeenCalled();
     // getSectionTags uses the versionedSectionId (7), not the versionedTemplateId (973)
     expect((PlanGuidance.query as jest.Mock).mock.calls[0][2]).toEqual(["7"]);
-    expect(result).toHaveLength(1);
+    expect(result).toHaveLength(2);
     expect(result[0]).toMatchObject({ id: "bestPractice", type: "BEST_PRACTICE" });
   });
 
@@ -847,7 +847,7 @@ describe("getGuidanceSourcesForPlan", () => {
     expect(VersionedCustomQuestion.findById).toHaveBeenCalled();
     // getSectionTagsMap uses the versionedTemplateId (973), not the versionedSectionId
     expect((PlanGuidance.query as jest.Mock).mock.calls[0][2]).toEqual(["973"]);
-    expect(result).toHaveLength(1);
+    expect(result).toHaveLength(2);
     expect(result[0]).toMatchObject({ id: "bestPractice", type: "BEST_PRACTICE" });
   });
 

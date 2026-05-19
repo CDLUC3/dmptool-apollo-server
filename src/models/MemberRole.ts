@@ -4,6 +4,7 @@ import { validateURL } from "../utils/helpers";
 import { MySqlModel } from "./MySqlModel";
 
 export const DEFAULT_DMPTOOL_MEMBER_ROLE_URL = 'https://dmptool.org/contributor_roles/';
+
 export class MemberRole extends MySqlModel {
   public displayOrder: number;
   public uri: string;

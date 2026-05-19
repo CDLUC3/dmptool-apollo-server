@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added `isProjectReadOnlyForCurrentUser` in `projectService.ts` that is shared between the `plan` and `project` query resolvers,and added `readOnly` field to the `Project` schema [#244]
 - Added `findPrimaryUserByProjectId` method to `Collaborator` model [#225]
 - Added a new `researchDomainByURI` resolver
 - Added override for protobufjs

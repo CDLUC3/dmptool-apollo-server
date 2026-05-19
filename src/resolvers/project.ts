@@ -18,6 +18,7 @@ import { ProjectMember } from '../models/Member';
 import {
   ensureDefaultProjectContact,
   hasPermissionOnProject,
+  isProjectReadOnlyForCurrentUser,
   setCurrentUserAsProjectOwner
 } from '../services/projectService';
 import { Affiliation } from '../models/Affiliation';
@@ -119,7 +120,8 @@ export const resolvers: Resolvers = {
           }
 
           if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.COMMENT)) {
-            return project;
+            const readOnly = await isProjectReadOnlyForCurrentUser(reference, context, project);
+            return Object.assign(project, { readOnly }) as Project & { readOnly: boolean };
           }
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();

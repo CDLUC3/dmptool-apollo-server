@@ -2824,6 +2824,8 @@ export type Project = {
   modifiedById?: Maybe<Scalars['Int']['output']>;
   /** The plans that are associated with the research project */
   plans?: Maybe<Array<PlanSearchResult>>;
+  /** Indicates that the project is not editable by the user (i.e. readOnly = true means the user cannot edit the project) */
+  readOnly?: Maybe<Scalars['Boolean']['output']>;
   /** The type of research being done */
   researchDomain?: Maybe<ResearchDomain>;
   /** The estimated date the research project will begin (use YYYY-MM-DD format) */
@@ -7278,6 +7280,7 @@ export type ProjectResolvers<ContextType = MyContext, ParentType extends Resolve
   modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   plans?: Resolver<Maybe<Array<ResolversTypes['PlanSearchResult']>>, ParentType, ContextType>;
+  readOnly?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
   researchDomain?: Resolver<Maybe<ResolversTypes['ResearchDomain']>, ParentType, ContextType>;
   startDate?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   title?: Resolver<ResolversTypes['String'], ParentType, ContextType>;

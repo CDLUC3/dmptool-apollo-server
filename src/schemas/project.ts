@@ -1,7 +1,7 @@
 import gql from "graphql-tag";
-import {mergeTypeDefs} from "@graphql-tools/merge";
-import {typeDefs as memberTypeDefs} from "./member"
-import {typeDefs as funderTypeDefs} from "./funding"
+import { mergeTypeDefs } from "@graphql-tools/merge";
+import { typeDefs as memberTypeDefs } from "./member"
+import { typeDefs as funderTypeDefs } from "./funding"
 
 export const projectTypeDefs = gql`
   extend type Query {
@@ -129,6 +129,8 @@ export const projectTypeDefs = gql`
     fundings: [ProjectFunding!]
     "The plans that are associated with the research project"
     plans: [PlanSearchResult!]
+    "Indicates that the project is not editable by the user (i.e. readOnly = true means the user cannot edit the project)"
+    readOnly: Boolean
   }
 
   "A collection of errors related to the Project"

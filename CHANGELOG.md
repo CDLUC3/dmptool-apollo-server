@@ -4,6 +4,7 @@
 
 ### Added
 - Added `isProjectReadOnlyForCurrentUser` in `projectService.ts` that is shared between the `plan` and `project` query resolvers,and added `readOnly` field to the `Project` schema [#244]
+- Added overrides for brace-expansion and ws
 - Added `findPrimaryUserByProjectId` method to `Collaborator` model [#225]
 - Added a new `researchDomainByURI` resolver
 - Added override for protobufjs
@@ -83,6 +84,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated jest and @dmptool dependencies.
 - Updated `saveMaDMPVersion` function to include a `dmpId` argument and to properly convert the app name to a maDMP acceptable format
 - Updated `MemberRole` schema to include `isDefault` flag and added a `setDefaultMemberRole` mutation.
 - Updated `TemplateService` to ensure that the `isDefault` flag is propagated when creating a template version
@@ -165,6 +167,7 @@
 - Updates to appease newer version of eslint
 
 ### Removed
+- Removed overrides for fast-xml-parser, @node-oauth/oauth2-server and protobufjs
 - Removed old overrides for `"flatted`, `handlebars`, `lodash`, `path-to-regexp`, `picomatch`, and `protobufjs`
 - Removed old dependabot config
 - Removed override for `minimatch` and `immutable` dependencies

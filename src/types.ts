@@ -2,11 +2,6 @@ import { GraphQLResolveInfo, GraphQLScalarType, GraphQLScalarTypeConfig } from '
 import { MyContext } from './context';
 export type Maybe<T> = T | null;
 export type InputMaybe<T> = Maybe<T>;
-export type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] };
-export type MakeOptional<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]?: Maybe<T[SubKey]> };
-export type MakeMaybe<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]: Maybe<T[SubKey]> };
-export type MakeEmpty<T extends { [key: string]: unknown }, K extends keyof T> = { [_ in K]?: never };
-export type Incremental<T> = T | { [P in keyof T]?: P extends ' $fragmentName' | '__typename' ? T[P] : never };
 export type Omit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>;
 export type RequireFields<T, K extends keyof T> = Omit<T, K> & { [P in K]-?: NonNullable<T[P]> };
 /** All built-in and custom scalars, mapped to their actual values */
@@ -16,11 +11,11 @@ export type Scalars = {
   Boolean: { input: boolean; output: boolean; }
   Int: { input: number; output: number; }
   Float: { input: number; output: number; }
-  DateTimeISO: { input: any; output: any; }
-  DmspId: { input: any; output: any; }
-  EmailAddress: { input: any; output: any; }
-  MD5: { input: any; output: any; }
-  Orcid: { input: any; output: any; }
+  DateTimeISO: { input: unknown; output: unknown; }
+  DmspId: { input: unknown; output: unknown; }
+  EmailAddress: { input: unknown; output: unknown; }
+  MD5: { input: unknown; output: unknown; }
+  Orcid: { input: unknown; output: unknown; }
   /**
    * Repository type values follow the re3data standard:
    * - disciplinary: A discipline specific repository (e.g. GeneCards, Arctic Data Centre, etc.)
@@ -30,9 +25,9 @@ export type Scalars = {
    * - project-related: A repository created to support a specific project or initiative (e.g. Human Genome Project)
    * - governmental: A repository owned and managed by a government entity (e.g. NCBI, NASA)
    */
-  RepositoryTypeValue: { input: any; output: any; }
-  Ror: { input: any; output: any; }
-  URL: { input: any; output: any; }
+  RepositoryTypeValue: { input: unknown; output: unknown; }
+  Ror: { input: unknown; output: unknown; }
+  URL: { input: string; output: string; }
 };
 
 /** Input parameters for adding a custom section to a funder template */

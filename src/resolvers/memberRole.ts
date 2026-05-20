@@ -56,7 +56,7 @@ export const resolvers: Resolvers = {
         // If the current user is a superAdmin or an Admin and this is their Affiliation
         if (isSuperAdmin(context.token)) {
           const sql = 'INSERT INTO memberRoles (url, label, description, displayOrder) VALUES (?, ?, ?)';
-          const resp = await context.dataSources.sqlDataSource.query(context, sql, [url, label, description, displayOrder]);
+          const resp = await context.dataSources.sqlDataSource.query(context, sql, [url, label, description, displayOrder.toString()]);
           const created = await MemberRole.findById(reference, context, resp[0].insertId);
 
           if (created?.id) {
@@ -86,7 +86,7 @@ export const resolvers: Resolvers = {
         // If the current user is a superAdmin or an Admin and this is their Affiliation
         if (isSuperAdmin(context.token)) {
           const sql = 'UPDATE memberRoles SET url = ?, label = ?, description = ?, displayOrder = ?) WHERE id = ?';
-          await context.dataSources.sqlDataSource.query(context, sql, [url, label, description, displayOrder, id.toString()]);
+          await context.dataSources.sqlDataSource.query(context, sql, [url, label, description, displayOrder.toString(), id.toString()]);
           return await MemberRole.findById(reference, context, id);
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();

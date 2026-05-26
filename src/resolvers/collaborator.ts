@@ -330,6 +330,13 @@ export const resolvers: Resolvers = {
 
         // If the user has permission on the Project
         if (await hasPermissionOnProject(context, project)) {
+          if (projectCollaborator.accessLevel === ProjectCollaboratorAccessLevel.PRIMARY) {
+            // Cannot remove a collaborator that has PRIMARY access, they must be demoted first
+            if (!projectCollaborator.errors['general']) {
+              projectCollaborator.addError('general', 'Cannot remove a collaborator that has PRIMARY access level');
+            }
+            return projectCollaborator;
+          }
           return await projectCollaborator.delete(context);
         }
 

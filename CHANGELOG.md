@@ -84,6 +84,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `removeProjectCollaborator` to return error when trying to remove a `Primary` collaborator, since there always has to be one `Primary` [#228]
 - Updated dependencies flagged by dependabot and renovate.
 - Updated jest and @dmptool dependencies.
 - Updated `saveMaDMPVersion` function to include a `dmpId` argument and to properly convert the app name to a maDMP acceptable format

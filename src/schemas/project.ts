@@ -244,6 +244,8 @@ export const projectTypeDefs = gql`
     orcid: String
     "The member's email address"
     email: String
+    "The member's role(s) in the project (e.g. PI, Co-PI, Research Assistant, etc.)"
+    role: [String]
   }
 
   input ProjectImportInput {

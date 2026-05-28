@@ -65,9 +65,10 @@ export class Authorizer extends RESTDataSource {
     return Authorizer.#instance;
   }
 
-  // Initialize the Authorizer singleton
+  // Initialize the Authorizer singleton. Check whether token is expired before each API call
+  // and reauthenticate if necessary. This ensures we always have a valid token without needing to
   async init() {
-    if (!this.initialized) {
+    if (!this.initialized || this.hasExpired()) {
       await this.authenticate();
       this.initialized = true;
     }
@@ -90,12 +91,11 @@ export class Authorizer extends RESTDataSource {
 
   // Attach all of the necessary HTTP headers and the body prior to calling the token endpoint
   override willSendRequest(_path: string, request: AugmentedRequest) {
-    request.headers['authorization'] =`Basic ${this.creds}`;
+    request.headers['authorization'] = `Basic ${this.creds}`;
     request.headers['content-type'] = 'application/x-www-form-urlencoded';
     request.body =
       `grant_type=client_credentials&scope=` +
-      `${this.baseURL}/${this.env}.read` +
-      `${this.baseURL}/${this.env}.write`;
+      `${this.baseURL}/${this.env}.read ${this.baseURL}/${this.env}.write`;
   }
 }
 
@@ -151,23 +151,23 @@ export class DMPHubAPI extends RESTDataSource {
 
       // Build query parameters
       const params = new URLSearchParams();
-      if(!isNullOrUndefined(awardId)) {
+      if (!isNullOrUndefined(awardId)) {
         params.set("project", awardId);
       }
-      if(!isNullOrUndefined(piNames) && piNames.length) {
+      if (!isNullOrUndefined(piNames) && piNames.length) {
         params.set("pi_names", piNames.join(","));
       }
-      if(!isNullOrUndefined(awardName) && awardName.length) {
+      if (!isNullOrUndefined(awardName) && awardName.length) {
         params.set("keywords", awardName);
       }
-      if(!isNullOrUndefined(awardYear)) {
+      if (!isNullOrUndefined(awardYear)) {
         params.set("years", awardYear);
       }
 
       // Create path
       let path = apiTarget;
       const queryString = params.toString();
-      if(queryString){
+      if (queryString) {
         path += `?${queryString}`;
       }
 
@@ -184,9 +184,9 @@ export class DMPHubAPI extends RESTDataSource {
         `${reference} Error retrieving Awards from DMPHub API`
       );
       return null;
-    } catch(err) {
+    } catch (err) {
       context.logger.error(prepareObjectForLogs(err), `${reference} error calling DMPHub API getAwards`);
-      throw(err);
+      throw (err);
     }
   }
 }

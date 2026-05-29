@@ -153,7 +153,13 @@ export const resolvers: Resolvers = {
           return dmps.map((dmpHubAward) => {
             const members = Array.isArray(dmpHubAward.contributor)
               ? dmpHubAward.contributor.map(contrib => {
-                const [email, ...nameParts] = contrib.name.split(',');
+                const parts = contrib.name.split(',');
+                const potentialEmail = parts[0]?.trim();
+                const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(potentialEmail ?? '');
+
+                const email = isValidEmail ? potentialEmail : undefined;
+                const nameParts = isValidEmail ? parts.slice(1) : parts;
+
                 const givenName = nameParts.slice(1).join(',').trim();
                 const surName = nameParts[0]?.trim();
 

@@ -32,6 +32,7 @@ import {
   normaliseDate,
   normaliseDateTime
 } from '../utils/helpers';
+import { validateEmail } from '../utils/helpers';
 //import { parseMember } from '../services/commonStandardService';
 import {
   PaginationOptionsForCursors,
@@ -155,7 +156,7 @@ export const resolvers: Resolvers = {
               ? dmpHubAward.contributor.map(contrib => {
                 const parts = contrib.name.split(',');
                 const potentialEmail = parts[0]?.trim();
-                const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(potentialEmail ?? '');
+                const isValidEmail = validateEmail(potentialEmail ?? '');
 
                 const email = isValidEmail ? potentialEmail : undefined;
                 const nameParts = isValidEmail ? parts.slice(1) : parts;

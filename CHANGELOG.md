@@ -84,6 +84,10 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `dmphubAPI.ts` to check whether token is expired before each API call and updated `express.ts` to include `dmphubAPIDataSource` in the buildContext so that its available for the `searchExternalProjects` query [#352]
+- Updated `searchExternalProjects` query to include structured `members` data in the response and the award year extracted from the project startDate [#352]
+- Updated `projectImport` mutation to check if the funding record already exists. If so, then update it instead of creating a new one to avoid duplicates [#352]
+- Updated `ExternalMember` schema to include `role` [#352]
 - Updated `removeProjectCollaborator` to return error when trying to remove a `Primary` collaborator, since there always has to be one `Primary` [#228]
 - Updated dependencies flagged by dependabot and renovate.
 - Updated jest and @dmptool dependencies.

@@ -972,6 +972,8 @@ export type ExternalMember = {
   givenName?: Maybe<Scalars['String']['output']>;
   /** The member's ORCID */
   orcid?: Maybe<Scalars['String']['output']>;
+  /** The member's role(s) in the project (e.g. PI, Co-PI, Research Assistant, etc.) */
+  role?: Maybe<Array<Maybe<Scalars['String']['output']>>>;
   /** The member's last/sur name */
   surName?: Maybe<Scalars['String']['output']>;
 };
@@ -6715,6 +6717,7 @@ export type ExternalMemberResolvers<ContextType = MyContext, ParentType extends 
   email?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   givenName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   orcid?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  role?: Resolver<Maybe<Array<Maybe<ResolversTypes['String']>>>, ParentType, ContextType>;
   surName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 };
 

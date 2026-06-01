@@ -1458,6 +1458,8 @@ export type Mutation = {
   createTemplateVersion?: Maybe<Template>;
   /** Deactivate the specified user Account (Admin only) */
   deactivateUser?: Maybe<User>;
+  /** Generate a presigned URL to upload an affiliation logo to the CloudFront CDN S3 bucket */
+  generateLogoUploadURL?: Maybe<Scalars['String']['output']>;
   /** The custom guidance for the custom section */
   guidance?: Maybe<Scalars['String']['output']>;
   /** The introduction to the custom section */
@@ -1562,6 +1564,8 @@ export type Mutation = {
   unpublishTemplateCustomization: TemplateCustomizationOverview;
   /** Update an Affiliation */
   updateAffiliation?: Maybe<Affiliation>;
+  /** Update the logo URL for an affiliation */
+  updateAffiliationLogo?: Maybe<Affiliation>;
   /** Edit an answer */
   updateAnswer?: Maybe<Answer>;
   /** Update comment for an answer  */
@@ -1873,6 +1877,12 @@ export type MutationDeactivateUserArgs = {
 };
 
 
+export type MutationGenerateLogoUploadUrlArgs = {
+  affiliationURI: Scalars['String']['input'];
+  fileName: Scalars['String']['input'];
+};
+
+
 export type MutationMarkAsDefaultTemplateArgs = {
   templateId: Scalars['Int']['input'];
 };
@@ -2116,6 +2126,12 @@ export type MutationUnpublishTemplateCustomizationArgs = {
 
 export type MutationUpdateAffiliationArgs = {
   input: AffiliationInput;
+};
+
+
+export type MutationUpdateAffiliationLogoArgs = {
+  accessURL: Scalars['String']['input'];
+  affiliationURI: Scalars['String']['input'];
 };
 
 
@@ -6946,6 +6962,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   completeFeedback?: Resolver<Maybe<ResolversTypes['PlanFeedback']>, ParentType, ContextType, RequireFields<MutationCompleteFeedbackArgs, 'planFeedbackId' | 'planId'>>;
   createTemplateVersion?: Resolver<Maybe<ResolversTypes['Template']>, ParentType, ContextType, RequireFields<MutationCreateTemplateVersionArgs, 'latestPublishVisibility' | 'templateId'>>;
   deactivateUser?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationDeactivateUserArgs, 'userId'>>;
+  generateLogoUploadURL?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType, RequireFields<MutationGenerateLogoUploadUrlArgs, 'affiliationURI' | 'fileName'>>;
   guidance?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   introduction?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   markAsDefaultTemplate?: Resolver<Maybe<ResolversTypes['Template']>, ParentType, ContextType, RequireFields<MutationMarkAsDefaultTemplateArgs, 'templateId'>>;
@@ -6998,6 +7015,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   unpublishGuidanceGroup?: Resolver<ResolversTypes['GuidanceGroup'], ParentType, ContextType, RequireFields<MutationUnpublishGuidanceGroupArgs, 'guidanceGroupId'>>;
   unpublishTemplateCustomization?: Resolver<ResolversTypes['TemplateCustomizationOverview'], ParentType, ContextType, RequireFields<MutationUnpublishTemplateCustomizationArgs, 'templateCustomizationId'>>;
   updateAffiliation?: Resolver<Maybe<ResolversTypes['Affiliation']>, ParentType, ContextType, RequireFields<MutationUpdateAffiliationArgs, 'input'>>;
+  updateAffiliationLogo?: Resolver<Maybe<ResolversTypes['Affiliation']>, ParentType, ContextType, RequireFields<MutationUpdateAffiliationLogoArgs, 'accessURL' | 'affiliationURI'>>;
   updateAnswer?: Resolver<Maybe<ResolversTypes['Answer']>, ParentType, ContextType, RequireFields<MutationUpdateAnswerArgs, 'answerId'>>;
   updateAnswerComment?: Resolver<Maybe<ResolversTypes['AnswerComment']>, ParentType, ContextType, RequireFields<MutationUpdateAnswerCommentArgs, 'answerCommentId' | 'answerId' | 'commentText'>>;
   updateCustomQuestion?: Resolver<ResolversTypes['CustomQuestion'], ParentType, ContextType, RequireFields<MutationUpdateCustomQuestionArgs, 'input'>>;

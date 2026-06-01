@@ -2,7 +2,12 @@
 
 ## v1.1.0
 
-### Added
+## May 29, 2026
+- Updated `awsConfig` to move SES properties underneath the `ses` property
+- Added `s3` properties to the `awsConfig` object
+- Added `src/datasources/s3.ts` to handle generation of presigned URLs
+
+### Added (pre May 29, 2026)
 - Added `isProjectReadOnlyForCurrentUser` in `projectService.ts` that is shared between the `plan` and `project` query resolvers,and added `readOnly` field to the `Project` schema [#244]
 - Added overrides for brace-expansion and ws
 - Added `findPrimaryUserByProjectId` method to `Collaborator` model [#225]
@@ -83,7 +88,8 @@
 - added `@as-integrations/express5` for Apollo-Express integration
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
-### Updated
+### Updated (pre May 29, 2026)
+- Updated `awsConfig` to move SES properties underneath the `ses` property
 - Updated `removeProjectCollaborator` to return error when trying to remove a `Primary` collaborator, since there always has to be one `Primary` [#228]
 - Updated dependencies flagged by dependabot and renovate.
 - Updated jest and @dmptool dependencies.
@@ -168,7 +174,7 @@
 - Upgraded to `@keyv/redis` which required some changes to the `src/config/cacheConfig` and `src/datasources/cache.ts` files
 - Updates to appease newer version of eslint
 
-### Removed
+### Removed (pre May 29, 2026)
 - Removed overrides for fast-xml-parser, @node-oauth/oauth2-server and protobufjs
 - Removed old overrides for `"flatted`, `handlebars`, `lodash`, `path-to-regexp`, `picomatch`, and `protobufjs`
 - Removed old dependabot config
@@ -186,7 +192,7 @@
 - Removed deprecated `@types/bcrypt` and `uuidv4` packages
 - Removed `ioredis` package
 
-### Fixed
+### Fixed (pre May 29, 2026)
 - Fixed error in `data-migrations/local-only/2026-05-08-1111-seed-project-plan.sql` when inserting data for `templates` and `versionedTemplates` tables which were missing the new `isDefault` value.
 - Fixed an issue with duplicate URIs being returned to `findRe3DataByURIs` by deduping [#33]
 - Fixed bug in `openSearchService` that was throwing an error and not returning repositories [#196]
@@ -197,7 +203,7 @@
 - Fixed breaking cloning of template. The `addTemplate` was updated to accept a `copyFromVersionedTemplateId` so that we copy from versioned template, section and questions, when it's not a template from the user's org. Otherwise we check for `copyFromTemplateId` to copy/clone from templates, sections and questions, and if neither are present, we continue to create a new record for `templates` table [#1006]
 - Fixed issue with templates not cloning with sections and questions by updating the `addTemplate` mutation to clone from non-versioned template, section and question [#1006]
 
-### Chore
+### Chore (pre May 29, 2026)
 - Updated `fast-xml-parser` to `v1.2.0` and `uuid` to `11.1.1` to address vulnerabilities.
 - Added `@types/nodemailer` [#189]
 - Added override for `lodash` to `4.18.1` to address high vulnerability issue

@@ -23,6 +23,11 @@ export const typeDefs = gql`
     updateAffiliation(input: AffiliationInput!): Affiliation
     "Delete an Affiliation (only applicable to AffiliationProvenance == DMPTOOL)"
     removeAffiliation(affiliationId: Int!): Affiliation
+
+    "Generate a presigned URL to upload an affiliation logo to the CloudFront CDN S3 bucket"
+    generateLogoUploadURL(affiliationURI: String!, fileName: String!): String
+    "Update the logo URL for an affiliation"
+    updateAffiliationLogo(affiliationURI: String!, accessURL: String!): Affiliation
   }
 
   "Search result - An abbreviated version of an Affiliation"

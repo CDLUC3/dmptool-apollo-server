@@ -31,6 +31,8 @@ if [ -e "$GENERATE_MADMP_RECORD_FUNCTION" ]; then
   EZID_SHOULDER="11.22222/A1"
   VERSION_GRACE_PERIOD="7200000"
 
+  S3_BUCKET_NAME="local-s3-bucket"
+
   # Create the DynamoDB table to store maDMP records
   echo "Creating DynamoDB table: localDMPTable..."
   awslocal dynamodb create-table \
@@ -94,6 +96,9 @@ if [ -e "$GENERATE_MADMP_RECORD_FUNCTION" ]; then
     --function-name generateMaDMPRecord \
     --batch-size 1 \
     --event-source-arn $QUEUE_ARN
+
+  # Create an S3 bucket that we will use to store logos and other media assets for the DMPTool
+  awslocal s3 mb s3://$S3_BUCKET_NAME
 
 else
   echo "No Lambda code found at ${GENERATE_MADMP_RECORD_FUNCTION}"

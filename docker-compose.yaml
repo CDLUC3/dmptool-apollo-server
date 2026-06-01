@@ -143,8 +143,8 @@ services:
       - "DYNAMODB_TABLE_NAME=localDMPTable"
       - "MAX_ATTEMPTS=3"
 
-      # LocalStack managed SQS queue
-      - "SQS_GENERATE_MADMP_QUEUE_URL=http://localstack:4566/000000000000/generateMaDMPRecord"
+      # LocalStack managed S3 bucket
+      - "S3_BUCKET=local-s3-bucket"
     volumes:
       - ".:/app"
       # Mount the mysql certs directory so Apollo can see them

@@ -16,6 +16,7 @@ import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
 import { GuidanceGroup } from "../models/GuidanceGroup";
 import { getAffiliationsWithGuidanceForTemplate } from "../services/guidanceService";
 import { ResolversParentTypes } from "../types";
+import {getPresignedURLForAffiliationLogo} from "../datasources/s3";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -68,8 +69,8 @@ export const resolvers: Resolvers = {
 
         // Search for affiliations matching the URIs and name filter
         return await AffiliationSearch.searchManagedWithPublishedGuidance(
-          reference, 
-          context, 
+          reference,
+          context,
           name ?? undefined,
           affiliationUris,
           opts
@@ -196,6 +197,32 @@ export const resolvers: Resolvers = {
         throw InternalServerError();
       }
     },
+
+    /**
+     * Generate an S3 presigned URL so that a logo can be uploaded for the affiliation
+     *
+     * @param _ the parent in the Apollo call chain
+     * @param param1
+     * @param param1.affiliationId the URI of the affiliation
+     * @param param1.fileName the name of the file that will be uploaded
+     * @param context the Apollo context
+     * @returns a presigned URL that can be used to upload a file to S3
+     */
+    generateLogoUploadURL: async (_, { affiliationId, fileName }, context: MyContext): Promise<string> => {
+      const reference = 'generateLogoUploadURL';
+      try {
+        // If the user is a superAdmin or an admin and they are trying to upload their own logo
+        if (isSuperAdmin(context.token) || isAdmin(context.token) && context.token.affiliationId === affiliationId) {
+          return getPresignedURLForAffiliationLogo(context.logger, affiliationId, fileName);
+        }
+        throw context?.token ? ForbiddenError() : AuthenticationError();
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    }
   },
 
   Affiliation: {

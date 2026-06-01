@@ -2749,6 +2749,8 @@ export type PlanSectionProgress = {
   __typename?: 'PlanSectionProgress';
   /** The number of questions the user has answered */
   answeredQuestions: Scalars['Int']['output'];
+  /** The number of required questions the user has answered */
+  answeredRequiredQuestions: Scalars['Int']['output'];
   /** The custom section id if the section is a customization, otherwise null */
   customSectionId?: Maybe<Scalars['Int']['output']>;
   /** The display order of the section */
@@ -2761,6 +2763,8 @@ export type PlanSectionProgress = {
   title: Scalars['String']['output'];
   /** The number of questions in the section */
   totalQuestions: Scalars['Int']['output'];
+  /** The number of required questions in the section */
+  totalRequiredQuestions: Scalars['Int']['output'];
   /** The id of the Section */
   versionedSectionId?: Maybe<Scalars['Int']['output']>;
 };
@@ -7250,12 +7254,14 @@ export type PlanSearchResultResolvers<ContextType = MyContext, ParentType extend
 
 export type PlanSectionProgressResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PlanSectionProgress'] = ResolversParentTypes['PlanSectionProgress']> = {
   answeredQuestions?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  answeredRequiredQuestions?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   customSectionId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   displayOrder?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   sectionType?: Resolver<ResolversTypes['CustomizableObjectOwnership'], ParentType, ContextType>;
   tags?: Resolver<Maybe<Array<ResolversTypes['Tag']>>, ParentType, ContextType>;
   title?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   totalQuestions?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  totalRequiredQuestions?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   versionedSectionId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
 };
 

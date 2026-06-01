@@ -208,12 +208,12 @@ export const resolvers: Resolvers = {
      * @param context the Apollo context
      * @returns a presigned URL that can be used to upload a file to S3
      */
-    generateLogoUploadURL: async (_, { affiliationId, fileName }, context: MyContext): Promise<string> => {
+    generateLogoUploadURL: async (_, { affiliationURI, fileName }, context: MyContext): Promise<string> => {
       const reference = 'generateLogoUploadURL';
       try {
         // If the user is a superAdmin or an admin and they are trying to upload their own logo
-        if (isSuperAdmin(context.token) || isAdmin(context.token) && context.token.affiliationId === affiliationId) {
-          return getPresignedURLForAffiliationLogo(context.logger, affiliationId, fileName);
+        if (isSuperAdmin(context.token) || isAdmin(context.token) && context.token.affiliationId === affiliationURI) {
+          return getPresignedURLForAffiliationLogo(context.logger, affiliationURI, fileName);
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();
       } catch (err) {

@@ -1,5 +1,5 @@
 import { Logger } from "pino";
-import { getPresignedURL } from '@dmptool/utils';
+import { getPresignedURLForImageUpload } from '@dmptool/utils';
 import { awsConfig } from "../config/awsConfig";
 
 /**
@@ -9,12 +9,14 @@ import { awsConfig } from "../config/awsConfig";
  * @param logger the Pino logger
  * @param affiliationURI the URI of the Affiliation
  * @param fileName the name of the file being uploaded (e.g. logo.png)
+ * @param contentType the content type of the file being uploaded
  * @returns the presigned URL
  */
 export const getPresignedURLForAffiliationLogo = async(
   logger: Logger,
   affiliationURI: string,
   fileName: string,
+  contentType = 'image/png'
 ): Promise<string> => {
   const bucket = awsConfig.s3.bucket;
 
@@ -22,15 +24,15 @@ export const getPresignedURLForAffiliationLogo = async(
     const uri = URL.parse(affiliationURI);
     const logoKey = `logos/${uri.pathname}/${Date.now()}-${fileName}`;
 
-    const presignedURL: string = await getPresignedURL(
+    const { url, fields }: { url: string, fields: string } = await getPresignedURLForImageUpload(
       logger,
       bucket,
       logoKey,
-      true,
+      contentType,
       awsConfig.region || 'us-west-2'
     );
-    logger.debug({ affiliationURI, fileName, bucket, presignedURL }, 'Generated presigned URL');
-    return presignedURL();
+    logger.debug({ affiliationURI, fileName, bucket, url, fields }, 'Generated presigned URL');
+    return url;
   } catch (err) {
     logger.error({ affiliationURI, fileName, bucket, err }, 'Unable to generate presigned URL for S3.');
   }

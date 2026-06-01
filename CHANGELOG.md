@@ -2,12 +2,10 @@
 
 ## v1.1.0
 
-## May 29, 2026
-- Updated `awsConfig` to move SES properties underneath the `ses` property
+### Added
 - Added `s3` properties to the `awsConfig` object
 - Added `src/datasources/s3.ts` to handle generation of presigned URLs
-
-### Added (pre May 29, 2026)
+- Added override for `qs` dependency
 - Added `isProjectReadOnlyForCurrentUser` in `projectService.ts` that is shared between the `plan` and `project` query resolvers,and added `readOnly` field to the `Project` schema [#244]
 - Added overrides for brace-expansion and ws
 - Added `findPrimaryUserByProjectId` method to `Collaborator` model [#225]
@@ -88,8 +86,13 @@
 - added `@as-integrations/express5` for Apollo-Express integration
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
-### Updated (pre May 29, 2026)
+### Updated
 - Updated `awsConfig` to move SES properties underneath the `ses` property
+- Updated `uuid` and `@testcontainers/mysql` dependencies
+- Updated `dmphubAPI.ts` to check whether token is expired before each API call and updated `express.ts` to include `dmphubAPIDataSource` in the buildContext so that its available for the `searchExternalProjects` query [#352]
+- Updated `searchExternalProjects` query to include structured `members` data in the response and the award year extracted from the project startDate [#352]
+- Updated `projectImport` mutation to check if the funding record already exists. If so, then update it instead of creating a new one to avoid duplicates [#352]
+- Updated `ExternalMember` schema to include `role` [#352]
 - Updated `removeProjectCollaborator` to return error when trying to remove a `Primary` collaborator, since there always has to be one `Primary` [#228]
 - Updated dependencies flagged by dependabot and renovate.
 - Updated jest and @dmptool dependencies.
@@ -174,7 +177,8 @@
 - Upgraded to `@keyv/redis` which required some changes to the `src/config/cacheConfig` and `src/datasources/cache.ts` files
 - Updates to appease newer version of eslint
 
-### Removed (pre May 29, 2026)
+### Removed
+- Removed overrides for `ws` and `brace-expansion` dependencies
 - Removed overrides for fast-xml-parser, @node-oauth/oauth2-server and protobufjs
 - Removed old overrides for `"flatted`, `handlebars`, `lodash`, `path-to-regexp`, `picomatch`, and `protobufjs`
 - Removed old dependabot config
@@ -192,7 +196,7 @@
 - Removed deprecated `@types/bcrypt` and `uuidv4` packages
 - Removed `ioredis` package
 
-### Fixed (pre May 29, 2026)
+### Fixed
 - Fixed error in `data-migrations/local-only/2026-05-08-1111-seed-project-plan.sql` when inserting data for `templates` and `versionedTemplates` tables which were missing the new `isDefault` value.
 - Fixed an issue with duplicate URIs being returned to `findRe3DataByURIs` by deduping [#33]
 - Fixed bug in `openSearchService` that was throwing an error and not returning repositories [#196]
@@ -203,7 +207,7 @@
 - Fixed breaking cloning of template. The `addTemplate` was updated to accept a `copyFromVersionedTemplateId` so that we copy from versioned template, section and questions, when it's not a template from the user's org. Otherwise we check for `copyFromTemplateId` to copy/clone from templates, sections and questions, and if neither are present, we continue to create a new record for `templates` table [#1006]
 - Fixed issue with templates not cloning with sections and questions by updating the `addTemplate` mutation to clone from non-versioned template, section and question [#1006]
 
-### Chore (pre May 29, 2026)
+### Chore
 - Updated `fast-xml-parser` to `v1.2.0` and `uuid` to `11.1.1` to address vulnerabilities.
 - Added `@types/nodemailer` [#189]
 - Added override for `lodash` to `4.18.1` to address high vulnerability issue

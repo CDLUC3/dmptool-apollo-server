@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added override for `qs` dependency
 - Added `isProjectReadOnlyForCurrentUser` in `projectService.ts` that is shared between the `plan` and `project` query resolvers,and added `readOnly` field to the `Project` schema [#244]
 - Added overrides for brace-expansion and ws
 - Added `findPrimaryUserByProjectId` method to `Collaborator` model [#225]
@@ -84,6 +85,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `uuid` and `@testcontainers/mysql` dependencies
 - Updated `dmphubAPI.ts` to check whether token is expired before each API call and updated `express.ts` to include `dmphubAPIDataSource` in the buildContext so that its available for the `searchExternalProjects` query [#352]
 - Updated `searchExternalProjects` query to include structured `members` data in the response and the award year extracted from the project startDate [#352]
 - Updated `projectImport` mutation to check if the funding record already exists. If so, then update it instead of creating a new one to avoid duplicates [#352]
@@ -173,6 +175,7 @@
 - Updates to appease newer version of eslint
 
 ### Removed
+- Removed overrides for `ws` and `brace-expansion` dependencies
 - Removed overrides for fast-xml-parser, @node-oauth/oauth2-server and protobufjs
 - Removed old overrides for `"flatted`, `handlebars`, `lodash`, `path-to-regexp`, `picomatch`, and `protobufjs`
 - Removed old dependabot config

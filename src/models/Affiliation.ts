@@ -44,7 +44,6 @@ export class Affiliation extends MySqlModel {
   public types: AffiliationType[];
 
   public managed: boolean;
-  public logoURI: string;
   public logoName: string;
   public contactEmail: string;
   public contactName: string;
@@ -78,7 +77,6 @@ export class Affiliation extends MySqlModel {
 
     // Properties specific to the DMPTool. These can be modified regardless of the record's provenance
     this.managed = options.managed;
-    this.logoURI = options.logoURI;
     this.logoName = options.logoName;
     this.contactEmail = options.contactEmail;
     this.contactName = options.contactName;

@@ -15,13 +15,11 @@ verifyCriticalEnvVariable('JWT_REFRESH_SECRET');
 // the NODE_ENV is `staging` but the APP_ENV is `dev`.
 const env: string = process.env.APP_ENV || 'dev';
 
-const domain: string = process.env.DOMAIN;
-
 export const generalConfig = {
   restDataSourceCacheTtl: Number.parseInt(process.env.REST_DATA_SOURCE_CACHE_TTL) || 180,
 
   env,
-  domain: domain,
+  domain: process.env.DOMAIN,
   applicationName: env === 'prd' ? process.env.APP_NAME : `${process.env.APP_NAME} (${env})`,
   defaultAffiliatioURI: process.env.DEFAULT_AFFILIATION_URI,
   defaultSearchLimit: Number.parseInt(process.env.DEFAULT_SEARCH_LIMIT) || 20,

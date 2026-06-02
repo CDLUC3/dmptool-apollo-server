@@ -23,15 +23,15 @@ import {
   InternalServerError,
   NotFoundError
 } from "../utils/graphQLErrors";
-import {prepareObjectForLogs} from "../logger";
-import {GraphQLError} from "graphql";
+import { prepareObjectForLogs } from "../logger";
+import { GraphQLError } from "graphql";
 import {
   PaginationOptionsForCursors,
   PaginationOptionsForOffsets,
   PaginationType
 } from "../types/general";
-import {isNullOrUndefined, normaliseDateTime} from "../utils/helpers";
-import {GuidanceGroup} from "../models/GuidanceGroup";
+import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
+import { GuidanceGroup } from "../models/GuidanceGroup";
 import {
   getAffiliationsWithGuidanceForTemplate
 } from "../services/guidanceService";
@@ -39,7 +39,7 @@ import {
   CDN_BASE_URL,
   getPresignedURLForAffiliationLogo
 } from "../datasources/s3";
-import {UserRole} from "../models/User";
+import { UserRole } from "../models/User";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -139,7 +139,7 @@ export const resolvers: Resolvers = {
 
   Mutation: {
     // Create a new Affiliation
-    addAffiliation: async (_, {input}, context: MyContext): Promise<Affiliation> => {
+    addAffiliation: async (_, { input }, context: MyContext): Promise<Affiliation> => {
       const reference = 'addAffiliation resolver';
       try {
         const affiliation = new Affiliation(input);
@@ -163,7 +163,7 @@ export const resolvers: Resolvers = {
     },
 
     // Update an Affiliation
-    updateAffiliation: async (_, {input}, context: MyContext): Promise<Affiliation> => {
+    updateAffiliation: async (_, { input }, context: MyContext): Promise<Affiliation> => {
       const reference = 'updateAffiliation resolver';
       try {
         let existing = input.id ? await Affiliation.findById(reference, context, input.id) : null;
@@ -176,7 +176,7 @@ export const resolvers: Resolvers = {
 
         // If the current user is a superAdmin or an Admin and this is their Affiliation
         if (isSuperAdmin(context.token) || (isAdmin(context.token) && context.token.affiliationId === existing.uri)) {
-          const affiliation = new Affiliation({...existing, ...input});
+          const affiliation = new Affiliation({ ...existing, ...input });
 
           // Since we pass around the URI for affiliations instead of the id we need to set it here
           if (!affiliation.id) {
@@ -195,7 +195,7 @@ export const resolvers: Resolvers = {
     },
 
     // Delete an Affiliation (only applicable to AffiliationProvenance == DMPTOOL)
-    removeAffiliation: async (_, {affiliationId}, context: MyContext): Promise<Affiliation> => {
+    removeAffiliation: async (_, { affiliationId }, context: MyContext): Promise<Affiliation> => {
       const reference = 'removeAffiliation resolver';
       try {
         // If the current user is a superAdmin

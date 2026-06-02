@@ -86,6 +86,7 @@
 
 ### Updated
 - Updated `uuid` and `@testcontainers/mysql` dependencies
+- Updated methods for the `PlanSectionProgress` class to return `totalRequiredQuestions` and `answeredRequiredQuestions`, and updated unit tests and `PlanSectionProgress` schema [#249]
 - Updated `dmphubAPI.ts` to check whether token is expired before each API call and updated `express.ts` to include `dmphubAPIDataSource` in the buildContext so that its available for the `searchExternalProjects` query [#352]
 - Updated `searchExternalProjects` query to include structured `members` data in the response and the award year extracted from the project startDate [#352]
 - Updated `projectImport` mutation to check if the funding record already exists. If so, then update it instead of creating a new one to avoid duplicates [#352]

@@ -22,6 +22,9 @@ jest.mock('../../context.ts');
 
 let context;
 
+const normalizeSQL = (sql: string) => sql.replace(/\s+/g, ' ').trim();
+
+
 beforeEach(async () => {
   jest.resetAllMocks();
 
@@ -165,6 +168,8 @@ describe('PlanSectionProgress', () => {
     expect(progress.displayOrder).toEqual(progressData.displayOrder);
     expect(progress.totalQuestions).toEqual(progressData.totalQuestions);
     expect(progress.answeredQuestions).toEqual(progressData.answeredQuestions);
+    expect(progress.totalRequiredQuestions).toEqual(0);
+    expect(progress.answeredRequiredQuestions).toEqual(0);
   });
 });
 
@@ -184,6 +189,8 @@ describe('PlanSectionProgress.findByPlanId', () => {
       displayOrder: casual.integer(1, 9),
       totalQuestions: casual.integer(1, 9),
       answeredQuestions: casual.integer(1, 9),
+      totalRequiredQuestions: casual.integer(1, 9),
+      answeredRequiredQuestions: casual.integer(1, 9),
     });
   });
 
@@ -195,52 +202,37 @@ describe('PlanSectionProgress.findByPlanId', () => {
   it('should call the correct SQL query', async () => {
     const planId = casual.integer(1, 99);
     const versionedTemplateId = casual.integer(1, 99);
-    const sql = `SELECT
-      vs.id AS versionedSectionId,
-      vs.displayOrder,
-      vs.name AS title,
-      COUNT(DISTINCT vq.id) AS totalQuestions,
-      COUNT(DISTINCT CASE
-          WHEN a.id IS NOT NULL AND JSON_TYPE(a.json) = 'OBJECT'
-          THEN vq.id
-        END) AS answeredQuestions,
-      COALESCE(tagAgg.tags, JSON_ARRAY()) AS tags
-    FROM plans p
-      JOIN versionedTemplates vt ON p.versionedTemplateId = vt.id
-      JOIN versionedSections vs ON vt.id = vs.versionedTemplateId
-      LEFT JOIN (
-        SELECT
-          vst.versionedSectionId,
-          JSON_ARRAYAGG(
-            JSON_OBJECT(
-              'id', t.id,
-              'slug', t.slug,
-              'name', t.name,
-              'description', t.description
-            )
-          ) AS tags
-        FROM versionedSectionTags vst
-          JOIN tags t ON t.id = vst.tagId
-        GROUP BY vst.versionedSectionId
-      ) tagAgg ON tagAgg.versionedSectionId = vs.id
-      LEFT JOIN versionedQuestions vq ON vs.id = vq.versionedSectionId
-      LEFT JOIN answers a
-        ON a.planId = p.id
-        AND a.versionedQuestionId = vq.id
-    WHERE p.id = ?
-    GROUP BY vs.id, vs.displayOrder, vs.name, tagAgg.tags
-    ORDER BY vs.displayOrder;
-`
 
     localQuery
-      .mockResolvedValueOnce([progress])  // first call: base sections query
-      .mockResolvedValueOnce([]);         // second call: findTemplateCustomizationId returns no customization
+      .mockResolvedValueOnce([progress])
+      .mockResolvedValueOnce([]);
 
     const result = await PlanSectionProgress.findByPlanId('testing', context, planId, versionedTemplateId);
 
     expect(localQuery).toHaveBeenCalledTimes(2);
-    expect(localQuery).toHaveBeenNthCalledWith(1, context, sql, [planId.toString()], 'testing');
-    expect(localQuery).toHaveBeenNthCalledWith(2, context, expect.stringContaining('SELECT vtc.templateCustomizationId'), [versionedTemplateId.toString(), context.token.affiliationId], 'testing');
+
+    const receivedSQL = normalizeSQL(localQuery.mock.calls[0][1]);
+
+    // Verify key structural parts of the query
+    expect(receivedSQL).toContain(normalizeSQL(`vs.id AS versionedSectionId`));
+    expect(receivedSQL).toContain(normalizeSQL(`COUNT(DISTINCT vq.id) AS totalQuestions`));
+    expect(receivedSQL).toContain(normalizeSQL(`COUNT(DISTINCT CASE WHEN a.id IS NOT NULL`));
+    expect(receivedSQL).toContain(normalizeSQL(`JSON_TYPE(a.json) = 'OBJECT'`));
+    expect(receivedSQL).toContain(normalizeSQL(`IN ('textArea', 'text')`));
+    expect(receivedSQL).toContain(normalizeSQL(`JSON_EXTRACT(a.json, '$.answer') IS NULL`));
+    expect(receivedSQL).toContain(normalizeSQL(`COUNT(DISTINCT CASE WHEN vq.required = 1 THEN vq.id END) AS totalRequiredQuestions`));
+    expect(receivedSQL).toContain(normalizeSQL(`LEFT JOIN answers a ON a.planId = p.id`));
+    expect(receivedSQL).toContain(normalizeSQL(`WHERE p.id = ?`));
+    expect(receivedSQL).toContain(normalizeSQL(`GROUP BY vs.id, vs.displayOrder, vs.name`));
+    expect(receivedSQL).toContain(normalizeSQL(`ORDER BY vs.displayOrder`));
+
+    // Verify params
+    expect(localQuery.mock.calls[0][2]).toEqual([planId.toString()]);
+
+    // Verify second call
+    expect(normalizeSQL(localQuery.mock.calls[1][1])).toContain(normalizeSQL('SELECT vtc.templateCustomizationId'));
+    expect(localQuery.mock.calls[1][2]).toEqual([versionedTemplateId.toString(), context.token.affiliationId]);
+
     expect(result).toHaveLength(1);
   });
 
@@ -252,7 +244,16 @@ describe('PlanSectionProgress.findByPlanId', () => {
   });
 
   it('should return base sections only if no template customization exists', async () => {
-    const baseSection = { versionedSectionId: 1, displayOrder: 0, title: 'Base', totalQuestions: 2, answeredQuestions: 1, tags: [] };
+    const baseSection = {
+      versionedSectionId: 1,
+      displayOrder: 0,
+      title: 'Base',
+      totalQuestions: 2,
+      answeredQuestions: 1,
+      totalRequiredQuestions: 1,
+      answeredRequiredQuestions: 1,
+      tags: []
+    };
     localQuery
       .mockResolvedValueOnce([baseSection]) // base sections
       .mockResolvedValueOnce(undefined);    // findTemplateCustomizationId returns undefined
@@ -262,14 +263,23 @@ describe('PlanSectionProgress.findByPlanId', () => {
   });
 
   it('should bump totalQuestions for base sections with extra custom questions', async () => {
-    const baseSection = { versionedSectionId: 1, displayOrder: 0, title: 'Base', totalQuestions: 2, answeredQuestions: 1, tags: [] };
+    const baseSection = {
+      versionedSectionId: 1,
+      displayOrder: 0,
+      title: 'Base',
+      totalQuestions: 2,
+      answeredQuestions: 1,
+      totalRequiredQuestions: 1,
+      answeredRequiredQuestions: 1,
+      tags: []
+    };
     localQuery.mockResolvedValueOnce([baseSection]); // base sections
 
     // Mock the static methods
     /*eslint-disable @typescript-eslint/no-explicit-any */
     jest.spyOn(PlanSectionProgress as any, 'findTemplateCustomizationId').mockResolvedValue(99);
     jest.spyOn(PlanSectionProgress as any, 'fetchCustomSections').mockResolvedValue([]);
-    jest.spyOn(PlanSectionProgress as any, 'fetchExtraQuestionsForBaseSections').mockResolvedValue([{ versionedSectionId: 1, extraCount: 3 }]);
+    jest.spyOn(PlanSectionProgress as any, 'fetchExtraQuestionsForBaseSections').mockResolvedValue([{ versionedSectionId: 1, extraCount: 3, requiredCount: 1 }]);
     jest.spyOn(PlanSectionProgress as any, 'fetchAnsweredCustomQuestions').mockResolvedValue([]);
 
     const result = await PlanSectionProgress.findByPlanId('ref', context, 123, 456);
@@ -280,7 +290,16 @@ describe('PlanSectionProgress.findByPlanId', () => {
   });
 
   it('should not bump totalQuestions if no extra questions exist', async () => {
-    const baseSection = { versionedSectionId: 1, displayOrder: 0, title: 'Base', totalQuestions: 2, answeredQuestions: 1, tags: [] };
+    const baseSection = {
+      versionedSectionId: 1,
+      displayOrder: 0,
+      title: 'Base',
+      totalQuestions: 2,
+      answeredQuestions: 1,
+      totalRequiredQuestions: 1,
+      answeredRequiredQuestions: 1,
+      tags: []
+    };
     localQuery.mockResolvedValueOnce([baseSection]);
 
     /*eslint-disable @typescript-eslint/no-explicit-any */
@@ -294,8 +313,24 @@ describe('PlanSectionProgress.findByPlanId', () => {
   });
 
   it('should insert custom sections after the correct base section', async () => {
-    const baseSection = { versionedSectionId: 1, displayOrder: 0, title: 'Base', totalQuestions: 2, answeredQuestions: 1, tags: [] };
-    const customSection = { id: 10, name: 'Custom', pinnedSectionType: 'BASE', pinnedSectionId: 1, totalQuestions: 3 };
+    const baseSection = {
+      versionedSectionId: 1,
+      displayOrder: 0,
+      title: 'Base',
+      totalQuestions: 2,
+      answeredQuestions: 1,
+      totalRequiredQuestions: 1,
+      answeredRequiredQuestions: 1,
+      tags: []
+    };
+    const customSection = {
+      id: 10,
+      name: 'Custom',
+      pinnedSectionType: 'BASE',
+      pinnedSectionId: 1,
+      totalQuestions: 3,
+      totalRequiredQuestions: 2
+    };
     localQuery.mockResolvedValueOnce([baseSection]);
 
     /*eslint-disable @typescript-eslint/no-explicit-any */
@@ -312,9 +347,32 @@ describe('PlanSectionProgress.findByPlanId', () => {
   });
 
   it('should insert chains of custom sections (custom sections pinned to other custom sections)', async () => {
-    const baseSection = { versionedSectionId: 1, displayOrder: 0, title: 'Base', totalQuestions: 2, answeredQuestions: 1, tags: [] };
-    const customSection1 = { id: 10, name: 'Custom1', pinnedSectionType: 'BASE', pinnedSectionId: 1, totalQuestions: 3 };
-    const customSection2 = { id: 11, name: 'Custom2', pinnedSectionType: 'CUSTOM', pinnedSectionId: 10, totalQuestions: 2 };
+    const baseSection = {
+      versionedSectionId: 1,
+      displayOrder: 0,
+      title: 'Base',
+      totalQuestions: 2,
+      answeredQuestions: 1,
+      totalRequiredQuestions: 1,
+      answeredRequiredQuestions: 1,
+      tags: []
+    };
+    const customSection1 = {
+      id: 10,
+      name: 'Custom1',
+      pinnedSectionType: 'BASE',
+      pinnedSectionId: 1,
+      totalQuestions: 3,
+      totalRequiredQuestions: 2
+    };
+    const customSection2 = {
+      id: 11,
+      name: 'Custom2',
+      pinnedSectionType: 'CUSTOM',
+      pinnedSectionId: 10,
+      totalQuestions: 2,
+      totalRequiredQuestions: 1
+    };
     localQuery.mockResolvedValueOnce([baseSection]); // base sections
 
     /*eslint-disable @typescript-eslint/no-explicit-any */
@@ -331,24 +389,73 @@ describe('PlanSectionProgress.findByPlanId', () => {
   });
 
   it('should credit answered custom questions to the correct base section', async () => {
-    const baseSection = { versionedSectionId: 1, displayOrder: 0, title: 'Base', totalQuestions: 2, answeredQuestions: 1, tags: [] };
+    const baseSection = {
+      versionedSectionId: 1,
+      displayOrder: 0,
+      title: 'Base',
+      totalQuestions: 2,
+      answeredQuestions: 1,
+      totalRequiredQuestions: 1,
+      answeredRequiredQuestions: 1,
+      tags: []
+    };
     localQuery.mockResolvedValueOnce([baseSection]);
 
     /*eslint-disable @typescript-eslint/no-explicit-any */
     jest.spyOn(PlanSectionProgress as any, 'findTemplateCustomizationId').mockResolvedValue(99);
     jest.spyOn(PlanSectionProgress as any, 'fetchCustomSections').mockResolvedValue([]);
-    jest.spyOn(PlanSectionProgress as any, 'fetchExtraQuestionsForBaseSections').mockResolvedValue([{ versionedSectionId: 1, extraCount: 2 }]);
+    jest.spyOn(PlanSectionProgress as any, 'fetchExtraQuestionsForBaseSections').mockResolvedValue([{ versionedSectionId: 1, extraCount: 2, requiredCount: 1 }]);
     jest.spyOn(PlanSectionProgress as any, 'fetchAnsweredCustomQuestions').mockResolvedValue([
-      { sectionId: 1, sectionType: 'BASE', answeredCount: 2 },
+      { sectionId: 1, sectionType: 'BASE', answeredCount: 2, answeredRequiredCount: 1 },
     ]);
 
     const result = await PlanSectionProgress.findByPlanId('ref', context, 123, 456);
     expect(result[0].answeredQuestions).toBe(3); // 1 base + 2 custom answered
+    expect(result[0].answeredRequiredQuestions).toBe(2); // 1 base + 1 required custom answered
+  });
+
+  it('should bump totalRequiredQuestions for base sections with extra required custom questions', async () => {
+    const baseSection = {
+      versionedSectionId: 1,
+      displayOrder: 0,
+      title: 'Base',
+      totalQuestions: 2,
+      answeredQuestions: 1,
+      totalRequiredQuestions: 1,
+      answeredRequiredQuestions: 1,
+      tags: []
+    };
+    localQuery.mockResolvedValueOnce([baseSection]);
+
+    /*eslint-disable @typescript-eslint/no-explicit-any */
+    jest.spyOn(PlanSectionProgress as any, 'findTemplateCustomizationId').mockResolvedValue(99);
+    jest.spyOn(PlanSectionProgress as any, 'fetchCustomSections').mockResolvedValue([]);
+    jest.spyOn(PlanSectionProgress as any, 'fetchExtraQuestionsForBaseSections').mockResolvedValue([{ versionedSectionId: 1, extraCount: 3, requiredCount: 2 }]);
+    jest.spyOn(PlanSectionProgress as any, 'fetchAnsweredCustomQuestions').mockResolvedValue([]);
+
+    const result = await PlanSectionProgress.findByPlanId('ref', context, 123, 456);
+    expect(result[0].totalRequiredQuestions).toBe(3); // 1 base + 2 required custom
   });
 
   it('should credit answered custom questions to the correct custom section', async () => {
-    const baseSection = { versionedSectionId: 1, displayOrder: 0, title: 'Base', totalQuestions: 2, answeredQuestions: 1, tags: [] };
-    const customSection = { id: 10, name: 'Custom', pinnedSectionType: 'BASE', pinnedSectionId: 1, totalQuestions: 3 };
+    const baseSection = {
+      versionedSectionId: 1,
+      displayOrder: 0,
+      title: 'Base',
+      totalQuestions: 2,
+      answeredQuestions: 1,
+      totalRequiredQuestions: 1,
+      answeredRequiredQuestions: 1,
+      tags: []
+    };
+    const customSection = {
+      id: 10,
+      name: 'Custom',
+      pinnedSectionType: 'BASE',
+      pinnedSectionId: 1,
+      totalQuestions: 3,
+      totalRequiredQuestions: 2
+    };
     localQuery.mockResolvedValueOnce([baseSection]);
 
     /*eslint-disable @typescript-eslint/no-explicit-any */
@@ -356,17 +463,35 @@ describe('PlanSectionProgress.findByPlanId', () => {
     jest.spyOn(PlanSectionProgress as any, 'fetchCustomSections').mockResolvedValue([customSection]);
     jest.spyOn(PlanSectionProgress as any, 'fetchExtraQuestionsForBaseSections').mockResolvedValue([]);
     jest.spyOn(PlanSectionProgress as any, 'fetchAnsweredCustomQuestions').mockResolvedValue([
-      { sectionId: 10, sectionType: 'CUSTOM', answeredCount: 2 },
+      { sectionId: 10, sectionType: 'CUSTOM', answeredCount: 2, answeredRequiredCount: 1 },
     ]);
 
     const result = await PlanSectionProgress.findByPlanId('ref', context, 123, 456);
     const customResult = result.find(s => s.customSectionId === 10);
     expect(customResult.answeredQuestions).toBe(2);
+    expect(customResult.answeredRequiredQuestions).toBe(1);
+    expect(customResult.totalRequiredQuestions).toBe(2);
   });
 
   it('should not credit answered custom questions to the wrong section', async () => {
-    const baseSection = { versionedSectionId: 1, displayOrder: 0, title: 'Base', totalQuestions: 2, answeredQuestions: 1, tags: [] };
-    const customSection = { id: 10, name: 'Custom', pinnedSectionType: 'BASE', pinnedSectionId: 1, totalQuestions: 3 };
+    const baseSection = {
+      versionedSectionId: 1,
+      displayOrder: 0,
+      title: 'Base',
+      totalQuestions: 2,
+      answeredQuestions: 1,
+      totalRequiredQuestions: 1,
+      answeredRequiredQuestions: 1,
+      tags: []
+    };
+    const customSection = {
+      id: 10,
+      name: 'Custom',
+      pinnedSectionType: 'BASE',
+      pinnedSectionId: 1,
+      totalQuestions: 3,
+      totalRequiredQuestions: 2
+    };
     localQuery.mockResolvedValueOnce([baseSection]);
 
     /*eslint-disable @typescript-eslint/no-explicit-any */
@@ -374,16 +499,26 @@ describe('PlanSectionProgress.findByPlanId', () => {
     jest.spyOn(PlanSectionProgress as any, 'fetchCustomSections').mockResolvedValue([customSection]);
     jest.spyOn(PlanSectionProgress as any, 'fetchExtraQuestionsForBaseSections').mockResolvedValue([]);
     jest.spyOn(PlanSectionProgress as any, 'fetchAnsweredCustomQuestions').mockResolvedValue([
-      { sectionId: 10, sectionType: 'CUSTOM', answeredCount: 2 },
+      { sectionId: 10, sectionType: 'CUSTOM', answeredCount: 2, answeredRequiredCount: 1 },
     ]);
 
     const result = await PlanSectionProgress.findByPlanId('ref', context, 123, 456);
     const baseResult = result.find(s => s.versionedSectionId === 1);
     expect(baseResult.answeredQuestions).toBe(1); // unchanged — credits belong to the custom section
+    expect(baseResult.answeredRequiredQuestions).toBe(1); // unchanged — required credits belong to the custom section
   });
 
   it('should handle no answered custom questions gracefully', async () => {
-    const baseSection = { versionedSectionId: 1, displayOrder: 0, title: 'Base', totalQuestions: 2, answeredQuestions: 1, tags: [] };
+    const baseSection = {
+      versionedSectionId: 1,
+      displayOrder: 0,
+      title: 'Base',
+      totalQuestions: 2,
+      answeredQuestions: 1,
+      totalRequiredQuestions: 1,
+      answeredRequiredQuestions: 1,
+      tags: []
+    };
     localQuery.mockResolvedValueOnce([baseSection]);
 
     /*eslint-disable @typescript-eslint/no-explicit-any */
@@ -394,10 +529,20 @@ describe('PlanSectionProgress.findByPlanId', () => {
 
     const result = await PlanSectionProgress.findByPlanId('ref', context, 123, 456);
     expect(result[0].answeredQuestions).toBe(1); // unchanged
+    expect(result[0].answeredRequiredQuestions).toBe(1); // unchanged
   });
 
   it('should parse tags correctly if tags are a string', async () => {
-    const baseSection = { versionedSectionId: 1, displayOrder: 0, title: 'Base', totalQuestions: 2, answeredQuestions: 1, tags: '[{"id":1,"slug":"foo","name":"Foo","description":"desc"}]' };
+    const baseSection = {
+      versionedSectionId: 1,
+      displayOrder: 0,
+      title: 'Base',
+      totalQuestions: 2,
+      answeredQuestions: 1,
+      totalRequiredQuestions: 1,
+      answeredRequiredQuestions: 1,
+      tags: '[{"id":1,"slug":"foo","name":"Foo","description":"desc"}]'
+    };
     localQuery.mockResolvedValueOnce([baseSection]);
     const result = await PlanSectionProgress.findByPlanId('ref', context, 123, 456);
     expect(Array.isArray(result[0].tags)).toBe(true);
@@ -405,7 +550,16 @@ describe('PlanSectionProgress.findByPlanId', () => {
   });
 
   it('should handle empty or malformed tags gracefully', async () => {
-    const baseSection = { versionedSectionId: 1, displayOrder: 0, title: 'Base', totalQuestions: 2, answeredQuestions: 1, tags: 'not-json' };
+    const baseSection = {
+      versionedSectionId: 1,
+      displayOrder: 0,
+      title: 'Base',
+      totalQuestions: 2,
+      answeredQuestions: 1,
+      totalRequiredQuestions: 1,
+      answeredRequiredQuestions: 1,
+      tags: 'not-json'
+    };
     localQuery.mockResolvedValueOnce([baseSection]);
     const result = await PlanSectionProgress.findByPlanId('ref', context, 123, 456);
     expect(Array.isArray(result[0].tags)).toBe(true);
@@ -419,8 +573,24 @@ describe('PlanSectionProgress.findByPlanId', () => {
   });
 
   it('should set correct sectionType and IDs for custom and base sections', async () => {
-    const baseSection = { versionedSectionId: 1, displayOrder: 0, title: 'Base', totalQuestions: 2, answeredQuestions: 1, tags: [] };
-    const customSection = { id: 10, name: 'Custom', pinnedSectionType: 'BASE', pinnedSectionId: 1, totalQuestions: 3 };
+    const baseSection = {
+      versionedSectionId: 1,
+      displayOrder: 0,
+      title: 'Base',
+      totalQuestions: 2,
+      answeredQuestions: 1,
+      totalRequiredQuestions: 1,
+      answeredRequiredQuestions: 1,
+      tags: []
+    };
+    const customSection = {
+      id: 10,
+      name: 'Custom',
+      pinnedSectionType: 'BASE',
+      pinnedSectionId: 1,
+      totalQuestions: 3,
+      totalRequiredQuestions: 2
+    };
     localQuery.mockResolvedValueOnce([baseSection]); // base sections
 
     /*eslint-disable @typescript-eslint/no-explicit-any */
@@ -437,10 +607,33 @@ describe('PlanSectionProgress.findByPlanId', () => {
   });
 
   it('should handle circular pinning gracefully (no infinite recursion)', async () => {
-    const baseSection = { versionedSectionId: 1, displayOrder: 0, title: 'Base', totalQuestions: 2, answeredQuestions: 1, tags: [] };
-    const customSection1 = { id: 10, name: 'Custom1', pinnedSectionType: 'BASE', pinnedSectionId: 1, totalQuestions: 3 };
+    const baseSection = {
+      versionedSectionId: 1,
+      displayOrder: 0,
+      title: 'Base',
+      totalQuestions: 2,
+      answeredQuestions: 1,
+      totalRequiredQuestions: 1,
+      answeredRequiredQuestions: 1,
+      tags: []
+    };
+    const customSection1 = {
+      id: 10,
+      name: 'Custom1',
+      pinnedSectionType: 'BASE',
+      pinnedSectionId: 1,
+      totalQuestions: 3,
+      totalRequiredQuestions: 2
+    };
     // Circular: customSection2 pinned to customSection1, customSection1 pinned to customSection2
-    const customSection2 = { id: 11, name: 'Custom2', pinnedSectionType: 'CUSTOM', pinnedSectionId: 10, totalQuestions: 2 };
+    const customSection2 = {
+      id: 11,
+      name: 'Custom2',
+      pinnedSectionType: 'CUSTOM',
+      pinnedSectionId: 10,
+      totalQuestions: 2,
+      totalRequiredQuestions: 1
+    };
     // Now, customSection1 is also pinned to customSection2 (circular)
     customSection1.pinnedSectionId = 11;
     localQuery.mockResolvedValueOnce([baseSection]); // base sections

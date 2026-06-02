@@ -13,6 +13,18 @@ import {
   SelectBoxAnswerType
 } from "@dmptool/types";
 
+export const FILLED_ANSWER_CHECK = `
+  JSON_TYPE(json) = 'OBJECT'
+  AND NOT (
+    JSON_UNQUOTE(JSON_EXTRACT(json, '$.type')) IN ('textArea', 'text')
+    AND (
+      JSON_EXTRACT(json, '$.answer') IS NULL
+      OR JSON_UNQUOTE(JSON_EXTRACT(json, '$.answer')) = ''
+    )
+  )
+`;
+
+
 export class Answer extends MySqlModel {
   public planId: number;
   public versionedSectionId: number;
@@ -266,7 +278,9 @@ export class Answer extends MySqlModel {
     if (!Array.isArray(questionIds) || questionIds.length === 0) return [];
 
     const placeholders = questionIds.map(() => '?').join(', ');
-    const sql = `SELECT * FROM answers WHERE planId = ? AND versionedQuestionId IN (${placeholders}) AND json IS NOT NULL AND json != ''`;
+    const sql = `SELECT * FROM answers WHERE planId = ? 
+      AND versionedQuestionId IN (${placeholders})
+      AND ${FILLED_ANSWER_CHECK}`;
     const results = await Answer.query(context, sql, [String(planId), ...questionIds.map(String)], reference);
     return Array.isArray(results) && results.length > 0 ? results.map((ans) => new Answer(ans)) : [];
   }
@@ -284,7 +298,7 @@ export class Answer extends MySqlModel {
     const sql = `SELECT * FROM answers 
     WHERE planId = ? 
     AND versionedCustomQuestionId IN (${placeholders}) 
-    AND json IS NOT NULL AND json != ''`;
+    AND ${FILLED_ANSWER_CHECK}`;
     const results = await Answer.query(context, sql, [String(planId), ...customQuestionIds.map(String)], reference);
     return Array.isArray(results) && results.length > 0 ? results.map((ans) => new Answer(ans)) : [];
   }

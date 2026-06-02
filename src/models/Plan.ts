@@ -16,6 +16,17 @@ import { Tag } from "./Tag";
 
 export const DEFAULT_TEMPORARY_DMP_ID_PREFIX = 'temp-dmpId-';
 
+export const FILLED_ANSWER_CHECK = `
+  JSON_TYPE(a.json) = 'OBJECT'
+  AND NOT (
+    JSON_UNQUOTE(JSON_EXTRACT(a.json, '$.type')) IN ('textArea', 'text')
+    AND (
+      JSON_EXTRACT(a.json, '$.answer') IS NULL
+      OR JSON_UNQUOTE(JSON_EXTRACT(a.json, '$.answer')) = ''
+    )
+  )
+`;
+
 /**
  * Possible statuses for a plan.
  */
@@ -270,7 +281,7 @@ export class PlanSectionProgress {
       ON vtc.id = vcq.versionedTemplateCustomizationId
     WHERE a.planId = ?
       AND vtc.templateCustomizationId = ?
-      AND JSON_TYPE(a.json) = 'OBJECT'
+      AND ${FILLED_ANSWER_CHECK}
     GROUP BY vcq.versionedSectionId, vcq.versionedSectionType
   `;
     const rows = await Plan.query(
@@ -299,12 +310,12 @@ export class PlanSectionProgress {
       vs.name AS title,
       COUNT(DISTINCT vq.id) AS totalQuestions,
       COUNT(DISTINCT CASE
-          WHEN a.id IS NOT NULL AND JSON_TYPE(a.json) = 'OBJECT'
+          WHEN a.id IS NOT NULL AND ${FILLED_ANSWER_CHECK}
           THEN vq.id
         END) AS answeredQuestions,
       COUNT(DISTINCT CASE WHEN vq.required = 1 THEN vq.id END) AS totalRequiredQuestions,
       COUNT(DISTINCT CASE
-          WHEN a.id IS NOT NULL AND JSON_TYPE(a.json) = 'OBJECT' AND vq.required = 1
+          WHEN a.id IS NOT NULL AND ${FILLED_ANSWER_CHECK} AND vq.required = 1
           THEN vq.id
         END) AS answeredRequiredQuestions,
       COALESCE(tagAgg.tags, JSON_ARRAY()) AS tags

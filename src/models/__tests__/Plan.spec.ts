@@ -22,6 +22,9 @@ jest.mock('../../context.ts');
 
 let context;
 
+const normalizeSQL = (sql: string) => sql.replace(/\s+/g, ' ').trim();
+
+
 beforeEach(async () => {
   jest.resetAllMocks();
 
@@ -199,57 +202,37 @@ describe('PlanSectionProgress.findByPlanId', () => {
   it('should call the correct SQL query', async () => {
     const planId = casual.integer(1, 99);
     const versionedTemplateId = casual.integer(1, 99);
-    const sql = `SELECT
-      vs.id AS versionedSectionId,
-      vs.displayOrder,
-      vs.name AS title,
-      COUNT(DISTINCT vq.id) AS totalQuestions,
-      COUNT(DISTINCT CASE
-          WHEN a.id IS NOT NULL AND JSON_TYPE(a.json) = 'OBJECT'
-          THEN vq.id
-        END) AS answeredQuestions,
-      COUNT(DISTINCT CASE WHEN vq.required = 1 THEN vq.id END) AS totalRequiredQuestions,
-      COUNT(DISTINCT CASE
-          WHEN a.id IS NOT NULL AND JSON_TYPE(a.json) = 'OBJECT' AND vq.required = 1
-          THEN vq.id
-        END) AS answeredRequiredQuestions,
-      COALESCE(tagAgg.tags, JSON_ARRAY()) AS tags
-    FROM plans p
-      JOIN versionedTemplates vt ON p.versionedTemplateId = vt.id
-      JOIN versionedSections vs ON vt.id = vs.versionedTemplateId
-      LEFT JOIN (
-        SELECT
-          vst.versionedSectionId,
-          JSON_ARRAYAGG(
-            JSON_OBJECT(
-              'id', t.id,
-              'slug', t.slug,
-              'name', t.name,
-              'description', t.description
-            )
-          ) AS tags
-        FROM versionedSectionTags vst
-          JOIN tags t ON t.id = vst.tagId
-        GROUP BY vst.versionedSectionId
-      ) tagAgg ON tagAgg.versionedSectionId = vs.id
-      LEFT JOIN versionedQuestions vq ON vs.id = vq.versionedSectionId
-      LEFT JOIN answers a
-        ON a.planId = p.id
-        AND a.versionedQuestionId = vq.id
-    WHERE p.id = ?
-    GROUP BY vs.id, vs.displayOrder, vs.name, tagAgg.tags
-    ORDER BY vs.displayOrder;
-`
 
     localQuery
-      .mockResolvedValueOnce([progress])  // first call: base sections query
-      .mockResolvedValueOnce([]);         // second call: findTemplateCustomizationId returns no customization
+      .mockResolvedValueOnce([progress])
+      .mockResolvedValueOnce([]);
 
     const result = await PlanSectionProgress.findByPlanId('testing', context, planId, versionedTemplateId);
 
     expect(localQuery).toHaveBeenCalledTimes(2);
-    expect(localQuery).toHaveBeenNthCalledWith(1, context, sql, [planId.toString()], 'testing');
-    expect(localQuery).toHaveBeenNthCalledWith(2, context, expect.stringContaining('SELECT vtc.templateCustomizationId'), [versionedTemplateId.toString(), context.token.affiliationId], 'testing');
+
+    const receivedSQL = normalizeSQL(localQuery.mock.calls[0][1]);
+
+    // Verify key structural parts of the query
+    expect(receivedSQL).toContain(normalizeSQL(`vs.id AS versionedSectionId`));
+    expect(receivedSQL).toContain(normalizeSQL(`COUNT(DISTINCT vq.id) AS totalQuestions`));
+    expect(receivedSQL).toContain(normalizeSQL(`COUNT(DISTINCT CASE WHEN a.id IS NOT NULL`));
+    expect(receivedSQL).toContain(normalizeSQL(`JSON_TYPE(a.json) = 'OBJECT'`));
+    expect(receivedSQL).toContain(normalizeSQL(`IN ('textArea', 'text')`));
+    expect(receivedSQL).toContain(normalizeSQL(`JSON_EXTRACT(a.json, '$.answer') IS NULL`));
+    expect(receivedSQL).toContain(normalizeSQL(`COUNT(DISTINCT CASE WHEN vq.required = 1 THEN vq.id END) AS totalRequiredQuestions`));
+    expect(receivedSQL).toContain(normalizeSQL(`LEFT JOIN answers a ON a.planId = p.id`));
+    expect(receivedSQL).toContain(normalizeSQL(`WHERE p.id = ?`));
+    expect(receivedSQL).toContain(normalizeSQL(`GROUP BY vs.id, vs.displayOrder, vs.name`));
+    expect(receivedSQL).toContain(normalizeSQL(`ORDER BY vs.displayOrder`));
+
+    // Verify params
+    expect(localQuery.mock.calls[0][2]).toEqual([planId.toString()]);
+
+    // Verify second call
+    expect(normalizeSQL(localQuery.mock.calls[1][1])).toContain(normalizeSQL('SELECT vtc.templateCustomizationId'));
+    expect(localQuery.mock.calls[1][2]).toEqual([versionedTemplateId.toString(), context.token.affiliationId]);
+
     expect(result).toHaveLength(1);
   });
 

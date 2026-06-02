@@ -3,6 +3,9 @@
 ## v1.1.0
 
 ### Added
+- Added the `generateLogoUploadURL` and `finalizeLogoUpload` resolvers to the `affiliation` schema.
+- Added new data migration to remove `logoURI` column from `affiliations`. The URI is now generated on the fly by the resolver.
+- Added new `src/datasource/s3.ts` file to provide the CDN URL and to generate presigned URLs for S3 objects.
 - Added `s3` properties to the `awsConfig` object
 - Added `src/datasources/s3.ts` to handle generation of presigned URLs
 - Added override for `qs` dependency

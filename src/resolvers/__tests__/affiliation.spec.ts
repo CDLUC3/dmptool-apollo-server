@@ -633,11 +633,21 @@ describe('affiliation resolver', () => {
       const mockUpload = { url: casual.url, fields: '{"key":"logos/logo.png"}' };
       (getPresignedURLForAffiliationLogo as jest.Mock).mockResolvedValue(mockUpload);
 
-      const vars = { affiliationURI: casual.url, fileName: 'logo.png', contentType: 'image/png' };
+      const vars = { affiliationURI: adminToken.affiliationId, fileName: 'logo.png', contentType: 'image/png' };
       const result = await executeQuery(query, vars, adminToken);
 
       expect(result.body.singleResult.data.generateLogoUploadURL.url).toBe(mockUpload.url);
       expect(getPresignedURLForAffiliationLogo).toHaveBeenCalledTimes(1);
+    });
+
+    it('should return Forbidden when the Admin\'s affiliation does not match', async () => {
+      (Affiliation.findByURI as jest.Mock).mockResolvedValue(null);
+
+      const vars = { affiliationURI: 'wrong-affiliation', fileName: 'logo.png', contentType: 'image/png' };
+      const result = await executeQuery(query, vars, adminToken);
+
+      expect(result.body.singleResult.errors).toBeDefined();
+      expect(result.body.singleResult.errors[0].message).toBe('Forbidden');
     });
   });
 
@@ -658,7 +668,10 @@ describe('affiliation resolver', () => {
     });
 
     it('should update the logoName and return the updated affiliation', async () => {
-      const existing = buildMockAffiliation({ id: 1 });
+      const existing = buildMockAffiliation({
+        id: casual.integer(0, 99),
+        uri: adminToken.affiliationId
+      });
       const updated = { ...existing, logoName: 'new-logo.png' };
       existing.update.mockResolvedValue(updated);
 
@@ -673,15 +686,28 @@ describe('affiliation resolver', () => {
     it('should return NotFound when the affiliation does not exist', async () => {
       (Affiliation.findByURI as jest.Mock).mockResolvedValue(null);
 
-      const vars = { affiliationURI: casual.url, logoName: 'logo.png' };
+      const vars = { affiliationURI: adminToken.affiliationId, logoName: 'logo.png' };
       const result = await executeQuery(query, vars, adminToken);
 
       expect(result.body.singleResult.errors).toBeDefined();
       expect(result.body.singleResult.errors[0].message).toBe('Not Found');
     });
 
+    it('should return Forbidden when the affiliation does not match', async () => {
+      (Affiliation.findByURI as jest.Mock).mockResolvedValue(null);
+
+      const vars = { affiliationURI: 'wrong-affiliation', logoName: 'logo.png' };
+      const result = await executeQuery(query, vars, adminToken);
+
+      expect(result.body.singleResult.errors).toBeDefined();
+      expect(result.body.singleResult.errors[0].message).toBe('Forbidden');
+    });
+
     it('should return a general error when update returns null', async () => {
-      const existing = buildMockAffiliation({ id: 1 });
+      const existing = buildMockAffiliation({
+        id: 1,
+        uri: adminToken.affiliationId,
+      });
       existing.update.mockResolvedValue(null);
 
       (Affiliation.findByURI as jest.Mock).mockResolvedValue(existing);

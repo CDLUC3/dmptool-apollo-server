@@ -2,6 +2,48 @@ import { Logger } from "pino";
 import { getPresignedURLForImageUpload } from '@dmptool/utils';
 import { awsConfig } from "../config/awsConfig";
 import { generalConfig } from "../config/generalConfig";
+import { v4 as uuidv4 } from "uuid";
+
+/**
+ * Sanitize a user provided fileName
+ *
+ * @param fileName the name of the file provided by the user
+ * @returns the sanitized filename
+ */
+const sanitizeFileName = (fileName: string): string => {
+  // Using the normalization standards from:
+  //     https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/normalize
+  //
+  // Use the `normalize` function with "NFD" to destructure characters like é into 'e' and the accent mark.
+  // Then remove the accent mark characters u0300 - u036f.
+  // Then replace any remaining non-alphanumeric, dots, hyphens, or underscores with underscores.
+  // Then at the end, remove duplicate underscores, hyphens and dots
+  let sanitizedFileName: string = fileName
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9._-]/g, '_')
+    .replace(/([._-])\1+/g, '$1');
+
+  // If the above resulted in an empty name or all that is left is a single dot, dash or underscore character
+  if (!sanitizedFileName || sanitizedFileName === '.' || sanitizedFileName === ''
+    || sanitizedFileName === '-' || sanitizedFileName === '_') {
+    sanitizedFileName = `logo-${uuidv4()}`;
+  }
+
+  // S3 has a key limit of 1024-bytes, so limit the size of the filename
+  const MAX_FILENAME_LENGTH = 50;
+  if (sanitizedFileName.length > MAX_FILENAME_LENGTH) {
+    // Figure out if there's a dot (probably an extension that should be preserved)
+    const lastDot: number = sanitizedFileName.lastIndexOf('.');
+    if (lastDot !== -1) {
+      const ext: string = sanitizedFileName.slice(lastDot);
+      sanitizedFileName = sanitizedFileName.slice(0, MAX_FILENAME_LENGTH - ext.length) + ext;
+    } else {
+      sanitizedFileName = sanitizedFileName.slice(0, MAX_FILENAME_LENGTH);
+    }
+  }
+  return sanitizedFileName;
+}
 
 /**
  * This application uses S3 to store some assets like Affiliation logos. Uploading
@@ -39,7 +81,7 @@ import { generalConfig } from "../config/generalConfig";
  * The URL to the application's CDN (AWS Cloudfront distribution)
  */
 export const CDN_BASE_URL: string = process.env.NODE_ENV === 'development'
-  ? `https://${awsConfig.s3.bucket}.s3.us-west-2.amazonaws.com`
+  ? `https://${awsConfig.s3.bucket}.s3.${awsConfig.region}.amazonaws.com`
   : `https://cdn.${generalConfig.domain}`
 
 /**
@@ -57,13 +99,16 @@ export const getPresignedURLForAffiliationLogo = async(
   affiliationURI: string,
   fileName: string,
   contentType = 'image/png'
-): Promise<{ url: string, fields: string }> => {
+): Promise<{ url: string, fields: string } | undefined> => {
   const bucket = awsConfig.s3.bucket;
 
   try {
     const uri = URL.parse(affiliationURI);
+    if (!uri) return undefined;
+
     const path = uri.pathname.startsWith('/') ? uri.pathname.slice(1) : uri.pathname;
-    const logoKey = `logos/${uri.host}/${path}/${Date.now()}-${fileName}`;
+    const sanitizedFileName = sanitizeFileName(fileName);
+    const logoKey = `logos/${uri.host}/${path}/${sanitizedFileName}`;
 
     const { url, fields }: { url: string, fields: string } = await getPresignedURLForImageUpload(
       logger,
@@ -77,5 +122,6 @@ export const getPresignedURLForAffiliationLogo = async(
     return { url, fields };
   } catch (err) {
     logger.error({ affiliationURI, fileName, bucket, err }, 'Unable to generate presigned URL for S3.');
+    return undefined;
   }
 }

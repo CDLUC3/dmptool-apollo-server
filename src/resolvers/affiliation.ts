@@ -246,7 +246,11 @@ export const resolvers: Resolvers = {
         },
         context: MyContext
       ): Promise<AffiliationLogoUpload> => {
-        return await getPresignedURLForAffiliationLogo(context.logger, affiliationURI, fileName, contentType);
+        // Make sure the current user's affiliation matches the one specified if they are an ADMIN
+        if (context.token.role === UserRole.ADMIN && context.token.affiliationId === affiliationURI) {
+          return await getPresignedURLForAffiliationLogo(context.logger, affiliationURI, fileName, contentType);
+        }
+        throw ForbiddenError();
       }),
 
     /**
@@ -270,21 +274,25 @@ export const resolvers: Resolvers = {
         { affiliationURI, logoName }: { affiliationURI: string, logoName: string },
         context: MyContext
       ): Promise<Affiliation> => {
-        const reference = 'finalizeLogoUpload resolver';
-        const affiliation = await Affiliation.findByURI(reference, context, affiliationURI);
+        // Make sure the current user's affiliation matches the one specified if they are an ADMIN
+        if (context.token.role === UserRole.ADMIN && context.token.affiliationId === affiliationURI) {
+          const reference = 'finalizeLogoUpload resolver';
+          const affiliation = await Affiliation.findByURI(reference, context, affiliationURI);
 
-        if (!affiliation) {
-          throw NotFoundError();
+          if (!affiliation) {
+            throw NotFoundError();
+          }
+
+          affiliation.logoName = logoName;
+          const updated = await affiliation.update(context);
+          if (isNullOrUndefined(updated)) {
+            affiliation.addError('general', 'Unable to save the logo at this time');
+            return affiliation;
+          }
+
+          return updated;
         }
-
-        affiliation.logoName = logoName;
-        const updated = await affiliation.update(context);
-        if (isNullOrUndefined(updated)) {
-          affiliation.addError('general', 'Unable to save the logo at this time');
-          return affiliation;
-        }
-
-        return updated;
+        throw ForbiddenError();
       }),
   },
 

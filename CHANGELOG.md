@@ -3,6 +3,11 @@
 ## v1.1.0
 
 ### Added
+- Added the `generateLogoUploadURL` and `finalizeLogoUpload` resolvers to the `affiliation` schema.
+- Added new data migration to remove `logoURI` column from `affiliations`. The URI is now generated on the fly by the resolver.
+- Added new `src/datasource/s3.ts` file to provide the CDN URL and to generate presigned URLs for S3 objects.
+- Added `s3` properties to the `awsConfig` object
+- Added `src/datasources/s3.ts` to handle generation of presigned URLs
 - Added override for `qs` dependency
 - Added `isProjectReadOnlyForCurrentUser` in `projectService.ts` that is shared between the `plan` and `project` query resolvers,and added `readOnly` field to the `Project` schema [#244]
 - Added overrides for brace-expansion and ws
@@ -85,6 +90,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `awsConfig` to move SES properties underneath the `ses` property
 - Updated `uuid` and `@testcontainers/mysql` dependencies
 - Updated methods for the `PlanSectionProgress` class to return `totalRequiredQuestions` and `answeredRequiredQuestions`, and updated unit tests and `PlanSectionProgress` schema [#249]
 - Updated `dmphubAPI.ts` to check whether token is expired before each API call and updated `express.ts` to include `dmphubAPIDataSource` in the buildContext so that its available for the `searchExternalProjects` query [#352]

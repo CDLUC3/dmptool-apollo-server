@@ -1,5 +1,10 @@
-import { AffiliationSearchResults, Resolvers } from "../types";
-import { MyContext } from '../context';
+import {
+  AffiliationLogoUpload,
+  AffiliationSearchResults,
+  Resolvers,
+  ResolversParentTypes
+} from "../types";
+import {MyContext} from '../context';
 import {
   Affiliation,
   AffiliationProvenance,
@@ -7,15 +12,34 @@ import {
   AffiliationType,
   PopularFunder
 } from '../models/Affiliation';
-import { isAdmin, isSuperAdmin } from "../services/authService";
-import { AuthenticationError, ForbiddenError, InternalServerError, NotFoundError } from "../utils/graphQLErrors";
+import {
+  authenticatedResolver,
+  isAdmin,
+  isSuperAdmin
+} from "../services/authService";
+import {
+  AuthenticationError,
+  ForbiddenError,
+  InternalServerError,
+  NotFoundError
+} from "../utils/graphQLErrors";
 import { prepareObjectForLogs } from "../logger";
 import { GraphQLError } from "graphql";
-import { PaginationOptionsForCursors, PaginationOptionsForOffsets, PaginationType } from "../types/general";
+import {
+  PaginationOptionsForCursors,
+  PaginationOptionsForOffsets,
+  PaginationType
+} from "../types/general";
 import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
 import { GuidanceGroup } from "../models/GuidanceGroup";
-import { getAffiliationsWithGuidanceForTemplate } from "../services/guidanceService";
-import { ResolversParentTypes } from "../types";
+import {
+  getAffiliationsWithGuidanceForTemplate
+} from "../services/guidanceService";
+import {
+  CDN_BASE_URL,
+  getPresignedURLForAffiliationLogo
+} from "../datasources/s3";
+import { UserRole } from "../models/User";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -68,8 +92,8 @@ export const resolvers: Resolvers = {
 
         // Search for affiliations matching the URIs and name filter
         return await AffiliationSearch.searchManagedWithPublishedGuidance(
-          reference, 
-          context, 
+          reference,
+          context,
           name ?? undefined,
           affiliationUris,
           opts
@@ -196,9 +220,86 @@ export const resolvers: Resolvers = {
         throw InternalServerError();
       }
     },
+
+    /**
+     * ADMIN ONLY: Get a presigned URL that can be used to upload an Affiliation logo.
+     *             The URL and fields returned are used to upload the logo to S3.
+     *
+     * @param _ Ignored, this is the entrypoint for the Apollo resolver
+     * @param args the affiliation URI and the file name of the logo
+     * @param context The Apollo context
+     * @returns The Affiliation (with errors if applicable)
+     * @throws NotFoundError when the Affiliation is not found
+     * @throws ForbiddenError when the caller does not have permission
+     * @throws UnauthorizedError when the JWT token is not present
+     * @throws InternalServerError when a fatal error occurred
+     */
+    generateLogoUploadURL: authenticatedResolver(
+      'generateLogoUploadURL resolver',
+      UserRole.ADMIN,
+      async (
+        _: Record<PropertyKey, never>,
+        { affiliationURI, fileName, contentType }: {
+          affiliationURI: string,
+          fileName: string,
+          contentType: string
+        },
+        context: MyContext
+      ): Promise<AffiliationLogoUpload> => {
+        // Make sure the current user's affiliation matches the one specified if they are an ADMIN
+        if (context.token.role === UserRole.ADMIN && context.token.affiliationId === affiliationURI) {
+          return await getPresignedURLForAffiliationLogo(context.logger, affiliationURI, fileName, contentType);
+        }
+        throw ForbiddenError();
+      }),
+
+    /**
+     * ADMIN ONLY: Finalizes the upload of an affiliation logo to the CloudFront CDN S3 bucket.
+     *             The logoName should equal the 'key' from the fields returned by the generateLogoUploadURL mutation.
+     *
+     * @param _ Ignored, this is the entrypoint for the Apollo resolver
+     * @param args the affiliation URI and the name of the logo (S3 key)
+     * @param context The Apollo context
+     * @returns The Affiliation (with errors if applicable)
+     * @throws NotFoundError when the Affiliation is not found
+     * @throws ForbiddenError when the caller does not have permission
+     * @throws UnauthorizedError when the JWT token is not present
+     * @throws InternalServerError when a fatal error occurred
+     */
+    finalizeLogoUpload: authenticatedResolver(
+      'finalizeLogoUpload resolver',
+      UserRole.ADMIN,
+      async (
+        _: Record<PropertyKey, never>,
+        { affiliationURI, logoName }: { affiliationURI: string, logoName: string },
+        context: MyContext
+      ): Promise<Affiliation> => {
+        // Make sure the current user's affiliation matches the one specified if they are an ADMIN
+        if (context.token.role === UserRole.ADMIN && context.token.affiliationId === affiliationURI) {
+          const reference = 'finalizeLogoUpload resolver';
+          const affiliation = await Affiliation.findByURI(reference, context, affiliationURI);
+
+          if (!affiliation) {
+            throw NotFoundError();
+          }
+
+          affiliation.logoName = logoName;
+          const updated = await affiliation.update(context);
+          if (isNullOrUndefined(updated)) {
+            affiliation.addError('general', 'Unable to save the logo at this time');
+            return affiliation;
+          }
+
+          return updated;
+        }
+        throw ForbiddenError();
+      }),
   },
 
   Affiliation: {
+    logoURI: (parent: Affiliation): string => {
+      return `${CDN_BASE_URL}${parent.logoName}`;
+    },
     guidanceGroups: async (parent: ResolversParentTypes['Affiliation'], _, context: MyContext): Promise<GuidanceGroup[]> => {
       const reference = 'Affiliation.guidanceGroups resolver';
       try {

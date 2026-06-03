@@ -23,6 +23,11 @@ export const typeDefs = gql`
     updateAffiliation(input: AffiliationInput!): Affiliation
     "Delete an Affiliation (only applicable to AffiliationProvenance == DMPTOOL)"
     removeAffiliation(affiliationId: Int!): Affiliation
+
+    "Generate a presigned URL to upload an affiliation logo to the CloudFront CDN S3 bucket. The URL and fields returned are used to upload the logo to S3."
+    generateLogoUploadURL(affiliationURI: String!, fileName: String!, contentType: String!): AffiliationLogoUpload
+    "Finalizes the upload of an affiliation logo to the CloudFront CDN S3 bucket. The logoName should equal the 'key' from the fields returned by the generateLogoUploadURL mutation."
+    finalizeLogoUpload(affiliationURI: String!, logoName: String!): Affiliation!
   }
 
   "Search result - An abbreviated version of an Affiliation"
@@ -277,5 +282,12 @@ export const typeDefs = gql`
     feedbackMessage: String
     "The email address(es) to notify when feedback has been requested (stored as JSON array)"
     feedbackEmails: [String]
+  }
+
+  type AffiliationLogoUpload {
+    "The URL to which the affiliation logo should be uploaded"
+    url: String!
+    "The fields that should be included in the body of the POST request to upload the logo (e.g. policy, signature, etc.) stored as a JSON string"
+    fields: String!
   }
 `;

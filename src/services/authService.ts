@@ -27,7 +27,8 @@ export const authenticatedResolver = <TResult, TArgs, TParent = Record<PropertyK
 ): AuthenticatedResolverType<TResult, TArgs, TParent> => {
   return async (parent: TParent, args: TArgs, context: MyContext, info: GraphQLResolveInfo): Promise<TResult> => {
     try {
-      if ((authLevel === UserRole.ADMIN && !isAdmin(context.token))
+      if ((isNullOrUndefined(context.token)
+        || authLevel === UserRole.ADMIN && !isAdmin(context.token))
         || (authLevel === UserRole.SUPERADMIN && !isSuperAdmin(context.token))
         || (authLevel === UserRole.RESEARCHER && !isAuthorized(context.token))
       ) {

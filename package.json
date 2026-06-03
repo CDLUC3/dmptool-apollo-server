@@ -36,7 +36,8 @@
     "npm": ">=11.3.0"
   },
   "overrides": {
-    "qs": "6.15.2"
+    "brace-expansion": "5.0.6",
+    "ws": "8.20.1"
   },
   "dependencies": {
     "@apollo/datasource-rest": "^6.4.1",
@@ -49,7 +50,7 @@
     "@aws-sdk/signature-v4": "^3.374.0",
     "@aws-sdk/util-dynamodb": "^3.996.2",
     "@dmptool/types": "^3.1.5",
-    "@dmptool/utils": "^2.1.1",
+    "@dmptool/utils": "^2.1.2",
     "@elastic/ecs-pino-format": "^1.5.0",
     "@graphql-tools/merge": "^9.1.9",
     "@graphql-tools/mock": "^9.1.7",

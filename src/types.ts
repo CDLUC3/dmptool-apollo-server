@@ -467,6 +467,14 @@ export type AffiliationLinkInput = {
   url: Scalars['String']['input'];
 };
 
+export type AffiliationLogoUpload = {
+  __typename?: 'AffiliationLogoUpload';
+  /** The fields that should be included in the body of the POST request to upload the logo (e.g. policy, signature, etc.) stored as a JSON string */
+  fields: Scalars['String']['output'];
+  /** The URL to which the affiliation logo should be uploaded */
+  url: Scalars['String']['output'];
+};
+
 /** The provenance of an Affiliation record */
 export type AffiliationProvenance =
   /** Created and managed within the DMPTool */
@@ -1460,6 +1468,10 @@ export type Mutation = {
   createTemplateVersion?: Maybe<Template>;
   /** Deactivate the specified user Account (Admin only) */
   deactivateUser?: Maybe<User>;
+  /** Finalizes the upload of an affiliation logo to the CloudFront CDN S3 bucket. The logoName should equal the 'key' from the fields returned by the generateLogoUploadURL mutation. */
+  finalizeLogoUpload: Affiliation;
+  /** Generate a presigned URL to upload an affiliation logo to the CloudFront CDN S3 bucket. The URL and fields returned are used to upload the logo to S3. */
+  generateLogoUploadURL?: Maybe<AffiliationLogoUpload>;
   /** The custom guidance for the custom section */
   guidance?: Maybe<Scalars['String']['output']>;
   /** The introduction to the custom section */
@@ -1872,6 +1884,19 @@ export type MutationCreateTemplateVersionArgs = {
 
 export type MutationDeactivateUserArgs = {
   userId: Scalars['Int']['input'];
+};
+
+
+export type MutationFinalizeLogoUploadArgs = {
+  affiliationURI: Scalars['String']['input'];
+  logoName: Scalars['String']['input'];
+};
+
+
+export type MutationGenerateLogoUploadUrlArgs = {
+  affiliationURI: Scalars['String']['input'];
+  contentType: Scalars['String']['input'];
+  fileName: Scalars['String']['input'];
 };
 
 
@@ -5931,6 +5956,7 @@ export type ResolversTypes = {
   AffiliationInput: AffiliationInput;
   AffiliationLink: ResolverTypeWrapper<AffiliationLink>;
   AffiliationLinkInput: AffiliationLinkInput;
+  AffiliationLogoUpload: ResolverTypeWrapper<AffiliationLogoUpload>;
   AffiliationProvenance: AffiliationProvenance;
   AffiliationSearch: ResolverTypeWrapper<AffiliationSearch>;
   AffiliationSearchResults: ResolverTypeWrapper<AffiliationSearchResults>;
@@ -6180,6 +6206,7 @@ export type ResolversParentTypes = {
   AffiliationInput: AffiliationInput;
   AffiliationLink: AffiliationLink;
   AffiliationLinkInput: AffiliationLinkInput;
+  AffiliationLogoUpload: AffiliationLogoUpload;
   AffiliationSearch: AffiliationSearch;
   AffiliationSearchResults: AffiliationSearchResults;
   AlternateIdentifier: AlternateIdentifier;
@@ -6445,6 +6472,11 @@ export type AffiliationErrorsResolvers<ContextType = MyContext, ParentType exten
 export type AffiliationLinkResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['AffiliationLink'] = ResolversParentTypes['AffiliationLink']> = {
   id?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   text?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  url?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+};
+
+export type AffiliationLogoUploadResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['AffiliationLogoUpload'] = ResolversParentTypes['AffiliationLogoUpload']> = {
+  fields?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   url?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
 };
 
@@ -6953,6 +6985,8 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   completeFeedback?: Resolver<Maybe<ResolversTypes['PlanFeedback']>, ParentType, ContextType, RequireFields<MutationCompleteFeedbackArgs, 'planFeedbackId' | 'planId'>>;
   createTemplateVersion?: Resolver<Maybe<ResolversTypes['Template']>, ParentType, ContextType, RequireFields<MutationCreateTemplateVersionArgs, 'latestPublishVisibility' | 'templateId'>>;
   deactivateUser?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationDeactivateUserArgs, 'userId'>>;
+  finalizeLogoUpload?: Resolver<ResolversTypes['Affiliation'], ParentType, ContextType, RequireFields<MutationFinalizeLogoUploadArgs, 'affiliationURI' | 'logoName'>>;
+  generateLogoUploadURL?: Resolver<Maybe<ResolversTypes['AffiliationLogoUpload']>, ParentType, ContextType, RequireFields<MutationGenerateLogoUploadUrlArgs, 'affiliationURI' | 'contentType' | 'fileName'>>;
   guidance?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   introduction?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   markAsDefaultTemplate?: Resolver<Maybe<ResolversTypes['Template']>, ParentType, ContextType, RequireFields<MutationMarkAsDefaultTemplateArgs, 'templateId'>>;
@@ -8462,6 +8496,7 @@ export type Resolvers<ContextType = MyContext> = {
   AffiliationEmailDomain?: AffiliationEmailDomainResolvers<ContextType>;
   AffiliationErrors?: AffiliationErrorsResolvers<ContextType>;
   AffiliationLink?: AffiliationLinkResolvers<ContextType>;
+  AffiliationLogoUpload?: AffiliationLogoUploadResolvers<ContextType>;
   AffiliationSearch?: AffiliationSearchResolvers<ContextType>;
   AffiliationSearchResults?: AffiliationSearchResultsResolvers<ContextType>;
   AlternateIdentifier?: AlternateIdentifierResolvers<ContextType>;

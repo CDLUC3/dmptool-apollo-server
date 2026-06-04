@@ -114,7 +114,7 @@ export class Affiliation extends MySqlModel {
   // Convert the name, homepage, acronyms and aliases into a search string
   buildSearchName(): string {
     const parts = [this.name, this.getDomain(), this.acronyms, this.aliases];
-    return parts.flat().filter((item) => !isNullOrUndefined(item)).join(' | ').substring(0, 249);
+    return parts.flat().filter(Boolean).join(' | ').substring(0, 249);
   }
 
   // Get the domain from the homepage

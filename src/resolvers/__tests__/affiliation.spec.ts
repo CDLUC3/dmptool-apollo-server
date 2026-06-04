@@ -21,6 +21,10 @@ import {
 import { GuidanceGroup } from '../../models/GuidanceGroup';
 import { getAffiliationsWithGuidanceForTemplate } from '../../services/guidanceService';
 import { getPresignedURLForAffiliationLogo, CDN_BASE_URL } from '../../datasources/s3';
+import {
+  reconcileAffiliationEmailDomains,
+  reconcileAffiliationLinks,
+} from '../../services/affiliationService';
 import { UserRole } from "../../models/User";
 import { buildContext, mockToken } from "../../__mocks__/context";
 
@@ -62,6 +66,10 @@ jest.mock('../../models/Affiliation', () => {
 
 jest.mock('../../models/GuidanceGroup');
 jest.mock('../../services/guidanceService');
+jest.mock('../../services/affiliationService', () => ({
+  reconcileAffiliationEmailDomains: jest.fn(),
+  reconcileAffiliationLinks: jest.fn(),
+}));
 jest.mock('../../datasources/s3', () => ({
   CDN_BASE_URL: 'https://cdn.example.com/',
   getPresignedURLForAffiliationLogo: jest.fn(),
@@ -121,6 +129,17 @@ function buildMockAffiliation(overrides = {}) {
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
+    hasErrors: jest.fn().mockReturnValue(false),
+    ...overrides,
+  };
+}
+
+function buildAffiliationInput(overrides = {}) {
+  return {
+    id: casual.integer(1, 999),
+    displayName: casual.company_name,
+    subHeaderLinks: [],
+    ssoEmailDomains: [],
     ...overrides,
   };
 }
@@ -141,6 +160,9 @@ beforeEach(async () => {
 
   researcherToken = await mockToken();
   researcherToken.role = UserRole.RESEARCHER;
+
+  (reconcileAffiliationLinks as jest.Mock).mockResolvedValue(true);
+  (reconcileAffiliationEmailDomains as jest.Mock).mockResolvedValue(true);
 });
 
 afterEach(() => {
@@ -451,9 +473,11 @@ describe('affiliation resolver', () => {
         create: jest.fn().mockResolvedValue(mockCreated),
       }));
 
-      const result = await executeQuery(query, { input: { name: casual.company_name } }, adminToken);
+      const result = await executeQuery(query, { input: buildAffiliationInput() }, adminToken);
 
       expect(result.body.singleResult.data.addAffiliation.id).toBe(99);
+      expect(reconcileAffiliationLinks).toHaveBeenCalledTimes(1);
+      expect(reconcileAffiliationEmailDomains).not.toHaveBeenCalled();
     });
 
     it('should return a general error when creation returns null', async () => {
@@ -466,7 +490,11 @@ describe('affiliation resolver', () => {
 
       (Affiliation as unknown as jest.Mock).mockImplementation(() => affiliationInstance);
 
-      const result = await executeQuery(query, { input: { name: casual.company_name } }, adminToken);
+      const result = await executeQuery(
+        query,
+        { input: buildAffiliationInput() },
+        adminToken,
+      );
 
       // Resolver calls addError and returns the instance — no top-level GraphQL error
       expect(result.body.singleResult.errors).toBeUndefined();
@@ -492,9 +520,8 @@ describe('affiliation resolver', () => {
 
     it('should return NotFound when affiliation does not exist', async () => {
       (Affiliation.findById as jest.Mock).mockResolvedValue(null);
-      (Affiliation.findByURI as jest.Mock).mockResolvedValue(null);
 
-      const input = { id: 999, name: casual.company_name };
+      const input = buildAffiliationInput({ id: 1, displayName: casual.company_name });
       const result = await executeQuery(query, { input }, superAdminToken);
 
       expect(result.body.singleResult.errors).toBeDefined();
@@ -513,9 +540,16 @@ describe('affiliation resolver', () => {
         id: existing.id,
       }));
 
-      const result = await executeQuery(query, { input: { id: existing.id, name: 'Updated Name' } }, superAdminToken);
+      const input = buildAffiliationInput({
+        id: 1,
+        displayName: 'Updated Name',
+        name: 'Updated Name',
+      });
+      const result = await executeQuery(query, { input }, superAdminToken);
 
       expect(result.body.singleResult.data.updateAffiliation.name).toBe('Updated Name');
+      expect(reconcileAffiliationLinks).toHaveBeenCalledTimes(1);
+      expect(reconcileAffiliationEmailDomains).toHaveBeenCalledTimes(1);
     });
 
     it('should update when the caller is an Admin for the same affiliation', async () => {
@@ -530,9 +564,16 @@ describe('affiliation resolver', () => {
         id: existing.id,
       }));
 
-      const result = await executeQuery(query, { input: { id: existing.id, name: 'Admin Updated' } }, adminToken);
+      const input = buildAffiliationInput({
+        id: 1,
+        displayName: 'Admin Updated',
+        name: 'Admin Updated',
+      });
+      const result = await executeQuery(query, { input }, adminToken);
 
       expect(result.body.singleResult.data.updateAffiliation.name).toBe('Admin Updated');
+      expect(reconcileAffiliationLinks).toHaveBeenCalledTimes(1);
+      expect(reconcileAffiliationEmailDomains).not.toHaveBeenCalled();
     });
 
     it('should return Forbidden when an Admin tries to update a different affiliation', async () => {
@@ -540,7 +581,12 @@ describe('affiliation resolver', () => {
       const existing = buildMockAffiliation({ id: 1, uri: 'https://ror.org/different' });
       (Affiliation.findById as jest.Mock).mockResolvedValue(existing);
 
-      const result = await executeQuery(query, { input: { id: existing.id, name: 'Hacked Name' } }, adminToken);
+      const input = buildAffiliationInput({
+        id: 1,
+        displayName: 'Hacked Name',
+        name: 'Hacked Name',
+      });
+      const result = await executeQuery(query, { input }, adminToken);
 
       expect(result.body.singleResult.errors).toBeDefined();
       expect(result.body.singleResult.errors[0].message).toBe('Forbidden');
@@ -548,9 +594,14 @@ describe('affiliation resolver', () => {
 
     it('should return an error when a researcher tries to update', async () => {
       const existing = buildMockAffiliation({ id: 1, uri: casual.url });
-      (Affiliation.findById as jest.Mock).mockResolvedValue(existing);
+      (Affiliation.findByURI as jest.Mock).mockResolvedValue(existing);
 
-      const result = await executeQuery(query, { input: { id: existing.id, name: 'Hack' } }, researcherToken);
+      const input = buildAffiliationInput({
+        uri: existing.uri,
+        displayName: 'Hack',
+        name: 'Hack',
+      });
+      const result = await executeQuery(query, { input }, researcherToken);
 
       expect(result.body.singleResult.errors).toBeDefined();
     });

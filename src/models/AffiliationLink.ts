@@ -53,6 +53,30 @@ export class AffiliationLink extends MySqlModel {
     return new AffiliationLink(this);
   }
 
+  // Update the link
+  async update(context: MyContext): Promise<AffiliationLink> {
+    const reference = 'AffiliationLink.update';
+    if (!this.id) {
+      this.addError('general', 'The school/department does not exist');
+    }
+
+    if (await this.isValid()) {
+      const updated = await AffiliationLink.update(
+        context,
+        AffiliationLink.tableName,
+        this,
+        reference
+      );
+
+      if (updated) {
+        return await AffiliationLink.findById(reference, context, this.id);
+      }
+    }
+
+    // Otherwise return it with all of its errors
+    return new AffiliationLink(this);
+  }
+
   // Archive this record
   async delete(context: MyContext): Promise<AffiliationLink> {
     if (this.id) {

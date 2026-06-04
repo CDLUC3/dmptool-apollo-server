@@ -369,7 +369,7 @@ export type AffiliationEmailDomainInput = {
   id: Scalars['Int']['input'];
 };
 
-/** A collection of errors related to the Answer */
+/** A collection of errors related to the Affiliation */
 export type AffiliationErrors = {
   __typename?: 'AffiliationErrors';
   acronyms?: Maybe<Scalars['String']['output']>;
@@ -383,26 +383,22 @@ export type AffiliationErrors = {
   /** General error messages such as affiliation already exists */
   general?: Maybe<Scalars['String']['output']>;
   homepage?: Maybe<Scalars['String']['output']>;
-  json?: Maybe<Scalars['String']['output']>;
   logoName?: Maybe<Scalars['String']['output']>;
   logoURI?: Maybe<Scalars['String']['output']>;
   name?: Maybe<Scalars['String']['output']>;
-  planId?: Maybe<Scalars['String']['output']>;
   provenance?: Maybe<Scalars['String']['output']>;
   searchName?: Maybe<Scalars['String']['output']>;
   ssoEntityId?: Maybe<Scalars['String']['output']>;
   subHeaderLinks?: Maybe<Scalars['String']['output']>;
   types?: Maybe<Scalars['String']['output']>;
   uri?: Maybe<Scalars['String']['output']>;
-  versionedQuestionId?: Maybe<Scalars['String']['output']>;
-  versionedSectionId?: Maybe<Scalars['String']['output']>;
 };
 
 /** Input options for adding an Affiliation */
 export type AffiliationInput = {
   /** Acronyms for the affiliation */
   acronyms?: InputMaybe<Array<Scalars['String']['input']>>;
-  /** Whether or not the Affiliation is active and available in search results */
+  /** Whether or not the Affiliation is active and available in search results (SuperAdmin only) */
   active?: InputMaybe<Scalars['Boolean']['input']>;
   /** Alias names for the affiliation */
   aliases?: InputMaybe<Array<Scalars['String']['input']>>;
@@ -410,40 +406,32 @@ export type AffiliationInput = {
   contactEmail?: InputMaybe<Scalars['String']['input']>;
   /** The primary contact name */
   contactName?: InputMaybe<Scalars['String']['input']>;
-  /** The display name to help disambiguate similar names (typically with domain or country appended) */
-  displayName?: InputMaybe<Scalars['String']['input']>;
+  /** The display name that users see */
+  displayName: Scalars['String']['input'];
   /** The email address(es) to notify when feedback has been requested (stored as JSON array) */
   feedbackEmails?: InputMaybe<Array<InputMaybe<Scalars['String']['input']>>>;
   /** Whether or not the affiliation wants to use the feedback workflow */
   feedbackEnabled?: InputMaybe<Scalars['Boolean']['input']>;
   /** The message to display to users when they request feedback */
   feedbackMessage?: InputMaybe<Scalars['String']['input']>;
-  /** Whether or not this affiliation is a funder */
+  /** Whether or not this affiliation should be considered a funder within the DMP Tool */
   funder?: InputMaybe<Scalars['Boolean']['input']>;
-  /** The Crossref Funder id */
-  fundrefId?: InputMaybe<Scalars['String']['input']>;
   /** The official homepage for the affiliation */
   homepage?: InputMaybe<Scalars['String']['input']>;
   /** The id of the affiliation */
-  id?: InputMaybe<Scalars['Int']['input']>;
-  /** The logo file name */
-  logoName?: InputMaybe<Scalars['String']['input']>;
-  /** The URI of the logo */
-  logoURI?: InputMaybe<Scalars['String']['input']>;
-  /** Whether or not the affiliation is allowed to have administrators */
+  id: Scalars['Int']['input'];
+  /** Whether or not the affiliation is allowed to have administrators (SuperAdmin only) */
   managed?: InputMaybe<Scalars['Boolean']['input']>;
-  /** The official name for the affiliation (defined by the system of provenance) */
-  name: Scalars['String']['input'];
-  /** The email domains associated with the affiliation (for SSO) */
+  /** The official name for the affiliation (defined by the system of provenance or a SuperAdmin)) */
+  name?: InputMaybe<Scalars['String']['input']>;
+  /** The email domains associated with the affiliation (for SSO) (SuperAdmin only) */
   ssoEmailDomains?: InputMaybe<Array<AffiliationEmailDomainInput>>;
-  /** The SSO entityId */
+  /** The SSO entityId (SuperAdmin only) */
   ssoEntityId?: InputMaybe<Scalars['String']['input']>;
   /** The links the affiliation's users can use to get help */
   subHeaderLinks?: InputMaybe<Array<AffiliationLinkInput>>;
-  /** The types of the affiliation (e.g. Company, Education, Government, etc.) */
+  /** The types of the affiliation (e.g. Company, Education, etc.) (defined by the system of provenance or a SuperAdmin) */
   types?: InputMaybe<Array<AffiliationType>>;
-  /** The unique identifer for the affiliation (Not editable!) */
-  uri?: InputMaybe<Scalars['String']['input']>;
 };
 
 /** A hyperlink displayed in the sub-header of the UI for the afiliation's users */
@@ -576,7 +564,7 @@ export type Answer = {
   /** The user who created the Object */
   createdById?: Maybe<Scalars['Int']['output']>;
   /** Errors associated with the Object */
-  errors?: Maybe<AffiliationErrors>;
+  errors?: Maybe<AnswerErrors>;
   /** The feedback comments associated with the answer */
   feedbackComments?: Maybe<Array<PlanFeedbackComment>>;
   /** The unique identifer for the Object */
@@ -628,6 +616,17 @@ export type AnswerCommentErrors = {
   commentText?: Maybe<Scalars['String']['output']>;
   /** General error messages such as affiliation already exists */
   general?: Maybe<Scalars['String']['output']>;
+};
+
+/** A collection of errors related to the Answer */
+export type AnswerErrors = {
+  __typename?: 'AnswerErrors';
+  /** General error messages such as answer already exists */
+  general?: Maybe<Scalars['String']['output']>;
+  json?: Maybe<Scalars['String']['output']>;
+  planId?: Maybe<Scalars['String']['output']>;
+  versionedQuestionId?: Maybe<Scalars['String']['output']>;
+  versionedSectionId?: Maybe<Scalars['String']['output']>;
 };
 
 /** An author of a work */
@@ -5966,6 +5965,7 @@ export type ResolversTypes = {
   Answer: ResolverTypeWrapper<Answer>;
   AnswerComment: ResolverTypeWrapper<AnswerComment>;
   AnswerCommentErrors: ResolverTypeWrapper<AnswerCommentErrors>;
+  AnswerErrors: ResolverTypeWrapper<AnswerErrors>;
   Author: ResolverTypeWrapper<Author>;
   AuthorInput: AuthorInput;
   Award: ResolverTypeWrapper<Award>;
@@ -6214,6 +6214,7 @@ export type ResolversParentTypes = {
   Answer: Answer;
   AnswerComment: AnswerComment;
   AnswerCommentErrors: AnswerCommentErrors;
+  AnswerErrors: AnswerErrors;
   Author: Author;
   AuthorInput: AuthorInput;
   Award: Award;
@@ -6454,19 +6455,15 @@ export type AffiliationErrorsResolvers<ContextType = MyContext, ParentType exten
   fundrefId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   general?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   homepage?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  json?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   logoName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   logoURI?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   name?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  planId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   provenance?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   searchName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   ssoEntityId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   subHeaderLinks?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   types?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   uri?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  versionedQuestionId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  versionedSectionId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 };
 
 export type AffiliationLinkResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['AffiliationLink'] = ResolversParentTypes['AffiliationLink']> = {
@@ -6526,7 +6523,7 @@ export type AnswerResolvers<ContextType = MyContext, ParentType extends Resolver
   comments?: Resolver<Maybe<Array<ResolversTypes['AnswerComment']>>, ParentType, ContextType>;
   created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   createdById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  errors?: Resolver<Maybe<ResolversTypes['AffiliationErrors']>, ParentType, ContextType>;
+  errors?: Resolver<Maybe<ResolversTypes['AnswerErrors']>, ParentType, ContextType>;
   feedbackComments?: Resolver<Maybe<Array<ResolversTypes['PlanFeedbackComment']>>, ParentType, ContextType>;
   id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   json?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -6555,6 +6552,14 @@ export type AnswerCommentErrorsResolvers<ContextType = MyContext, ParentType ext
   answerId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   commentText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   general?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+};
+
+export type AnswerErrorsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['AnswerErrors'] = ResolversParentTypes['AnswerErrors']> = {
+  general?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  json?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  planId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  versionedQuestionId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  versionedSectionId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 };
 
 export type AuthorResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['Author'] = ResolversParentTypes['Author']> = {
@@ -8504,6 +8509,7 @@ export type Resolvers<ContextType = MyContext> = {
   Answer?: AnswerResolvers<ContextType>;
   AnswerComment?: AnswerCommentResolvers<ContextType>;
   AnswerCommentErrors?: AnswerCommentErrorsResolvers<ContextType>;
+  AnswerErrors?: AnswerErrorsResolvers<ContextType>;
   Author?: AuthorResolvers<ContextType>;
   Award?: AwardResolvers<ContextType>;
   CollaboratorSearchResult?: CollaboratorSearchResultResolvers<ContextType>;

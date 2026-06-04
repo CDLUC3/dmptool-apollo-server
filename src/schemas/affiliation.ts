@@ -238,50 +238,42 @@ export const typeDefs = gql`
   "Input options for adding an Affiliation"
   input AffiliationInput {
     "The id of the affiliation"
-    id: Int
-    "Whether or not the Affiliation is active and available in search results"
-    active: Boolean
-    "The unique identifer for the affiliation (Not editable!)"
-    uri: String
-    "The official name for the affiliation (defined by the system of provenance)"
-    name: String!
-    "The display name to help disambiguate similar names (typically with domain or country appended)"
-    displayName: String
-    "Whether or not this affiliation is a funder"
+    id: Int!
+    "Whether or not this affiliation should be considered a funder within the DMP Tool"
     funder: Boolean
-    "The Crossref Funder id"
-    fundrefId: String
+    "The display name that users see"
+    displayName: String!
     "The official homepage for the affiliation"
     homepage: String
     "Acronyms for the affiliation"
     acronyms: [String!]
     "Alias names for the affiliation"
     aliases: [String!]
-    "The types of the affiliation (e.g. Company, Education, Government, etc.)"
-    types: [AffiliationType!]
-
-    "Whether or not the affiliation is allowed to have administrators"
-    managed: Boolean
-    "The URI of the logo"
-    logoURI: String
-    "The logo file name"
-    logoName: String
     "The primary contact email"
     contactEmail: String
     "The primary contact name"
     contactName: String
     "The links the affiliation's users can use to get help"
     subHeaderLinks: [AffiliationLinkInput!]
-    "The SSO entityId"
-    ssoEntityId: String
-    "The email domains associated with the affiliation (for SSO)"
-    ssoEmailDomains: [AffiliationEmailDomainInput!]
     "Whether or not the affiliation wants to use the feedback workflow"
     feedbackEnabled: Boolean
     "The message to display to users when they request feedback"
     feedbackMessage: String
     "The email address(es) to notify when feedback has been requested (stored as JSON array)"
     feedbackEmails: [String]
+
+    "The official name for the affiliation (defined by the system of provenance or a SuperAdmin))"
+    name: String
+    "The types of the affiliation (e.g. Company, Education, etc.) (defined by the system of provenance or a SuperAdmin)"
+    types: [AffiliationType!]
+    "Whether or not the affiliation is allowed to have administrators (SuperAdmin only)"
+    managed: Boolean
+    "Whether or not the Affiliation is active and available in search results (SuperAdmin only)"
+    active: Boolean
+    "The SSO entityId (SuperAdmin only)"
+    ssoEntityId: String
+    "The email domains associated with the affiliation (for SSO) (SuperAdmin only)"
+    ssoEmailDomains: [AffiliationEmailDomainInput!]
   }
 
   type AffiliationLogoUpload {

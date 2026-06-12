@@ -3,6 +3,14 @@
 ## v1.1.0
 
 ### Added
+- Added data migration to add `displayAbbreviation` and `displayDomain` to the `affiliations` table
+- Added data migration to backfill those new DB fields
+- Added LocalStack port env variable to the docker compose file and `awsConfig` file
+- Added `deleteAffiliationLogoFile` function to `datasources/s3` and fixed some issues with LocalStack config for S3
+- Added new `displayAbbreviation` and `displayDomain` to the `Affiliation` model and schema
+- Added a lot of inline commenting to `Affiliation` model assist with updates when we switch to use OpenSearch for ROR records
+- Added an `update` function to the `AffiliationLink` model
+- Preemptively added an `update` function to the `AffiliationDepartment` model to support changes when we get around to wiring that page up 
 - Added the `generateLogoUploadURL` and `finalizeLogoUpload` resolvers to the `affiliation` schema.
 - Added new data migration to remove `logoURI` column from `affiliations`. The URI is now generated on the fly by the resolver.
 - Added new `src/datasource/s3.ts` file to provide the CDN URL and to generate presigned URLs for S3 objects.
@@ -90,6 +98,14 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated Trivy scripts to ignore the entire `docker/` directory
+- Updated Localstack startup file to remove unused lambda function and SQS.
+- Bumped version of `@dmptool/utils`
+- Refactored `Affiliation` model to support admin changes and added `buildAbbreviation` helper function
+- Updated `MySQLModel.reconcileAssociationIds` to accept both a number and a string. This required some minor changes throughout the code to use `id as number` when calling the function.
+- Refactored the `affiliation` resolver to use the `authenticatedResolver` resolver wrapper function, support for updating org details, logo updates, logo removal, and added chained resolvers for `subHeaderLinks` and `ssoEmaiDomains`
+- Fixed a bug where the `Answer` schema was using `AffiliationErrors`
+- Added functions to the `affiliationService` to help reconcile changes to `ssoEmailDomains` and `affiliationLinks`
 - Updated `awsConfig` to move SES properties underneath the `ses` property
 - Updated `uuid` and `@testcontainers/mysql` dependencies
 - Updated methods for the `PlanSectionProgress` class to return `totalRequiredQuestions` and `answeredRequiredQuestions`, and updated unit tests and `PlanSectionProgress` schema [#249]
@@ -182,6 +198,7 @@
 - Updates to appease newer version of eslint
 
 ### Removed
+- Removed unused SQS env variable from example dotenv file
 - Removed overrides for `ws` and `brace-expansion` dependencies
 - Removed overrides for fast-xml-parser, @node-oauth/oauth2-server and protobufjs
 - Removed old overrides for `"flatted`, `handlebars`, `lodash`, `path-to-regexp`, `picomatch`, and `protobufjs`

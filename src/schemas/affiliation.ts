@@ -232,7 +232,7 @@ export const typeDefs = gql`
   "Input options for adding an Affiliation"
   input AffiliationInput {
     "The id of the affiliation"
-    id: Int!
+    id: Int
     "Whether or not this affiliation should be considered a funder within the DMP Tool"
     funder: Boolean
     "The display name that users see"

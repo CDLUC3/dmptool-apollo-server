@@ -416,7 +416,7 @@ export type AffiliationInput = {
   /** The official homepage for the affiliation */
   homepage?: InputMaybe<Scalars['String']['input']>;
   /** The id of the affiliation */
-  id: Scalars['Int']['input'];
+  id?: InputMaybe<Scalars['Int']['input']>;
   /** The name of the logo file (S3 key) */
   logoName?: InputMaybe<Scalars['String']['input']>;
   /** Whether or not the affiliation is allowed to have administrators (SuperAdmin only) */

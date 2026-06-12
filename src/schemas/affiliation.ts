@@ -40,6 +40,10 @@ export const typeDefs = gql`
     name: String!
     "A user display name for the affiliation (typically the name with domain or country appended)"
     displayName: String!
+    "The abbreviation to display in the UI"
+    displayAbbreviation: String
+    "The homepage of the affiliation"
+    homepage: String
     "Whether or not this affiliation is a funder"
     funder: Boolean!
     "The categories the Affiliation belongs to"
@@ -130,6 +134,10 @@ export const typeDefs = gql`
     name: String!
     "The display name to help disambiguate similar names (typically with domain or country appended)"
     displayName: String!
+    "The abbreviation to display in the UI"
+    displayAbbreviation: String
+    "The domain name of the affiliation to display in the UI"
+    displayDomain: String
     "The combined name, homepage, aliases and acronyms to facilitate search"
     searchName: String!
     "Whether or not this affiliation is a funder"
@@ -159,15 +167,13 @@ export const typeDefs = gql`
     "The SSO entityId"
     ssoEntityId: String
     "The email domains associated with the affiliation (for SSO)"
-    ssoEmailDomains: [AffiliationEmailDomain!]
+    ssoEmailDomains: [String!]
     "Whether or not the affiliation wants to use the feedback workflow"
     feedbackEnabled: Boolean!
     "The message to display to users when they request feedback"
     feedbackMessage: String
     "The email address(es) to notify when feedback has been requested (stored as JSON array)"
     feedbackEmails: [String!]
-    "The properties of this object that are NOT editable. Determined by the record's provenance"
-    uneditableProperties: [String!]!
     "The API URL that can be used to search for project/award information"
     apiTarget: String
 
@@ -183,8 +189,9 @@ export const typeDefs = gql`
     provenance: String
     name: String
     displayName: String
+    displayAbbreviation: String
+    displayDomain: String
     searchName: String
-    fundrefId: String
     homepage: String
     acronyms: String
     aliases: String
@@ -193,7 +200,10 @@ export const typeDefs = gql`
     logoName: String
     contactEmail: String
     contactName: String
+    fundrefId: String
+    rorId: String
     ssoEntityId: String
+    ssoEmailDomains: String
     feedbackMessage: String
     feedbackEmails: String
     subHeaderLinks: String
@@ -202,37 +212,21 @@ export const typeDefs = gql`
   "Input for a hyperlink displayed in the sub-header of the UI for the afiliation's users"
   input AffiliationLinkInput {
     "Unique identifier for the link"
-    id: Int!
+    id: Int
     "The URL"
     url: String!
     "The text to display (e.g. Helpdesk, Grants Office, etc.)"
     text: String
-  }
-
-  "Input for email domains linked to the affiliation for purposes of determining if SSO is applicable"
-  input AffiliationEmailDomainInput {
-    "Unique identifier for the email domain"
-    id: Int!
-    "The email domain (e.g. example.com, law.example.com, etc.)"
-    domain: String!
   }
 
     "A hyperlink displayed in the sub-header of the UI for the afiliation's users"
   type AffiliationLink {
     "Unique identifier for the link"
-    id: Int!
+    id: Int
     "The URL"
     url: String!
     "The text to display (e.g. Helpdesk, Grants Office, etc.)"
     text: String
-  }
-
-  "Email domains linked to the affiliation for purposes of determining if SSO is applicable"
-  type AffiliationEmailDomain {
-    "Unique identifier for the email domain"
-    id: Int!
-    "The email domain (e.g. example.com, law.example.com, etc.)"
-    domain: String!
   }
 
   "Input options for adding an Affiliation"
@@ -243,6 +237,10 @@ export const typeDefs = gql`
     funder: Boolean
     "The display name that users see"
     displayName: String!
+    "The abbreviation to display in the UI"
+    displayAbbreviation: String
+    "The domain name of the affiliation to display in the UI"
+    displayDomain: String
     "The official homepage for the affiliation"
     homepage: String
     "Acronyms for the affiliation"
@@ -255,6 +253,8 @@ export const typeDefs = gql`
     contactName: String
     "The links the affiliation's users can use to get help"
     subHeaderLinks: [AffiliationLinkInput!]
+    "The name of the logo file (S3 key)"
+    logoName: String
     "Whether or not the affiliation wants to use the feedback workflow"
     feedbackEnabled: Boolean
     "The message to display to users when they request feedback"
@@ -270,10 +270,16 @@ export const typeDefs = gql`
     managed: Boolean
     "Whether or not the Affiliation is active and available in search results (SuperAdmin only)"
     active: Boolean
+    "The Crossref funder id"
+    fundrefId: String
+    "The ROR id"
+    rorId: String
     "The SSO entityId (SuperAdmin only)"
     ssoEntityId: String
     "The email domains associated with the affiliation (for SSO) (SuperAdmin only)"
-    ssoEmailDomains: [AffiliationEmailDomainInput!]
+    ssoEmailDomains: [String!]
+    "The URI of the affiliation's API to use for project search"
+    apiTarget: String
   }
 
   type AffiliationLogoUpload {
@@ -281,5 +287,12 @@ export const typeDefs = gql`
     url: String!
     "The fields that should be included in the body of the POST request to upload the logo (e.g. policy, signature, etc.) stored as a JSON string"
     fields: String!
+    "Any errors related to generating the logo upload URL"
+    errors: AffiliationLogoUploadErrors
+  }
+
+  type AffiliationLogoUploadErrors {
+    "General error message related to generating the logo upload URL"
+    general: String!
   }
 `;

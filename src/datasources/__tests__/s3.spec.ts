@@ -21,9 +21,13 @@ const loadS3Module = async (): Promise<typeof import("../s3")> => {
 
 const getMockedUtils = (): {
   getPresignedURLForImageUpload: jest.Mock;
+  removeObject: jest.Mock;
+  toErrorMessage: jest.Mock;
 } => {
   return jest.requireMock("@dmptool/utils") as {
 	  getPresignedURLForImageUpload: jest.Mock;
+    removeObject: jest.Mock;
+    toErrorMessage: jest.Mock;
   };
 };
 
@@ -53,7 +57,7 @@ describe("src/datasources/s3", () => {
 	    const { CDN_BASE_URL } = await loadS3Module();
 
 	    expect(CDN_BASE_URL).toBe(
-		    "https://test-bucket.s3.us-west-2.amazonaws.com"
+		    "http://localhost:4566/test-bucket/"
 	    );
 	  });
 
@@ -63,7 +67,7 @@ describe("src/datasources/s3", () => {
 
 	    const { CDN_BASE_URL } = await loadS3Module();
 
-	    expect(CDN_BASE_URL).toBe("https://cdn.localhost:3000");
+	    expect(CDN_BASE_URL).toBe("https://cdn.localhost:3000/");
 	  });
   });
 
@@ -259,9 +263,78 @@ describe("src/datasources/s3", () => {
 	    expect(logger.error).not.toHaveBeenCalled();
 	  });
   });
+
+  describe("deleteAffiliationLogoFile", () => {
+    it("returns true when S3 responds with DeleteMarker: true", async () => {
+      const logger = buildLogger();
+      const { deleteAffiliationLogoFile } = await loadS3Module();
+      const { removeObject } = getMockedUtils();
+
+      removeObject.mockResolvedValue({ DeleteMarker: true });
+
+      const result = await deleteAffiliationLogoFile(logger, "logos/ror.org/12345/logo.png");
+
+      expect(result).toBe(true);
+      expect(removeObject).toHaveBeenCalledWith(
+        logger,
+        "test-bucket",
+        "logos/ror.org/12345/logo.png",
+        "http://localstack:4566",
+        "us-west-2"
+      );
+      expect(logger.debug).toHaveBeenCalledWith(
+        expect.objectContaining({ logoName: "logos/ror.org/12345/logo.png", bucket: "test-bucket" }),
+        "Removing Affiliation logo from S3"
+      );
+    });
+
+    it("returns false when S3 responds with DeleteMarker: false", async () => {
+      const logger = buildLogger();
+      const { deleteAffiliationLogoFile } = await loadS3Module();
+      const { removeObject } = getMockedUtils();
+
+      removeObject.mockResolvedValue({ DeleteMarker: false });
+
+      const result = await deleteAffiliationLogoFile(logger, "logos/ror.org/12345/logo.png");
+
+      expect(result).toBe(false);
+      expect(removeObject).toHaveBeenCalledTimes(1);
+    });
+
+    it("returns false when removeObject returns a falsy response", async () => {
+      const logger = buildLogger();
+      const { deleteAffiliationLogoFile } = await loadS3Module();
+      const { removeObject } = getMockedUtils();
+
+      removeObject.mockResolvedValue(null);
+
+      const result = await deleteAffiliationLogoFile(logger, "logos/ror.org/12345/logo.png");
+
+      expect(result).toBe(false);
+    });
+
+    it("returns false and logs fatal when removeObject throws", async () => {
+      const logger = buildLogger() as Logger & { fatal: jest.Mock };
+      (logger as unknown as Record<string, unknown>).fatal = jest.fn();
+      const { deleteAffiliationLogoFile } = await loadS3Module();
+      const { removeObject, toErrorMessage } = getMockedUtils();
+
+      const error = new Error("S3 connection refused");
+      removeObject.mockRejectedValue(error);
+      toErrorMessage.mockReturnValue("S3 connection refused");
+
+      const result = await deleteAffiliationLogoFile(logger, "logos/ror.org/12345/logo.png");
+
+      expect(result).toBe(false);
+      expect((logger as unknown as { fatal: jest.Mock }).fatal).toHaveBeenCalledWith(
+        expect.objectContaining({
+          logoName: "logos/ror.org/12345/logo.png",
+          bucket: "test-bucket",
+          error: "S3 connection refused",
+        }),
+        "Unable to remove object from S3"
+      );
+    });
+  });
 });
-
-
-
-
 

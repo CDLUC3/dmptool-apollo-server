@@ -36,7 +36,8 @@ beforeEach(async () => {
 
   mockFindByName = jest.fn().mockImplementation((_, __, name) => {
     return affiliationStore.find((entry) => {
-      return entry.name.toLowerCase().trim() === name.toLowerCase().trim();
+      return entry.name?.toLowerCase()?.trim() === name?.toLowerCase()?.trim()
+        || entry.displayName?.toLowerCase()?.trim() === name?.toLowerCase()?.trim();
     });
   });
   (Affiliation.findByName as jest.Mock) = mockFindByName;
@@ -75,16 +76,16 @@ describe('processOtherAffiliationName', () => {
   it('returns the id of the new affiliation', async () => {
     // Mock the finder method
     const name = 'Other Affiliation Test';
-    affiliationStore.push(new Affiliation({ id: casual.integer(1, 9999), name: casual.company_name }));
+    affiliationStore.push(new Affiliation({ id: casual.integer(1, 9999), displayName: casual.company_name }));
 
     const result = await processOtherAffiliationName(context, name);
     expect(result.id).toEqual(affiliationStore[1].id);
-    expect(result.name).toEqual(affiliationStore[1].name);
+    expect(result.name).toEqual(affiliationStore[1].displayName);
+    expect(result.displayName).toEqual(affiliationStore[1].displayName);
     expect(result.provenance).toEqual(AffiliationProvenance.DMPTOOL);
     expect(result.uri.includes(DEFAULT_DMPTOOL_AFFILIATION_URL)).toBe(true);
     expect(result.types).toEqual([AffiliationType.OTHER]);
     expect(result.active).toBe(true);
-    expect(result.uneditableProperties).toEqual(['uri', 'provenance', 'searchName']);
   });
 });
 
@@ -95,6 +96,7 @@ describe('reconcileAffiliationEmailDomains', () => {
     return {
       id: casual.integer(1, 999),
       uri: 'https://ror.org/12345',
+      displayName: casual.company_name,
       addError: jest.fn(),
       ...overrides,
     } as unknown as Affiliation;
@@ -120,13 +122,7 @@ describe('reconcileAffiliationEmailDomains', () => {
       .mockResolvedValue([existing]);
     const reconcileSpy = jest
       .spyOn(Affiliation, 'reconcileAssociationIds')
-      .mockReturnValue({ idsToBeRemoved: [11], idsToBeSaved: [22] });
-    const findByIdSpy = jest
-      .spyOn(AffiliationEmailDomain, 'findById')
-      .mockImplementation(async (_, __, id: number) => {
-        if (id === 11) return existing;
-        return null;
-      });
+      .mockReturnValue({ idsToBeRemoved: ['old.edu'], idsToBeSaved: ['new.edu'] });
 
     (existing.delete as jest.Mock).mockResolvedValue(existing);
     (desired.create as jest.Mock).mockResolvedValue(desired);
@@ -144,10 +140,10 @@ describe('reconcileAffiliationEmailDomains', () => {
       context,
       affiliation.uri,
     );
-    expect(reconcileSpy).toHaveBeenCalledWith([11], [22]);
-    expect(findByIdSpy).toHaveBeenCalledTimes(2);
+    expect(reconcileSpy).toHaveBeenCalledWith(['old.edu'], ['new.edu']);
     expect(existing.delete).toHaveBeenCalledWith(context);
     expect(desired.create).toHaveBeenCalledWith(context);
+    expect(desired.affiliationId).toBe(affiliation.uri);
     expect(affiliation.addError).not.toHaveBeenCalled();
   });
 
@@ -158,12 +154,8 @@ describe('reconcileAffiliationEmailDomains', () => {
 
     jest.spyOn(AffiliationEmailDomain, 'findByAffiliationId').mockResolvedValue([existing]);
     jest.spyOn(Affiliation, 'reconcileAssociationIds').mockReturnValue({
-      idsToBeRemoved: [11],
-      idsToBeSaved: [22],
-    });
-    jest.spyOn(AffiliationEmailDomain, 'findById').mockImplementation(async (_, __, id: number) => {
-      if (id === 11) return existing;
-      return null;
+      idsToBeRemoved: ['old.edu'],
+      idsToBeSaved: ['new.edu'],
     });
 
     (existing.delete as jest.Mock).mockResolvedValue(null);
@@ -192,9 +184,8 @@ describe('reconcileAffiliationEmailDomains', () => {
       .mockResolvedValue([]);
     jest.spyOn(Affiliation, 'reconcileAssociationIds').mockReturnValue({
       idsToBeRemoved: [],
-      idsToBeSaved: [22],
+      idsToBeSaved: ['new.edu'],
     });
-    jest.spyOn(AffiliationEmailDomain, 'findById').mockResolvedValue(null);
     (desired.create as jest.Mock).mockResolvedValue(desired);
 
     const result = await reconcileAffiliationEmailDomains(
@@ -237,35 +228,26 @@ describe('reconcileAffiliationLinks', () => {
   it('removes stale links, updates existing links, and adds new links', async () => {
     const affiliation = buildAffiliation();
     const existing = buildLink({ id: 101, url: 'https://old.edu/1' });
-    const toUpdate = buildLink({ id: 202, url: 'https://update.edu/2' });
     const toAdd = buildLink({ id: 303, url: 'https://new.edu/3' });
 
     jest.spyOn(AffiliationLink, 'findByAffiliationId').mockResolvedValue([existing]);
     jest.spyOn(Affiliation, 'reconcileAssociationIds').mockReturnValue({
-      idsToBeRemoved: [101],
-      idsToBeSaved: [202, 303],
-    });
-    jest.spyOn(AffiliationLink, 'findById').mockImplementation(async (_, __, id: number) => {
-      if (id === 101) return existing;
-      if (id === 202) return toUpdate;
-      return null;
+      idsToBeRemoved: ['https://old.edu/1'],
+      idsToBeSaved: ['https://new.edu/3'],
     });
 
     (existing.delete as jest.Mock).mockResolvedValue(existing);
-    (toUpdate.update as jest.Mock).mockResolvedValue(toUpdate);
-    (toUpdate.hasErrors as jest.Mock).mockReturnValue(false);
     (toAdd.create as jest.Mock).mockResolvedValue(toAdd);
 
     const result = await reconcileAffiliationLinks(
       context,
       reference,
       affiliation,
-      [toUpdate, toAdd],
+      [toAdd],
     );
 
     expect(result).toBe(true);
     expect(existing.delete).toHaveBeenCalledWith(context);
-    expect(toUpdate.update).toHaveBeenCalledWith(context);
     expect(toAdd.create).toHaveBeenCalledWith(context);
     expect(affiliation.addError).not.toHaveBeenCalled();
   });
@@ -273,36 +255,28 @@ describe('reconcileAffiliationLinks', () => {
   it('adds a combined affiliationLinks error when remove/add/update operations fail', async () => {
     const affiliation = buildAffiliation();
     const existing = buildLink({ id: 101, url: 'https://old.edu/1' });
-    const toUpdate = buildLink({ id: 202, url: 'https://update.edu/2' });
     const toAdd = buildLink({ id: 303, url: 'https://new.edu/3' });
 
     jest.spyOn(AffiliationLink, 'findByAffiliationId').mockResolvedValue([existing]);
     jest.spyOn(Affiliation, 'reconcileAssociationIds').mockReturnValue({
-      idsToBeRemoved: [101],
-      idsToBeSaved: [202, 303],
-    });
-    jest.spyOn(AffiliationLink, 'findById').mockImplementation(async (_, __, id: number) => {
-      if (id === 101) return existing;
-      if (id === 202) return toUpdate;
-      return null;
+      idsToBeRemoved: ['https://old.edu/1'],
+      idsToBeSaved: ['https://new.edu/3'],
     });
 
     (existing.delete as jest.Mock).mockResolvedValue(null);
-    (toUpdate.update as jest.Mock).mockResolvedValue(toUpdate);
-    (toUpdate.hasErrors as jest.Mock).mockReturnValue(true);
     (toAdd.create as jest.Mock).mockResolvedValue(null);
 
     const result = await reconcileAffiliationLinks(
       context,
       reference,
       affiliation,
-      [toUpdate, toAdd],
+      [toAdd],
     );
 
     expect(result).toBe(false);
     expect(affiliation.addError).toHaveBeenCalledWith(
-      'affiliationLinks',
-      'unable to remove links: https://old.edu/1; unable to add links: https://new.edu/3; unable to update links: https://update.edu/2',
+      'subHeaderLinks',
+      'unable to remove links: https://old.edu/1; unable to add links: https://new.edu/3',
     );
   });
 
@@ -315,9 +289,8 @@ describe('reconcileAffiliationLinks', () => {
       .mockResolvedValue([]);
     jest.spyOn(Affiliation, 'reconcileAssociationIds').mockReturnValue({
       idsToBeRemoved: [],
-      idsToBeSaved: [303],
+      idsToBeSaved: ['https://new.edu/3'],
     });
-    jest.spyOn(AffiliationLink, 'findById').mockResolvedValue(null);
     (toAdd.create as jest.Mock).mockResolvedValue(toAdd);
 
     const result = await reconcileAffiliationLinks(

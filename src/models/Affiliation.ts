@@ -33,14 +33,12 @@ export class Affiliation extends MySqlModel {
   public uri: string;
   public active: boolean;
   public provenance: AffiliationProvenance;
-  public name!: string;
   public displayName: string;
-  public searchName: string;
+  public displayAbbreviation: string;
+  public homepage: string;
+  public displayDomain: string;
   public funder: boolean;
   public fundrefId: string;
-  public homepage: string;
-  public acronyms: string[];
-  public aliases: string[];
   public types: AffiliationType[];
 
   public managed: boolean;
@@ -53,7 +51,12 @@ export class Affiliation extends MySqlModel {
   public feedbackEmails: string[];
   public apiTarget: string;
 
-  public uneditableProperties: string[];
+  // TODO: Remove these once we've migrated ROR data to OpenSearch. They will
+  //       instead be referenced via chained resolvers that look at OS
+  public name!: string;
+  public searchName: string;
+  public acronyms: string[];
+  public aliases: string[];
 
   private tableName = 'affiliations';
 
@@ -65,14 +68,12 @@ export class Affiliation extends MySqlModel {
     this.uri = options.uri;
     this.active = options.active ?? true;
     this.provenance = options.provenance ?? AffiliationProvenance.DMPTOOL;
-    this.name = options.name;
     this.displayName = options.displayName;
-    this.searchName = options.searchName;
+    this.displayAbbreviation = options.displayAbbreviation;
+    this.homepage = options.homepage;
+    this.displayDomain = options.displayDomain;
     this.funder = options.funder ?? false;
     this.fundrefId = options.fundrefId
-    this.homepage = options.homepage;
-    this.acronyms = options.acronyms ?? [];
-    this.aliases = options.aliases ?? [];
     this.types = options.types ?? [AffiliationType.OTHER];
 
     // Properties specific to the DMPTool. These can be modified regardless of the record's provenance
@@ -81,21 +82,24 @@ export class Affiliation extends MySqlModel {
     this.contactEmail = options.contactEmail;
     this.contactName = options.contactName;
     this.ssoEntityId = options.ssoEntityId;
-    this.feedbackEnabled = options.feedbackEnabled;
+    this.feedbackEnabled = options.feedbackEnabled || false;
     this.feedbackMessage = options.feedbackMessage;
     this.feedbackEmails = options.feedbackEmails;
 
     // We're proxying calls to funder APIs through the DMPHub API for now. This may change in the future
     this.apiTarget = options.apiTarget;
 
-    this.uneditableProperties = ['uri', 'provenance', 'searchName'];
+    // TODO: Remove these once we've migrated ROR data to OpenSearch. They will
+    //       instead be referenced via chained resolvers that look at OS
+    this.name = options.name;
+    this.searchName = options.searchName;
+    this.acronyms = options.acronyms ?? [];
+    this.aliases = options.aliases ?? [];
 
-    // Records owned by the DMPTool can edit these additional properties
-    if (this.provenance === AffiliationProvenance.ROR) {
-      ['name', 'funder', 'fundrefId', 'homepage', 'acronyms', 'aliases', 'types'].forEach((entry) => {
-        this.uneditableProperties.push(entry);
-      });
-    }
+    // Use the specified provenance (if it is a known provenance) OR set it based on the URI
+    this.provenance = options.provenance
+      ? AffiliationProvenance[options.provenance] || AffiliationProvenance.DMPTOOL
+      : this.uri?.includes(DEFAULT_ROR_AFFILIATION_URL) ? AffiliationProvenance.ROR : AffiliationProvenance.DMPTOOL;
   }
 
   // Validate the Affiliation
@@ -103,19 +107,42 @@ export class Affiliation extends MySqlModel {
     await super.isValid();
 
     if (!validateURL(this.uri)) this.addError('uri', 'Invalid URL');
-    if (!this.name) this.addError('name', 'Name can\'t be blank');
     if (!this.displayName) this.addError('displayName', 'Display name can\'t be blank');
-    if (!this.searchName) this.addError('searchName', 'Search name can\'t be blank');
+    if (!this.displayAbbreviation) this.addError('displayAbbreviation', 'Abbreviation can\'t be blank');
     if (!this.provenance) this.addError('provenance', 'Provenance can\'t be blank');
+
+    // TODO: Remove these once we've migrated ROR data to OpenSearch. They will
+    //       instead be referenced via chained resolvers that look at OS
+    if (!this.name) this.addError('name', 'Name can\'t be blank');
+    if (!this.searchName) this.addError('searchName', 'Search name can\'t be blank');
 
     return Object.keys(this.errors).length === 0;
   }
 
+  // TODO: Remove searchName once we've migrated ROR data to OpenSearch
   // Convert the name, homepage, acronyms and aliases into a search string
   buildSearchName(): string {
-    const parts = [this.name, this.getDomain(), this.acronyms, this.aliases];
+    const parts = [
+      this.displayName || this.name, // The user defined name or the ROR name
+      this.displayDomain || this.getDomain(), // The user defined domain or calc from ROR homepage
+      this.displayAbbreviation, // The user defined abbreviation
+      this.acronyms, // All ROR acronyms
+      this.aliases // All ROR aliases
+    ];
     return parts.flat().filter(Boolean).join(' | ').substring(0, 249);
   }
+
+  buildAbbreviation(): string {
+    const nameParts: string[] = this.displayName.split(" ").filter((word) => word.length > 0);
+
+    // If the name had at least 2 words, use the first letter of each word. If not use the first 5 letters of the name
+    return nameParts.length > 1
+      ? nameParts
+        .slice(0, 4)
+        .map((word) => word[0].toUpperCase())
+        .join("")
+      : this.displayName.replace(" ", "").slice(0, 4).toUpperCase();
+  };
 
   // Get the domain from the homepage
   getDomain(): string {
@@ -130,21 +157,26 @@ export class Affiliation extends MySqlModel {
 
   // Perform tasks necessary to prepare the data to be saved
   prepForSave(): void {
-    this.name = this.name?.trim();
+    this.displayName = this.displayName?.trim();
+    this.displayAbbreviation = this.displayAbbreviation?.trim() || this.buildAbbreviation();
+    this.homepage = this.homepage?.trim();
+    this.displayDomain = this.displayDomain?.trim() || this.getDomain();
     this.managed = this.managed ?? false;
     this.feedbackEnabled = this.feedbackEnabled ?? false;
-    this.acronyms = this.acronyms ?? [];
-    this.aliases = this.aliases ?? [];
     this.types = this.types ?? [AffiliationType.OTHER];
     this.feedbackEmails = this.feedbackEmails ?? [];
+
+    // TODO: Remove these once we've migrated ROR data to OpenSearch. They will
+    //       instead be referenced via chained resolvers that look at OS
+    this.name = this.name ? this.name?.trim() : this.displayName;
     this.searchName = this.buildSearchName();
-    if (!this.displayName) {
-      this.displayName = this.homepage ? `${this.name} (${this.getDomain()})` : this.name;
-    }
+    this.acronyms = this.acronyms ?? [];
+    this.aliases = this.aliases ?? [];
   }
 
   // Save the current record
   async create(context: MyContext): Promise<Affiliation> {
+    const reference = 'Affiliation.create';
     let current;
 
     // First make sure the record doesn't already exist based on the URI
@@ -155,7 +187,11 @@ export class Affiliation extends MySqlModel {
       this.uri = `${DEFAULT_DMPTOOL_AFFILIATION_URL}${randomHex(6)}`;
     }
 
-    current = current ?? await Affiliation.findByName('Affiliation.create', context, this.name);
+    current = current ?? await Affiliation.findByName(
+      reference,
+      context,
+      this.displayName || this.name
+    );
 
     // Then make sure it doesn't already exist
     if (current) {
@@ -170,10 +206,9 @@ export class Affiliation extends MySqlModel {
           context,
           this.tableName,
           this,
-          'Affiliation.create',
-          ['uneditableProperties']
+          reference
         );
-        return await Affiliation.findById('Affiliation.create', context, newId);
+        return await Affiliation.findById(reference, context, newId);
       }
     }
 
@@ -185,33 +220,24 @@ export class Affiliation extends MySqlModel {
   async update(context: MyContext): Promise<Affiliation> {
     const reference = 'Affiliation.update';
     if (this.id) {
+      const existing = await Affiliation.findById(reference, context, this.id);
+      this.prepForSave();
+
+      // TODO: We need to figure out how to handle changing the ROR id once OS is in place.
+      //       For now, we leave it as is
+      this.uri = existing.uri;
+
+      // The following fields can never be modified here, they are auto-managed
+      this.provenance = existing.provenance;
+      this.searchName = existing.searchName;
+
       if (await this.isValid()) {
-        const existing = await Affiliation.findById(reference, context, this.id);
-
-        // If the record is NOT managed by the DMP Tool then do not allow some fields to be changed
-        if (this.provenance !== AffiliationProvenance.DMPTOOL) {
-          this.uri = existing.uri;
-          this.name = existing.name;
-          this.provenance = existing.provenance;
-          this.funder = existing.funder;
-          this.types = existing.types;
-          this.fundrefId = existing.fundrefId;
-          this.homepage = existing.homepage;
-          this.aliases = existing.aliases;
-          this.acronyms = existing.acronyms;
-        }
-
-        // The following fields can never be modified here, they are auto-managed
-        this.provenance = existing.provenance;
-        this.searchName = existing.searchName;
-        this.prepForSave();
-
         const updated = await Affiliation.update(
           context,
           this.tableName,
           this,
           reference,
-          ['uneditableProperties', this.uneditableProperties].flat()
+          ['ssoEmailDomains']
         );
 
         if (updated) {
@@ -260,7 +286,18 @@ export class Affiliation extends MySqlModel {
           affiliation.types.push(AffiliationType[typ.toLocaleUpperCase()]);
         }
       }
+    } else {
+      // It's already an array so just filter out any invalid types
+      const typs = affiliation.types.map(typ => typ.toUpperCase())
+        .filter((typ) => AffiliationType[typ] !== undefined);
+      affiliation.types = typs.map(typ => AffiliationType[typ]);
     }
+
+    // Prevent an empty type array
+    if (!affiliation.types || affiliation.types.length === 0) {
+      affiliation.types = [AffiliationType.OTHER];
+    }
+
     return new Affiliation(affiliation);
   }
 
@@ -280,8 +317,9 @@ export class Affiliation extends MySqlModel {
 
   // Return the specified Affiliation based on it's name
   static async findByName(reference: string, context: MyContext, name: string): Promise<Affiliation> {
-    const sql = 'SELECT * FROM affiliations WHERE TRIM(LOWER(name)) = ?';
-    const results = await Affiliation.query(context, sql, [name?.toLowerCase()?.trim()], reference);
+    const sql = 'SELECT * FROM affiliations WHERE TRIM(LOWER(name)) = ? OR TRIM(LOWER(displayName)) = ?';
+    const trimmed = name?.toLowerCase()?.trim()
+    const results = await Affiliation.query(context, sql, [trimmed, trimmed], reference);
     return Array.isArray(results) && results.length > 0 ? this.processResult(results[0]) : null;
   }
 
@@ -300,6 +338,8 @@ export class AffiliationSearch {
   public uri!: string;
   public name!: string;
   public displayName!: string;
+  public displayAbbreviation: string;
+  public displayDomain: string;
   public funder!: boolean;
   public types: AffiliationType[];
   public aliases: string[];
@@ -312,6 +352,8 @@ export class AffiliationSearch {
     this.uri = options.uri;
     this.name = options.name;
     this.displayName = options.displayName;
+    this.displayAbbreviation = options.displayAbbreviation;
+    this.displayDomain = options.displayDomain;
     this.funder = options.funder ?? false;
     this.types = options.types ?? [AffiliationType.OTHER];
     this.aliases = options.aliases ?? [];
@@ -389,6 +431,15 @@ export class AffiliationSearch {
       reference,
     )
 
+    // Combine the name and homepage domain to help disambiguated similar names
+    if (Array.isArray(response.items)) {
+      for (const affiliation of response.items) {
+        affiliation.displayName = affiliation.displayName.includes(' (')
+          ? affiliation.displayName
+          : `${affiliation.displayName} (${affiliation.displayDomain || affiliation.displayAbbreviation})`;
+      }
+    }
+
     context.logger.debug(prepareObjectForLogs({ options, response }), reference);
     return response;
   }
@@ -453,6 +504,15 @@ export class AffiliationSearch {
       opts,
       reference,
     );
+
+    // Combine the name and homepage domain to help disambiguated similar names
+    if (Array.isArray(response.items)) {
+      for (const affiliation of response.items) {
+        affiliation.displayName = affiliation.displayName.includes(' (')
+          ? affiliation.displayName
+          : `${affiliation.displayName} (${affiliation.displayDomain || affiliation.displayAbbreviation})`;
+      }
+    }
 
     return response;
   }

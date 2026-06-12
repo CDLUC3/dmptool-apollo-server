@@ -56,10 +56,11 @@ export const planToDMPCommonStandard = jest.fn();
 // ── rds ────────────────────────────────────────────────────────────────────
 export const queryTable = jest.fn();
 
-// ── s3 ─────────────────────────────────────────────────────────────────────
+// ── s3 ─────────────────────────────────────────────────────────────────
 export const listObjects = jest.fn();
 export const getObject = jest.fn();
 export const putObject = jest.fn();
+export const removeObject = jest.fn();
 export const getPresignedURL = jest.fn();
 export const getPresignedURLForImageUpload = jest.fn();
 

@@ -889,6 +889,93 @@ describe('ProjectCollaborator', () => {
     });
   });
 
+  describe('findPrimaryUserByProjectId', () => {
+    const originalQuery = ProjectCollaborator.query;
+
+    let localQuery;
+    let projectId;
+
+    beforeEach(async () => {
+      jest.resetAllMocks();
+      projectId = casual.integer(1, 999);
+
+      localQuery = jest.fn();
+      (ProjectCollaborator.query as jest.Mock) = localQuery;
+    });
+
+    afterEach(() => {
+      jest.clearAllMocks();
+      ProjectCollaborator.query = originalQuery;
+    });
+
+    it('returns null when no results are found', async () => {
+      localQuery.mockResolvedValueOnce([]);
+
+      const result = await ProjectCollaborator.findPrimaryUserByProjectId(
+        'Test', context, projectId
+      );
+      expect(localQuery).toHaveBeenCalledTimes(1);
+      expect(result).toBeNull();
+    });
+
+    it('returns null when query returns a non-array', async () => {
+      localQuery.mockResolvedValueOnce(null);
+
+      const result = await ProjectCollaborator.findPrimaryUserByProjectId(
+        'Test', context, projectId
+      );
+      expect(result).toBeNull();
+    });
+
+    it('returns a ProjectCollaboratorWithUser with affiliationId from the result row', async () => {
+      const affiliationId = casual.uuid;
+      const row = {
+        collaboratorId: casual.integer(1, 99),
+        projectId,
+        email: casual.email,
+        accessLevel: 'PRIMARY',
+        collaboratorCreated: new Date().toISOString(),
+        userId: casual.integer(1, 99),
+        affiliationId,
+        active: 1,
+      };
+      localQuery.mockResolvedValueOnce([row]);
+
+      const result = await ProjectCollaborator.findPrimaryUserByProjectId(
+        'Test', context, projectId
+      );
+      expect(localQuery).toHaveBeenCalledTimes(1);
+      expect(localQuery).toHaveBeenCalledWith(
+        context,
+        expect.stringContaining('pc.accessLevel = "PRIMARY"'),
+        [projectId.toString()],
+        'Test',
+      );
+      expect(result).toBeInstanceOf(ProjectCollaborator);
+      expect(result.affiliationId).toEqual(affiliationId);
+    });
+
+    it('sets affiliationId to null when the row has no affiliationId', async () => {
+      const row = {
+        collaboratorId: casual.integer(1, 99),
+        projectId,
+        email: casual.email,
+        accessLevel: 'PRIMARY',
+        collaboratorCreated: new Date().toISOString(),
+        userId: casual.integer(1, 99),
+        affiliationId: null,
+        active: 1,
+      };
+      localQuery.mockResolvedValueOnce([row]);
+
+      const result = await ProjectCollaborator.findPrimaryUserByProjectId(
+        'Test', context, projectId
+      );
+      expect(result).toBeInstanceOf(ProjectCollaborator);
+      expect(result.affiliationId).toBeNull();
+    });
+  });
+
   describe('findPotentialCollaboratorByORCID', () => {
     const originalFindByOrcid = User.findByOrcid;
     const originalProjectMemberFindByOrcid = ProjectCollaborator.findPotentialCollaboratorByORCID;

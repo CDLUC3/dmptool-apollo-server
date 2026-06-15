@@ -4,7 +4,8 @@ import { Plan, PlanSearchResult, PlanSectionProgress, PlanProgress, PlanStatus, 
 import { prepareObjectForLogs } from "../logger";
 import { AuthenticationError, ForbiddenError, InternalServerError, NotFoundError } from "../utils/graphQLErrors";
 import { Project } from "../models/Project";
-import { User } from "../models/User";
+import { User, UserRole } from "../models/User";
+import { ProjectCollaborator } from "../models/Collaborator";
 import { isAuthorized } from "../services/authService";
 import { hasPermissionOnProject } from "../services/projectService";
 import { PlanMember } from "../models/Member";
@@ -19,7 +20,13 @@ import {
   ensureDefaultPlanContact,
   saveMaDMPVersion
 } from "../services/planService";
-import {AlternateIdentifier} from "../models/AlternateIdentifier";
+import { AlternateIdentifier } from "../models/AlternateIdentifier";
+
+const WRITE_ACCESS_LEVELS = new Set([
+  ProjectCollaboratorAccessLevel.OWN,
+  ProjectCollaboratorAccessLevel.PRIMARY,
+]);
+
 
 export const resolvers: Resolvers = {
   Query: {
@@ -62,7 +69,26 @@ export const resolvers: Resolvers = {
         }
 
         if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.COMMENT)) {
-          return plan;
+          // If user is a collaborator on the project, then readOnly = false
+          const callerCollaborator = await ProjectCollaborator.findByUserIdAndProjectId(
+            reference, context, context.token?.id, project.id
+          );
+          if (WRITE_ACCESS_LEVELS.has(callerCollaborator?.accessLevel)) {
+            return Object.assign(plan, { readOnly: false }) as Plan & { readOnly: boolean };
+          }
+
+          // Super Admins always have readOnly access to all plans
+          if (context.token?.role === UserRole.SUPERADMIN) {
+            return Object.assign(plan, { readOnly: true }) as Plan & { readOnly: boolean };
+          }
+
+          // If the user is an ADMIN under the same org as the primary, they have readOnly access
+          const primaryCollaborator = await ProjectCollaborator.findPrimaryUserByProjectId(reference, context, project.id);
+          if ((primaryCollaborator.affiliationId === context.token?.affiliationId) && context.token?.role === UserRole.ADMIN) {
+            return Object.assign(plan, { readOnly: true }) as Plan & { readOnly: boolean };
+          }
+
+          return Object.assign(plan, { readOnly: true }) as Plan & { readOnly: boolean };
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();
       } catch (err) {
@@ -74,7 +100,7 @@ export const resolvers: Resolvers = {
     },
 
     // Find a Plan by its DMP id
-    planByDMPId: async(_, { dmpId }, context: MyContext): Promise<Plan> => {
+    planByDMPId: async (_, { dmpId }, context: MyContext): Promise<Plan> => {
       const reference = 'planByDMPId resolver';
       try {
         const plan = await Plan.findByDMPId(reference, context, dmpId);
@@ -100,7 +126,7 @@ export const resolvers: Resolvers = {
     },
 
     // Lookup a Plan by its alternate identifier
-    planByAlternateIdentifier: async(_, { alternateIdentifier }, context: MyContext): Promise<Plan> => {
+    planByAlternateIdentifier: async (_, { alternateIdentifier }, context: MyContext): Promise<Plan> => {
       const reference = 'planByAlternateIdentifier resolver';
       try {
         const identifier: AlternateIdentifier = await AlternateIdentifier.findByAlternateIdentifier(
@@ -163,7 +189,7 @@ export const resolvers: Resolvers = {
               }
 
               // Generate the initial maDMP version of the record
-              await saveMaDMPVersion(reference, context, created.id);
+              await saveMaDMPVersion(reference, context, created.id, created.dmpId);
             }
 
             return created;
@@ -199,7 +225,7 @@ export const resolvers: Resolvers = {
 
               if (deleted) {
                 // Delete the maDMP versions of the record
-                await saveMaDMPVersion(reference, context, deleted.id, true);
+                await saveMaDMPVersion(reference, context, deleted.id, deleted.dmpId, true);
               }
             } else {
               return plan;
@@ -275,7 +301,7 @@ export const resolvers: Resolvers = {
 
                   if (published && !published.hasErrors()) {
                     // Update the maDMP version of the record
-                    await saveMaDMPVersion(reference, context, plan.id);
+                    await saveMaDMPVersion(reference, context, plan.id, plan.dmpId);
                   }
                   return published;
                 }
@@ -302,14 +328,16 @@ export const resolvers: Resolvers = {
             throw NotFoundError(`Plan with id ${planId} not found`);
           }
           const project = await Project.findById(reference, context, plan.projectId);
+
           if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.OWN)) {
             plan.status = status as PlanStatus;
             const updated = await plan.update(context);
 
             if (updated && !updated.hasErrors()) {
               // Update the maDMP version of the record
-              await saveMaDMPVersion(reference, context, updated.id);
+              await saveMaDMPVersion(reference, context, updated.id, updated.dmpId);
             }
+            return updated;
           }
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();
@@ -336,8 +364,9 @@ export const resolvers: Resolvers = {
 
             if (updated && !updated.hasErrors()) {
               // Update the maDMP version of the record
-              await saveMaDMPVersion(reference, context, updated.id);
+              await saveMaDMPVersion(reference, context, updated.id, updated.dmpId);
             }
+            return updated;
           }
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();
@@ -359,14 +388,16 @@ export const resolvers: Resolvers = {
             throw NotFoundError(`Plan with id ${planId} not found`);
           }
           const project = await Project.findById(reference, context, plan.projectId);
+
           if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.OWN)) {
             const identifier: AlternateIdentifier = new AlternateIdentifier({ planId, alternateIdentifier });
 
             const created: AlternateIdentifier = await identifier.create(context);
             if (created && !created.hasErrors()) {
               // Update the maDMP version of the record
-              await saveMaDMPVersion(reference, context, planId);
+              await saveMaDMPVersion(reference, context, planId, plan.dmpId);
             }
+            return plan;
           }
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();
@@ -404,8 +435,9 @@ export const resolvers: Resolvers = {
             const deleted = await identifier.delete(context);
             if (deleted && !deleted.hasErrors()) {
               // Update the maDMP version of the record
-              await saveMaDMPVersion(reference, context, planId);
+              await saveMaDMPVersion(reference, context, planId, plan.dmpId);
             }
+            return plan;
           }
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();

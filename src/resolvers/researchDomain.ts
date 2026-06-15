@@ -42,6 +42,23 @@ export const resolvers: Resolvers = {
         throw InternalServerError();
       }
     },
+
+    // search for research domains by the specified URI
+    researchDomainByURI: async (_, { uri }, context: MyContext): Promise<ResearchDomain> => {
+      const reference = 'researchDomains resolver';
+      try {
+        if (isAuthorized(context.token)) {
+          return await ResearchDomain.findByURI(reference, context, uri);
+        }
+        // Unauthorized access
+        throw context?.token ? ForbiddenError() : AuthenticationError();
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    }
   },
   ResearchDomain: {
     parentResearchDomain: async (parent: ResearchDomain, _, context: MyContext): Promise<ResearchDomain | null> => {

@@ -2,11 +2,6 @@ import { GraphQLResolveInfo, GraphQLScalarType, GraphQLScalarTypeConfig } from '
 import { MyContext } from './context';
 export type Maybe<T> = T | null;
 export type InputMaybe<T> = Maybe<T>;
-export type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] };
-export type MakeOptional<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]?: Maybe<T[SubKey]> };
-export type MakeMaybe<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]: Maybe<T[SubKey]> };
-export type MakeEmpty<T extends { [key: string]: unknown }, K extends keyof T> = { [_ in K]?: never };
-export type Incremental<T> = T | { [P in keyof T]?: P extends ' $fragmentName' | '__typename' ? T[P] : never };
 export type Omit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>;
 export type RequireFields<T, K extends keyof T> = Omit<T, K> & { [P in K]-?: NonNullable<T[P]> };
 /** All built-in and custom scalars, mapped to their actual values */
@@ -16,11 +11,11 @@ export type Scalars = {
   Boolean: { input: boolean; output: boolean; }
   Int: { input: number; output: number; }
   Float: { input: number; output: number; }
-  DateTimeISO: { input: any; output: any; }
-  DmspId: { input: any; output: any; }
-  EmailAddress: { input: any; output: any; }
-  MD5: { input: any; output: any; }
-  Orcid: { input: any; output: any; }
+  DateTimeISO: { input: unknown; output: unknown; }
+  DmspId: { input: unknown; output: unknown; }
+  EmailAddress: { input: unknown; output: unknown; }
+  MD5: { input: unknown; output: unknown; }
+  Orcid: { input: unknown; output: unknown; }
   /**
    * Repository type values follow the re3data standard:
    * - disciplinary: A discipline specific repository (e.g. GeneCards, Arctic Data Centre, etc.)
@@ -30,9 +25,9 @@ export type Scalars = {
    * - project-related: A repository created to support a specific project or initiative (e.g. Human Genome Project)
    * - governmental: A repository owned and managed by a government entity (e.g. NCBI, NASA)
    */
-  RepositoryTypeValue: { input: any; output: any; }
-  Ror: { input: any; output: any; }
-  URL: { input: any; output: any; }
+  RepositoryTypeValue: { input: unknown; output: unknown; }
+  Ror: { input: unknown; output: unknown; }
+  URL: { input: string; output: string; }
 };
 
 /** Input parameters for adding a custom section to a funder template */
@@ -484,14 +479,18 @@ export type AffiliationSearch = {
   __typename?: 'AffiliationSearch';
   /** The acronyms for the affiliation */
   acronyms?: Maybe<Array<Scalars['String']['output']>>;
+  /** The aliases for the affiliation */
+  aliases?: Maybe<Array<Scalars['String']['output']>>;
   /** Has an API that be used to search for project/award information */
   apiTarget?: Maybe<Scalars['String']['output']>;
-  /** The official display name */
+  /** A user display name for the affiliation (typically the name with domain or country appended) */
   displayName: Scalars['String']['output'];
   /** Whether or not this affiliation is a funder */
   funder: Scalars['Boolean']['output'];
   /** The unique identifer for the affiliation */
   id: Scalars['Int']['output'];
+  /** The official name for the affiliation (defined by the system of provenance) */
+  name: Scalars['String']['output'];
   /** The categories the Affiliation belongs to */
   types?: Maybe<Array<AffiliationType>>;
   /** The URI of the affiliation (typically the ROR id) */
@@ -1261,6 +1260,8 @@ export type MemberRole = {
   errors?: Maybe<MemberRoleErrors>;
   /** The unique identifer for the Object */
   id?: Maybe<Scalars['Int']['output']>;
+  /** Whether this is the default role */
+  isDefault?: Maybe<Scalars['Boolean']['output']>;
   /** The Ui label to display for the member role */
   label: Scalars['String']['output'];
   /** The timestamp when the Object was last modifed */
@@ -2449,6 +2450,8 @@ export type Plan = {
   progress?: Maybe<PlanProgress>;
   /** The project the plan is associated with */
   project?: Maybe<Project>;
+  /** Indicates that the plan is not editable by the user (i.e. readOnly = true means the user cannot edit the plan) */
+  readOnly?: Maybe<Scalars['Boolean']['output']>;
   /** The timestamp for when the Plan was registered */
   registered?: Maybe<Scalars['String']['output']>;
   /** The individual who registered the plan */
@@ -3306,6 +3309,8 @@ export type Query = {
   repository?: Maybe<CustomRepository>;
   /** return all distinct subject area keywords across all repositories */
   repositorySubjectAreas?: Maybe<Array<Scalars['String']['output']>>;
+  /** Get for research domains by its URI */
+  researchDomainByURI?: Maybe<ResearchDomain>;
   /** Get the research output type by it's id */
   researchOutputType?: Maybe<ResearchOutputType>;
   /** Get the research output type by it's name */
@@ -3718,6 +3723,11 @@ export type QueryRepositoriesByUrIsArgs = {
 
 
 export type QueryRepositoryArgs = {
+  uri: Scalars['String']['input'];
+};
+
+
+export type QueryResearchDomainByUriArgs = {
   uri: Scalars['String']['input'];
 };
 
@@ -6432,10 +6442,12 @@ export type AffiliationLinkResolvers<ContextType = MyContext, ParentType extends
 
 export type AffiliationSearchResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['AffiliationSearch'] = ResolversParentTypes['AffiliationSearch']> = {
   acronyms?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
+  aliases?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
   apiTarget?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   displayName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   funder?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   types?: Resolver<Maybe<Array<ResolversTypes['AffiliationType']>>, ParentType, ContextType>;
   uri?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
 };
@@ -6840,6 +6852,7 @@ export type MemberRoleResolvers<ContextType = MyContext, ParentType extends Reso
   displayOrder?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   errors?: Resolver<Maybe<ResolversTypes['MemberRoleErrors']>, ParentType, ContextType>;
   id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  isDefault?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
   label?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
@@ -7069,6 +7082,7 @@ export type PlanResolvers<ContextType = MyContext, ParentType extends ResolversP
   planCreator?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType>;
   progress?: Resolver<Maybe<ResolversTypes['PlanProgress']>, ParentType, ContextType>;
   project?: Resolver<Maybe<ResolversTypes['Project']>, ParentType, ContextType>;
+  readOnly?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
   registered?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   registeredById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   status?: Resolver<Maybe<ResolversTypes['PlanStatus']>, ParentType, ContextType>;
@@ -7514,6 +7528,7 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   repositoriesByURIs?: Resolver<Maybe<Array<ResolversTypes['CustomRepository']>>, ParentType, ContextType, RequireFields<QueryRepositoriesByUrIsArgs, 'uris'>>;
   repository?: Resolver<Maybe<ResolversTypes['CustomRepository']>, ParentType, ContextType, RequireFields<QueryRepositoryArgs, 'uri'>>;
   repositorySubjectAreas?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
+  researchDomainByURI?: Resolver<Maybe<ResolversTypes['ResearchDomain']>, ParentType, ContextType, RequireFields<QueryResearchDomainByUriArgs, 'uri'>>;
   researchOutputType?: Resolver<Maybe<ResolversTypes['ResearchOutputType']>, ParentType, ContextType, RequireFields<QueryResearchOutputTypeArgs, 'id'>>;
   researchOutputTypeByName?: Resolver<Maybe<ResolversTypes['ResearchOutputType']>, ParentType, ContextType, RequireFields<QueryResearchOutputTypeByNameArgs, 'name'>>;
   searchExternalProjects?: Resolver<Maybe<Array<Maybe<ResolversTypes['ExternalProject']>>>, ParentType, ContextType, RequireFields<QuerySearchExternalProjectsArgs, 'input'>>;

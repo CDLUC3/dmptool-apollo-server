@@ -1,5 +1,5 @@
 import {prepareObjectForLogs} from '../logger';
-import {RelatedWorkStatsResults, Resolvers} from '../types';
+import {OpenSearchWork, RelatedWorkStatsResults, Resolvers} from '../types';
 import {MyContext} from '../context';
 import {isAuthorized} from '../services/authService';
 import {
@@ -139,7 +139,9 @@ export const resolvers: Resolvers = {
 
               // Convert OpenSearch results to related works
               return {
-                items: openSearchWorks.map((os)=> {
+                items: openSearchWorks.map((os: OpenSearchWork)=> {
+                  const osHash: string = os.hash ? os.hash.toString() : "";
+
                   return {
                     id: null,
                     planId: planId,
@@ -150,7 +152,7 @@ export const resolvers: Resolvers = {
                         id: null,
                         doi: os.doi,
                       },
-                      hash: Buffer.from(os.hash, 'hex'),
+                      hash: Buffer.from(osHash, 'hex'),
                       workType: os.workType,
                       publicationDate: os.publicationDate,
                       title: os.title,
@@ -279,7 +281,8 @@ export const resolvers: Resolvers = {
                 }
 
                 // Fetch or create work version
-                let workVersion = await WorkVersion.findByDoiAndHash(reference, context, input.doi, Buffer.from(input.hash, 'hex'));
+                const osHash: string = input.hash ? input.hash.toString() : "";
+                let workVersion = await WorkVersion.findByDoiAndHash(reference, context, input.doi, Buffer.from(osHash, 'hex'));
                 if (!workVersion) {
                   // Lookup work in OpenSearch
                   const openSearchWorks =  await openSearchFindWorkByIdentifier(
@@ -298,8 +301,9 @@ export const resolvers: Resolvers = {
 
                   // Create work version
                   const os = openSearchWorks[0];
+                  const osHash: string = os.hash ? os.hash.toString() : "";
                   workVersion = new WorkVersion({
-                    hash: Buffer.from(os.hash, 'hex'),
+                    hash: Buffer.from(osHash, 'hex'),
                     workType: os.workType,
                     publicationDate: os.publicationDate,
                     title: os.title,
@@ -374,11 +378,12 @@ export const resolvers: Resolvers = {
               }
 
               // Fetch or create work version
-              let workVersion = await WorkVersion.findByDoiAndHash(reference, context, input.doi, Buffer.from(input.hash, 'hex'));
+              const osHash: string = input.hash ? input.hash.toString() : "";
+              let workVersion = await WorkVersion.findByDoiAndHash(reference, context, input.doi, Buffer.from(osHash, 'hex'));
               if (!workVersion) {
                 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                const { planId, doi, hash, ...options } = input;
-                workVersion = new WorkVersion({ ...options, hash: Buffer.from(hash, 'hex') });
+                const { planId, doi, ...options } = input;
+                workVersion = new WorkVersion({ ...options, hash: Buffer.from(osHash, 'hex') });
                 workVersion.workId = work.id;
                 workVersion = await workVersion.create(context, work.doi);
               }

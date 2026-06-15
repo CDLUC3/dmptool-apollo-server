@@ -31,7 +31,9 @@ export const typeDefs = gql`
     id: Int!
     "The URI of the affiliation (typically the ROR id)"
     uri: String!
-    "The official display name"
+    "The official name for the affiliation (defined by the system of provenance)"
+    name: String!
+    "A user display name for the affiliation (typically the name with domain or country appended)"
     displayName: String!
     "Whether or not this affiliation is a funder"
     funder: Boolean!
@@ -39,6 +41,8 @@ export const typeDefs = gql`
     types: [AffiliationType!]
     "Has an API that be used to search for project/award information"
     apiTarget: String
+    "The aliases for the affiliation"
+    aliases: [String!]
     "The acronyms for the affiliation"
     acronyms: [String!]
   }

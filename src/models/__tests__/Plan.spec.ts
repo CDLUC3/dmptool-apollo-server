@@ -441,7 +441,7 @@ describe('PlanSectionProgress.findByPlanId', () => {
     const customSection1 = { id: 10, name: 'Custom1', pinnedSectionType: 'BASE', pinnedSectionId: 1, totalQuestions: 3 };
     // Circular: customSection2 pinned to customSection1, customSection1 pinned to customSection2
     const customSection2 = { id: 11, name: 'Custom2', pinnedSectionType: 'CUSTOM', pinnedSectionId: 10, totalQuestions: 2 };
-        // Now, customSection1 is also pinned to customSection2 (circular)
+    // Now, customSection1 is also pinned to customSection2 (circular)
     customSection1.pinnedSectionId = 11;
     localQuery.mockResolvedValueOnce([baseSection]); // base sections
 
@@ -1048,6 +1048,7 @@ describe('update', () => {
     localValidator.mockResolvedValue(true);
 
     updateQuery.mockResolvedValueOnce(plan);
+    const findById = jest.spyOn(Plan, 'findById').mockResolvedValueOnce(plan);
 
     const result = await plan.update(context);
 
@@ -1055,6 +1056,7 @@ describe('update', () => {
     expect(updateQuery).toHaveBeenCalledTimes(1);
     expect(Object.keys(result.errors).length).toBe(0);
     expect(result).toBeInstanceOf(Plan);
+    findById.mockRestore();
   });
 
   it('does not do any versioning if noTouch is true', async () => {
@@ -1063,12 +1065,14 @@ describe('update', () => {
     localValidator.mockResolvedValue(true);
 
     updateQuery.mockResolvedValueOnce(plan);
+    const findById = jest.spyOn(Plan, 'findById').mockResolvedValueOnce(plan);
 
     const result = await plan.update(context, true);
     expect(localValidator).toHaveBeenCalledTimes(1);
     expect(updateQuery).toHaveBeenCalledTimes(1);
     expect(Object.keys(result.errors).length).toBe(0);
     expect(result).toBeInstanceOf(Plan);
+    findById.mockRestore();
   });
 
   it('does not do any versioning if the Plan update failed', async () => {
@@ -1081,7 +1085,7 @@ describe('update', () => {
     const result = await plan.update(context);
     expect(localValidator).toHaveBeenCalledTimes(1);
     expect(updateQuery).toHaveBeenCalledTimes(1);
-    expect(Object.keys(result.errors).length).toBe(0);
+    expect(Object.keys(result.errors).length).toBe(1);
     expect(result).toBeInstanceOf(Plan);
   });
 });

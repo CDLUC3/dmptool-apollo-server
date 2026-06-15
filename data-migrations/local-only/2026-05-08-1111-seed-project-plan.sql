@@ -1,7 +1,7 @@
 
 -- Published template with a Research Outputs Question
 INSERT INTO `templates`
-VALUES (394,NULL,NULL,'Research Output Template',NULL,'https://ror.org/03yrm5c26','PUBLIC','v1','2026-05-08 18:26:00',0,0,'en-US',2,'2026-05-08 18:19:11',2,'2026-05-08 18:25:45');
+VALUES (394,NULL,NULL,'Research Output Template',NULL,'https://ror.org/03yrm5c26','PUBLIC','v1','2026-05-08 18:26:00',0,0,0,'en-US',2,'2026-05-08 18:19:11',2,'2026-05-08 18:25:45');
 
 INSERT INTO `sections`
 VALUES (1814,394,NULL,'Selection and Preservation','<p>This is the introduction to the section ....</p>','<p>These are the section requirements: A, B, C, D</p>','<p>This is guidance specific to the Section (not tagged guidance)</p>',1,0,0,2,'2026-05-08 18:19:26',2,'2026-05-08 18:20:34');
@@ -17,7 +17,7 @@ VALUES (3688,394,1814,NULL,3,0,'Please describe each dataset and software your p
 (3686,394,1814,645,1,0,'<p>Which data are of long-term value and should be retained, shared, and/or preserved?</p>','{"meta": {"schemaVersion": "1.0"}, "type": "textArea", "attributes": {"cols": 20, "rows": 2, "asRichText": true}}',NULL,'<p>&nbsp;</p><p class="guidance_header">Questions to consider:</p><ul><li>What data must be retained/destroyed for contractual, legal, or regulatory purposes?</li><li>How will you decide what other data to keep?</li><li>What are the foreseeable research uses for the data?</li><li>How long will the data be retained and preserved?</li></ul><p>Consider how the data may be reused e.g. to validate your research findings, conduct new studies, or for teaching. Decide which data to keep and for how long. This could be based on any obligations to retain certain data, the potential reuse value, what is economically viable to keep, and any additional effort required to prepare the data for data sharing and preservation. Remember to consider any additional effort required to prepare the data for sharing and preservation, such as changing file formats.</p><p>&nbsp;</p>',NULL,0,0,2,'2026-05-08 18:19:26',2,'2026-05-08 18:19:26');
 
 INSERT INTO `versionedTemplates`
-VALUES (968,394,1,'v1','PUBLISHED',2,'initial release','Research Output Template',NULL,'https://ror.org/03yrm5c26','PUBLIC',0,'en-US','2026-05-08 18:26:00',2,'2026-05-08 18:26:00',2);
+VALUES (968,394,1,'v1','PUBLISHED',2,'initial release','Research Output Template',NULL,'https://ror.org/03yrm5c26','PUBLIC',0,0,'en-US','2026-05-08 18:26:00',2,'2026-05-08 18:26:00',2);
 
 INSERT INTO `versionedSections`
 VALUES (6356,968,1814,'Selection and Preservation','<p>This is the introduction to the section ....</p>','<p>These are the section requirements: A, B, C, D</p>','<p>This is guidance specific to the Section (not tagged guidance)</p>',1,0,'2026-05-08 18:26:00',2,'2026-05-08 18:26:00',2);

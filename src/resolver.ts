@@ -6,6 +6,7 @@ import { orcidScalar } from './resolvers/scalars/orcid';
 import { rorScalar } from './resolvers/scalars/ror';
 import { md5Scalar } from "./resolvers/scalars/md5";
 
+import { resolvers as adminNotificationResolvers } from './resolvers/adminNotifications';
 import { resolvers as affiliationResolvers } from './resolvers/affiliation';
 import { resolvers as answerResolvers } from './resolvers/answer';
 import { resolvers as collaboratorResolvers } from './resolvers/collaborator';
@@ -49,7 +50,7 @@ const scalarResolvers = {
 
 export const resolvers: IResolvers = mergeResolvers([
   scalarResolvers,
-
+  adminNotificationResolvers,
   affiliationResolvers,
   answerResolvers,
   collaboratorResolvers,

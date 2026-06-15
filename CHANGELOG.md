@@ -10,7 +10,10 @@
 - Added new `displayAbbreviation` and `displayDomain` to the `Affiliation` model and schema
 - Added a lot of inline commenting to `Affiliation` model assist with updates when we switch to use OpenSearch for ROR records
 - Added an `update` function to the `AffiliationLink` model
-- Preemptively added an `update` function to the `AffiliationDepartment` model to support changes when we get around to wiring that page up 
+- Preemptively added an `update` function to the `AffiliationDepartment` model to support changes when we get around to wiring that page up
+- Added overrides for `form-data`, `js-yaml` and `protobufjs` dependencies
+- Added `adminNotifications` model, resolver and db table. [#570]
+- Added `findByIdWithTemplateName` method to `TemplateCustomization` model so that we can return the template name [#570]
 - Added the `generateLogoUploadURL` and `finalizeLogoUpload` resolvers to the `affiliation` schema.
 - Added new data migration to remove `logoURI` column from `affiliations`. The URI is now generated on the fly by the resolver.
 - Added new `src/datasource/s3.ts` file to provide the CDN URL and to generate presigned URLs for S3 objects.
@@ -106,6 +109,8 @@
 - Refactored the `affiliation` resolver to use the `authenticatedResolver` resolver wrapper function, support for updating org details, logo updates, logo removal, and added chained resolvers for `subHeaderLinks` and `ssoEmaiDomains`
 - Fixed a bug where the `Answer` schema was using `AffiliationErrors`
 - Added functions to the `affiliationService` to help reconcile changes to `ssoEmailDomains` and `affiliationLinks`
+- Updated version on `ws` override
+- Updated `requestFeedback`, `addTemplate` and `publishTemplateCustomization` resolvers to add a record to the `adminNotifications` table [#570]
 - Updated `awsConfig` to move SES properties underneath the `ses` property
 - Updated `uuid` and `@testcontainers/mysql` dependencies
 - Updated methods for the `PlanSectionProgress` class to return `totalRequiredQuestions` and `answeredRequiredQuestions`, and updated unit tests and `PlanSectionProgress` schema [#249]
@@ -199,6 +204,7 @@
 
 ### Removed
 - Removed unused SQS env variable from example dotenv file
+- Removed override for `brace-expansion` dependency
 - Removed overrides for `ws` and `brace-expansion` dependencies
 - Removed overrides for fast-xml-parser, @node-oauth/oauth2-server and protobufjs
 - Removed old overrides for `"flatted`, `handlebars`, `lodash`, `path-to-regexp`, `picomatch`, and `protobufjs`

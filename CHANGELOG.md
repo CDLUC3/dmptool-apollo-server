@@ -3,6 +3,8 @@
 ## v1.1.0
 
 ### Added
+- Added `adminNotifications` model, resolver and db table. [#570]
+- Added `findByIdWithTemplateName` method to `TemplateCustomization` model so that we can return the template name [#570]
 - Added the `generateLogoUploadURL` and `finalizeLogoUpload` resolvers to the `affiliation` schema.
 - Added new data migration to remove `logoURI` column from `affiliations`. The URI is now generated on the fly by the resolver.
 - Added new `src/datasource/s3.ts` file to provide the CDN URL and to generate presigned URLs for S3 objects.
@@ -90,6 +92,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `requestFeedback`, `addTemplate` and `publishTemplateCustomization` resolvers to add a record to the `adminNotifications` table [#570]
 - Updated `awsConfig` to move SES properties underneath the `ses` property
 - Updated `uuid` and `@testcontainers/mysql` dependencies
 - Updated methods for the `PlanSectionProgress` class to return `totalRequiredQuestions` and `answeredRequiredQuestions`, and updated unit tests and `PlanSectionProgress` schema [#249]

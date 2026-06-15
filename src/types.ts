@@ -284,6 +284,96 @@ export type AddTemplateCustomizationInput = {
   versionedTemplateId: Scalars['Int']['input'];
 };
 
+/** A collection of errors related to the Section */
+export type AdminNotificationErrors = {
+  __typename?: 'AdminNotificationErrors';
+  /** General error messages such as the object already exists */
+  general?: Maybe<Scalars['String']['output']>;
+};
+
+export type AdminNotificationMetadata = {
+  __typename?: 'AdminNotificationMetadata';
+  /** The associated plan Id for the notification, if applicable */
+  planId?: Maybe<Scalars['Int']['output']>;
+  /** The associated template customization Id for the notification, if applicable */
+  templateCustomizationId?: Maybe<Scalars['Int']['output']>;
+  /** The associated template Id for the notification, if applicable */
+  templateId?: Maybe<Scalars['Int']['output']>;
+};
+
+export type AdminNotificationMetadataInput = {
+  /** The associated plan Id for the notification, if applicable */
+  planId?: InputMaybe<Scalars['Int']['input']>;
+  /** The associated template customization Id for the notification, if applicable */
+  templateCustomizationId?: InputMaybe<Scalars['Int']['input']>;
+  /** The associated template Id for the notification, if applicable */
+  templateId?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type AdminNotificationOptions = {
+  /** The affiliation associated with the notification */
+  affiliationId: Scalars['String']['input'];
+  /** Whether the notification has been read */
+  isRead?: InputMaybe<Scalars['Boolean']['input']>;
+  /** Additional data providing the associated Ids for the notification */
+  metadata?: InputMaybe<AdminNotificationMetadataInput>;
+  /** The type of notification */
+  notificationType: AdminNotificationType;
+};
+
+export type AdminNotificationResults = {
+  __typename?: 'AdminNotificationResults';
+  /** The affiliation associated with the notification */
+  affiliationId?: Maybe<Scalars['String']['output']>;
+  /** The timestamp when the Object was created */
+  created?: Maybe<Scalars['String']['output']>;
+  /** The user who created the notification */
+  createdBy?: Maybe<User>;
+  /** The user who created the Object */
+  createdById?: Maybe<Scalars['Int']['output']>;
+  /** Errors associated with the Object */
+  errors?: Maybe<AdminNotificationErrors>;
+  /** The feedback associated with the plan if metadata contains a planId */
+  feedback?: Maybe<PlanFeedback>;
+  /** The unique identifer for the Object */
+  id?: Maybe<Scalars['Int']['output']>;
+  /** Whether the notification has been read */
+  isRead?: Maybe<Scalars['Boolean']['output']>;
+  /** Additional data providing the associated Ids for the notification */
+  metadata?: Maybe<AdminNotificationMetadata>;
+  /** The timestamp when the Object was last modifed */
+  modified?: Maybe<Scalars['String']['output']>;
+  /** The user who last modified the Object */
+  modifiedById?: Maybe<Scalars['Int']['output']>;
+  /** The notification type */
+  notificationType?: Maybe<AdminNotificationType>;
+  /** The plan associated with the notification if metadata contains a planId */
+  plan?: Maybe<Plan>;
+  /** The template associated with the notification if metadata contains a templateId */
+  template?: Maybe<Template>;
+  /** The template customization associated with the notification if metadata contains a templateCustomizationId */
+  templateCustomization?: Maybe<TemplateCustomization>;
+};
+
+export type AdminNotificationResultsPage = {
+  __typename?: 'AdminNotificationResultsPage';
+  currentOffset?: Maybe<Scalars['Int']['output']>;
+  hasNextPage: Scalars['Boolean']['output'];
+  hasPreviousPage?: Maybe<Scalars['Boolean']['output']>;
+  items: Array<AdminNotificationResults>;
+  nextCursor?: Maybe<Scalars['String']['output']>;
+  totalCount?: Maybe<Scalars['Int']['output']>;
+};
+
+/** The types of notifications for Admin Notification */
+export type AdminNotificationType =
+  /** When feedback is requested on a plan */
+  | 'FEEDBACK_REQUESTED'
+  /** When a template is created */
+  | 'TEMPLATE_CREATED'
+  /** When customization to a template has changed */
+  | 'TEMPLATE_CUSTOMIZATION_CHANGED';
+
 /** A respresentation of an institution, organization or company */
 export type Affiliation = {
   __typename?: 'Affiliation';
@@ -1390,6 +1480,8 @@ export type Mutation = {
   _empty?: Maybe<Scalars['String']['output']>;
   /** Reactivate the specified user Account (Admin only) */
   activateUser?: Maybe<User>;
+  /** Create a new admin notification */
+  addAdminNotification: AdminNotificationResults;
   /** Create a new Affiliation */
   addAffiliation?: Maybe<Affiliation>;
   /** Assign an alternate identifier to the plan */
@@ -1478,6 +1570,10 @@ export type Mutation = {
   introduction?: Maybe<Scalars['String']['output']>;
   /** Designates the specified Template as the default (SuperAdmin only) */
   markAsDefaultTemplate?: Maybe<Template>;
+  /** Mark a notification as read */
+  markNotificationAsRead: Scalars['Boolean']['output'];
+  /** Mark a notification as unread */
+  markNotificationAsUnRead: Scalars['Boolean']['output'];
   /** Merge two licenses */
   mergeLicenses?: Maybe<License>;
   /** Merge two metadata standards */
@@ -1653,6 +1749,11 @@ export type Mutation = {
 
 export type MutationActivateUserArgs = {
   userId: Scalars['Int']['input'];
+};
+
+
+export type MutationAddAdminNotificationArgs = {
+  input: AdminNotificationOptions;
 };
 
 
@@ -1902,6 +2003,16 @@ export type MutationGenerateLogoUploadUrlArgs = {
 
 export type MutationMarkAsDefaultTemplateArgs = {
   templateId: Scalars['Int']['input'];
+};
+
+
+export type MutationMarkNotificationAsReadArgs = {
+  id: Scalars['Int']['input'];
+};
+
+
+export type MutationMarkNotificationAsUnReadArgs = {
+  id: Scalars['Int']['input'];
 };
 
 
@@ -3184,6 +3295,12 @@ export type PublishedTemplateSearchResults = PaginatedQueryResults & {
 export type Query = {
   __typename?: 'Query';
   _empty?: Maybe<Scalars['String']['output']>;
+  /** Retrieve all notifications for a specific affiliation */
+  adminNotifications?: Maybe<AdminNotificationResultsPage>;
+  /** Retrieve all read notifications for a specific affiliation */
+  adminNotificationsRead?: Maybe<AdminNotificationResultsPage>;
+  /** Retrieve all unread notifications for a specific affiliation */
+  adminNotificationsUnread?: Maybe<AdminNotificationResultsPage>;
   /** Retrieve a specific Affiliation by its ID */
   affiliationById?: Maybe<Affiliation>;
   /** Retrieve a specific Affiliation by its URI */
@@ -3379,6 +3496,21 @@ export type Query = {
   users?: Maybe<UserSearchResults>;
   /** Get all VersionedGuidance for a given affiliation and Tag IDs */
   versionedGuidance: Array<VersionedGuidance>;
+};
+
+
+export type QueryAdminNotificationsArgs = {
+  paginationOptions?: InputMaybe<PaginationOptions>;
+};
+
+
+export type QueryAdminNotificationsReadArgs = {
+  paginationOptions?: InputMaybe<PaginationOptions>;
+};
+
+
+export type QueryAdminNotificationsUnreadArgs = {
+  paginationOptions?: InputMaybe<PaginationOptions>;
 };
 
 
@@ -4689,6 +4821,8 @@ export type TemplateCustomization = {
   modifiedById?: Maybe<Scalars['Int']['output']>;
   /** The status of the customization */
   status: TemplateCustomizationStatus;
+  /** The name of the parent template, included for convenience when fetching a customization with its template name */
+  templateName?: Maybe<Scalars['String']['output']>;
 };
 
 /** A collection of errors related to the Template Customization */
@@ -5949,6 +6083,13 @@ export type ResolversTypes = {
   AddSectionCustomizationInput: AddSectionCustomizationInput;
   AddSectionInput: AddSectionInput;
   AddTemplateCustomizationInput: AddTemplateCustomizationInput;
+  AdminNotificationErrors: ResolverTypeWrapper<AdminNotificationErrors>;
+  AdminNotificationMetadata: ResolverTypeWrapper<AdminNotificationMetadata>;
+  AdminNotificationMetadataInput: AdminNotificationMetadataInput;
+  AdminNotificationOptions: AdminNotificationOptions;
+  AdminNotificationResults: ResolverTypeWrapper<AdminNotificationResults>;
+  AdminNotificationResultsPage: ResolverTypeWrapper<AdminNotificationResultsPage>;
+  AdminNotificationType: AdminNotificationType;
   Affiliation: ResolverTypeWrapper<Affiliation>;
   AffiliationEmailDomain: ResolverTypeWrapper<AffiliationEmailDomain>;
   AffiliationEmailDomainInput: AffiliationEmailDomainInput;
@@ -6199,6 +6340,12 @@ export type ResolversParentTypes = {
   AddSectionCustomizationInput: AddSectionCustomizationInput;
   AddSectionInput: AddSectionInput;
   AddTemplateCustomizationInput: AddTemplateCustomizationInput;
+  AdminNotificationErrors: AdminNotificationErrors;
+  AdminNotificationMetadata: AdminNotificationMetadata;
+  AdminNotificationMetadataInput: AdminNotificationMetadataInput;
+  AdminNotificationOptions: AdminNotificationOptions;
+  AdminNotificationResults: AdminNotificationResults;
+  AdminNotificationResultsPage: AdminNotificationResultsPage;
   Affiliation: Affiliation;
   AffiliationEmailDomain: AffiliationEmailDomain;
   AffiliationEmailDomainInput: AffiliationEmailDomainInput;
@@ -6401,6 +6548,43 @@ export type ResolversParentTypes = {
   VersionedTemplateSearchResult: VersionedTemplateSearchResult;
   Work: Work;
   WorkVersion: WorkVersion;
+};
+
+export type AdminNotificationErrorsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['AdminNotificationErrors'] = ResolversParentTypes['AdminNotificationErrors']> = {
+  general?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+};
+
+export type AdminNotificationMetadataResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['AdminNotificationMetadata'] = ResolversParentTypes['AdminNotificationMetadata']> = {
+  planId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  templateCustomizationId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  templateId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+};
+
+export type AdminNotificationResultsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['AdminNotificationResults'] = ResolversParentTypes['AdminNotificationResults']> = {
+  affiliationId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  createdBy?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType>;
+  createdById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  errors?: Resolver<Maybe<ResolversTypes['AdminNotificationErrors']>, ParentType, ContextType>;
+  feedback?: Resolver<Maybe<ResolversTypes['PlanFeedback']>, ParentType, ContextType>;
+  id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  isRead?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
+  metadata?: Resolver<Maybe<ResolversTypes['AdminNotificationMetadata']>, ParentType, ContextType>;
+  modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  notificationType?: Resolver<Maybe<ResolversTypes['AdminNotificationType']>, ParentType, ContextType>;
+  plan?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType>;
+  template?: Resolver<Maybe<ResolversTypes['Template']>, ParentType, ContextType>;
+  templateCustomization?: Resolver<Maybe<ResolversTypes['TemplateCustomization']>, ParentType, ContextType>;
+};
+
+export type AdminNotificationResultsPageResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['AdminNotificationResultsPage'] = ResolversParentTypes['AdminNotificationResultsPage']> = {
+  currentOffset?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  hasNextPage?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  hasPreviousPage?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
+  items?: Resolver<Array<ResolversTypes['AdminNotificationResults']>, ParentType, ContextType>;
+  nextCursor?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  totalCount?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
 };
 
 export type AffiliationResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['Affiliation'] = ResolversParentTypes['Affiliation']> = {
@@ -6946,6 +7130,7 @@ export type MetadataStandardSearchResultsResolvers<ContextType = MyContext, Pare
 export type MutationResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation']> = {
   _empty?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   activateUser?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationActivateUserArgs, 'userId'>>;
+  addAdminNotification?: Resolver<ResolversTypes['AdminNotificationResults'], ParentType, ContextType, RequireFields<MutationAddAdminNotificationArgs, 'input'>>;
   addAffiliation?: Resolver<Maybe<ResolversTypes['Affiliation']>, ParentType, ContextType, RequireFields<MutationAddAffiliationArgs, 'input'>>;
   addAlternateIdentifierToPlan?: Resolver<Maybe<ResolversTypes['AlternateIdentifier']>, ParentType, ContextType, RequireFields<MutationAddAlternateIdentifierToPlanArgs, 'alternateIdentifier' | 'planId'>>;
   addAnswer?: Resolver<Maybe<ResolversTypes['Answer']>, ParentType, ContextType, RequireFields<MutationAddAnswerArgs, 'planId'>>;
@@ -6990,6 +7175,8 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   guidance?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   introduction?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   markAsDefaultTemplate?: Resolver<Maybe<ResolversTypes['Template']>, ParentType, ContextType, RequireFields<MutationMarkAsDefaultTemplateArgs, 'templateId'>>;
+  markNotificationAsRead?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationMarkNotificationAsReadArgs, 'id'>>;
+  markNotificationAsUnRead?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationMarkNotificationAsUnReadArgs, 'id'>>;
   mergeLicenses?: Resolver<Maybe<ResolversTypes['License']>, ParentType, ContextType, RequireFields<MutationMergeLicensesArgs, 'licenseToKeepId' | 'licenseToRemoveId'>>;
   mergeMetadataStandards?: Resolver<Maybe<ResolversTypes['MetadataStandard']>, ParentType, ContextType, RequireFields<MutationMergeMetadataStandardsArgs, 'metadataStandardToKeepId' | 'metadataStandardToRemoveId'>>;
   mergeRepositories?: Resolver<Maybe<ResolversTypes['CustomRepository']>, ParentType, ContextType, RequireFields<MutationMergeRepositoriesArgs, 'repositoryToKeepId' | 'repositoryToRemoveId'>>;
@@ -7495,6 +7682,9 @@ export type PublishedTemplateSearchResultsResolvers<ContextType = MyContext, Par
 
 export type QueryResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['Query'] = ResolversParentTypes['Query']> = {
   _empty?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  adminNotifications?: Resolver<Maybe<ResolversTypes['AdminNotificationResultsPage']>, ParentType, ContextType, Partial<QueryAdminNotificationsArgs>>;
+  adminNotificationsRead?: Resolver<Maybe<ResolversTypes['AdminNotificationResultsPage']>, ParentType, ContextType, Partial<QueryAdminNotificationsReadArgs>>;
+  adminNotificationsUnread?: Resolver<Maybe<ResolversTypes['AdminNotificationResultsPage']>, ParentType, ContextType, Partial<QueryAdminNotificationsUnreadArgs>>;
   affiliationById?: Resolver<Maybe<ResolversTypes['Affiliation']>, ParentType, ContextType, RequireFields<QueryAffiliationByIdArgs, 'affiliationId'>>;
   affiliationByURI?: Resolver<Maybe<ResolversTypes['Affiliation']>, ParentType, ContextType, RequireFields<QueryAffiliationByUriArgs, 'uri'>>;
   affiliationTypes?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
@@ -8019,6 +8209,7 @@ export type TemplateCustomizationResolvers<ContextType = MyContext, ParentType e
   modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   status?: Resolver<ResolversTypes['TemplateCustomizationStatus'], ParentType, ContextType>;
+  templateName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 };
 
 export type TemplateCustomizationErrorsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['TemplateCustomizationErrors'] = ResolversParentTypes['TemplateCustomizationErrors']> = {
@@ -8492,6 +8683,10 @@ export type WorkVersionResolvers<ContextType = MyContext, ParentType extends Res
 };
 
 export type Resolvers<ContextType = MyContext> = {
+  AdminNotificationErrors?: AdminNotificationErrorsResolvers<ContextType>;
+  AdminNotificationMetadata?: AdminNotificationMetadataResolvers<ContextType>;
+  AdminNotificationResults?: AdminNotificationResultsResolvers<ContextType>;
+  AdminNotificationResultsPage?: AdminNotificationResultsPageResolvers<ContextType>;
   Affiliation?: AffiliationResolvers<ContextType>;
   AffiliationEmailDomain?: AffiliationEmailDomainResolvers<ContextType>;
   AffiliationErrors?: AffiliationErrorsResolvers<ContextType>;

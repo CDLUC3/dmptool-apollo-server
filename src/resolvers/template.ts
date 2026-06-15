@@ -27,6 +27,7 @@ import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
 import {
   handleFunderTemplateArchive
 } from "../services/templateCustomizationService";
+import { AdminNotification } from "../models/AdminNotifications";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -36,8 +37,8 @@ export const resolvers: Resolvers = {
       try {
         if (isAdmin(context.token)) {
           const opts = !isNullOrUndefined(paginationOptions) && paginationOptions.type === PaginationType.OFFSET
-                      ? paginationOptions as PaginationOptionsForOffsets
-                      : { ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors;
+            ? paginationOptions as PaginationOptionsForOffsets
+            : { ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors;
 
           return await TemplateSearchResult.findByAffiliationIdAndTerm(
             reference,
@@ -149,6 +150,18 @@ export const resolvers: Resolvers = {
 
           // Create new template
           const newTemplate = await template.create(context);
+
+          // Notify all org admins of the new template
+          if (newTemplate?.id) {
+            const notification = new AdminNotification({
+              notificationType: 'TEMPLATE_CREATED',
+              affiliationId: context.token.affiliationId,
+              metadata: { templateId: newTemplate.id },
+            });
+            await notification.create(context);
+          }
+
+
           const templateId = newTemplate.id;
 
           // Add generic error

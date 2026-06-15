@@ -25,6 +25,7 @@ import { ProjectCollaborator, ProjectCollaboratorAccessLevel } from "../models/C
 import { PlanFeedbackComment } from "../models/PlanFeedbackComment";
 import { VersionedTemplate } from "../models/VersionedTemplate";
 import { Affiliation } from "../models/Affiliation";
+import { AdminNotification } from "../models/AdminNotifications";
 import { ResolversParentTypes } from "../types";
 import { Resolvers, PlanFeedbackStatus } from "../types";
 import { getCurrentDate } from "../utils/helpers";
@@ -204,7 +205,19 @@ export const resolvers: Resolvers = {
             // Send emails to the feedback recipients
             await sendFeedbackRequestEmail(context, planOwnerName, planURL, planTitle, affiliation.feedbackEmails, messageToOrg ?? '');
 
-            return await feedbackComment.create(context);
+            const createdFeedback = await feedbackComment.create(context);
+
+            // Notify all org admins of the feedback request
+            if (createdFeedback?.id) {
+              const notification = new AdminNotification({
+                notificationType: 'FEEDBACK_REQUESTED',
+                affiliationId: affiliation.uri,
+                metadata: { planId },
+              });
+              await notification.create(context);
+            }
+
+            return createdFeedback;
           }
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();

@@ -74,6 +74,8 @@ export const typeDefs = gql`
     latestPublishedDate: String
     "Whether the customization has been modified since it was last published"
     isDirty: Boolean!
+    "The name of the parent template, included for convenience when fetching a customization with its template name"
+    templateName: String
   }
 
   "A collection of errors related to the Template Customization"

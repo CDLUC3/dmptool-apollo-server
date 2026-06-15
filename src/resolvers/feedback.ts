@@ -209,12 +209,13 @@ export const resolvers: Resolvers = {
 
             // Notify all org admins of the feedback request
             if (createdFeedback?.id) {
-              const notification = new AdminNotification({
-                notificationType: 'FEEDBACK_REQUESTED',
-                affiliationId: affiliation.uri,
-                metadata: { planId },
-              });
-              await notification.create(context);
+              await AdminNotification.addNotificationForAffiliation(
+                reference,
+                context,
+                affiliation.uri,
+                'FEEDBACK_REQUESTED',
+                { planId },
+              );
             }
 
             return createdFeedback;

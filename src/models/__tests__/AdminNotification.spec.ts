@@ -263,7 +263,7 @@ describe('AdminNotificationResults', () => {
     });
   });
 
-  describe('findByAffiliationId', () => {
+  describe('findByUserId', () => {
     const originalQuery = AdminNotificationResults.queryWithPagination;
     let mockQuery: jest.Mock;
 
@@ -276,77 +276,77 @@ describe('AdminNotificationResults', () => {
       AdminNotificationResults.queryWithPagination = originalQuery;
     });
 
-    it('should filter by affiliationId when provided', async () => {
-      await AdminNotificationResults.findByAffiliationId('Test', context, 'https://ror.org/123');
+    it('should filter by userId when provided', async () => {
+      await AdminNotificationResults.findByUserId('Test', context, 123);
       const [, , whereFilters, , values] = mockQuery.mock.calls[0];
-      expect(whereFilters).toContain('affiliationId = ?');
-      expect(values).toContain('https://ror.org/123');
+      expect(whereFilters).toContain('userId = ?');
+      expect(values).toContain('123');
     });
 
-    it('should not filter by affiliationId when null (superAdmin)', async () => {
-      await AdminNotificationResults.findByAffiliationId('Test', context, null);
+    it('should not filter by userId when null (superAdmin)', async () => {
+      await AdminNotificationResults.findByUserId('Test', context, null);
       const [, , whereFilters, , values] = mockQuery.mock.calls[0];
-      expect(whereFilters).not.toContain('affiliationId = ?');
+      expect(whereFilters).not.toContain('userId = ?');
       expect(values).toHaveLength(0);
     });
 
     it('should filter by isRead = true when provided', async () => {
-      await AdminNotificationResults.findByAffiliationId('Test', context, null, undefined, true);
+      await AdminNotificationResults.findByUserId('Test', context, null, undefined, true);
       const [, , whereFilters] = mockQuery.mock.calls[0];
-      expect(whereFilters).toContain('isRead = true');
+      expect(whereFilters).toContain('isRead = 1');
     });
 
     it('should filter by isRead = false when provided', async () => {
-      await AdminNotificationResults.findByAffiliationId('Test', context, null, undefined, false);
+      await AdminNotificationResults.findByUserId('Test', context, null, undefined, false);
       const [, , whereFilters] = mockQuery.mock.calls[0];
-      expect(whereFilters).toContain('isRead = false');
+      expect(whereFilters).toContain('isRead = 0');
     });
 
     it('should not filter by isRead when not provided', async () => {
-      await AdminNotificationResults.findByAffiliationId('Test', context, null);
+      await AdminNotificationResults.findByUserId('Test', context, null);
       const [, , whereFilters] = mockQuery.mock.calls[0];
       expect(whereFilters.some((f: string) => f.includes('isRead'))).toBe(false);
     });
 
     it('should use cursor pagination by default', async () => {
-      await AdminNotificationResults.findByAffiliationId('Test', context, null);
+      await AdminNotificationResults.findByUserId('Test', context, null);
       const [, , , , , opts] = mockQuery.mock.calls[0];
       expect(opts.cursorField).toBe('id');
     });
 
     it('should sort by created DESC by default', async () => {
-      await AdminNotificationResults.findByAffiliationId('Test', context, null);
+      await AdminNotificationResults.findByUserId('Test', context, null);
       const [, , , , , opts] = mockQuery.mock.calls[0];
       expect(opts.sortField).toBe('created');
       expect(opts.sortDir).toBe('DESC');
     });
   });
 
-  describe('findReadByAffiliationId', () => {
-    it('should call findByAffiliationId with isRead = true', async () => {
+  describe('findReadByUserId', () => {
+    it('should call findByUserId with isRead = true', async () => {
       const mockFind = jest.fn().mockResolvedValue({ items: [], totalCount: 0 });
-      const original = AdminNotificationResults.findByAffiliationId;
-      (AdminNotificationResults.findByAffiliationId as jest.Mock) = mockFind;
+      const original = AdminNotificationResults.findByUserId;
+      (AdminNotificationResults.findByUserId as jest.Mock) = mockFind;
 
-      await AdminNotificationResults.findReadByAffiliationId('Test', context, 'https://ror.org/123');
+      await AdminNotificationResults.findReadByUserId('Test', context, 123);
 
-      expect(mockFind).toHaveBeenCalledWith('Test', context, 'https://ror.org/123', undefined, true);
+      expect(mockFind).toHaveBeenCalledWith('Test', context, 123, undefined, true);
 
-      AdminNotificationResults.findByAffiliationId = original;
+      AdminNotificationResults.findByUserId = original;
     });
   });
 
-  describe('findUnreadByAffiliationId', () => {
-    it('should call findByAffiliationId with isRead = false', async () => {
+  describe('findUnreadByUserId', () => {
+    it('should call findByUserId with isRead = false', async () => {
       const mockFind = jest.fn().mockResolvedValue({ items: [], totalCount: 0 });
-      const original = AdminNotificationResults.findByAffiliationId;
-      (AdminNotificationResults.findByAffiliationId as jest.Mock) = mockFind;
+      const original = AdminNotificationResults.findByUserId;
+      (AdminNotificationResults.findByUserId as jest.Mock) = mockFind;
 
-      await AdminNotificationResults.findUnreadByAffiliationId('Test', context, 'https://ror.org/123');
+      await AdminNotificationResults.findUnreadByUserId('Test', context, 123);
 
-      expect(mockFind).toHaveBeenCalledWith('Test', context, 'https://ror.org/123', undefined, false);
+      expect(mockFind).toHaveBeenCalledWith('Test', context, 123, undefined, false);
 
-      AdminNotificationResults.findByAffiliationId = original;
+      AdminNotificationResults.findByUserId = original;
     });
   });
 });

@@ -153,12 +153,13 @@ export const resolvers: Resolvers = {
 
           // Notify all org admins of the new template
           if (newTemplate?.id) {
-            const notification = new AdminNotification({
-              notificationType: 'TEMPLATE_CREATED',
-              affiliationId: context.token.affiliationId,
-              metadata: { templateId: newTemplate.id },
-            });
-            await notification.create(context);
+            await AdminNotification.addNotificationForAffiliation(
+              reference,
+              context,
+              context.token.affiliationId,
+              'TEMPLATE_CREATED',
+              { templateId: newTemplate.id },
+            );
           }
 
 

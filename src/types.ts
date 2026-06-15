@@ -310,17 +310,6 @@ export type AdminNotificationMetadataInput = {
   templateId?: InputMaybe<Scalars['Int']['input']>;
 };
 
-export type AdminNotificationOptions = {
-  /** The affiliation associated with the notification */
-  affiliationId: Scalars['String']['input'];
-  /** Whether the notification has been read */
-  isRead?: InputMaybe<Scalars['Boolean']['input']>;
-  /** Additional data providing the associated Ids for the notification */
-  metadata?: InputMaybe<AdminNotificationMetadataInput>;
-  /** The type of notification */
-  notificationType: AdminNotificationType;
-};
-
 export type AdminNotificationResults = {
   __typename?: 'AdminNotificationResults';
   /** The affiliation associated with the notification */
@@ -353,6 +342,8 @@ export type AdminNotificationResults = {
   template?: Maybe<Template>;
   /** The template customization associated with the notification if metadata contains a templateCustomizationId */
   templateCustomization?: Maybe<TemplateCustomization>;
+  /** The userId of the user associated with the notification */
+  userId?: Maybe<Scalars['Int']['output']>;
 };
 
 export type AdminNotificationResultsPage = {
@@ -1480,8 +1471,6 @@ export type Mutation = {
   _empty?: Maybe<Scalars['String']['output']>;
   /** Reactivate the specified user Account (Admin only) */
   activateUser?: Maybe<User>;
-  /** Create a new admin notification */
-  addAdminNotification: AdminNotificationResults;
   /** Create a new Affiliation */
   addAffiliation?: Maybe<Affiliation>;
   /** Assign an alternate identifier to the plan */
@@ -1749,11 +1738,6 @@ export type Mutation = {
 
 export type MutationActivateUserArgs = {
   userId: Scalars['Int']['input'];
-};
-
-
-export type MutationAddAdminNotificationArgs = {
-  input: AdminNotificationOptions;
 };
 
 
@@ -6086,7 +6070,6 @@ export type ResolversTypes = {
   AdminNotificationErrors: ResolverTypeWrapper<AdminNotificationErrors>;
   AdminNotificationMetadata: ResolverTypeWrapper<AdminNotificationMetadata>;
   AdminNotificationMetadataInput: AdminNotificationMetadataInput;
-  AdminNotificationOptions: AdminNotificationOptions;
   AdminNotificationResults: ResolverTypeWrapper<AdminNotificationResults>;
   AdminNotificationResultsPage: ResolverTypeWrapper<AdminNotificationResultsPage>;
   AdminNotificationType: AdminNotificationType;
@@ -6343,7 +6326,6 @@ export type ResolversParentTypes = {
   AdminNotificationErrors: AdminNotificationErrors;
   AdminNotificationMetadata: AdminNotificationMetadata;
   AdminNotificationMetadataInput: AdminNotificationMetadataInput;
-  AdminNotificationOptions: AdminNotificationOptions;
   AdminNotificationResults: AdminNotificationResults;
   AdminNotificationResultsPage: AdminNotificationResultsPage;
   Affiliation: Affiliation;
@@ -6576,6 +6558,7 @@ export type AdminNotificationResultsResolvers<ContextType = MyContext, ParentTyp
   plan?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType>;
   template?: Resolver<Maybe<ResolversTypes['Template']>, ParentType, ContextType>;
   templateCustomization?: Resolver<Maybe<ResolversTypes['TemplateCustomization']>, ParentType, ContextType>;
+  userId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
 };
 
 export type AdminNotificationResultsPageResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['AdminNotificationResultsPage'] = ResolversParentTypes['AdminNotificationResultsPage']> = {
@@ -7130,7 +7113,6 @@ export type MetadataStandardSearchResultsResolvers<ContextType = MyContext, Pare
 export type MutationResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation']> = {
   _empty?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   activateUser?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationActivateUserArgs, 'userId'>>;
-  addAdminNotification?: Resolver<ResolversTypes['AdminNotificationResults'], ParentType, ContextType, RequireFields<MutationAddAdminNotificationArgs, 'input'>>;
   addAffiliation?: Resolver<Maybe<ResolversTypes['Affiliation']>, ParentType, ContextType, RequireFields<MutationAddAffiliationArgs, 'input'>>;
   addAlternateIdentifierToPlan?: Resolver<Maybe<ResolversTypes['AlternateIdentifier']>, ParentType, ContextType, RequireFields<MutationAddAlternateIdentifierToPlanArgs, 'alternateIdentifier' | 'planId'>>;
   addAnswer?: Resolver<Maybe<ResolversTypes['Answer']>, ParentType, ContextType, RequireFields<MutationAddAnswerArgs, 'planId'>>;

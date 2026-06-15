@@ -245,12 +245,14 @@ export const resolvers: Resolvers = {
 
           // Notify all org admins when customization changes are published
           if (published?.id) {
-            const notification = new AdminNotification({
-              notificationType: 'TEMPLATE_CUSTOMIZATION_CHANGED',
-              affiliationId: affiliation.uri,
-              metadata: { templateCustomizationId: published.id }
-            });
-            await notification.create(context);
+            await AdminNotification.addNotificationForAffiliation(
+              reference,
+              context,
+              affiliation.uri,
+              'TEMPLATE_CUSTOMIZATION_CHANGED',
+              { templateCustomizationId: published.id }
+            );
+
           }
           // Transfer any errors
           overview.errors = published.errors;

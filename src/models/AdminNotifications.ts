@@ -15,19 +15,12 @@ export interface AdminNotificationMetadata {
   templateId?: number;
   templateCustomizationId?: number;
 }
-
-export interface AdminNotificationOptions {
-  notificationType: AdminNotificationType;
-  metadata?: AdminNotificationMetadata;
-  affiliationId?: string;
-  isRead?: boolean;
-}
-
 export class AdminNotificationResults extends MySqlModel {
   public notificationType: AdminNotificationType;
   public metadata: AdminNotificationMetadata;
   public affiliationId: string;
   public isRead: boolean;
+  public userId: number;
 
   constructor(options) {
     super(options.id, options.created, options.createdById, options.modified, options.modifiedById, options.errors);
@@ -36,29 +29,29 @@ export class AdminNotificationResults extends MySqlModel {
     this.metadata = options.metadata ?? {};
     this.affiliationId = options.affiliationId;
     this.isRead = options.isRead ?? false;
+    this.userId = options.userId;
   }
 
-  static async findByAffiliationId(
+  static async findByUserId(
     reference: string,
     context: MyContext,
-    affiliationId: string | null,
+    userId: number | null,
     options: PaginationOptions = AdminNotificationResults.getDefaultPaginationOptions(),
     isRead?: boolean,
   ): Promise<PaginatedQueryResults<AdminNotificationResults>> {
 
-    // SuperAdmins get all notifications, Admins only get their affiliation's notifications
+    // SuperAdmins get all notifications (userId is null), Admins only get their own
     const whereFilters: string[] = [];
     const values: string[] = [];
 
-    if (affiliationId) {
-      whereFilters.push('affiliationId = ?');
-      values.push(affiliationId);
+    if (userId) {
+      whereFilters.push('userId = ?');
+      values.push(userId.toString());
     }
 
     if (isRead !== undefined) {
-      whereFilters.push(`isRead = ${isRead}`);
+      whereFilters.push(`isRead = ${isRead ? 1 : 0}`);
     }
-
 
     if (isNullOrUndefined(options.sortField)) options.sortField = 'created';
     if (isNullOrUndefined(options.sortDir)) options.sortDir = 'DESC';
@@ -86,22 +79,22 @@ export class AdminNotificationResults extends MySqlModel {
     );
   }
 
-  static async findReadByAffiliationId(
+  static async findReadByUserId(
     reference: string,
     context: MyContext,
-    affiliationId: string | null,
+    userId: number | null,
     options?: PaginationOptions,
   ) {
-    return AdminNotificationResults.findByAffiliationId(reference, context, affiliationId, options, true);
+    return AdminNotificationResults.findByUserId(reference, context, userId, options, true);
   }
 
-  static async findUnreadByAffiliationId(
+  static async findUnreadByUserId(
     reference: string,
     context: MyContext,
-    affiliationId: string | null,
+    userId: number | null,
     options?: PaginationOptions,
   ) {
-    return AdminNotificationResults.findByAffiliationId(reference, context, affiliationId, options, false);
+    return AdminNotificationResults.findByUserId(reference, context, userId, options, false);
   }
 }
 
@@ -110,6 +103,7 @@ export class AdminNotification extends MySqlModel {
   public metadata: AdminNotificationMetadata;
   public affiliationId: string;
   public isRead: boolean;
+  public userId: number;
 
   private tableName = 'adminNotifications';
 
@@ -120,6 +114,7 @@ export class AdminNotification extends MySqlModel {
     this.metadata = options.metadata ?? {};
     this.affiliationId = options.affiliationId;
     this.isRead = options.isRead ?? false;
+    this.userId = options.userId;
   }
 
   async isValid(): Promise<boolean> {
@@ -188,5 +183,30 @@ export class AdminNotification extends MySqlModel {
     const sql = `SELECT * FROM adminNotifications WHERE id = ?`;
     const results = await AdminNotification.query(context, sql, [id?.toString()], reference);
     return Array.isArray(results) && results.length > 0 ? new AdminNotification(results[0]) : null;
+  }
+
+  static async addNotificationForAffiliation(
+    reference: string,
+    context: MyContext,
+    affiliationId: string,
+    notificationType: AdminNotificationType,
+    metadata?: AdminNotificationMetadata,
+  ): Promise<boolean> {
+    const sql = `
+    INSERT INTO adminNotifications (userId, notificationType, affiliationId, metadata, createdById, modifiedById, created, modified)
+    SELECT u.id, ?, ?, ?, ?, ?, NOW(), NOW()
+    FROM users AS u
+    WHERE (u.role = 'ADMIN' OR u.role = 'SUPER_ADMIN') AND u.affiliationId = ?
+  `;
+    const values = [
+      notificationType,
+      affiliationId,
+      JSON.stringify(metadata ?? {}),
+      context.token.id.toString(),
+      context.token.id.toString(),
+      affiliationId,
+    ];
+    const result = await AdminNotification.query(context, sql, values, reference);
+    return Array.isArray(result) && result.length > 0;
   }
 }

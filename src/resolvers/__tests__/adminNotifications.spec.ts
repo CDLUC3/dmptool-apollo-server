@@ -28,9 +28,9 @@ jest.mock('../../datasources/cache');
 
 jest.mock('../../models/AdminNotifications', () => ({
   AdminNotificationResults: {
-    findReadByAffiliationId: jest.fn(),
-    findUnreadByAffiliationId: jest.fn(),
-    findByAffiliationId: jest.fn(),
+    findReadByUserId: jest.fn(),
+    findUnreadByUserId: jest.fn(),
+    findByUserId: jest.fn(),
   },
   AdminNotification: Object.assign(
     jest.fn().mockImplementation(() => ({
@@ -145,7 +145,7 @@ describe('adminNotification resolver', () => {
 
     it('should return unread notifications for an admin', async () => {
       const mockNotification = buildMockNotification({ isRead: false });
-      (AdminNotificationResults.findUnreadByAffiliationId as jest.Mock).mockResolvedValue(
+      (AdminNotificationResults.findUnreadByUserId as jest.Mock).mockResolvedValue(
         buildPaginatedResult([mockNotification])
       );
 
@@ -153,33 +153,16 @@ describe('adminNotification resolver', () => {
 
       expect(result.body.singleResult.data.adminNotificationsUnread.totalCount).toBe(1);
       expect(result.body.singleResult.data.adminNotificationsUnread.items[0].isRead).toBe(false);
-      expect(AdminNotificationResults.findUnreadByAffiliationId).toHaveBeenCalledWith(
+      expect(AdminNotificationResults.findUnreadByUserId).toHaveBeenCalledWith(
         'unreadAdminNotifications resolver',
         expect.any(Object),
-        affiliationId,
-        undefined
-      );
-    });
-
-    it('should pass null affiliationId for superAdmin', async () => {
-      (isSuperAdmin as jest.Mock).mockReturnValue(true);
-      (isAdmin as jest.Mock).mockReturnValue(false);
-      (AdminNotificationResults.findUnreadByAffiliationId as jest.Mock).mockResolvedValue(
-        buildPaginatedResult([])
-      );
-
-      await executeQuery(query, {}, superAdminToken);
-
-      expect(AdminNotificationResults.findUnreadByAffiliationId).toHaveBeenCalledWith(
-        'unreadAdminNotifications resolver',
-        expect.any(Object),
-        null,
+        adminToken.id,
         undefined
       );
     });
 
     it('should return an InternalServerError when the query throws', async () => {
-      (AdminNotificationResults.findUnreadByAffiliationId as jest.Mock).mockRejectedValue(
+      (AdminNotificationResults.findUnreadByUserId as jest.Mock).mockRejectedValue(
         new Error('DB failure')
       );
 
@@ -207,7 +190,7 @@ describe('adminNotification resolver', () => {
 
     it('should return read notifications for an admin', async () => {
       const mockNotification = buildMockNotification({ isRead: true });
-      (AdminNotificationResults.findReadByAffiliationId as jest.Mock).mockResolvedValue(
+      (AdminNotificationResults.findReadByUserId as jest.Mock).mockResolvedValue(
         buildPaginatedResult([mockNotification])
       );
 
@@ -215,33 +198,16 @@ describe('adminNotification resolver', () => {
 
       expect(result.body.singleResult.data.adminNotificationsRead.totalCount).toBe(1);
       expect(result.body.singleResult.data.adminNotificationsRead.items[0].isRead).toBe(true);
-      expect(AdminNotificationResults.findReadByAffiliationId).toHaveBeenCalledWith(
+      expect(AdminNotificationResults.findReadByUserId).toHaveBeenCalledWith(
         'adminNotifications resolver',
         expect.any(Object),
-        affiliationId,
-        undefined
-      );
-    });
-
-    it('should pass null affiliationId for superAdmin', async () => {
-      (isSuperAdmin as jest.Mock).mockReturnValue(true);
-      (isAdmin as jest.Mock).mockReturnValue(false);
-      (AdminNotificationResults.findReadByAffiliationId as jest.Mock).mockResolvedValue(
-        buildPaginatedResult([])
-      );
-
-      await executeQuery(query, {}, superAdminToken);
-
-      expect(AdminNotificationResults.findReadByAffiliationId).toHaveBeenCalledWith(
-        'adminNotifications resolver',
-        expect.any(Object),
-        null,
+        adminToken.id,
         undefined
       );
     });
 
     it('should return an InternalServerError when the query throws', async () => {
-      (AdminNotificationResults.findReadByAffiliationId as jest.Mock).mockRejectedValue(
+      (AdminNotificationResults.findReadByUserId as jest.Mock).mockRejectedValue(
         new Error('DB failure')
       );
 
@@ -272,7 +238,7 @@ describe('adminNotification resolver', () => {
         buildMockNotification({ isRead: false }),
         buildMockNotification({ isRead: true }),
       ];
-      (AdminNotificationResults.findByAffiliationId as jest.Mock).mockResolvedValue(
+      (AdminNotificationResults.findByUserId as jest.Mock).mockResolvedValue(
         buildPaginatedResult(items, 2)
       );
 
@@ -282,7 +248,7 @@ describe('adminNotification resolver', () => {
     });
 
     it('should return an InternalServerError when the query throws', async () => {
-      (AdminNotificationResults.findByAffiliationId as jest.Mock).mockRejectedValue(
+      (AdminNotificationResults.findByUserId as jest.Mock).mockRejectedValue(
         new Error('DB failure')
       );
 
@@ -290,74 +256,6 @@ describe('adminNotification resolver', () => {
 
       expect(result.body.singleResult.errors).toBeDefined();
       expect(result.body.singleResult.errors[0].message).toBe('DB failure');
-    });
-  });
-
-  // ─── Mutations ─────────────────────────────────────────────────────────────
-
-  describe('Mutation.addAdminNotification', () => {
-    let input: any;
-    beforeEach(() => {
-      input = {
-        notificationType: 'FEEDBACK_REQUESTED',
-        affiliationId,
-        metadata: { planId: 1 },
-      };
-    });
-    const query = `
-      mutation addAdminNotification($input: AdminNotificationOptions!) {
-        addAdminNotification(input: $input) {
-          id
-          notificationType
-          errors {
-            general
-          }
-        }
-      }
-    `;
-
-    it('should create and return a new notification', async () => {
-      const mockCreated = buildMockNotification({ id: 99 });
-      (AdminNotification as unknown as jest.Mock).mockImplementation(() => ({
-        create: jest.fn().mockResolvedValue(mockCreated),
-        errors: {},
-        addError: jest.fn(),
-      }));
-
-      const result = await executeQuery(query, { input }, adminToken);
-
-      expect(result.body.singleResult.data.addAdminNotification.id).toBe(99);
-    });
-
-    it('should add a general error when create returns no id', async () => {
-      const notificationInstance = {
-        create: jest.fn().mockResolvedValue({ id: null, errors: {} }),
-        errors: {},
-        addError: jest.fn(),
-      };
-      (AdminNotification as unknown as jest.Mock).mockImplementation(() => notificationInstance);
-
-      const result = await executeQuery(query, { input }, adminToken);
-
-      expect(result.body.singleResult.errors).toBeUndefined();
-      expect(notificationInstance.addError).toHaveBeenCalledWith('general', 'Unable to create AdminNotification');
-    });
-
-    it('should return Forbidden when the caller is not authorized', async () => {
-      const result = await executeQuery(query, { input }, researcherToken);
-      expect(result.body.singleResult.errors).toBeDefined();
-    });
-
-    it('should return InternalServerError when create throws', async () => {
-      (AdminNotification as unknown as jest.Mock).mockImplementation(() => ({
-        create: jest.fn().mockRejectedValue(new Error('DB error')),
-        errors: {},
-        addError: jest.fn(),
-      }));
-
-      const result = await executeQuery(query, { input }, adminToken);
-
-      expect(result.body.singleResult.errors[0].message).toBe('DB error');
     });
   });
 
@@ -372,27 +270,13 @@ describe('adminNotification resolver', () => {
       (isSuperAdmin as jest.Mock).mockReturnValue(false);
       (isAdmin as jest.Mock).mockReturnValue(true);
 
-      const mockNotification = buildMockNotification({ affiliationId });
+      const mockNotification = buildMockNotification({ userId: adminToken.id });
       (AdminNotification.findById as jest.Mock).mockResolvedValue({
         ...mockNotification,
         markAsRead: jest.fn().mockResolvedValue(mockNotification),
       });
 
       const result = await executeQuery(query, { id: mockNotification.id }, adminToken);
-
-      expect(result.body.singleResult.data.markNotificationAsRead).toBe(true);
-    });
-
-    it('should return true when superAdmin marks any notification as read', async () => {
-      (isSuperAdmin as jest.Mock).mockReturnValue(true);
-      (isAdmin as jest.Mock).mockReturnValue(false);
-      const mockNotification = buildMockNotification({ affiliationId: casual.url });
-      (AdminNotification.findById as jest.Mock).mockResolvedValue({
-        ...mockNotification,
-        markAsRead: jest.fn().mockResolvedValue(mockNotification),
-      });
-
-      const result = await executeQuery(query, { id: mockNotification.id }, superAdminToken);
 
       expect(result.body.singleResult.data.markNotificationAsRead).toBe(true);
     });
@@ -407,7 +291,7 @@ describe('adminNotification resolver', () => {
     });
 
     it('should return Forbidden when an admin tries to mark another affiliations notification', async () => {
-      const mockNotification = buildMockNotification({ affiliationId: 'https://ror.org/different' });
+      const mockNotification = buildMockNotification({ userId: 999 });
       (AdminNotification.findById as jest.Mock).mockResolvedValue({
         ...mockNotification,
         markAsRead: jest.fn(),
@@ -422,7 +306,7 @@ describe('adminNotification resolver', () => {
     it('should return false when markAsRead returns null', async () => {
       (isSuperAdmin as jest.Mock).mockReturnValue(false);
       (isAdmin as jest.Mock).mockReturnValue(true);
-      const mockNotification = buildMockNotification({ affiliationId });
+      const mockNotification = buildMockNotification({ userId: adminToken.id });
       (AdminNotification.findById as jest.Mock).mockResolvedValue({
         ...mockNotification,
         markAsRead: jest.fn().mockResolvedValue(null),
@@ -452,7 +336,7 @@ describe('adminNotification resolver', () => {
     it('should mark a notification as unread and return true', async () => {
       (isSuperAdmin as jest.Mock).mockReturnValue(false);
       (isAdmin as jest.Mock).mockReturnValue(true);
-      const mockNotification = buildMockNotification({ affiliationId });
+      const mockNotification = buildMockNotification({ userId: adminToken.id });
       (AdminNotification.findById as jest.Mock).mockResolvedValue({
         ...mockNotification,
         markAsUnRead: jest.fn().mockResolvedValue(mockNotification),
@@ -473,7 +357,7 @@ describe('adminNotification resolver', () => {
     });
 
     it('should return Forbidden when an admin tries to unread another affiliations notification', async () => {
-      const mockNotification = buildMockNotification({ affiliationId: 'https://ror.org/different' });
+      const mockNotification = buildMockNotification({ userId: 999 });
       (AdminNotification.findById as jest.Mock).mockResolvedValue({
         ...mockNotification,
         markAsUnRead: jest.fn(),
@@ -488,7 +372,7 @@ describe('adminNotification resolver', () => {
     it('should return false when markAsUnRead returns null', async () => {
       (isSuperAdmin as jest.Mock).mockReturnValue(false);
       (isAdmin as jest.Mock).mockReturnValue(true);
-      const mockNotification = buildMockNotification({ affiliationId });
+      const mockNotification = buildMockNotification({ userId: adminToken.id });
       (AdminNotification.findById as jest.Mock).mockResolvedValue({
         ...mockNotification,
         markAsUnRead: jest.fn().mockResolvedValue(null),
@@ -531,7 +415,7 @@ describe('adminNotification resolver', () => {
       const mockPlan = { id: planId, title: 'My Plan' };
       const mockNotification = buildMockNotification({ metadata: { planId } });
 
-      (AdminNotificationResults.findUnreadByAffiliationId as jest.Mock).mockResolvedValue(
+      (AdminNotificationResults.findUnreadByUserId as jest.Mock).mockResolvedValue(
         buildPaginatedResult([mockNotification])
       );
       jest.spyOn(Plan, 'findById').mockResolvedValue(mockPlan as any);
@@ -548,7 +432,7 @@ describe('adminNotification resolver', () => {
 
     it('should return null for plan when metadata has no planId', async () => {
       const mockNotification = buildMockNotification({ metadata: {} });
-      (AdminNotificationResults.findUnreadByAffiliationId as jest.Mock).mockResolvedValue(
+      (AdminNotificationResults.findUnreadByUserId as jest.Mock).mockResolvedValue(
         buildPaginatedResult([mockNotification])
       );
 
@@ -563,7 +447,7 @@ describe('adminNotification resolver', () => {
       const mockTemplate = { id: templateId, name: 'My Template' };
       const mockNotification = buildMockNotification({ metadata: { templateId } });
 
-      (AdminNotificationResults.findUnreadByAffiliationId as jest.Mock).mockResolvedValue(
+      (AdminNotificationResults.findUnreadByUserId as jest.Mock).mockResolvedValue(
         buildPaginatedResult([mockNotification])
       );
       jest.spyOn(Template, 'findById').mockResolvedValue(mockTemplate as any);
@@ -580,7 +464,7 @@ describe('adminNotification resolver', () => {
 
     it('should return null for template when metadata has no templateId', async () => {
       const mockNotification = buildMockNotification({ metadata: {} });
-      (AdminNotificationResults.findUnreadByAffiliationId as jest.Mock).mockResolvedValue(
+      (AdminNotificationResults.findUnreadByUserId as jest.Mock).mockResolvedValue(
         buildPaginatedResult([mockNotification])
       );
 
@@ -595,7 +479,7 @@ describe('adminNotification resolver', () => {
       const mockCustomization = { id: templateCustomizationId, templateName: 'My Template' };
       const mockNotification = buildMockNotification({ metadata: { templateCustomizationId } });
 
-      (AdminNotificationResults.findUnreadByAffiliationId as jest.Mock).mockResolvedValue(
+      (AdminNotificationResults.findUnreadByUserId as jest.Mock).mockResolvedValue(
         buildPaginatedResult([mockNotification])
       );
       jest.spyOn(TemplateCustomization, 'findByIdWithTemplateName').mockResolvedValue(mockCustomization as any);
@@ -612,7 +496,7 @@ describe('adminNotification resolver', () => {
 
     it('should return null for templateCustomization when metadata has no templateCustomizationId', async () => {
       const mockNotification = buildMockNotification({ metadata: {} });
-      (AdminNotificationResults.findUnreadByAffiliationId as jest.Mock).mockResolvedValue(
+      (AdminNotificationResults.findUnreadByUserId as jest.Mock).mockResolvedValue(
         buildPaginatedResult([mockNotification])
       );
 
@@ -627,7 +511,7 @@ describe('adminNotification resolver', () => {
       const mockFeedback = { id: casual.integer(1, 999), messageToOrg: 'Please review', completed: null };
       const mockNotification = buildMockNotification({ metadata: { planId } });
 
-      (AdminNotificationResults.findUnreadByAffiliationId as jest.Mock).mockResolvedValue(
+      (AdminNotificationResults.findUnreadByUserId as jest.Mock).mockResolvedValue(
         buildPaginatedResult([mockNotification])
       );
       jest.spyOn(Plan, 'findById').mockResolvedValue({ id: planId, title: 'Plan' } as any);
@@ -648,7 +532,7 @@ describe('adminNotification resolver', () => {
       const completedFeedback = { id: casual.integer(1, 999), messageToOrg: 'Done', completed: new Date().toISOString() };
       const mockNotification = buildMockNotification({ metadata: { planId } });
 
-      (AdminNotificationResults.findUnreadByAffiliationId as jest.Mock).mockResolvedValue(
+      (AdminNotificationResults.findUnreadByUserId as jest.Mock).mockResolvedValue(
         buildPaginatedResult([mockNotification])
       );
       jest.spyOn(Plan, 'findById').mockResolvedValue({ id: planId, title: 'Plan' } as any);
@@ -664,7 +548,7 @@ describe('adminNotification resolver', () => {
       const mockUser = { id: createdById, givenName: 'Jane', surName: 'Doe' };
       const mockNotification = buildMockNotification({ createdById });
 
-      (AdminNotificationResults.findUnreadByAffiliationId as jest.Mock).mockResolvedValue(
+      (AdminNotificationResults.findUnreadByUserId as jest.Mock).mockResolvedValue(
         buildPaginatedResult([mockNotification])
       );
       jest.spyOn(User, 'findById').mockResolvedValue(mockUser as any);
@@ -681,7 +565,7 @@ describe('adminNotification resolver', () => {
 
     it('should return null for createdBy when createdById is not set', async () => {
       const mockNotification = buildMockNotification({ createdById: null });
-      (AdminNotificationResults.findUnreadByAffiliationId as jest.Mock).mockResolvedValue(
+      (AdminNotificationResults.findUnreadByUserId as jest.Mock).mockResolvedValue(
         buildPaginatedResult([mockNotification])
       );
 

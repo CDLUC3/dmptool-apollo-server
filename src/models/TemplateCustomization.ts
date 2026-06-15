@@ -764,7 +764,8 @@ export class TemplateCustomization extends MySqlModel {
           context,
           TemplateCustomization.tableName,
           this,
-          ref
+          ref,
+          ['templateName'] //skip templateName as it is not a real column in the database and is only used for convenience when fetching a customization with its template name
         );
         return await TemplateCustomization.findById(ref, context, newId);
       }
@@ -799,7 +800,7 @@ export class TemplateCustomization extends MySqlModel {
           TemplateCustomization.tableName,
           this,
           ref,
-          [],
+          ['templateName'],
           noTouch
         );
         return await TemplateCustomization.findById(ref, context, this.id);

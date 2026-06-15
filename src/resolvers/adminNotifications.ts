@@ -3,7 +3,6 @@ import { MyContext } from '../context';
 import {
   AdminNotificationResults,
   AdminNotification,
-  AdminNotificationOptions,
 } from '../models/AdminNotifications';
 import { Plan } from '../models/Plan';
 import { Template } from '../models/Template';
@@ -11,8 +10,6 @@ import { PlanFeedback } from '../models/PlanFeedback';
 import { User } from '../models/User';
 import {
   authenticatedResolver,
-  isAdmin,
-  isSuperAdmin,
 } from "../services/authService";
 import {
   ForbiddenError,
@@ -36,14 +33,8 @@ export const resolvers: Resolvers = {
         context: MyContext
       ): Promise<PaginatedQueryResults<AdminNotificationResults>> => {
         const reference = 'adminNotifications resolver';
-        // SuperAdmins get all notifications in the response, and Admins get notifications filtered by their affiliation
-        const affiliationId = isSuperAdmin(context.token) ? null : context.token.affiliationId;
-        return await AdminNotificationResults.findReadByAffiliationId(
-          reference,
-          context,
-          affiliationId,
-          paginationOptions
-        );
+        const userId = context.token.id;
+        return await AdminNotificationResults.findReadByUserId(reference, context, userId, paginationOptions)
       }
     ),
 
@@ -56,19 +47,18 @@ export const resolvers: Resolvers = {
         context: MyContext
       ): Promise<PaginatedQueryResults<AdminNotificationResults>> => {
         const reference = 'unreadAdminNotifications resolver';
-        // SuperAdmins get all notifications in the response, and Admins get notifications filtered by their affiliation
-        const affiliationId = isSuperAdmin(context.token) ? null : context.token.affiliationId;
+        const userId = context.token.id;
 
-        return await AdminNotificationResults.findUnreadByAffiliationId(
+        return await AdminNotificationResults.findUnreadByUserId(
           reference,
           context,
-          affiliationId,
+          userId,
           paginationOptions
         );
       }
     ),
     adminNotifications: authenticatedResolver(
-      'unreadAdminNotifications resolver',
+      'adminNotifications resolver',
       UserRole.ADMIN,
       async (
         _: Record<PropertyKey, never>,
@@ -76,13 +66,12 @@ export const resolvers: Resolvers = {
         context: MyContext
       ): Promise<PaginatedQueryResults<AdminNotificationResults>> => {
         const reference = 'unreadAdminNotifications resolver';
-        // SuperAdmins get all notifications in the response, and Admins get notifications filtered by their affiliation
-        const affiliationId = isSuperAdmin(context.token) ? null : context.token.affiliationId;
+        const userId = context.token.id;
 
-        return await AdminNotificationResults.findByAffiliationId(
+        return await AdminNotificationResults.findByUserId(
           reference,
           context,
-          affiliationId,
+          userId,
           paginationOptions
         );
       }
@@ -90,31 +79,6 @@ export const resolvers: Resolvers = {
   },
 
   Mutation: {
-    addAdminNotification: authenticatedResolver(
-      'addAdminNotification resolver',
-      UserRole.ADMIN,
-      async (
-        _: Record<PropertyKey, never>,
-        { input }: { input: AdminNotificationOptions },
-        context: MyContext
-      ): Promise<AdminNotification> => {
-        if (!isSuperAdmin(context.token) && context.token.affiliationId !== input.affiliationId) {
-          throw ForbiddenError();
-        }
-
-        const notification = new AdminNotification(input);
-        const created = await notification.create(context);
-
-        if (created?.id) {
-          return created;
-        }
-
-        if (!notification.errors['general']) {
-          notification.addError('general', 'Unable to create AdminNotification');
-        }
-        return notification;
-      }
-    ),
     markNotificationAsRead: authenticatedResolver(
       'markNotificationAsRead resolver',
       UserRole.ADMIN,
@@ -131,7 +95,7 @@ export const resolvers: Resolvers = {
             throw NotFoundError(`AdminNotification with ID ${id} not found`);
           }
 
-          if (isSuperAdmin(context.token) || (isAdmin(context.token) && context.token.affiliationId === notification.affiliationId)) {
+          if (context.token.id === notification.userId) {
             const updated = await notification.markAsRead(context);
             return updated !== null;
           }
@@ -160,7 +124,7 @@ export const resolvers: Resolvers = {
             throw NotFoundError(`AdminNotification with ID ${id} not found`);
           }
 
-          if (isSuperAdmin(context.token) || (isAdmin(context.token) && context.token.affiliationId === notification.affiliationId)) {
+          if (context.token.id === notification.userId) {
             const updated = await notification.markAsUnRead(context);
             return updated !== null;
           }

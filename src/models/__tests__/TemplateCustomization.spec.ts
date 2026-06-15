@@ -489,7 +489,8 @@ describe('TemplateCustomization', () => {
         mockContext,
         TemplateCustomization.tableName,
         customization,
-        'TemplateCustomization.create'
+        'TemplateCustomization.create',
+        ['templateName'] // skipKeys
       );
       expect(findBySpy).toHaveBeenCalledWith('TemplateCustomization.create', mockContext, 100);
       expect(result).toBe(mockCreated);
@@ -539,7 +540,7 @@ describe('TemplateCustomization', () => {
         TemplateCustomization.tableName,
         customization,
         'TemplateCustomization.update',
-        [],
+        ['templateName'], // skipKeys
         false
       );
       expect(result).toBe(mockUpdated);
@@ -569,7 +570,7 @@ describe('TemplateCustomization', () => {
         TemplateCustomization.tableName,
         customization,
         'TemplateCustomization.update',
-        [],
+        ['templateName'], // skipKeys
         true
       );
       expect(result).toBe(mockUpdated);

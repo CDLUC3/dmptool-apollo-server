@@ -1,5 +1,6 @@
 CREATE TABLE `adminNotifications` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `userId` int unsigned NOT NULL,
   `notificationType` varchar(50) NOT NULL,
   `affiliationId` varchar(255) NOT NULL,
   `metadata` json DEFAULT NULL,
@@ -11,6 +12,8 @@ CREATE TABLE `adminNotifications` (
   PRIMARY KEY (`id`),
   KEY `affiliationId` (`affiliationId`),
   KEY `notificationType` (`notificationType`),
+  KEY `userId` (`userId`),
+  CONSTRAINT `adminNotifications_ibfk_5` FOREIGN KEY (`userId`) REFERENCES `users` (`id`),
   CONSTRAINT `adminNotifications_ibfk_2` FOREIGN KEY (`affiliationId`) REFERENCES `affiliations` (`uri`),
   CONSTRAINT `adminNotifications_ibfk_3` FOREIGN KEY (`createdById`) REFERENCES `users` (`id`),
   CONSTRAINT `adminNotifications_ibfk_4` FOREIGN KEY (`modifiedById`) REFERENCES `users` (`id`)

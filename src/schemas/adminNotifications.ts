@@ -11,23 +11,10 @@ export const typeDefs = gql`
   }
 
   extend type Mutation {
-    "Create a new admin notification"
-    addAdminNotification(input: AdminNotificationOptions!): AdminNotificationResults!
     "Mark a notification as read"
     markNotificationAsRead(id: Int!): Boolean!
     "Mark a notification as unread"
     markNotificationAsUnRead(id: Int!): Boolean!
-  }
-
-  input AdminNotificationOptions {
-    "The type of notification"
-    notificationType: AdminNotificationType!
-    "Additional data providing the associated Ids for the notification"
-    metadata: AdminNotificationMetadataInput
-    "The affiliation associated with the notification"
-    affiliationId: String!
-    "Whether the notification has been read"
-    isRead: Boolean
   }
 
   type AdminNotificationMetadata {
@@ -48,14 +35,14 @@ export const typeDefs = gql`
     templateCustomizationId: Int
   }
 
-    type AdminNotificationResultsPage {
-      items: [AdminNotificationResults!]!
-      totalCount: Int
-      hasNextPage: Boolean!
-      hasPreviousPage: Boolean
-      currentOffset: Int
-      nextCursor: String
-    }
+  type AdminNotificationResultsPage {
+    items: [AdminNotificationResults!]!
+    totalCount: Int
+    hasNextPage: Boolean!
+    hasPreviousPage: Boolean
+    currentOffset: Int
+    nextCursor: String
+  }
 
 
   type AdminNotificationResults {
@@ -80,6 +67,8 @@ export const typeDefs = gql`
     affiliationId: String
     "Whether the notification has been read"
     isRead: Boolean
+    "The userId of the user associated with the notification"
+    userId: Int
 
     "The plan associated with the notification if metadata contains a planId"
     plan: Plan

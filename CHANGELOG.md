@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added overrides for `form-data`, `js-yaml` and `protobufjs` dependencies
 - Added the `generateLogoUploadURL` and `finalizeLogoUpload` resolvers to the `affiliation` schema.
 - Added new data migration to remove `logoURI` column from `affiliations`. The URI is now generated on the fly by the resolver.
 - Added new `src/datasource/s3.ts` file to provide the CDN URL and to generate presigned URLs for S3 objects.
@@ -90,6 +91,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated version on `ws` override
 - Updated `awsConfig` to move SES properties underneath the `ses` property
 - Updated `uuid` and `@testcontainers/mysql` dependencies
 - Updated methods for the `PlanSectionProgress` class to return `totalRequiredQuestions` and `answeredRequiredQuestions`, and updated unit tests and `PlanSectionProgress` schema [#249]
@@ -182,6 +184,7 @@
 - Updates to appease newer version of eslint
 
 ### Removed
+- Removed override for `brace-expansion` dependency
 - Removed overrides for `ws` and `brace-expansion` dependencies
 - Removed overrides for fast-xml-parser, @node-oauth/oauth2-server and protobufjs
 - Removed old overrides for `"flatted`, `handlebars`, `lodash`, `path-to-regexp`, `picomatch`, and `protobufjs`

@@ -196,7 +196,7 @@ export class AdminNotification extends MySqlModel {
     INSERT INTO adminNotifications (userId, notificationType, affiliationId, metadata, createdById, modifiedById, created, modified)
     SELECT u.id, ?, ?, ?, ?, ?, NOW(), NOW()
     FROM users AS u
-    WHERE (u.role = 'ADMIN' OR u.role = 'SUPER_ADMIN') AND u.affiliationId = ?
+    WHERE (u.role = 'ADMIN' OR u.role = 'SUPERADMIN') AND u.affiliationId = ?
   `;
     const values = [
       notificationType,

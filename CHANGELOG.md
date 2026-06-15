@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added overrides for `form-data`, `js-yaml` and `protobufjs` dependencies
 - Added `adminNotifications` model, resolver and db table. [#570]
 - Added `findByIdWithTemplateName` method to `TemplateCustomization` model so that we can return the template name [#570]
 - Added the `generateLogoUploadURL` and `finalizeLogoUpload` resolvers to the `affiliation` schema.
@@ -92,6 +93,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated version on `ws` override
 - Updated `requestFeedback`, `addTemplate` and `publishTemplateCustomization` resolvers to add a record to the `adminNotifications` table [#570]
 - Updated `awsConfig` to move SES properties underneath the `ses` property
 - Updated `uuid` and `@testcontainers/mysql` dependencies
@@ -185,6 +187,7 @@
 - Updates to appease newer version of eslint
 
 ### Removed
+- Removed override for `brace-expansion` dependency
 - Removed overrides for `ws` and `brace-expansion` dependencies
 - Removed overrides for fast-xml-parser, @node-oauth/oauth2-server and protobufjs
 - Removed old overrides for `"flatted`, `handlebars`, `lodash`, `path-to-regexp`, `picomatch`, and `protobufjs`

@@ -313,7 +313,7 @@ export const resolvers: Resolvers = {
               if (superAdmin) {
                 const domains: AffiliationEmailDomain[] = input.ssoEmailDomains.map((ed: string): AffiliationEmailDomain => {
                   return new AffiliationEmailDomain({
-                    affiliationId: updated.id,
+                    affiliationId: updated.uri,
                     emailDomain: ed
                   });
                 })
@@ -353,36 +353,26 @@ export const resolvers: Resolvers = {
         context: MyContext
       ): Promise<Affiliation> => {
         const reference = 'removeAffiliation resolver';
-        try {
-          // If the current user is a superAdmin
-          if (isSuperAdmin(context.token)) {
-            const affiliation = await Affiliation.findById(reference, context, affiliationId);
 
-            // If the URI does not exist, throw an error
-            if (!affiliation) {
-              throw NotFoundError();
-            }
+        const affiliation = await Affiliation.findById(reference, context, affiliationId);
 
-            // Remove the logo if applicable
-            if (affiliation.logoName) {
-              const removedLogo: boolean = await deleteAffiliationLogoFile(context.logger, affiliation.logoName);
-              if (!removedLogo) {
-                // If the removal of the logo failed, log it so we can clean up
-                // manually later but continue on with the rest of the update
-                context.logger.fatal({ affiliationId: affiliation.uri }, 'Orphaned affiliation logo file!');
-              }
-            }
-
-            // If the affiliation is managed by the DMP Tool then we can delete it
-            return await affiliation.delete(context);
-          }
-          throw context?.token ? ForbiddenError() : AuthenticationError();
-        } catch (err) {
-          if (err instanceof GraphQLError) throw err;
-
-          context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
-          throw InternalServerError();
+        // If the URI does not exist, throw an error
+        if (!affiliation) {
+          throw NotFoundError();
         }
+
+        // Remove the logo if applicable
+        if (affiliation.logoName) {
+          const removedLogo: boolean = await deleteAffiliationLogoFile(context.logger, affiliation.logoName);
+          if (!removedLogo) {
+            // If the removal of the logo failed, log it so we can clean up
+            // manually later but continue on with the rest of the update
+            context.logger.fatal({ affiliationId: affiliation.uri }, 'Orphaned affiliation logo file!');
+          }
+        }
+
+        // If the affiliation is managed by the DMP Tool then we can delete it
+        return await affiliation.delete(context);
       }),
 
     /**

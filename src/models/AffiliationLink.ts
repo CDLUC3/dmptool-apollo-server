@@ -57,7 +57,8 @@ export class AffiliationLink extends MySqlModel {
   async update(context: MyContext): Promise<AffiliationLink> {
     const reference = 'AffiliationLink.update';
     if (!this.id) {
-      this.addError('general', 'The school/department does not exist');
+      this.addError('general', 'The link does not exist');
+      return new AffiliationLink(this);
     }
 
     if (await this.isValid()) {
@@ -71,6 +72,8 @@ export class AffiliationLink extends MySqlModel {
       if (updated) {
         return await AffiliationLink.findById(reference, context, this.id);
       }
+
+      this.addError('general', 'Unable to update the link');
     }
 
     // Otherwise return it with all of its errors

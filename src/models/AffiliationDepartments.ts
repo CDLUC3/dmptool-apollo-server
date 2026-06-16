@@ -64,6 +64,7 @@ export class AffiliationDepartment extends MySqlModel {
     const reference = 'AffiliationDepartment.update';
     if (!this.id) {
       this.addError('general', 'The school/department does not exist');
+      return new AffiliationDepartment(this);
     }
 
     if (await this.isValid()) {
@@ -77,6 +78,8 @@ export class AffiliationDepartment extends MySqlModel {
       if (updated) {
         return await AffiliationDepartment.findById(reference, context, this.id);
       }
+
+      this.addError('general', 'Unable to update the school/department');
     }
 
     // Otherwise return this with all of its errors

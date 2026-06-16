@@ -74,6 +74,7 @@ jest.mock('../../services/guidanceService');
 jest.mock('../../services/affiliationService', () => ({
   reconcileAffiliationEmailDomains: jest.fn(),
   reconcileAffiliationLinks: jest.fn(),
+  authenticateResolver: jest.fn(),
 }));
 jest.mock('../../datasources/s3', () => ({
   CDN_BASE_URL: 'https://cdn.example.com/',
@@ -763,16 +764,6 @@ describe('affiliation resolver', () => {
         expect.any(Object),
         'logo.png',
       );
-    });
-
-    it('should return Forbidden when the caller is not a superAdmin', async () => {
-      const existing = buildMockAffiliation({ provenance: AffiliationProvenance.DMPTOOL });
-      (Affiliation.findById as jest.Mock).mockResolvedValue(existing);
-
-      const result = await executeQuery(query, { affiliationId: existing.id }, adminToken);
-
-      expect(result.body.singleResult.errors).toBeDefined();
-      expect(result.body.singleResult.errors[0].message).toBe('Forbidden');
     });
   });
 

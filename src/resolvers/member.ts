@@ -218,7 +218,7 @@ export const resolvers: Resolvers = {
               const removeErrors = [];
               // Delete any Role associations that were removed
               for (const id of idsToBeRemoved) {
-                const role = await MemberRole.findById(reference, context, id);
+                const role = await MemberRole.findById(reference, context, id as number);
                 if (role) {
                   const wasRemoved = role.removeFromProjectMember(context, updated.id);
                   if (!wasRemoved) {
@@ -234,7 +234,7 @@ export const resolvers: Resolvers = {
               const addErrors = [];
               // Add any new Role associations
               for (const id of idsToBeSaved) {
-                const role = await MemberRole.findById(reference, context, id);
+                const role = await MemberRole.findById(reference, context, id as number);
                 if (role) {
                   const wasAdded = role.addToProjectMember(context, updated.id);
                   if (!wasAdded) {

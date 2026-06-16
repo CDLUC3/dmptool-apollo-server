@@ -139,6 +139,9 @@ services:
       # (we use the same OpenSearch instance in this local environment)
       - "OPENSEARCH_SERVERLESS_NODE=http://opensearch:9200"
 
+      # LocalStack Port
+      - "LOCALSTACK_PORT=4566"
+
       # DynamoDB table used to store maDMP versions
       - "DYNAMO_ENDPOINT=http://localstack:4566"
       - "DYNAMODB_TABLE_NAME=localDMPTable"

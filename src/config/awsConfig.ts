@@ -39,6 +39,7 @@ export const awsConfig = {
   // S3 cloudfront/CDN bucket configuration
   s3: {
     bucket: process.env.S3_BUCKET || 'maDMPs',
+    localstackPort: process.env.LOCALSTACK_PORT,
   },
 
   // SQS configuration

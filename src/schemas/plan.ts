@@ -86,6 +86,10 @@ export const typeDefs = gql`
     totalQuestions: Int!
     "The number of questions the user has answered"
     answeredQuestions: Int!
+    "The number of required questions in the section"
+    totalRequiredQuestions: Int!
+    "The number of required questions the user has answered"
+    answeredRequiredQuestions: Int!
     "Tags associated with the section"
     tags: [Tag!]
   }

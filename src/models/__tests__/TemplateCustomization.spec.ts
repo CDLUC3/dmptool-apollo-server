@@ -489,7 +489,8 @@ describe('TemplateCustomization', () => {
         mockContext,
         TemplateCustomization.tableName,
         customization,
-        'TemplateCustomization.create'
+        'TemplateCustomization.create',
+        ['templateName'] // skipKeys
       );
       expect(findBySpy).toHaveBeenCalledWith('TemplateCustomization.create', mockContext, 100);
       expect(result).toBe(mockCreated);
@@ -539,7 +540,7 @@ describe('TemplateCustomization', () => {
         TemplateCustomization.tableName,
         customization,
         'TemplateCustomization.update',
-        [],
+        ['templateName'], // skipKeys
         false
       );
       expect(result).toBe(mockUpdated);
@@ -569,7 +570,7 @@ describe('TemplateCustomization', () => {
         TemplateCustomization.tableName,
         customization,
         'TemplateCustomization.update',
-        [],
+        ['templateName'], // skipKeys
         true
       );
       expect(result).toBe(mockUpdated);
@@ -880,6 +881,74 @@ describe('TemplateCustomization', () => {
       expect(result[1].id).toBe(124);
     });
   });
+
+  describe('static findByIdWithTemplateName()', () => {
+    it('should return null when no results are found', async () => {
+      const querySpy = jest.spyOn(TemplateCustomization, 'query').mockResolvedValue([]);
+
+      const result = await TemplateCustomization.findByIdWithTemplateName('test-ref', mockContext, 123);
+
+      expect(querySpy).toHaveBeenCalledWith(
+        mockContext,
+        expect.stringContaining('SELECT tc.*'),
+        ['123'],
+        'test-ref'
+      );
+      expect(result).toBeNull();
+    });
+
+    it('should return null when results is not an array', async () => {
+      jest.spyOn(TemplateCustomization, 'query').mockResolvedValue(null);
+
+      const result = await TemplateCustomization.findByIdWithTemplateName('test-ref', mockContext, 123);
+
+      expect(result).toBeNull();
+    });
+
+    it('should return a TemplateCustomization instance with templateName when found', async () => {
+      const mockData = {
+        id: 123,
+        affiliationId: 'affil-123',
+        templateId: 1,
+        currentVersionedTemplateId: 10,
+        status: 'DRAFT',
+        migrationStatus: 'OK',
+        templateName: 'My Funder Template',
+      };
+
+      const querySpy = jest.spyOn(TemplateCustomization, 'query').mockResolvedValue([mockData]);
+
+      const result = await TemplateCustomization.findByIdWithTemplateName('test-ref', mockContext, 123);
+
+      expect(querySpy).toHaveBeenCalledWith(
+        mockContext,
+        expect.stringContaining('JOIN templates t ON tc.templateId = t.id'),
+        ['123'],
+        'test-ref'
+      );
+      expect(result).toBeInstanceOf(TemplateCustomization);
+      expect(result.id).toBe(123);
+      expect(result.templateName).toBe('My Funder Template');
+    });
+
+    it('should join to templates table to get templateName', async () => {
+      const querySpy = jest.spyOn(TemplateCustomization, 'query').mockResolvedValue([]);
+
+      await TemplateCustomization.findByIdWithTemplateName('test-ref', mockContext, 123);
+
+      const calledSql = querySpy.mock.calls[0][1] as string;
+      expect(calledSql).toContain('t.name AS templateName');
+      expect(calledSql).toContain('JOIN templates t ON tc.templateId = t.id');
+    });
+
+    it('should return null when templateCustomizationId is not found', async () => {
+      jest.spyOn(TemplateCustomization, 'query').mockResolvedValue([]);
+
+      const result = await TemplateCustomization.findByIdWithTemplateName('test-ref', mockContext, 999);
+
+      expect(result).toBeNull();
+    });
+  });
 });
 
 describe('TemplateCustomizationOverview', () => {
@@ -970,7 +1039,7 @@ describe('TemplateCustomizationOverview', () => {
       );
 
       expect(mockContext.logger.error).toHaveBeenCalledWith(
-        {templateCustomizationId: 1},
+        { templateCustomizationId: 1 },
         'Unable to find template customization'
       );
       expect(result).toBeUndefined();
@@ -2133,7 +2202,7 @@ describe('TemplateCustomizationOverview', () => {
       const mockUpdated = new TemplateCustomization({
         ...mockCustomization,
         isDirty: true,
-        errors: {general: 'Some error'}
+        errors: { general: 'Some error' }
       });
 
       jest.spyOn(TemplateCustomization, 'findById').mockResolvedValue(mockCustomization);

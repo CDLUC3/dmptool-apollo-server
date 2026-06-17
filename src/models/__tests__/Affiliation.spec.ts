@@ -16,7 +16,9 @@ describe('Affiliation', () => {
     active: true,
     provenance: 'ROR',
     name: 'University of Virginia',
-    displayName: 'University of Virginia (virginia.edu)',
+    displayName: 'University of Virginia',
+    displayAbbreviation: 'UVA',
+    displayDomain: 'virginia.edu',
     searchName: 'University of Virginia | virginia.edu | UVA ',
     funder: 1,
     fundrefId: 1000001234,
@@ -59,26 +61,22 @@ describe('Affiliation', () => {
     expect(affiliation.managed).toEqual(affiliationData.managed);
     expect(affiliation.apiTarget).toEqual(affiliationData.apiTarget);
   });
-
-  it('should add additional properties to uneditableProperties if provenance is ROR', async () => {
-    expect(await affiliation.uneditableProperties).toEqual(['uri', 'provenance', 'searchName', 'name', 'funder', 'fundrefId', 'homepage', 'acronyms', 'aliases', 'types']);
-  });
 });
 
 describe('prepForSave', () => {
   it('sets the appropriate defaults', () => {
-    const name = casual.company_name;
+    const displayName = casual.company_name;
     const homepage = casual.url;
     const acronyms = [casual.letter, casual.word, undefined];
     const aliases = [casual.words(2), casual.word, null];
-    const affiliation = new Affiliation({ name, homepage, acronyms, aliases });
+    const affiliation = new Affiliation({ displayName, homepage, acronyms, aliases });
     const domain = homepage.replace(/https?:\/\//, '').replace('/', '').toLowerCase();
     affiliation.prepForSave();
 
-    expect(affiliation.name).toEqual(name);
+    expect(affiliation.name).toEqual(displayName);
     expect(affiliation.homepage).toEqual(homepage);
-    expect(affiliation.displayName).toEqual(`${name} (${domain})`);
-    expect(affiliation.searchName.includes(name)).toBe(true);
+    expect(affiliation.displayName).toEqual(displayName);
+    expect(affiliation.searchName.includes(displayName)).toBe(true);
     expect(affiliation.searchName.includes(domain)).toBe(true);
     expect(affiliation.searchName.includes(aliases[0])).toBe(true);
     expect(affiliation.searchName.includes(aliases[1])).toBe(true);
@@ -106,7 +104,8 @@ describe('findById', () => {
     affiliation = new Affiliation({
       id: casual.integer(1, 9),
       createdById: casual.integer(1, 999),
-      name: casual.sentence,
+      displayName: casual.sentence,
+      displayAbbreviation: casual.word,
       ownerId: casual.url,
     })
 
@@ -158,7 +157,9 @@ describe('create', () => {
       active: true,
       provenance: 'ROR',
       name: 'University of Virginia',
-      displayName: 'University of Virginia (virginia.edu)',
+      displayName: 'University of Virginia',
+      displayAbbreviation: 'UVA',
+      displayDomain: 'virginia.edu',
       searchName: 'University of Virginia | virginia.edu | UVA ',
       funder: 1,
       fundrefId: 1000001234,
@@ -229,7 +230,9 @@ describe('update', () => {
       active: true,
       provenance: 'ROR',
       name: 'University of Virginia',
-      displayName: 'University of Virginia (virginia.edu)',
+      displayName: 'University of Virginia',
+      displayAbbreviation: 'UVA',
+      displayDomain: 'virginia.edu',
       searchName: 'University of Virginia | virginia.edu | UVA ',
       funder: 1,
       fundrefId: 1000001234,
@@ -392,9 +395,10 @@ describe('findByName', () => {
     localQuery.mockResolvedValueOnce([affiliation]);
 
     const result = await Affiliation.findByName('Test', context, affiliation.name);
-    const expectedSql = 'SELECT * FROM affiliations WHERE TRIM(LOWER(name)) = ?';
+    const expectedSql = 'SELECT * FROM affiliations WHERE TRIM(LOWER(name)) = ? OR TRIM(LOWER(displayName)) = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [affiliation.name.toLowerCase()], 'Test')
+    const vals = [affiliation.name.toLowerCase(), affiliation.name.toLowerCase()]
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, vals, 'Test')
     expect(result).toEqual(affiliation);
   });
 

@@ -43,7 +43,7 @@ export class AffiliationDepartment extends MySqlModel {
     // Then make sure it doesn't already exist
     if(await this.isValid()) {
       if (!isNullOrUndefined(current)) {
-        this.addError('general', `That department is already associated with this Affiliation`);
+        this.addError('general', `That school/department is already associated with this Affiliation`);
       } else {
         // Save the record and then fetch it
         const newId = await AffiliationDepartment.insert(
@@ -56,6 +56,33 @@ export class AffiliationDepartment extends MySqlModel {
       }
     }
     // Otherwise return as-is with all the errors
+    return new AffiliationDepartment(this);
+  }
+
+  // Update the record
+  async update(context: MyContext): Promise<AffiliationDepartment> {
+    const reference = 'AffiliationDepartment.update';
+    if (!this.id) {
+      this.addError('general', 'The school/department does not exist');
+      return new AffiliationDepartment(this);
+    }
+
+    if (await this.isValid()) {
+      const updated = await AffiliationDepartment.update(
+        context,
+        AffiliationDepartment.tableName,
+        this,
+        reference
+      );
+
+      if (updated) {
+        return await AffiliationDepartment.findById(reference, context, this.id);
+      }
+
+      this.addError('general', 'Unable to update the school/department');
+    }
+
+    // Otherwise return this with all of its errors
     return new AffiliationDepartment(this);
   }
 

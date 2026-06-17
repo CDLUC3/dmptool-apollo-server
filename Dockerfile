@@ -33,7 +33,7 @@ RUN pip install --no-cache-dir awscli-local
 
 # Copy package.json and package-lock.json
 # to the /app working directory
-COPY package*.json tsconfig.json codegen.ts .env ./
+COPY package*.json tsconfig.json codegen.ts .env dmptool-*.tgz ./
 
 # Install dependencies in /app
 RUN npm ci

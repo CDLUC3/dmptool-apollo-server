@@ -284,6 +284,87 @@ export type AddTemplateCustomizationInput = {
   versionedTemplateId: Scalars['Int']['input'];
 };
 
+/** A collection of errors related to the Section */
+export type AdminNotificationErrors = {
+  __typename?: 'AdminNotificationErrors';
+  /** General error messages such as the object already exists */
+  general?: Maybe<Scalars['String']['output']>;
+};
+
+export type AdminNotificationMetadata = {
+  __typename?: 'AdminNotificationMetadata';
+  /** The associated plan Id for the notification, if applicable */
+  planId?: Maybe<Scalars['Int']['output']>;
+  /** The associated template customization Id for the notification, if applicable */
+  templateCustomizationId?: Maybe<Scalars['Int']['output']>;
+  /** The associated template Id for the notification, if applicable */
+  templateId?: Maybe<Scalars['Int']['output']>;
+};
+
+export type AdminNotificationMetadataInput = {
+  /** The associated plan Id for the notification, if applicable */
+  planId?: InputMaybe<Scalars['Int']['input']>;
+  /** The associated template customization Id for the notification, if applicable */
+  templateCustomizationId?: InputMaybe<Scalars['Int']['input']>;
+  /** The associated template Id for the notification, if applicable */
+  templateId?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type AdminNotificationResults = {
+  __typename?: 'AdminNotificationResults';
+  /** The affiliation associated with the notification */
+  affiliationId?: Maybe<Scalars['String']['output']>;
+  /** The timestamp when the Object was created */
+  created?: Maybe<Scalars['String']['output']>;
+  /** The user who created the notification */
+  createdBy?: Maybe<User>;
+  /** The user who created the Object */
+  createdById?: Maybe<Scalars['Int']['output']>;
+  /** Errors associated with the Object */
+  errors?: Maybe<AdminNotificationErrors>;
+  /** The feedback associated with the plan if metadata contains a planId */
+  feedback?: Maybe<PlanFeedback>;
+  /** The unique identifer for the Object */
+  id?: Maybe<Scalars['Int']['output']>;
+  /** Whether the notification has been read */
+  isRead?: Maybe<Scalars['Boolean']['output']>;
+  /** Additional data providing the associated Ids for the notification */
+  metadata?: Maybe<AdminNotificationMetadata>;
+  /** The timestamp when the Object was last modifed */
+  modified?: Maybe<Scalars['String']['output']>;
+  /** The user who last modified the Object */
+  modifiedById?: Maybe<Scalars['Int']['output']>;
+  /** The notification type */
+  notificationType?: Maybe<AdminNotificationType>;
+  /** The plan associated with the notification if metadata contains a planId */
+  plan?: Maybe<Plan>;
+  /** The template associated with the notification if metadata contains a templateId */
+  template?: Maybe<Template>;
+  /** The template customization associated with the notification if metadata contains a templateCustomizationId */
+  templateCustomization?: Maybe<TemplateCustomization>;
+  /** The userId of the user associated with the notification */
+  userId?: Maybe<Scalars['Int']['output']>;
+};
+
+export type AdminNotificationResultsPage = {
+  __typename?: 'AdminNotificationResultsPage';
+  currentOffset?: Maybe<Scalars['Int']['output']>;
+  hasNextPage: Scalars['Boolean']['output'];
+  hasPreviousPage?: Maybe<Scalars['Boolean']['output']>;
+  items: Array<AdminNotificationResults>;
+  nextCursor?: Maybe<Scalars['String']['output']>;
+  totalCount?: Maybe<Scalars['Int']['output']>;
+};
+
+/** The types of notifications for Admin Notification */
+export type AdminNotificationType =
+  /** When feedback is requested on a plan */
+  | 'FEEDBACK_REQUESTED'
+  /** When a template is created */
+  | 'TEMPLATE_CREATED'
+  /** When customization to a template has changed */
+  | 'TEMPLATE_CUSTOMIZATION_CHANGED';
+
 /** A respresentation of an institution, organization or company */
 export type Affiliation = {
   __typename?: 'Affiliation';
@@ -303,6 +384,10 @@ export type Affiliation = {
   created?: Maybe<Scalars['String']['output']>;
   /** The user who created the Object */
   createdById?: Maybe<Scalars['Int']['output']>;
+  /** The abbreviation to display in the UI */
+  displayAbbreviation?: Maybe<Scalars['String']['output']>;
+  /** The domain name of the affiliation to display in the UI */
+  displayDomain?: Maybe<Scalars['String']['output']>;
   /** The display name to help disambiguate similar names (typically with domain or country appended) */
   displayName: Scalars['String']['output'];
   /** Any errors with the Object */
@@ -339,43 +424,26 @@ export type Affiliation = {
   /** The combined name, homepage, aliases and acronyms to facilitate search */
   searchName: Scalars['String']['output'];
   /** The email domains associated with the affiliation (for SSO) */
-  ssoEmailDomains?: Maybe<Array<AffiliationEmailDomain>>;
+  ssoEmailDomains?: Maybe<Array<Scalars['String']['output']>>;
   /** The SSO entityId */
   ssoEntityId?: Maybe<Scalars['String']['output']>;
   /** The links the affiliation's users can use to get help */
   subHeaderLinks?: Maybe<Array<AffiliationLink>>;
   /** The types of the affiliation (e.g. Company, Education, Government, etc.) */
   types: Array<AffiliationType>;
-  /** The properties of this object that are NOT editable. Determined by the record's provenance */
-  uneditableProperties: Array<Scalars['String']['output']>;
   /** The unique identifer for the affiliation (assigned by the provenance e.g. https://ror.org/12345) */
   uri: Scalars['String']['output'];
 };
 
-/** Email domains linked to the affiliation for purposes of determining if SSO is applicable */
-export type AffiliationEmailDomain = {
-  __typename?: 'AffiliationEmailDomain';
-  /** The email domain (e.g. example.com, law.example.com, etc.) */
-  domain: Scalars['String']['output'];
-  /** Unique identifier for the email domain */
-  id: Scalars['Int']['output'];
-};
-
-/** Input for email domains linked to the affiliation for purposes of determining if SSO is applicable */
-export type AffiliationEmailDomainInput = {
-  /** The email domain (e.g. example.com, law.example.com, etc.) */
-  domain: Scalars['String']['input'];
-  /** Unique identifier for the email domain */
-  id: Scalars['Int']['input'];
-};
-
-/** A collection of errors related to the Answer */
+/** A collection of errors related to the Affiliation */
 export type AffiliationErrors = {
   __typename?: 'AffiliationErrors';
   acronyms?: Maybe<Scalars['String']['output']>;
   aliases?: Maybe<Scalars['String']['output']>;
   contactEmail?: Maybe<Scalars['String']['output']>;
   contactName?: Maybe<Scalars['String']['output']>;
+  displayAbbreviation?: Maybe<Scalars['String']['output']>;
+  displayDomain?: Maybe<Scalars['String']['output']>;
   displayName?: Maybe<Scalars['String']['output']>;
   feedbackEmails?: Maybe<Scalars['String']['output']>;
   feedbackMessage?: Maybe<Scalars['String']['output']>;
@@ -383,74 +451,76 @@ export type AffiliationErrors = {
   /** General error messages such as affiliation already exists */
   general?: Maybe<Scalars['String']['output']>;
   homepage?: Maybe<Scalars['String']['output']>;
-  json?: Maybe<Scalars['String']['output']>;
   logoName?: Maybe<Scalars['String']['output']>;
   logoURI?: Maybe<Scalars['String']['output']>;
   name?: Maybe<Scalars['String']['output']>;
-  planId?: Maybe<Scalars['String']['output']>;
   provenance?: Maybe<Scalars['String']['output']>;
+  rorId?: Maybe<Scalars['String']['output']>;
   searchName?: Maybe<Scalars['String']['output']>;
+  ssoEmailDomains?: Maybe<Scalars['String']['output']>;
   ssoEntityId?: Maybe<Scalars['String']['output']>;
   subHeaderLinks?: Maybe<Scalars['String']['output']>;
   types?: Maybe<Scalars['String']['output']>;
   uri?: Maybe<Scalars['String']['output']>;
-  versionedQuestionId?: Maybe<Scalars['String']['output']>;
-  versionedSectionId?: Maybe<Scalars['String']['output']>;
 };
 
 /** Input options for adding an Affiliation */
 export type AffiliationInput = {
   /** Acronyms for the affiliation */
   acronyms?: InputMaybe<Array<Scalars['String']['input']>>;
-  /** Whether or not the Affiliation is active and available in search results */
+  /** Whether or not the Affiliation is active and available in search results (SuperAdmin only) */
   active?: InputMaybe<Scalars['Boolean']['input']>;
   /** Alias names for the affiliation */
   aliases?: InputMaybe<Array<Scalars['String']['input']>>;
+  /** The URI of the affiliation's API to use for project search */
+  apiTarget?: InputMaybe<Scalars['String']['input']>;
   /** The primary contact email */
   contactEmail?: InputMaybe<Scalars['String']['input']>;
   /** The primary contact name */
   contactName?: InputMaybe<Scalars['String']['input']>;
-  /** The display name to help disambiguate similar names (typically with domain or country appended) */
-  displayName?: InputMaybe<Scalars['String']['input']>;
+  /** The abbreviation to display in the UI */
+  displayAbbreviation?: InputMaybe<Scalars['String']['input']>;
+  /** The domain name of the affiliation to display in the UI */
+  displayDomain?: InputMaybe<Scalars['String']['input']>;
+  /** The display name that users see */
+  displayName: Scalars['String']['input'];
   /** The email address(es) to notify when feedback has been requested (stored as JSON array) */
   feedbackEmails?: InputMaybe<Array<InputMaybe<Scalars['String']['input']>>>;
   /** Whether or not the affiliation wants to use the feedback workflow */
   feedbackEnabled?: InputMaybe<Scalars['Boolean']['input']>;
   /** The message to display to users when they request feedback */
   feedbackMessage?: InputMaybe<Scalars['String']['input']>;
-  /** Whether or not this affiliation is a funder */
+  /** Whether or not this affiliation should be considered a funder within the DMP Tool */
   funder?: InputMaybe<Scalars['Boolean']['input']>;
-  /** The Crossref Funder id */
+  /** The Crossref funder id */
   fundrefId?: InputMaybe<Scalars['String']['input']>;
   /** The official homepage for the affiliation */
   homepage?: InputMaybe<Scalars['String']['input']>;
   /** The id of the affiliation */
   id?: InputMaybe<Scalars['Int']['input']>;
-  /** The logo file name */
+  /** The name of the logo file (S3 key) */
   logoName?: InputMaybe<Scalars['String']['input']>;
-  /** The URI of the logo */
-  logoURI?: InputMaybe<Scalars['String']['input']>;
-  /** Whether or not the affiliation is allowed to have administrators */
+  /** Whether or not the affiliation is allowed to have administrators (SuperAdmin only) */
   managed?: InputMaybe<Scalars['Boolean']['input']>;
-  /** The official name for the affiliation (defined by the system of provenance) */
-  name: Scalars['String']['input'];
-  /** The email domains associated with the affiliation (for SSO) */
-  ssoEmailDomains?: InputMaybe<Array<AffiliationEmailDomainInput>>;
-  /** The SSO entityId */
+  /** The official name for the affiliation (defined by the system of provenance or a SuperAdmin)) */
+  name?: InputMaybe<Scalars['String']['input']>;
+  /** The ROR id */
+  rorId?: InputMaybe<Scalars['String']['input']>;
+  /** The email domains associated with the affiliation (for SSO) (SuperAdmin only) */
+  ssoEmailDomains?: InputMaybe<Array<Scalars['String']['input']>>;
+  /** The SSO entityId (SuperAdmin only) */
   ssoEntityId?: InputMaybe<Scalars['String']['input']>;
   /** The links the affiliation's users can use to get help */
   subHeaderLinks?: InputMaybe<Array<AffiliationLinkInput>>;
-  /** The types of the affiliation (e.g. Company, Education, Government, etc.) */
+  /** The types of the affiliation (e.g. Company, Education, etc.) (defined by the system of provenance or a SuperAdmin) */
   types?: InputMaybe<Array<AffiliationType>>;
-  /** The unique identifer for the affiliation (Not editable!) */
-  uri?: InputMaybe<Scalars['String']['input']>;
 };
 
 /** A hyperlink displayed in the sub-header of the UI for the afiliation's users */
 export type AffiliationLink = {
   __typename?: 'AffiliationLink';
   /** Unique identifier for the link */
-  id: Scalars['Int']['output'];
+  id?: Maybe<Scalars['Int']['output']>;
   /** The text to display (e.g. Helpdesk, Grants Office, etc.) */
   text?: Maybe<Scalars['String']['output']>;
   /** The URL */
@@ -460,11 +530,27 @@ export type AffiliationLink = {
 /** Input for a hyperlink displayed in the sub-header of the UI for the afiliation's users */
 export type AffiliationLinkInput = {
   /** Unique identifier for the link */
-  id: Scalars['Int']['input'];
+  id?: InputMaybe<Scalars['Int']['input']>;
   /** The text to display (e.g. Helpdesk, Grants Office, etc.) */
   text?: InputMaybe<Scalars['String']['input']>;
   /** The URL */
   url: Scalars['String']['input'];
+};
+
+export type AffiliationLogoUpload = {
+  __typename?: 'AffiliationLogoUpload';
+  /** Any errors related to generating the logo upload URL */
+  errors?: Maybe<AffiliationLogoUploadErrors>;
+  /** The fields that should be included in the body of the POST request to upload the logo (e.g. policy, signature, etc.) stored as a JSON string */
+  fields: Scalars['String']['output'];
+  /** The URL to which the affiliation logo should be uploaded */
+  url: Scalars['String']['output'];
+};
+
+export type AffiliationLogoUploadErrors = {
+  __typename?: 'AffiliationLogoUploadErrors';
+  /** General error message related to generating the logo upload URL */
+  general: Scalars['String']['output'];
 };
 
 /** The provenance of an Affiliation record */
@@ -483,10 +569,14 @@ export type AffiliationSearch = {
   aliases?: Maybe<Array<Scalars['String']['output']>>;
   /** Has an API that be used to search for project/award information */
   apiTarget?: Maybe<Scalars['String']['output']>;
+  /** The abbreviation to display in the UI */
+  displayAbbreviation?: Maybe<Scalars['String']['output']>;
   /** A user display name for the affiliation (typically the name with domain or country appended) */
   displayName: Scalars['String']['output'];
   /** Whether or not this affiliation is a funder */
   funder: Scalars['Boolean']['output'];
+  /** The homepage of the affiliation */
+  homepage?: Maybe<Scalars['String']['output']>;
   /** The unique identifer for the affiliation */
   id: Scalars['Int']['output'];
   /** The official name for the affiliation (defined by the system of provenance) */
@@ -568,7 +658,7 @@ export type Answer = {
   /** The user who created the Object */
   createdById?: Maybe<Scalars['Int']['output']>;
   /** Errors associated with the Object */
-  errors?: Maybe<AffiliationErrors>;
+  errors?: Maybe<AnswerErrors>;
   /** The feedback comments associated with the answer */
   feedbackComments?: Maybe<Array<PlanFeedbackComment>>;
   /** The unique identifer for the Object */
@@ -620,6 +710,17 @@ export type AnswerCommentErrors = {
   commentText?: Maybe<Scalars['String']['output']>;
   /** General error messages such as affiliation already exists */
   general?: Maybe<Scalars['String']['output']>;
+};
+
+/** A collection of errors related to the Answer */
+export type AnswerErrors = {
+  __typename?: 'AnswerErrors';
+  /** General error messages such as answer already exists */
+  general?: Maybe<Scalars['String']['output']>;
+  json?: Maybe<Scalars['String']['output']>;
+  planId?: Maybe<Scalars['String']['output']>;
+  versionedQuestionId?: Maybe<Scalars['String']['output']>;
+  versionedSectionId?: Maybe<Scalars['String']['output']>;
 };
 
 /** An author of a work */
@@ -972,6 +1073,8 @@ export type ExternalMember = {
   givenName?: Maybe<Scalars['String']['output']>;
   /** The member's ORCID */
   orcid?: Maybe<Scalars['String']['output']>;
+  /** The member's role(s) in the project (e.g. PI, Co-PI, Research Assistant, etc.) */
+  role?: Maybe<Array<Maybe<Scalars['String']['output']>>>;
   /** The member's last/sur name */
   surName?: Maybe<Scalars['String']['output']>;
 };
@@ -1458,12 +1561,20 @@ export type Mutation = {
   createTemplateVersion?: Maybe<Template>;
   /** Deactivate the specified user Account (Admin only) */
   deactivateUser?: Maybe<User>;
+  /** Finalizes the upload of an affiliation logo to the CloudFront CDN S3 bucket. The logoName should equal the 'key' from the fields returned by the generateLogoUploadURL mutation. */
+  finalizeLogoUpload: Affiliation;
+  /** Generate a presigned URL to upload an affiliation logo to the CloudFront CDN S3 bucket. The URL and fields returned are used to upload the logo to S3. */
+  generateLogoUploadURL?: Maybe<AffiliationLogoUpload>;
   /** The custom guidance for the custom section */
   guidance?: Maybe<Scalars['String']['output']>;
   /** The introduction to the custom section */
   introduction?: Maybe<Scalars['String']['output']>;
   /** Designates the specified Template as the default (SuperAdmin only) */
   markAsDefaultTemplate?: Maybe<Template>;
+  /** Mark a notification as read */
+  markNotificationAsRead: Scalars['Boolean']['output'];
+  /** Mark a notification as unread */
+  markNotificationAsUnRead: Scalars['Boolean']['output'];
   /** Merge two licenses */
   mergeLicenses?: Maybe<License>;
   /** Merge two metadata standards */
@@ -1873,8 +1984,31 @@ export type MutationDeactivateUserArgs = {
 };
 
 
+export type MutationFinalizeLogoUploadArgs = {
+  affiliationURI: Scalars['String']['input'];
+  logoName: Scalars['String']['input'];
+};
+
+
+export type MutationGenerateLogoUploadUrlArgs = {
+  affiliationURI: Scalars['String']['input'];
+  contentType: Scalars['String']['input'];
+  fileName: Scalars['String']['input'];
+};
+
+
 export type MutationMarkAsDefaultTemplateArgs = {
   templateId: Scalars['Int']['input'];
+};
+
+
+export type MutationMarkNotificationAsReadArgs = {
+  id: Scalars['Int']['input'];
+};
+
+
+export type MutationMarkNotificationAsUnReadArgs = {
+  id: Scalars['Int']['input'];
 };
 
 
@@ -2747,6 +2881,8 @@ export type PlanSectionProgress = {
   __typename?: 'PlanSectionProgress';
   /** The number of questions the user has answered */
   answeredQuestions: Scalars['Int']['output'];
+  /** The number of required questions the user has answered */
+  answeredRequiredQuestions: Scalars['Int']['output'];
   /** The custom section id if the section is a customization, otherwise null */
   customSectionId?: Maybe<Scalars['Int']['output']>;
   /** The display order of the section */
@@ -2759,6 +2895,8 @@ export type PlanSectionProgress = {
   title: Scalars['String']['output'];
   /** The number of questions in the section */
   totalQuestions: Scalars['Int']['output'];
+  /** The number of required questions in the section */
+  totalRequiredQuestions: Scalars['Int']['output'];
   /** The id of the Section */
   versionedSectionId?: Maybe<Scalars['Int']['output']>;
 };
@@ -2819,6 +2957,8 @@ export type Project = {
   modifiedById?: Maybe<Scalars['Int']['output']>;
   /** The plans that are associated with the research project */
   plans?: Maybe<Array<PlanSearchResult>>;
+  /** Indicates that the project is not editable by the user (i.e. readOnly = true means the user cannot edit the project) */
+  readOnly?: Maybe<Scalars['Boolean']['output']>;
   /** The type of research being done */
   researchDomain?: Maybe<ResearchDomain>;
   /** The estimated date the research project will begin (use YYYY-MM-DD format) */
@@ -3151,6 +3291,12 @@ export type PublishedTemplateSearchResults = PaginatedQueryResults & {
 export type Query = {
   __typename?: 'Query';
   _empty?: Maybe<Scalars['String']['output']>;
+  /** Retrieve all notifications for a specific affiliation */
+  adminNotifications?: Maybe<AdminNotificationResultsPage>;
+  /** Retrieve all read notifications for a specific affiliation */
+  adminNotificationsRead?: Maybe<AdminNotificationResultsPage>;
+  /** Retrieve all unread notifications for a specific affiliation */
+  adminNotificationsUnread?: Maybe<AdminNotificationResultsPage>;
   /** Retrieve a specific Affiliation by its ID */
   affiliationById?: Maybe<Affiliation>;
   /** Retrieve a specific Affiliation by its URI */
@@ -3346,6 +3492,21 @@ export type Query = {
   users?: Maybe<UserSearchResults>;
   /** Get all VersionedGuidance for a given affiliation and Tag IDs */
   versionedGuidance: Array<VersionedGuidance>;
+};
+
+
+export type QueryAdminNotificationsArgs = {
+  paginationOptions?: InputMaybe<PaginationOptions>;
+};
+
+
+export type QueryAdminNotificationsReadArgs = {
+  paginationOptions?: InputMaybe<PaginationOptions>;
+};
+
+
+export type QueryAdminNotificationsUnreadArgs = {
+  paginationOptions?: InputMaybe<PaginationOptions>;
 };
 
 
@@ -4656,6 +4817,8 @@ export type TemplateCustomization = {
   modifiedById?: Maybe<Scalars['Int']['output']>;
   /** The status of the customization */
   status: TemplateCustomizationStatus;
+  /** The name of the parent template, included for convenience when fetching a customization with its template name */
+  templateName?: Maybe<Scalars['String']['output']>;
 };
 
 /** A collection of errors related to the Template Customization */
@@ -5916,13 +6079,19 @@ export type ResolversTypes = {
   AddSectionCustomizationInput: AddSectionCustomizationInput;
   AddSectionInput: AddSectionInput;
   AddTemplateCustomizationInput: AddTemplateCustomizationInput;
+  AdminNotificationErrors: ResolverTypeWrapper<AdminNotificationErrors>;
+  AdminNotificationMetadata: ResolverTypeWrapper<AdminNotificationMetadata>;
+  AdminNotificationMetadataInput: AdminNotificationMetadataInput;
+  AdminNotificationResults: ResolverTypeWrapper<AdminNotificationResults>;
+  AdminNotificationResultsPage: ResolverTypeWrapper<AdminNotificationResultsPage>;
+  AdminNotificationType: AdminNotificationType;
   Affiliation: ResolverTypeWrapper<Affiliation>;
-  AffiliationEmailDomain: ResolverTypeWrapper<AffiliationEmailDomain>;
-  AffiliationEmailDomainInput: AffiliationEmailDomainInput;
   AffiliationErrors: ResolverTypeWrapper<AffiliationErrors>;
   AffiliationInput: AffiliationInput;
   AffiliationLink: ResolverTypeWrapper<AffiliationLink>;
   AffiliationLinkInput: AffiliationLinkInput;
+  AffiliationLogoUpload: ResolverTypeWrapper<AffiliationLogoUpload>;
+  AffiliationLogoUploadErrors: ResolverTypeWrapper<AffiliationLogoUploadErrors>;
   AffiliationProvenance: AffiliationProvenance;
   AffiliationSearch: ResolverTypeWrapper<AffiliationSearch>;
   AffiliationSearchResults: ResolverTypeWrapper<AffiliationSearchResults>;
@@ -5932,6 +6101,7 @@ export type ResolversTypes = {
   Answer: ResolverTypeWrapper<Answer>;
   AnswerComment: ResolverTypeWrapper<AnswerComment>;
   AnswerCommentErrors: ResolverTypeWrapper<AnswerCommentErrors>;
+  AnswerErrors: ResolverTypeWrapper<AnswerErrors>;
   Author: ResolverTypeWrapper<Author>;
   AuthorInput: AuthorInput;
   Award: ResolverTypeWrapper<Award>;
@@ -6165,13 +6335,18 @@ export type ResolversParentTypes = {
   AddSectionCustomizationInput: AddSectionCustomizationInput;
   AddSectionInput: AddSectionInput;
   AddTemplateCustomizationInput: AddTemplateCustomizationInput;
+  AdminNotificationErrors: AdminNotificationErrors;
+  AdminNotificationMetadata: AdminNotificationMetadata;
+  AdminNotificationMetadataInput: AdminNotificationMetadataInput;
+  AdminNotificationResults: AdminNotificationResults;
+  AdminNotificationResultsPage: AdminNotificationResultsPage;
   Affiliation: Affiliation;
-  AffiliationEmailDomain: AffiliationEmailDomain;
-  AffiliationEmailDomainInput: AffiliationEmailDomainInput;
   AffiliationErrors: AffiliationErrors;
   AffiliationInput: AffiliationInput;
   AffiliationLink: AffiliationLink;
   AffiliationLinkInput: AffiliationLinkInput;
+  AffiliationLogoUpload: AffiliationLogoUpload;
+  AffiliationLogoUploadErrors: AffiliationLogoUploadErrors;
   AffiliationSearch: AffiliationSearch;
   AffiliationSearchResults: AffiliationSearchResults;
   AlternateIdentifier: AlternateIdentifier;
@@ -6179,6 +6354,7 @@ export type ResolversParentTypes = {
   Answer: Answer;
   AnswerComment: AnswerComment;
   AnswerCommentErrors: AnswerCommentErrors;
+  AnswerErrors: AnswerErrors;
   Author: Author;
   AuthorInput: AuthorInput;
   Award: Award;
@@ -6368,6 +6544,44 @@ export type ResolversParentTypes = {
   WorkVersion: WorkVersion;
 };
 
+export type AdminNotificationErrorsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['AdminNotificationErrors'] = ResolversParentTypes['AdminNotificationErrors']> = {
+  general?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+};
+
+export type AdminNotificationMetadataResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['AdminNotificationMetadata'] = ResolversParentTypes['AdminNotificationMetadata']> = {
+  planId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  templateCustomizationId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  templateId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+};
+
+export type AdminNotificationResultsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['AdminNotificationResults'] = ResolversParentTypes['AdminNotificationResults']> = {
+  affiliationId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  createdBy?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType>;
+  createdById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  errors?: Resolver<Maybe<ResolversTypes['AdminNotificationErrors']>, ParentType, ContextType>;
+  feedback?: Resolver<Maybe<ResolversTypes['PlanFeedback']>, ParentType, ContextType>;
+  id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  isRead?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
+  metadata?: Resolver<Maybe<ResolversTypes['AdminNotificationMetadata']>, ParentType, ContextType>;
+  modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  notificationType?: Resolver<Maybe<ResolversTypes['AdminNotificationType']>, ParentType, ContextType>;
+  plan?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType>;
+  template?: Resolver<Maybe<ResolversTypes['Template']>, ParentType, ContextType>;
+  templateCustomization?: Resolver<Maybe<ResolversTypes['TemplateCustomization']>, ParentType, ContextType>;
+  userId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+};
+
+export type AdminNotificationResultsPageResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['AdminNotificationResultsPage'] = ResolversParentTypes['AdminNotificationResultsPage']> = {
+  currentOffset?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  hasNextPage?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  hasPreviousPage?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
+  items?: Resolver<Array<ResolversTypes['AdminNotificationResults']>, ParentType, ContextType>;
+  nextCursor?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  totalCount?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+};
+
 export type AffiliationResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['Affiliation'] = ResolversParentTypes['Affiliation']> = {
   acronyms?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
   active?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
@@ -6377,6 +6591,8 @@ export type AffiliationResolvers<ContextType = MyContext, ParentType extends Res
   contactName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   createdById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  displayAbbreviation?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  displayDomain?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   displayName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   errors?: Resolver<Maybe<ResolversTypes['AffiliationErrors']>, ParentType, ContextType>;
   feedbackEmails?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
@@ -6395,17 +6611,11 @@ export type AffiliationResolvers<ContextType = MyContext, ParentType extends Res
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   provenance?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   searchName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  ssoEmailDomains?: Resolver<Maybe<Array<ResolversTypes['AffiliationEmailDomain']>>, ParentType, ContextType>;
+  ssoEmailDomains?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
   ssoEntityId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   subHeaderLinks?: Resolver<Maybe<Array<ResolversTypes['AffiliationLink']>>, ParentType, ContextType>;
   types?: Resolver<Array<ResolversTypes['AffiliationType']>, ParentType, ContextType>;
-  uneditableProperties?: Resolver<Array<ResolversTypes['String']>, ParentType, ContextType>;
   uri?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-};
-
-export type AffiliationEmailDomainResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['AffiliationEmailDomain'] = ResolversParentTypes['AffiliationEmailDomain']> = {
-  domain?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  id?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
 };
 
 export type AffiliationErrorsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['AffiliationErrors'] = ResolversParentTypes['AffiliationErrors']> = {
@@ -6413,39 +6623,51 @@ export type AffiliationErrorsResolvers<ContextType = MyContext, ParentType exten
   aliases?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   contactEmail?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   contactName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  displayAbbreviation?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  displayDomain?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   displayName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   feedbackEmails?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   feedbackMessage?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   fundrefId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   general?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   homepage?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  json?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   logoName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   logoURI?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   name?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  planId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   provenance?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  rorId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   searchName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  ssoEmailDomains?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   ssoEntityId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   subHeaderLinks?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   types?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   uri?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  versionedQuestionId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  versionedSectionId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 };
 
 export type AffiliationLinkResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['AffiliationLink'] = ResolversParentTypes['AffiliationLink']> = {
-  id?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   text?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   url?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+};
+
+export type AffiliationLogoUploadResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['AffiliationLogoUpload'] = ResolversParentTypes['AffiliationLogoUpload']> = {
+  errors?: Resolver<Maybe<ResolversTypes['AffiliationLogoUploadErrors']>, ParentType, ContextType>;
+  fields?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  url?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+};
+
+export type AffiliationLogoUploadErrorsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['AffiliationLogoUploadErrors'] = ResolversParentTypes['AffiliationLogoUploadErrors']> = {
+  general?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
 };
 
 export type AffiliationSearchResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['AffiliationSearch'] = ResolversParentTypes['AffiliationSearch']> = {
   acronyms?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
   aliases?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
   apiTarget?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  displayAbbreviation?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   displayName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   funder?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  homepage?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   id?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   types?: Resolver<Maybe<Array<ResolversTypes['AffiliationType']>>, ParentType, ContextType>;
@@ -6486,7 +6708,7 @@ export type AnswerResolvers<ContextType = MyContext, ParentType extends Resolver
   comments?: Resolver<Maybe<Array<ResolversTypes['AnswerComment']>>, ParentType, ContextType>;
   created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   createdById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  errors?: Resolver<Maybe<ResolversTypes['AffiliationErrors']>, ParentType, ContextType>;
+  errors?: Resolver<Maybe<ResolversTypes['AnswerErrors']>, ParentType, ContextType>;
   feedbackComments?: Resolver<Maybe<Array<ResolversTypes['PlanFeedbackComment']>>, ParentType, ContextType>;
   id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   json?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -6515,6 +6737,14 @@ export type AnswerCommentErrorsResolvers<ContextType = MyContext, ParentType ext
   answerId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   commentText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   general?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+};
+
+export type AnswerErrorsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['AnswerErrors'] = ResolversParentTypes['AnswerErrors']> = {
+  general?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  json?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  planId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  versionedQuestionId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  versionedSectionId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 };
 
 export type AuthorResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['Author'] = ResolversParentTypes['Author']> = {
@@ -6713,6 +6943,7 @@ export type ExternalMemberResolvers<ContextType = MyContext, ParentType extends 
   email?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   givenName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   orcid?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  role?: Resolver<Maybe<Array<Maybe<ResolversTypes['String']>>>, ParentType, ContextType>;
   surName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 };
 
@@ -6944,9 +7175,13 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   completeFeedback?: Resolver<Maybe<ResolversTypes['PlanFeedback']>, ParentType, ContextType, RequireFields<MutationCompleteFeedbackArgs, 'planFeedbackId' | 'planId'>>;
   createTemplateVersion?: Resolver<Maybe<ResolversTypes['Template']>, ParentType, ContextType, RequireFields<MutationCreateTemplateVersionArgs, 'latestPublishVisibility' | 'templateId'>>;
   deactivateUser?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationDeactivateUserArgs, 'userId'>>;
+  finalizeLogoUpload?: Resolver<ResolversTypes['Affiliation'], ParentType, ContextType, RequireFields<MutationFinalizeLogoUploadArgs, 'affiliationURI' | 'logoName'>>;
+  generateLogoUploadURL?: Resolver<Maybe<ResolversTypes['AffiliationLogoUpload']>, ParentType, ContextType, RequireFields<MutationGenerateLogoUploadUrlArgs, 'affiliationURI' | 'contentType' | 'fileName'>>;
   guidance?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   introduction?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   markAsDefaultTemplate?: Resolver<Maybe<ResolversTypes['Template']>, ParentType, ContextType, RequireFields<MutationMarkAsDefaultTemplateArgs, 'templateId'>>;
+  markNotificationAsRead?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationMarkNotificationAsReadArgs, 'id'>>;
+  markNotificationAsUnRead?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationMarkNotificationAsUnReadArgs, 'id'>>;
   mergeLicenses?: Resolver<Maybe<ResolversTypes['License']>, ParentType, ContextType, RequireFields<MutationMergeLicensesArgs, 'licenseToKeepId' | 'licenseToRemoveId'>>;
   mergeMetadataStandards?: Resolver<Maybe<ResolversTypes['MetadataStandard']>, ParentType, ContextType, RequireFields<MutationMergeMetadataStandardsArgs, 'metadataStandardToKeepId' | 'metadataStandardToRemoveId'>>;
   mergeRepositories?: Resolver<Maybe<ResolversTypes['CustomRepository']>, ParentType, ContextType, RequireFields<MutationMergeRepositoriesArgs, 'repositoryToKeepId' | 'repositoryToRemoveId'>>;
@@ -7245,12 +7480,14 @@ export type PlanSearchResultResolvers<ContextType = MyContext, ParentType extend
 
 export type PlanSectionProgressResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PlanSectionProgress'] = ResolversParentTypes['PlanSectionProgress']> = {
   answeredQuestions?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  answeredRequiredQuestions?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   customSectionId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   displayOrder?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   sectionType?: Resolver<ResolversTypes['CustomizableObjectOwnership'], ParentType, ContextType>;
   tags?: Resolver<Maybe<Array<ResolversTypes['Tag']>>, ParentType, ContextType>;
   title?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   totalQuestions?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  totalRequiredQuestions?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   versionedSectionId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
 };
 
@@ -7273,6 +7510,7 @@ export type ProjectResolvers<ContextType = MyContext, ParentType extends Resolve
   modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   plans?: Resolver<Maybe<Array<ResolversTypes['PlanSearchResult']>>, ParentType, ContextType>;
+  readOnly?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
   researchDomain?: Resolver<Maybe<ResolversTypes['ResearchDomain']>, ParentType, ContextType>;
   startDate?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   title?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
@@ -7449,6 +7687,9 @@ export type PublishedTemplateSearchResultsResolvers<ContextType = MyContext, Par
 
 export type QueryResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['Query'] = ResolversParentTypes['Query']> = {
   _empty?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  adminNotifications?: Resolver<Maybe<ResolversTypes['AdminNotificationResultsPage']>, ParentType, ContextType, Partial<QueryAdminNotificationsArgs>>;
+  adminNotificationsRead?: Resolver<Maybe<ResolversTypes['AdminNotificationResultsPage']>, ParentType, ContextType, Partial<QueryAdminNotificationsReadArgs>>;
+  adminNotificationsUnread?: Resolver<Maybe<ResolversTypes['AdminNotificationResultsPage']>, ParentType, ContextType, Partial<QueryAdminNotificationsUnreadArgs>>;
   affiliationById?: Resolver<Maybe<ResolversTypes['Affiliation']>, ParentType, ContextType, RequireFields<QueryAffiliationByIdArgs, 'affiliationId'>>;
   affiliationByURI?: Resolver<Maybe<ResolversTypes['Affiliation']>, ParentType, ContextType, RequireFields<QueryAffiliationByUriArgs, 'uri'>>;
   affiliationTypes?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
@@ -7973,6 +8214,7 @@ export type TemplateCustomizationResolvers<ContextType = MyContext, ParentType e
   modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   status?: Resolver<ResolversTypes['TemplateCustomizationStatus'], ParentType, ContextType>;
+  templateName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 };
 
 export type TemplateCustomizationErrorsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['TemplateCustomizationErrors'] = ResolversParentTypes['TemplateCustomizationErrors']> = {
@@ -8446,10 +8688,15 @@ export type WorkVersionResolvers<ContextType = MyContext, ParentType extends Res
 };
 
 export type Resolvers<ContextType = MyContext> = {
+  AdminNotificationErrors?: AdminNotificationErrorsResolvers<ContextType>;
+  AdminNotificationMetadata?: AdminNotificationMetadataResolvers<ContextType>;
+  AdminNotificationResults?: AdminNotificationResultsResolvers<ContextType>;
+  AdminNotificationResultsPage?: AdminNotificationResultsPageResolvers<ContextType>;
   Affiliation?: AffiliationResolvers<ContextType>;
-  AffiliationEmailDomain?: AffiliationEmailDomainResolvers<ContextType>;
   AffiliationErrors?: AffiliationErrorsResolvers<ContextType>;
   AffiliationLink?: AffiliationLinkResolvers<ContextType>;
+  AffiliationLogoUpload?: AffiliationLogoUploadResolvers<ContextType>;
+  AffiliationLogoUploadErrors?: AffiliationLogoUploadErrorsResolvers<ContextType>;
   AffiliationSearch?: AffiliationSearchResolvers<ContextType>;
   AffiliationSearchResults?: AffiliationSearchResultsResolvers<ContextType>;
   AlternateIdentifier?: AlternateIdentifierResolvers<ContextType>;
@@ -8457,6 +8704,7 @@ export type Resolvers<ContextType = MyContext> = {
   Answer?: AnswerResolvers<ContextType>;
   AnswerComment?: AnswerCommentResolvers<ContextType>;
   AnswerCommentErrors?: AnswerCommentErrorsResolvers<ContextType>;
+  AnswerErrors?: AnswerErrorsResolvers<ContextType>;
   Author?: AuthorResolvers<ContextType>;
   Award?: AwardResolvers<ContextType>;
   CollaboratorSearchResult?: CollaboratorSearchResultResolvers<ContextType>;

@@ -98,10 +98,10 @@ export class User extends MySqlModel {
     this.givenName = capitalizeFirstLetter(this.givenName);
     this.surName = capitalizeFirstLetter(this.surName);
     // Set the languageId to the default if it is not a supported language
-    if (!supportedLanguages.map((l) => l.id).includes(this.languageId)){
+    if (!supportedLanguages.map((l) => l.id).includes(this.languageId)) {
       this.languageId = defaultLanguageId;
     }
-    this.orcid = this.orcid? formatORCID(this.orcid) : null;
+    this.orcid = this.orcid ? formatORCID(this.orcid) : null;
   }
 
   // Verify that the email does not already exist and that the required fields have values
@@ -174,11 +174,11 @@ export class User extends MySqlModel {
     // If the user was found, check the password
     // TODO: Add logic to lock the account after too many failures
 
-      // Otherwise check the password
-      if (user && await bcrypt.compare(password, user.password)) {
-        context.logger.debug(prepareObjectForLogs({ id: user.id }), "Successful authCheck");
-        return user.id;
-      }
+    // Otherwise check the password
+    if (user && await bcrypt.compare(password, user.password)) {
+      context.logger.debug(prepareObjectForLogs({ id: user.id }), "Successful authCheck");
+      return user.id;
+    }
 
     context.logger.debug("Failed authCheck");
     return null;
@@ -271,15 +271,81 @@ export class User extends MySqlModel {
     return response;
   }
 
+  static async findByAffiliationIdAndUserRole(
+    reference: string,
+    context: MyContext,
+    affiliationId: string,
+    term: string,
+    role: UserRole,
+    options: PaginationOptions = User.getDefaultPaginationOptions(),
+  ): Promise<PaginatedQueryResults<User>> {
+    const whereFilters = ['u.affiliationId = ?', 'u.role = ?'];
+    const values = [affiliationId, role];
+
+    const searchTerm = (term ?? '').toLowerCase().trim();
+    if (!isNullOrUndefined(searchTerm)) {
+      whereFilters.push(`(
+      LOWER(u.givenName) LIKE ? OR
+      LOWER(u.surName) LIKE ? OR
+      LOWER(ue.email) LIKE ? OR
+      LOWER(u.orcid) LIKE ?)`);
+      values.push(`%${searchTerm}%`, `%${searchTerm}%`, `%${searchTerm}%`, `%${searchTerm}%`);
+    }
+
+    // Join users with user_emails
+    const sqlStatement = `
+    SELECT u.* FROM users u
+    LEFT JOIN userEmails ue ON u.id = ue.userId AND ue.isPrimary = 1
+  `;
+
+    // Determine the type of pagination being used
+    let opts;
+    if (options.type === PaginationType.OFFSET) {
+      opts = {
+        ...options,
+        // Specify the fields available for sorting
+        availableSortFields: ['u.surName', 'u.givenName', 'u.created', 'ue.email', 'u.orcid', 'u.role', 'u.active', 'u.last_sign_in', 'a.name'],
+      } as PaginationOptionsForOffsets;
+    } else {
+      opts = {
+        ...options,
+        // Specify the field we want to use for the cursor (should typically match the sort field)
+        cursorField: 'CONCAT(ue.email, u.id)',
+      } as PaginationOptionsForCursors;
+    }
+
+    // Set the default sort field and order if none was provided
+    if (isNullOrUndefined(opts.sortField)) opts.sortField = 'u.created';
+    if (isNullOrUndefined(opts.sortDir)) opts.sortDir = 'DESC';
+
+    // Specify the field we want to use for the count
+    opts.countField = 'u.id';
+
+    const response: PaginatedQueryResults<User> = await User.queryWithPagination(
+      context,
+      sqlStatement,
+      whereFilters,
+      '',
+      values,
+      opts,
+      reference,
+    );
+
+    context.logger.debug(prepareObjectForLogs({ options, response }), reference);
+    return response;
+  }
+
   // Find all the Users that match the search term
   static async search(
     reference: string,
     context: MyContext,
     term: string,
     options: PaginationOptions = User.getDefaultPaginationOptions(),
+    role?: UserRole,
   ): Promise<PaginatedQueryResults<User>> {
-    const whereFilters = [];
-    const values = [];
+    const whereFilters: string[] = [];
+    const values: string[] = [];
+
 
     // Handle the incoming search term
     const searchTerm = (term ?? '').toLowerCase().trim();
@@ -293,13 +359,19 @@ export class User extends MySqlModel {
       values.push(`%${searchTerm}%`, `%${searchTerm}%`, `%${searchTerm}%`, `%${searchTerm}%`, `%${searchTerm}%`);
     }
 
+    // Add role filter if provided
+    if (!isNullOrUndefined(role)) {
+      whereFilters.push('u.role = ?');
+      values.push(role);
+    }
+
     // Determine the type of pagination being used
     let opts;
     if (options.type === PaginationType.OFFSET) {
       opts = {
         ...options,
         // Specify the fields available for sorting
-        availableSortFields: ['u.surName', 'u.givenName', 'u.created', 'ue.email', 'u.orcid'],
+        availableSortFields: ['u.surName', 'u.givenName', 'u.created', 'ue.email', 'u.orcid', 'u.role', 'u.active', 'u.last_sign_in', 'a.name'],
       } as PaginationOptionsForOffsets;
     } else {
       opts = {
@@ -438,7 +510,7 @@ export class User extends MySqlModel {
 
         // Add the email to the UserEmail table and send out a 'please confirm' email
         const userEmail = new UserEmail({ userId: user.id, email: email, isPrimary: true });
-        if (!await userEmail.create(context)){
+        if (!await userEmail.create(context)) {
           context.logger.error(prepareObjectForLogs({ userEmail }), `${reference} - unable to add UserEmail`);
         }
 

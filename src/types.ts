@@ -3954,6 +3954,7 @@ export type QueryUserArgs = {
 
 export type QueryUsersArgs = {
   paginationOptions?: InputMaybe<PaginationOptions>;
+  role?: InputMaybe<UserRole>;
   term?: InputMaybe<Scalars['String']['input']>;
 };
 
@@ -5269,6 +5270,8 @@ export type User = {
   notify_on_template_shared?: Maybe<Scalars['Boolean']['output']>;
   /** The user's ORCID */
   orcid?: Maybe<Scalars['Orcid']['output']>;
+  /** The plans that the user created */
+  plans?: Maybe<Array<Maybe<Plan>>>;
   /** The user's role within the DMPTool */
   role: UserRole;
   /** The user's SSO ID */
@@ -8300,6 +8303,7 @@ export type UserResolvers<ContextType = MyContext, ParentType extends ResolversP
   notify_on_plan_visibility_change?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
   notify_on_template_shared?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
   orcid?: Resolver<Maybe<ResolversTypes['Orcid']>, ParentType, ContextType>;
+  plans?: Resolver<Maybe<Array<Maybe<ResolversTypes['Plan']>>>, ParentType, ContextType>;
   role?: Resolver<ResolversTypes['UserRole'], ParentType, ContextType>;
   ssoId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   surName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;

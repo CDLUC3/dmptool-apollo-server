@@ -5,7 +5,7 @@ export const typeDefs = gql`
     "Returns the currently logged in user's information"
     me: User
     "Returns all of the users associated with the current admin's affiliation (Super admins get everything)"
-    users(term: String, paginationOptions: PaginationOptions): UserSearchResults
+    users(term: String, role: UserRole, paginationOptions: PaginationOptions): UserSearchResults
     "Returns the specified user (Admin only)"
     user(userId: Int!): User
   }
@@ -74,6 +74,8 @@ export const typeDefs = gql`
     role: UserRole!
     "The user's organizational affiliation"
     affiliation: Affiliation
+    "The plans that the user created"
+    plans: [Plan]
     "Whether the user has accepted the terms and conditions of having an account"
     acceptedTerms: Boolean
     "The user's ORCID"

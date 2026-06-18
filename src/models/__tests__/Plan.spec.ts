@@ -1013,6 +1013,23 @@ describe('findBy Queries', () => {
     const result = await Plan.findByProjectId('testing', context, projectId);
     expect(result).toEqual([]);
   });
+
+  it('findByUserId should call query with correct params and return the default', async () => {
+    localQuery.mockResolvedValueOnce([plan]);
+    const userId = casual.integer(1, 999);
+    const result = await Plan.findByUserId('testing', context, userId);
+    const expectedSql = 'SELECT * FROM plans WHERE createdById = ?';
+    expect(localQuery).toHaveBeenCalledTimes(1);
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [userId.toString()], 'testing')
+    expect(result).toEqual([plan]);
+  });
+
+  it('findByUserId should return an empty array if it finds no default', async () => {
+    localQuery.mockResolvedValueOnce([]);
+    const userId = casual.integer(1, 999);
+    const result = await Plan.findByUserId('testing', context, userId);
+    expect(result).toEqual([]);
+  });
 });
 
 describe('publish', () => {

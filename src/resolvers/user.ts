@@ -14,16 +14,6 @@ import { GraphQLError } from "graphql";
 import { PaginationOptionsForCursors, PaginationOptionsForOffsets, PaginationType } from "../types/general";
 import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
 
-const SORT_FIELD_MAP: Record<string, string> = {
-  name: 'u.surName',
-  email: 'ue.email',
-  role: 'u.role',
-  active: 'u.active',
-  created: 'u.created',
-  lastActivity: 'u.last_sign_in',
-  organization: 'a.name',
-};
-
 export const resolvers: Resolvers = {
   Query: {
     // returns the current User
@@ -48,11 +38,6 @@ export const resolvers: Resolvers = {
       const reference = 'users resolver';
 
       try {
-        // Map the frontend column id to a SQL field before building opts
-        if (paginationOptions?.sortField) {
-          paginationOptions.sortField = SORT_FIELD_MAP[paginationOptions.sortField] ?? 'u.created';
-        }
-
         const opts = !isNullOrUndefined(paginationOptions) && paginationOptions.type === PaginationType.OFFSET
           ? paginationOptions as PaginationOptionsForOffsets
           : { ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors;

@@ -92,7 +92,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
-- Updated `users` resolver to include `role`, and added a `SORT_FIELD_MAP` [#240]
+- Updated `users` resolver to include `role` [#240]
 - Added `findByAffiliationIdAndUserRole` and updated the `User.search` to accept `role` [#240]
 - Added `findByUserId` to `Plan` model to find all plans for a given user [#240]
 - Updated `requestFeedback`, `addTemplate` and `publishTemplateCustomization` resolvers to add a record to the `adminNotifications` table [#570]

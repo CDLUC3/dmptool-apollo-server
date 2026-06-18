@@ -279,8 +279,14 @@ export class User extends MySqlModel {
     role: UserRole,
     options: PaginationOptions = User.getDefaultPaginationOptions(),
   ): Promise<PaginatedQueryResults<User>> {
-    const whereFilters = ['u.affiliationId = ?', 'u.role = ?'];
-    const values = [affiliationId, role];
+    const whereFilters = ['u.affiliationId = ?'];
+    const values = [affiliationId];
+
+    // Only filter by role if one was provided
+    if (!isNullOrUndefined(role)) {
+      whereFilters.push('u.role = ?');
+      values.push(role);
+    }
 
     const searchTerm = (term ?? '').toLowerCase().trim();
     if (!isNullOrUndefined(searchTerm)) {
@@ -320,7 +326,6 @@ export class User extends MySqlModel {
 
     // Specify the field we want to use for the count
     opts.countField = 'u.id';
-
     const response: PaginatedQueryResults<User> = await User.queryWithPagination(
       context,
       sqlStatement,
@@ -345,7 +350,6 @@ export class User extends MySqlModel {
   ): Promise<PaginatedQueryResults<User>> {
     const whereFilters: string[] = [];
     const values: string[] = [];
-
 
     // Handle the incoming search term
     const searchTerm = (term ?? '').toLowerCase().trim();

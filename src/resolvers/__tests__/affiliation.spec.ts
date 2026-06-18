@@ -20,9 +20,18 @@ import {
 } from '../../models/Affiliation';
 import { GuidanceGroup } from '../../models/GuidanceGroup';
 import { getAffiliationsWithGuidanceForTemplate } from '../../services/guidanceService';
-import { getPresignedURLForAffiliationLogo, CDN_BASE_URL } from '../../datasources/s3';
+import {
+  getPresignedURLForAffiliationLogo,
+  deleteAffiliationLogoFile,
+  CDN_BASE_URL,
+} from '../../datasources/s3';
+import {
+  reconcileAffiliationEmailDomains,
+  reconcileAffiliationLinks,
+} from '../../services/affiliationService';
 import { UserRole } from "../../models/User";
 import { buildContext, mockToken } from "../../__mocks__/context";
+import {mockRor} from "../../mocks/affiliation";
 
 jest.mock('../../context.ts');
 jest.mock('../../datasources/cache');
@@ -62,9 +71,15 @@ jest.mock('../../models/Affiliation', () => {
 
 jest.mock('../../models/GuidanceGroup');
 jest.mock('../../services/guidanceService');
+jest.mock('../../services/affiliationService', () => ({
+  reconcileAffiliationEmailDomains: jest.fn(),
+  reconcileAffiliationLinks: jest.fn(),
+  authenticateResolver: jest.fn(),
+}));
 jest.mock('../../datasources/s3', () => ({
   CDN_BASE_URL: 'https://cdn.example.com/',
   getPresignedURLForAffiliationLogo: jest.fn(),
+  deleteAffiliationLogoFile: jest.fn(),
 }));
 
 let testServer: ApolloServer;
@@ -98,6 +113,8 @@ function buildMockAffiliation(overrides = {}) {
     provenance: AffiliationProvenance.DMPTOOL,
     name: casual.company_name,
     displayName: casual.company_name,
+    displayAbbreviation: casual.word,
+    displayDomain: casual.domain,
     searchName: casual.company_name,
     funder: false,
     fundrefId: null,
@@ -121,6 +138,17 @@ function buildMockAffiliation(overrides = {}) {
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
+    hasErrors: jest.fn().mockReturnValue(false),
+    ...overrides,
+  };
+}
+
+function buildAffiliationInput(overrides = {}) {
+  return {
+    id: casual.integer(1, 999),
+    displayName: casual.company_name,
+    subHeaderLinks: [],
+    ssoEmailDomains: [],
     ...overrides,
   };
 }
@@ -141,6 +169,10 @@ beforeEach(async () => {
 
   researcherToken = await mockToken();
   researcherToken.role = UserRole.RESEARCHER;
+
+  (reconcileAffiliationLinks as jest.Mock).mockResolvedValue(true);
+  (reconcileAffiliationEmailDomains as jest.Mock).mockResolvedValue(true);
+  (deleteAffiliationLogoFile as jest.Mock).mockResolvedValue(true);
 });
 
 afterEach(() => {
@@ -305,7 +337,6 @@ describe('affiliation resolver', () => {
             funder
             managed
             feedbackEnabled
-            uneditableProperties
             types
             errors {
               general
@@ -354,7 +385,6 @@ describe('affiliation resolver', () => {
             funder
             managed
             feedbackEnabled
-            uneditableProperties
             types
             errors {
               general
@@ -451,9 +481,29 @@ describe('affiliation resolver', () => {
         create: jest.fn().mockResolvedValue(mockCreated),
       }));
 
-      const result = await executeQuery(query, { input: { name: casual.company_name } }, adminToken);
+      const result = await executeQuery(query, { input: buildAffiliationInput() }, adminToken);
 
       expect(result.body.singleResult.data.addAffiliation.id).toBe(99);
+      expect(reconcileAffiliationLinks).toHaveBeenCalledTimes(1);
+      expect(reconcileAffiliationEmailDomains).not.toHaveBeenCalled();
+    });
+
+    it('should return a  allow an Admin to set a ROR id', async () => {
+      const rorId: string = mockRor();
+      const mockCreated = buildMockAffiliation({ id: 99 });
+      // The resolver does: new Affiliation(input).create(context)
+      // Our manual mock constructor returns an object with a create jest.fn()
+      (Affiliation as unknown as jest.Mock).mockImplementation(() => ({
+        ...buildMockAffiliation({ id: 99 }),
+        create: jest.fn().mockResolvedValue(mockCreated),
+      }));
+
+      const result = await executeQuery(query, { input: buildAffiliationInput() }, adminToken);
+
+      expect(result.body.singleResult.data.addAffiliation.id).toBe(99);
+      expect(result.body.singleResult.data.addAffiliation.uri).not.toBe(rorId);
+      expect(reconcileAffiliationLinks).toHaveBeenCalledTimes(1);
+      expect(reconcileAffiliationEmailDomains).not.toHaveBeenCalled();
     });
 
     it('should return a general error when creation returns null', async () => {
@@ -466,7 +516,11 @@ describe('affiliation resolver', () => {
 
       (Affiliation as unknown as jest.Mock).mockImplementation(() => affiliationInstance);
 
-      const result = await executeQuery(query, { input: { name: casual.company_name } }, adminToken);
+      const result = await executeQuery(
+        query,
+        { input: buildAffiliationInput() },
+        adminToken,
+      );
 
       // Resolver calls addError and returns the instance — no top-level GraphQL error
       expect(result.body.singleResult.errors).toBeUndefined();
@@ -482,6 +536,7 @@ describe('affiliation resolver', () => {
             uri
             name
             displayName
+            logoName
             errors {
               general
             }
@@ -492,9 +547,8 @@ describe('affiliation resolver', () => {
 
     it('should return NotFound when affiliation does not exist', async () => {
       (Affiliation.findById as jest.Mock).mockResolvedValue(null);
-      (Affiliation.findByURI as jest.Mock).mockResolvedValue(null);
 
-      const input = { id: 999, name: casual.company_name };
+      const input = buildAffiliationInput({ id: 1, displayName: casual.company_name });
       const result = await executeQuery(query, { input }, superAdminToken);
 
       expect(result.body.singleResult.errors).toBeDefined();
@@ -513,9 +567,74 @@ describe('affiliation resolver', () => {
         id: existing.id,
       }));
 
-      const result = await executeQuery(query, { input: { id: existing.id, name: 'Updated Name' } }, superAdminToken);
+      const input = buildAffiliationInput({
+        id: 1,
+        displayName: 'Updated Name',
+        name: 'Updated Name',
+      });
+      const result = await executeQuery(query, { input }, superAdminToken);
 
       expect(result.body.singleResult.data.updateAffiliation.name).toBe('Updated Name');
+      expect(reconcileAffiliationLinks).toHaveBeenCalledTimes(1);
+      expect(reconcileAffiliationEmailDomains).toHaveBeenCalledTimes(1);
+      expect(deleteAffiliationLogoFile).not.toHaveBeenCalled();
+    });
+
+    it('should delete previous logo file when logoName changes', async () => {
+      const existing = buildMockAffiliation({ id: 1, uri: casual.url, logoName: 'old-logo.png' });
+      const updated = buildMockAffiliation({ ...existing, logoName: 'new-logo.png' });
+
+      (Affiliation.findById as jest.Mock).mockResolvedValue(existing);
+      (Affiliation as unknown as jest.Mock).mockImplementation(() => ({
+        ...existing,
+        logoName: 'new-logo.png',
+        update: jest.fn().mockResolvedValue(updated),
+        errors: {},
+        id: existing.id,
+      }));
+
+      const input = buildAffiliationInput({
+        id: 1,
+        displayName: 'Updated Name',
+        name: 'Updated Name',
+        logoName: 'new-logo.png',
+      });
+      const result = await executeQuery(query, { input }, superAdminToken);
+
+      expect(result.body.singleResult.data.updateAffiliation.logoName).toBe('new-logo.png');
+      expect(deleteAffiliationLogoFile).toHaveBeenCalledWith(
+        expect.any(Object),
+        'old-logo.png',
+      );
+    });
+
+    it('continues update when logo deletion fails', async () => {
+      const existing = buildMockAffiliation({ id: 1, uri: casual.url, logoName: 'old-logo.png' });
+      const updated = buildMockAffiliation({ ...existing, logoName: 'new-logo.png' });
+
+      (deleteAffiliationLogoFile as jest.Mock).mockResolvedValue(false);
+      (Affiliation.findById as jest.Mock).mockResolvedValue(existing);
+      (Affiliation as unknown as jest.Mock).mockImplementation(() => ({
+        ...existing,
+        logoName: 'new-logo.png',
+        update: jest.fn().mockResolvedValue(updated),
+        errors: {},
+        id: existing.id,
+      }));
+
+      const input = buildAffiliationInput({
+        id: 1,
+        displayName: 'Updated Name',
+        name: 'Updated Name',
+        logoName: 'new-logo.png',
+      });
+      const result = await executeQuery(query, { input }, superAdminToken);
+
+      expect(result.body.singleResult.data.updateAffiliation.id).toBe(existing.id);
+      expect(deleteAffiliationLogoFile).toHaveBeenCalledWith(
+        expect.any(Object),
+        'old-logo.png',
+      );
     });
 
     it('should update when the caller is an Admin for the same affiliation', async () => {
@@ -530,9 +649,16 @@ describe('affiliation resolver', () => {
         id: existing.id,
       }));
 
-      const result = await executeQuery(query, { input: { id: existing.id, name: 'Admin Updated' } }, adminToken);
+      const input = buildAffiliationInput({
+        id: 1,
+        displayName: 'Admin Updated',
+        name: 'Admin Updated',
+      });
+      const result = await executeQuery(query, { input }, adminToken);
 
       expect(result.body.singleResult.data.updateAffiliation.name).toBe('Admin Updated');
+      expect(reconcileAffiliationLinks).toHaveBeenCalledTimes(1);
+      expect(reconcileAffiliationEmailDomains).not.toHaveBeenCalled();
     });
 
     it('should return Forbidden when an Admin tries to update a different affiliation', async () => {
@@ -540,7 +666,12 @@ describe('affiliation resolver', () => {
       const existing = buildMockAffiliation({ id: 1, uri: 'https://ror.org/different' });
       (Affiliation.findById as jest.Mock).mockResolvedValue(existing);
 
-      const result = await executeQuery(query, { input: { id: existing.id, name: 'Hacked Name' } }, adminToken);
+      const input = buildAffiliationInput({
+        id: 1,
+        displayName: 'Hacked Name',
+        name: 'Hacked Name',
+      });
+      const result = await executeQuery(query, { input }, adminToken);
 
       expect(result.body.singleResult.errors).toBeDefined();
       expect(result.body.singleResult.errors[0].message).toBe('Forbidden');
@@ -548,9 +679,14 @@ describe('affiliation resolver', () => {
 
     it('should return an error when a researcher tries to update', async () => {
       const existing = buildMockAffiliation({ id: 1, uri: casual.url });
-      (Affiliation.findById as jest.Mock).mockResolvedValue(existing);
+      (Affiliation.findByURI as jest.Mock).mockResolvedValue(existing);
 
-      const result = await executeQuery(query, { input: { id: existing.id, name: 'Hack' } }, researcherToken);
+      const input = buildAffiliationInput({
+        uri: existing.uri,
+        displayName: 'Hack',
+        name: 'Hack',
+      });
+      const result = await executeQuery(query, { input }, researcherToken);
 
       expect(result.body.singleResult.errors).toBeDefined();
     });
@@ -576,6 +712,7 @@ describe('affiliation resolver', () => {
       const existing = buildMockAffiliation({
         id: 1,
         provenance: AffiliationProvenance.DMPTOOL,
+        logoName: 'logo.png',
         delete: jest.fn().mockResolvedValue(null),
       });
       existing.delete.mockResolvedValue(existing);
@@ -585,6 +722,10 @@ describe('affiliation resolver', () => {
       const result = await executeQuery(query, { affiliationId: existing.id }, superAdminToken);
 
       expect(result.body.singleResult.data.removeAffiliation.id).toBe(existing.id);
+      expect(deleteAffiliationLogoFile).toHaveBeenCalledWith(
+        expect.any(Object),
+        'logo.png',
+      );
     });
 
     it('should return NotFound when the affiliation does not exist', async () => {
@@ -596,24 +737,33 @@ describe('affiliation resolver', () => {
       expect(result.body.singleResult.errors[0].message).toBe('Not Found');
     });
 
-    it('should return Forbidden when the affiliation is not DMPTOOL-managed', async () => {
+    it('should delete a non-DMPTOOL-managed affiliation when caller is superAdmin', async () => {
       const existing = buildMockAffiliation({ provenance: AffiliationProvenance.ROR });
+      existing.delete.mockResolvedValue(existing);
       (Affiliation.findById as jest.Mock).mockResolvedValue(existing);
 
       const result = await executeQuery(query, { affiliationId: existing.id }, superAdminToken);
 
-      expect(result.body.singleResult.errors).toBeDefined();
-      expect(result.body.singleResult.errors[0].message).toBe('Forbidden');
+      expect(result.body.singleResult.data.removeAffiliation.id).toBe(existing.id);
     });
 
-    it('should return Forbidden when the caller is not a superAdmin', async () => {
-      const existing = buildMockAffiliation({ provenance: AffiliationProvenance.DMPTOOL });
+    it('should still delete affiliation when logo deletion fails', async () => {
+      const existing = buildMockAffiliation({
+        id: 1,
+        provenance: AffiliationProvenance.DMPTOOL,
+        logoName: 'logo.png',
+      });
+      (deleteAffiliationLogoFile as jest.Mock).mockResolvedValue(false);
+      existing.delete.mockResolvedValue(existing);
       (Affiliation.findById as jest.Mock).mockResolvedValue(existing);
 
-      const result = await executeQuery(query, { affiliationId: existing.id }, adminToken);
+      const result = await executeQuery(query, { affiliationId: existing.id }, superAdminToken);
 
-      expect(result.body.singleResult.errors).toBeDefined();
-      expect(result.body.singleResult.errors[0].message).toBe('Forbidden');
+      expect(result.body.singleResult.data.removeAffiliation.id).toBe(existing.id);
+      expect(deleteAffiliationLogoFile).toHaveBeenCalledWith(
+        expect.any(Object),
+        'logo.png',
+      );
     });
   });
 
@@ -651,82 +801,7 @@ describe('affiliation resolver', () => {
     });
   });
 
-  describe('Mutation.finalizeLogoUpload', () => {
-    beforeEach(() => {
-      query = `
-        mutation finalizeLogoUpload($affiliationURI: String!, $logoName: String!) {
-          finalizeLogoUpload(affiliationURI: $affiliationURI, logoName: $logoName) {
-            id
-            uri
-            logoName
-            errors {
-              general
-            }
-          }
-        }
-      `;
-    });
-
-    it('should update the logoName and return the updated affiliation', async () => {
-      const existing = buildMockAffiliation({
-        id: casual.integer(0, 99),
-        uri: adminToken.affiliationId
-      });
-      const updated = { ...existing, logoName: 'new-logo.png' };
-      existing.update.mockResolvedValue(updated);
-
-      (Affiliation.findByURI as jest.Mock).mockResolvedValue(existing);
-
-      const vars = { affiliationURI: existing.uri, logoName: 'new-logo.png' };
-      const result = await executeQuery(query, vars, adminToken);
-
-      expect(result.body.singleResult.data.finalizeLogoUpload.logoName).toBe('new-logo.png');
-    });
-
-    it('should return NotFound when the affiliation does not exist', async () => {
-      (Affiliation.findByURI as jest.Mock).mockResolvedValue(null);
-
-      const vars = { affiliationURI: adminToken.affiliationId, logoName: 'logo.png' };
-      const result = await executeQuery(query, vars, adminToken);
-
-      expect(result.body.singleResult.errors).toBeDefined();
-      expect(result.body.singleResult.errors[0].message).toBe('Not Found');
-    });
-
-    it('should return Forbidden when the affiliation does not match', async () => {
-      (Affiliation.findByURI as jest.Mock).mockResolvedValue(null);
-
-      const vars = { affiliationURI: 'wrong-affiliation', logoName: 'logo.png' };
-      const result = await executeQuery(query, vars, adminToken);
-
-      expect(result.body.singleResult.errors).toBeDefined();
-      expect(result.body.singleResult.errors[0].message).toBe('Forbidden');
-    });
-
-    it('should return a general error when update returns null', async () => {
-      const existing = buildMockAffiliation({
-        id: 1,
-        uri: adminToken.affiliationId,
-      });
-      existing.update.mockResolvedValue(null);
-
-      (Affiliation.findByURI as jest.Mock).mockResolvedValue(existing);
-
-      const vars = { affiliationURI: existing.uri, logoName: 'logo.png' };
-      const result = await executeQuery(query, vars, adminToken);
-
-      // Resolver calls addError and returns the affiliation — no top-level GraphQL error
-      expect(result.body.singleResult.errors).toBeUndefined();
-      expect(result.body.singleResult.data.finalizeLogoUpload).toBeDefined();
-    });
-
-    it('should return Forbidden when the caller is not an Admin', async () => {
-      const vars = { affiliationURI: casual.url, logoName: 'logo.png' };
-      const result = await executeQuery(query, vars, researcherToken);
-
-      expect(result.body.singleResult.errors).toBeDefined();
-    });
-  });
+  // finalizeLogoUpload mutation tests removed because resolver no longer implements this field.
 
   describe('Affiliation.guidanceGroups field resolver', () => {
     beforeEach(() => {

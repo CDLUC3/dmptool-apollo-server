@@ -1,4 +1,6 @@
 import {
+  AffiliationInput,
+  AffiliationLinkInput,
   AffiliationLogoUpload,
   AffiliationSearchResults,
   Resolvers,
@@ -7,7 +9,6 @@ import {
 import {MyContext} from '../context';
 import {
   Affiliation,
-  AffiliationProvenance,
   AffiliationSearch,
   AffiliationType,
   PopularFunder
@@ -37,9 +38,16 @@ import {
 } from "../services/guidanceService";
 import {
   CDN_BASE_URL,
+  deleteAffiliationLogoFile,
   getPresignedURLForAffiliationLogo
 } from "../datasources/s3";
 import { UserRole } from "../models/User";
+import {
+  reconcileAffiliationEmailDomains,
+  reconcileAffiliationLinks
+} from "../services/affiliationService";
+import { AffiliationLink } from "../models/AffiliationLink";
+import { AffiliationEmailDomain } from "../models/AffiliationEmailDomain";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -138,88 +146,234 @@ export const resolvers: Resolvers = {
   },
 
   Mutation: {
-    // Create a new Affiliation
-    addAffiliation: async (_, { input }, context: MyContext): Promise<Affiliation> => {
-      const reference = 'addAffiliation resolver';
-      try {
-        const affiliation = new Affiliation(input);
-        const created = await affiliation.create(context);
+    /**
+     * Add a new affiliation.
+     *
+     * @param _ Ignored, this is the entrypoint for the Apollo resolver
+     * @param args the AffiliationInput
+     * @param context The Apollo context
+     * @returns The Affiliation (with errors if applicable)
+     * @throws NotFoundError when the Affiliation is not found
+     * @throws ForbiddenError when the caller does not have permission
+     * @throws UnauthorizedError when the JWT token is not present
+     * @throws InternalServerError when a fatal error occurred
+     */
+    addAffiliation: authenticatedResolver(
+      'addAffiliation resolver',
+      UserRole.RESEARCHER,
+      async (
+        _: Record<PropertyKey, never>,
+        {input}: { input: AffiliationInput },
+        context: MyContext
+      ): Promise<Affiliation> => {
+        const reference = 'addAffiliation resolver';
+        try {
+          const affiliation = new Affiliation(input);
 
-        if (created?.id) {
-          return created;
-        }
+          const superAdmin = isSuperAdmin(context.token);
 
-        // A null was returned so add a generic error and return it
-        if (!affiliation.errors['general']) {
-          affiliation.addError('general', 'Unable to create Affiliation');
-        }
-        return affiliation;
-      } catch (err) {
-        if (err instanceof GraphQLError) throw err;
+          // Set the URI to the rorId if the user is a super admin and they provided one
+          if (superAdmin && input.rorId) {
+            const usedRor: Affiliation = await Affiliation.findByURI(reference, context, input.rorId);
+            if (usedRor) {
+              affiliation.addError('rorId', 'This ROR id is already in use by another affiliation.');
+            }
 
-        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
-        throw InternalServerError();
-      }
-    },
-
-    // Update an Affiliation
-    updateAffiliation: async (_, { input }, context: MyContext): Promise<Affiliation> => {
-      const reference = 'updateAffiliation resolver';
-      try {
-        let existing = input.id ? await Affiliation.findById(reference, context, input.id) : null;
-        existing = existing || (input.uri ? await Affiliation.findByURI(reference, context, input.uri) : null);
-
-        // If the record doesn't exist
-        if (!existing) {
-          throw NotFoundError();
-        }
-
-        // If the current user is a superAdmin or an Admin and this is their Affiliation
-        if (isSuperAdmin(context.token) || (isAdmin(context.token) && context.token.affiliationId === existing.uri)) {
-          const affiliation = new Affiliation({ ...existing, ...input });
-
-          // Since we pass around the URI for affiliations instead of the id we need to set it here
-          if (!affiliation.id) {
-            affiliation.id = existing.id;
+            affiliation.uri = input.rorId;
           }
 
-          return await affiliation.update(context);
+          // Only SuperAdmins are allowed to set these properties
+          if (!superAdmin) {
+            affiliation.name = input.displayName;
+            affiliation.managed = false;
+            affiliation.active = true;
+            affiliation.types = null;
+            affiliation.fundrefId = null;
+            affiliation.ssoEntityId = null;
+            // @ts-expect-error transient input-only field used by resolver logic
+            affiliation.ssoEmailDomains = [];
+          }
+
+          if (!affiliation.hasErrors()) {
+            const created = await affiliation.create(context);
+
+            if (created?.id) {
+              // If the creation was successful reconcile any AffiliationLinks
+              const links: AffiliationLink[] = input.subHeaderLinks.map((shl: AffiliationLinkInput): AffiliationLink => {
+                return new AffiliationLink(shl);
+              })
+              await reconcileAffiliationLinks(context, reference, created, links);
+
+              // If the user is a superAdmin, also reconcile any AffiliationEmailDomains
+              if (superAdmin) {
+                const domains: AffiliationEmailDomain[] = input.ssoEmailDomains.map((ed: string): AffiliationEmailDomain => {
+                  return new AffiliationEmailDomain({
+                    affiliationId: created.uri,
+                    emailDomain: ed
+                  });
+                })
+                await reconcileAffiliationEmailDomains(context, reference, created, domains);
+              }
+
+              return created;
+            }
+          }
+
+          // A null was returned so add a generic error and return it
+          if (!affiliation.errors['general']) {
+            affiliation.addError('general', 'Unable to create Affiliation');
+          }
+          return affiliation;
+        } catch (err) {
+          if (err instanceof GraphQLError) throw err;
+
+          context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+          throw InternalServerError();
         }
-        throw context?.token ? ForbiddenError() : AuthenticationError();
-      } catch (err) {
-        if (err instanceof GraphQLError) throw err;
+      }),
 
-        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
-        throw InternalServerError();
-      }
-    },
-
-    // Delete an Affiliation (only applicable to AffiliationProvenance == DMPTOOL)
-    removeAffiliation: async (_, { affiliationId }, context: MyContext): Promise<Affiliation> => {
-      const reference = 'removeAffiliation resolver';
-      try {
-        // If the current user is a superAdmin
-        if (isSuperAdmin(context.token)) {
-          const affiliation = await Affiliation.findById(reference, context, affiliationId);
-
-          // If the URI does not exist, throw an error
-          if (!affiliation) {
+    /**
+     * ADMIN ONLY: Update the specified Affiliation. SuperAdmins may update any
+     *             affiliation, Admins may only update their own.
+     *
+     * @param _ Ignored, this is the entrypoint for the Apollo resolver
+     * @param args the AffiliationInput
+     * @param context The Apollo context
+     * @returns The Affiliation (with errors if applicable)
+     * @throws NotFoundError when the Affiliation is not found
+     * @throws ForbiddenError when the caller does not have permission
+     * @throws UnauthorizedError when the JWT token is not present
+     * @throws InternalServerError when a fatal error occurred
+     */
+    updateAffiliation: authenticatedResolver(
+      'updateAffiliation resolver',
+      UserRole.ADMIN,
+      async (
+        _: Record<PropertyKey, never>,
+        {input}: { input: AffiliationInput },
+        context: MyContext
+      ): Promise<Affiliation> => {
+        const reference = 'updateAffiliation resolver';
+        try {
+          const existing: Affiliation = input.id ? await Affiliation.findById(reference, context, input.id) : null;
+          // If the record doesn't exist
+          if (!existing) {
             throw NotFoundError();
           }
 
-          // If the affiliation is managed by the DMP Tool then we can delete it
-          if (affiliation.provenance === AffiliationProvenance.DMPTOOL) {
-            return await affiliation.delete(context);
+          // If the current user is a superAdmin or an Admin and this is their Affiliation
+          const superAdmin: boolean = isSuperAdmin(context.token);
+
+          // Set the URI to the rorId if the user is a super admin and they provided one
+          if (superAdmin && input.rorId !== existing.uri) {
+            // TODO: Consider how to handle URI changes (would need to cascade this change across dependencies)
+            //       The best bet may be to create new and then merge into the new one
+            existing.addError('rorId', 'Modifying the ROR id is not supported at this time.');
+          }
+
+          if (superAdmin || (isAdmin(context.token) && context.token.affiliationId === existing.uri)) {
+            const affiliation = new Affiliation(input);
+
+            // Since we pass around the URI for affiliations instead of the id we need to set it here
+            if (!affiliation.id) {
+              affiliation.id = existing.id;
+            }
+
+            // Only SuperAdmins are allowed to set these properties
+            if (!superAdmin) {
+              affiliation.name = existing.name;
+              affiliation.managed = existing.managed;
+              affiliation.active = existing.active;
+              affiliation.types = existing.types;
+              affiliation.ssoEntityId = existing.ssoEntityId;
+              // @ts-expect-error transient input-only field used by resolver logic
+              affiliation.ssoEmailDomains = existing.ssoEmailDomains;
+            }
+
+            // Remove the logo if the current record has a logo defined but the
+            // incoming one does not match (either removing or replacing it)
+            if (existing.logoName && existing.logoName !== affiliation.logoName) {
+              const removedLogo: boolean = await deleteAffiliationLogoFile(context.logger, existing.logoName);
+              if (!removedLogo) {
+                // If the removal of the logo failed, log it so we can clean up
+                // manually later but continue on with the rest of the update
+                context.logger.fatal({ affiliationId: affiliation.uri }, 'Orphaned affiliation logo file!');
+              }
+            }
+
+            const updated: Affiliation = await affiliation.update(context);
+            if (updated && !updated.hasErrors()) {
+              // If the update was successful reconcile any AffiliationLinks
+              const links: AffiliationLink[] = input.subHeaderLinks.map((shl: AffiliationLinkInput): AffiliationLink => {
+                return new AffiliationLink(shl);
+              })
+              await reconcileAffiliationLinks(context, reference, updated, links);
+
+              // If the user is a superAdmin, also reconcile any AffiliationEmailDomains
+              if (superAdmin) {
+                const domains: AffiliationEmailDomain[] = input.ssoEmailDomains.map((ed: string): AffiliationEmailDomain => {
+                  return new AffiliationEmailDomain({
+                    affiliationId: updated.uri,
+                    emailDomain: ed
+                  });
+                })
+                await reconcileAffiliationEmailDomains(context, reference, updated, domains);
+              }
+            }
+
+            return updated;
+          }
+          throw context?.token ? ForbiddenError() : AuthenticationError();
+        } catch (err) {
+          if (err instanceof GraphQLError) throw err;
+
+          context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+          throw InternalServerError();
+        }
+      }),
+
+    /**
+     * SUPER ADMIN ONLY: Remove the specified Affiliation
+     *
+     * @param _ Ignored, this is the entrypoint for the Apollo resolver
+     * @param args the affiliation id
+     * @param context The Apollo context
+     * @returns The Affiliation (with errors if applicable)
+     * @throws NotFoundError when the Affiliation is not found
+     * @throws ForbiddenError when the caller does not have permission
+     * @throws UnauthorizedError when the JWT token is not present
+     * @throws InternalServerError when a fatal error occurred
+     */
+    removeAffiliation: authenticatedResolver(
+      'removeAffiliation resolver',
+      UserRole.SUPERADMIN,
+      async (
+        _: Record<PropertyKey, never>,
+        {affiliationId}: { affiliationId: number },
+        context: MyContext
+      ): Promise<Affiliation> => {
+        const reference = 'removeAffiliation resolver';
+
+        const affiliation = await Affiliation.findById(reference, context, affiliationId);
+
+        // If the URI does not exist, throw an error
+        if (!affiliation) {
+          throw NotFoundError();
+        }
+
+        // Remove the logo if applicable
+        if (affiliation.logoName) {
+          const removedLogo: boolean = await deleteAffiliationLogoFile(context.logger, affiliation.logoName);
+          if (!removedLogo) {
+            // If the removal of the logo failed, log it so we can clean up
+            // manually later but continue on with the rest of the update
+            context.logger.fatal({ affiliationId: affiliation.uri }, 'Orphaned affiliation logo file!');
           }
         }
-        throw context?.token ? ForbiddenError() : AuthenticationError();
-      } catch (err) {
-        if (err instanceof GraphQLError) throw err;
 
-        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
-        throw InternalServerError();
-      }
-    },
+        // If the affiliation is managed by the DMP Tool then we can delete it
+        return await affiliation.delete(context);
+      }),
 
     /**
      * ADMIN ONLY: Get a presigned URL that can be used to upload an Affiliation logo.
@@ -239,7 +393,7 @@ export const resolvers: Resolvers = {
       UserRole.ADMIN,
       async (
         _: Record<PropertyKey, never>,
-        { affiliationURI, fileName, contentType }: {
+        {affiliationURI, fileName, contentType}: {
           affiliationURI: string,
           fileName: string,
           contentType: string
@@ -247,50 +401,8 @@ export const resolvers: Resolvers = {
         context: MyContext
       ): Promise<AffiliationLogoUpload> => {
         // Make sure the current user's affiliation matches the one specified if they are an ADMIN
-        if (context.token.role === UserRole.ADMIN && context.token.affiliationId === affiliationURI) {
+        if (context.token.role === UserRole.SUPERADMIN || context.token.affiliationId === affiliationURI) {
           return await getPresignedURLForAffiliationLogo(context.logger, affiliationURI, fileName, contentType);
-        }
-        throw ForbiddenError();
-      }),
-
-    /**
-     * ADMIN ONLY: Finalizes the upload of an affiliation logo to the CloudFront CDN S3 bucket.
-     *             The logoName should equal the 'key' from the fields returned by the generateLogoUploadURL mutation.
-     *
-     * @param _ Ignored, this is the entrypoint for the Apollo resolver
-     * @param args the affiliation URI and the name of the logo (S3 key)
-     * @param context The Apollo context
-     * @returns The Affiliation (with errors if applicable)
-     * @throws NotFoundError when the Affiliation is not found
-     * @throws ForbiddenError when the caller does not have permission
-     * @throws UnauthorizedError when the JWT token is not present
-     * @throws InternalServerError when a fatal error occurred
-     */
-    finalizeLogoUpload: authenticatedResolver(
-      'finalizeLogoUpload resolver',
-      UserRole.ADMIN,
-      async (
-        _: Record<PropertyKey, never>,
-        { affiliationURI, logoName }: { affiliationURI: string, logoName: string },
-        context: MyContext
-      ): Promise<Affiliation> => {
-        // Make sure the current user's affiliation matches the one specified if they are an ADMIN
-        if (context.token.role === UserRole.ADMIN && context.token.affiliationId === affiliationURI) {
-          const reference = 'finalizeLogoUpload resolver';
-          const affiliation = await Affiliation.findByURI(reference, context, affiliationURI);
-
-          if (!affiliation) {
-            throw NotFoundError();
-          }
-
-          affiliation.logoName = logoName;
-          const updated = await affiliation.update(context);
-          if (isNullOrUndefined(updated)) {
-            affiliation.addError('general', 'Unable to save the logo at this time');
-            return affiliation;
-          }
-
-          return updated;
         }
         throw ForbiddenError();
       }),
@@ -299,6 +411,23 @@ export const resolvers: Resolvers = {
   Affiliation: {
     logoURI: (parent: Affiliation): string => {
       return `${CDN_BASE_URL}${parent.logoName}`;
+    },
+    subHeaderLinks: async (parent: ResolversParentTypes['Affiliation'], _, context: MyContext): Promise<AffiliationLink[]> => {
+      const reference = 'Affiliation.subHeaderLinks resolver';
+      if (parent.id) {
+        return await AffiliationLink.findByAffiliationId(reference, context, parent.uri);
+      } else {
+        return [];
+      }
+    },
+    ssoEmailDomains: async (parent: ResolversParentTypes['Affiliation'], _, context: MyContext): Promise<string[]> => {
+      const reference = 'Affiliation.ssoEmailDomains resolver';
+      if (parent.id) {
+        const domains: AffiliationEmailDomain[] = await AffiliationEmailDomain.findByAffiliationId(reference, context, parent.uri);
+        return domains.map(d => d.emailDomain);
+      } else {
+        return [];
+      }
     },
     guidanceGroups: async (parent: ResolversParentTypes['Affiliation'], _, context: MyContext): Promise<GuidanceGroup[]> => {
       const reference = 'Affiliation.guidanceGroups resolver';

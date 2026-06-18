@@ -1,5 +1,6 @@
 import { Logger } from "pino";
-import { getPresignedURLForImageUpload } from '@dmptool/utils';
+import { DeleteObjectCommandOutput } from "@aws-sdk/client-s3";
+import { getPresignedURLForImageUpload, removeObject, toErrorMessage } from '@dmptool/utils';
 import { awsConfig } from "../config/awsConfig";
 import { generalConfig } from "../config/generalConfig";
 import { v4 as uuidv4 } from "uuid";
@@ -78,11 +79,51 @@ const sanitizeFileName = (fileName: string): string => {
  */
 
 /**
+ * The LocalStack S3 endpoint (used when running locally)
+ */
+const LOCALSTACK_ENDPOINT = `http://localstack:${awsConfig.s3.localstackPort}`
+
+/**
  * The URL to the application's CDN (AWS Cloudfront distribution)
  */
 export const CDN_BASE_URL: string = process.env.NODE_ENV === 'development'
-  ? `https://${awsConfig.s3.bucket}.s3.${awsConfig.region}.amazonaws.com`
-  : `https://cdn.${generalConfig.domain}`
+  ? `http://localhost:${awsConfig.s3.localstackPort}/${awsConfig.s3.bucket}/`
+  : `https://cdn.${generalConfig.domain}/`
+
+/**
+ * Removes the specified logo file from S3
+ *
+ * @param logger the Pino logger
+ * @param logoName the logoName (S3 key)
+ * @returns true if successful
+ */
+export const deleteAffiliationLogoFile = async(
+  logger: Logger,
+  logoName: string,
+) : Promise<boolean> => {
+  const bucket = awsConfig.s3.bucket;
+
+  try {
+    logger.debug({ logoName, bucket }, 'Removing Affiliation logo from S3');
+
+    const endpoint = awsConfig.s3.localstackPort ? LOCALSTACK_ENDPOINT : undefined;
+
+    const response: DeleteObjectCommandOutput = await removeObject(
+      logger,
+      bucket,
+      logoName,
+      endpoint,
+      awsConfig.region
+    );
+    logger.debug({ response }, 'Response from S3');
+
+    return response ? response.DeleteMarker : false;
+  } catch (error) {
+    logger.fatal({ logoName, bucket, error: toErrorMessage(error) }, 'Unable to remove object from S3')
+    return false;
+  }
+}
+
 
 /**
  * Generate a presigned URL so that an Affiliation logo can be uploaded to our

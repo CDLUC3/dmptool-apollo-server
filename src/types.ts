@@ -384,6 +384,10 @@ export type Affiliation = {
   created?: Maybe<Scalars['String']['output']>;
   /** The user who created the Object */
   createdById?: Maybe<Scalars['Int']['output']>;
+  /** The abbreviation to display in the UI */
+  displayAbbreviation?: Maybe<Scalars['String']['output']>;
+  /** The domain name of the affiliation to display in the UI */
+  displayDomain?: Maybe<Scalars['String']['output']>;
   /** The display name to help disambiguate similar names (typically with domain or country appended) */
   displayName: Scalars['String']['output'];
   /** Any errors with the Object */
@@ -420,43 +424,26 @@ export type Affiliation = {
   /** The combined name, homepage, aliases and acronyms to facilitate search */
   searchName: Scalars['String']['output'];
   /** The email domains associated with the affiliation (for SSO) */
-  ssoEmailDomains?: Maybe<Array<AffiliationEmailDomain>>;
+  ssoEmailDomains?: Maybe<Array<Scalars['String']['output']>>;
   /** The SSO entityId */
   ssoEntityId?: Maybe<Scalars['String']['output']>;
   /** The links the affiliation's users can use to get help */
   subHeaderLinks?: Maybe<Array<AffiliationLink>>;
   /** The types of the affiliation (e.g. Company, Education, Government, etc.) */
   types: Array<AffiliationType>;
-  /** The properties of this object that are NOT editable. Determined by the record's provenance */
-  uneditableProperties: Array<Scalars['String']['output']>;
   /** The unique identifer for the affiliation (assigned by the provenance e.g. https://ror.org/12345) */
   uri: Scalars['String']['output'];
 };
 
-/** Email domains linked to the affiliation for purposes of determining if SSO is applicable */
-export type AffiliationEmailDomain = {
-  __typename?: 'AffiliationEmailDomain';
-  /** The email domain (e.g. example.com, law.example.com, etc.) */
-  domain: Scalars['String']['output'];
-  /** Unique identifier for the email domain */
-  id: Scalars['Int']['output'];
-};
-
-/** Input for email domains linked to the affiliation for purposes of determining if SSO is applicable */
-export type AffiliationEmailDomainInput = {
-  /** The email domain (e.g. example.com, law.example.com, etc.) */
-  domain: Scalars['String']['input'];
-  /** Unique identifier for the email domain */
-  id: Scalars['Int']['input'];
-};
-
-/** A collection of errors related to the Answer */
+/** A collection of errors related to the Affiliation */
 export type AffiliationErrors = {
   __typename?: 'AffiliationErrors';
   acronyms?: Maybe<Scalars['String']['output']>;
   aliases?: Maybe<Scalars['String']['output']>;
   contactEmail?: Maybe<Scalars['String']['output']>;
   contactName?: Maybe<Scalars['String']['output']>;
+  displayAbbreviation?: Maybe<Scalars['String']['output']>;
+  displayDomain?: Maybe<Scalars['String']['output']>;
   displayName?: Maybe<Scalars['String']['output']>;
   feedbackEmails?: Maybe<Scalars['String']['output']>;
   feedbackMessage?: Maybe<Scalars['String']['output']>;
@@ -464,74 +451,76 @@ export type AffiliationErrors = {
   /** General error messages such as affiliation already exists */
   general?: Maybe<Scalars['String']['output']>;
   homepage?: Maybe<Scalars['String']['output']>;
-  json?: Maybe<Scalars['String']['output']>;
   logoName?: Maybe<Scalars['String']['output']>;
   logoURI?: Maybe<Scalars['String']['output']>;
   name?: Maybe<Scalars['String']['output']>;
-  planId?: Maybe<Scalars['String']['output']>;
   provenance?: Maybe<Scalars['String']['output']>;
+  rorId?: Maybe<Scalars['String']['output']>;
   searchName?: Maybe<Scalars['String']['output']>;
+  ssoEmailDomains?: Maybe<Scalars['String']['output']>;
   ssoEntityId?: Maybe<Scalars['String']['output']>;
   subHeaderLinks?: Maybe<Scalars['String']['output']>;
   types?: Maybe<Scalars['String']['output']>;
   uri?: Maybe<Scalars['String']['output']>;
-  versionedQuestionId?: Maybe<Scalars['String']['output']>;
-  versionedSectionId?: Maybe<Scalars['String']['output']>;
 };
 
 /** Input options for adding an Affiliation */
 export type AffiliationInput = {
   /** Acronyms for the affiliation */
   acronyms?: InputMaybe<Array<Scalars['String']['input']>>;
-  /** Whether or not the Affiliation is active and available in search results */
+  /** Whether or not the Affiliation is active and available in search results (SuperAdmin only) */
   active?: InputMaybe<Scalars['Boolean']['input']>;
   /** Alias names for the affiliation */
   aliases?: InputMaybe<Array<Scalars['String']['input']>>;
+  /** The URI of the affiliation's API to use for project search */
+  apiTarget?: InputMaybe<Scalars['String']['input']>;
   /** The primary contact email */
   contactEmail?: InputMaybe<Scalars['String']['input']>;
   /** The primary contact name */
   contactName?: InputMaybe<Scalars['String']['input']>;
-  /** The display name to help disambiguate similar names (typically with domain or country appended) */
-  displayName?: InputMaybe<Scalars['String']['input']>;
+  /** The abbreviation to display in the UI */
+  displayAbbreviation?: InputMaybe<Scalars['String']['input']>;
+  /** The domain name of the affiliation to display in the UI */
+  displayDomain?: InputMaybe<Scalars['String']['input']>;
+  /** The display name that users see */
+  displayName: Scalars['String']['input'];
   /** The email address(es) to notify when feedback has been requested (stored as JSON array) */
   feedbackEmails?: InputMaybe<Array<InputMaybe<Scalars['String']['input']>>>;
   /** Whether or not the affiliation wants to use the feedback workflow */
   feedbackEnabled?: InputMaybe<Scalars['Boolean']['input']>;
   /** The message to display to users when they request feedback */
   feedbackMessage?: InputMaybe<Scalars['String']['input']>;
-  /** Whether or not this affiliation is a funder */
+  /** Whether or not this affiliation should be considered a funder within the DMP Tool */
   funder?: InputMaybe<Scalars['Boolean']['input']>;
-  /** The Crossref Funder id */
+  /** The Crossref funder id */
   fundrefId?: InputMaybe<Scalars['String']['input']>;
   /** The official homepage for the affiliation */
   homepage?: InputMaybe<Scalars['String']['input']>;
   /** The id of the affiliation */
   id?: InputMaybe<Scalars['Int']['input']>;
-  /** The logo file name */
+  /** The name of the logo file (S3 key) */
   logoName?: InputMaybe<Scalars['String']['input']>;
-  /** The URI of the logo */
-  logoURI?: InputMaybe<Scalars['String']['input']>;
-  /** Whether or not the affiliation is allowed to have administrators */
+  /** Whether or not the affiliation is allowed to have administrators (SuperAdmin only) */
   managed?: InputMaybe<Scalars['Boolean']['input']>;
-  /** The official name for the affiliation (defined by the system of provenance) */
-  name: Scalars['String']['input'];
-  /** The email domains associated with the affiliation (for SSO) */
-  ssoEmailDomains?: InputMaybe<Array<AffiliationEmailDomainInput>>;
-  /** The SSO entityId */
+  /** The official name for the affiliation (defined by the system of provenance or a SuperAdmin)) */
+  name?: InputMaybe<Scalars['String']['input']>;
+  /** The ROR id */
+  rorId?: InputMaybe<Scalars['String']['input']>;
+  /** The email domains associated with the affiliation (for SSO) (SuperAdmin only) */
+  ssoEmailDomains?: InputMaybe<Array<Scalars['String']['input']>>;
+  /** The SSO entityId (SuperAdmin only) */
   ssoEntityId?: InputMaybe<Scalars['String']['input']>;
   /** The links the affiliation's users can use to get help */
   subHeaderLinks?: InputMaybe<Array<AffiliationLinkInput>>;
-  /** The types of the affiliation (e.g. Company, Education, Government, etc.) */
+  /** The types of the affiliation (e.g. Company, Education, etc.) (defined by the system of provenance or a SuperAdmin) */
   types?: InputMaybe<Array<AffiliationType>>;
-  /** The unique identifer for the affiliation (Not editable!) */
-  uri?: InputMaybe<Scalars['String']['input']>;
 };
 
 /** A hyperlink displayed in the sub-header of the UI for the afiliation's users */
 export type AffiliationLink = {
   __typename?: 'AffiliationLink';
   /** Unique identifier for the link */
-  id: Scalars['Int']['output'];
+  id?: Maybe<Scalars['Int']['output']>;
   /** The text to display (e.g. Helpdesk, Grants Office, etc.) */
   text?: Maybe<Scalars['String']['output']>;
   /** The URL */
@@ -541,7 +530,7 @@ export type AffiliationLink = {
 /** Input for a hyperlink displayed in the sub-header of the UI for the afiliation's users */
 export type AffiliationLinkInput = {
   /** Unique identifier for the link */
-  id: Scalars['Int']['input'];
+  id?: InputMaybe<Scalars['Int']['input']>;
   /** The text to display (e.g. Helpdesk, Grants Office, etc.) */
   text?: InputMaybe<Scalars['String']['input']>;
   /** The URL */
@@ -550,10 +539,18 @@ export type AffiliationLinkInput = {
 
 export type AffiliationLogoUpload = {
   __typename?: 'AffiliationLogoUpload';
+  /** Any errors related to generating the logo upload URL */
+  errors?: Maybe<AffiliationLogoUploadErrors>;
   /** The fields that should be included in the body of the POST request to upload the logo (e.g. policy, signature, etc.) stored as a JSON string */
   fields: Scalars['String']['output'];
   /** The URL to which the affiliation logo should be uploaded */
   url: Scalars['String']['output'];
+};
+
+export type AffiliationLogoUploadErrors = {
+  __typename?: 'AffiliationLogoUploadErrors';
+  /** General error message related to generating the logo upload URL */
+  general: Scalars['String']['output'];
 };
 
 /** The provenance of an Affiliation record */
@@ -572,10 +569,14 @@ export type AffiliationSearch = {
   aliases?: Maybe<Array<Scalars['String']['output']>>;
   /** Has an API that be used to search for project/award information */
   apiTarget?: Maybe<Scalars['String']['output']>;
+  /** The abbreviation to display in the UI */
+  displayAbbreviation?: Maybe<Scalars['String']['output']>;
   /** A user display name for the affiliation (typically the name with domain or country appended) */
   displayName: Scalars['String']['output'];
   /** Whether or not this affiliation is a funder */
   funder: Scalars['Boolean']['output'];
+  /** The homepage of the affiliation */
+  homepage?: Maybe<Scalars['String']['output']>;
   /** The unique identifer for the affiliation */
   id: Scalars['Int']['output'];
   /** The official name for the affiliation (defined by the system of provenance) */
@@ -657,7 +658,7 @@ export type Answer = {
   /** The user who created the Object */
   createdById?: Maybe<Scalars['Int']['output']>;
   /** Errors associated with the Object */
-  errors?: Maybe<AffiliationErrors>;
+  errors?: Maybe<AnswerErrors>;
   /** The feedback comments associated with the answer */
   feedbackComments?: Maybe<Array<PlanFeedbackComment>>;
   /** The unique identifer for the Object */
@@ -709,6 +710,17 @@ export type AnswerCommentErrors = {
   commentText?: Maybe<Scalars['String']['output']>;
   /** General error messages such as affiliation already exists */
   general?: Maybe<Scalars['String']['output']>;
+};
+
+/** A collection of errors related to the Answer */
+export type AnswerErrors = {
+  __typename?: 'AnswerErrors';
+  /** General error messages such as answer already exists */
+  general?: Maybe<Scalars['String']['output']>;
+  json?: Maybe<Scalars['String']['output']>;
+  planId?: Maybe<Scalars['String']['output']>;
+  versionedQuestionId?: Maybe<Scalars['String']['output']>;
+  versionedSectionId?: Maybe<Scalars['String']['output']>;
 };
 
 /** An author of a work */
@@ -6077,13 +6089,12 @@ export type ResolversTypes = {
   AdminNotificationResultsPage: ResolverTypeWrapper<AdminNotificationResultsPage>;
   AdminNotificationType: AdminNotificationType;
   Affiliation: ResolverTypeWrapper<Affiliation>;
-  AffiliationEmailDomain: ResolverTypeWrapper<AffiliationEmailDomain>;
-  AffiliationEmailDomainInput: AffiliationEmailDomainInput;
   AffiliationErrors: ResolverTypeWrapper<AffiliationErrors>;
   AffiliationInput: AffiliationInput;
   AffiliationLink: ResolverTypeWrapper<AffiliationLink>;
   AffiliationLinkInput: AffiliationLinkInput;
   AffiliationLogoUpload: ResolverTypeWrapper<AffiliationLogoUpload>;
+  AffiliationLogoUploadErrors: ResolverTypeWrapper<AffiliationLogoUploadErrors>;
   AffiliationProvenance: AffiliationProvenance;
   AffiliationSearch: ResolverTypeWrapper<AffiliationSearch>;
   AffiliationSearchResults: ResolverTypeWrapper<AffiliationSearchResults>;
@@ -6093,6 +6104,7 @@ export type ResolversTypes = {
   Answer: ResolverTypeWrapper<Answer>;
   AnswerComment: ResolverTypeWrapper<AnswerComment>;
   AnswerCommentErrors: ResolverTypeWrapper<AnswerCommentErrors>;
+  AnswerErrors: ResolverTypeWrapper<AnswerErrors>;
   Author: ResolverTypeWrapper<Author>;
   AuthorInput: AuthorInput;
   Award: ResolverTypeWrapper<Award>;
@@ -6332,13 +6344,12 @@ export type ResolversParentTypes = {
   AdminNotificationResults: AdminNotificationResults;
   AdminNotificationResultsPage: AdminNotificationResultsPage;
   Affiliation: Affiliation;
-  AffiliationEmailDomain: AffiliationEmailDomain;
-  AffiliationEmailDomainInput: AffiliationEmailDomainInput;
   AffiliationErrors: AffiliationErrors;
   AffiliationInput: AffiliationInput;
   AffiliationLink: AffiliationLink;
   AffiliationLinkInput: AffiliationLinkInput;
   AffiliationLogoUpload: AffiliationLogoUpload;
+  AffiliationLogoUploadErrors: AffiliationLogoUploadErrors;
   AffiliationSearch: AffiliationSearch;
   AffiliationSearchResults: AffiliationSearchResults;
   AlternateIdentifier: AlternateIdentifier;
@@ -6346,6 +6357,7 @@ export type ResolversParentTypes = {
   Answer: Answer;
   AnswerComment: AnswerComment;
   AnswerCommentErrors: AnswerCommentErrors;
+  AnswerErrors: AnswerErrors;
   Author: Author;
   AuthorInput: AuthorInput;
   Award: Award;
@@ -6582,6 +6594,8 @@ export type AffiliationResolvers<ContextType = MyContext, ParentType extends Res
   contactName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   createdById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  displayAbbreviation?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  displayDomain?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   displayName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   errors?: Resolver<Maybe<ResolversTypes['AffiliationErrors']>, ParentType, ContextType>;
   feedbackEmails?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
@@ -6600,17 +6614,11 @@ export type AffiliationResolvers<ContextType = MyContext, ParentType extends Res
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   provenance?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   searchName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  ssoEmailDomains?: Resolver<Maybe<Array<ResolversTypes['AffiliationEmailDomain']>>, ParentType, ContextType>;
+  ssoEmailDomains?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
   ssoEntityId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   subHeaderLinks?: Resolver<Maybe<Array<ResolversTypes['AffiliationLink']>>, ParentType, ContextType>;
   types?: Resolver<Array<ResolversTypes['AffiliationType']>, ParentType, ContextType>;
-  uneditableProperties?: Resolver<Array<ResolversTypes['String']>, ParentType, ContextType>;
   uri?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-};
-
-export type AffiliationEmailDomainResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['AffiliationEmailDomain'] = ResolversParentTypes['AffiliationEmailDomain']> = {
-  domain?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  id?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
 };
 
 export type AffiliationErrorsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['AffiliationErrors'] = ResolversParentTypes['AffiliationErrors']> = {
@@ -6618,44 +6626,51 @@ export type AffiliationErrorsResolvers<ContextType = MyContext, ParentType exten
   aliases?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   contactEmail?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   contactName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  displayAbbreviation?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  displayDomain?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   displayName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   feedbackEmails?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   feedbackMessage?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   fundrefId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   general?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   homepage?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  json?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   logoName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   logoURI?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   name?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  planId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   provenance?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  rorId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   searchName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  ssoEmailDomains?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   ssoEntityId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   subHeaderLinks?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   types?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   uri?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  versionedQuestionId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  versionedSectionId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 };
 
 export type AffiliationLinkResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['AffiliationLink'] = ResolversParentTypes['AffiliationLink']> = {
-  id?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   text?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   url?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
 };
 
 export type AffiliationLogoUploadResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['AffiliationLogoUpload'] = ResolversParentTypes['AffiliationLogoUpload']> = {
+  errors?: Resolver<Maybe<ResolversTypes['AffiliationLogoUploadErrors']>, ParentType, ContextType>;
   fields?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   url?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+};
+
+export type AffiliationLogoUploadErrorsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['AffiliationLogoUploadErrors'] = ResolversParentTypes['AffiliationLogoUploadErrors']> = {
+  general?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
 };
 
 export type AffiliationSearchResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['AffiliationSearch'] = ResolversParentTypes['AffiliationSearch']> = {
   acronyms?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
   aliases?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
   apiTarget?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  displayAbbreviation?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   displayName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   funder?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  homepage?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   id?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   types?: Resolver<Maybe<Array<ResolversTypes['AffiliationType']>>, ParentType, ContextType>;
@@ -6696,7 +6711,7 @@ export type AnswerResolvers<ContextType = MyContext, ParentType extends Resolver
   comments?: Resolver<Maybe<Array<ResolversTypes['AnswerComment']>>, ParentType, ContextType>;
   created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   createdById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  errors?: Resolver<Maybe<ResolversTypes['AffiliationErrors']>, ParentType, ContextType>;
+  errors?: Resolver<Maybe<ResolversTypes['AnswerErrors']>, ParentType, ContextType>;
   feedbackComments?: Resolver<Maybe<Array<ResolversTypes['PlanFeedbackComment']>>, ParentType, ContextType>;
   id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   json?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -6725,6 +6740,14 @@ export type AnswerCommentErrorsResolvers<ContextType = MyContext, ParentType ext
   answerId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   commentText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   general?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+};
+
+export type AnswerErrorsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['AnswerErrors'] = ResolversParentTypes['AnswerErrors']> = {
+  general?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  json?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  planId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  versionedQuestionId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  versionedSectionId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 };
 
 export type AuthorResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['Author'] = ResolversParentTypes['Author']> = {
@@ -8674,10 +8697,10 @@ export type Resolvers<ContextType = MyContext> = {
   AdminNotificationResults?: AdminNotificationResultsResolvers<ContextType>;
   AdminNotificationResultsPage?: AdminNotificationResultsPageResolvers<ContextType>;
   Affiliation?: AffiliationResolvers<ContextType>;
-  AffiliationEmailDomain?: AffiliationEmailDomainResolvers<ContextType>;
   AffiliationErrors?: AffiliationErrorsResolvers<ContextType>;
   AffiliationLink?: AffiliationLinkResolvers<ContextType>;
   AffiliationLogoUpload?: AffiliationLogoUploadResolvers<ContextType>;
+  AffiliationLogoUploadErrors?: AffiliationLogoUploadErrorsResolvers<ContextType>;
   AffiliationSearch?: AffiliationSearchResolvers<ContextType>;
   AffiliationSearchResults?: AffiliationSearchResultsResolvers<ContextType>;
   AlternateIdentifier?: AlternateIdentifierResolvers<ContextType>;
@@ -8685,6 +8708,7 @@ export type Resolvers<ContextType = MyContext> = {
   Answer?: AnswerResolvers<ContextType>;
   AnswerComment?: AnswerCommentResolvers<ContextType>;
   AnswerCommentErrors?: AnswerCommentErrorsResolvers<ContextType>;
+  AnswerErrors?: AnswerErrorsResolvers<ContextType>;
   Author?: AuthorResolvers<ContextType>;
   Award?: AwardResolvers<ContextType>;
   CollaboratorSearchResult?: CollaboratorSearchResultResolvers<ContextType>;

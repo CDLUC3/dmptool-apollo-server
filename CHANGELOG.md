@@ -3,6 +3,15 @@
 ## v1.1.0
 
 ### Added
+- Added data migration to add `displayAbbreviation` and `displayDomain` to the `affiliations` table
+- Added data migration to backfill those new DB fields
+- Added LocalStack port env variable to the docker compose file and `awsConfig` file
+- Added `deleteAffiliationLogoFile` function to `datasources/s3` and fixed some issues with LocalStack config for S3
+- Added new `displayAbbreviation` and `displayDomain` to the `Affiliation` model and schema
+- Added a lot of inline commenting to `Affiliation` model assist with updates when we switch to use OpenSearch for ROR records
+- Added an `update` function to the `AffiliationLink` model
+- Preemptively added an `update` function to the `AffiliationDepartment` model to support changes when we get around to wiring that page up
+- Added overrides for `form-data`, `js-yaml` and `protobufjs` dependencies
 - Added `adminNotifications` model, resolver and db table. [#570]
 - Added `findByIdWithTemplateName` method to `TemplateCustomization` model so that we can return the template name [#570]
 - Added the `generateLogoUploadURL` and `finalizeLogoUpload` resolvers to the `affiliation` schema.
@@ -95,6 +104,15 @@
 - Updated `users` resolver to include `role` [#240]
 - Added `findByAffiliationIdAndUserRole` and updated the `User.search` to accept `role` [#240]
 - Added `findByUserId` to `Plan` model to find all plans for a given user [#240]
+- Updated Trivy scripts to ignore the entire `docker/` directory
+- Updated Localstack startup file to remove unused lambda function and SQS.
+- Bumped version of `@dmptool/utils`
+- Refactored `Affiliation` model to support admin changes and added `buildAbbreviation` helper function
+- Updated `MySQLModel.reconcileAssociationIds` to accept both a number and a string. This required some minor changes throughout the code to use `id as number` when calling the function.
+- Refactored the `affiliation` resolver to use the `authenticatedResolver` resolver wrapper function, support for updating org details, logo updates, logo removal, and added chained resolvers for `subHeaderLinks` and `ssoEmaiDomains`
+- Fixed a bug where the `Answer` schema was using `AffiliationErrors`
+- Added functions to the `affiliationService` to help reconcile changes to `ssoEmailDomains` and `affiliationLinks`
+- Updated version on `ws` override
 - Updated `requestFeedback`, `addTemplate` and `publishTemplateCustomization` resolvers to add a record to the `adminNotifications` table [#570]
 - Updated `awsConfig` to move SES properties underneath the `ses` property
 - Updated `uuid` and `@testcontainers/mysql` dependencies
@@ -188,6 +206,8 @@
 - Updates to appease newer version of eslint
 
 ### Removed
+- Removed unused SQS env variable from example dotenv file
+- Removed override for `brace-expansion` dependency
 - Removed overrides for `ws` and `brace-expansion` dependencies
 - Removed overrides for fast-xml-parser, @node-oauth/oauth2-server and protobufjs
 - Removed old overrides for `"flatted`, `handlebars`, `lodash`, `path-to-regexp`, `picomatch`, and `protobufjs`
@@ -218,6 +238,7 @@
 - Fixed issue with templates not cloning with sections and questions by updating the `addTemplate` mutation to clone from non-versioned template, section and question [#1006]
 
 ### Chore
+- Updated `nodemailer` to `v9.0.1` and `undici` to `v7.28.0` [#240]
 - Updated `fast-xml-parser` to `v1.2.0` and `uuid` to `11.1.1` to address vulnerabilities.
 - Added `@types/nodemailer` [#189]
 - Added override for `lodash` to `4.18.1` to address high vulnerability issue

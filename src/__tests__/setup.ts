@@ -33,7 +33,8 @@ jest.mock('../config/awsConfig', () => ({
       bouncedEmailBucket: 'my-test-bucket',
     },
     s3: {
-      bucket: 'test-bucket'
+      bucket: 'test-bucket',
+      localstackPort: '4566'
     },
     dynamo: {
       region: 'us-west-2',

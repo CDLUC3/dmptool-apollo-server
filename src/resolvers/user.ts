@@ -468,7 +468,6 @@ export const resolvers: Resolvers = {
     },
     // Chained resolver to fetch plans associated with the user
     plans: async (parent: User, _, context): Promise<Plan[]> => {
-      console.log("***User ID in User.plans resolver: ", parent.id);
       return await Plan.findByUserId('Chained User.plans', context, parent.id);
     },
     last_sign_in: (parent: User) => {

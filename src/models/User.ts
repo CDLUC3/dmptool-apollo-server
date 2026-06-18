@@ -213,10 +213,15 @@ export class User extends MySqlModel {
     affiliationId: string,
     term: string,
     options: PaginationOptions = User.getDefaultPaginationOptions(),
+    role?: UserRole
   ): Promise<PaginatedQueryResults<User>> {
     const whereFilters = ['u.affiliationId = ?'];
     const values = [affiliationId];
 
+    if (!isNullOrUndefined(role)) {
+      whereFilters.push('u.role = ?');
+      values.push(role);
+    }
     // Handle the incoming search term
     const searchTerm = (term ?? '').toLowerCase().trim();
     if (!isNullOrUndefined(searchTerm)) {
@@ -225,76 +230,6 @@ export class User extends MySqlModel {
         LOWER(u.surName) LIKE ? OR
         LOWER(ue.email) LIKE ? OR
         LOWER(u.orcid) LIKE ?))`);
-      values.push(`%${searchTerm}%`, `%${searchTerm}%`, `%${searchTerm}%`, `%${searchTerm}%`);
-    }
-
-    // Join users with user_emails
-    const sqlStatement = `
-    SELECT u.* FROM users u
-    LEFT JOIN userEmails ue ON u.id = ue.userId AND ue.isPrimary = 1
-  `;
-
-    // Determine the type of pagination being used
-    let opts;
-    if (options.type === PaginationType.OFFSET) {
-      opts = {
-        ...options,
-        // Specify the fields available for sorting
-        availableSortFields: ['u.surName', 'u.givenName', 'u.created', 'ue.email', 'u.orcid'],
-      } as PaginationOptionsForOffsets;
-    } else {
-      opts = {
-        ...options,
-        // Specify the field we want to use for the cursor (should typically match the sort field)
-        cursorField: 'CONCAT(ue.email, u.id)',
-      } as PaginationOptionsForCursors;
-    }
-
-    // Set the default sort field and order if none was provided
-    if (isNullOrUndefined(opts.sortField)) opts.sortField = 'u.created';
-    if (isNullOrUndefined(opts.sortDir)) opts.sortDir = 'DESC';
-
-    // Specify the field we want to use for the count
-    opts.countField = 'u.id';
-
-    const response: PaginatedQueryResults<User> = await User.queryWithPagination(
-      context,
-      sqlStatement,
-      whereFilters,
-      '',
-      values,
-      opts,
-      reference,
-    );
-
-    context.logger.debug(prepareObjectForLogs({ options, response }), reference);
-    return response;
-  }
-
-  static async findByAffiliationIdAndUserRole(
-    reference: string,
-    context: MyContext,
-    affiliationId: string,
-    term: string,
-    role: UserRole,
-    options: PaginationOptions = User.getDefaultPaginationOptions(),
-  ): Promise<PaginatedQueryResults<User>> {
-    const whereFilters = ['u.affiliationId = ?'];
-    const values = [affiliationId];
-
-    // Only filter by role if one was provided
-    if (!isNullOrUndefined(role)) {
-      whereFilters.push('u.role = ?');
-      values.push(role);
-    }
-
-    const searchTerm = (term ?? '').toLowerCase().trim();
-    if (!isNullOrUndefined(searchTerm)) {
-      whereFilters.push(`(
-      LOWER(u.givenName) LIKE ? OR
-      LOWER(u.surName) LIKE ? OR
-      LOWER(ue.email) LIKE ? OR
-      LOWER(u.orcid) LIKE ?)`);
       values.push(`%${searchTerm}%`, `%${searchTerm}%`, `%${searchTerm}%`, `%${searchTerm}%`);
     }
 
@@ -326,6 +261,7 @@ export class User extends MySqlModel {
 
     // Specify the field we want to use for the count
     opts.countField = 'u.id';
+
     const response: PaginatedQueryResults<User> = await User.queryWithPagination(
       context,
       sqlStatement,

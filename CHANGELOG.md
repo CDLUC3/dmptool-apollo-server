@@ -102,7 +102,7 @@
 
 ### Updated
 - Updated `users` resolver to include `role` [#240]
-- Added `findByAffiliationIdAndUserRole` and updated the `User.search` to accept `role` [#240]
+- Added `findByAffiliationId` and `search` to pass in `role` as optional [#240]
 - Added `findByUserId` to `Plan` model to find all plans for a given user [#240]
 - Updated Trivy scripts to ignore the entire `docker/` directory
 - Updated Localstack startup file to remove unused lambda function and SQS.

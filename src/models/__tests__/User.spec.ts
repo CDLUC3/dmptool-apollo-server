@@ -855,55 +855,139 @@ describe('findByAffiliationId', () => {
   let context;
   let mockPaginatedResults;
 
+  const makeUser = (id: number, role: UserRole) =>
+    new User({
+      id,
+      affiliationId: 'affil-1',
+      givenName: id === 1 ? 'Alice' : 'Bob',
+      surName: id === 1 ? 'Smith' : 'Jones',
+      password: 'password',
+      role,
+      languageId: defaultLanguageId,
+      acceptedTerms: true,
+    });
+
   beforeEach(async () => {
     jest.resetAllMocks();
     context = await buildMockContextWithToken(logger);
     mockPaginatedResults = {
-      items: [
-        new User({
-          id: 1,
-          affiliationId: 'affil-1',
-          givenName: 'Alice',
-          surName: 'Smith',
-          password: 'password',
-          role: UserRole.RESEARCHER,
-          languageId: defaultLanguageId,
-          acceptedTerms: true,
-        }),
-        new User({
-          id: 2,
-          affiliationId: 'affil-1',
-          givenName: 'Bob',
-          surName: 'Jones',
-          password: 'password',
-          role: UserRole.RESEARCHER,
-          languageId: defaultLanguageId,
-          acceptedTerms: true,
-        })
-      ],
+      items: [makeUser(1, UserRole.RESEARCHER), makeUser(2, UserRole.RESEARCHER)],
       totalCount: 2,
       hasNextPage: false,
       hasPreviousPage: false,
-      pageInfo: {}
+      pageInfo: {},
     };
     jest.spyOn(User, 'queryWithPagination').mockResolvedValue(mockPaginatedResults);
   });
 
-  it('should return users for a given affiliationId and term', async () => {
-    const affiliationId = 'affil-1';
-    const term = 'Alice';
-    const options = { type: PaginationType.OFFSET, sortField: 'u.surName', sortDir: 'ASC' };
-    const result = await User.findByAffiliationId('testRef', context, affiliationId, term, options);
-    expect(User.queryWithPagination).toHaveBeenCalled();
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('returns users for a given affiliationId without role filter', async () => {
+    const result = await User.findByAffiliationId(
+      'testRef', context, 'affil-1', 'Alice',
+      { type: PaginationType.OFFSET, sortField: 'u.surName', sortDir: 'ASC' },
+    );
+
+    expect(User.queryWithPagination).toHaveBeenCalledTimes(1);
     expect(result.items.length).toBe(2);
     expect(result.items[0].givenName).toBe('Alice');
     expect(result.items[1].givenName).toBe('Bob');
+
+    const [, , whereFilters, , values] = (User.queryWithPagination as jest.Mock).mock.calls[0];
+    expect(whereFilters).toContain('u.affiliationId = ?');
+    expect(whereFilters.every((f: string) => !f.includes('u.role = ?'))).toBe(true);
+    expect(values).toContain('affil-1');
   });
 
-  it('should handle empty results', async () => {
-    (User.queryWithPagination as jest.Mock).mockResolvedValueOnce({ items: [], limit: 10, totalCount: 0, hasNextPage: false, hasPreviousPage: false });
-    const options = { type: PaginationType.OFFSET };
-    const result = await User.findByAffiliationId('testRef', context, 'affil-2', '', options);
+  it('filters by role when role is provided', async () => {
+    (User.queryWithPagination as jest.Mock).mockResolvedValueOnce({
+      items: [makeUser(3, UserRole.ADMIN)],
+      totalCount: 1,
+      hasNextPage: false,
+      hasPreviousPage: false,
+      pageInfo: {},
+    });
+
+    const result = await User.findByAffiliationId(
+      'testRef', context, 'affil-1', '',
+      { type: PaginationType.OFFSET },
+      UserRole.ADMIN,
+    );
+
+    const [, , whereFilters, , values] = (User.queryWithPagination as jest.Mock).mock.calls[0];
+    expect(whereFilters).toContain('u.role = ?');
+    expect(values).toContain(UserRole.ADMIN);
+    expect(result.items.length).toBe(1);
+  });
+
+  it('does not add role filter when role is undefined', async () => {
+    await User.findByAffiliationId(
+      'testRef', context, 'affil-1', '',
+      { type: PaginationType.OFFSET },
+    );
+
+    const [, , whereFilters] = (User.queryWithPagination as jest.Mock).mock.calls[0];
+    expect(whereFilters.every((f: string) => !f.includes('u.role = ?'))).toBe(true);
+  });
+
+  it('passes the search term through to the query values', async () => {
+    await User.findByAffiliationId(
+      'testRef', context, 'affil-1', 'alice',
+      { type: PaginationType.OFFSET },
+    );
+
+    const [, , whereFilters, , values] = (User.queryWithPagination as jest.Mock).mock.calls[0];
+    expect(whereFilters.some((f: string) => f.includes('LOWER(u.givenName) LIKE ?'))).toBe(true);
+    expect(values.some((v: string) => v.includes('alice'))).toBe(true);
+  });
+
+  it('uses OFFSET pagination options when type is OFFSET', async () => {
+    await User.findByAffiliationId(
+      'testRef', context, 'affil-1', '',
+      { type: PaginationType.OFFSET, sortField: 'u.surName', sortDir: 'ASC' },
+    );
+
+    const [, , , , , opts] = (User.queryWithPagination as jest.Mock).mock.calls[0];
+    expect(opts.availableSortFields).toBeDefined();
+    expect(opts.availableSortFields).toContain('u.surName');
+    expect(opts.sortField).toBe('u.surName');
+    expect(opts.sortDir).toBe('ASC');
+  });
+
+  it('uses CURSOR pagination options when type is CURSOR', async () => {
+    await User.findByAffiliationId(
+      'testRef', context, 'affil-1', '',
+      { type: PaginationType.CURSOR },
+    );
+
+    const [, , , , , opts] = (User.queryWithPagination as jest.Mock).mock.calls[0];
+    expect(opts.cursorField).toBeDefined();
+    expect(opts.availableSortFields).toBeUndefined();
+  });
+
+  it('applies default sort field and direction when none are provided', async () => {
+    await User.findByAffiliationId(
+      'testRef', context, 'affil-1', '',
+      { type: PaginationType.OFFSET },
+    );
+
+    const [, , , , , opts] = (User.queryWithPagination as jest.Mock).mock.calls[0];
+    expect(opts.sortField).toBe('u.created');
+    expect(opts.sortDir).toBe('DESC');
+  });
+
+  it('handles empty results', async () => {
+    (User.queryWithPagination as jest.Mock).mockResolvedValueOnce({
+      items: [], totalCount: 0, hasNextPage: false, hasPreviousPage: false,
+    });
+
+    const result = await User.findByAffiliationId(
+      'testRef', context, 'affil-99', '',
+      { type: PaginationType.OFFSET },
+    );
+
     expect(result.items).toEqual([]);
     expect(result.totalCount).toBe(0);
   });
@@ -1054,168 +1138,6 @@ describe('findByOrcid', () => {
     const orcid = casual.url;
     const result = await User.findByOrcid('Testing', context, orcid);
     expect(result).toEqual(null);
-  });
-});
-
-describe('findByAffiliationIdAndUserRole', () => {
-  let context;
-  let mockPaginatedResults;
-
-  const makeUser = (id: number, role: UserRole) =>
-    new User({
-      id,
-      affiliationId: 'affil-1',
-      givenName: id === 1 ? 'Alice' : 'Bob',
-      surName: id === 1 ? 'Smith' : 'Jones',
-      password: 'password',
-      role,
-      languageId: defaultLanguageId,
-      acceptedTerms: true,
-    });
-
-  beforeEach(async () => {
-    jest.resetAllMocks();
-    context = await buildMockContextWithToken(logger);
-
-    mockPaginatedResults = {
-      items: [makeUser(1, UserRole.RESEARCHER), makeUser(2, UserRole.RESEARCHER)],
-      totalCount: 2,
-      hasNextPage: false,
-      hasPreviousPage: false,
-      pageInfo: {},
-    };
-
-    jest.spyOn(User, 'queryWithPagination').mockResolvedValue(mockPaginatedResults);
-  });
-
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
-
-  it('calls queryWithPagination and returns users for a given affiliationId and role', async () => {
-    const result = await User.findByAffiliationIdAndUserRole(
-      'testRef',
-      context,
-      'affil-1',
-      '',
-      UserRole.RESEARCHER,
-      { type: PaginationType.OFFSET },
-    );
-
-    expect(User.queryWithPagination).toHaveBeenCalledTimes(1);
-    expect(result.items.length).toBe(2);
-    expect(result.items[0].givenName).toBe('Alice');
-    expect(result.items[1].givenName).toBe('Bob');
-    expect(result.totalCount).toBe(2);
-  });
-
-  it('filters by ADMIN role', async () => {
-    const adminUser = makeUser(3, UserRole.ADMIN);
-    (User.queryWithPagination as jest.Mock).mockResolvedValueOnce({
-      items: [adminUser],
-      totalCount: 1,
-      hasNextPage: false,
-      hasPreviousPage: false,
-      pageInfo: {},
-    });
-
-    const result = await User.findByAffiliationIdAndUserRole(
-      'testRef',
-      context,
-      'affil-1',
-      '',
-      UserRole.ADMIN,
-      { type: PaginationType.OFFSET },
-    );
-
-    const [, , whereFilters, , values] = (User.queryWithPagination as jest.Mock).mock.calls[0];
-    expect(whereFilters).toContain('u.role = ?');
-    expect(values).toContain(UserRole.ADMIN);
-    expect(result.items.length).toBe(1);
-  });
-
-  it('passes the search term through to the query values', async () => {
-    await User.findByAffiliationIdAndUserRole(
-      'testRef',
-      context,
-      'affil-1',
-      'alice',
-      UserRole.RESEARCHER,
-      { type: PaginationType.OFFSET },
-    );
-
-    const [, , whereFilters, , values] = (User.queryWithPagination as jest.Mock).mock.calls[0];
-    expect(whereFilters.some((f: string) => f.includes('LOWER(u.givenName) LIKE ?'))).toBe(true);
-    expect(values.some((v: string) => v.includes('alice'))).toBe(true);
-  });
-
-  it('uses OFFSET pagination options when type is OFFSET', async () => {
-    await User.findByAffiliationIdAndUserRole(
-      'testRef',
-      context,
-      'affil-1',
-      '',
-      UserRole.RESEARCHER,
-      { type: PaginationType.OFFSET, sortField: 'u.surName', sortDir: 'ASC' },
-    );
-
-    const [, , , , , opts] = (User.queryWithPagination as jest.Mock).mock.calls[0];
-    expect(opts.availableSortFields).toBeDefined();
-    expect(opts.availableSortFields).toContain('u.surName');
-    expect(opts.sortField).toBe('u.surName');
-    expect(opts.sortDir).toBe('ASC');
-  });
-
-  it('uses CURSOR pagination options when type is CURSOR', async () => {
-    await User.findByAffiliationIdAndUserRole(
-      'testRef',
-      context,
-      'affil-1',
-      '',
-      UserRole.RESEARCHER,
-      { type: PaginationType.CURSOR },
-    );
-
-    const [, , , , , opts] = (User.queryWithPagination as jest.Mock).mock.calls[0];
-    expect(opts.cursorField).toBeDefined();
-    expect(opts.availableSortFields).toBeUndefined();
-  });
-
-  it('applies default sort field and direction when none are provided', async () => {
-    await User.findByAffiliationIdAndUserRole(
-      'testRef',
-      context,
-      'affil-1',
-      '',
-      UserRole.RESEARCHER,
-      { type: PaginationType.OFFSET },
-    );
-
-    const [, , , , , opts] = (User.queryWithPagination as jest.Mock).mock.calls[0];
-    expect(opts.sortField).toBe('u.created');
-    expect(opts.sortDir).toBe('DESC');
-  });
-
-  it('returns empty results when no users match', async () => {
-    (User.queryWithPagination as jest.Mock).mockResolvedValueOnce({
-      items: [],
-      totalCount: 0,
-      hasNextPage: false,
-      hasPreviousPage: false,
-      pageInfo: {},
-    });
-
-    const result = await User.findByAffiliationIdAndUserRole(
-      'testRef',
-      context,
-      'affil-99',
-      '',
-      UserRole.ADMIN,
-      { type: PaginationType.OFFSET },
-    );
-
-    expect(result.items).toEqual([]);
-    expect(result.totalCount).toBe(0);
   });
 });
 

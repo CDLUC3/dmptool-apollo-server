@@ -46,7 +46,7 @@ export const resolvers: Resolvers = {
           return await User.search(reference, context, term, opts, role as unknown as UserRole,);
 
         } else if (isAdmin(context.token)) {
-          return await User.findByAffiliationIdAndUserRole(reference, context, context.token.affiliationId, term, role as unknown as UserRole, opts);
+          return await User.findByAffiliationId(reference, context, context.token.affiliationId, term, opts, role as unknown as UserRole,);
         }
 
         // Unauthorized!

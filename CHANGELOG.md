@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added a default researc h output table question to the default template
 - Added data migration to add `displayAbbreviation` and `displayDomain` to the `affiliations` table
 - Added data migration to backfill those new DB fields
 - Added LocalStack port env variable to the docker compose file and `awsConfig` file

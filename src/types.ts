@@ -3965,6 +3965,7 @@ export type QueryUserArgs = {
 
 
 export type QueryUsersArgs = {
+  affiliationId?: InputMaybe<Scalars['String']['input']>;
   paginationOptions?: InputMaybe<PaginationOptions>;
   role?: InputMaybe<UserRole>;
   term?: InputMaybe<Scalars['String']['input']>;

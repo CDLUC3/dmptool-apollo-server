@@ -34,7 +34,7 @@ export const resolvers: Resolvers = {
 
     // Should only be callable by an Admin. Super returns all users, Admin gets only
     // the users associated with their affiliationId
-    users: async (_, { term, role, paginationOptions }, context): Promise<UserSearchResults> => {
+    users: async (_, { term, role, affiliationId, paginationOptions }, context): Promise<UserSearchResults> => {
       const reference = 'users resolver';
 
       try {
@@ -43,10 +43,10 @@ export const resolvers: Resolvers = {
           : { ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors;
 
         if (isSuperAdmin(context.token)) {
-          return await User.search(reference, context, term, opts, role as unknown as UserRole,);
+          return await User.search(reference, context, term, opts, role as unknown as UserRole, affiliationId);
 
         } else if (isAdmin(context.token)) {
-          return await User.findByAffiliationId(reference, context, context.token.affiliationId, term, opts, role as unknown as UserRole,);
+          return await User.findByAffiliationId(reference, context, context.token.affiliationId, term, opts, role as unknown as UserRole);
         }
 
         // Unauthorized!

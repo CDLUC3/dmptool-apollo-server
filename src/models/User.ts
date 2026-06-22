@@ -283,6 +283,7 @@ export class User extends MySqlModel {
     term: string,
     options: PaginationOptions = User.getDefaultPaginationOptions(),
     role?: UserRole,
+    affiliationId?: string,
   ): Promise<PaginatedQueryResults<User>> {
     const whereFilters: string[] = [];
     const values: string[] = [];
@@ -303,6 +304,18 @@ export class User extends MySqlModel {
     if (!isNullOrUndefined(role)) {
       whereFilters.push('u.role = ?');
       values.push(role);
+    }
+
+    // Add role filter if provided
+    if (!isNullOrUndefined(role)) {
+      whereFilters.push('u.role = ?');
+      values.push(role);
+    }
+
+    // Add affiliation filter if provided
+    if (!isNullOrUndefined(affiliationId)) {
+      whereFilters.push('a.uri = ?');
+      values.push(affiliationId);
     }
 
     // Determine the type of pagination being used
@@ -330,7 +343,7 @@ export class User extends MySqlModel {
 
     // Join users with user_emails
     const sqlStatement = `
-    SELECT u.*, a.name FROM users u
+    SELECT u.*, a.name, a.uri FROM users u
                       LEFT JOIN affiliations a ON u.affiliationId = a.uri
                       LEFT JOIN userEmails ue ON u.id = ue.userId AND ue.isPrimary = 1
   `;

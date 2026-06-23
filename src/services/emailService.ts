@@ -298,9 +298,13 @@ export const sendFeedbackRequestEmail = async (
     .replace('%{helpDeskEmail}', emailConfig.helpDeskAddress)
     .replace('%{helpUrl}', `${domain}/help`);
 
+  context.logger.info(`Sending feedback request email to ${collaboratorEmails.length} collaborators for plan "${planTitle}" at URL ${domain}${planURL}`);
+  context.logger.debug(prepareObjectForLogs({ collaboratorEmails, planOwnerName, planURL, planTitle, feedbackRequestMessage }), `Feedback request email details`);
+
   // Send each feedback email recipient their own email
   for (const email of collaboratorEmails) {
     const message = baseMessage.replace('%{adminEmail}', email);
+    context.logger.debug(prepareObjectForLogs({ email, message }), `Sending feedback request email to ${email}`);
     await sendEmail(
       context,
       'FeedbackRequest',
@@ -311,5 +315,6 @@ export const sendFeedbackRequestEmail = async (
       message
     );
   }
+  context.logger.info(`Finished sending feedback request emails for plan "${planTitle}"`);
   return true;
 }

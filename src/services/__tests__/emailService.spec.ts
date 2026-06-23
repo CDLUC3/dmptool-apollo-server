@@ -334,7 +334,7 @@ describe('sendEmail', () => {
       .replace('%{helpUrl}', `${domain}/help`);
 
     expect(sent).toBe(true);
-    expect(logger.info).toHaveBeenCalledTimes(emails.length);
+    expect(logger.info).toHaveBeenCalledTimes(emails.length + 2); // accounting for additional info logs for sending and finishing
     expect(mockSendEmail).toHaveBeenCalledTimes(emails.length);
     for (const email of emails) {
       const expectedHtml = baseHtml.replace('%{adminEmail}', email);

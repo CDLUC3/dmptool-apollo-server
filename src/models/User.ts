@@ -306,12 +306,6 @@ export class User extends MySqlModel {
       values.push(role);
     }
 
-    // Add role filter if provided
-    if (!isNullOrUndefined(role)) {
-      whereFilters.push('u.role = ?');
-      values.push(role);
-    }
-
     // Add affiliation filter if provided
     if (!isNullOrUndefined(affiliationId)) {
       whereFilters.push('a.uri = ?');

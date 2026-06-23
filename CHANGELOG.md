@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added a default researc h output table question to the default template
 - Added data migration to add `displayAbbreviation` and `displayDomain` to the `affiliations` table
 - Added data migration to backfill those new DB fields
 - Added LocalStack port env variable to the docker compose file and `awsConfig` file
@@ -101,6 +102,9 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `users` resolver to include `role` and `affiliationId` [#240]
+- Added `findByAffiliationId` and `search` to pass in `role` as optional [#240]
+- Added `findByUserId` to `Plan` model to find all plans for a given user [#240]
 - Updated Trivy scripts to ignore the entire `docker/` directory
 - Updated Localstack startup file to remove unused lambda function and SQS.
 - Bumped version of `@dmptool/utils`
@@ -236,6 +240,7 @@
 
 ### Chore
 - Addressed security vulnerability in `nodemailer` and `undici` packages, and added debugging to troubleshoot request feedback failure [#285]
+- Updated `nodemailer` to `v9.0.1` and `undici` to `v7.28.0` [#240]
 - Updated `fast-xml-parser` to `v1.2.0` and `uuid` to `11.1.1` to address vulnerabilities.
 - Added `@types/nodemailer` [#189]
 - Added override for `lodash` to `4.18.1` to address high vulnerability issue

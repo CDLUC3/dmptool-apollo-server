@@ -890,4 +890,23 @@ export class Plan extends MySqlModel {
       ))
       : [];
   }
+
+  /**
+   * Fetch the Plans associated with a user
+   *
+   * @param reference The caller's reference string for logging purposes'
+   * @param context The Apollo context object
+   * @param userId The id of the user whose Plans we want to fetch
+   * @returns The Plan object or null if it does not exist
+   */
+  static async findByUserId(reference: string, context: MyContext, userId: number): Promise<Plan[]> {
+    const sql = `SELECT * FROM ${this.tableName} WHERE createdById = ?`;
+    const results = await Plan.query(context, sql, [userId?.toString()], reference);
+
+    return Array.isArray(results)
+      ? await Promise.all(results.map(async (result) =>
+        await Plan.processResult(context, result)
+      ))
+      : [];
+  }
 }

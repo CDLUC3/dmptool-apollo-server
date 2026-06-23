@@ -1,8 +1,9 @@
 import { Resolvers, UserSearchResults } from "../types";
-import { MyContext} from '../context';
-import { User } from '../models/User';
+import { MyContext } from '../context';
+import { User, UserRole } from '../models/User';
 import { UserEmail } from "../models/UserEmail";
 import { Affiliation } from '../models/Affiliation';
+import { Plan } from '../models/Plan';
 import { isAdmin, isAuthorized, isSuperAdmin } from "../services/authService";
 import { AuthenticationError, ForbiddenError, InternalServerError, NotFoundError } from "../utils/graphQLErrors";
 import { defaultLanguageId } from "../models/Language";
@@ -33,18 +34,19 @@ export const resolvers: Resolvers = {
 
     // Should only be callable by an Admin. Super returns all users, Admin gets only
     // the users associated with their affiliationId
-    users: async (_, { term, paginationOptions }, context): Promise<UserSearchResults> => {
+    users: async (_, { term, role, affiliationId, paginationOptions }, context): Promise<UserSearchResults> => {
       const reference = 'users resolver';
+
       try {
         const opts = !isNullOrUndefined(paginationOptions) && paginationOptions.type === PaginationType.OFFSET
-                    ? paginationOptions as PaginationOptionsForOffsets
-                    : { ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors;
+          ? paginationOptions as PaginationOptionsForOffsets
+          : { ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors;
 
         if (isSuperAdmin(context.token)) {
-          return await User.search(reference, context, term, opts);
+          return await User.search(reference, context, term, opts, role as unknown as UserRole, affiliationId);
 
         } else if (isAdmin(context.token)) {
-          return await User.findByAffiliationId(reference, context, context.token.affiliationId, term, opts);
+          return await User.findByAffiliationId(reference, context, context.token.affiliationId, term, opts, role as unknown as UserRole);
         }
 
         // Unauthorized!
@@ -463,6 +465,10 @@ export const resolvers: Resolvers = {
     email: async (parent: User, _, context): Promise<string | null> => {
       const primaryEmail = await UserEmail.findPrimaryByUserId('Chained User.email', context, parent.id);
       return primaryEmail ? primaryEmail.email : null;
+    },
+    // Chained resolver to fetch plans associated with the user
+    plans: async (parent: User, _, context): Promise<Plan[]> => {
+      return await Plan.findByUserId('Chained User.plans', context, parent.id);
     },
     last_sign_in: (parent: User) => {
       return normaliseDateTime(parent.last_sign_in);

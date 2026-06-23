@@ -1,6 +1,6 @@
 {
   "name": "dmptool-apollo-server",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Apollo GraphQL server for the DMP Tool system",
   "main": "index.js",
   "scripts": {
@@ -74,7 +74,7 @@
     "jsonwebtoken": "^9.0.3",
     "keyv": "^5.6.0",
     "mysql2": "^3.20.0",
-    "nodemailer": "^8.0.7",
+    "nodemailer": "^9.0.0",
     "pino": "^10.3.1",
     "uuid": "^11.1.1",
     "uuid-random": "^1.3.2",

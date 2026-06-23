@@ -102,6 +102,9 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `users` resolver to include `role` and `affiliationId` [#240]
+- Added `findByAffiliationId` and `search` to pass in `role` as optional [#240]
+- Added `findByUserId` to `Plan` model to find all plans for a given user [#240]
 - Updated Trivy scripts to ignore the entire `docker/` directory
 - Updated Localstack startup file to remove unused lambda function and SQS.
 - Bumped version of `@dmptool/utils`
@@ -236,6 +239,7 @@
 - Fixed issue with templates not cloning with sections and questions by updating the `addTemplate` mutation to clone from non-versioned template, section and question [#1006]
 
 ### Chore
+- Updated `nodemailer` to `v9.0.1` and `undici` to `v7.28.0` [#240]
 - Updated `fast-xml-parser` to `v1.2.0` and `uuid` to `11.1.1` to address vulnerabilities.
 - Added `@types/nodemailer` [#189]
 - Added override for `lodash` to `4.18.1` to address high vulnerability issue

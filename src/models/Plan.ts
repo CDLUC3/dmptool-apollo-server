@@ -13,6 +13,14 @@ import { PlanGuidance } from "./Guidance";
 import { VersionedTemplate } from "./VersionedTemplate";
 import { Project } from "./Project";
 import { Tag } from "./Tag";
+import {
+  PaginatedQueryResults,
+  PaginationOptions,
+  PaginationOptionsForCursors,
+  PaginationOptionsForOffsets,
+  PaginationType
+} from '../types/general';
+import { prepareObjectForLogs } from '../logger';
 
 export const DEFAULT_TEMPORARY_DMP_ID_PREFIX = 'temp-dmpId-';
 
@@ -52,6 +60,7 @@ export class PlanSearchResult {
   public id: number;
   public createdBy: string;
   public created: string;
+  public createdById: number;
   public modifiedBy: string;
   public modified: string;
   public title: string;
@@ -62,6 +71,7 @@ export class PlanSearchResult {
   public members: string;
   public templateTitle: string;
   public versionedTemplateId: number;
+  public templateOwnerAffiliationName: string;
 
   // The following fields will only be set when the plan is published!
   public dmpId: string;
@@ -72,6 +82,7 @@ export class PlanSearchResult {
     this.id = options.id;
     this.createdBy = options.createdBy;
     this.created = options.created;
+    this.createdById = options.createdById;
     this.modifiedBy = options.modifiedBy;
     this.modified = options.modified;
     this.title = options.title;
@@ -82,6 +93,7 @@ export class PlanSearchResult {
     this.members = options.members;
     this.templateTitle = options.title;
     this.versionedTemplateId = options.versionedTemplateId;
+    this.templateOwnerAffiliationName = options.templateOwnerAffiliationName;
 
     this.dmpId = options.dmpId;
     this.registeredBy = options.registeredBy;
@@ -89,14 +101,14 @@ export class PlanSearchResult {
   }
 
   /**
-   * Find high-level details about the plans for a project. This information is
-   * meant to supply an overview of the plans.
-   *
-   * @param reference The caller's reference string for logging purposes'
-   * @param context The Apollo context object
-   * @param projectId The ID of the project to return plans for
-   * @returns An array of PlanSearchResult objects
-   */
+ * Find high-level details about the plans for a project. This information is
+ * meant to supply an overview of the plans.
+ *
+ * @param reference The caller's reference string for logging purposes'
+ * @param context The Apollo context object
+ * @param projectId The ID of the project to return plans for
+ * @returns An array of PlanSearchResult objects
+ */
   static async findByProjectId(reference: string, context: MyContext, projectId: number): Promise<PlanSearchResult[]> {
     const sql = 'SELECT p.id, ' +
       'CONCAT(cu.givenName, CONCAT(\' \', cu.surName)) createdBy, p.created, ' +
@@ -124,6 +136,94 @@ export class PlanSearchResult {
       'ORDER BY p.created DESC;';
     const results = await Plan.query(context, sql, [projectId?.toString()], reference);
     return Array.isArray(results) ? results.map((entry) => new PlanSearchResult(entry)) : [];
+  }
+
+  /**
+   * Find high-level details about the plans for a project. This information is
+   * meant to supply an overview of the plans.
+   *
+   * @param reference The caller's reference string for logging purposes'
+   * @param context The Apollo context object
+   * @param projectId The ID of the project to return plans for
+   * @returns An array of PlanSearchResult objects
+   */
+  static async findByProjectIdWithPagination(
+    reference: string,
+    context: MyContext,
+    projectId: number,
+    options: PaginationOptions = Plan.getDefaultPaginationOptions(),
+    term?: string,
+  ): Promise<PaginatedQueryResults<PlanSearchResult>> {
+    const whereFilters = ['p.projectId = ?'];
+    const values = [projectId.toString()];
+
+    // Handle the incoming search term
+    const searchTerm = (term ?? '').toLowerCase().trim();
+    if (searchTerm) {
+      whereFilters.push(`(
+      LOWER(p.title) LIKE ? OR
+      LOWER(vt.name) LIKE ?
+    )`);
+      values.push(`%${searchTerm}%`, `%${searchTerm}%`);
+    }
+
+    const sqlStatement = `
+    SELECT p.id, p.createdById,
+      CONCAT(cu.givenName, ' ', cu.surName) createdBy, p.created,
+      CONCAT(cm.givenName, ' ', cm.surName) modifiedBy, p.modified,
+      p.versionedTemplateId, p.title, p.status, p.visibility, p.dmpId,
+      CONCAT(cr.givenName, ' ', cr.surName) registeredBy, p.registered, p.featured,
+      GROUP_CONCAT(DISTINCT CONCAT(prc.givenName, ' ', prc.surName, ' (', r.label, ')')) members,
+      GROUP_CONCAT(DISTINCT fundings.name) funding
+    FROM plans p
+    LEFT JOIN users cu ON cu.id = p.createdById
+    LEFT JOIN users cm ON cm.id = p.modifiedById
+    LEFT JOIN users cr ON cr.id = p.registeredById
+    LEFT JOIN versionedTemplates vt ON vt.id = p.versionedTemplateId
+    LEFT JOIN planMembers plc ON plc.planId = p.id
+    LEFT JOIN projectMembers prc ON prc.id = plc.projectMemberId
+    LEFT JOIN planMemberRoles plcr ON plc.id = plcr.planMemberId
+    LEFT JOIN memberRoles r ON plcr.memberRoleId = r.id
+    LEFT JOIN planFundings ON planFundings.planId = p.id
+    LEFT JOIN projectFundings ON projectFundings.id = planFundings.projectFundingId
+    LEFT JOIN affiliations fundings ON projectFundings.affiliationId = fundings.uri
+  `;
+
+    const groupBy = `
+    GROUP BY p.id, p.createdById,cu.givenName, cu.surName, cm.givenName, cm.surName,
+    p.title, p.status, p.visibility,
+    p.dmpId, cr.givenName, cr.surName, p.registered, p.featured
+  `;
+
+    let opts;
+    if (options.type === PaginationType.OFFSET) {
+      opts = {
+        ...options,
+        availableSortFields: ['p.title', 'p.status', 'p.created', 'p.modified', 'p.registered', 'p.visibility'],
+      } as PaginationOptionsForOffsets;
+    } else {
+      opts = {
+        ...options,
+        cursorField: 'CONCAT(p.title, p.id)',
+      } as PaginationOptionsForCursors;
+    }
+
+    if (isNullOrUndefined(opts.sortField)) opts.sortField = 'p.created';
+    if (isNullOrUndefined(opts.sortDir)) opts.sortDir = 'DESC';
+    opts.countField = 'p.id';
+
+    const response: PaginatedQueryResults<PlanSearchResult> = await Plan.queryWithPagination(
+      context,
+      sqlStatement,
+      whereFilters,
+      groupBy,
+      values,
+      opts,
+      reference,
+    );
+
+    context.logger.debug(prepareObjectForLogs({ options, response }), reference);
+    return response;
   }
 }
 
@@ -308,6 +408,7 @@ export class PlanSectionProgress {
       vs.id AS versionedSectionId,
       vs.displayOrder,
       vs.name AS title,
+      p.createdById,
       COUNT(DISTINCT vq.id) AS totalQuestions,
       COUNT(DISTINCT CASE
           WHEN a.id IS NOT NULL AND ${FILLED_ANSWER_CHECK}

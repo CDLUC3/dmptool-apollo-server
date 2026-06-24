@@ -1,55 +1,58 @@
 import { GraphQLError } from "graphql";
 import { MyContext } from "../context";
 import { Plan, PlanSearchResult, PlanSectionProgress, PlanProgress, PlanStatus, PlanVisibility } from "../models/Plan";
-import { prepareObjectForLogs } from "../logger";
-import { AuthenticationError, ForbiddenError, InternalServerError, NotFoundError } from "../utils/graphQLErrors";
 import { Project } from "../models/Project";
 import { User } from "../models/User";
-import { isAuthorized } from "../services/authService";
-import {
-  hasPermissionOnProject,
-  isProjectReadOnlyForCurrentUser
-} from "../services/projectService";
 import { PlanMember } from "../models/Member";
 import { PlanFunding } from "../models/Funding";
 import { PlanFeedback } from "../models/PlanFeedback";
-import { PlanFeedbackStatus, Resolvers } from "../types";
+import { Affiliation } from "../models/Affiliation";
 import { VersionedTemplate } from "../models/VersionedTemplate";
 import { Answer } from "../models/Answer";
 import { ProjectCollaboratorAccessLevel } from "../models/Collaborator";
+import { AlternateIdentifier } from "../models/AlternateIdentifier";
 import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
+import { AuthenticationError, ForbiddenError, InternalServerError, NotFoundError } from "../utils/graphQLErrors";
+import { PaginationOptionsForCursors, PaginationOptionsForOffsets, PaginationType } from "../types/general";
+import { PaginatedPlanResults, PaginatedQueryResults, PlanFeedbackStatus, Resolvers } from "../types";
+import { prepareObjectForLogs } from "../logger";
+
+// Services
 import {
   ensureDefaultPlanContact,
   saveMaDMPVersion
 } from "../services/planService";
-import { AlternateIdentifier } from "../models/AlternateIdentifier";
+import {
+  hasPermissionOnProject,
+  isProjectReadOnlyForCurrentUser
+} from "../services/projectService";
+import { isAuthorized } from "../services/authService";
+
 
 
 export const resolvers: Resolvers = {
   Query: {
-    // return all of the projects that the current user owns or is a collaborator on
-    plans: async (_, { projectId }, context: MyContext): Promise<PlanSearchResult[]> => {
-      const reference = 'plans resolver';
+    plans: async (_, { projectId, term, paginationOptions }, context: MyContext): Promise<PaginatedPlanResults> => {
+      const reference = 'plansWithPagination resolver';
       try {
         if (isAuthorized(context.token)) {
           const project = await Project.findById(reference, context, projectId);
-
-          if (!project) {
-            throw NotFoundError(`Project with ID ${projectId} not found`);
-          }
+          if (!project) throw NotFoundError(`Project with ID ${projectId} not found`);
           if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.COMMENT)) {
-            return await PlanSearchResult.findByProjectId(reference, context, projectId);
+            const opts = !isNullOrUndefined(paginationOptions) && paginationOptions.type === PaginationType.OFFSET
+              ? paginationOptions as PaginationOptionsForOffsets
+              : { ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors;
+
+            return await PlanSearchResult.findByProjectIdWithPagination(reference, context, projectId, opts, term);
           }
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();
       } catch (err) {
         if (err instanceof GraphQLError) throw err;
-
         context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
         throw InternalServerError();
       }
     },
-
     // Find the plan by its id
     plan: async (_, { planId }, context: MyContext): Promise<Plan> => {
       const reference = 'plan resolver';
@@ -525,6 +528,30 @@ export const resolvers: Resolvers = {
         );
       }
       return [];
+    },
+    templateOwnerAffiliationName: async (parent: PlanSearchResult, _, context: MyContext): Promise<string | null> => {
+      if (!parent?.versionedTemplateId) return null;
+
+      const versionedTemplate = await VersionedTemplate.findById(
+        'planSearchResult.templateOwnerAffiliationName resolver',
+        context,
+        parent.versionedTemplateId
+      );
+      if (!versionedTemplate?.ownerId) return null;
+
+      const affiliation = await Affiliation.findByURI(
+        'planSearchResult.templateOwnerAffiliationName resolver',
+        context,
+        versionedTemplate.ownerId
+      );
+      return affiliation?.displayName || null;
+    },
+    user: async (parent: PlanSearchResult, _, context: MyContext): Promise<User> => {
+      console.log('****parent', parent);
+      if (parent?.createdById) {
+        return await User.findById('planSearchResult.user resolver', context, parent.createdById);
+      }
+      return null;
     }
   }
 

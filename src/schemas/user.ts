@@ -13,6 +13,8 @@ export const typeDefs = gql`
   extend type Mutation {
     "Update the current user's information"
     updateUserProfile(input: UpdateUserProfileInput!): User
+    "Update the specified user's information (SuperAdmin only)"
+    updateUserInfo(input: UpdateUserInfoInput!): User
     "Update the current user's email notifications"
     updateUserNotifications(input: UpdateUserNotificationsInput!): User
     "Set the user's ORCID"
@@ -198,6 +200,24 @@ export const typeDefs = gql`
     "The user's preferred language"
     languageId: String
   }
+
+  input UpdateUserInfoInput {
+    "The user's id"
+    userId: Int!
+    "The user's email address"
+    email: String!
+    "The user's given name"
+    givenName: String!
+    "The user's surname"
+    surName: String!
+    "The id of the affiliation if the user selected one from the typeahead list"
+    affiliationId: String
+    "The name of the affiliation if the user did not select one from the typeahead list"
+    otherAffiliationName: String
+    "The user's preferred language"
+    languageId: String
+  }
+
 
   input UpdateUserNotificationsInput {
     "Whether or not email notifications are on for when a Plan has a new comment"

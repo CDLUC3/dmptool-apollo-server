@@ -13,6 +13,9 @@ import { prepareObjectForLogs } from "../logger";
 import { GraphQLError } from "graphql";
 import { PaginationOptionsForCursors, PaginationOptionsForOffsets, PaginationType } from "../types/general";
 import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
+import {
+  authenticatedResolver,
+} from "../services/authService";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -132,6 +135,82 @@ export const resolvers: Resolvers = {
         throw InternalServerError();
       }
     },
+
+    // Update the specifeied user's information (SuperAdmin only)
+    updateUserInfo: authenticatedResolver(
+      'updateUserInfo resolver',
+      UserRole.SUPERADMIN,
+      async (
+        _: Record<PropertyKey, never>,
+        { input: { userId, email, givenName, surName, affiliationId, otherAffiliationName, languageId } }: {
+          input: {
+            userId: number;
+            email: string;
+            givenName: string;
+            surName: string;
+            affiliationId: string;
+            otherAffiliationName?: string;
+            languageId: string;
+          }
+        },
+        context: MyContext
+      ): Promise<User> => {
+        console.log('****UpdateUserInfo', userId, email, givenName, surName, affiliationId, otherAffiliationName, languageId);
+        const reference = 'updateUserInfo resolver';
+        try {
+          const user = await User.findById(reference, context, userId);
+          if (!user || !user.active || user.locked) {
+            throw ForbiddenError();
+          }
+
+          if (otherAffiliationName) {
+            const affiliation = await processOtherAffiliationName(context, otherAffiliationName);
+            if (affiliation.hasErrors()) {
+              const err = affiliation.errors?.general ?? 'Unable to save the affiliation at this time';
+              user.addError('otherAffiliationName', err);
+              return user;
+            }
+            user.affiliationId = affiliation.uri;
+          } else {
+            user.affiliationId = affiliationId;
+          }
+
+          // Update the email
+          const existingPrimaryEmail = await UserEmail.findPrimaryByUserId(reference, context, user.id);
+          if (existingPrimaryEmail) {
+            // Directly update the email field and mark as confirmed since a SuperAdmin is setting it
+            existingPrimaryEmail.email = email;
+            existingPrimaryEmail.isConfirmed = true;
+            await new UserEmail(existingPrimaryEmail).update(context);
+          } else {
+            // No primary exists yet — create one, marked as confirmed
+            const newEmail = new UserEmail({
+              userId: user.id,
+              email,
+              isPrimary: true,
+              isConfirmed: true   // SuperAdmin-set emails skip confirmation
+            });
+            await newEmail.create(context);
+          }
+
+
+          // Update the user fields
+          user.givenName = givenName;
+          user.surName = surName;
+          user.languageId = languageId || defaultLanguageId;
+          const updated = await new User(user).update(context);
+
+          if (!updated || updated.hasErrors()) {
+            user.addError('general', 'Unable to save the profile changes at this time');
+          }
+          return user.hasErrors() ? user : await User.findById(reference, context, user.id);
+
+        } catch (err) {
+          if (err instanceof GraphQLError) throw err;
+          context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+          throw InternalServerError();
+        }
+      }),
 
     // Update the current user's email notifications
     updateUserNotifications: async (_, { input: {

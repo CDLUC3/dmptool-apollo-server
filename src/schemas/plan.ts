@@ -2,8 +2,8 @@ import gql from "graphql-tag";
 
 export const typeDefs = gql`
   extend type Query {
-    "Get all plans for the research project"
-    plans(projectId: Int!): [PlanSearchResult!]
+    "Get all plans for the research project with pagination support"
+    plans(projectId: Int!,term: String, paginationOptions: PaginationOptions): PaginatedPlanResults
 
     "Get a specific plan"
     plan(planId: Int!): Plan
@@ -34,7 +34,7 @@ export const typeDefs = gql`
     removeAlternateIdentifierFromPlan(planId: Int!, alternateIdentifier: String!): AlternateIdentifier
   }
 
-  type PlanSearchResult {
+  type PlanSearchResult{
     "The unique identifer for the Object"
     id: Int
     "The user who created the Object"
@@ -68,7 +68,31 @@ export const typeDefs = gql`
     versionedSections: [PlanSectionProgress!]
     "The versioned template id the plan is based on"
     versionedTemplateId: Int
+    "The name of the affiliation that owns the template the plan is based on"
+    templateOwnerAffiliationName: String
+    "The user who created the plan"
+    user: User
   }
+
+  type PaginatedPlanResults implements PaginatedQueryResults {
+  "The plans that match the search criteria"
+  items: [PlanSearchResult]
+  "The total number of possible items"
+  totalCount: Int
+  "The number of items returned"
+  limit: Int
+  "The cursor to use for the next page of results (for infinite scroll/load more)"
+  nextCursor: String
+  "The current offset of the results (for standard offset pagination)"
+  currentOffset: Int
+  "Whether or not there is a next page"
+  hasNextPage: Boolean
+  "Whether or not there is a previous page"
+  hasPreviousPage: Boolean
+  "The sortFields that are available for this query (for standard offset pagination only!)"
+  availableSortFields: [String]
+}
+
 
   "The progress the user has made within a section of the plan"
   type PlanSectionProgress {

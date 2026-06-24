@@ -239,6 +239,7 @@
 - Fixed issue with templates not cloning with sections and questions by updating the `addTemplate` mutation to clone from non-versioned template, section and question [#1006]
 
 ### Chore
+- Addressed security vulnerability in `nodemailer` and `undici` packages, and added debugging to troubleshoot request feedback failure [#285]
 - Updated `nodemailer` to `v9.0.1` and `undici` to `v7.28.0` [#240]
 - Updated `fast-xml-parser` to `v1.2.0` and `uuid` to `11.1.1` to address vulnerabilities.
 - Added `@types/nodemailer` [#189]

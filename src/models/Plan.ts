@@ -91,7 +91,7 @@ export class PlanSearchResult {
     this.featured = options.featured ?? false;
     this.funding = options.funding;
     this.members = options.members;
-    this.templateTitle = options.title;
+    this.templateTitle = options.templateTitle;
     this.versionedTemplateId = options.versionedTemplateId;
     this.templateOwnerAffiliationName = options.templateOwnerAffiliationName;
 
@@ -172,6 +172,7 @@ export class PlanSearchResult {
       CONCAT(cu.givenName, ' ', cu.surName) createdBy, p.created,
       CONCAT(cm.givenName, ' ', cm.surName) modifiedBy, p.modified,
       p.versionedTemplateId, p.title, p.status, p.visibility, p.dmpId,
+      vt.name AS templateTitle,
       CONCAT(cr.givenName, ' ', cr.surName) registeredBy, p.registered, p.featured,
       GROUP_CONCAT(DISTINCT CONCAT(prc.givenName, ' ', prc.surName, ' (', r.label, ')')) members,
       GROUP_CONCAT(DISTINCT fundings.name) funding
@@ -192,7 +193,7 @@ export class PlanSearchResult {
     const groupBy = `
     GROUP BY p.id, p.createdById,cu.givenName, cu.surName, cm.givenName, cm.surName,
     p.title, p.status, p.visibility,
-    p.dmpId, cr.givenName, cr.surName, p.registered, p.featured
+    p.dmpId, cr.givenName, cr.surName, p.registered, p.featured, vt.name
   `;
 
     let opts;

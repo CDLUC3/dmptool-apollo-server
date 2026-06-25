@@ -102,6 +102,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Update local migration to add RO question to default template
 - Updated `users` resolver to include `role` and `affiliationId` [#240]
 - Added `findByAffiliationId` and `search` to pass in `role` as optional [#240]
 - Added `findByUserId` to `Plan` model to find all plans for a given user [#240]

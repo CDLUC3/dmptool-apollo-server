@@ -22,17 +22,40 @@ VALUES (@default_template_id, @section_id, 1, 'Please list all research outputs 
 SET @question_id := LAST_INSERT_ID();
 
 -- Then generate/publish the new version
+SET @prior_versioned_template_id := (SELECT id FROM versionedTemplates WHERE templateId = @default_template_id AND active = 1);
 UPDATE versionedTemplates SET active = 0 WHERE templateId = @default_template_id AND active = 1;
 INSERT INTO versionedTemplates (templateId, active, version, versionType, versionedById, comment, name, description, ownerId, visibility, bestPractice, isDefault, languageId, created, createdById, modified, modifiedById)
   (SELECT id, 1, 'v3', 'PUBLISHED', createdById, 'Added a research output table question', name, description, ownerId, 'PUBLIC', bestPractice, isDefault, languageId, CURDATE(), createdById, CURDATE(), modifiedById
    FROM templates WHERE id = @default_template_id);
 SET @versioned_template_id := LAST_INSERT_ID();
 
+-- Make sure the new version has all the existing sections
+INSERT INTO versionedSections (versionedTemplateId, sectionId, name, introduction, requirements, guidance, displayOrder, bestPractice, created, createdById, modified, modifiedById)
+  (SELECT @versioned_template_id, sectionId, name, introduction, requirements, guidance, displayOrder, bestPractice, CURDATE(), createdById, CURDATE(), modifiedById
+   FROM versionedSections WHERE versionedTemplateId = @prior_versioned_template_id);
+
+-- Then add the new research output section
 INSERT INTO versionedSections (versionedTemplateId, sectionId, name, introduction, requirements, guidance, displayOrder, bestPractice, created, createdById, modified, modifiedById)
   (SELECT @versioned_template_id, id, name, introduction, requirements, guidance, displayOrder, bestPractice, CURDATE(), createdById, CURDATE(), modifiedById
    FROM sections WHERE id = @section_id);
 SET @versioned_section_id := LAST_INSERT_ID();
 
+-- Then make sure all the existing section tags and questions are copied across to the new version
+INSERT INTO versionedSectionTags (versionedSectionId, tagId, created, createdById, modified, modifiedById)
+  (SELECT newVSS.id, st.tagId, CURDATE(), st.createdById, CURDATE(), st.modifiedById
+   FROM versionedSections AS vss
+    INNER JOIN versionedSectionTags AS st ON vss.id = st.versionedSectionId
+    INNER JOIN versionedSections AS newVSS on newVSS.sectionId = vss.sectionId AND newVSS.versionedTemplateId = @versioned_template_id
+   WHERE vss.versionedTemplateId = @prior_versioned_template_id);
+
+INSERT INTO versionedQuestions (versionedTemplateId, versionedSectionId, questionId, questionText, json, requirementText, guidanceText, sampleText, required, displayOrder, created, createdById, modified, modifiedById)
+  (SELECT @versioned_template_id, newVSS.id, vsq.questionId, vsq.questionText, vsq.json, vsq.requirementText, vsq.guidanceText, vsq.sampleText, vsq.required, vsq.displayOrder, CURDATE(), vsq.createdById, CURDATE(), vsq.modifiedById
+   FROM versionedSections AS vss
+     INNER JOIN versionedQuestions vsq ON vss.id = vsq.versionedSectionId
+     INNER JOIN versionedSections AS newVSS on newVSS.sectionId = vss.sectionId AND newVSS.versionedTemplateId = @versioned_template_id
+   WHERE vss.versionedTemplateId = @prior_versioned_template_id);
+
+-- Finally add the new section tags and question to the research output question
 INSERT INTO versionedSectionTags (versionedSectionId, tagId, created, createdById, modified, modifiedById)
   (SELECT @versioned_section_id, tagId, CURDATE(), createdById, CURDATE(), modifiedById
    FROM sectionTags WHERE sectionId = @section_id);

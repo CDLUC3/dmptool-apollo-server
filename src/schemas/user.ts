@@ -36,6 +36,8 @@ export const typeDefs = gql`
     deactivateUser(userId: Int!): User
     "Reactivate the specified user Account (Admin only)"
     activateUser(userId: Int!): User
+    "Archive the specified user and anonymize their data (Admin only)"
+    archiveUser(userId: Int!): User
     "Merge the 2 user accounts (Admin only)"
     mergeUsers(userIdToBeMerged: Int!, userIdToKeep: Int!): User
   }

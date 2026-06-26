@@ -496,6 +496,30 @@ export const resolvers: Resolvers = {
       }
     },
 
+    // Anonymize the specified user's account (essentially deletes their account without orphaning things)
+    archiveUser: async (_, { userId }, context: MyContext): Promise<User> => {
+      const reference = 'archiveUser resolver';
+      try {
+        if (isAdmin(context.token)) {
+          const user = await User.findById(reference, context, userId);
+          if (!user) throw NotFoundError();
+
+          if (context.token.affiliationId === user.affiliationId || isSuperAdmin(context.token)) {
+            const updated = await anonymizeUser(context, user);
+            if (!updated || updated.hasErrors()) {
+              user.addError('general', 'Unable to archive the user at this time');
+            }
+            return user.hasErrors() ? user : updated;
+          }
+        }
+        throw context?.token ? ForbiddenError() : AuthenticationError();
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    },
+
     // Merge the 2 user accounts (SuperAdmin and Admin only)
     mergeUsers: async (_, { userIdToBeMerged, userIdToKeep }, context: MyContext): Promise<User> => {
       const reference = 'mergeUsers resolver';

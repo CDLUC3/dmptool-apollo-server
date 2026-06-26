@@ -3,7 +3,7 @@ import gql from "graphql-tag";
 export const typeDefs = gql`
   extend type Query {
     "Get all plans for the research project with pagination support"
-    plans(projectId: Int!,term: String, paginationOptions: PaginationOptions): PaginatedPlanResults
+    plans(userId: Int!,term: String, paginationOptions: PaginationOptions): PaginatedPlanResults
 
     "Get a specific plan"
     plan(planId: Int!): Plan

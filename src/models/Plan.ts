@@ -150,12 +150,12 @@ export class PlanSearchResult {
   static async findByProjectIdWithPagination(
     reference: string,
     context: MyContext,
-    projectId: number,
+    userId: number,
     options: PaginationOptions = Plan.getDefaultPaginationOptions(),
     term?: string,
   ): Promise<PaginatedQueryResults<PlanSearchResult>> {
-    const whereFilters = ['p.projectId = ?'];
-    const values = [projectId.toString()];
+    const whereFilters = ['p.createdById = ?'];
+    const values = [userId.toString()];
 
     // Handle the incoming search term
     const searchTerm = (term ?? '').toLowerCase().trim();
@@ -223,6 +223,7 @@ export class PlanSearchResult {
       reference,
     );
 
+    console.log("***Response from findByProjectIdWithPagination", response);
     context.logger.debug(prepareObjectForLogs({ options, response }), reference);
     return response;
   }
@@ -409,7 +410,6 @@ export class PlanSectionProgress {
       vs.id AS versionedSectionId,
       vs.displayOrder,
       vs.name AS title,
-      p.createdById,
       COUNT(DISTINCT vq.id) AS totalQuestions,
       COUNT(DISTINCT CASE
           WHEN a.id IS NOT NULL AND ${FILLED_ANSWER_CHECK}

@@ -19,6 +19,14 @@ export const projectTypeDefs = gql`
       filterOptions: ProjectFilterOptions
     ): ProjectSearchResults
 
+    "Get all projects for a specified user (Admin only!)"
+    userProjects(
+      userId: Int!,
+      term: String,
+      paginationOptions: PaginationOptions,
+      filterOptions: ProjectFilterOptions
+    ): ProjectSearchResults
+    
     "Get a specific project"
     project(projectId: Int!): Project
 

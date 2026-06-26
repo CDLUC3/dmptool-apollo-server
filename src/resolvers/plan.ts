@@ -2,7 +2,7 @@ import { GraphQLError } from "graphql";
 import { MyContext } from "../context";
 import { Plan, PlanSearchResult, PlanSectionProgress, PlanProgress, PlanStatus, PlanVisibility } from "../models/Plan";
 import { Project } from "../models/Project";
-import { User } from "../models/User";
+import { User, UserRole } from "../models/User";
 import { PlanMember } from "../models/Member";
 import { PlanFunding } from "../models/Funding";
 import { PlanFeedback } from "../models/PlanFeedback";
@@ -13,7 +13,7 @@ import { ProjectCollaboratorAccessLevel } from "../models/Collaborator";
 import { AlternateIdentifier } from "../models/AlternateIdentifier";
 import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
 import { AuthenticationError, ForbiddenError, InternalServerError, NotFoundError } from "../utils/graphQLErrors";
-import { PaginationOptionsForCursors, PaginationOptionsForOffsets, PaginationType } from "../types/general";
+import { PaginationOptionsForCursors, PaginationOptionsForOffsets, PaginationOptions, PaginationType } from "../types/general";
 import { PaginatedPlanResults, PaginatedQueryResults, PlanFeedbackStatus, Resolvers } from "../types";
 import { prepareObjectForLogs } from "../logger";
 
@@ -26,33 +26,46 @@ import {
   hasPermissionOnProject,
   isProjectReadOnlyForCurrentUser
 } from "../services/projectService";
-import { isAuthorized } from "../services/authService";
-
+import { authenticatedResolver, isAuthorized, isAdmin, isSuperAdmin } from "../services/authService";
 
 
 export const resolvers: Resolvers = {
   Query: {
-    plans: async (_, { projectId, term, paginationOptions }, context: MyContext): Promise<PaginatedPlanResults> => {
-      const reference = 'plansWithPagination resolver';
-      try {
-        if (isAuthorized(context.token)) {
-          const project = await Project.findById(reference, context, projectId);
-          if (!project) throw NotFoundError(`Project with ID ${projectId} not found`);
-          if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.COMMENT)) {
-            const opts = !isNullOrUndefined(paginationOptions) && paginationOptions.type === PaginationType.OFFSET
-              ? paginationOptions as PaginationOptionsForOffsets
-              : { ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors;
+    plans: authenticatedResolver(
+      'plansWithPagination resolver',
+      UserRole.ADMIN,
+      async (
+        _: Record<PropertyKey, never>,
+        { userId, term, paginationOptions }: { userId: number; term?: string; paginationOptions?: PaginationOptions },
+        context: MyContext
+      ): Promise<PaginatedPlanResults> => {
+        const reference = 'plansWithPagination resolver';
+        try {
 
-            return await PlanSearchResult.findByProjectIdWithPagination(reference, context, projectId, opts, term);
+          const superAdmin: boolean = isSuperAdmin(context.token);
+
+          if (!superAdmin) {
+            // Admin must belong to the same affiliation as the target user
+            const targetUser = await User.findById(reference, context, userId);
+            if (!targetUser) throw NotFoundError(`User with ID ${userId} not found`);
+
+            if (!(isAdmin(context.token) && context.token.affiliationId === targetUser.affiliationId)) {
+              throw ForbiddenError();
+            }
           }
+
+          const opts = !isNullOrUndefined(paginationOptions) && paginationOptions.type === PaginationType.OFFSET
+            ? paginationOptions as PaginationOptionsForOffsets
+            : { ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors;
+
+          return await PlanSearchResult.findByProjectIdWithPagination(reference, context, userId, opts, term);
+        } catch (err) {
+          if (err instanceof GraphQLError) throw err;
+          context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+          throw InternalServerError();
         }
-        throw context?.token ? ForbiddenError() : AuthenticationError();
-      } catch (err) {
-        if (err instanceof GraphQLError) throw err;
-        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
-        throw InternalServerError();
-      }
-    },
+      },
+    ),
     // Find the plan by its id
     plan: async (_, { planId }, context: MyContext): Promise<Plan> => {
       const reference = 'plan resolver';

@@ -5326,6 +5326,8 @@ export type User = {
   givenName?: Maybe<Scalars['String']['output']>;
   /** The unique identifier for the Object */
   id?: Maybe<Scalars['Int']['output']>;
+  /** Whether or not account is archived */
+  isArchived?: Maybe<Scalars['Boolean']['output']>;
   /** The user's preferred language */
   languageId: Scalars['String']['output'];
   /** The timestamp of the last login */
@@ -8404,6 +8406,7 @@ export type UserResolvers<ContextType = MyContext, ParentType extends ResolversP
   failed_sign_in_attempts?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   givenName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  isArchived?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
   languageId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   last_sign_in?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   last_sign_in_via?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;

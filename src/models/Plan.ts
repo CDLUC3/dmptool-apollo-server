@@ -223,7 +223,6 @@ export class PlanSearchResult {
       reference,
     );
 
-    console.log("***Response from findByProjectIdWithPagination", response);
     context.logger.debug(prepareObjectForLogs({ options, response }), reference);
     return response;
   }

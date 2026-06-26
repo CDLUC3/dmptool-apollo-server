@@ -104,6 +104,8 @@ export const typeDefs = gql`
     locked: Boolean
     "Whether or not account is active"
     active: Boolean
+    "Whether or not account is archived"
+    isArchived: Boolean
 
     "The timestamp of the last login"
     last_sign_in: String

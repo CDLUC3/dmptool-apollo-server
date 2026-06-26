@@ -17,6 +17,8 @@ import { getCurrentDate } from "../../utils/helpers";
 import { PlanGuidance } from "../Guidance";
 import { Project } from "../Project";
 import { VersionedTemplate } from "../VersionedTemplate";
+import { PaginationType } from "../../types/general";
+
 
 jest.mock('../../context.ts');
 
@@ -48,9 +50,11 @@ describe('PlanSearchResult', () => {
     funding: casual.company_name,
     members: [casual.full_name, casual.full_name],
     createdBy: casual.full_name,
+    createdById: casual.integer(1, 99),
     created: casual.date('YYYY-MM-DD'),
     modifiedBy: casual.full_name,
     modified: casual.date('YYYY-MM-DD'),
+    templateOwnerAffiliationId: casual.company_name
   }
   beforeEach(() => {
     searchResult = new PlanSearchResult(searchResultData);
@@ -145,6 +149,140 @@ describe('PlanSearchResult.findByProjectId', () => {
     const projectId = casual.integer(1, 999);
     const result = await PlanSearchResult.findByProjectId('testing', context, projectId);
     expect(result).toEqual([]);
+  });
+});
+
+describe('PlanSearchResult.findByProjectIdWithPagination', () => {
+  const originalQuery = Plan.query;
+  const originalQueryWithPagination = Plan.queryWithPagination;
+
+  let localQuery: jest.Mock;
+  let localQueryWithPagination: jest.Mock;
+
+  beforeEach(() => {
+    localQuery = jest.fn();
+    localQueryWithPagination = jest.fn();
+    (Plan.query as jest.Mock) = localQuery;
+    (Plan.queryWithPagination as jest.Mock) = localQueryWithPagination;
+  });
+
+  afterEach(() => {
+    Plan.query = originalQuery;
+    Plan.queryWithPagination = originalQueryWithPagination;
+  });
+
+  const makeOptions = (overrides = {}) => ({
+    type: PaginationType.OFFSET,
+    offset: 0,
+    limit: 10,
+    sortDir: 'DESC',
+    sortField: undefined,
+    ...overrides,
+  });
+
+  const makePaginatedResult = (items: PlanSearchResult[]) => ({
+    items,
+    totalCount: items.length,
+    hasNextPage: false,
+    hasPreviousPage: false,
+    currentOffset: 0,
+  });
+
+  it.only('should call queryWithPagination with correct base variables', async () => {
+    const userId = casual.integer(1, 99);
+    const options = makeOptions();
+    const expected = makePaginatedResult([]);
+    localQueryWithPagination.mockResolvedValueOnce(expected);
+
+    await PlanSearchResult.findByProjectIdWithPagination('testing', context, userId, options);
+
+    expect(localQueryWithPagination).toHaveBeenCalledTimes(1);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const [ctx, sql, whereFilters, _groupBy, values, _opts, ref] = localQueryWithPagination.mock.calls[0];
+
+
+    expect(ctx).toBe(context);
+    expect(ref).toBe('testing');
+    expect(whereFilters).toContain('p.createdById = ?');
+    expect(values).toContain(userId.toString());
+    expect(normalizeSQL(sql)).toContain('FROM plans p');
+    expect(normalizeSQL(sql)).toContain('LEFT JOIN versionedTemplates vt ON vt.id = p.versionedTemplateId');
+  });
+
+  it('should include search term filter when term is provided', async () => {
+    const userId = casual.integer(1, 99);
+    const options = makeOptions();
+    const term = 'reef';
+    localQueryWithPagination.mockResolvedValueOnce(makePaginatedResult([]));
+
+    await PlanSearchResult.findByProjectIdWithPagination('testing', context, userId, options, term);
+
+    const [, , whereFilters, , values] = localQueryWithPagination.mock.calls[0];
+
+    expect(whereFilters.some((f: string) => f.includes('LOWER(p.title) LIKE ?'))).toBe(true);
+    expect(values).toContain(`%${term}%`);
+  });
+
+  it('should not include search term filter when term is empty', async () => {
+    const userId = casual.integer(1, 99);
+    const options = makeOptions();
+    localQueryWithPagination.mockResolvedValueOnce(makePaginatedResult([]));
+
+    await PlanSearchResult.findByProjectIdWithPagination('testing', context, userId, options, '');
+
+    const [, , whereFilters] = localQueryWithPagination.mock.calls[0];
+    expect(whereFilters).toHaveLength(1); // only createdById filter
+  });
+
+  it('should use default sort field and direction when not provided', async () => {
+    const userId = casual.integer(1, 99);
+    const options = makeOptions({ sortField: undefined, sortDir: undefined });
+    localQueryWithPagination.mockResolvedValueOnce(makePaginatedResult([]));
+
+    await PlanSearchResult.findByProjectIdWithPagination('testing', context, userId, options);
+
+    const [, , , , , opts] = localQueryWithPagination.mock.calls[0];
+    expect(opts.sortField).toBe('p.created');
+    expect(opts.sortDir).toBe('DESC');
+  });
+
+  it('should return paginated results', async () => {
+    const userId = casual.integer(1, 99);
+    const item = new PlanSearchResult({
+      id: casual.integer(1, 99),
+      createdById: userId,
+      createdBy: casual.full_name,
+      created: casual.date('YYYY-MM-DD'),
+      modifiedBy: casual.full_name,
+      modified: casual.date('YYYY-MM-DD'),
+      title: casual.sentence,
+      status: PlanStatus.DRAFT,
+      visibility: PlanVisibility.PRIVATE,
+      dmpId: casual.uuid,
+      templateTitle: casual.sentence,
+      templateOwnerAffiliationName: casual.company_name,
+    });
+
+    const expected = makePaginatedResult([item]);
+    localQueryWithPagination.mockResolvedValueOnce(expected);
+
+    const result = await PlanSearchResult.findByProjectIdWithPagination(
+      'testing', context, userId, makeOptions()
+    );
+
+    expect(result).toEqual(expected);
+  });
+
+  it('should return empty results when no plans found', async () => {
+    const userId = casual.integer(1, 99);
+    localQueryWithPagination.mockResolvedValueOnce(makePaginatedResult([]));
+
+    const result = await PlanSearchResult.findByProjectIdWithPagination(
+      'testing', context, userId, makeOptions()
+    );
+
+    expect(result.items).toHaveLength(0);
+    expect(result.totalCount).toBe(0);
   });
 });
 

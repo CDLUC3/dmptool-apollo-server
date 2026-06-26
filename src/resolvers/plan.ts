@@ -14,7 +14,7 @@ import { AlternateIdentifier } from "../models/AlternateIdentifier";
 import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
 import { AuthenticationError, ForbiddenError, InternalServerError, NotFoundError } from "../utils/graphQLErrors";
 import { PaginationOptionsForCursors, PaginationOptionsForOffsets, PaginationOptions, PaginationType } from "../types/general";
-import { PaginatedPlanResults, PaginatedQueryResults, PlanFeedbackStatus, Resolvers } from "../types";
+import { PaginatedPlanResults, PlanFeedbackStatus, Resolvers } from "../types";
 import { prepareObjectForLogs } from "../logger";
 
 // Services
@@ -31,6 +31,7 @@ import { authenticatedResolver, isAuthorized, isAdmin, isSuperAdmin } from "../s
 
 export const resolvers: Resolvers = {
   Query: {
+    // Find all of the plans for a specified userId, with pagination and optional search term filtering
     plans: authenticatedResolver(
       'plansWithPagination resolver',
       UserRole.ADMIN,

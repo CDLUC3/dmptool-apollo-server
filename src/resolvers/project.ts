@@ -110,7 +110,7 @@ export const resolvers: Resolvers = {
         throw InternalServerError();
       }
     },
-    // Return all projects for a specified user (Admin only!)
+    // Return all projects for a specified user (Admin only!) with pagination and optional search term filtering
     userProjects: authenticatedResolver(
       'userProjects resolver',
       UserRole.ADMIN,

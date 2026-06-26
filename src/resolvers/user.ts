@@ -136,7 +136,7 @@ export const resolvers: Resolvers = {
       }
     },
 
-    // Update the specifeied user's information (SuperAdmin only)
+    // Update the specified user's information (SuperAdmin only)
     updateUserInfo: authenticatedResolver(
       'updateUserInfo resolver',
       UserRole.SUPERADMIN,
@@ -155,7 +155,6 @@ export const resolvers: Resolvers = {
         },
         context: MyContext
       ): Promise<User> => {
-        console.log('****UpdateUserInfo', userId, email, givenName, surName, affiliationId, otherAffiliationName, languageId);
         const reference = 'updateUserInfo resolver';
         try {
           const user = await User.findById(reference, context, userId);
@@ -204,6 +203,56 @@ export const resolvers: Resolvers = {
             user.addError('general', 'Unable to save the profile changes at this time');
           }
           return user.hasErrors() ? user : await User.findById(reference, context, user.id);
+
+        } catch (err) {
+          if (err instanceof GraphQLError) throw err;
+          context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+          throw InternalServerError();
+        }
+      }),
+
+    // Update the specified user's role only (SuperAdmin and Admin only)
+    updateUserRole: authenticatedResolver(
+      'updateUserRole resolver',
+      UserRole.ADMIN, // Org Admins can access, but with constraints enforced below
+      async (
+        _: Record<PropertyKey, never>,
+        { input: { userId, role } }: {
+          input: {
+            userId: number;
+            role: UserRole;
+          }
+        },
+        context: MyContext
+      ): Promise<User> => {
+        const reference = 'updateUserRole resolver';
+        try {
+          const currentUser = await User.findById(reference, context, context.token.id);
+          const targetUser = await User.findById(reference, context, userId);
+
+          if (!targetUser || !targetUser.active || targetUser.locked) {
+            throw ForbiddenError();
+          }
+
+          // Org Admins cannot assign SUPERADMIN role
+          if (currentUser.role === UserRole.ADMIN && role === UserRole.SUPERADMIN) {
+            throw ForbiddenError();
+          }
+
+          // Org Admins cannot change the role of a SUPERADMIN
+          if (currentUser.role === UserRole.ADMIN && targetUser.role === UserRole.SUPERADMIN) {
+            throw ForbiddenError();
+          }
+
+          targetUser.role = role;
+          const updated = await new User(targetUser).update(context);
+
+          if (!updated || updated.hasErrors()) {
+            targetUser.addError('general', 'Unable to update the user role at this time');
+            return targetUser;
+          }
+
+          return await User.findById(reference, context, userId);
 
         } catch (err) {
           if (err instanceof GraphQLError) throw err;

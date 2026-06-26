@@ -1745,6 +1745,8 @@ export type Mutation = {
   updateUserNotifications?: Maybe<User>;
   /** Update the current user's information */
   updateUserProfile?: Maybe<User>;
+  /**  Update the specified user's role (SuperAdmin and Admin only) */
+  updateUserRole?: Maybe<User>;
   /** Upload a plan */
   uploadPlan?: Maybe<Plan>;
   /** Insert or update a related work, the work is looked up in OpenSearch and details added */
@@ -2463,6 +2465,11 @@ export type MutationUpdateUserNotificationsArgs = {
 
 export type MutationUpdateUserProfileArgs = {
   input: UpdateUserProfileInput;
+};
+
+
+export type MutationUpdateUserRoleArgs = {
+  input: UpdateUserRoleInput;
 };
 
 
@@ -5290,6 +5297,13 @@ export type UpdateUserProfileInput = {
   surName: Scalars['String']['input'];
 };
 
+export type UpdateUserRoleInput = {
+  /** The new role for the user */
+  role: UserRole;
+  /** The user's id */
+  userId: Scalars['Int']['input'];
+};
+
 export type UpsertRelatedWorkInput = {
   /** The Digital Object Identifier (DOI) of the work */
   doi: Scalars['String']['input'];
@@ -6361,6 +6375,7 @@ export type ResolversTypes = {
   UpdateUserInfoInput: UpdateUserInfoInput;
   UpdateUserNotificationsInput: UpdateUserNotificationsInput;
   UpdateUserProfileInput: UpdateUserProfileInput;
+  UpdateUserRoleInput: UpdateUserRoleInput;
   UpsertRelatedWorkInput: UpsertRelatedWorkInput;
   User: ResolverTypeWrapper<User>;
   UserEmail: ResolverTypeWrapper<UserEmail>;
@@ -6593,6 +6608,7 @@ export type ResolversParentTypes = {
   UpdateUserInfoInput: UpdateUserInfoInput;
   UpdateUserNotificationsInput: UpdateUserNotificationsInput;
   UpdateUserProfileInput: UpdateUserProfileInput;
+  UpdateUserRoleInput: UpdateUserRoleInput;
   UpsertRelatedWorkInput: UpsertRelatedWorkInput;
   User: User;
   UserEmail: UserEmail;
@@ -7345,6 +7361,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   updateUserInfo?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationUpdateUserInfoArgs, 'input'>>;
   updateUserNotifications?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationUpdateUserNotificationsArgs, 'input'>>;
   updateUserProfile?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationUpdateUserProfileArgs, 'input'>>;
+  updateUserRole?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationUpdateUserRoleArgs, 'input'>>;
   uploadPlan?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType, RequireFields<MutationUploadPlanArgs, 'projectId'>>;
   upsertRelatedWork?: Resolver<Maybe<ResolversTypes['RelatedWorkSearchResult']>, ParentType, ContextType, RequireFields<MutationUpsertRelatedWorkArgs, 'input'>>;
 };

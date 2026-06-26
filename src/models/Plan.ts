@@ -139,12 +139,14 @@ export class PlanSearchResult {
   }
 
   /**
-   * Find high-level details about the plans for a project. This information is
-   * meant to supply an overview of the plans.
+   * Find projects for a specified userId, with pagination and optional search term filtering. 
+   * This method returns a paginated list of PlanSearchResult objects that match the search criteria.
    *
    * @param reference The caller's reference string for logging purposes'
    * @param context The Apollo context object
-   * @param projectId The ID of the project to return plans for
+   * @param userId The ID of the user to return projects for
+   * @param options Pagination options for the query
+   * @param term Optional search term to filter the results
    * @returns An array of PlanSearchResult objects
    */
   static async findByProjectIdWithPagination(

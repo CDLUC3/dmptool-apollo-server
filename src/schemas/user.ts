@@ -15,6 +15,8 @@ export const typeDefs = gql`
     updateUserProfile(input: UpdateUserProfileInput!): User
     "Update the specified user's information (SuperAdmin only)"
     updateUserInfo(input: UpdateUserInfoInput!): User
+    " Update the specified user's role (SuperAdmin and Admin only)"
+    updateUserRole(input: UpdateUserRoleInput!): User
     "Update the current user's email notifications"
     updateUserNotifications(input: UpdateUserNotificationsInput!): User
     "Set the user's ORCID"
@@ -222,6 +224,12 @@ export const typeDefs = gql`
     languageId: String
   }
 
+  input UpdateUserRoleInput {
+    "The user's id"
+    userId: Int!
+    "The new role for the user"
+    role: UserRole!
+  }
 
   input UpdateUserNotificationsInput {
     "Whether or not email notifications are on for when a Plan has a new comment"

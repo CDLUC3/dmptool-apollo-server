@@ -3,6 +3,10 @@
 ## v1.1.0
 
 ### Added
+- Added `isArchived` field to the `users` table to help us filter those users out when returned in `users` response [#281]
+- Added `findByProjectIdWithPagination` method to the `PlanSearchResult` model for the `plans` resolver [#281]
+- Added `userProjects` query to return all projects for a specified user, with search term and pagination [#281]
+- Added `updateUserRole` mutation for admins to change a user's role, `updateUserInfo` mutation for super admins to update a specified user's profile, and an `archiveUser` mutation to archive a user[#281]
 - Added a default researc h output table question to the default template
 - Added data migration to add `displayAbbreviation` and `displayDomain` to the `affiliations` table
 - Added data migration to backfill those new DB fields
@@ -102,6 +106,8 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `plans` resolver to have pagination for a specified `userId` with optional `search term`, and added a chained resolver for `PlanSearchResult` for `templateOwnerAffiliationName` [#281]
+- Updated `PlanSearchResult` model to include `createdById` and `templateOwnerAffiliationName` for the Admin Users page [#281]
 - Updated `users` resolver to include `role` and `affiliationId` [#240]
 - Added `findByAffiliationId` and `search` to pass in `role` as optional [#240]
 - Added `findByUserId` to `Plan` model to find all plans for a given user [#240]

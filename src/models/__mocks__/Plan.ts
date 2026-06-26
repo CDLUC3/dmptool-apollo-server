@@ -54,6 +54,7 @@ const planToPlanSearchResult = (plan: Plan): PlanSearchResult => {
   return {
     id: plan.id,
     createdBy: casual.full_name,
+    createdById: plan.createdById,
     created: plan.created,
     modifiedBy: casual.full_name,
     modified: plan.modified,
@@ -68,6 +69,7 @@ const planToPlanSearchResult = (plan: Plan): PlanSearchResult => {
     members: casual.full_name,
     templateTitle: casual.title,
     versionedTemplateId: plan.versionedTemplateId,
+    templateOwnerAffiliationName: casual.company_name,
   }
 }
 

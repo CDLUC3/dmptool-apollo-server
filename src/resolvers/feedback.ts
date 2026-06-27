@@ -153,22 +153,17 @@ export const resolvers: Resolvers = {
 
       try {
         if (isAuthorized(context.token)) {
-          context.logger.info({ planId, userId: context.token.id, affiliationId: context.token.affiliationId }, `${reference}: authorized, starting`);
-
           const plan = await Plan.findById(reference, context, planId);
           if (!plan) {
             throw NotFoundError(`Plan with ID ${planId} not found`);
           }
-          context.logger.info({ planId, projectId: plan.projectId, versionedTemplateId: plan.versionedTemplateId }, `${reference}: plan found`);
 
           const project = await Project.findById(reference, context, plan.projectId);
           if (!project) {
             throw NotFoundError(`Project with ID ${plan.projectId} not found`);
           }
-          context.logger.info({ projectId: project.id }, `${reference}: project found`);
 
           const existingFeedback = await PlanFeedback.findByPlanId(reference, context, planId);
-          context.logger.info({ existingFeedbackCount: existingFeedback.length }, `${reference}: existing feedback fetched`);
 
           const hasOpenFeedback = existingFeedback.some((fb) => fb.completed === null);
           if (hasOpenFeedback) {
@@ -176,29 +171,28 @@ export const resolvers: Resolvers = {
           }
 
           const hasPrimaryPermission = await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.PRIMARY);
-          context.logger.info({ hasPrimaryPermission }, `${reference}: permission check`);
 
           if (hasPrimaryPermission) {
             const affiliationId = context.token.affiliationId;
             if (!affiliationId) {
               throw NotFoundError(`Affiliation for user not found`);
             }
-            context.logger.info({ affiliationId }, `${reference}: looking up affiliation`);
 
             const affiliation = await Affiliation.findByURI(reference, context, affiliationId);
-            context.logger.info(
-              { affiliationUri: affiliation?.uri, feedbackEmailCount: affiliation?.feedbackEmails?.length ?? 0 },
-              `${reference}: affiliation found`
-            );
+
+            if (!affiliation.feedbackEnabled) {
+              context.logger.warn({ affiliationId }, `${reference}: feedback is not enabled for affiliation`);
+              throw ForbiddenError(`Feedback is not enabled for your organization. Please enable it in your feedback settings.`);
+            }
 
             if (affiliation.feedbackEmails.length === 0) {
               context.logger.warn({ affiliationId }, `${reference}: no feedback emails configured`);
+              throw ForbiddenError(`No feedback recipients are configured for your organization. Please add at least one email in your feedback settings.`);
             }
 
             const planURL = `/projects/${project.id}/dmp/${planId}`;
             const planOwnerName = [context.token.givenName, context.token.surname].filter(Boolean).join(' ');
             const planTitle = plan.title || 'Untitled Plan';
-            context.logger.info({ planURL, planOwnerName, planTitle }, `${reference}: sending feedback request email`);
 
             await sendFeedbackRequestEmail(context, planOwnerName, planURL, planTitle, affiliation.feedbackEmails, messageToOrg ?? '');
             context.logger.info(`${reference}: feedback request email sent`);
@@ -211,7 +205,6 @@ export const resolvers: Resolvers = {
             });
 
             const createdFeedback = await feedbackComment.create(context);
-            context.logger.info({ createdFeedbackId: createdFeedback?.id ?? null }, `${reference}: feedback record created`);
 
             if (createdFeedback?.id) {
               await AdminNotification.addNotificationForAffiliation(
@@ -221,16 +214,11 @@ export const resolvers: Resolvers = {
                 'FEEDBACK_REQUESTED',
                 { planId },
               );
-              context.logger.info({ affiliationUri: affiliation.uri }, `${reference}: admin notification sent`);
             }
 
             return createdFeedback;
           }
         }
-        context.logger.warn(
-          { hasToken: !!context?.token, userId: context?.token?.id },
-          `${reference}: reached auth fallthrough — user did not pass permission checks`
-        );
         throw context?.token ? ForbiddenError() : AuthenticationError();
       } catch (err) {
         if (err instanceof GraphQLError) throw err;

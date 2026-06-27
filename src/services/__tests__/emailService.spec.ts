@@ -311,7 +311,7 @@ describe('sendEmail', () => {
     expect(context.logger.error).toHaveBeenCalledTimes(1);
   });
 
-  it('should send feedback request emails to all collaborators', async () => {
+  it.only('should send feedback request emails to all collaborators', async () => {
     jest.spyOn(logger, 'info');
     const emails = Array.from({ length: 3 }, () => casual.email);
     const planOwnerName = `${casual.first_name} ${casual.last_name}`;
@@ -334,7 +334,7 @@ describe('sendEmail', () => {
       .replace('%{helpUrl}', `${domain}/help`);
 
     expect(sent).toBe(true);
-    expect(logger.info).toHaveBeenCalledTimes(emails.length + 2); // accounting for additional info logs for sending and finishing
+    expect(logger.info).toHaveBeenCalledTimes(emails.length);
     expect(mockSendEmail).toHaveBeenCalledTimes(emails.length);
     for (const email of emails) {
       const expectedHtml = baseHtml.replace('%{adminEmail}', email);

@@ -63,6 +63,7 @@ export const anonymizeUser = async (context: MyContext, user: User): Promise<Use
   user.affiliationId = null;
   user.orcid = null;
   user.ssoId = null;
+  user.isArchived = true;
   user.role = UserRole.RESEARCHER;
   user.languageId = defaultLanguageId;
 

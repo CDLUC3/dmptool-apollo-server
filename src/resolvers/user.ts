@@ -13,6 +13,9 @@ import { prepareObjectForLogs } from "../logger";
 import { GraphQLError } from "graphql";
 import { PaginationOptionsForCursors, PaginationOptionsForOffsets, PaginationType } from "../types/general";
 import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
+import {
+  authenticatedResolver,
+} from "../services/authService";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -133,6 +136,131 @@ export const resolvers: Resolvers = {
       }
     },
 
+    // Update the specified user's information (SuperAdmin only)
+    updateUserInfo: authenticatedResolver(
+      'updateUserInfo resolver',
+      UserRole.SUPERADMIN,
+      async (
+        _: Record<PropertyKey, never>,
+        { input: { userId, email, givenName, surName, affiliationId, otherAffiliationName, languageId } }: {
+          input: {
+            userId: number;
+            email: string;
+            givenName: string;
+            surName: string;
+            affiliationId: string;
+            otherAffiliationName?: string;
+            languageId: string;
+          }
+        },
+        context: MyContext
+      ): Promise<User> => {
+        const reference = 'updateUserInfo resolver';
+        try {
+          const user = await User.findById(reference, context, userId);
+          if (!user || !user.active || user.locked) {
+            throw ForbiddenError();
+          }
+
+          if (otherAffiliationName) {
+            const affiliation = await processOtherAffiliationName(context, otherAffiliationName);
+            if (affiliation.hasErrors()) {
+              const err = affiliation.errors?.general ?? 'Unable to save the affiliation at this time';
+              user.addError('otherAffiliationName', err);
+              return user;
+            }
+            user.affiliationId = affiliation.uri;
+          } else {
+            user.affiliationId = affiliationId;
+          }
+
+          // Update the email
+          const existingPrimaryEmail = await UserEmail.findPrimaryByUserId(reference, context, user.id);
+          if (existingPrimaryEmail) {
+            // Directly update the email field and mark as confirmed since a SuperAdmin is setting it
+            existingPrimaryEmail.email = email;
+            existingPrimaryEmail.isConfirmed = true;
+            await new UserEmail(existingPrimaryEmail).update(context);
+          } else {
+            // No primary exists yet — create one, marked as confirmed
+            const newEmail = new UserEmail({
+              userId: user.id,
+              email,
+              isPrimary: true,
+              isConfirmed: true   // SuperAdmin-set emails skip confirmation
+            });
+            await newEmail.create(context);
+          }
+
+
+          // Update the user fields
+          user.givenName = givenName;
+          user.surName = surName;
+          user.languageId = languageId || defaultLanguageId;
+          const updated = await new User(user).update(context);
+
+          if (!updated || updated.hasErrors()) {
+            user.addError('general', 'Unable to save the profile changes at this time');
+          }
+          return user.hasErrors() ? user : await User.findById(reference, context, user.id);
+
+        } catch (err) {
+          if (err instanceof GraphQLError) throw err;
+          context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+          throw InternalServerError();
+        }
+      }),
+
+    // Update the specified user's role only (SuperAdmin and Admin only)
+    updateUserRole: authenticatedResolver(
+      'updateUserRole resolver',
+      UserRole.ADMIN, // Org Admins can access, but with constraints enforced below
+      async (
+        _: Record<PropertyKey, never>,
+        { input: { userId, role } }: {
+          input: {
+            userId: number;
+            role: UserRole;
+          }
+        },
+        context: MyContext
+      ): Promise<User> => {
+        const reference = 'updateUserRole resolver';
+        try {
+          const currentUser = await User.findById(reference, context, context.token.id);
+          const targetUser = await User.findById(reference, context, userId);
+
+          if (!targetUser || !targetUser.active || targetUser.locked) {
+            throw ForbiddenError();
+          }
+
+          // Org Admins cannot assign SUPERADMIN role
+          if (currentUser.role === UserRole.ADMIN && role === UserRole.SUPERADMIN) {
+            throw ForbiddenError();
+          }
+
+          // Org Admins cannot change the role of a SUPERADMIN
+          if (currentUser.role === UserRole.ADMIN && targetUser.role === UserRole.SUPERADMIN) {
+            throw ForbiddenError();
+          }
+
+          targetUser.role = role;
+          const updated = await new User(targetUser).update(context);
+
+          if (!updated || updated.hasErrors()) {
+            targetUser.addError('general', 'Unable to update the user role at this time');
+            return targetUser;
+          }
+
+          return await User.findById(reference, context, userId);
+
+        } catch (err) {
+          if (err instanceof GraphQLError) throw err;
+          context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+          throw InternalServerError();
+        }
+      }),
+
     // Update the current user's email notifications
     updateUserNotifications: async (_, { input: {
       notify_on_comment_added,
@@ -158,30 +286,6 @@ export const resolvers: Resolvers = {
           const updated = await new User(user).update(context);
           if (!updated || updated.hasErrors()) {
             user.addError('general', 'Unable to save the notification settings at this time');
-          }
-          return user.hasErrors() ? user : updated;
-        }
-        // Unauthenticated
-        throw AuthenticationError();
-      } catch (err) {
-        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
-        throw InternalServerError();
-      }
-    },
-
-    // Anonymize the current user's account (essentially deletes their account without orphaning things)
-    removeUser: async (_, __, context: MyContext): Promise<User> => {
-      const reference = 'removeUser resolver';
-      try {
-        if (isAuthorized(context?.token)) {
-          const user = await User.findById(reference, context, context.token.id);
-          // Only continue if the user is active and not locked
-          if (!user || !user.active || user.locked) {
-            throw ForbiddenError();
-          }
-          const updated = await anonymizeUser(context, user);
-          if (!updated || updated.hasErrors()) {
-            user.addError('general', 'Unable to remove your account at this time');
           }
           return user.hasErrors() ? user : updated;
         }
@@ -412,6 +516,30 @@ export const resolvers: Resolvers = {
         // Unauthorized!
         throw context?.token ? ForbiddenError() : AuthenticationError();
       } catch (err) {
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    },
+
+    // Anonymize the specified user's account (essentially deletes their account without orphaning things)
+    archiveUser: async (_, { userId }, context: MyContext): Promise<User> => {
+      const reference = 'archiveUser resolver';
+      try {
+        if (isAdmin(context.token)) {
+          const user = await User.findById(reference, context, userId);
+          if (!user) throw NotFoundError();
+
+          if (context.token.affiliationId === user.affiliationId || isSuperAdmin(context.token)) {
+            const updated = await anonymizeUser(context, user);
+            if (!updated || updated.hasErrors()) {
+              user.addError('general', 'Unable to archive the user at this time');
+            }
+            return user.hasErrors() ? user : updated;
+          }
+        }
+        throw context?.token ? ForbiddenError() : AuthenticationError();
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
         context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
         throw InternalServerError();
       }

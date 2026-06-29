@@ -153,33 +153,56 @@ export const resolvers: Resolvers = {
 
       try {
         if (isAuthorized(context.token)) {
+          context.logger.info({ planId, userId: context.token.id, affiliationId: context.token.affiliationId }, `${reference}: authorized, starting`);
+
           const plan = await Plan.findById(reference, context, planId);
           if (!plan) {
             throw NotFoundError(`Plan with ID ${planId} not found`);
           }
+          context.logger.info({ planId, projectId: plan.projectId, versionedTemplateId: plan.versionedTemplateId }, `${reference}: plan found`);
+
           const project = await Project.findById(reference, context, plan.projectId);
           if (!project) {
             throw NotFoundError(`Project with ID ${plan.projectId} not found`);
           }
+          context.logger.info({ projectId: project.id }, `${reference}: project found`);
 
-          // Get existing feedback for the given planId
-          const existingFeedback = await PlanFeedback.findByPlanId(
-            reference,
-            context,
-            planId,
-          );
+          const existingFeedback = await PlanFeedback.findByPlanId(reference, context, planId);
+          context.logger.info({ existingFeedbackCount: existingFeedback.length }, `${reference}: existing feedback fetched`);
 
-          // If there is already an active feedback round, then do not allow creation of a new one
-          const hasOpenFeedback = existingFeedback.some(
-            (fb) => fb.completed === null
-          );
-
+          const hasOpenFeedback = existingFeedback.some((fb) => fb.completed === null);
           if (hasOpenFeedback) {
             throw ForbiddenError(`There is already feedback in progress for plan ${planId}`);
           }
 
-          //Feedback request can only be made by ADMINs and SUPERADMINs or a collaborator with PRIMARY access
-          if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.PRIMARY)) {
+          const hasPrimaryPermission = await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.PRIMARY);
+          context.logger.info({ hasPrimaryPermission }, `${reference}: permission check`);
+
+          if (hasPrimaryPermission) {
+            const affiliationId = context.token.affiliationId;
+            if (!affiliationId) {
+              throw NotFoundError(`Affiliation for user not found`);
+            }
+            context.logger.info({ affiliationId }, `${reference}: looking up affiliation`);
+
+            const affiliation = await Affiliation.findByURI(reference, context, affiliationId);
+            context.logger.info(
+              { affiliationUri: affiliation?.uri, feedbackEmailCount: affiliation?.feedbackEmails?.length ?? 0 },
+              `${reference}: affiliation found`
+            );
+
+            if (affiliation.feedbackEmails.length === 0) {
+              context.logger.warn({ affiliationId }, `${reference}: no feedback emails configured`);
+            }
+
+            const planURL = `/projects/${project.id}/dmp/${planId}`;
+            const planOwnerName = [context.token.givenName, context.token.surname].filter(Boolean).join(' ');
+            const planTitle = plan.title || 'Untitled Plan';
+            context.logger.info({ planURL, planOwnerName, planTitle }, `${reference}: sending feedback request email`);
+
+            await sendFeedbackRequestEmail(context, planOwnerName, planURL, planTitle, affiliation.feedbackEmails, messageToOrg ?? '');
+            context.logger.info(`${reference}: feedback request email sent`);
+
             const feedbackComment = new PlanFeedback({
               planId,
               messageToOrg: messageToOrg ?? '',
@@ -187,27 +210,9 @@ export const resolvers: Resolvers = {
               requested: getCurrentDate()
             });
 
-            const affiliationId = context.token.affiliationId;
-            if (!affiliationId) {
-              throw NotFoundError(`Affiliation for user not found`);
-            }
-
-            const affiliation = await Affiliation.findByURI(reference, context, affiliationId);
-
-            if (affiliation.feedbackEmails.length === 0) {
-              context.logger.warn(prepareObjectForLogs({ affiliationId }), `Affiliation with ID ${affiliationId} has no feedback emails configured, so no notifications will be sent when requesting feedback`);
-            }
-
-            const planURL = `/projects/${project.id}/dmp/${planId}`;
-            const planOwnerName = [context.token.givenName, context.token.surname].filter(Boolean).join(' ');
-            const planTitle = plan.title || 'Untitled Plan';
-
-            // Send emails to the feedback recipients
-            await sendFeedbackRequestEmail(context, planOwnerName, planURL, planTitle, affiliation.feedbackEmails, messageToOrg ?? '');
-
             const createdFeedback = await feedbackComment.create(context);
+            context.logger.info({ createdFeedbackId: createdFeedback?.id ?? null }, `${reference}: feedback record created`);
 
-            // Notify all org admins of the feedback request
             if (createdFeedback?.id) {
               await AdminNotification.addNotificationForAffiliation(
                 reference,
@@ -216,11 +221,16 @@ export const resolvers: Resolvers = {
                 'FEEDBACK_REQUESTED',
                 { planId },
               );
+              context.logger.info({ affiliationUri: affiliation.uri }, `${reference}: admin notification sent`);
             }
 
             return createdFeedback;
           }
         }
+        context.logger.warn(
+          { hasToken: !!context?.token, userId: context?.token?.id },
+          `${reference}: reached auth fallthrough — user did not pass permission checks`
+        );
         throw context?.token ? ForbiddenError() : AuthenticationError();
       } catch (err) {
         if (err instanceof GraphQLError) throw err;

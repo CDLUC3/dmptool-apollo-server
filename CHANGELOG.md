@@ -108,6 +108,7 @@
 ### Updated
 - Updated `plans` resolver to have pagination for a specified `userId` with optional `search term`, and added a chained resolver for `PlanSearchResult` for `templateOwnerAffiliationName` [#281]
 - Updated `PlanSearchResult` model to include `createdById` and `templateOwnerAffiliationName` for the Admin Users page [#281]
+- Update local migration to add RO question to default template
 - Updated `users` resolver to include `role` and `affiliationId` [#240]
 - Added `findByAffiliationId` and `search` to pass in `role` as optional [#240]
 - Added `findByUserId` to `Plan` model to find all plans for a given user [#240]
@@ -245,6 +246,7 @@
 - Fixed issue with templates not cloning with sections and questions by updating the `addTemplate` mutation to clone from non-versioned template, section and question [#1006]
 
 ### Chore
+- Addressed security vulnerability in `nodemailer` and `undici` packages, and added debugging to troubleshoot request feedback failure [#285]
 - Updated `nodemailer` to `v9.0.1` and `undici` to `v7.28.0` [#240]
 - Updated `fast-xml-parser` to `v1.2.0` and `uuid` to `11.1.1` to address vulnerabilities.
 - Added `@types/nodemailer` [#189]

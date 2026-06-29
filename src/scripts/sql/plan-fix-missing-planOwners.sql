@@ -44,7 +44,7 @@ WHERE projectCollaborators.id IN (
 -- Basically everything else that has no PRIMARY owner.
 SET @user_id := <a valid user id>;
 INSERT INTO projectCollaborators (projectId, email, invitedById, userId, accessLevel, created, createdById, modified, modifiedById)
-(SELECT p.id, super.email, super.id, super.id, 'PRIMARY', CURDATE(), super.id, CURDATE(), super.id
+(SELECT p.id, super.email, super.id, super.id, 'PRIMARY', NOW(), super.id, NOW(), super.id
  FROM projects p
    JOIN (
      SELECT u.id, ue.email

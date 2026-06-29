@@ -180,16 +180,6 @@ export const resolvers: Resolvers = {
 
             const affiliation = await Affiliation.findByURI(reference, context, affiliationId);
 
-            if (!affiliation.feedbackEnabled) {
-              context.logger.warn({ affiliationId }, `${reference}: feedback is not enabled for affiliation`);
-              throw ForbiddenError(`Feedback is not enabled for your organization. Please enable it in your feedback settings.`);
-            }
-
-            if (affiliation.feedbackEmails.length === 0) {
-              context.logger.warn({ affiliationId }, `${reference}: no feedback emails configured`);
-              throw ForbiddenError(`No feedback recipients are configured for your organization. Please add at least one email in your feedback settings.`);
-            }
-
             const planURL = `/projects/${project.id}/dmp/${planId}`;
             const planOwnerName = [context.token.givenName, context.token.surname].filter(Boolean).join(' ');
             const planTitle = plan.title || 'Untitled Plan';

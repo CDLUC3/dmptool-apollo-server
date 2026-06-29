@@ -139,7 +139,7 @@ export class PlanSearchResult {
   }
 
   /**
-   * Find projects for a specified userId, with pagination and optional search term filtering. 
+   * Find projects/plans for a specified userId, with pagination and optional search term filtering. 
    * This method returns a paginated list of PlanSearchResult objects that match the search criteria.
    *
    * @param reference The caller's reference string for logging purposes'
@@ -149,7 +149,7 @@ export class PlanSearchResult {
    * @param term Optional search term to filter the results
    * @returns An array of PlanSearchResult objects
    */
-  static async findByProjectIdWithPagination(
+  static async findByUserIdWithPagination(
     reference: string,
     context: MyContext,
     userId: number,

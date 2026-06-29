@@ -297,30 +297,6 @@ export const resolvers: Resolvers = {
       }
     },
 
-    // Anonymize the current user's account (essentially deletes their account without orphaning things)
-    removeUser: async (_, __, context: MyContext): Promise<User> => {
-      const reference = 'removeUser resolver';
-      try {
-        if (isAuthorized(context?.token)) {
-          const user = await User.findById(reference, context, context.token.id);
-          // Only continue if the user is active and not locked
-          if (!user || !user.active || user.locked) {
-            throw ForbiddenError();
-          }
-          const updated = await anonymizeUser(context, user);
-          if (!updated || updated.hasErrors()) {
-            user.addError('general', 'Unable to remove your account at this time');
-          }
-          return user.hasErrors() ? user : updated;
-        }
-        // Unauthenticated
-        throw AuthenticationError();
-      } catch (err) {
-        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
-        throw InternalServerError();
-      }
-    },
-
     // Set the user's ORCID
     setUserOrcid: async (_, { orcid }, context: MyContext): Promise<User> => {
       const reference = 'setUserOrcid resolver';

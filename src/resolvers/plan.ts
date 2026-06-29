@@ -59,7 +59,7 @@ export const resolvers: Resolvers = {
             ? paginationOptions as PaginationOptionsForOffsets
             : { ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors;
 
-          return await PlanSearchResult.findByProjectIdWithPagination(reference, context, userId, opts, term);
+          return await PlanSearchResult.findByUserIdWithPagination(reference, context, userId, opts, term);
         } catch (err) {
           if (err instanceof GraphQLError) throw err;
           context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
@@ -561,7 +561,6 @@ export const resolvers: Resolvers = {
       return affiliation?.displayName || null;
     },
     user: async (parent: PlanSearchResult, _, context: MyContext): Promise<User> => {
-      console.log('****parent', parent);
       if (parent?.createdById) {
         return await User.findById('planSearchResult.user resolver', context, parent.createdById);
       }

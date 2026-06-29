@@ -2899,6 +2899,8 @@ export type PlanSearchResult = {
   modified?: Maybe<Scalars['String']['output']>;
   /** The user who last modified the Object */
   modifiedBy?: Maybe<Scalars['String']['output']>;
+  /** The user who created the plan */
+  planCreator?: Maybe<User>;
   /** The timestamp for when the Plan was registered/published */
   registered?: Maybe<Scalars['String']['output']>;
   /** The person who published/registered the plan */
@@ -2911,8 +2913,6 @@ export type PlanSearchResult = {
   templateTitle?: Maybe<Scalars['String']['output']>;
   /** The title of the plan */
   title?: Maybe<Scalars['String']['output']>;
-  /** The user who created the plan */
-  user?: Maybe<User>;
   /** The section search results */
   versionedSections?: Maybe<Array<PlanSectionProgress>>;
   /** The versioned template id the plan is based on */
@@ -7577,13 +7577,13 @@ export type PlanSearchResultResolvers<ContextType = MyContext, ParentType extend
   members?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modifiedBy?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  planCreator?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType>;
   registered?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   registeredBy?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   status?: Resolver<Maybe<ResolversTypes['PlanStatus']>, ParentType, ContextType>;
   templateOwnerAffiliationName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   templateTitle?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   title?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  user?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType>;
   versionedSections?: Resolver<Maybe<Array<ResolversTypes['PlanSectionProgress']>>, ParentType, ContextType>;
   versionedTemplateId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   visibility?: Resolver<Maybe<ResolversTypes['PlanVisibility']>, ParentType, ContextType>;

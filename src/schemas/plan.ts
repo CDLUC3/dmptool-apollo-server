@@ -71,7 +71,7 @@ export const typeDefs = gql`
     "The name of the affiliation that owns the template the plan is based on"
     templateOwnerAffiliationName: String
     "The user who created the plan"
-    user: User
+    planCreator: User
   }
 
   type PaginatedPlanResults implements PaginatedQueryResults {

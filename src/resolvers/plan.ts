@@ -560,9 +560,9 @@ export const resolvers: Resolvers = {
       );
       return affiliation?.displayName || null;
     },
-    user: async (parent: PlanSearchResult, _, context: MyContext): Promise<User> => {
+    planCreator: async (parent: PlanSearchResult, _, context: MyContext): Promise<User> => {
       if (parent?.createdById) {
-        return await User.findById('planSearchResult.user resolver', context, parent.createdById);
+        return await User.findById('planSearchResult.planCreator resolver', context, parent.createdById);
       }
       return null;
     }

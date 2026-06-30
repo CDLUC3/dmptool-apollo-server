@@ -56,6 +56,7 @@ export class User extends MySqlModel {
 
   public locked?: boolean;
   public active?: boolean;
+  public isArchived?: boolean;
 
   public tableName = 'users';
 
@@ -81,6 +82,7 @@ export class User extends MySqlModel {
     this.notify_on_feedback_complete = options.notify_on_feedback_complete ?? true;
     this.notify_on_plan_shared = options.notify_on_plan_shared ?? true;
     this.notify_on_plan_visibility_change = options.notify_on_plan_visibility_change ?? true;
+    this.isArchived = options.isArchived ?? false;
 
     this.prepForSave();
   }
@@ -218,6 +220,8 @@ export class User extends MySqlModel {
     const whereFilters = ['u.affiliationId = ?'];
     const values = [affiliationId];
 
+    whereFilters.push('u.isArchived = 0');
+
     if (!isNullOrUndefined(role)) {
       whereFilters.push('u.role = ?');
       values.push(role);
@@ -287,6 +291,8 @@ export class User extends MySqlModel {
   ): Promise<PaginatedQueryResults<User>> {
     const whereFilters: string[] = [];
     const values: string[] = [];
+
+    whereFilters.push('u.isArchived = 0');
 
     // Handle the incoming search term
     const searchTerm = (term ?? '').toLowerCase().trim();

@@ -6,7 +6,7 @@ import {
   ProjectCollaboratorAccessLevel
 } from '../models/Collaborator';
 import { MyContext } from '../context';
-import { isAdmin, isAuthorized, isSuperAdmin } from '../services/authService';
+import { authenticatedResolver, isAdmin, isAuthorized, isSuperAdmin } from '../services/authService';
 import {
   AuthenticationError,
   ForbiddenError,
@@ -15,6 +15,7 @@ import {
 } from '../utils/graphQLErrors';
 import { ProjectFunding } from '../models/Funding';
 import { ProjectMember } from '../models/Member';
+import { User, UserRole } from "../models/User";
 import {
   ensureDefaultProjectContact,
   hasPermissionOnProject,
@@ -37,7 +38,7 @@ import { validateEmail } from '../utils/helpers';
 import {
   PaginationOptionsForCursors,
   PaginationOptionsForOffsets,
-  PaginationType
+  PaginationType,
 } from '../types/general';
 import { saveMaDMPVersion } from "../services/planService";
 
@@ -109,6 +110,48 @@ export const resolvers: Resolvers = {
         throw InternalServerError();
       }
     },
+    // Return all projects for a specified user (Admin only!) with pagination and optional search term filtering
+    userProjects: authenticatedResolver(
+      'userProjects resolver',
+      UserRole.ADMIN,
+      async (
+        _: Record<PropertyKey, never>,
+        { userId, term, paginationOptions, filterOptions },
+        context: MyContext
+      ): Promise<ProjectSearchResults> => {
+        const reference = 'userProjects resolver';
+        try {
+          const superAdmin = isSuperAdmin(context.token);
+
+          if (!superAdmin) {
+            const targetUser = await User.findById(reference, context, userId);
+            if (!targetUser) throw NotFoundError(`User with ID ${userId} not found`);
+
+            if (!(isAdmin(context.token) && context.token.affiliationId === targetUser.affiliationId)) {
+              throw ForbiddenError();
+            }
+          }
+
+          const pagOpts = !isNullOrUndefined(paginationOptions) && paginationOptions.type === PaginationType.OFFSET
+            ? paginationOptions as PaginationOptionsForOffsets
+            : { ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors;
+
+          return await ProjectSearchResult.search(
+            reference,
+            context,
+            term,
+            userId,
+            context.token?.affiliationId,
+            filterOptions,
+            pagOpts
+          );
+        } catch (err) {
+          if (err instanceof GraphQLError) throw err;
+          context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+          throw InternalServerError();
+        }
+      },
+    ),
 
     // Fetch a single project
     project: async (_, { projectId }, context: MyContext): Promise<Project> => {

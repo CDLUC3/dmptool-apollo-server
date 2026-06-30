@@ -46,6 +46,10 @@ export const resolvers: Resolvers = {
           : { ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors;
 
         if (isSuperAdmin(context.token)) {
+          // Bulk export (no pagination) without a specified affiliation is not allowed
+          if (isNullOrUndefined(paginationOptions) && isNullOrUndefined(affiliationId)) {
+            throw ForbiddenError('An organization must be specified to export all users.');
+          }
           return await User.search(reference, context, term, opts, role as unknown as UserRole, affiliationId);
 
         } else if (isAdmin(context.token)) {

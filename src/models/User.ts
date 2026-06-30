@@ -209,12 +209,13 @@ export class User extends MySqlModel {
   }
 
   // Return all the Users associated with the specified affiliationId that match the search term
+  // Pagination is optional, but if provided will be used to limit the results
   static async findByAffiliationId(
     reference: string,
     context: MyContext,
     affiliationId: string,
     term: string,
-    options: PaginationOptions = User.getDefaultPaginationOptions(),
+    options: PaginationOptions, // This is optional
     role?: UserRole
   ): Promise<PaginatedQueryResults<User>> {
     const whereFilters = ['u.affiliationId = ?'];
@@ -228,7 +229,7 @@ export class User extends MySqlModel {
     }
     // Handle the incoming search term
     const searchTerm = (term ?? '').toLowerCase().trim();
-    if (!isNullOrUndefined(searchTerm)) {
+    if (searchTerm) {
       whereFilters.push(`(
         (LOWER(u.givenName) LIKE ? OR
         LOWER(u.surName) LIKE ? OR
@@ -243,7 +244,15 @@ export class User extends MySqlModel {
     LEFT JOIN userEmails ue ON u.id = ue.userId AND ue.isPrimary = 1
   `;
 
-    // Determine the type of pagination being used
+    // If no pagination options, then return ALL results
+    if (isNullOrUndefined(options)) {
+      const sql = `${sqlStatement} WHERE ${whereFilters.join(' AND ')} ORDER BY u.created DESC`;
+      const results = await User.query(context, sql, values, reference);
+      const items = Array.isArray(results) ? results.map(r => new User(r)) : [];
+      return { items, totalCount: items.length, hasNextPage: false, hasPreviousPage: false, limit: items.length, currentOffset: 0 };
+    }
+
+    // If there are pagination options, determine the type of pagination being used
     let opts;
     if (options.type === PaginationType.OFFSET) {
       opts = {
@@ -285,7 +294,7 @@ export class User extends MySqlModel {
     reference: string,
     context: MyContext,
     term: string,
-    options: PaginationOptions = User.getDefaultPaginationOptions(),
+    options: PaginationOptions, // This is optional
     role?: UserRole,
     affiliationId?: string,
   ): Promise<PaginatedQueryResults<User>> {
@@ -296,7 +305,7 @@ export class User extends MySqlModel {
 
     // Handle the incoming search term
     const searchTerm = (term ?? '').toLowerCase().trim();
-    if (!isNullOrUndefined(searchTerm)) {
+    if (searchTerm) {
       whereFilters.push(`(
         LOWER(u.givenName) LIKE ? OR
         LOWER(u.surName) LIKE ? OR
@@ -316,6 +325,21 @@ export class User extends MySqlModel {
     if (!isNullOrUndefined(affiliationId)) {
       whereFilters.push('a.uri = ?');
       values.push(affiliationId);
+    }
+
+    // Join users with user_emails
+    const sqlStatement = `
+    SELECT u.*, a.name, a.uri FROM users u
+                      LEFT JOIN affiliations a ON u.affiliationId = a.uri
+                      LEFT JOIN userEmails ue ON u.id = ue.userId AND ue.isPrimary = 1
+  `;
+
+    // If no pagination options, then return ALL results
+    if (isNullOrUndefined(options)) {
+      const sql = `${sqlStatement} WHERE ${whereFilters.join(' AND ')} ORDER BY u.created DESC`;
+      const results = await User.query(context, sql, values, reference);
+      const items = Array.isArray(results) ? results.map(r => new User(r)) : [];
+      return { items, totalCount: items.length, hasNextPage: false, hasPreviousPage: false, limit: items.length, currentOffset: 0 };
     }
 
     // Determine the type of pagination being used
@@ -340,13 +364,6 @@ export class User extends MySqlModel {
 
     // Specify the field we want to use for the count
     opts.countField = 'u.id';
-
-    // Join users with user_emails
-    const sqlStatement = `
-    SELECT u.*, a.name, a.uri FROM users u
-                      LEFT JOIN affiliations a ON u.affiliationId = a.uri
-                      LEFT JOIN userEmails ue ON u.id = ue.userId AND ue.isPrimary = 1
-  `;
 
     const response: PaginatedQueryResults<User> = await User.queryWithPagination(
       context,

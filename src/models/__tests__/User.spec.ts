@@ -1298,14 +1298,12 @@ describe('search', () => {
     expect(result.totalCount).toBe(0);
   });
 
-  it('handles an empty search term without adding whereFilters', async () => {
+  it('does not add search filters for an empty search term', async () => {
     await User.search('testRef', context, '', { type: PaginationType.OFFSET });
 
     const callArgs = (User.queryWithPagination as jest.Mock).mock.calls[0];
     const whereFilters = callArgs[2];
 
-    // empty string is still truthy for isNullOrUndefined, so the LIKE block still runs —
-    // but the values will all be '%%' (match everything), not zero filters
-    expect(whereFilters.some((f: string) => f.includes('LOWER(u.givenName) LIKE ?'))).toBe(true);
+    expect(whereFilters.some((f: string) => f.includes('LOWER(u.givenName) LIKE ?'))).toBe(false);
   });
 });

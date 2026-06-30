@@ -106,6 +106,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated the `users` resolver, and `User.findByAffiliationId` and `User.search` so that when no `paginationOptions` are provided, it returns all results at once for a given affiliationId. This is required for downloading users on the Admin Users page [#238]
 - Updated `plans` resolver to have pagination for a specified `userId` with optional `search term`, and added a chained resolver for `PlanSearchResult` for `templateOwnerAffiliationName` [#281]
 - Updated `PlanSearchResult` model to include `createdById` and `templateOwnerAffiliationName` for the Admin Users page [#281]
 - Update local migration to add RO question to default template

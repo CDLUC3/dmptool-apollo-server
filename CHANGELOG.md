@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added a scripts/sql/ directory to store useful maintenance and debugging scripts
 - Added `isArchived` field to the `users` table to help us filter those users out when returned in `users` response [#281]
 - Added `findByProjectIdWithPagination` method to the `PlanSearchResult` model for the `plans` resolver [#281]
 - Added `userProjects` query to return all projects for a specified user, with search term and pagination [#281]

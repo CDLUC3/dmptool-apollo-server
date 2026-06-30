@@ -303,21 +303,24 @@ export const resolvers: Resolvers = {
 
             const updated: Affiliation = await affiliation.update(context);
             if (updated && !updated.hasErrors()) {
-              // If the update was successful reconcile any AffiliationLinks
-              const links: AffiliationLink[] = input.subHeaderLinks.map((shl: AffiliationLinkInput): AffiliationLink => {
-                return new AffiliationLink(shl);
-              })
-              await reconcileAffiliationLinks(context, reference, updated, links);
-
+              if (input.subHeaderLinks) {
+                // If the update was successful reconcile any AffiliationLinks
+                const links: AffiliationLink[] = input.subHeaderLinks.map((shl: AffiliationLinkInput): AffiliationLink => {
+                  return new AffiliationLink(shl);
+                })
+                await reconcileAffiliationLinks(context, reference, updated, links);
+              }
               // If the user is a superAdmin, also reconcile any AffiliationEmailDomains
               if (superAdmin) {
-                const domains: AffiliationEmailDomain[] = input.ssoEmailDomains.map((ed: string): AffiliationEmailDomain => {
-                  return new AffiliationEmailDomain({
-                    affiliationId: updated.uri,
-                    emailDomain: ed
-                  });
-                })
-                await reconcileAffiliationEmailDomains(context, reference, updated, domains);
+                if (input.ssoEmailDomains) {
+                  const domains: AffiliationEmailDomain[] = input.ssoEmailDomains.map((ed: string): AffiliationEmailDomain => {
+                    return new AffiliationEmailDomain({
+                      affiliationId: updated.uri,
+                      emailDomain: ed
+                    });
+                  })
+                  await reconcileAffiliationEmailDomains(context, reference, updated, domains);
+                }
               }
             }
 

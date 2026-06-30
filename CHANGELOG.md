@@ -236,6 +236,7 @@
 - Removed `ioredis` package
 
 ### Fixed
+- Updated `requestFeedback` with better error messaging for when `feedbackEnabled` is false or there are no `feedbackEmails`. Also, added checks for `input.subHeaderLinks` and `input.ssoEmailDomains` in `updateAffiliations` since it was breaking that mutation when those fields were not included. Also, removed the debugging I had previously added to investigate the `requestFeedback` resolver failing. [#285]
 - Fixed error in `data-migrations/local-only/2026-05-08-1111-seed-project-plan.sql` when inserting data for `templates` and `versionedTemplates` tables which were missing the new `isDefault` value.
 - Fixed an issue with duplicate URIs being returned to `findRe3DataByURIs` by deduping [#33]
 - Fixed bug in `openSearchService` that was throwing an error and not returning repositories [#196]

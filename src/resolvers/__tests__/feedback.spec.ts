@@ -104,7 +104,11 @@ beforeEach(async () => {
   jest.spyOn(ProjectCollaborator, 'findByProjectId').mockResolvedValue([]);
   jest.spyOn(ProjectCollaborator, 'findPrimaryUserByProjectId').mockResolvedValue(null);
   jest.spyOn(Affiliation, 'findByURI').mockResolvedValue(
-    new Affiliation({ uri: affiliationId, feedbackEmails: [casual.email] })
+    new Affiliation({ 
+      uri: affiliationId, 
+      feedbackEmails: [casual.email],
+      feedbackEnabled: true,
+     })
   );
   jest.spyOn(PlanFeedback.prototype, 'create').mockResolvedValue(feedback);
   jest.spyOn(PlanFeedback.prototype, 'update').mockResolvedValue(feedback);

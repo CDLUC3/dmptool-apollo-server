@@ -7,9 +7,9 @@ import {
 import {
   AnswerSchemaMap,
   AnyResearchOutputTableColumnAnswerType,
-  ResearchOutputTableRowAnswerType,
-  CURRENT_SCHEMA_VERSION,
+  DefaultResearchOutputTypeAnswer,
   QuestionFormatsEnum,
+  ResearchOutputTableRowAnswerType,
   SelectBoxAnswerType
 } from "@dmptool/types";
 
@@ -111,7 +111,9 @@ export class Answer extends MySqlModel {
     // Extract the output type columns
     let modified = false;
 
-    // Process each output in the table
+    // Process each output in the table and make sure it has an output type column
+    // The RDA common standard requires one, but we don't force the column in the
+    // UI or the REST API.
     parsedJSON.answer = parsedJSON.answer.map((row: ResearchOutputTableRowAnswerType) => {
       const columns: AnyResearchOutputTableColumnAnswerType[] = row.columns || [];
       const typeCol = columns.find((col: AnyResearchOutputTableColumnAnswerType) => {
@@ -122,22 +124,14 @@ export class Answer extends MySqlModel {
       if (!typeCol || !typeCol.answer || typeCol.answer.trim() === '') {
         modified = true;
 
-        // Create the default column object
-        const defaultTypeCol: SelectBoxAnswerType = {
-          type: "selectBox",
-          commonStandardId: 'type',
-          answer: "Unknown",
-          meta: { schemaVersion: CURRENT_SCHEMA_VERSION },
-        } as unknown as SelectBoxAnswerType;
-
-        // Return the row with the updated columns list
+        // Return the row with the default output type added on
         return {
           ...row,
           columns: [
             ...columns.filter((col: AnyResearchOutputTableColumnAnswerType) => {
               return col.commonStandardId !== 'type';
             }),
-            defaultTypeCol
+            DefaultResearchOutputTypeAnswer
           ]
         };
       }
@@ -278,7 +272,7 @@ export class Answer extends MySqlModel {
     if (!Array.isArray(questionIds) || questionIds.length === 0) return [];
 
     const placeholders = questionIds.map(() => '?').join(', ');
-    const sql = `SELECT * FROM answers WHERE planId = ? 
+    const sql = `SELECT * FROM answers WHERE planId = ?
       AND versionedQuestionId IN (${placeholders})
       AND ${FILLED_ANSWER_CHECK}`;
     const results = await Answer.query(context, sql, [String(planId), ...questionIds.map(String)], reference);
@@ -295,9 +289,9 @@ export class Answer extends MySqlModel {
     if (!Array.isArray(customQuestionIds) || customQuestionIds.length === 0) return [];
 
     const placeholders = customQuestionIds.map(() => '?').join(', ');
-    const sql = `SELECT * FROM answers 
-    WHERE planId = ? 
-    AND versionedCustomQuestionId IN (${placeholders}) 
+    const sql = `SELECT * FROM answers
+    WHERE planId = ?
+    AND versionedCustomQuestionId IN (${placeholders})
     AND ${FILLED_ANSWER_CHECK}`;
     const results = await Answer.query(context, sql, [String(planId), ...customQuestionIds.map(String)], reference);
     return Array.isArray(results) && results.length > 0 ? results.map((ans) => new Answer(ans)) : [];

@@ -5578,7 +5578,7 @@ export type VersionedGuidance = {
   /** The user who last modified the Object */
   modifiedById?: Maybe<Scalars['Int']['output']>;
   /** The Tag ID (one of the associated tags) */
-  tagId: Scalars['Int']['output'];
+  tagId?: Maybe<Scalars['Int']['output']>;
   /** All Tags associated with this VersionedGuidance */
   tags?: Maybe<Array<Tag>>;
   /** The VersionedGuidanceGroup this belongs to */
@@ -8556,7 +8556,7 @@ export type VersionedGuidanceResolvers<ContextType = MyContext, ParentType exten
   id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  tagId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  tagId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   tags?: Resolver<Maybe<Array<ResolversTypes['Tag']>>, ParentType, ContextType>;
   versionedGuidanceGroup?: Resolver<Maybe<ResolversTypes['VersionedGuidanceGroup']>, ParentType, ContextType>;
   versionedGuidanceGroupId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;

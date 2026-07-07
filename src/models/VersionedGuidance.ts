@@ -5,7 +5,7 @@ export class VersionedGuidance extends MySqlModel {
   public versionedGuidanceGroupId: number;
   public guidanceId?: number;
   public guidanceText?: string;
-  public tagId: number;
+  public tagId?: number;
 
   private static tableName = 'versionedGuidance';
 
@@ -23,7 +23,6 @@ export class VersionedGuidance extends MySqlModel {
     await super.isValid();
 
     if (!this.versionedGuidanceGroupId) this.addError('versionedGuidanceGroupId', 'VersionedGuidanceGroup ID can\'t be blank');
-    if (!this.tagId) this.addError('tagId', 'Tag ID can\'t be blank');
     if (!this.guidanceText) this.addError('guidanceText', 'Guidance text can\'t be blank');
 
     return Object.keys(this.errors).length === 0;

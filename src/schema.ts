@@ -5,6 +5,7 @@ import { typeDefs as adminNotificationTypeDefs } from './schemas/adminNotificati
 import { typeDefs as affiliationTypeDefs } from './schemas/affiliation';
 import { typeDefs as answerTypeDefs } from './schemas/answer';
 import { typeDefs as collaboratorTypeDefs } from './schemas/collaborator';
+import { typeDefs as contactUsTypeDefs } from './schemas/contactUs';
 import { typeDefs as memberTypeDefs } from './schemas/member';
 import { typeDefs as memberRoleTypeDefs } from './schemas/memberRole';
 import { typeDefs as feedbackTypeDefs } from './schemas/feedback';
@@ -42,6 +43,7 @@ export const typeDefs = mergeTypeDefs([
   affiliationTypeDefs,
   answerTypeDefs,
   collaboratorTypeDefs,
+  contactUsTypeDefs,
   memberRoleTypeDefs,
   memberTypeDefs,
   feedbackTypeDefs,

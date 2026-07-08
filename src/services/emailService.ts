@@ -16,6 +16,7 @@ export const emailSubjects = {
   projectCollaboratorCommentsAdded: 'New comments added to the plan',
   feedbackRequest: 'You have been requested to provide feedback on a data management plan',
   feedbackComplete: 'Feedback on your data management plan is complete',
+  contactUs: 'Contact Us form submission',
 }
 
 export const emailMessages = {
@@ -50,6 +51,11 @@ Please do not reply to this email. If you have any questions or need help, pleas
 Please do not reply to this email. If you have any questions or need help, please contact us at
 <a href="mailto:%{helpDeskEmail}">%{helpDeskEmail}</a> or visit the <a href="%{helpUrl}">Help Page</a>.</small></p>
 `,
+  contactUs: `
+<p>%{message}</p>
+<p>-----------------------------------------------------------</p>
+<p>%{attribution}</p>
+`,
 }
 
 const transporter = nodemailer.createTransport({
@@ -74,8 +80,8 @@ const sendEmail = async (
   subject: string,
   message: string,
   asHTML = true,
+  replyTo: string = emailConfig.helpDeskAddress
 ): Promise<boolean> => {
-
   // Add the App name to the start of the subject line. We include the env when not in production
   const subjectLine = `${generalConfig.applicationName} - ${subject}`;
 
@@ -94,7 +100,7 @@ const sendEmail = async (
     const options = {
       from: `"${generalConfig.applicationName}" <${emailConfig.doNotReplyAddress}>`,
       sender: emailConfig.doNotReplyAddress,
-      replyTo: emailConfig.helpDeskAddress,
+      replyTo,
       to: toAddresses.join(', '),
       cc: ccAddresses.join(', '),
       bcc: bccAddresses.join(', '),
@@ -312,4 +318,31 @@ export const sendFeedbackRequestEmail = async (
     );
   }
   return true;
+}
+
+export const sendContactUsEmail = async (
+  context: MyContext,
+  name: string,
+  email: string,
+  subject: string,
+  message: string,
+): Promise<boolean> => {
+
+  const attribution = `Sent by ${name} <${email}>`
+
+  const body = emailMessages.contactUs
+    .replace('%{message}', message)
+    .replace('%{attribution}', attribution);
+
+  return await sendEmail(
+    context,
+    'ContactUs',
+    [emailConfig.helpDeskAddress], // to
+    [],// cc
+    [email],// bcc
+    `${emailSubjects.contactUs}: ${subject}`,
+    body,
+    true, // asHTML
+    email, // replyTo
+  );
 }

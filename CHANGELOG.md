@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added `contactUs` resolver to allow users to send us emails [#297]
 - Added a scripts/sql/ directory to store useful maintenance and debugging scripts
 - Added `isArchived` field to the `users` table to help us filter those users out when returned in `users` response [#281]
 - Added `findByProjectIdWithPagination` method to the `PlanSearchResult` model for the `plans` resolver [#281]
@@ -107,6 +108,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `emailService.ts` with the addition of `sendContactUsEmail` [#297]
 - Updated `plans` resolver to have pagination for a specified `userId` with optional `search term`, and added a chained resolver for `PlanSearchResult` for `templateOwnerAffiliationName` [#281]
 - Updated `PlanSearchResult` model to include `createdById` and `templateOwnerAffiliationName` for the Admin Users page [#281]
 - Update local migration to add RO question to default template

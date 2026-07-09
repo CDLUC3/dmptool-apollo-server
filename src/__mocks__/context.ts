@@ -2,6 +2,7 @@ import { Logger } from "pino";
 import { JWTAccessToken } from "../services/tokenService";
 import { MyContext } from "../context";
 import { Authorizer, DMPHubAPI } from "../datasources/dmphubAPI";
+import { EZIDAPI } from "../datasources/EZIDAPI";
 import { MySQLConnection } from "../datasources/mysql";
 import { User, UserRole } from "../models/User";
 import casual from "casual";
@@ -17,6 +18,20 @@ jest.mock('../datasources/mysql', () => {
       close: jest.fn(),
       query: jest.fn()
     }))
+  };
+});
+
+jest.mock('../datasources/EZIDAPI', () => {
+  return {
+    __esModule: true,
+    EZIDAPI: jest.fn().mockImplementation(() => ({
+      registerIdentifier: jest.fn(),
+      willSendRequest: jest.fn(),
+      baseURL: '',
+      get: jest.fn(),
+      post: jest.fn(),
+      put: jest.fn(),
+    })),
   };
 });
 
@@ -127,6 +142,7 @@ export const mockSuperAdminToken = async (): Promise<JWTAccessToken> => {
 
 export const mockDataSources = {
   dmphubAPIDataSource: new DMPHubAPI({ cache: null, token: null}),
+  ezidAPIDataSource: new EZIDAPI({ cache: null }),
   sqlDataSource: mockedMysqlInstance,
 }
 

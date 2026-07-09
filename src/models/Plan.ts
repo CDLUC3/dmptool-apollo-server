@@ -757,6 +757,47 @@ export class Plan extends MySqlModel {
       // Make sure the plan is valid
       if (await this.isValid()) {
         if (!this.isPublished()) {
+          // Refuse to register a temporary placeholder DMP ID
+          if (this.dmpId.startsWith(DEFAULT_TEMPORARY_DMP_ID_PREFIX)) {
+            this.addError('dmpId', 'Plan does not have a valid DMP ID');
+            return new Plan(this);
+          }
+
+          // Convert the stored URL form (https://doi.org/10.x/y) to EZID form (doi:10.x/y)
+          const ezidIdentifier = this.dmpId.replace(
+            generalConfig.dmpIdBaseURL,
+            'doi:'
+          );
+          const doiSuffix = ezidIdentifier.replace('doi:', '');
+          const domain = generalConfig.domain.startsWith('http')
+            ? generalConfig.domain
+            : `https://${generalConfig.domain}`;
+          const creatorName = [context.token.givenName, context.token.surName]
+            .filter(Boolean)
+            .join(' ') || 'Unknown';
+          const metadata: Record<string, string> = {
+            '_profile': 'datacite',
+            '_target': `${domain}/dmps/${doiSuffix}`,
+            'datacite.title': this.title,
+            'datacite.creator': creatorName,
+            'datacite.publisher': generalConfig.applicationName,
+            'datacite.resourcetype': 'Text/Data Management Plan',
+            'datacite.publicationyear': new Date().getFullYear().toString(),
+          };
+
+          try {
+            await context.dataSources.ezidAPIDataSource.registerIdentifier(
+              context, ezidIdentifier, metadata, 'Plan.publish'
+            );
+          } catch (err) {
+            context.logger.error(
+              prepareObjectForLogs(err),
+              'Plan.publish failed to register DOI with EZID'
+            );
+            this.addError('general', 'Failed to register the plan\'s DOI with EZID');
+            return new Plan(this);
+          }
+
           this.registered = getCurrentDate();
           this.registeredById = context.token.id;
           this.visibility = visibility;

@@ -6,6 +6,7 @@ import { Request } from 'express-jwt';
 import { Logger } from "pino";
 import { MySQLConnection } from "../datasources/mysql";
 import { DMPHubAPI } from "../datasources/dmphubAPI";
+import { EZIDAPI } from "../datasources/EZIDAPI";
 
 export async function attachApolloServer(
   apolloServer: ApolloServer,
@@ -14,13 +15,15 @@ export async function attachApolloServer(
   logger: Logger,
   sqlDataSource: MySQLConnection,
   dmphubAPIDataSource: DMPHubAPI,
+  ezidAPIDataSource: EZIDAPI,
 ) {
   const context = buildContext(
     logger,
     cache,
     null,
     sqlDataSource,
-    dmphubAPIDataSource
+    dmphubAPIDataSource,
+    ezidAPIDataSource
   );
   context.logger.info({}, 'Attaching Apollo server');
 
@@ -34,7 +37,8 @@ export async function attachApolloServer(
         cache,
         req.auth as JWTAccessToken,
         sqlDataSource,
-        dmphubAPIDataSource
+        dmphubAPIDataSource,
+        ezidAPIDataSource
       );
     },
   });

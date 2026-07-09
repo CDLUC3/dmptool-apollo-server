@@ -188,7 +188,7 @@ describe('PlanSearchResult.findByProjectIdWithPagination', () => {
     currentOffset: 0,
   });
 
-  it.only('should call queryWithPagination with correct base variables', async () => {
+  it('should call queryWithPagination with correct base variables', async () => {
     const userId = casual.integer(1, 99);
     const options = makeOptions();
     const expected = makePaginatedResult([]);
@@ -1174,6 +1174,7 @@ describe('publish', () => {
   let plan;
   let mockFindById;
   let updateQuery;
+  let mockRegisterIdentifier: jest.Mock;
 
   beforeEach(() => {
     mockFindById = jest.fn();
@@ -1195,6 +1196,10 @@ describe('publish', () => {
       languageId: defaultLanguageId,
       featured: casual.boolean,
     });
+
+    // Mock the EZID registerIdentifier call on the context datasource
+    mockRegisterIdentifier = context.dataSources.ezidAPIDataSource.registerIdentifier as jest.Mock;
+    mockRegisterIdentifier.mockResolvedValue(`doi:${generalConfig.dmpIdShoulder}test`);
   });
 
   it('returns the newly published Plan', async () => {
@@ -1202,8 +1207,45 @@ describe('publish', () => {
 
     const result = await plan.publish(context);
 
+    expect(mockRegisterIdentifier).toHaveBeenCalledTimes(1);
     expect(Object.keys(result.errors).length).toBe(0);
     expect(result).toBeInstanceOf(Plan);
+  });
+
+  it('calls EZID registerIdentifier with the correct identifier and metadata', async () => {
+    updateQuery.mockResolvedValueOnce(plan);
+
+    await plan.publish(context);
+
+    expect(mockRegisterIdentifier).toHaveBeenCalledTimes(1);
+    const [, identifier, metadata] = mockRegisterIdentifier.mock.calls[0];
+    expect(identifier).toMatch(/^doi:/);
+    expect(metadata['_profile']).toBe('datacite');
+    expect(metadata['_target']).toMatch(/^https?:\/\/.+\/dmps\//);
+    expect(metadata['datacite.title']).toBe(plan.title);
+    expect(metadata['datacite.creator']).toBeTruthy();
+    expect(metadata['datacite.publisher']).toBeTruthy();
+    expect(metadata['datacite.resourcetype']).toBe('Text/Data Management Plan');
+    expect(metadata['datacite.publicationyear']).toBe(new Date().getFullYear().toString());
+  });
+
+  it('returns an error and does not update the DB if EZID registration fails', async () => {
+    mockRegisterIdentifier.mockRejectedValueOnce(new Error('EZID error'));
+
+    const result = await plan.publish(context);
+
+    expect(mockRegisterIdentifier).toHaveBeenCalledTimes(1);
+    expect(updateQuery).not.toHaveBeenCalled();
+    expect(result.errors['general']).toBeTruthy();
+  });
+
+  it('returns an error if the dmpId is a temporary placeholder', async () => {
+    plan.dmpId = `${DEFAULT_TEMPORARY_DMP_ID_PREFIX}abc123`;
+
+    const result = await plan.publish(context);
+
+    expect(mockRegisterIdentifier).not.toHaveBeenCalled();
+    expect(result.errors['dmpId']).toBeTruthy();
   });
 
   it('returns an error if the Plan is not valid', async () => {
@@ -1214,6 +1256,7 @@ describe('publish', () => {
     const result = await plan.publish(context);
     expect(result instanceof Plan).toBe(true);
     expect(localValidator).toHaveBeenCalledTimes(1);
+    expect(mockRegisterIdentifier).not.toHaveBeenCalled();
   });
 
   it('returns an error if the Plan is already published', async () => {
@@ -1223,6 +1266,7 @@ describe('publish', () => {
     const result = await plan.publish(context);
     expect(Object.keys(result.errors).length).toBe(1);
     expect(result.errors['general']).toBeTruthy();
+    expect(mockRegisterIdentifier).not.toHaveBeenCalled();
   });
 });
 

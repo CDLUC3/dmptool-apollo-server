@@ -79,6 +79,9 @@ export const generateSectionVersion = async (
         const questionInstance = new Question({
           ...question
         });
+
+console.log('QUESTION INITIAL', question.id, question.json)
+
         const passed = await generateQuestionVersion(context, questionInstance, versionedTemplateId, created.id);
         if (!passed) {
           allQuestionsWereVersioned = false;

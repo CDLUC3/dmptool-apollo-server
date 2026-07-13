@@ -1697,6 +1697,8 @@ export type Mutation = {
   updateMetadataStandard?: Maybe<MetadataStandard>;
   /** Change the current user's password */
   updatePassword?: Maybe<User>;
+  /** Update a plan */
+  updatePlan?: Maybe<Plan>;
   /** Update multiple Plan Fundings passing in an array of projectFundingIds */
   updatePlanFunding?: Maybe<Array<Maybe<PlanFunding>>>;
   /** Chnage a Member's accessLevel on a Plan */
@@ -2330,6 +2332,11 @@ export type MutationUpdatePasswordArgs = {
   email: Scalars['String']['input'];
   newPassword: Scalars['String']['input'];
   oldPassword: Scalars['String']['input'];
+};
+
+
+export type MutationUpdatePlanArgs = {
+  input?: InputMaybe<UpdatePlanInput>;
 };
 
 
@@ -5100,6 +5107,23 @@ export type UpdateMetadataStandardInput = {
   uri?: InputMaybe<Scalars['String']['input']>;
 };
 
+export type UpdatePlanInput = {
+  /** Alternate identifiers for the plan */
+  alternateIdentifiers?: InputMaybe<Array<Scalars['String']['input']>>;
+  /** Whether or not the plan is featured on the public plans page */
+  featured?: InputMaybe<Scalars['Boolean']['input']>;
+  /** The Plan id */
+  id?: InputMaybe<Scalars['Int']['input']>;
+  /** The language of the plan */
+  languageId?: InputMaybe<Scalars['String']['input']>;
+  /** The status of the plan */
+  status?: InputMaybe<PlanStatus>;
+  /** The title of the plan */
+  title?: InputMaybe<Scalars['String']['input']>;
+  /** The visibility of the plan */
+  visibility?: InputMaybe<PlanVisibility>;
+};
+
 export type UpdateProjectFundingInput = {
   /** The funder's unique id/url for the call for submissions to apply for a grant */
   funderOpportunityNumber?: InputMaybe<Scalars['String']['input']>;
@@ -6361,6 +6385,7 @@ export type ResolversTypes = {
   UpdateGuidanceGroupInput: UpdateGuidanceGroupInput;
   UpdateGuidanceInput: UpdateGuidanceInput;
   UpdateMetadataStandardInput: UpdateMetadataStandardInput;
+  UpdatePlanInput: UpdatePlanInput;
   UpdateProjectFundingInput: UpdateProjectFundingInput;
   UpdateProjectInput: UpdateProjectInput;
   UpdateProjectMemberInput: UpdateProjectMemberInput;
@@ -6594,6 +6619,7 @@ export type ResolversParentTypes = {
   UpdateGuidanceGroupInput: UpdateGuidanceGroupInput;
   UpdateGuidanceInput: UpdateGuidanceInput;
   UpdateMetadataStandardInput: UpdateMetadataStandardInput;
+  UpdatePlanInput: UpdatePlanInput;
   UpdateProjectFundingInput: UpdateProjectFundingInput;
   UpdateProjectInput: UpdateProjectInput;
   UpdateProjectMemberInput: UpdateProjectMemberInput;
@@ -7337,6 +7363,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   updateMemberRole?: Resolver<Maybe<ResolversTypes['MemberRole']>, ParentType, ContextType, RequireFields<MutationUpdateMemberRoleArgs, 'displayOrder' | 'id' | 'label' | 'url'>>;
   updateMetadataStandard?: Resolver<Maybe<ResolversTypes['MetadataStandard']>, ParentType, ContextType, RequireFields<MutationUpdateMetadataStandardArgs, 'input'>>;
   updatePassword?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationUpdatePasswordArgs, 'email' | 'newPassword' | 'oldPassword'>>;
+  updatePlan?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType, Partial<MutationUpdatePlanArgs>>;
   updatePlanFunding?: Resolver<Maybe<Array<Maybe<ResolversTypes['PlanFunding']>>>, ParentType, ContextType, RequireFields<MutationUpdatePlanFundingArgs, 'planId' | 'projectFundingIds'>>;
   updatePlanMember?: Resolver<Maybe<ResolversTypes['PlanMember']>, ParentType, ContextType, RequireFields<MutationUpdatePlanMemberArgs, 'planId' | 'planMemberId'>>;
   updatePlanStatus?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType, RequireFields<MutationUpdatePlanStatusArgs, 'planId' | 'status'>>;

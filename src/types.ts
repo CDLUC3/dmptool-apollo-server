@@ -816,6 +816,17 @@ export type CollaboratorSearchResults = PaginatedQueryResults & {
   totalCount?: Maybe<Scalars['Int']['output']>;
 };
 
+export type ContactFormInput = {
+  /** The submitter's email address */
+  email: Scalars['String']['input'];
+  /** The message body */
+  message: Scalars['String']['input'];
+  /** The submitter's name */
+  name: Scalars['String']['input'];
+  /** The subject of the message */
+  subject: Scalars['String']['input'];
+};
+
 export type ContentMatch = {
   __typename?: 'ContentMatch';
   /** Highlighted fragments from the abstract showing relevant matched terms */
@@ -1667,6 +1678,8 @@ export type Mutation = {
   setPrimaryUserEmail?: Maybe<Array<Maybe<UserEmail>>>;
   /** Set the user's ORCID */
   setUserOrcid?: Maybe<User>;
+  /** Submit a contact us form — sends an email to the help desk */
+  submitContactForm: Scalars['Boolean']['output'];
   /** Initialize a PLanVersion record in the DynamoDB for all Plans that do not have one */
   superSyncPlanMaDMP: Scalars['Boolean']['output'];
   /** Unpublish a GuidanceGroup (sets active flag to false on current version) */
@@ -2241,6 +2254,11 @@ export type MutationSetPrimaryUserEmailArgs = {
 
 export type MutationSetUserOrcidArgs = {
   orcid: Scalars['String']['input'];
+};
+
+
+export type MutationSubmitContactFormArgs = {
+  input: ContactFormInput;
 };
 
 
@@ -5578,7 +5596,7 @@ export type VersionedGuidance = {
   /** The user who last modified the Object */
   modifiedById?: Maybe<Scalars['Int']['output']>;
   /** The Tag ID (one of the associated tags) */
-  tagId: Scalars['Int']['output'];
+  tagId?: Maybe<Scalars['Int']['output']>;
   /** All Tags associated with this VersionedGuidance */
   tags?: Maybe<Array<Tag>>;
   /** The VersionedGuidanceGroup this belongs to */
@@ -6197,6 +6215,7 @@ export type ResolversTypes = {
   Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
   CollaboratorSearchResult: ResolverTypeWrapper<CollaboratorSearchResult>;
   CollaboratorSearchResults: ResolverTypeWrapper<CollaboratorSearchResults>;
+  ContactFormInput: ContactFormInput;
   ContentMatch: ResolverTypeWrapper<ContentMatch>;
   CustomQuestion: ResolverTypeWrapper<CustomQuestion>;
   CustomQuestionErrors: ResolverTypeWrapper<CustomQuestionErrors>;
@@ -6453,6 +6472,7 @@ export type ResolversParentTypes = {
   Boolean: Scalars['Boolean']['output'];
   CollaboratorSearchResult: CollaboratorSearchResult;
   CollaboratorSearchResults: CollaboratorSearchResults;
+  ContactFormInput: ContactFormInput;
   ContentMatch: ContentMatch;
   CustomQuestion: CustomQuestion;
   CustomQuestionErrors: CustomQuestionErrors;
@@ -7322,6 +7342,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   resendInviteToProjectCollaborator?: Resolver<Maybe<ResolversTypes['ProjectCollaborator']>, ParentType, ContextType, RequireFields<MutationResendInviteToProjectCollaboratorArgs, 'projectCollaboratorId'>>;
   setPrimaryUserEmail?: Resolver<Maybe<Array<Maybe<ResolversTypes['UserEmail']>>>, ParentType, ContextType, RequireFields<MutationSetPrimaryUserEmailArgs, 'email'>>;
   setUserOrcid?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationSetUserOrcidArgs, 'orcid'>>;
+  submitContactForm?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationSubmitContactFormArgs, 'input'>>;
   superSyncPlanMaDMP?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationSuperSyncPlanMaDmpArgs, 'planId'>>;
   unpublishGuidanceGroup?: Resolver<ResolversTypes['GuidanceGroup'], ParentType, ContextType, RequireFields<MutationUnpublishGuidanceGroupArgs, 'guidanceGroupId'>>;
   unpublishTemplateCustomization?: Resolver<ResolversTypes['TemplateCustomizationOverview'], ParentType, ContextType, RequireFields<MutationUnpublishTemplateCustomizationArgs, 'templateCustomizationId'>>;
@@ -8556,7 +8577,7 @@ export type VersionedGuidanceResolvers<ContextType = MyContext, ParentType exten
   id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  tagId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  tagId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   tags?: Resolver<Maybe<Array<ResolversTypes['Tag']>>, ParentType, ContextType>;
   versionedGuidanceGroup?: Resolver<Maybe<ResolversTypes['VersionedGuidanceGroup']>, ParentType, ContextType>;
   versionedGuidanceGroupId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;

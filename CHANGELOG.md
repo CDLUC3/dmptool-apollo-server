@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added `contactUs` resolver to allow users to send us emails [#297]
 - Added a scripts/sql/ directory to store useful maintenance and debugging scripts
 - Added `isArchived` field to the `users` table to help us filter those users out when returned in `users` response [#281]
 - Added `findByProjectIdWithPagination` method to the `PlanSearchResult` model for the `plans` resolver [#281]
@@ -108,6 +109,8 @@
 
 ### Updated
 - Updated the `Answer` model to use the newly exported `DefaultResearchOutputTypeAnswer` from `@dmptool/types` instead of manually building it
+- Updated `Guidance` and `VersionedGuidance` classes to make `tagId` optional, since it was causing errors on `dev` where `guidance` records had no `tagId`. This is consistent with the `guidance` table schema which allows the `tagId` field to be `NULL` [#54]
+- Updated `emailService.ts` with the addition of `sendContactUsEmail` [#297]
 - Updated `plans` resolver to have pagination for a specified `userId` with optional `search term`, and added a chained resolver for `PlanSearchResult` for `templateOwnerAffiliationName` [#281]
 - Updated `PlanSearchResult` model to include `createdById` and `templateOwnerAffiliationName` for the Admin Users page [#281]
 - Update local migration to add RO question to default template
@@ -237,6 +240,7 @@
 - Removed `ioredis` package
 
 ### Fixed
+- Updated `requestFeedback` with better error messaging for when `feedbackEnabled` is false or there are no `feedbackEmails`. Also, added checks for `input.subHeaderLinks` and `input.ssoEmailDomains` in `updateAffiliations` since it was breaking that mutation when those fields were not included. Also, removed the debugging I had previously added to investigate the `requestFeedback` resolver failing. [#285]
 - Fixed error in `data-migrations/local-only/2026-05-08-1111-seed-project-plan.sql` when inserting data for `templates` and `versionedTemplates` tables which were missing the new `isDefault` value.
 - Fixed an issue with duplicate URIs being returned to `findRe3DataByURIs` by deduping [#33]
 - Fixed bug in `openSearchService` that was throwing an error and not returning repositories [#196]

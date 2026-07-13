@@ -315,6 +315,41 @@ export const resolvers: Resolvers = {
       }
     },
 
+    updatePlan: async (_, { input }, context: MyContext): Promise<Plan> => {
+      const reference = 'update plan resolver';
+      try {
+        if (isAuthorized(context.token)) {
+          const plan = await Plan.findById(reference, context, input.id);
+          if (!plan) {
+            throw NotFoundError(`Plan with id ${input.id} not found`);
+          }
+          const project = await Project.findById(reference, context, plan.projectId);
+
+          if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.OWN)) {
+            plan.title = input.title ?? plan.title;
+            plan.status = input.status as PlanStatus ?? plan.status;
+            plan.visibility = input.visibility as PlanVisibility ?? plan.visibility;
+            plan.featured = input.featured ?? plan.featured;
+            plan.languageId = input.languageId ?? plan.languageId;
+
+            const updated = await plan.update(context);
+
+            if (updated && !updated.hasErrors()) {
+              // Update the maDMP version of the record
+              await saveMaDMPVersion(reference, context, updated.id, updated.dmpId);
+            }
+            return updated;
+          }
+        }
+        throw context?.token ? ForbiddenError() : AuthenticationError();
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    },
+
     updatePlanStatus: async (_, { planId, status }, context: MyContext): Promise<Plan> => {
       const reference = 'update plan status resolver';
       try {

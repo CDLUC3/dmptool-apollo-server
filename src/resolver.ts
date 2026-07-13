@@ -10,6 +10,7 @@ import { resolvers as adminNotificationResolvers } from './resolvers/adminNotifi
 import { resolvers as affiliationResolvers } from './resolvers/affiliation';
 import { resolvers as answerResolvers } from './resolvers/answer';
 import { resolvers as collaboratorResolvers } from './resolvers/collaborator';
+import { resolvers as contactUsResolvers } from './resolvers/contactUs';
 import { resolvers as feedback } from './resolvers/feedback';
 import { resolvers as memberResolvers } from './resolvers/member';
 import { resolvers as memberRoleResolvers } from './resolvers/memberRole';
@@ -54,6 +55,7 @@ export const resolvers: IResolvers = mergeResolvers([
   affiliationResolvers,
   answerResolvers,
   collaboratorResolvers,
+  contactUsResolvers,
   feedback,
   memberResolvers,
   memberRoleResolvers,

@@ -20,6 +20,7 @@ import {
   sendTemplateCollaborationEmail,
   sendProjectCollaboratorsCommentsAddedEmail,
   sendFeedbackCompleteEmail,
+  sendContactUsEmail,
 } from "../emailService";
 import { generalConfig } from "../../config/generalConfig";
 import { emailConfig } from "../../config/emailConfig";
@@ -334,7 +335,7 @@ describe('sendEmail', () => {
       .replace('%{helpUrl}', `${domain}/help`);
 
     expect(sent).toBe(true);
-    expect(logger.info).toHaveBeenCalledTimes(emails.length + 2); // accounting for additional info logs for sending and finishing
+    expect(logger.info).toHaveBeenCalledTimes(emails.length);
     expect(mockSendEmail).toHaveBeenCalledTimes(emails.length);
     for (const email of emails) {
       const expectedHtml = baseHtml.replace('%{adminEmail}', email);
@@ -349,5 +350,35 @@ describe('sendEmail', () => {
         "to": email,
       });
     }
+  });
+
+  it('should send the contact us email', async () => {
+    jest.spyOn(logger, 'info');
+    const name = `${casual.first_name} ${casual.last_name}`;
+    const email = casual.email;
+    const subject = casual.sentence;
+    const message = casual.sentence;
+
+    const sent = await sendContactUsEmail(context, name, email, subject, message);
+
+    const expectedSubject = `${subjectPrefix} - ${emailSubjects.contactUs}: ${subject}`;
+    const attribution = `Sent by ${name} <${email}>`;
+    const expectedHtml = emailMessages.contactUs
+      .replace('%{message}', message)
+      .replace('%{attribution}', attribution);
+
+    expect(sent).toBe(true);
+    expect(logger.info).toHaveBeenCalledTimes(1);
+    expect(mockSendEmail).toHaveBeenCalledTimes(1);
+    expect(mockSendEmail).toHaveBeenCalledWith({
+      "bcc": email,
+      "cc": "",
+      "from": `"${generalConfig.applicationName}" <${emailConfig.doNotReplyAddress}>`,
+      "html": expectedHtml,
+      "replyTo": email,
+      "sender": emailConfig.doNotReplyAddress,
+      "subject": expectedSubject,
+      "to": emailConfig.helpDeskAddress,
+    });
   });
 });

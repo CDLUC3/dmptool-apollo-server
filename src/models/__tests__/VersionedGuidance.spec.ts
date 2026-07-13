@@ -47,11 +47,9 @@ describe('VersionedGuidance', () => {
     expect(versionedGuidance.errors['versionedGuidanceGroupId']).toBeTruthy();
   });
 
-  it('should return false when calling isValid without a tagId', async () => {
+  it('should return true when calling isValid without a tagId', async () => {
     versionedGuidance.tagId = null;
-    expect(await versionedGuidance.isValid()).toBe(false);
-    expect(Object.keys(versionedGuidance.errors).length).toBe(1);
-    expect(versionedGuidance.errors['tagId']).toBeTruthy();
+    expect(await versionedGuidance.isValid()).toBe(true);
   });
 });
 

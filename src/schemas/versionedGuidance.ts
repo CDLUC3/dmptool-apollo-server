@@ -64,7 +64,7 @@ export const typeDefs = gql`
     "The guidance text content"
     guidanceText: String
     "The Tag ID (one of the associated tags)"
-    tagId: Int!
+    tagId: Int
 
     "The VersionedGuidanceGroup this belongs to"
     versionedGuidanceGroup: VersionedGuidanceGroup

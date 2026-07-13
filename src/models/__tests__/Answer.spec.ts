@@ -130,9 +130,9 @@ describe('Answer', () => {
           ...baseJSON.answer[0].columns,
           {
             type: "selectBox",
-            commonStandardId: 'type',
-            answer: "Unknown",
             meta: { schemaVersion: CURRENT_SCHEMA_VERSION },
+            answer: "dataset",
+            commonStandardId: 'type',
           }
         ]
       }],
@@ -157,9 +157,9 @@ describe('Answer', () => {
             },
             {
               type: "selectBox",
-              commonStandardId: 'type',
-              answer: "dataset",
               meta: { schemaVersion: CURRENT_SCHEMA_VERSION },
+              answer: "dataset",
+              commonStandardId: 'type',
             }
           ]
         },
@@ -173,9 +173,9 @@ describe('Answer', () => {
             },
             {
               type: "selectBox",
-              commonStandardId: 'type',
-              answer: "",
               meta: { schemaVersion: CURRENT_SCHEMA_VERSION },
+              answer: "",
+              commonStandardId: 'type',
             }
           ]
         }
@@ -187,7 +187,7 @@ describe('Answer', () => {
     answer.json = JSON.stringify(baseJSON);
 
     const expectedJSON = baseJSON;
-    expectedJSON.answer[1].columns[1].answer = "Unknown";
+    expectedJSON.answer[1].columns[1].answer = "dataset";
     answer.prepForSave();
     expect(answer.json).toEqual(JSON.stringify(expectedJSON));
   });

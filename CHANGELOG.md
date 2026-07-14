@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added a `plansByProjectId` query and resolver
 - Added an `updatePlan` mutation and resolver
 - Added `contactUs` resolver to allow users to send us emails [#297]
 - Added a scripts/sql/ directory to store useful maintenance and debugging scripts

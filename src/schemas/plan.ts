@@ -4,10 +4,11 @@ export const typeDefs = gql`
   extend type Query {
     "Get all plans for the research project with pagination support"
     plans(userId: Int!,term: String, paginationOptions: PaginationOptions): PaginatedPlanResults
+    "Get all of the plans for a specific Project"
+    plansByProjectId(projectId: Int!): [Plan]
 
     "Get a specific plan"
     plan(planId: Int!): Plan
-
     "Lookup a plan by its DMP id"
     planByDMPId(dmpId: String!): Plan
     "Lookup a plan by an alternate identifier"

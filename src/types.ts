@@ -3459,6 +3459,8 @@ export type Query = {
   planMembers?: Maybe<Array<Maybe<PlanMember>>>;
   /** Get all plans for the research project with pagination support */
   plans?: Maybe<PaginatedPlanResults>;
+  /** Get all of the plans for a specific Project */
+  plansByProjectId?: Maybe<Array<Maybe<Plan>>>;
   /** Returns a list of the top 20 funders ranked by popularity (nbr of plans) for the past year */
   popularFunders?: Maybe<Array<Maybe<FunderPopularityResult>>>;
   /** Get a specific project */
@@ -3794,6 +3796,11 @@ export type QueryPlansArgs = {
   paginationOptions?: InputMaybe<PaginationOptions>;
   term?: InputMaybe<Scalars['String']['input']>;
   userId: Scalars['Int']['input'];
+};
+
+
+export type QueryPlansByProjectIdArgs = {
+  projectId: Scalars['Int']['input'];
 };
 
 
@@ -7895,6 +7902,7 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   planFundings?: Resolver<Maybe<Array<Maybe<ResolversTypes['PlanFunding']>>>, ParentType, ContextType, RequireFields<QueryPlanFundingsArgs, 'planId'>>;
   planMembers?: Resolver<Maybe<Array<Maybe<ResolversTypes['PlanMember']>>>, ParentType, ContextType, RequireFields<QueryPlanMembersArgs, 'planId'>>;
   plans?: Resolver<Maybe<ResolversTypes['PaginatedPlanResults']>, ParentType, ContextType, RequireFields<QueryPlansArgs, 'userId'>>;
+  plansByProjectId?: Resolver<Maybe<Array<Maybe<ResolversTypes['Plan']>>>, ParentType, ContextType, RequireFields<QueryPlansByProjectIdArgs, 'projectId'>>;
   popularFunders?: Resolver<Maybe<Array<Maybe<ResolversTypes['FunderPopularityResult']>>>, ParentType, ContextType>;
   project?: Resolver<Maybe<ResolversTypes['Project']>, ParentType, ContextType, RequireFields<QueryProjectArgs, 'projectId'>>;
   projectCollaborators?: Resolver<Maybe<Array<Maybe<ResolversTypes['ProjectCollaborator']>>>, ParentType, ContextType, RequireFields<QueryProjectCollaboratorsArgs, 'projectId'>>;

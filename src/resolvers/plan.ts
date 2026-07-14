@@ -1,5 +1,5 @@
-import {GraphQLError} from "graphql";
-import {MyContext} from "../context";
+import { GraphQLError } from "graphql";
+import { MyContext } from "../context";
 import {
   Plan,
   PlanProgress,
@@ -8,17 +8,17 @@ import {
   PlanStatus,
   PlanVisibility
 } from "../models/Plan";
-import {Project} from "../models/Project";
-import {User, UserRole} from "../models/User";
-import {PlanMember} from "../models/Member";
-import {PlanFunding} from "../models/Funding";
-import {PlanFeedback} from "../models/PlanFeedback";
-import {Affiliation} from "../models/Affiliation";
-import {VersionedTemplate} from "../models/VersionedTemplate";
-import {Answer} from "../models/Answer";
-import {ProjectCollaboratorAccessLevel} from "../models/Collaborator";
-import {AlternateIdentifier} from "../models/AlternateIdentifier";
-import {isNullOrUndefined, normaliseDateTime} from "../utils/helpers";
+import { Project } from "../models/Project";
+import { User, UserRole } from "../models/User";
+import { PlanMember } from "../models/Member";
+import { PlanFunding } from "../models/Funding";
+import { PlanFeedback } from "../models/PlanFeedback";
+import { Affiliation } from "../models/Affiliation";
+import { VersionedTemplate } from "../models/VersionedTemplate";
+import { Answer } from "../models/Answer";
+import { ProjectCollaboratorAccessLevel } from "../models/Collaborator";
+import { AlternateIdentifier } from "../models/AlternateIdentifier";
+import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
 import {
   AuthenticationError,
   ForbiddenError,
@@ -31,8 +31,8 @@ import {
   PaginationOptionsForOffsets,
   PaginationType
 } from "../types/general";
-import {PaginatedPlanResults, PlanFeedbackStatus, Resolvers} from "../types";
-import {prepareObjectForLogs} from "../logger";
+import { PaginatedPlanResults, PlanFeedbackStatus, Resolvers } from "../types";
+import { prepareObjectForLogs } from "../logger";
 
 // Services
 import {
@@ -49,7 +49,6 @@ import {
   isAuthorized,
   isSuperAdmin
 } from "../services/authService";
-
 
 export const resolvers: Resolvers = {
   Query: {

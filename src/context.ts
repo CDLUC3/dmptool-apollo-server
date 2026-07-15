@@ -1,5 +1,6 @@
 import { Logger } from 'pino';
 import { DMPHubAPI } from './datasources/dmphubAPI'
+import { EZIDAPI } from './datasources/EZIDAPI';
 import { MySQLConnection } from './datasources/mysql';
 import { JWTAccessToken } from './services/tokenService';
 import { randomHex } from './utils/helpers';
@@ -21,6 +22,7 @@ export interface MyContext extends BaseContext {
   // Instances of the data sources the system uses to access information
   dataSources: {
     dmphubAPIDataSource: DMPHubAPI;
+    ezidAPIDataSource: EZIDAPI;
     sqlDataSource: MySQLConnection;
   };
 }
@@ -32,8 +34,9 @@ export function buildContext(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   cache: any | null = null,
   token: JWTAccessToken | null = null,
-  sqlDataSource: MySQLConnection | null = null ,
+  sqlDataSource: MySQLConnection | null = null,
   dmphubAPIDataSource: DMPHubAPI | null = null,
+  ezidAPIDataSource: EZIDAPI | null = null,
 ): MyContext {
   if (!cache) {
     // If calling from outside the Apollo server context setup an HttpCache.
@@ -60,8 +63,8 @@ export function buildContext(
       requestId,
       dataSources: {
         dmphubAPIDataSource: dmphubAPIDataSource,
+        ezidAPIDataSource: ezidAPIDataSource,
         sqlDataSource: sqlDataSource,
-
       }
     }
   } catch(err) {

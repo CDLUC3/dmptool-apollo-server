@@ -3,6 +3,8 @@
 ## v1.1.0
 
 ### Added
+- Added files for EZID creation: `config/ezidConfig.ts` and `datasources/EZIDAPI.ts`, and updated `Plan.publish` to call on the new `registerIdentifier` [#32]
+- Added new `buildDataCiteXMLForPlan` to build XML for EZID registration in `planService.ts` and added new `dataciteXMLService.ts` with helper functions for the new `buildDataCiteXMLForPlan` function [#32]
 - Added a `plansByProjectId` query and resolver
 - Added an `updatePlan` mutation and resolver
 - Added `contactUs` resolver to allow users to send us emails [#297]

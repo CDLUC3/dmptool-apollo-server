@@ -1,3 +1,4 @@
+import { ORCID_REGEX } from '../utils/helpers';
 export interface DataCitePerson {
   givenName?: string;
   familyName: string;
@@ -119,18 +120,13 @@ function twoCharLanguage(languageId?: string): string {
   return languageId.split('-')[0].toLowerCase() || 'en';
 }
 
-// Strict ORCID format: 4 groups of 4 digits, last group's final char may be X.
-const ORCID_FORMAT = /^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/;
-
 // Normalize an ORCID value (which may already be a full URL, on either
-// production orcid.org or the sandbox.orcid.org test environment) to a
-// bare ID. Returns undefined if the value isn't a well-formed ORCID —
-// saw several cases of users entering invalid ORCIDs, so we don't want to
-// blindly pass them through to DataCite.
+// production or sandbox orcid.org, or www./pub. variants) to a bare ID.
+// Returns undefined if the value isn't a well-formed ORCID.
 function normalizeOrcid(orcid?: string | null): string | undefined {
   if (!orcid) return undefined;
-  const bareId = orcid.replace(/^https?:\/\/(sandbox\.)?orcid\.org\//, '').trim();
-  return ORCID_FORMAT.test(bareId) ? bareId : undefined;
+  const match = orcid.trim().match(ORCID_REGEX);
+  return match ? match[5] : undefined;
 }
 
 // Resolves an Affiliation's identifier + scheme for embedding in

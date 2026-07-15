@@ -5,6 +5,8 @@
 ### Added
 - Added files for EZID creation: `config/ezidConfig.ts` and `datasources/EZIDAPI.ts`, and updated `Plan.publish` to call on the new `registerIdentifier` [#32]
 - Added new `buildDataCiteXMLForPlan` to build XML for EZID registration in `planService.ts` and added new `dataciteXMLService.ts` with helper functions for the new `buildDataCiteXMLForPlan` function [#32]
+- Added a `plansByProjectId` query and resolver
+- Added an `updatePlan` mutation and resolver
 - Added `contactUs` resolver to allow users to send us emails [#297]
 - Added a scripts/sql/ directory to store useful maintenance and debugging scripts
 - Added `isArchived` field to the `users` table to help us filter those users out when returned in `users` response [#281]
@@ -110,6 +112,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated the `Answer` model to use the newly exported `DefaultResearchOutputTypeAnswer` from `@dmptool/types` instead of manually building it
 - Updated `Guidance` and `VersionedGuidance` classes to make `tagId` optional, since it was causing errors on `dev` where `guidance` records had no `tagId`. This is consistent with the `guidance` table schema which allows the `tagId` field to be `NULL` [#54]
 - Updated `emailService.ts` with the addition of `sendContactUsEmail` [#297]
 - Updated `plans` resolver to have pagination for a specified `userId` with optional `search term`, and added a chained resolver for `PlanSearchResult` for `templateOwnerAffiliationName` [#281]

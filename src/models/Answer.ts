@@ -5,11 +5,11 @@ import {
   removeNullAndUndefinedFromJSON,
 } from "../utils/helpers";
 import {
-  AnswerSchemaMap,
+  AnswerSchemaMap, AnyAnswerType,
   AnyResearchOutputTableColumnAnswerType,
-  ResearchOutputTableRowAnswerType,
-  CURRENT_SCHEMA_VERSION,
+  DefaultResearchOutputTypeAnswer,
   QuestionFormatsEnum,
+  ResearchOutputTableRowAnswerType,
   SelectBoxAnswerType
 } from "@dmptool/types";
 
@@ -111,7 +111,9 @@ export class Answer extends MySqlModel {
     // Extract the output type columns
     let modified = false;
 
-    // Process each output in the table
+    // Process each output in the table and make sure it has an output type column
+    // The RDA common standard requires one, but we don't force the column in the
+    // UI or the REST API.
     parsedJSON.answer = parsedJSON.answer.map((row: ResearchOutputTableRowAnswerType) => {
       const columns: AnyResearchOutputTableColumnAnswerType[] = row.columns || [];
       const typeCol = columns.find((col: AnyResearchOutputTableColumnAnswerType) => {
@@ -122,22 +124,14 @@ export class Answer extends MySqlModel {
       if (!typeCol || !typeCol.answer || typeCol.answer.trim() === '') {
         modified = true;
 
-        // Create the default column object
-        const defaultTypeCol: SelectBoxAnswerType = {
-          type: "selectBox",
-          commonStandardId: 'type',
-          answer: "Unknown",
-          meta: { schemaVersion: CURRENT_SCHEMA_VERSION },
-        } as unknown as SelectBoxAnswerType;
-
-        // Return the row with the updated columns list
+        // Return the row with the default output type added on
         return {
           ...row,
           columns: [
             ...columns.filter((col: AnyResearchOutputTableColumnAnswerType) => {
               return col.commonStandardId !== 'type';
             }),
-            defaultTypeCol
+            DefaultResearchOutputTypeAnswer
           ]
         };
       }
@@ -149,6 +143,60 @@ export class Answer extends MySqlModel {
     if (modified) {
       this.json = JSON.stringify(parsedJSON);
     }
+  }
+
+  // Process the raw question data that was returned from the database
+  static processResult(answer: Answer): Answer{
+
+    // If it's a researchOutputTable we need to ensure that the columns have a commonStandardId.
+    // The commonStandardId was added later, so this will help us gradually self correct.
+    // TODO: This can be removed once we begin migrating for go-live because we will be generating the JSON
+    //       correctly at that point
+    const json: AnyAnswerType = typeof answer.json === 'string' ? JSON.parse(answer.json || '{}') : answer.json;
+    if (json && json.type === 'researchOutputTable') {
+      for (const row of json.answer) {
+        for (const [idx, col] of row.columns.entries()) {
+          if (!col.commonStandardId) {
+            switch (col.type) {
+              case 'text':
+                // Check the ordinal position here because custom fields are also text type
+                if (idx === 0) col.commonStandardId = 'title';
+                break;
+              case 'textArea':
+                col.commonStandardId = 'description';
+                break;
+              case 'selectBox':
+                col.commonStandardId = 'type';
+                break;
+              case 'checkBoxes':
+                col.commonStandardId = 'data_flags';
+                break;
+              case 'repositorySearch':
+                col.commonStandardId = 'host';
+                break;
+              case 'metadataStandardSearch':
+                col.commonStandardId = 'metadata';
+                break;
+              case 'licenseSearch':
+                col.commonStandardId = 'license_ref';
+                break;
+              case 'radioButtons':
+                col.commonStandardId = 'data_access';
+                break;
+              case 'date':
+                col.commonStandardId = 'issued';
+                break;
+              case 'numberWithContext':
+                col.commonStandardId = 'byte_size';
+                break;
+            }
+          }
+        }
+      }
+      answer.json = JSON.stringify(json);
+    }
+
+    return answer;
   }
 
   //Create a new Answer
@@ -222,7 +270,7 @@ export class Answer extends MySqlModel {
   static async findById(reference: string, context: MyContext, licenseId: number): Promise<Answer> {
     const sql = `SELECT * FROM ${Answer.tableName} WHERE id = ?`;
     const results = await Answer.query(context, sql, [licenseId?.toString()], reference);
-    return Array.isArray(results) && results.length > 0 ? new Answer(results[0]) : null;
+    return Array.isArray(results) && results.length > 0 ? new Answer(Answer.processResult(results[0])) : null;
   }
 
   // Fetch an Answer by its planId and versionedQuestionId
@@ -234,7 +282,7 @@ export class Answer extends MySqlModel {
   ): Promise<Answer> {
     const sql = `SELECT * FROM answers WHERE planId = ? AND versionedQuestionId = ?`;
     const results = await Answer.query(context, sql, [planId.toString(), versionedQuestionId.toString()], reference);
-    return Array.isArray(results) && results.length > 0 ? new Answer(results[0]) : null;
+    return Array.isArray(results) && results.length > 0 ? new Answer(Answer.processResult(results[0])) : null;
   }
 
   static async findByPlanIdAndVersionedCustomQuestionId(
@@ -245,7 +293,7 @@ export class Answer extends MySqlModel {
   ): Promise<Answer> {
     const sql = `SELECT * FROM answers WHERE planId = ? AND versionedCustomQuestionId = ?`;
     const results = await Answer.query(context, sql, [planId.toString(), versionedCustomQuestionId.toString()], reference);
-    return Array.isArray(results) && results.length > 0 ? new Answer(results[0]) : null;
+    return Array.isArray(results) && results.length > 0 ? new Answer(Answer.processResult(results[0])) : null;
   }
 
 
@@ -258,14 +306,14 @@ export class Answer extends MySqlModel {
   ): Promise<Answer[]> {
     const sql = `SELECT * FROM answers WHERE planId = ? AND versionedSectionId = ?`;
     const results = await Answer.query(context, sql, [planId.toString(), versionedSectionId.toString()], reference);
-    return Array.isArray(results) && results.length > 0 ? results.map((ans) => new Answer(ans)) : [];
+    return Array.isArray(results) && results.length > 0 ? results.map((ans) => new Answer(Answer.processResult(ans))) : [];
   }
 
   // Fetch all of the answers for a plan
   static async findByPlanId(reference: string, context: MyContext, planId: number): Promise<Answer[]> {
     const sql = `SELECT * FROM answers WHERE planId = ?`;
     const results = await Answer.query(context, sql, [planId.toString()], reference);
-    return Array.isArray(results) && results.length > 0 ? results.map((ans) => new Answer(ans)) : [];
+    return Array.isArray(results) && results.length > 0 ? results.map((ans) => new Answer(Answer.processResult(ans))) : [];
   }
 
   // given a list of question ids, return all filled answers, flexible to handle different groupings of question ids
@@ -278,11 +326,11 @@ export class Answer extends MySqlModel {
     if (!Array.isArray(questionIds) || questionIds.length === 0) return [];
 
     const placeholders = questionIds.map(() => '?').join(', ');
-    const sql = `SELECT * FROM answers WHERE planId = ? 
+    const sql = `SELECT * FROM answers WHERE planId = ?
       AND versionedQuestionId IN (${placeholders})
       AND ${FILLED_ANSWER_CHECK}`;
     const results = await Answer.query(context, sql, [String(planId), ...questionIds.map(String)], reference);
-    return Array.isArray(results) && results.length > 0 ? results.map((ans) => new Answer(ans)) : [];
+    return Array.isArray(results) && results.length > 0 ? results.map((ans) => new Answer(Answer.processResult(ans))) : [];
   }
 
   // Given a list of question ids, return all filled answers for custom questions
@@ -295,11 +343,11 @@ export class Answer extends MySqlModel {
     if (!Array.isArray(customQuestionIds) || customQuestionIds.length === 0) return [];
 
     const placeholders = customQuestionIds.map(() => '?').join(', ');
-    const sql = `SELECT * FROM answers 
-    WHERE planId = ? 
-    AND versionedCustomQuestionId IN (${placeholders}) 
+    const sql = `SELECT * FROM answers
+    WHERE planId = ?
+    AND versionedCustomQuestionId IN (${placeholders})
     AND ${FILLED_ANSWER_CHECK}`;
     const results = await Answer.query(context, sql, [String(planId), ...customQuestionIds.map(String)], reference);
-    return Array.isArray(results) && results.length > 0 ? results.map((ans) => new Answer(ans)) : [];
+    return Array.isArray(results) && results.length > 0 ? results.map((ans) => new Answer(Answer.processResult(ans))) : [];
   }
 };

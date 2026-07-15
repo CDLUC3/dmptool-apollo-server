@@ -266,7 +266,6 @@ export const resolvers: Resolvers = {
     },
 
     // Publish/register the plan with the DOI registrar (e.g. EZID/DataCite)
-    // Publish/register the plan with the DOI registrar (e.g. EZID/DataCite)
     publishPlan: async (_, { planId, visibility = PlanVisibility.PRIVATE }, context: MyContext): Promise<Plan> => {
       const reference = 'publish plan resolver';
       try {

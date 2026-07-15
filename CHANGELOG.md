@@ -4,6 +4,7 @@
 
 ### Added
 - Added files for EZID creation: `config/ezidConfig.ts` and `datasources/EZIDAPI.ts`, and updated `Plan.publish` to call on the new `registerIdentifier` [#32]
+- Added new `buildDataCiteXMLForPlan` to build XML for EZID registration in `planService.ts` and added new `dataciteXMLService.ts` with helper functions for the new `buildDataCiteXMLForPlan` function [#32]
 - Added `contactUs` resolver to allow users to send us emails [#297]
 - Added a scripts/sql/ directory to store useful maintenance and debugging scripts
 - Added `isArchived` field to the `users` table to help us filter those users out when returned in `users` response [#281]

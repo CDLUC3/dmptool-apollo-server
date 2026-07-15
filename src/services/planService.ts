@@ -19,7 +19,12 @@ import { getDynamoConnectionParams } from "../config/awsConfig";
 import { generalConfig } from "../config/generalConfig";
 import { DMPToolDMPType } from "@dmptool/types";
 import { getRDSConnectionParams } from "../config/mysqlConfig";
-import { buildDataCiteXML, planToDataCiteMetadata } from "./dataciteXMLService";
+import {
+  buildDataCiteXML,
+  planToDataCiteMetadata,
+  DataCiteSourceAffiliation,
+  DataCiteSourceFundingAffiliation
+} from "./dataciteXMLService";
 
 
 /**
@@ -141,7 +146,7 @@ export const ensureDefaultPlanContact = async (
 }
 
 /**
- * Gathers a project's members, fundings, and alternate identifiers and builds
+ * Gathers project members, fundings, and alternate identifiers and builds
  * the DataCite XML document to submit to EZID at publish time.
  *
  * @param context The apollo context object
@@ -155,16 +160,13 @@ export async function buildDataCiteXMLForPlan(context: MyContext, plan: Plan, pr
   const resolvedProject = project ?? await Project.findById(reference, context, plan.projectId);
 
   // --- Members ---
-  // DataCite creators/contributors reflect the project's actual research
-  // team (ProjectMember), not PlanMember — PlanMembers represent who has
-  // edit access to this specific plan document, a separate concept from
-  // research authorship/contribution.
+  // Project members
   const projectMembers = await ProjectMember.findByProjectId(reference, context, plan.projectId);
 
   const members = await Promise.all(projectMembers.map(async (pm) => {
     const memberRoles = await MemberRole.findByProjectMemberId(reference, context, pm.id);
 
-    let affiliation;
+    let affiliation: DataCiteSourceAffiliation | undefined;
     if (pm.affiliationId) {
       const aff = await Affiliation.findByURI(reference, context, pm.affiliationId);
       if (aff) {
@@ -184,14 +186,14 @@ export async function buildDataCiteXMLForPlan(context: MyContext, plan: Plan, pr
     };
   }));
 
-  // --- Fundings ---
+  // --- Plan Fundings ---
   const planFundings = await PlanFunding.findByPlanId(reference, context, plan.id);
 
   const fundings = await Promise.all(planFundings.map(async (pf) => {
     const projectFunding = await ProjectFunding.findById(reference, context, pf.projectFundingId);
     if (!projectFunding) return { projectFunding: undefined };
 
-    let affiliation;
+    let affiliation: DataCiteSourceFundingAffiliation | undefined;
     if (projectFunding.affiliationId) {
       const aff = await Affiliation.findByURI(reference, context, projectFunding.affiliationId);
       if (aff) {
@@ -216,6 +218,7 @@ export async function buildDataCiteXMLForPlan(context: MyContext, plan: Plan, pr
   const dataciteInput = planToDataCiteMetadata({
     title: plan.title,
     abstractText: resolvedProject?.abstractText,
+    language: plan.languageId,
     members,
     fundings,
     alternateIdentifiers,

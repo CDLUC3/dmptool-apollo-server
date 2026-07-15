@@ -1,4 +1,65 @@
-// src/services/dataciteXMLService.ts
+export interface DataCitePerson {
+  givenName?: string;
+  familyName: string;
+  orcid?: string;              // bare or full URL — normalized internally
+  affiliationName?: string;
+  affiliationIdentifier?: DataCiteAffiliationIdentifier;
+}
+
+export interface DataCiteContributor extends DataCitePerson {
+  contributorType: string;
+}
+
+export interface DataCiteFunder {
+  name: string;
+  identifier?: string;         // ROR URL or Crossref Funder ID
+  identifierType?: 'ROR' | 'Crossref Funder ID';
+  awardNumber?: string;
+  awardTitle?: string;
+}
+
+export interface DataCiteAlternateIdentifier {
+  identifier: string;
+  identifierType: string;      // e.g. "DOI", "URL", "Local"
+}
+
+export interface DataCiteDescription {
+  text: string;
+  type?: string;                 // defaults to "Abstract"
+  lang?: string;
+}
+
+export interface DataCiteMetadataInput {
+  title: string;
+  titleLang?: string;
+  creators: DataCitePerson[];
+  contributors?: DataCiteContributor[];
+  publisher: string;
+  publisherLang?: string;
+  publicationYear: string;
+  language?: string;             // e.g. "en"
+  resourceTypeGeneral: string;   // e.g. "OutputManagementPlan"
+  resourceType?: string;         // free-text specific type, e.g. "Data Management Plan"
+  descriptions?: DataCiteDescription[];
+  fundingReferences?: DataCiteFunder[];
+  alternateIdentifiers?: DataCiteAlternateIdentifier[];
+}
+
+export interface DataCiteAffiliationIdentifier {
+  id: string;
+  scheme: string; // e.g. "ROR"
+}
+
+export interface DataCiteSourceAffiliation {
+  name: string;
+  uri?: string;
+  provenance?: string;
+}
+
+export interface DataCiteSourceFundingAffiliation extends DataCiteSourceAffiliation {
+  fundrefId?: string;
+}
+
 
 // Escapes for embedding inside XML text content or attribute values
 function escapeXML(s: string): string {
@@ -49,23 +110,27 @@ function creditUriToContributorType(uri?: string): string {
   return CREDIT_TO_DATACITE_CONTRIBUTOR_TYPE[normalizeRoleUri(uri)] ?? DEFAULT_CONTRIBUTOR_TYPE;
 }
 
+// DataCite's <language> element expects an ISO 639-1-style code (e.g. "en"),
+// not a full locale — unlike xml:lang attributes, which accept locale tags
+// like "en-US" directly. Plan.languageId is stored as a locale (e.g. "en-US"),
+// so this strips it down for use in <language>.
+function twoCharLanguage(languageId?: string): string {
+  if (!languageId) return 'en';
+  return languageId.split('-')[0].toLowerCase() || 'en';
+}
+
 // Strict ORCID format: 4 groups of 4 digits, last group's final char may be X.
 const ORCID_FORMAT = /^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/;
 
 // Normalize an ORCID value (which may already be a full URL, on either
 // production orcid.org or the sandbox.orcid.org test environment) to a
 // bare ID. Returns undefined if the value isn't a well-formed ORCID —
-// e.g. stray usernames or hashes that shouldn't be emitted to DataCite
-// as if they were a valid nameIdentifier.
+// saw several cases of users entering invalid ORCIDs, so we don't want to
+// blindly pass them through to DataCite.
 function normalizeOrcid(orcid?: string | null): string | undefined {
   if (!orcid) return undefined;
   const bareId = orcid.replace(/^https?:\/\/(sandbox\.)?orcid\.org\//, '').trim();
   return ORCID_FORMAT.test(bareId) ? bareId : undefined;
-}
-
-export interface DataCiteAffiliationIdentifier {
-  id: string;
-  scheme: string; // e.g. "ROR"
 }
 
 // Resolves an Affiliation's identifier + scheme for embedding in
@@ -83,52 +148,6 @@ export function resolveAffiliationIdentifier(affiliation?: {
   return undefined;
 }
 
-export interface DataCitePerson {
-  givenName?: string;
-  familyName: string;
-  orcid?: string;              // bare or full URL — normalized internally
-  affiliationName?: string;
-  affiliationIdentifier?: DataCiteAffiliationIdentifier;
-}
-
-export interface DataCiteContributor extends DataCitePerson {
-  contributorType: string;
-}
-
-export interface DataCiteFunder {
-  name: string;
-  identifier?: string;         // ROR URL or Crossref Funder ID
-  identifierType?: 'ROR' | 'Crossref Funder ID';
-  awardNumber?: string;
-  awardTitle?: string;
-}
-
-export interface DataCiteAlternateIdentifier {
-  identifier: string;
-  identifierType: string;      // e.g. "DOI", "URL", "Local"
-}
-
-export interface DataCiteDescription {
-  text: string;
-  type?: string;                 // defaults to "Abstract"
-  lang?: string;                 // defaults to "en"
-}
-
-export interface DataCiteMetadataInput {
-  title: string;
-  titleLang?: string;            // defaults to "en"
-  creators: DataCitePerson[];
-  contributors?: DataCiteContributor[];
-  publisher: string;
-  publisherLang?: string;        // defaults to "en"
-  publicationYear: string;
-  language?: string;             // e.g. "en"
-  resourceTypeGeneral: string;   // e.g. "OutputManagementPlan"
-  resourceType?: string;         // free-text specific type, e.g. "Data Management Plan"
-  descriptions?: DataCiteDescription[];
-  fundingReferences?: DataCiteFunder[];
-  alternateIdentifiers?: DataCiteAlternateIdentifier[];
-}
 
 function buildCreatorXML(c: DataCitePerson): string {
   const displayName = `${escapeXML(c.familyName)}, ${escapeXML(c.givenName ?? '')}`;
@@ -188,6 +207,7 @@ function buildAlternateIdentifierXML(a: DataCiteAlternateIdentifier): string {
 // Builds a DataCite Kernel-4 XML record for submission to EZID as the
 // value of the "datacite" ANVL element. EZID overwrites <identifier>'s
 // content at registration time, but the element must be present.
+// Reference for metadata Schema: https://ezid-stg.cdlib.org/doc/apidoc.html#metadata-profiles
 export function buildDataCiteXML(m: DataCiteMetadataInput): string {
   const creators = m.creators.map(buildCreatorXML).join('');
   const contributors = (m.contributors ?? []).map(buildContributorXML).join('');
@@ -225,32 +245,33 @@ export function buildDataCiteXML(m: DataCiteMetadataInput): string {
 
 // Maps a Project's members/fundings/alternateIdentifiers into DataCite
 // metadata input. The project's primary-contact member becomes the DataCite
-// creator; all other members become contributors, mapped from their
-// CRediT role (falling back to "Other" for DMPTool's "No Role Assigned"
-// role or any unrecognized/missing role).
+// creator; all members become contributors, ...
 export function planToDataCiteMetadata(input: {
   title: string;
   abstractText?: string;
-  members: Array<{
+  language?: string;
+  members: {
     isPrimaryContact?: boolean;
-    memberRoles?: Array<{ uri: string }>;
+    memberRoles?: { uri: string }[];
     projectMember?: {
       givenName?: string;
       surName?: string;
       orcid?: string;
       affiliation?: { name: string; uri?: string; provenance?: string };
     };
-  }>;
-  fundings: Array<{
+  }[];
+  fundings: {
     projectFunding?: {
       affiliation?: { name: string; uri?: string; provenance?: string; fundrefId?: string };
       grantId?: string;
     };
-  }>;
-  alternateIdentifiers: Array<{ alternateIdentifier: string }>;
+  }[];
+  alternateIdentifiers: { alternateIdentifier: string }[];
   publisher: string;
   publicationYear: string;
 }): DataCiteMetadataInput {
+  const twoCharLang = twoCharLanguage(input.language);
+
   const toPerson = (pm?: {
     givenName?: string; surName?: string; orcid?: string;
     affiliation?: { name: string; uri?: string; provenance?: string };
@@ -265,13 +286,14 @@ export function planToDataCiteMetadata(input: {
     };
   };
 
+  // Setting creator as the member who is primary contact
   const creators = input.members
     .filter(m => m.isPrimaryContact)
     .map(m => toPerson(m.projectMember))
     .filter((p): p is DataCitePerson => !!p);
 
+  // Project members are contributors, with their CRediT role mapped to DataCite's contributorType.
   const contributors = input.members
-    .filter(m => !m.isPrimaryContact)
     .map(m => {
       const person = toPerson(m.projectMember);
       if (!person) return undefined;
@@ -280,11 +302,16 @@ export function planToDataCiteMetadata(input: {
     })
     .filter((c): c is DataCiteContributor => !!c);
 
+  // Plan funders
   const fundingReferences: DataCiteFunder[] = input.fundings
     .map(f => f.projectFunding)
     .filter((pf): pf is NonNullable<typeof pf> => !!pf?.affiliation?.name)
     .map(pf => {
-      const affiliation = pf.affiliation!;
+      if (!pf.affiliation) {
+        // Unreachable due to the filter above, but keeps TS happy without `!`
+        throw new Error('Unexpected missing affiliation after filter');
+      }
+      const affiliation = pf.affiliation;
       const identifier = affiliation.fundrefId
         ? { identifier: affiliation.fundrefId, identifierType: 'Crossref Funder ID' as const }
         : affiliation.provenance?.toUpperCase() === 'ROR' && affiliation.uri
@@ -297,11 +324,8 @@ export function planToDataCiteMetadata(input: {
       };
     });
 
-  // ASSUMPTION: AlternateIdentifier holds another ID for *this* DMP
-  // (e.g. a legacy/local system ID), so it maps to DataCite's
-  // <alternateIdentifiers>, not <relatedIdentifiers>. If these actually
-  // point to a different, related resource, this should become a
-  // relatedIdentifier with a specific relationType instead.
+  // AlternateIdentifier holds another ID for *this* DMP,
+  // so it maps to DataCite's <alternateIdentifiers>, not <relatedIdentifiers>. 
   const alternateIdentifiers: DataCiteAlternateIdentifier[] = input.alternateIdentifiers.map(a => ({
     identifier: a.alternateIdentifier,
     identifierType: /^10\.\d{4,9}\//.test(a.alternateIdentifier) ? 'DOI' : 'Local',
@@ -315,11 +339,12 @@ export function planToDataCiteMetadata(input: {
     day: 'numeric',
     year: 'numeric',
   });
+
   const descriptionText = input.abstractText?.trim() || `Updated on ${formattedDate}`;
   const descriptions: DataCiteDescription[] = [{
     text: descriptionText,
     type: 'Abstract',
-    lang: 'en',
+    lang: twoCharLang,
   }];
 
   if (creators.length === 0) {
@@ -332,7 +357,9 @@ export function planToDataCiteMetadata(input: {
     contributors: contributors.length ? contributors : undefined,
     publisher: input.publisher,
     publicationYear: input.publicationYear,
-    language: 'en',
+    language: twoCharLang,
+    titleLang: input.language || 'en-US',
+    publisherLang: input.language || 'en-US',
     resourceTypeGeneral: 'OutputManagementPlan',
     resourceType: 'Data Management Plan',
     fundingReferences: fundingReferences.length ? fundingReferences : undefined,

@@ -3,6 +3,7 @@ import { prepareObjectForLogs } from '../logger';
 import { MyContext } from "../context";
 import { EZIDConfig } from "../config/ezidConfig";
 
+// Per the "Request & response bodies" EZID documentation (https://ezid.cdlib.org/doc/apidoc.html#request-response-bodies)
 // Percent-encode ANVL structural characters per EZID spec.
 // Names: encode %, newline, carriage-return, and colon.
 // Values: encode %, newline, and carriage-return (colons are allowed in values).
@@ -42,7 +43,7 @@ function parseEZIDResponse(response: string): string {
 }
 
 // DataSource that interacts with the EZID API using HTTP Basic Authentication.
-// API reference: https://ezid.cdlib.org/doc/apidoc.html
+// API reference: https://ezid.cdlib.org/doc/apidoc.html#request-response-bodies
 export class EZIDAPI extends RESTDataSource {
   override baseURL = EZIDConfig.baseApiUrl;
 

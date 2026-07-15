@@ -1176,6 +1176,8 @@ describe('publish', () => {
   let updateQuery;
   let mockRegisterIdentifier: jest.Mock;
 
+  const mockDataciteXML = '<?xml version="1.0" encoding="UTF-8"?><resource>mock</resource>';
+
   beforeEach(() => {
     mockFindById = jest.fn();
     (Plan.findById as jest.Mock) = mockFindById;
@@ -1205,7 +1207,7 @@ describe('publish', () => {
   it('returns the newly published Plan', async () => {
     updateQuery.mockResolvedValueOnce(plan);
 
-    const result = await plan.publish(context);
+    const result = await plan.publish(context, PlanVisibility.PRIVATE, mockDataciteXML);
 
     expect(mockRegisterIdentifier).toHaveBeenCalledTimes(1);
     expect(Object.keys(result.errors).length).toBe(0);
@@ -1215,24 +1217,20 @@ describe('publish', () => {
   it('calls EZID registerIdentifier with the correct identifier and metadata', async () => {
     updateQuery.mockResolvedValueOnce(plan);
 
-    await plan.publish(context);
+    await plan.publish(context, PlanVisibility.PRIVATE, mockDataciteXML);
 
     expect(mockRegisterIdentifier).toHaveBeenCalledTimes(1);
     const [, identifier, metadata] = mockRegisterIdentifier.mock.calls[0];
     expect(identifier).toMatch(/^doi:/);
     expect(metadata['_profile']).toBe('datacite');
     expect(metadata['_target']).toMatch(/^https?:\/\/.+\/dmps\//);
-    expect(metadata['datacite.title']).toBe(plan.title);
-    expect(metadata['datacite.creator']).toBeTruthy();
-    expect(metadata['datacite.publisher']).toBeTruthy();
-    expect(metadata['datacite.resourcetype']).toBe('Text/Data Management Plan');
-    expect(metadata['datacite.publicationyear']).toBe(new Date().getFullYear().toString());
+    expect(metadata['datacite']).toBe(mockDataciteXML);
   });
 
   it('returns an error and does not update the DB if EZID registration fails', async () => {
     mockRegisterIdentifier.mockRejectedValueOnce(new Error('EZID error'));
 
-    const result = await plan.publish(context);
+    const result = await plan.publish(context, PlanVisibility.PRIVATE, mockDataciteXML);
 
     expect(mockRegisterIdentifier).toHaveBeenCalledTimes(1);
     expect(updateQuery).not.toHaveBeenCalled();
@@ -1242,7 +1240,7 @@ describe('publish', () => {
   it('returns an error if the dmpId is a temporary placeholder', async () => {
     plan.dmpId = `${DEFAULT_TEMPORARY_DMP_ID_PREFIX}abc123`;
 
-    const result = await plan.publish(context);
+    const result = await plan.publish(context, PlanVisibility.PRIVATE, mockDataciteXML);
 
     expect(mockRegisterIdentifier).not.toHaveBeenCalled();
     expect(result.errors['dmpId']).toBeTruthy();
@@ -1253,7 +1251,7 @@ describe('publish', () => {
     (plan.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
-    const result = await plan.publish(context);
+    const result = await plan.publish(context, PlanVisibility.PRIVATE, mockDataciteXML);
     expect(result instanceof Plan).toBe(true);
     expect(localValidator).toHaveBeenCalledTimes(1);
     expect(mockRegisterIdentifier).not.toHaveBeenCalled();
@@ -1263,10 +1261,26 @@ describe('publish', () => {
     plan.dmpId = getMockDMPId();
     plan.registered = getCurrentDate();
     plan.registeredById = casual.integer(1, 99);
-    const result = await plan.publish(context);
+    const result = await plan.publish(context, PlanVisibility.PRIVATE, mockDataciteXML);
     expect(Object.keys(result.errors).length).toBe(1);
     expect(result.errors['general']).toBeTruthy();
     expect(mockRegisterIdentifier).not.toHaveBeenCalled();
+  });
+
+  it('returns an error and does not call EZID if dataciteXML is not provided', async () => {
+    const result = await plan.publish(context, PlanVisibility.PRIVATE);
+
+    expect(mockRegisterIdentifier).not.toHaveBeenCalled();
+    expect(updateQuery).not.toHaveBeenCalled();
+    expect(result.errors['general']).toBeTruthy();
+  });
+
+  it('defaults visibility to PRIVATE when not provided', async () => {
+    updateQuery.mockResolvedValueOnce(plan);
+
+    await plan.publish(context, undefined, mockDataciteXML);
+
+    expect(plan.visibility).toBe(PlanVisibility.PRIVATE);
   });
 });
 

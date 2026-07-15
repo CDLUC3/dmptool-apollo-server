@@ -1,6 +1,13 @@
 import { GraphQLError } from "graphql";
 import { MyContext } from "../context";
-import { Plan, PlanSearchResult, PlanSectionProgress, PlanProgress, PlanStatus, PlanVisibility } from "../models/Plan";
+import {
+  Plan,
+  PlanProgress,
+  PlanSearchResult,
+  PlanSectionProgress,
+  PlanStatus,
+  PlanVisibility
+} from "../models/Plan";
 import { Project } from "../models/Project";
 import { User, UserRole } from "../models/User";
 import { PlanMember } from "../models/Member";
@@ -12,8 +19,18 @@ import { Answer } from "../models/Answer";
 import { ProjectCollaboratorAccessLevel } from "../models/Collaborator";
 import { AlternateIdentifier } from "../models/AlternateIdentifier";
 import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
-import { AuthenticationError, ForbiddenError, InternalServerError, NotFoundError } from "../utils/graphQLErrors";
-import { PaginationOptionsForCursors, PaginationOptionsForOffsets, PaginationOptions, PaginationType } from "../types/general";
+import {
+  AuthenticationError,
+  ForbiddenError,
+  InternalServerError,
+  NotFoundError
+} from "../utils/graphQLErrors";
+import {
+  PaginationOptions,
+  PaginationOptionsForCursors,
+  PaginationOptionsForOffsets,
+  PaginationType
+} from "../types/general";
 import { PaginatedPlanResults, PlanFeedbackStatus, Resolvers } from "../types";
 import { prepareObjectForLogs } from "../logger";
 
@@ -26,8 +43,12 @@ import {
   hasPermissionOnProject,
   isProjectReadOnlyForCurrentUser
 } from "../services/projectService";
-import { authenticatedResolver, isAuthorized, isAdmin, isSuperAdmin } from "../services/authService";
-
+import {
+  authenticatedResolver,
+  isAdmin,
+  isAuthorized,
+  isSuperAdmin
+} from "../services/authService";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -60,6 +81,32 @@ export const resolvers: Resolvers = {
             : { ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors;
 
           return await PlanSearchResult.findByUserIdWithPagination(reference, context, userId, opts, term);
+        } catch (err) {
+          if (err instanceof GraphQLError) throw err;
+          context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+          throw InternalServerError();
+        }
+      },
+    ),
+    // Find all the plans for a specified project
+    plansByProjectId: authenticatedResolver(
+      '`plansByProjectId` resolver',
+      UserRole.RESEARCHER,
+      async (
+        _: Record<PropertyKey, never>,
+        { projectId }: { projectId: number; },
+        context: MyContext
+      ): Promise<Plan[]> => {
+        const reference = 'plansByProjectId resolver';
+        try {
+          const project: Project = await Project.findById(reference, context, projectId);
+          if (!project) throw NotFoundError(`Project with ID ${projectId} not found`);
+
+          if (hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.COMMENT)) {
+            return await Plan.findByProjectId(reference, context, projectId);
+          }
+
+          throw context?.token ? ForbiddenError() : AuthenticationError();
         } catch (err) {
           if (err instanceof GraphQLError) throw err;
           context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
@@ -304,6 +351,41 @@ export const resolvers: Resolvers = {
               }
             }
             return plan;
+          }
+        }
+        throw context?.token ? ForbiddenError() : AuthenticationError();
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    },
+
+    updatePlan: async (_, { input }, context: MyContext): Promise<Plan> => {
+      const reference = 'update plan resolver';
+      try {
+        if (isAuthorized(context.token)) {
+          const plan = await Plan.findById(reference, context, input.id);
+          if (!plan) {
+            throw NotFoundError(`Plan with id ${input.id} not found`);
+          }
+          const project = await Project.findById(reference, context, plan.projectId);
+
+          if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.OWN)) {
+            plan.title = input.title ?? plan.title;
+            plan.status = input.status as PlanStatus ?? plan.status;
+            plan.visibility = input.visibility as PlanVisibility ?? plan.visibility;
+            plan.featured = input.featured ?? plan.featured;
+            plan.languageId = input.languageId ?? plan.languageId;
+
+            const updated = await plan.update(context);
+
+            if (updated && !updated.hasErrors()) {
+              // Update the maDMP version of the record
+              await saveMaDMPVersion(reference, context, updated.id, updated.dmpId);
+            }
+            return updated;
           }
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();

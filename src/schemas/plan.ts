@@ -4,10 +4,11 @@ export const typeDefs = gql`
   extend type Query {
     "Get all plans for the research project with pagination support"
     plans(userId: Int!,term: String, paginationOptions: PaginationOptions): PaginatedPlanResults
+    "Get all of the plans for a specific Project"
+    plansByProjectId(projectId: Int!): [Plan]
 
     "Get a specific plan"
     plan(planId: Int!): Plan
-
     "Lookup a plan by its DMP id"
     planByDMPId(dmpId: String!): Plan
     "Lookup a plan by an alternate identifier"
@@ -21,6 +22,8 @@ export const typeDefs = gql`
     uploadPlan(projectId: Int!, fileName: String, fileContent: String): Plan
     "Publish a plan (changes status to PUBLISHED)"
     publishPlan(planId: Int!, visibility: PlanVisibility): Plan
+    "Update a plan"
+    updatePlan(input: UpdatePlanInput): Plan
     "Change the plan's status"
     updatePlanStatus(planId: Int!, status: PlanStatus!): Plan
     "Change the plan's title"
@@ -220,6 +223,24 @@ export const typeDefs = gql`
 
     "Indicates that the plan is not editable by the user (i.e. readOnly = true means the user cannot edit the plan)"
     readOnly: Boolean
+  }
+
+  input UpdatePlanInput {
+    "The Plan id"
+    id: Int
+    "The title of the plan"
+    title: String
+    "The status of the plan"
+    status: PlanStatus
+    "The visibility of the plan"
+    visibility: PlanVisibility
+    "The language of the plan"
+    languageId: String
+    "Whether or not the plan is featured on the public plans page"
+    featured: Boolean
+
+    "Alternate identifiers for the plan"
+    alternateIdentifiers: [String!]
   }
 
   type AlternateIdentifier {

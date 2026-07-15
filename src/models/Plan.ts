@@ -749,17 +749,28 @@ export class Plan extends MySqlModel {
    *
    * @param context The Apollo context object
    * @param visibility The visibility of the plan. Defaults to PRIVATE.
+   * @param dataciteXML The DataCite XML metadata document to submit to EZID.
+   *                     Built ahead of time (see planService.buildDataCiteXMLForPlan)
+   *                     since it requires fetching the plan's members, fundings,
+   *                     and alternate identifiers.
    * @returns The updated Plan or the original Plan if something went wrong
    */
   // Publish the plan (register a DOI)
-  async publish(context: MyContext, visibility = PlanVisibility.PRIVATE): Promise<Plan> {
+  async publish(context: MyContext, visibility = PlanVisibility.PRIVATE, dataciteXML?: string): Promise<Plan> {
     if (this.id) {
       // Make sure the plan is valid
       if (await this.isValid()) {
         if (!this.isPublished()) {
+
           // Refuse to register a temporary placeholder DMP ID
           if (this.dmpId.startsWith(DEFAULT_TEMPORARY_DMP_ID_PREFIX)) {
             this.addError('dmpId', 'Plan does not have a valid DMP ID');
+            return new Plan(this);
+          }
+
+          // If the DataCite XML metadata document was not provided, we cannot register the DOI
+          if (!dataciteXML) {
+            this.addError('general', 'Unable to build DataCite metadata for this plan');
             return new Plan(this);
           }
 
@@ -768,21 +779,16 @@ export class Plan extends MySqlModel {
             generalConfig.dmpIdBaseURL,
             'doi:'
           );
+
           const doiSuffix = ezidIdentifier.replace('doi:', '');
           const domain = generalConfig.domain.startsWith('http')
             ? generalConfig.domain
             : `https://${generalConfig.domain}`;
-          const creatorName = [context.token.givenName, context.token.surName]
-            .filter(Boolean)
-            .join(' ') || 'Unknown';
+
           const metadata: Record<string, string> = {
             '_profile': 'datacite',
             '_target': `${domain}/dmps/${doiSuffix}`,
-            'datacite.title': this.title,
-            'datacite.creator': creatorName,
-            'datacite.publisher': generalConfig.applicationName,
-            'datacite.resourcetype': 'Text/Data Management Plan',
-            'datacite.publicationyear': new Date().getFullYear().toString(),
+            'datacite': dataciteXML,
           };
 
           try {

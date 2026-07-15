@@ -56,7 +56,7 @@ export class EZIDAPI extends RESTDataSource {
   }
 
   // Create an identifier with EZID via PUT /id/{identifier}.
-  // The identifier must be in EZID format, e.g. "doi:10.48321/D1xxxxxxxx".
+  // The identifier must be in EZID format, e.g. "doi:11.22222/A1B2C3d4".
   // Returns the normalized identifier from EZID's success response.
   async registerIdentifier(
     context: MyContext,

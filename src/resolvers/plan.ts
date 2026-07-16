@@ -36,6 +36,7 @@ import { prepareObjectForLogs } from "../logger";
 
 // Services
 import {
+  buildDataCiteXMLForPlan,
   ensureDefaultPlanContact,
   saveMaDMPVersion
 } from "../services/planService";
@@ -339,8 +340,21 @@ export const resolvers: Resolvers = {
                 if (!contactWasSet) {
                   plan.addError('general', 'Plan must have a primary contact');
                 } else {
+                  // Build the DataCite XML metadata document before publishing
+                  let dataciteXML: string;
+                  try {
+                    dataciteXML = await buildDataCiteXMLForPlan(context, plan);
+                  } catch (err) {
+                    context.logger.error(
+                      prepareObjectForLogs(err),
+                      `${reference} failed to build DataCite metadata`
+                    );
+                    plan.addError('general', 'Unable to build metadata required to publish this plan');
+                    return plan;
+                  }
+
                   // All criteria was satisfied, so publish the plan
-                  const published = await plan.publish(context, visibility as PlanVisibility);
+                  const published = await plan.publish(context, visibility as PlanVisibility, dataciteXML);
 
                   if (published && !published.hasErrors()) {
                     // Update the maDMP version of the record

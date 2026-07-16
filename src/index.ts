@@ -14,6 +14,7 @@ import { verifyCriticalEnvVariable } from './utils/helpers';
 import corsConfig from './config/corsConfig';
 import { authMiddleware } from './middleware/auth';
 import { DMPHubAPI } from "./datasources/dmphubAPI";
+import { EZIDAPI } from "./datasources/EZIDAPI";
 
 verifyCriticalEnvVariable('NODE_ENV');
 console.log(`DMPTool Apollo server backend starting in ${process.env.NODE_ENV} mode.`)
@@ -25,6 +26,7 @@ const PORT = 4000;
 const cache = Cache.getInstance().adapter;
 const sqlDataSource = new MySQLConnection();
 const dmphubAPIDataSource = new DMPHubAPI({ cache, token: null })
+const ezidAPIDataSource = new EZIDAPI({ cache })
 
 // Required logic for integrating with Express
 const app = express();
@@ -62,7 +64,8 @@ const startServer = async () => {
     cache,
     baseLogger,
     sqlDataSource,
-    dmphubAPIDataSource
+    dmphubAPIDataSource,
+    ezidAPIDataSource
   ));
 
   // Pass off to the Router for non-GraphQL requests

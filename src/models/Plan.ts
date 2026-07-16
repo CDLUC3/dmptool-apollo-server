@@ -749,14 +749,61 @@ export class Plan extends MySqlModel {
    *
    * @param context The Apollo context object
    * @param visibility The visibility of the plan. Defaults to PRIVATE.
+   * @param dataciteXML The DataCite XML metadata document to submit to EZID.
+   *                     Built ahead of time (see planService.buildDataCiteXMLForPlan)
+   *                     since it requires fetching the plan's members, fundings,
+   *                     and alternate identifiers.
    * @returns The updated Plan or the original Plan if something went wrong
    */
   // Publish the plan (register a DOI)
-  async publish(context: MyContext, visibility = PlanVisibility.PRIVATE): Promise<Plan> {
+  async publish(context: MyContext, visibility = PlanVisibility.PRIVATE, dataciteXML?: string): Promise<Plan> {
     if (this.id) {
       // Make sure the plan is valid
       if (await this.isValid()) {
         if (!this.isPublished()) {
+
+          // Refuse to register a temporary placeholder DMP ID
+          if (this.dmpId.startsWith(DEFAULT_TEMPORARY_DMP_ID_PREFIX)) {
+            this.addError('dmpId', 'Plan does not have a valid DMP ID');
+            return new Plan(this);
+          }
+
+          // If the DataCite XML metadata document was not provided, we cannot register the DOI
+          if (!dataciteXML) {
+            this.addError('general', 'Unable to build DataCite metadata for this plan');
+            return new Plan(this);
+          }
+
+          // Convert the stored URL form (https://doi.org/10.x/y) to EZID form (doi:10.x/y)
+          const ezidIdentifier = this.dmpId.replace(
+            generalConfig.dmpIdBaseURL,
+            'doi:'
+          );
+
+          const doiSuffix = ezidIdentifier.replace('doi:', '');
+          const domain = generalConfig.domain.startsWith('http')
+            ? generalConfig.domain
+            : `https://${generalConfig.domain}`;
+
+          const metadata: Record<string, string> = {
+            '_profile': 'datacite',
+            '_target': `${domain}/dmps/${doiSuffix}`,
+            'datacite': dataciteXML,
+          };
+
+          try {
+            await context.dataSources.ezidAPIDataSource.registerIdentifier(
+              context, ezidIdentifier, metadata, 'Plan.publish'
+            );
+          } catch (err) {
+            context.logger.error(
+              prepareObjectForLogs(err),
+              'Plan.publish failed to register DOI with EZID'
+            );
+            this.addError('general', 'Failed to register the plan\'s DOI with EZID');
+            return new Plan(this);
+          }
+
           this.registered = getCurrentDate();
           this.registeredById = context.token.id;
           this.visibility = visibility;

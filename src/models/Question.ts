@@ -1,4 +1,4 @@
-import {AnyQuestionType, QuestionSchemaMap} from "@dmptool/types";
+import { QuestionSchemaMap } from "@dmptool/types";
 import { MyContext } from "../context";
 import { MySqlModel } from "./MySqlModel";
 import { isNullOrUndefined, removeNullAndUndefinedFromJSON } from "../utils/helpers";
@@ -87,61 +87,6 @@ export class Question extends MySqlModel {
     this.sampleText = this.sampleText?.trim();
   }
 
-  // Process the raw question data that was returned from the database
-  static processResult(question: Question): Question{
-
-    // If it's a researchOutputTable we need to ensure that the columns have a commonStandardId.
-    // The commonStandardId was added later, so this will help us gradually self correct.
-    // TODO: This can be removed once we begin migrating for go-live because we will be generating the JSON
-    //       correctly at that point
-    const json: AnyQuestionType = typeof question.json === 'string' ? JSON.parse(question.json || '{}') : question.json;
-    if (json && json.type === 'researchOutputTable') {
-      for (const [idx, col] of json.columns.entries()) {
-        if (!col.commonStandardId) {
-          switch (col.content.type) {
-            case 'text':
-              // Check the ordinal position here because custom fields are also text type
-              if (idx === 0) col.commonStandardId = 'title';
-              break;
-            case 'textArea':
-              col.commonStandardId = 'description';
-              break;
-            case 'selectBox':
-              col.commonStandardId = 'type';
-              break;
-            case 'checkBoxes':
-              col.commonStandardId = 'data_flags';
-              break;
-            case 'repositorySearch':
-              col.commonStandardId = 'host';
-              break;
-            case 'metadataStandardSearch':
-              col.commonStandardId = 'metadata';
-              break;
-            case 'licenseSearch':
-              col.commonStandardId = 'license_ref';
-              break;
-            case 'radioButtons':
-              col.commonStandardId = 'data_access';
-              break;
-            case 'date':
-              col.commonStandardId = 'issued';
-              break;
-            case 'numberWithContext':
-              col.commonStandardId = 'byte_size';
-              break;
-            default:
-              col.commonStandardId = 'custom';
-              break;
-          }
-        }
-      }
-      question.json = JSON.stringify(json);
-    }
-
-    return question;
-  }
-
   //Create a new Question
   async create(
     context: MyContext
@@ -195,13 +140,13 @@ export class Question extends MySqlModel {
   static async findById(reference: string, context: MyContext, questionId: number): Promise<Question> {
     const sql = 'SELECT * FROM questions WHERE id = ?';
     const result = await Question.query(context, sql, [questionId?.toString()], reference);
-    return Array.isArray(result) && result.length > 0 ? new Question(Question.processResult(result[0])) : null;
+    return Array.isArray(result) && result.length > 0 ? new Question(result[0]) : null;
   }
 
   // Fetch all of the Questions for the specified Section
   static async findBySectionId(reference: string, context: MyContext, sectionId: number): Promise<Question[]> {
     const sql = 'SELECT * FROM questions WHERE sectionId = ? ORDER BY displayOrder ASC';
     const results = await Question.query(context, sql, [sectionId?.toString()], reference);
-    return Array.isArray(results) ? results.map((entry) => new Question(Question.processResult(entry))) : [];
+    return Array.isArray(results) ? results.map((entry) => new Question(entry)) : [];
   }
 }

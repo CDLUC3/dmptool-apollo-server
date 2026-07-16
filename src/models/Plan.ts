@@ -139,7 +139,7 @@ export class PlanSearchResult {
   }
 
   /**
-   * Find projects/plans for a specified userId, with pagination and optional search term filtering. 
+   * Find projects/plans for a specified userId, with pagination and optional search term filtering.
    * This method returns a paginated list of PlanSearchResult objects that match the search criteria.
    *
    * @param reference The caller's reference string for logging purposes'
@@ -911,7 +911,7 @@ export class Plan extends MySqlModel {
 
         // Update the plan
         const result = await Plan.update(context, Plan.tableName, this, reference, [], noTouch);
-        // The result of the update function is just a boolean indicating whether the update query succeeded or not, 
+        // The result of the update function is just a boolean indicating whether the update query succeeded or not,
         // so if it succeeded we need to re-query to get the updated plan with all the new values
         if (result) {
           return await Plan.findById(reference, context, this.id);
@@ -971,7 +971,13 @@ export class Plan extends MySqlModel {
    */
   static async findByDMPId(reference: string, context: MyContext, dmpId: string): Promise<Plan | null> {
     const sql = `SELECT * FROM ${this.tableName} WHERE dmpId = ?`;
+
+console.log(sql);
+
     const results = await Plan.query(context, sql, [dmpId?.toString()], reference);
+
+console.log(results);
+
     return Array.isArray(results) && results.length > 0 ? await Plan.processResult(context, results[0]) : null;
   }
 

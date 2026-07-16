@@ -23,7 +23,7 @@ export const typeDefs = gql`
     "Publish a plan (changes status to PUBLISHED)"
     publishPlan(planId: Int!, visibility: PlanVisibility): Plan
     "Update a plan"
-    updatePlan(input: UpdatePlanInput): Plan
+    updatePlan(input: UpdatePlanInput!): Plan
     "Change the plan's status"
     updatePlanStatus(planId: Int!, status: PlanStatus!): Plan
     "Change the plan's title"

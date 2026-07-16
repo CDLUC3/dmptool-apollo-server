@@ -27,14 +27,12 @@ import { ResearchDomain } from '../models/ResearchDomain';
 import { MemberRole } from '../models/MemberRole';
 import { GraphQLError } from 'graphql';
 import { Plan, PlanSearchResult } from '../models/Plan';
-//import { addVersion } from '../models/PlanVersion';
 import {
   isNullOrUndefined,
   normaliseDate,
   normaliseDateTime
 } from '../utils/helpers';
 import { validateEmail } from '../utils/helpers';
-//import { parseMember } from '../services/commonStandardService';
 import {
   PaginationOptionsForCursors,
   PaginationOptionsForOffsets,
@@ -300,13 +298,11 @@ export const resolvers: Resolvers = {
               await saveMaDMPVersion(reference, context, plan.id, plan.dmpId);
             }
           }
-
           return updated;
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();
       } catch (err) {
         if (err instanceof GraphQLError) throw err;
-
         context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
         throw InternalServerError();
       }
@@ -376,7 +372,7 @@ export const resolvers: Resolvers = {
               for (const fund of input.funding) {
                 const newFunding = new ProjectFunding(fund);
 
-                // Check if a funding record already exists for this affiliation on the project. If so, 
+                // Check if a funding record already exists for this affiliation on the project. If so,
                 // update it instead of creating a new one to avoid duplicates.
                 const existingFunding = await ProjectFunding.findByProjectAndAffiliation(
                   reference,

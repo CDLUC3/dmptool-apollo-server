@@ -1,8 +1,75 @@
 import { MyContext } from "../context";
 import { Affiliation } from "../models/Affiliation";
-import {AffiliationEmailDomain} from "../models/AffiliationEmailDomain";
+import { AffiliationEmailDomain } from "../models/AffiliationEmailDomain";
 import { isNullOrUndefined } from "../utils/helpers";
 import { AffiliationLink } from "../models/AffiliationLink";
+
+export interface AffiliationInput {
+  affiliationId?: string | null;
+  affiliationName?: string | null;
+}
+
+export interface ResolveAffiliationResult {
+  affiliationId: string | null;
+  error?: string;
+}
+
+
+/**
+ * Resolves the affiliationId to use for a ProjectMember create/update.
+ *
+ * - If affiliationId is set and doesn't already exist, creates a new Affiliation
+ *   using the provided id as the uri and affiliationName as its name.
+ * - If affiliationId is blank but affiliationName is set (the "Other" case),
+ *   delegates to processOtherAffiliationName to look up/generate a uri.
+ * - Otherwise returns the affiliationId unchanged (including null/blank).
+ *
+ * @param reference the reference for logging purposes
+ * @param context the Apollo context
+ * @param input the affiliationId/affiliationName pair from the mutation input
+ * @param userId the id of the user performing the action (used when registering a new affiliation)
+ */
+export const resolveAffiliation = async (
+  reference: string,
+  context: MyContext,
+  input: AffiliationInput,
+  userId?: number,
+): Promise<ResolveAffiliationResult> => {
+  // Guard against the frontend's "other" sentinel leaking through as a literal
+  // affiliationId instead of being left blank
+  if (input.affiliationId === 'other') {
+    if (input.affiliationName) {
+      const affiliation = await processOtherAffiliationName(context, input.affiliationName, userId);
+      return { affiliationId: affiliation ? String(affiliation.uri) : null };
+    }
+    return { affiliationId: null, error: 'An affiliation name is required when "Other" is selected' };
+  }
+
+  if (input.affiliationId && input.affiliationId.length > 0) {
+    const existingAffiliation = await Affiliation.findByURI(reference, context, input.affiliationId);
+    if (!existingAffiliation && input.affiliationName) {
+      const newAffiliation = new Affiliation({
+        uri: input.affiliationId,
+        name: input.affiliationName,
+      });
+
+      const createdAffiliation = await newAffiliation.create(context);
+
+      if (!createdAffiliation || createdAffiliation.hasErrors()) {
+        return { affiliationId: null, error: 'Unable to create required affiliation' };
+      }
+
+      return { affiliationId: createdAffiliation.uri };
+    }
+    return { affiliationId: input.affiliationId };
+  } else if (input.affiliationName) {
+    const affiliation = await processOtherAffiliationName(context, input.affiliationName, userId);
+    return { affiliationId: affiliation ? String(affiliation.uri) : null };
+  }
+
+  return { affiliationId: input.affiliationId ?? null };
+};
+
 
 export const processOtherAffiliationName = async (
   context: MyContext,

@@ -67,7 +67,7 @@ export const resolveAffiliation = async (
     return { affiliationId: affiliation ? String(affiliation.uri) : null };
   }
 
-  return { affiliationId: input.affiliationId ?? null };
+  return { affiliationId: input.affiliationId || null };
 };
 
 

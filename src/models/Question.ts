@@ -1,4 +1,4 @@
-import {AnyQuestionType, QuestionSchemaMap} from "@dmptool/types";
+import { AnyQuestionType, QuestionSchemaMap } from "@dmptool/types";
 import { MyContext } from "../context";
 import { MySqlModel } from "./MySqlModel";
 import { isNullOrUndefined, removeNullAndUndefinedFromJSON } from "../utils/helpers";
@@ -16,6 +16,8 @@ export class Question extends MySqlModel {
   public required: boolean;
   public displayOrder: number;
   public isDirty: boolean;
+  public displayLogicAction: string;
+  public displayLogicMatchType: string;
 
   private tableName = 'questions';
 
@@ -40,6 +42,9 @@ export class Question extends MySqlModel {
     this.required = options.required ?? false;
     this.displayOrder = options.displayOrder;
     this.isDirty = options.isDirty ?? false;
+    this.displayLogicAction = options.displayLogicAction ?? 'SHOW_QUESTION';
+    this.displayLogicMatchType = options.displayLogicMatchType ?? 'ANY';
+
   }
 
   // Validation to be used prior to saving the record
@@ -88,7 +93,7 @@ export class Question extends MySqlModel {
   }
 
   // Process the raw question data that was returned from the database
-  static processResult(question: Question): Question{
+  static processResult(question: Question): Question {
 
     // If it's a researchOutputTable we need to ensure that the columns have a commonStandardId.
     // The commonStandardId was added later, so this will help us gradually self correct.

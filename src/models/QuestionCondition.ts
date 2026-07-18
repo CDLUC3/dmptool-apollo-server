@@ -12,33 +12,28 @@ export enum QuestionConditionCondition {
   EQUAL = 'EQUAL',
   DOES_NOT_EQUAL = 'DOES_NOT_EQUAL',
   INCLUDES = 'INCLUDES',
+  DOES_NOT_INCLUDE = 'DOES_NOT_INCLUDE',
 }
 export class QuestionCondition extends MySqlModel {
-  public questionId: number;
-  public action: QuestionConditionActionType;
   public conditionType: QuestionConditionCondition;
   public conditionMatch?: string;
-  public target: string;
+  public groupId: number;
 
   private tableName = 'questionConditions';
 
   constructor(options) {
     super(options.id, options.created, options.createdById, options.modified, options.modifiedById, options.errors);
 
-    this.questionId = options.questionId;
-    this.action = options.action ?? QuestionConditionActionType.SHOW_QUESTION;
     this.conditionType = options.conditionType ?? QuestionConditionCondition.EQUAL;
     this.conditionMatch = options.conditionMatch;
-    this.target = options.target;
+    this.groupId = options.groupId;
+
   }
 
   async isValid(): Promise<boolean> {
     await super.isValid();
-
-    if (!this.questionId) this.addError('questionId', 'Question Id can\'t be blank');
-    if (!this.action) this.addError('action', 'Action can\'t be blank');
+    if (!this.groupId) this.addError('groupId', 'Group Id can\'t be blank');
     if (!this.conditionType) this.addError('conditionType', 'Condition Type can\'t be blank');
-    if (!this.target) this.addError('target', 'Target can\'t be blank');
 
     return Object.keys(this.errors).length === 0;
   }
@@ -102,9 +97,10 @@ export class QuestionCondition extends MySqlModel {
   }
 
   // Fetch all of the QuestionConditions for the specified Question
-  static async findByQuestionId(reference: string, context: MyContext, questionId: number): Promise<QuestionCondition[]> {
-    const sql = 'SELECT * FROM questionConditions WHERE questionId = ?';
-    const results = await QuestionCondition.query(context, sql, [questionId?.toString()], reference);
+  static async findByGroupId(reference: string, context: MyContext, groupId: number): Promise<QuestionCondition[]> {
+    const sql = 'SELECT * FROM questionConditions WHERE groupId = ?';
+    const results = await QuestionCondition.query(context, sql, [groupId?.toString()], reference);
     return Array.isArray(results) ? results.map((entry) => new QuestionCondition(entry)) : [];
   }
+
 }

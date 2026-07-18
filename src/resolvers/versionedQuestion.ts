@@ -224,7 +224,7 @@ export const resolvers: Resolvers = {
   VersionedQuestion: {
     // Chained resolver to return the VersionedQuestionConditions associated with this VersionedQuestion
     versionedQuestionConditions: async (parent: VersionedQuestion, _, context: MyContext): Promise<VersionedQuestionCondition[]> => {
-      return await VersionedQuestionCondition.findByVersionedQuestionId(
+      return await VersionedQuestionCondition.findByVersionedQuestionConditionGroupId(
         'Chained VersionedQuestion.versionedQuestionConditions',
         context,
         parent.id

@@ -1,6 +1,7 @@
 import { Resolvers } from "../types";
 import { MyContext } from "../context";
 import { VersionedQuestionCondition } from "../models/VersionedQuestionCondition";
+import { VersionedQuestionConditionGroup } from "../models/VersionedQuestionConditionGroups";
 import { AuthenticationError, ForbiddenError, InternalServerError } from "../utils/graphQLErrors";
 import { prepareObjectForLogs } from "../logger";
 import { isAuthorized } from "../services/authService";
@@ -9,12 +10,13 @@ import { normaliseDateTime } from "../utils/helpers";
 
 export const resolvers: Resolvers = {
   Query: {
-    // return all forcibly published conditions for the specified versioned question
-    publishedConditionsForQuestion: async (_, { versionedQuestionId }, context: MyContext): Promise<VersionedQuestionCondition[]> => {
-      const reference = 'publishedConditionsForQuestion resolver';
+    // return all forcibly published condition groups (and their nested
+    // conditions) for the specified versioned question
+    publishedConditionGroupsForQuestion: async (_, { versionedQuestionId }, context: MyContext): Promise<VersionedQuestionConditionGroup[]> => {
+      const reference = 'publishedConditionGroupsForQuestion resolver';
       try {
         if (isAuthorized(context.token)) {
-          return await VersionedQuestionCondition.findByVersionedQuestionId(reference, context, versionedQuestionId);
+          return await VersionedQuestionConditionGroup.findByVersionedQuestionId(reference, context, versionedQuestionId);
         }
         // Unauthorized!
         throw context?.token ? ForbiddenError() : AuthenticationError();
@@ -25,6 +27,22 @@ export const resolvers: Resolvers = {
         throw InternalServerError();
       }
     },
+  },
+
+  VersionedQuestionConditionGroup: {
+    conditions: async (parent: VersionedQuestionConditionGroup, _, context: MyContext) => {
+      return await VersionedQuestionCondition.findByVersionedQuestionConditionGroupId(
+        'VersionedQuestionConditionGroup.conditions resolver',
+        context,
+        parent.id
+      );
+    },
+    created: (parent: VersionedQuestionConditionGroup) => {
+      return normaliseDateTime(parent.created);
+    },
+    modified: (parent: VersionedQuestionConditionGroup) => {
+      return normaliseDateTime(parent.modified);
+    }
   },
 
   VersionedQuestionCondition: {

@@ -262,7 +262,7 @@ export const resolvers: Resolvers = {
 
   Question: {
     questionConditions: async (parent: Question, _, context: MyContext): Promise<QuestionCondition[]> => {
-      return await QuestionCondition.findByQuestionId(
+      return await QuestionCondition.findByGroupId(
         'Chained Question.questionConditions',
         context,
         parent.id

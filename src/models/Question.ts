@@ -1,6 +1,7 @@
 import { AnyQuestionType, QuestionSchemaMap } from "@dmptool/types";
 import { MyContext } from "../context";
 import { MySqlModel } from "./MySqlModel";
+import { QuestionConditionActionType, QuestionConditionMatchType } from "./QuestionCondition";
 import { isNullOrUndefined, removeNullAndUndefinedFromJSON } from "../utils/helpers";
 
 export class Question extends MySqlModel {
@@ -16,8 +17,8 @@ export class Question extends MySqlModel {
   public required: boolean;
   public displayOrder: number;
   public isDirty: boolean;
-  public displayLogicAction: string;
-  public displayLogicMatchType: string;
+  public displayLogicAction: QuestionConditionActionType;
+  public displayLogicMatchType: QuestionConditionMatchType;
 
   private tableName = 'questions';
 
@@ -42,8 +43,8 @@ export class Question extends MySqlModel {
     this.required = options.required ?? false;
     this.displayOrder = options.displayOrder;
     this.isDirty = options.isDirty ?? false;
-    this.displayLogicAction = options.displayLogicAction ?? 'SHOW_QUESTION';
-    this.displayLogicMatchType = options.displayLogicMatchType ?? 'ANY';
+    this.displayLogicAction = options.displayLogicAction ?? "SHOW_QUESTION";
+    this.displayLogicMatchType = options.displayLogicMatchType ?? "ANY";
 
   }
 

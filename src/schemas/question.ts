@@ -60,7 +60,11 @@ export const typeDefs = gql`
     required: Boolean
 
     "The conditional logic triggered by this question"
-    questionConditions: [QuestionCondition!]
+    conditionGroups: [QuestionConditionGroup]
+    "Whether to show or hide the question (or send an email) when its display logic conditions match"
+    displayLogicAction: QuestionConditionActionType
+    "Whether ANY or ALL of the question's condition groups must match"
+    displayLogicMatchType: QuestionConditionMatchType
   }
 
   "A collection of errors related to the Question"

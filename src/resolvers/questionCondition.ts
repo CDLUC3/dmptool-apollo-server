@@ -10,23 +10,6 @@ import { prepareObjectForLogs } from "../logger";
 import { GraphQLError } from "graphql";
 import { normaliseDateTime } from "../utils/helpers";
 
-// NOTE: Assumes a shape roughly like:
-//   type QuestionDisplayLogicInput {
-//     questionId: Int!
-//     action: QuestionConditionActionType!
-//     matchType: String!   # 'ANY' | 'ALL'
-//     groups: [QuestionConditionGroupInput!]!
-//   }
-//   type QuestionConditionGroupInput {
-//     triggerQuestionId: Int!
-//     conditions: [QuestionConditionInput!]!
-//   }
-//   type QuestionConditionInput {
-//     conditionType: QuestionConditionCondition!
-//     conditionMatch: JSON
-//   }
-// Adjust the destructured input fields below to match your actual generated
-// GraphQL types once the schema is finalized.
 
 export const resolvers: Resolvers = {
   Query: {

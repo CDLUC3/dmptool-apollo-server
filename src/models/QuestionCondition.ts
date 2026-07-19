@@ -1,19 +1,13 @@
 import { MyContext } from "../context";
 import { MySqlModel } from "./MySqlModel";
+import {
+  QuestionConditionActionType,
+  QuestionConditionMatchType,
+  QuestionConditionCondition
+} from "../types";
 
-export enum QuestionConditionActionType {
-  SHOW_QUESTION = 'SHOW_QUESTION',
-  HIDE_QUESTION = 'HIDE_QUESTION',
-  SEND_EMAIL = 'SEND_EMAIL',
-}
+export { QuestionConditionActionType, QuestionConditionMatchType, QuestionConditionCondition };
 
-export enum QuestionConditionCondition {
-  HAS_ANSWER = 'HAS_ANSWER',
-  EQUAL = 'EQUAL',
-  DOES_NOT_EQUAL = 'DOES_NOT_EQUAL',
-  INCLUDES = 'INCLUDES',
-  DOES_NOT_INCLUDE = 'DOES_NOT_INCLUDE',
-}
 export class QuestionCondition extends MySqlModel {
   public conditionType: QuestionConditionCondition;
   public conditionMatch?: string;
@@ -24,7 +18,7 @@ export class QuestionCondition extends MySqlModel {
   constructor(options) {
     super(options.id, options.created, options.createdById, options.modified, options.modifiedById, options.errors);
 
-    this.conditionType = options.conditionType ?? QuestionConditionCondition.EQUAL;
+    this.conditionType = options.conditionType ?? "EQUAL";
     this.conditionMatch = options.conditionMatch;
     this.groupId = options.groupId;
 

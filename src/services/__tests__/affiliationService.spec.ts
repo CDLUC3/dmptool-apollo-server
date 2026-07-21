@@ -5,7 +5,8 @@ import { Affiliation, AffiliationProvenance, AffiliationType, DEFAULT_DMPTOOL_AF
 import {
   processOtherAffiliationName,
   reconcileAffiliationEmailDomains,
-  reconcileAffiliationLinks
+  reconcileAffiliationLinks,
+  resolveAffiliation
 } from "../affiliationService";
 import { getCurrentDate } from "../../utils/helpers";
 import { AffiliationEmailDomain } from "../../models/AffiliationEmailDomain";
@@ -303,6 +304,176 @@ describe('reconcileAffiliationLinks', () => {
     expect(result).toBe(true);
     expect(findByAffiliationIdSpy).not.toHaveBeenCalled();
     expect(toAdd.create).toHaveBeenCalledWith(context);
+  });
+});
+
+describe('resolveAffiliation', () => {
+  const reference = 'resolveAffiliation test';
+  let mockFindByURI: jest.Mock;
+
+  beforeEach(() => {
+    mockFindByURI = jest.fn();
+    (Affiliation.findByURI as jest.Mock) = mockFindByURI;
+  });
+
+  it('returns an error when affiliationId is "other" but no affiliationName is provided', async () => {
+    const result = await resolveAffiliation(
+      reference,
+      context,
+      { affiliationId: 'other', affiliationName: '' },
+      context.token.id,
+    );
+
+    expect(result.affiliationId).toBeNull();
+    expect(result.error).toEqual('An affiliation name is required when "Other" is selected');
+    expect(mockFindByURI).not.toHaveBeenCalled();
+  });
+
+  it('resolves the "other" sentinel via processOtherAffiliationName when a name is provided', async () => {
+    const name = casual.company_name;
+
+    const result = await resolveAffiliation(
+      reference,
+      context,
+      { affiliationId: 'other', affiliationName: name },
+      context.token.id,
+    );
+
+    expect(result.error).toBeUndefined();
+    expect(affiliationStore).toHaveLength(1);
+    expect(affiliationStore[0].displayName).toEqual(name);
+    expect(result.affiliationId).toEqual(affiliationStore[0].uri);
+    expect(mockFindByURI).not.toHaveBeenCalled();
+  });
+
+  it('returns the provided affiliationId unchanged when it already exists', async () => {
+    const uri = casual.url;
+    const existing = new Affiliation({ id: casual.integer(1, 9999), uri, name: casual.company_name });
+    mockFindByURI.mockResolvedValue(existing);
+
+    const result = await resolveAffiliation(
+      reference,
+      context,
+      { affiliationId: uri, affiliationName: casual.company_name },
+      context.token.id,
+    );
+
+    expect(result.error).toBeUndefined();
+    expect(result.affiliationId).toEqual(uri);
+    expect(mockFindByURI).toHaveBeenCalledWith(reference, context, uri);
+  });
+
+  it('creates a new affiliation when affiliationId is provided but does not exist yet', async () => {
+    const uri = casual.url;
+    const name = casual.company_name;
+    mockFindByURI.mockResolvedValue(undefined);
+
+    const createSpy = jest
+      .spyOn(Affiliation.prototype, 'create')
+      .mockImplementation(async function (this: Affiliation) {
+        return Object.assign(this, { hasErrors: () => false });
+      });
+
+    const result = await resolveAffiliation(
+      reference,
+      context,
+      { affiliationId: uri, affiliationName: name },
+      context.token.id,
+    );
+
+    expect(createSpy).toHaveBeenCalledWith(context);
+    expect(result.error).toBeUndefined();
+    expect(result.affiliationId).toEqual(uri);
+
+    createSpy.mockRestore();
+  });
+
+  it('returns an error when creating the new affiliation returns errors', async () => {
+    const uri = casual.url;
+    const name = casual.company_name;
+    mockFindByURI.mockResolvedValue(undefined);
+
+    const createSpy = jest
+      .spyOn(Affiliation.prototype, 'create')
+      .mockImplementation(async function (this: Affiliation) {
+        return Object.assign(this, { hasErrors: () => true });
+      });
+
+    const result = await resolveAffiliation(
+      reference,
+      context,
+      { affiliationId: uri, affiliationName: name },
+      context.token.id,
+    );
+
+    expect(result.affiliationId).toBeNull();
+    expect(result.error).toEqual('Unable to create required affiliation');
+
+    createSpy.mockRestore();
+  });
+
+  it('returns an error when creating the new affiliation returns null', async () => {
+    const uri = casual.url;
+    const name = casual.company_name;
+    mockFindByURI.mockResolvedValue(undefined);
+
+    const createSpy = jest.spyOn(Affiliation.prototype, 'create').mockResolvedValue(null);
+
+    const result = await resolveAffiliation(
+      reference,
+      context,
+      { affiliationId: uri, affiliationName: name },
+      context.token.id,
+    );
+
+    expect(result.affiliationId).toBeNull();
+    expect(result.error).toEqual('Unable to create required affiliation');
+
+    createSpy.mockRestore();
+  });
+
+  it('returns the affiliationId unchanged when it does not exist and no affiliationName is provided', async () => {
+    const uri = casual.url;
+    mockFindByURI.mockResolvedValue(undefined);
+
+    const result = await resolveAffiliation(
+      reference,
+      context,
+      { affiliationId: uri, affiliationName: '' },
+      context.token.id,
+    );
+
+    expect(result.error).toBeUndefined();
+    expect(result.affiliationId).toEqual(uri);
+  });
+
+  it('resolves via processOtherAffiliationName when only affiliationName is provided', async () => {
+    const name = casual.company_name;
+
+    const result = await resolveAffiliation(
+      reference,
+      context,
+      { affiliationId: '', affiliationName: name },
+      context.token.id,
+    );
+
+    expect(result.error).toBeUndefined();
+    expect(affiliationStore).toHaveLength(1);
+    expect(result.affiliationId).toEqual(affiliationStore[0].uri);
+    expect(mockFindByURI).not.toHaveBeenCalled();
+  });
+
+  it('returns a null affiliationId when neither affiliationId nor affiliationName are provided', async () => {
+    const result = await resolveAffiliation(
+      reference,
+      context,
+      { affiliationId: '', affiliationName: '' },
+      context.token.id,
+    );
+
+    expect(result.error).toBeUndefined();
+    expect(result.affiliationId).toBeNull();
+    expect(mockFindByURI).not.toHaveBeenCalled();
   });
 });
 

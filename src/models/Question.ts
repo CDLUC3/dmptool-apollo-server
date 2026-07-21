@@ -2,6 +2,7 @@ import { QuestionSchemaMap } from "@dmptool/types";
 import { MyContext } from "../context";
 import { MySqlModel } from "./MySqlModel";
 import { isNullOrUndefined, removeNullAndUndefinedFromJSON } from "../utils/helpers";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 export class Question extends MySqlModel {
   public templateId: number;
@@ -89,14 +90,15 @@ export class Question extends MySqlModel {
 
   //Create a new Question
   async create(
-    context: MyContext
+    context: MyContext,
+    transactionClient: DatabaseTransactionClient | undefined = undefined
   ): Promise<Question> {
     this.prepForSave();
 
     // First make sure the record is valid
     if (await this.isValid()) {
       // Save the record and then fetch it
-      const newId = await Question.insert(context, this.tableName, this, 'Question.create', ['questionType']);
+      const newId = await Question.insert(context, this.tableName, this, 'Question.create', ['questionType'], transactionClient);
       const response = await Question.findById('Question.create', context, newId);
       return response;
 
@@ -106,12 +108,12 @@ export class Question extends MySqlModel {
   }
 
   //Update an existing Section
-  async update(context: MyContext, noTouch = false): Promise<Question> {
+  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Question> {
     if (this.id) {
       this.prepForSave();
 
       if (await this.isValid()) {
-        await Question.update(context, this.tableName, this, 'Question.update', ['questionType'], noTouch);
+        await Question.update(context, this.tableName, this, 'Question.update', ['questionType'], noTouch, transactionClient);
         return await Question.findById('Question.update', context, this.id);
       }
     }
@@ -120,13 +122,13 @@ export class Question extends MySqlModel {
   }
 
   //Delete Question based on the Question object's id and return
-  async delete(context: MyContext): Promise<Question> {
+  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Question> {
     if (this.id) {
       /*First get the question to be deleted so we can return this info to the user
       since calling 'delete' doesn't return anything*/
       const deletedSection = await Question.findById('Question.delete', context, this.id);
 
-      const successfullyDeleted = await Question.delete(context, this.tableName, this.id, 'Question.delete');
+      const successfullyDeleted = await Question.delete(context, this.tableName, this.id, 'Question.delete', transactionClient);
       if (successfullyDeleted) {
         return deletedSection;
       } else {

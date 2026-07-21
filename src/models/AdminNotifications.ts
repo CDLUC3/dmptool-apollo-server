@@ -9,6 +9,7 @@ import {
 import { AdminNotificationType } from "../types";
 import { MySqlModel } from "./MySqlModel";
 import { isNullOrUndefined } from "../utils/helpers";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 export interface AdminNotificationMetadata {
   planId?: number;
@@ -149,11 +150,11 @@ export class AdminNotification extends MySqlModel {
   }
 
 
-  async create(context: MyContext): Promise<AdminNotification | null> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<AdminNotification | null> {
     const reference = 'AdminNotification.create';
 
     if (await this.isValid()) {
-      const newId = await AdminNotification.insert(context, this.tableName, this, reference);
+      const newId = await AdminNotification.insert(context, this.tableName, this, reference, [], transactionClient);
       if (!newId) {
         context.logger.error(`${reference}, ERROR: Failed to create AdminNotification.`);
         this.addError('general', 'AdminNotification was not created successfully');
@@ -164,11 +165,11 @@ export class AdminNotification extends MySqlModel {
     return new AdminNotification(this);
   }
 
-  async update(context: MyContext, noTouch = false): Promise<AdminNotification | null> {
+  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<AdminNotification | null> {
     const reference = 'AdminNotification.update';
     if (this.id) {
       if (await this.isValid()) {
-        const updated = await AdminNotification.update(context, this.tableName, this, reference, [], noTouch);
+        const updated = await AdminNotification.update(context, this.tableName, this, reference, [], noTouch, transactionClient);
         if (updated) {
           return await AdminNotification.findById(reference, context, this.id);
         }
@@ -191,6 +192,7 @@ export class AdminNotification extends MySqlModel {
     affiliationId: string,
     notificationType: AdminNotificationType,
     metadata?: AdminNotificationMetadata,
+    transactionClient: DatabaseTransactionClient | undefined = undefined
   ): Promise<boolean> {
     const sql = `
     INSERT INTO adminNotifications (userId, notificationType, affiliationId, metadata, createdById, modifiedById, created, modified)
@@ -206,7 +208,7 @@ export class AdminNotification extends MySqlModel {
       context.token.id.toString(),
       affiliationId,
     ];
-    const result = await AdminNotification.query(context, sql, values, reference);
+    const result = await AdminNotification.query(context, sql, values, reference, transactionClient);
     return Array.isArray(result) && result.length > 0;
   }
 }

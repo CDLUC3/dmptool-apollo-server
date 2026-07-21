@@ -1,6 +1,7 @@
 import { MyContext } from "../context";
 import { MySqlModel } from "./MySqlModel";
 import { Guidance } from "./Guidance";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 export class GuidanceGroup extends MySqlModel {
   public affiliationId: string;
@@ -46,7 +47,7 @@ export class GuidanceGroup extends MySqlModel {
   }
 
   // Create a new GuidanceGroup
-  async create(context: MyContext): Promise<GuidanceGroup> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<GuidanceGroup> {
     // Check for existing guidance group with same affiliationId + name
     const existing = await GuidanceGroup.findByName('GuidanceGroup.create', context, this.name, this.affiliationId);
 
@@ -60,7 +61,7 @@ export class GuidanceGroup extends MySqlModel {
       this.prepForSave();
 
       // Save the record and then fetch it
-      const newId = await GuidanceGroup.insert(context, GuidanceGroup.tableName, this, 'GuidanceGroup.create', ['guidance']);
+      const newId = await GuidanceGroup.insert(context, GuidanceGroup.tableName, this, 'GuidanceGroup.create', ['guidance'], transactionClient);
       const response = await GuidanceGroup.findById('GuidanceGroup.create', context, newId);
       return response;
     }
@@ -69,14 +70,14 @@ export class GuidanceGroup extends MySqlModel {
   }
 
   // Update an existing GuidanceGroup
-  async update(context: MyContext, noTouch = false): Promise<GuidanceGroup> {
+  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<GuidanceGroup> {
     const id = this.id;
 
     if (await this.isValid()) {
       if (id) {
         this.prepForSave();
 
-        await GuidanceGroup.update(context, GuidanceGroup.tableName, this, 'GuidanceGroup.update', ['guidance'], noTouch);
+        await GuidanceGroup.update(context, GuidanceGroup.tableName, this, 'GuidanceGroup.update', ['guidance'], noTouch, transactionClient);
         return await GuidanceGroup.findById('GuidanceGroup.update', context, id);
       }
       // This guidance group has never been saved before so we cannot update it!
@@ -86,12 +87,12 @@ export class GuidanceGroup extends MySqlModel {
   }
 
   // Delete GuidanceGroup based on the GuidanceGroup object's id
-  async delete(context: MyContext): Promise<GuidanceGroup> {
+  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<GuidanceGroup> {
     if (this.id) {
       // First get the guidance group to be deleted so we can return this info to the user
       const deletedGuidanceGroup = await GuidanceGroup.findById('GuidanceGroup.delete', context, this.id);
 
-      const successfullyDeleted = await GuidanceGroup.delete(context, GuidanceGroup.tableName, this.id, 'GuidanceGroup.delete');
+      const successfullyDeleted = await GuidanceGroup.delete(context, GuidanceGroup.tableName, this.id, 'GuidanceGroup.delete', transactionClient);
       if (successfullyDeleted) {
         return deletedGuidanceGroup;
       } else {

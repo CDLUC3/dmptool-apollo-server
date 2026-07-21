@@ -1,5 +1,6 @@
 import { MyContext } from "../context";
 import { MySqlModel } from "./MySqlModel";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 // An email domain associated with this affiliation. For use with SSO
 export class AffiliationEmailDomain extends MySqlModel {
@@ -26,7 +27,7 @@ export class AffiliationEmailDomain extends MySqlModel {
   }
 
   // Save the current record
-  async create(context: MyContext): Promise<AffiliationEmailDomain> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<AffiliationEmailDomain> {
     // First make sure the record doesn't already exist
     const currentDomain = await AffiliationEmailDomain.findByDomain(
       'AffiliationEmailDomain.create',
@@ -40,7 +41,7 @@ export class AffiliationEmailDomain extends MySqlModel {
         this.addError('general', 'The AffiliationEmailDomain already exists');
       } else {
       // Save the record and then fetch it
-        const newId = await AffiliationEmailDomain.insert(context, this.tableName, this, 'AffiliationEmailDomain.create');
+        const newId = await AffiliationEmailDomain.insert(context, this.tableName, this, 'AffiliationEmailDomain.create', [], transactionClient);
         return await AffiliationEmailDomain.findById('AffiliationEmailDomain.create', context, newId as number);
       }
     }
@@ -49,9 +50,9 @@ export class AffiliationEmailDomain extends MySqlModel {
   }
 
   // Archive this record
-  async delete(context: MyContext): Promise<AffiliationEmailDomain> {
+  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<AffiliationEmailDomain> {
     if (this.id) {
-      const result = await AffiliationEmailDomain.delete(context, this.tableName, this.id, 'AffiliationEmailDomain.delete');
+      const result = await AffiliationEmailDomain.delete(context, this.tableName, this.id, 'AffiliationEmailDomain.delete', transactionClient);
       if (result) {
         return new AffiliationEmailDomain(this);
       }

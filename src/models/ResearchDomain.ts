@@ -3,6 +3,7 @@ import { prepareObjectForLogs } from "../logger";
 import { PaginatedQueryResults, PaginationOptions, PaginationOptionsForCursors, PaginationOptionsForOffsets, PaginationType } from "../types/general";
 import { isNullOrUndefined, randomHex, validateURL } from "../utils/helpers";
 import { MySqlModel } from "./MySqlModel";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 export const DEFAULT_DMPTOOL_RESEARCH_DOMAIN_URL = 'https://dmptool.org/research-domains/';;
 
@@ -52,7 +53,7 @@ export class ResearchDomain extends MySqlModel {
   }
 
   //Create a new ResearchDomain
-  async create(context: MyContext): Promise<ResearchDomain> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<ResearchDomain> {
     const reference = 'ResearchDomain.create';
 
     // If no URI is present, then use the DMPTool's default URI
@@ -77,7 +78,8 @@ export class ResearchDomain extends MySqlModel {
           this.tableName,
           this,
           reference,
-          ['parentResearchDomain']
+          ['parentResearchDomain'],
+          transactionClient
         );
         const response = await ResearchDomain.findById(reference, context, newId);
         return response;
@@ -88,7 +90,7 @@ export class ResearchDomain extends MySqlModel {
   }
 
   //Update an existing ResearchDomain
-  async update(context: MyContext, noTouch = false): Promise<ResearchDomain> {
+  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<ResearchDomain> {
     const id = this.id;
 
     if (await this.isValid()) {
@@ -99,7 +101,8 @@ export class ResearchDomain extends MySqlModel {
           this,
           'ResearchDomain.update',
           ['parentResearchDomain'],
-          noTouch
+          noTouch,
+          transactionClient
         );
         return await ResearchDomain.findById('ResearchDomain.update', context, id);
       }
@@ -110,7 +113,7 @@ export class ResearchDomain extends MySqlModel {
   }
 
   //Delete the ResearchDomain
-  async delete(context: MyContext): Promise<ResearchDomain> {
+  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<ResearchDomain> {
     if (this.id) {
       const deleted = await ResearchDomain.findById('ResearchDomain.delete', context, this.id);
 
@@ -118,7 +121,8 @@ export class ResearchDomain extends MySqlModel {
         context,
         this.tableName,
         this.id,
-        'ResearchDomain.delete'
+        'ResearchDomain.delete',
+        transactionClient
       );
       if (successfullyDeleted) {
         return deleted;
@@ -130,13 +134,13 @@ export class ResearchDomain extends MySqlModel {
   }
 
   // Add this ResearchDomain to a MetadataStandard
-  async addToMetadataStandard(context: MyContext, metadataStandardId: number): Promise<boolean> {
+  async addToMetadataStandard(context: MyContext, metadataStandardId: number, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<boolean> {
     const reference = 'ResearchDomain.addToMetadataStandard';
     let sql = 'INSERT INTO metadataStandardResearchDomains (researchDomainId, metadataStandardId, ';
     sql += 'createdById, modifiedById) VALUES (?, ?, ?, ?)';
     const userId = context.token?.id?.toString();
     const vals = [this.id?.toString(), metadataStandardId?.toString(), userId, userId];
-    const results = await ResearchDomain.query(context, sql, vals, reference);
+    const results = await ResearchDomain.query(context, sql, vals, reference, transactionClient);
 
     if (!results) {
       const payload = { researchDomainId: this.id, metadataStandardId };
@@ -148,13 +152,13 @@ export class ResearchDomain extends MySqlModel {
   }
 
   // Add this ResearchDomain to a MetadataStandard
-  async addToRepository(context: MyContext, repositoryId: number): Promise<boolean> {
+  async addToRepository(context: MyContext, repositoryId: number, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<boolean> {
     const reference = 'ResearchDomain.addToRepository';
     let sql = 'INSERT INTO repositoryResearchDomains (researchDomainId, repositoryId, createdById,';
     sql += 'modifiedById) VALUES (?, ?, ?, ?)';
     const userId = context.token?.id?.toString();
     const vals = [this.id?.toString(), repositoryId?.toString(), userId, userId];
-    const results = await ResearchDomain.query(context, sql, vals, reference);
+    const results = await ResearchDomain.query(context, sql, vals, reference, transactionClient);
 
     if (!results) {
       const payload = { researchDomainId: this.id, repositoryId };
@@ -166,11 +170,11 @@ export class ResearchDomain extends MySqlModel {
   }
 
   // Remove this ResearchDomain from a MetadataStandard
-  async removeFromMetadataStandard(context: MyContext, metadataStandardId: number): Promise<boolean> {
+  async removeFromMetadataStandard(context: MyContext, metadataStandardId: number, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<boolean> {
     const reference = 'ResearchDomain.removeFromMetadataStandard';
     const sql = 'DELETE FROM metadataStandardResearchDomains WHERE researchDomainId = ? AND metadataStandardId = ?';
     const vals = [this.id?.toString(), metadataStandardId?.toString()];
-    const results = await ResearchDomain.query(context, sql, vals, reference);
+    const results = await ResearchDomain.query(context, sql, vals, reference, transactionClient);
 
     if (!results) {
       const payload = { researchDomainId: this.id, metadataStandardId };
@@ -182,11 +186,11 @@ export class ResearchDomain extends MySqlModel {
   }
 
   // Remove this ResearchDomain from a repository
-  async removeFromRepository(context: MyContext, repositoryId: number): Promise<boolean> {
+  async removeFromRepository(context: MyContext, repositoryId: number, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<boolean> {
     const reference = 'ResearchDomain.removeFromRepository';
     const sql = 'DELETE FROM repositoryResearchDomains WHERE researchDomainId = ? AND repositoryId = ?';
     const vals = [this.id?.toString(), repositoryId?.toString()];
-    const results = await ResearchDomain.query(context, sql, vals, reference);
+    const results = await ResearchDomain.query(context, sql, vals, reference, transactionClient);
 
     if (!results) {
       const payload = { researchDomainId: this.id, repositoryId };

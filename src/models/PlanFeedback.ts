@@ -1,6 +1,7 @@
 import { MyContext } from "../context";
 import { MySqlModel } from "./MySqlModel";
 import { PlanFeedbackStatus } from "../types";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 interface PlanFeedbackOptions {
   id?: number;
@@ -59,14 +60,14 @@ export class PlanFeedback extends MySqlModel {
   }
 
   //Create new PlanFeedback
-  async create(context: MyContext): Promise<PlanFeedback | null> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<PlanFeedback | null> {
     const reference = 'PlanFeedback.create';
 
     // First make sure the record is valid
     if (await this.isValid()) {
       // My assumption is that you can have multiple rounds of requests for the same planId, so we don't need to check if it already exists
       // Save the record and then fetch it
-      const newId = await PlanFeedback.insert(context, PlanFeedback.tableName, this, reference);
+      const newId = await PlanFeedback.insert(context, PlanFeedback.tableName, this, reference, [], transactionClient);
       // If no id was returned then something went wrong with the insert and we should log an error and return the object with an error message
       if (!newId) {
         const msg = `${reference}, ERROR: Failed to create PlanFeedback.`;
@@ -84,11 +85,11 @@ export class PlanFeedback extends MySqlModel {
   }
 
   //Update an existing PlanFeedback
-  async update(context: MyContext, noTouch = false): Promise<PlanFeedback | null> {
+  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<PlanFeedback | null> {
     if (await this.isValid()) {
       if (this.id) {
         this.prepForSave();
-        await PlanFeedback.update(context, PlanFeedback.tableName, this, 'PlanFeedback.update', [], noTouch);
+        await PlanFeedback.update(context, PlanFeedback.tableName, this, 'PlanFeedback.update', [], noTouch, transactionClient);
         return await PlanFeedback.findById('PlanFeedback.update', context, this.id);
       }
       // This feedback has never been saved before so we cannot update it!
@@ -98,7 +99,7 @@ export class PlanFeedback extends MySqlModel {
   }
 
   //Delete the PlanFeedback
-  async delete(context: MyContext): Promise<PlanFeedback | null> {
+  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<PlanFeedback | null> {
     if (this.id) {
       const deleted = await PlanFeedback.findById('PlanFeedback.delete', context, this.id);
 
@@ -106,7 +107,8 @@ export class PlanFeedback extends MySqlModel {
         context,
         PlanFeedback.tableName,
         this.id,
-        'PlanFeedback.delete'
+        'PlanFeedback.delete',
+        transactionClient
       );
       if (successfullyDeleted) {
         return deleted;

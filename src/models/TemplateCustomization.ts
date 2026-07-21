@@ -12,6 +12,7 @@ import {
   snapshotCustomizationChildren,
   rollbackPublishedSnapshot,
 } from "../services/templateCustomizationPublishHelpers";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 /**
  * The status of the customization.
@@ -742,9 +743,10 @@ export class TemplateCustomization extends MySqlModel {
    * Save the current record
    *
    * @param context The Apollo context.
+   * @param transactionClient the MySQL transaction to use
    * @returns The newly created Template customization.
    */
-  async create(context: MyContext): Promise<TemplateCustomization> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<TemplateCustomization> {
     const ref = 'TemplateCustomization.create';
     // Make sure the record is valid
     if (await this.isValid()) {
@@ -765,7 +767,8 @@ export class TemplateCustomization extends MySqlModel {
           TemplateCustomization.tableName,
           this,
           ref,
-          ['templateName'] //skip templateName as it is not a real column in the database and is only used for convenience when fetching a customization with its template name
+          ['templateName'], //skip templateName as it is not a real column in the database and is only used for convenience when fetching a customization with its template name
+          transactionClient
         );
         return await TemplateCustomization.findById(ref, context, newId);
       }
@@ -779,9 +782,10 @@ export class TemplateCustomization extends MySqlModel {
    *
    * @param context The Apollo context
    * @param noTouch Whether or not the modification timestamp should be updated
+   * @param transactionClient the MySQL transaction to use
    * @returns The updated Template customization.
    */
-  async update(context: MyContext, noTouch = false): Promise<TemplateCustomization> {
+  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<TemplateCustomization> {
     const ref = 'TemplateCustomization.update';
 
     if (!this.id) {
@@ -801,7 +805,8 @@ export class TemplateCustomization extends MySqlModel {
           this,
           ref,
           ['templateName'],
-          noTouch
+          noTouch,
+          transactionClient
         );
         return await TemplateCustomization.findById(ref, context, this.id);
       }
@@ -814,9 +819,10 @@ export class TemplateCustomization extends MySqlModel {
    * Archive the customization
    *
    * @param context The Apollo context
+   * @param transactionClient the MySQL transaction to use
    * @returns The archived Template customization.
    */
-  async delete(context: MyContext): Promise<TemplateCustomization> {
+  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<TemplateCustomization> {
     const ref = 'TemplateCustomization.delete';
     if (!this.id) {
       // Cannot delete it if it hasn't been saved yet!
@@ -831,7 +837,8 @@ export class TemplateCustomization extends MySqlModel {
         context,
         TemplateCustomization.tableName,
         this.id,
-        ref
+        ref,
+        transactionClient
       );
       if (result) {
         return original;
@@ -968,10 +975,10 @@ export class TemplateCustomization extends MySqlModel {
 
   /**
    * Find the TemplateCustomization with the name of the base template it is customizing by its id
-   * @param reference 
-   * @param context 
-   * @param templateCustomizationId 
-   * @returns 
+   * @param reference
+   * @param context
+   * @param templateCustomizationId
+   * @returns
    */
   static async findByIdWithTemplateName(
     reference: string,

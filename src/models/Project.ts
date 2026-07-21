@@ -11,6 +11,7 @@ import { isNullOrUndefined, validateDate } from "../utils/helpers";
 import { MySqlModel } from "./MySqlModel";
 import { PlanStatus } from "./Plan";
 import { ProjectFilterOptions } from "../types";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 export class ProjectSearchResult {
   public id: number;
@@ -264,7 +265,7 @@ export class Project extends MySqlModel {
   }
 
   //Create a new Project
-  async create(context: MyContext): Promise<Project> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Project> {
     const reference = 'Project.create';
 
     // First make sure the record is valid
@@ -283,7 +284,7 @@ export class Project extends MySqlModel {
         this.prepForSave();
 
         // Save the record and then fetch it
-        const newId = await Project.insert(context, this.tableName, this, reference);
+        const newId = await Project.insert(context, this.tableName, this, reference, [], transactionClient);
         const response = await Project.findById(reference, context, newId);
         return response;
       }
@@ -293,14 +294,14 @@ export class Project extends MySqlModel {
   }
 
   //Update an existing Project
-  async update(context: MyContext, noTouch = false): Promise<Project> {
+  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Project> {
     const id = this.id;
 
     if (await this.isValid()) {
       if (id) {
         this.prepForSave();
 
-        await Project.update(context, this.tableName, this, 'Project.update', [], noTouch);
+        await Project.update(context, this.tableName, this, 'Project.update', [], noTouch, transactionClient);
         return await Project.findById('Project.update', context, id);
       }
       // This template has never been saved before so we cannot update it!
@@ -310,7 +311,7 @@ export class Project extends MySqlModel {
   }
 
   //Delete the Project
-  async delete(context: MyContext): Promise<Project> {
+  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Project> {
     if (this.id) {
       const deleted = await Project.findById('Project.delete', context, this.id);
 
@@ -318,7 +319,8 @@ export class Project extends MySqlModel {
         context,
         this.tableName,
         this.id,
-        'Project.delete'
+        'Project.delete',
+        transactionClient
       );
       if (successfullyDeleted) {
         return deleted;

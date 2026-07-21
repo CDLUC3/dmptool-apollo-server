@@ -4,6 +4,7 @@ import { PaginatedQueryResults, PaginationOptions, PaginationOptionsForCursors, 
 import { isNullOrUndefined, randomHex, validateURL } from "../utils/helpers";
 import { MySqlModel } from "./MySqlModel";
 import { ResearchDomain } from "./ResearchDomain";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 export const DEFAULT_DMPTOOL_REPOSITORY_URL = 'https://dmptool.org/repositories/';;
 
@@ -96,7 +97,7 @@ export class Repository extends MySqlModel {
   }
 
   //Create a new Repository
-  async create(context: MyContext): Promise<Repository> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Repository> {
     const reference = 'Repository.create';
 
     // If no URI is present, then use the DMP Tool's default URI
@@ -117,7 +118,7 @@ export class Repository extends MySqlModel {
         this.addError('general', 'Repository already exists');
       } else {
         // Save the record and then fetch it
-        const newId = await Repository.insert(context, this.tableName, this, reference, ['researchDomains']);
+        const newId = await Repository.insert(context, this.tableName, this, reference, ['researchDomains'], transactionClient);
         const response = await Repository.findById(reference, context, newId);
         return response;
       }
@@ -127,13 +128,13 @@ export class Repository extends MySqlModel {
   }
 
   //Update an existing Repository
-  async update(context: MyContext, noTouch = false): Promise<Repository> {
+  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Repository> {
     const id = this.id;
 
     this.prepForSave();
     if (await this.isValid()) {
       if (id) {
-        await Repository.update(context, this.tableName, this, 'Repository.update', ['researchDomains'], noTouch);
+        await Repository.update(context, this.tableName, this, 'Repository.update', ['researchDomains'], noTouch, transactionClient);
         return await Repository.findById('Repository.update', context, id);
       }
       // This template has never been saved before so we cannot update it!
@@ -143,7 +144,7 @@ export class Repository extends MySqlModel {
   }
 
   //Delete the Repository
-  async delete(context: MyContext): Promise<Repository> {
+  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Repository> {
     if (this.id) {
       const deleted = await Repository.findById('Repository.delete', context, this.id);
 
@@ -151,7 +152,8 @@ export class Repository extends MySqlModel {
         context,
         this.tableName,
         this.id,
-        'Repository.delete'
+        'Repository.delete',
+        transactionClient
       );
       if (successfullyDeleted) {
         return deleted;

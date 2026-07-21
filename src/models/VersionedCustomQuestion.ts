@@ -7,6 +7,7 @@ import { MyContext } from "../context";
 import { QuestionSchemaMap } from "@dmptool/types";
 import { PinnedSectionTypeEnum } from "./CustomSection";
 import { PinnedQuestionTypeEnum } from "./CustomQuestion";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 /**
  * This object represents a snapshot version of a custom question that an
@@ -131,9 +132,10 @@ export class VersionedCustomQuestion extends MySqlModel {
    * Save the custom question version
    *
    * @param context The Apollo context.
+   * @param transactionClient the MySQL transaction to use
    * @returns The newly created custom question version.
    */
-  async create(context: MyContext): Promise<VersionedCustomQuestion> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<VersionedCustomQuestion> {
     const ref = 'VersionedCustomQuestion.create';
     // Make sure the record is valid
     if (await this.isValid()) {
@@ -159,7 +161,9 @@ export class VersionedCustomQuestion extends MySqlModel {
           context,
           VersionedCustomQuestion.tableName,
           this,
-          ref
+          ref,
+          [],
+          transactionClient
         );
         return await VersionedCustomQuestion.findById(ref, context, newId);
       }
@@ -173,9 +177,10 @@ export class VersionedCustomQuestion extends MySqlModel {
    *
    * @param context The Apollo context
    * @param noTouch Whether or not the modification timestamp should be updated
+   * @param transactionClient the MySQL transaction to use
    * @returns The updated custom question version.
    */
-  async update(context: MyContext, noTouch = false): Promise<VersionedCustomQuestion> {
+  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<VersionedCustomQuestion> {
     const ref = 'VersionedCustomQuestion.update';
 
     if (isNullOrUndefined(this.id)) {
@@ -192,7 +197,8 @@ export class VersionedCustomQuestion extends MySqlModel {
           this,
           ref,
           [],
-          noTouch
+          noTouch,
+          transactionClient
         );
         return await VersionedCustomQuestion.findById(ref, context, this.id);
       }
@@ -205,9 +211,10 @@ export class VersionedCustomQuestion extends MySqlModel {
    * Delete the custom question version
    *
    * @param context The Apollo context
+   * @param transactionClient the MySQL transaction to use
    * @returns The archived custom section version.
    */
-  async delete(context: MyContext): Promise<VersionedCustomQuestion> {
+  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<VersionedCustomQuestion> {
     const ref = 'VersionedCustomQuestion.delete';
     if (!this.id) {
       // Cannot delete it if it hasn't been saved yet!
@@ -222,7 +229,8 @@ export class VersionedCustomQuestion extends MySqlModel {
         context,
         VersionedCustomQuestion.tableName,
         this.id,
-        ref
+        ref,
+        transactionClient
       );
       if (result) {
         return original;
@@ -355,8 +363,8 @@ export class VersionedCustomQuestion extends MySqlModel {
   ): Promise<VersionedCustomQuestion[]> {
     const sql = `SELECT vcq.* FROM versionedCustomQuestions as vcq
     JOIN versionedTemplateCustomizations as vtc
-      ON vcq.versionedTemplateCustomizationId = vtc.id 
-    WHERE vcq.versionedSectionType = ? 
+      ON vcq.versionedTemplateCustomizationId = vtc.id
+    WHERE vcq.versionedSectionType = ?
       AND vcq.versionedSectionId = ?
       AND vtc.active = 1
     ORDER BY vcq.pinnedVersionedQuestionType ASC, vcq.pinnedVersionedQuestionId ASC`;

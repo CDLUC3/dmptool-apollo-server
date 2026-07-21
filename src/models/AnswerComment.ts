@@ -1,6 +1,7 @@
 import { MyContext } from "../context";
 import { valueIsEmpty } from "../utils/helpers";
 import { MySqlModel } from "./MySqlModel";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 export class AnswerComment extends MySqlModel {
   public answerId: number;
@@ -32,13 +33,13 @@ export class AnswerComment extends MySqlModel {
   }
 
   //Create a new AnswerComment
-  async create(context: MyContext): Promise<AnswerComment> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<AnswerComment> {
     const reference = 'AnswerComment.create';
 
     // First make sure the record is valid
     if (await this.isValid()) {
       // Save the record and then fetch it
-      const newId = await AnswerComment.insert(context, AnswerComment.tableName, this, reference);
+      const newId = await AnswerComment.insert(context, AnswerComment.tableName, this, reference, [], transactionClient);
       const response = await AnswerComment.findById(reference, context, newId);
       return response;
     }
@@ -47,10 +48,10 @@ export class AnswerComment extends MySqlModel {
   }
 
   //Update an existing AnswerComment
-  async update(context: MyContext, noTouch = false): Promise<AnswerComment> {
+  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<AnswerComment> {
     if (await this.isValid()) {
       if (this.id) {
-        await AnswerComment.update(context, AnswerComment.tableName, this, 'AnswerComment.update', [], noTouch);
+        await AnswerComment.update(context, AnswerComment.tableName, this, 'AnswerComment.update', [], noTouch, transactionClient);
         return await AnswerComment.findById('AnswerComment.update', context, this.id);
       }
       // This template has never been saved before so we cannot update it!
@@ -60,7 +61,7 @@ export class AnswerComment extends MySqlModel {
   }
 
   //Delete the AnswerComment
-  async delete(context: MyContext): Promise<AnswerComment> {
+  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<AnswerComment> {
     if (this.id) {
       const deleted = await AnswerComment.findById('AnswerComment.delete', context, this.id);
 
@@ -68,7 +69,8 @@ export class AnswerComment extends MySqlModel {
         context,
         AnswerComment.tableName,
         this.id,
-        'AnswerComment.delete'
+        'AnswerComment.delete',
+        transactionClient
       );
       if (successfullyDeleted) {
         return deleted;

@@ -6,6 +6,7 @@ import {
 } from '../utils/helpers';
 import { TemplateCollaborator } from "./Collaborator";
 import { MySqlModel } from "./MySqlModel";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 // Reepresents one of the user's email addresses
 export class UserEmail extends MySqlModel {
@@ -37,7 +38,7 @@ export class UserEmail extends MySqlModel {
   }
 
   // Confirm the user owns the email
-  static async confirmEmail(context: MyContext, userId: number, email: string): Promise<UserEmail> {
+  static async confirmEmail(context: MyContext, userId: number, email: string, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<UserEmail> {
     const ref = 'UserEmail.confirmEmail';
     // Fetch all of the existing records with the current email
     const userEmail = await UserEmail.findByUserIdAndEmail(ref, context, userId, email);
@@ -55,18 +56,18 @@ export class UserEmail extends MySqlModel {
       } else {
         // Update the confirmed flag
         userEmail.isConfirmed = true;
-        const updated = await userEmail.update(context);
+        const updated = await userEmail.update(context, transactionClient);
 
         // Claim any invitations to collaborate on a Template by assigning the userId
         const tmpltCollabs = await TemplateCollaborator.findByEmail(ref, context, email);
         for (const collab of tmpltCollabs) {
           collab.userId = userId;
-          await collab.update(context);
+          await collab.update(context, transactionClient);
         }
 
         // Remove any other instances of the email that are out there for other users
         for (const other of otherEmails) {
-          await other.delete(context);
+          await other.delete(context, transactionClient);
         }
 
         return updated;
@@ -81,7 +82,8 @@ export class UserEmail extends MySqlModel {
     table: string,
     obj: UserEmail,
     reference = 'undefined caller',
-    skipKeys?: string[]
+    skipKeys?: string[],
+    transactionClient: DatabaseTransactionClient | undefined = undefined
   ): Promise<number> {
     // Update the creator/modifier info
     const currentDate = getCurrentDate();
@@ -98,12 +100,12 @@ export class UserEmail extends MySqlModel {
     const vals = props.map((entry) => this.prepareValue(entry.value, typeof (entry.value)));
 
     // Send the calcuated INSERT statement to the query function
-    const result = await this.query(apolloContext, sql, vals, reference);
+    const result = await this.query(apolloContext, sql, vals, reference, transactionClient);
     return Array.isArray(result) ? result[0]?.insertId : null;
   }
 
   // Save the current record
-  async create(context: MyContext): Promise<UserEmail> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<UserEmail> {
     const ref = 'UserEmail.create';
     // First make sure the record is valid
     if (await this.isValid()) {
@@ -124,7 +126,7 @@ export class UserEmail extends MySqlModel {
 
       if (Object.keys(this.errors).length === 0) {
         // Save the record and then fetch it
-        const newId = await UserEmail.insert(context, this.tableName, this, ref);
+        const newId = await UserEmail.insert(context, this.tableName, this, ref, [], transactionClient);
         const created = await UserEmail.findById(ref, context, newId);
 
         if (created) {
@@ -139,7 +141,7 @@ export class UserEmail extends MySqlModel {
   }
 
   // Save the changes made to the UserEmail
-  async update(context: MyContext): Promise<UserEmail> {
+  async update(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<UserEmail> {
     if (this.id) {
       // First make sure the record is valid
       if (await this.isValid()) {
@@ -150,7 +152,7 @@ export class UserEmail extends MySqlModel {
         }
 
         if (Object.keys(this.errors).length === 0) {
-          await UserEmail.update(context, this.tableName, this, 'UserEmail.update');
+          await UserEmail.update(context, this.tableName, this, 'UserEmail.update', [], false, transactionClient);
           return await UserEmail.findById('UserEmail.update', context, this.id);
         }
       }
@@ -162,12 +164,12 @@ export class UserEmail extends MySqlModel {
   }
 
   //Delete this UserEmail
-  async delete(context: MyContext): Promise<UserEmail> {
+  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<UserEmail> {
     if (this.id) {
       const deleted = await UserEmail.findById('UserEmail.delete', context, this.id);
 
       if (deleted) {
-        const success = await UserEmail.delete(context, this.tableName, this.id, 'UserEmail.delete');
+        const success = await UserEmail.delete(context, this.tableName, this.id, 'UserEmail.delete', transactionClient);
         if (success) {
           return deleted;
         }
@@ -242,7 +244,8 @@ export class UserEmail extends MySqlModel {
     context: MyContext,
     userId: number,
     email: string,
-    isConfirmed = false
+    isConfirmed = false,
+    transactionClient: DatabaseTransactionClient | undefined = undefined
   ): Promise<UserEmail> {
     const ref = 'UserEmail.createOrUpdatePrimary';
     // Find current primary email for user
@@ -259,18 +262,18 @@ export class UserEmail extends MySqlModel {
         isPrimary: true,
         isConfirmed: isConfirmed,
       });
-      return await newPrimary.create(context);
+      return await newPrimary.create(context, transactionClient);
     }
 
     if (existingEmail) {
       if (!existingEmail.isPrimary) {
         // Set this email as primary, unset current primary
         existingEmail.isPrimary = true;
-        await existingEmail.update(context);
+        await existingEmail.update(context, transactionClient);
 
         if (currentPrimary.id !== existingEmail.id) {
           currentPrimary.isPrimary = false;
-          await currentPrimary.update(context);
+          await currentPrimary.update(context, transactionClient);
         }
         return existingEmail;
       } else {
@@ -280,7 +283,7 @@ export class UserEmail extends MySqlModel {
     } else {
       // Update current primary record to have the new email
       currentPrimary.email = email;
-      return await currentPrimary.update(context);
+      return await currentPrimary.update(context, transactionClient);
     }
   }
 }

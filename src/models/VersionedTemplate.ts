@@ -16,6 +16,7 @@ import {
   TemplateCustomizationStatus,
   TemplateCustomizationMigrationStatus
 } from "./TemplateCustomization";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 export enum TemplateVersionType {
   DRAFT = 'DRAFT',
@@ -426,11 +427,11 @@ export class VersionedTemplate extends MySqlModel {
   }
 
   // Save the current record
-  async create(context: MyContext): Promise<VersionedTemplate> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<VersionedTemplate> {
     // First make sure the record is valid
     if (await this.isValid()) {
       // Save the record and then fetch it
-      const newId = await VersionedTemplate.insert(context, this.tableName, this, 'VersionedTemplate.create');
+      const newId = await VersionedTemplate.insert(context, this.tableName, this, 'VersionedTemplate.create', [], transactionClient);
       return await VersionedTemplate.findVersionedTemplateById('VersionedTemplate.create', context, newId);
     }
     // Otherwise return as-is with all the errors
@@ -438,11 +439,11 @@ export class VersionedTemplate extends MySqlModel {
   }
 
   // Save the changes made to the VersionedTemplate
-  async update(context: MyContext): Promise<VersionedTemplate> {
+  async update(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<VersionedTemplate> {
     // First make sure the record is valid
     if (await this.isValid()) {
       if (this.id) {
-        const result = await VersionedTemplate.update(context, this.tableName, this, 'VersionedTemplate.update');
+        const result = await VersionedTemplate.update(context, this.tableName, this, 'VersionedTemplate.update', [], false, transactionClient);
         return result as VersionedTemplate;
       }
       // This template has never been saved before so we cannot update it!
@@ -555,9 +556,9 @@ export class VersionedTemplate extends MySqlModel {
   }
 
   // Deactivate all versionedTemplates for the given template
-  static async deactivateByTemplateId(reference: string, context: MyContext, templateId: number): Promise<void> {
+  static async deactivateByTemplateId(reference: string, context: MyContext, templateId: number, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<void> {
     const sql = 'UPDATE versionedTemplates SET active = 0 WHERE templateId = ?';
-    await VersionedTemplate.query(context, sql, [templateId.toString()], reference);
+    await VersionedTemplate.query(context, sql, [templateId.toString()], reference, transactionClient);
   }
 
   // Fetch the latest version of the default best practice template

@@ -4,6 +4,7 @@ import { PaginatedQueryResults, PaginationOptions, PaginationOptionsForCursors, 
 import { isNullOrUndefined, randomHex, validateURL } from "../utils/helpers";
 import { MySqlModel } from "./MySqlModel";
 import { ResearchDomain } from "./ResearchDomain";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 export const DEFAULT_DMPTOOL_METADATA_STANDARD_URL = 'https://dmptool.org/metadata-standards/';;
 export class MetadataStandard extends MySqlModel {
@@ -62,7 +63,7 @@ export class MetadataStandard extends MySqlModel {
   }
 
   //Create a new MetadataStandard
-  async create(context: MyContext): Promise<MetadataStandard> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<MetadataStandard> {
     const reference = 'MetadataStandard.create';
 
     // If no URI is present, then use the DMPTool's default URI
@@ -83,7 +84,7 @@ export class MetadataStandard extends MySqlModel {
         this.addError('general', 'MetadataStandard already exists');
       } else {
         // Save the record and then fetch it
-        const newId = await MetadataStandard.insert(context, this.tableName, this, reference, ['researchDomains']);
+        const newId = await MetadataStandard.insert(context, this.tableName, this, reference, ['researchDomains'], transactionClient);
         const response = await MetadataStandard.findById(reference, context, newId);
         return response;
       }
@@ -93,7 +94,7 @@ export class MetadataStandard extends MySqlModel {
   }
 
   //Update an existing MetadataStandard
-  async update(context: MyContext, noTouch = false): Promise<MetadataStandard> {
+  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<MetadataStandard> {
     const id = this.id;
 
     this.prepForSave();
@@ -105,7 +106,8 @@ export class MetadataStandard extends MySqlModel {
           this,
           'MetadataStandard.update',
           ['researchDomains'],
-          noTouch
+          noTouch,
+          transactionClient
         );
 
         return await MetadataStandard.findById('MetadataStandard.update', context, id);
@@ -117,7 +119,7 @@ export class MetadataStandard extends MySqlModel {
   }
 
   //Delete the MetadataStandard
-  async delete(context: MyContext): Promise<MetadataStandard> {
+  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<MetadataStandard> {
     if (this.id) {
       const deleted = await MetadataStandard.findById('MetadataStandard.delete', context, this.id);
 
@@ -125,7 +127,8 @@ export class MetadataStandard extends MySqlModel {
         context,
         this.tableName,
         this.id,
-        'MetadataStandard.delete'
+        'MetadataStandard.delete',
+        transactionClient
       );
       if (successfullyDeleted) {
         return deleted;

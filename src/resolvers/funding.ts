@@ -287,7 +287,7 @@ export const resolvers: Resolvers = {
           const removeErrors = [];
           // Remove records that are not in the newly supplied projectFundingIds array
           for (const id of idsToBeRemoved) {
-            const funding = await PlanFunding.findByProjectFundingId(reference, context, planId, id as number);
+            const funding = await PlanFunding.findByPlanAndProjectFundingId(reference, context, planId, id as number);
             if (funding) {
               const wasRemoved = funding.delete(context);
               if (!wasRemoved) {

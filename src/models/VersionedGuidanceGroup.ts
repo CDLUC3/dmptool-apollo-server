@@ -1,6 +1,7 @@
 import { MyContext } from "../context";
 import { MySqlModel } from "./MySqlModel";
 import { VersionedGuidance } from "./VersionedGuidance";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 export class VersionedGuidanceGroup extends MySqlModel {
   public guidanceGroupId: number;
@@ -44,13 +45,13 @@ export class VersionedGuidanceGroup extends MySqlModel {
   }
 
   // Insert the new record
-  async create(context: MyContext): Promise<VersionedGuidanceGroup> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<VersionedGuidanceGroup> {
     // First make sure the record is valid
     if (await this.isValid()) {
       this.prepForSave();
 
       // Save the record and then fetch it
-      const newId = await VersionedGuidanceGroup.insert(context, VersionedGuidanceGroup.tableName, this, 'VersionedGuidanceGroup.create', ['versionedGuidance']);
+      const newId = await VersionedGuidanceGroup.insert(context, VersionedGuidanceGroup.tableName, this, 'VersionedGuidanceGroup.create', ['versionedGuidance'], transactionClient);
       return await VersionedGuidanceGroup.findById('VersionedGuidanceGroup.create', context, newId);
     }
     // Otherwise return as-is with all the errors
@@ -58,14 +59,14 @@ export class VersionedGuidanceGroup extends MySqlModel {
   }
 
   // Update an existing VersionedGuidanceGroup (mainly for setting active flag)
-  async update(context: MyContext, noTouch = false): Promise<VersionedGuidanceGroup> {
+  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<VersionedGuidanceGroup> {
     const id = this.id;
 
     if (await this.isValid()) {
       if (id) {
         this.prepForSave();
 
-        await VersionedGuidanceGroup.update(context, VersionedGuidanceGroup.tableName, this, 'VersionedGuidanceGroup.update', ['versionedGuidance'], noTouch);
+        await VersionedGuidanceGroup.update(context, VersionedGuidanceGroup.tableName, this, 'VersionedGuidanceGroup.update', ['versionedGuidance'], noTouch, transactionClient);
         return await VersionedGuidanceGroup.findById('VersionedGuidanceGroup.update', context, id);
       }
       this.addError('general', 'VersionedGuidanceGroup has never been saved');
@@ -104,7 +105,7 @@ export class VersionedGuidanceGroup extends MySqlModel {
   // Find active VersionedGuidanceGroups for a specific affiliation
   static async findActiveByAffiliationId(reference: string, context: MyContext, affiliationId: string): Promise<VersionedGuidanceGroup[]> {
     const sql = `
-      SELECT vgg.* 
+      SELECT vgg.*
       FROM ${VersionedGuidanceGroup.tableName} vgg
       INNER JOIN guidanceGroups gg ON vgg.guidanceGroupId = gg.id
       WHERE gg.affiliationId = ? AND vgg.active = 1
@@ -115,9 +116,9 @@ export class VersionedGuidanceGroup extends MySqlModel {
   }
 
   // Deactivate all versions for a given guidanceGroupId
-  static async deactivateAll(reference: string, context: MyContext, guidanceGroupId: number): Promise<boolean> {
+  static async deactivateAll(reference: string, context: MyContext, guidanceGroupId: number, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<boolean> {
     const sql = `UPDATE ${VersionedGuidanceGroup.tableName} SET active = 0 WHERE guidanceGroupId = ?`;
-    const result = await VersionedGuidanceGroup.query(context, sql, [guidanceGroupId?.toString()], reference);
+    const result = await VersionedGuidanceGroup.query(context, sql, [guidanceGroupId?.toString()], reference, transactionClient);
     return result !== null;
   }
 }

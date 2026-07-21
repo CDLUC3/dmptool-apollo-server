@@ -1,6 +1,7 @@
 import { MySqlModel } from "./MySqlModel";
 import { MyContext } from "../context";
 import {isNullOrUndefined} from "../utils/helpers";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 /**
  * A snapshot version of the affiliation's customizations to a funder template
@@ -55,9 +56,10 @@ export class VersionedTemplateCustomization extends MySqlModel {
    * Create the published version of the customization
    *
    * @param context The Apollo context.
+   * @param transactionClient the MySQL transaction to use
    * @returns The newly created version of the customization.
    */
-  async create(context: MyContext): Promise<VersionedTemplateCustomization> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<VersionedTemplateCustomization> {
     const ref = 'VersionedTemplateCustomization.create';
 
     // Make sure the record is valid
@@ -70,7 +72,9 @@ export class VersionedTemplateCustomization extends MySqlModel {
         context,
         VersionedTemplateCustomization.tableName,
         this,
-        ref
+        ref,
+        [],
+        transactionClient
       );
 
       if (newId) {
@@ -102,9 +106,10 @@ export class VersionedTemplateCustomization extends MySqlModel {
    *
    * @param context The Apollo context
    * @param noTouch Whether or not the modification timestamp should be updated
+   * @param transactionClient the MySQL transaction to use
    * @returns The updated version of the customization.
    */
-  async update(context: MyContext, noTouch = false): Promise<VersionedTemplateCustomization> {
+  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<VersionedTemplateCustomization> {
     const ref = 'VersionedTemplateCustomization.update';
 
     if (!this.id) {
@@ -119,7 +124,8 @@ export class VersionedTemplateCustomization extends MySqlModel {
           this,
           ref,
           [],
-          noTouch
+          noTouch,
+          transactionClient
         ) as unknown as {affectedRows:number} | null;
 
         if (result && result.affectedRows > 0) {
@@ -137,11 +143,13 @@ export class VersionedTemplateCustomization extends MySqlModel {
    *
    * @param reference The reference to use for logging errors.
    * @param context The Apollo context.
+   * @param transactionClient the MySQL transaction to use
    * @returns boolean.
    */
   async unpublishOtherVersions(
     reference: string,
-    context: MyContext
+    context: MyContext,
+    transactionClient: DatabaseTransactionClient | undefined = undefined
   ): Promise<boolean> {
     const results = await VersionedTemplateCustomization.query(
       context,
@@ -151,7 +159,8 @@ export class VersionedTemplateCustomization extends MySqlModel {
         this.id.toString(),
         this.templateCustomizationId.toString()
       ],
-      reference
+      reference,
+      transactionClient
     );
     return !!results;
   }

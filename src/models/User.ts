@@ -20,6 +20,10 @@ import {
   PaginationType
 } from '../types/general';
 import { ProjectCollaborator, TemplateCollaborator } from "./Collaborator";
+import {
+  TransactionClient,
+  DatabaseTransactionClient
+} from "../datasources/mysql";
 
 export enum UserRole {
   RESEARCHER = 'RESEARCHER',
@@ -437,12 +441,15 @@ export class User extends MySqlModel {
       this.password = passwordHash
 
       try {
+        const transactionClient: DatabaseTransactionClient = new TransactionClient(
+          await context.dataSources.sqlDataSource.getConnection()
+        );
         const sql = `INSERT INTO users \
                       (password, role, givenName, surName, affiliationId, acceptedTerms) \
                      VALUES(?, ?, ?, ?, ?, ?)`;
         const vals = [this.password, this.role, this.givenName, this.surName, this.affiliationId, this.acceptedTerms];
         context.logger.debug(prepareObjectForLogs({ email }), reference);
-        const result = await User.query(context, sql, vals, reference);
+        const result = await User.query(context, sql, vals, reference, transactionClient);
 
         if (!Array.isArray(result) || !result[0].insertId) {
           this.addError('general', 'Unable to register your account');
@@ -459,11 +466,11 @@ export class User extends MySqlModel {
         // Update the user's createdById and modifiedById to indicate themselves
         const sqlUpdate = `UPDATE users SET createdById = ?, modifiedById = ? WHERE id = ?`;
         const valsUpdate = [user.id.toString(), user.id.toString(), user.id.toString()];
-        await User.query(context, sqlUpdate, valsUpdate, reference);
+        await User.query(context, sqlUpdate, valsUpdate, reference, transactionClient);
 
         // Add the email to the UserEmail table and send out a 'please confirm' email
         const userEmail = new UserEmail({ userId: user.id, email: email, isPrimary: true });
-        if (!await userEmail.create(context)) {
+        if (!await userEmail.create(context, transactionClient)) {
           context.logger.error(prepareObjectForLogs({ userEmail }), `${reference} - unable to add UserEmail`);
         }
 
@@ -471,15 +478,16 @@ export class User extends MySqlModel {
         const tmpltCollabs = await TemplateCollaborator.findByEmail(reference, context, email);
         for (const collab of tmpltCollabs) {
           collab.userId = user.id;
-          await collab.update(context);
+          await collab.update(context, transactionClient);
         }
 
         // Claim any open invitations to collaborate on a Project by assigning the userId
         const projCollabs = await ProjectCollaborator.findByEmail(reference, context, email);
         for (const collab of projCollabs) {
           collab.userId = user.id;
-          await collab.update(context);
+          await collab.update(context, transactionClient);
         }
+
 
         return user;
       } catch (err) {
@@ -494,7 +502,7 @@ export class User extends MySqlModel {
   }
 
   // Save the changes made to the User
-  async update(context: MyContext): Promise<User> {
+  async update(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<User> {
     if (await this.isValid()) {
       if (this.id) {
         const original = await User.findById('User.update', context, this.id);
@@ -514,7 +522,7 @@ export class User extends MySqlModel {
         }
 
         // Don't allow password changes here
-        await User.update(context, this.tableName, this, 'User.update', ['password']);
+        await User.update(context, this.tableName, this, 'User.update', ['password'], false, transactionClient);
         return await User.findById('User.update', context, this.id);
       }
       // This user has never been saved before so we cannot update it!
@@ -528,7 +536,8 @@ export class User extends MySqlModel {
     context: MyContext,
     oldPassword: string,
     newPassword: string,
-    email: string
+    email: string,
+    transactionClient: DatabaseTransactionClient | undefined = undefined
   ): Promise<User> {
     const ref = 'User.updatePassword';
     // First make sure the current password is valid
@@ -538,7 +547,7 @@ export class User extends MySqlModel {
       if (this.validatePassword()) {
         this.password = await this.hashPassword(newPassword);
 
-        const updated = await User.update(context, this.tableName, this, 'User.updatePassword');
+        const updated = await User.update(context, this.tableName, this, 'User.updatePassword', [], false, transactionClient);
         if (updated) {
           return await User.findById('updatePassword resolver', context, this.id);
         }

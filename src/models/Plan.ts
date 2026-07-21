@@ -21,6 +21,7 @@ import {
   PaginationType
 } from '../types/general';
 import { prepareObjectForLogs } from '../logger';
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 export const DEFAULT_TEMPORARY_DMP_ID_PREFIX = 'temp-dmpId-';
 
@@ -826,9 +827,10 @@ export class Plan extends MySqlModel {
    * Create a new Plan and its initial maDMP record.
    *
    * @param context The Apollo context object
+   * @param transactionClient the MySQL transaction client to use for the insert
    * @returns The new Plan or the original Plan if something went wrong
    */
-  async create(context: MyContext): Promise<Plan> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Plan> {
     const reference = 'Plan.create';
 
     if (!this.id) {
@@ -857,7 +859,7 @@ export class Plan extends MySqlModel {
         this.title = resolveNamingCollision(this.title, existingPlanTitles);
 
         // Create the new Plan
-        const newId = await Plan.insert(context, Plan.tableName, this, reference);
+        const newId = await Plan.insert(context, Plan.tableName, this, reference, [], transactionClient);
 
         // Create the original version snapshot of the DMP
         if (newId) {
@@ -946,10 +948,11 @@ export class Plan extends MySqlModel {
    *
    * @param context The Apollo context object
    * @param noTouch If true, do not update fields like modified timestamp and also
+   * @param transactionClient the MySQL transaction client to use for the update.
    * skip updating the maDMP record
    * @returns The updated Plan or the original Plan if something went wrong
    */
-  async update(context: MyContext, noTouch = false): Promise<Plan> {
+  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Plan> {
     const reference = 'Plan.update';
 
     if (this.id) {
@@ -957,7 +960,7 @@ export class Plan extends MySqlModel {
         this.prepForSave();
 
         // Update the plan
-        const result = await Plan.update(context, Plan.tableName, this, reference, [], noTouch);
+        const result = await Plan.update(context, Plan.tableName, this, reference, [], noTouch, transactionClient);
         // The result of the update function is just a boolean indicating whether the update query succeeded or not,
         // so if it succeeded we need to re-query to get the updated plan with all the new values
         if (result) {
@@ -976,16 +979,17 @@ export class Plan extends MySqlModel {
    * Delete the Plan and all maDMP versions.
    *
    * @param context The Apollo context object
+   * @param transactionClient The MySQL transaction client to use for the delete operation
    * @returns The deleted Plan or null if something went wrong
    */
-  async delete(context: MyContext): Promise<Plan | null> {
+  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Plan | null> {
     const reference = 'Plan.delete';
     if (this.id) {
       const toDelete = await Plan.findById(reference, context, this.id);
 
       if (toDelete) {
         // Delete the plan
-        const successfullyDeleted = await Plan.delete(context, Plan.tableName, this.id, reference);
+        const successfullyDeleted = await Plan.delete(context, Plan.tableName, this.id, reference, transactionClient);
         if (successfullyDeleted) {
           return toDelete;
         }
@@ -1018,13 +1022,7 @@ export class Plan extends MySqlModel {
    */
   static async findByDMPId(reference: string, context: MyContext, dmpId: string): Promise<Plan | null> {
     const sql = `SELECT * FROM ${this.tableName} WHERE dmpId = ?`;
-
-console.log(sql);
-
     const results = await Plan.query(context, sql, [dmpId?.toString()], reference);
-
-console.log(results);
-
     return Array.isArray(results) && results.length > 0 ? await Plan.processResult(context, results[0]) : null;
   }
 
@@ -1064,5 +1062,21 @@ console.log(results);
         await Plan.processResult(context, result)
       ))
       : [];
+  }
+
+  /**
+   * Fetch the Plan by the title and creator/owner
+   *
+   * @param reference The caller's reference string for logging purposes'
+   * @param context The Apollo context object
+   * @param userId The id of the user whose Plans we want to fetch
+   * @returns The Plan object or null if it does not exist
+   */
+  static async findByOwnerAndTitle(reference: string, context: MyContext, title: string, userId: number): Promise<Plan | null> {
+    const sql = 'SELECT * FROM plans WHERE createdById = ? AND LOWER(title) LIKE ?';
+    const searchTerm = (title ?? '');
+    const vals = [userId?.toString(), `%${searchTerm?.toLowerCase()?.trim()}%`]
+    const results = await Plan.query(context, sql, vals, reference);
+    return Array.isArray(results) && results.length > 0 ? new Plan(results[0]) : null;
   }
 }

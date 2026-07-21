@@ -15,6 +15,7 @@ import { PaginatedQueryResults, PaginationOptionsForCursors } from "../types/gen
 import { CollaboratorSearchResult } from "../types";
 import { Affiliation } from "./Affiliation";
 import { OrcidAPI, OrcidPerson } from "../datasources/OrcidAPI";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 export interface ProjectCollaboratorSearchResult {
   cursorId?: string;
@@ -79,7 +80,7 @@ export class TemplateCollaborator extends Collaborator {
   }
 
   // Save the current record
-  async create(context: MyContext): Promise<TemplateCollaborator> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<TemplateCollaborator> {
     const reference = 'TemplateCollaborator.create';
 
     const currentCollaborator = await TemplateCollaborator.findByTemplateIdAndEmail(
@@ -103,7 +104,7 @@ export class TemplateCollaborator extends Collaborator {
       // First make sure the record is valid
       if (await this.isValid()) {
         // Save the record and then fetch it
-        const newId = await TemplateCollaborator.insert(context, this.tableName, this, reference);
+        const newId = await TemplateCollaborator.insert(context, this.tableName, this, reference, [], transactionClient);
         if (newId) {
           const inviter = await User.findById(reference, context, this.invitedById);
           const template = await Template.findById(reference, context, this.templateId);
@@ -121,7 +122,7 @@ export class TemplateCollaborator extends Collaborator {
   }
 
   // Update the record
-  async update(context: MyContext): Promise<TemplateCollaborator> {
+  async update(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<TemplateCollaborator> {
     // First make sure the record is valid
     if (await this.isValid()) {
       if (this.id) {
@@ -136,7 +137,7 @@ export class TemplateCollaborator extends Collaborator {
         if (!templateExists) {
           this.addError('general', 'Template does not exist');
         } else {
-          const result = await TemplateCollaborator.update(context, this.tableName, this, 'TemplateCollaborator.update');
+          const result = await TemplateCollaborator.update(context, this.tableName, this, 'TemplateCollaborator.update', [], false, transactionClient);
           if (!result) {
             this.addError('general', 'Unable to update the collaborator');
           }
@@ -152,10 +153,10 @@ export class TemplateCollaborator extends Collaborator {
   }
 
   // Remove this record
-  async delete(context: MyContext): Promise<TemplateCollaborator> {
+  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<TemplateCollaborator> {
     const existing = await TemplateCollaborator.findById('TemplateCollaborator.delete', context, this.id);
     if (existing) {
-      const result = await TemplateCollaborator.delete(context, this.tableName, this.id, 'TemplateCollaborator.delete');
+      const result = await TemplateCollaborator.delete(context, this.tableName, this.id, 'TemplateCollaborator.delete', transactionClient);
       if (!result) {
         existing.addError('general', 'Unable to delete the collaborator');
       }
@@ -262,7 +263,7 @@ export class ProjectCollaborator extends Collaborator {
   }
 
   // Save the current record
-  async create(context: MyContext, sendEmailNotification = true): Promise<ProjectCollaborator> {
+  async create(context: MyContext, sendEmailNotification = true, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<ProjectCollaborator> {
     const reference = 'ProjectCollaborator.create';
 
     const currentCollaborator = await ProjectCollaborator.findByProjectIdAndEmail(
@@ -286,7 +287,7 @@ export class ProjectCollaborator extends Collaborator {
       // First make sure the record is valid
       if (await this.isValid()) {
         // Save the record and then fetch it
-        const newId = await ProjectCollaborator.insert(context, this.tableName, this, reference);
+        const newId = await ProjectCollaborator.insert(context, this.tableName, this, reference, [], transactionClient);
         if (newId) {
           const inviter = await User.findById(reference, context, this.invitedById);
           const project = await Project.findById(reference, context, this.projectId);
@@ -306,7 +307,7 @@ export class ProjectCollaborator extends Collaborator {
   }
 
   // Update the record
-  async update(context: MyContext): Promise<ProjectCollaborator> {
+  async update(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<ProjectCollaborator> {
     // First make sure the record is valid
     if (await this.isValid()) {
       if (this.id) {
@@ -321,7 +322,7 @@ export class ProjectCollaborator extends Collaborator {
         if (!projectExists) {
           this.addError('general', 'Project does not exist');
         } else {
-          const result = await ProjectCollaborator.update(context, this.tableName, this, 'ProjectCollaborator.update');
+          const result = await ProjectCollaborator.update(context, this.tableName, this, 'ProjectCollaborator.update', [], false, transactionClient);
           if (!result) {
             this.addError('general', 'Unable to update the collaborator');
           }
@@ -337,10 +338,10 @@ export class ProjectCollaborator extends Collaborator {
   }
 
   // Remove this record
-  async delete(context: MyContext): Promise<ProjectCollaborator> {
+  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<ProjectCollaborator> {
     const existing = await ProjectCollaborator.findById('ProjectCollaborator.delete', context, this.id);
     if (existing) {
-      const result = await ProjectCollaborator.delete(context, this.tableName, this.id, 'ProjectCollaborator.delete');
+      const result = await ProjectCollaborator.delete(context, this.tableName, this.id, 'ProjectCollaborator.delete', transactionClient);
       if (!result) {
         existing.addError('general', 'Unable to delete the collaborator');
       }

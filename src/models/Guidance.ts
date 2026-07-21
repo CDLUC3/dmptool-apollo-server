@@ -1,5 +1,6 @@
 import { MyContext } from "../context";
 import { MySqlModel } from "./MySqlModel";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 export class Guidance extends MySqlModel {
   public guidanceGroupId: number;
@@ -32,13 +33,13 @@ export class Guidance extends MySqlModel {
   }
 
   // Create a new Guidance
-  async create(context: MyContext): Promise<Guidance> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Guidance> {
     // First make sure the record is valid
     if (await this.isValid()) {
       this.prepForSave();
 
       // Save the record and then fetch it
-      const newId = await Guidance.insert(context, Guidance.tableName, this, 'Guidance.create');
+      const newId = await Guidance.insert(context, Guidance.tableName, this, 'Guidance.create', [], transactionClient);
       const response = await Guidance.findById('Guidance.create', context, newId);
       return response;
     }
@@ -47,14 +48,14 @@ export class Guidance extends MySqlModel {
   }
 
   // Update an existing Guidance
-  async update(context: MyContext, noTouch = false): Promise<Guidance> {
+  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Guidance> {
     const id = this.id;
 
     if (await this.isValid()) {
       if (id) {
         this.prepForSave();
 
-        await Guidance.update(context, Guidance.tableName, this, 'Guidance.update', [], noTouch);
+        await Guidance.update(context, Guidance.tableName, this, 'Guidance.update', [], noTouch, transactionClient);
         return await Guidance.findById('Guidance.update', context, id);
       }
       // This guidance has never been saved before so we cannot update it!
@@ -64,12 +65,12 @@ export class Guidance extends MySqlModel {
   }
 
   // Delete Guidance based on the Guidance object's id
-  async delete(context: MyContext): Promise<Guidance> {
+  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Guidance> {
     if (this.id) {
       // First get the guidance to be deleted so we can return this info to the user
       const deletedGuidance = await Guidance.findById('Guidance.delete', context, this.id);
 
-      const successfullyDeleted = await Guidance.delete(context, Guidance.tableName, this.id, 'Guidance.delete');
+      const successfullyDeleted = await Guidance.delete(context, Guidance.tableName, this.id, 'Guidance.delete', transactionClient);
       if (successfullyDeleted) {
         return deletedGuidance;
       } else {
@@ -120,7 +121,7 @@ export class PlanGuidance extends MySqlModel {
   }
 
   //Create a new PlanGuidance
-  async create(context: MyContext): Promise<PlanGuidance> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<PlanGuidance> {
     const reference = 'PlanGuidance.create';
 
     // First make sure the record is valid
@@ -143,6 +144,7 @@ export class PlanGuidance extends MySqlModel {
           this,
           reference,
           [],
+          transactionClient
         );
 
         const response = await PlanGuidance.findById(reference, context, newId);
@@ -154,7 +156,7 @@ export class PlanGuidance extends MySqlModel {
   }
 
   //Delete PlanGuidance
-  async delete(context: MyContext): Promise<PlanGuidance | null> {
+  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<PlanGuidance | null> {
     if (this.id) {
       const deleted = await PlanGuidance.findById('PlanGuidance.delete', context, this.id);
 
@@ -162,7 +164,8 @@ export class PlanGuidance extends MySqlModel {
         context,
         PlanGuidance.tableName,
         this.id,
-        'PlanGuidance.delete'
+        'PlanGuidance.delete',
+        transactionClient
       );
       if (successfullyDeleted) {
         return deleted;

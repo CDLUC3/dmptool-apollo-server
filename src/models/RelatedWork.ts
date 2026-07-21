@@ -21,6 +21,7 @@ import {
 } from '../types';
 import { prepareObjectForLogs } from '../logger';
 import { Plan } from './Plan';
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 export class Work extends MySqlModel {
   public doi: string;
@@ -45,7 +46,7 @@ export class Work extends MySqlModel {
     this.doi = parseDOI(this.doi);
   }
 
-  async create(context: MyContext): Promise<Work> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Work> {
     const reference = 'Work.create';
 
     // First make sure the record is valid
@@ -58,7 +59,7 @@ export class Work extends MySqlModel {
         this.addError('general', 'Work already exists');
       } else {
         // Save the record and then fetch it
-        const newId = await Work.insert(context, Work.tableName, this, reference);
+        const newId = await Work.insert(context, Work.tableName, this, reference, [], transactionClient);
         return await Work.findById(reference, context, newId);
       }
     }
@@ -67,12 +68,12 @@ export class Work extends MySqlModel {
     return new Work(this);
   }
 
-  async update(context: MyContext, noTouch = false): Promise<Work> {
+  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Work> {
     const id = this.id;
 
     if (await this.isValid()) {
       if (id) {
-        await Work.update(context, Work.tableName, this, 'Work.update', [], noTouch);
+        await Work.update(context, Work.tableName, this, 'Work.update', [], noTouch, transactionClient);
         return await Work.findById('Work.update', context, id);
       }
       this.addError('general', 'Work has never been saved');
@@ -80,11 +81,11 @@ export class Work extends MySqlModel {
     return new Work(this);
   }
 
-  async delete(context: MyContext): Promise<Work> {
+  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Work> {
     if (this.id) {
       const deleted = await Work.findById('Work.delete', context, this.id);
 
-      const successfullyDeleted = await Work.delete(context, Work.tableName, this.id, 'Work.delete');
+      const successfullyDeleted = await Work.delete(context, Work.tableName, this.id, 'Work.delete', transactionClient);
       if (successfullyDeleted) {
         return deleted;
       } else {
@@ -181,7 +182,7 @@ export class WorkVersion extends MySqlModel {
     return Object.keys(this.errors).length === 0;
   }
 
-  async create(context: MyContext, doi: string): Promise<WorkVersion> {
+  async create(context: MyContext, doi: string, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<WorkVersion> {
     const reference = 'WorkVersion.create';
 
     // First make sure the record is valid
@@ -193,7 +194,7 @@ export class WorkVersion extends MySqlModel {
         this.addError('general', 'Work version already exists');
       } else {
         // Save the record and then fetch it
-        const newId = await WorkVersion.insert(context, WorkVersion.tableName, this, reference);
+        const newId = await WorkVersion.insert(context, WorkVersion.tableName, this, reference, [], transactionClient);
         return await WorkVersion.findById(reference, context, newId);
       }
     }
@@ -202,12 +203,12 @@ export class WorkVersion extends MySqlModel {
     return new WorkVersion(this);
   }
 
-  async update(context: MyContext, noTouch = false): Promise<WorkVersion> {
+  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<WorkVersion> {
     const id = this.id;
 
     if (await this.isValid()) {
       if (id) {
-        await WorkVersion.update(context, WorkVersion.tableName, this, 'WorkVersion.update', [], noTouch);
+        await WorkVersion.update(context, WorkVersion.tableName, this, 'WorkVersion.update', [], noTouch, transactionClient);
         return await WorkVersion.findById('WorkVersion.update', context, id);
       }
       this.addError('general', 'WorkVersion has never been saved');
@@ -215,7 +216,7 @@ export class WorkVersion extends MySqlModel {
     return new WorkVersion(this);
   }
 
-  async delete(context: MyContext): Promise<WorkVersion> {
+  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<WorkVersion> {
     if (this.id) {
       const deleted = await WorkVersion.findById('WorkVersion.delete', context, this.id);
 
@@ -224,6 +225,7 @@ export class WorkVersion extends MySqlModel {
         WorkVersion.tableName,
         this.id,
         'WorkVersion.delete',
+        transactionClient
       );
       if (successfullyDeleted) {
         return deleted;
@@ -299,7 +301,7 @@ export class RelatedWork extends MySqlModel {
   }
 
   // Create a new RelatedWork
-  async create(context: MyContext): Promise<RelatedWork> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<RelatedWork> {
     const reference = 'RelatedWork.create';
 
     // First make sure the record is valid
@@ -324,7 +326,7 @@ export class RelatedWork extends MySqlModel {
 
       if (Object.keys(this.errors).length == 0) {
         // Insert related work
-        const newId = await RelatedWork.insert(context, RelatedWork.tableName, this, reference, []);
+        const newId = await RelatedWork.insert(context, RelatedWork.tableName, this, reference, [], transactionClient);
         return await RelatedWork.findById(reference, context, newId);
       }
     }
@@ -334,10 +336,10 @@ export class RelatedWork extends MySqlModel {
   }
 
   // Update an existing RelatedWork
-  async update(context: MyContext, noTouch = false): Promise<RelatedWork> {
+  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<RelatedWork> {
     if (await this.isValid()) {
       if (this.id) {
-        await RelatedWork.update(context, RelatedWork.tableName, this, 'RelatedWork.update', [], noTouch);
+        await RelatedWork.update(context, RelatedWork.tableName, this, 'RelatedWork.update', [], noTouch, transactionClient);
 
         return await RelatedWork.findById('RelatedWork.update', context, this.id);
       }
@@ -348,7 +350,7 @@ export class RelatedWork extends MySqlModel {
   }
 
   // Delete the RelatedWork
-  async delete(context: MyContext): Promise<RelatedWork> {
+  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<RelatedWork> {
     if (this.id) {
       const deleted = await RelatedWork.findById('RelatedWork.delete', context, this.id);
 
@@ -357,6 +359,7 @@ export class RelatedWork extends MySqlModel {
         RelatedWork.tableName,
         this.id,
         'RelatedWork.delete',
+        transactionClient
       );
       if (successfullyDeleted) {
         return deleted;

@@ -2,6 +2,7 @@ import { MyContext } from "../context";
 import { isNullOrUndefined, validateURL } from "../utils/helpers";
 import { MySqlModel } from "./MySqlModel";
 import { TemplateLinkType } from "./TemplateLink";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 // A link that can be displayed for a template
 export class VersionedTemplateLink extends MySqlModel {
@@ -33,7 +34,7 @@ export class VersionedTemplateLink extends MySqlModel {
   }
 
   // Save the current record
-  async create(context: MyContext): Promise<VersionedTemplateLink> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<VersionedTemplateLink> {
     const reference = 'VersionedTemplateLink.create';
     // First make sure the record doesn't already exist
     const current = await VersionedTemplateLink.findByTemplateAndURL(
@@ -53,7 +54,9 @@ export class VersionedTemplateLink extends MySqlModel {
           context,
           VersionedTemplateLink.tableName,
           this,
-          reference
+          reference,
+          [],
+          transactionClient
         );
         return await VersionedTemplateLink.findById(reference, context, newId as number);
       }
@@ -63,13 +66,14 @@ export class VersionedTemplateLink extends MySqlModel {
   }
 
   // Archive this record
-  async delete(context: MyContext): Promise<VersionedTemplateLink> {
+  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<VersionedTemplateLink> {
     if (this.id) {
       const result = await VersionedTemplateLink.delete(
         context,
         VersionedTemplateLink.tableName,
         this.id,
-        'VersionedTemplateLink.delete'
+        'VersionedTemplateLink.delete',
+        transactionClient
       );
       if (result) {
         return new VersionedTemplateLink(this);

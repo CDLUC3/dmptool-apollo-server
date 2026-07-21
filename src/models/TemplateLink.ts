@@ -1,6 +1,7 @@
 import { MyContext } from "../context";
 import { isNullOrUndefined, validateURL } from "../utils/helpers";
 import { MySqlModel } from "./MySqlModel";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 export enum TemplateLinkType {
   FUNDER = 'FUNDER',
@@ -37,7 +38,7 @@ export class TemplateLink extends MySqlModel {
   }
 
   // Save the current record
-  async create(context: MyContext): Promise<TemplateLink> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<TemplateLink> {
     const reference = 'TemplateLink.create';
     // First make sure the record doesn't already exist
     const current = await TemplateLink.findByTemplateAndURL(
@@ -57,7 +58,9 @@ export class TemplateLink extends MySqlModel {
           context,
           TemplateLink.tableName,
           this,
-          reference
+          reference,
+          [],
+          transactionClient
         );
         return await TemplateLink.findById(reference, context, newId as number);
       }
@@ -67,13 +70,14 @@ export class TemplateLink extends MySqlModel {
   }
 
   // Archive this record
-  async delete(context: MyContext): Promise<TemplateLink> {
+  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<TemplateLink> {
     if (this.id) {
       const result = await TemplateLink.delete(
         context,
         TemplateLink.tableName,
         this.id,
-        'TemplateLink.delete'
+        'TemplateLink.delete',
+        transactionClient
       );
       if (result) {
         return new TemplateLink(this);

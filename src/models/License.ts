@@ -1,6 +1,7 @@
 import { MyContext } from "../context";
 import { randomHex, validateURL } from "../utils/helpers";
 import { MySqlModel } from "./MySqlModel";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 export const DEFAULT_DMPTOOL_LICENSE_URL = 'https://dmptool.org/licenses/';
 
@@ -40,7 +41,7 @@ export class License extends MySqlModel {
   }
 
   //Create a new License
-  async create(context: MyContext): Promise<License> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<License> {
     const reference = 'License.create';
 
     // If no URI is present, then use the DMPTool's default URI
@@ -61,7 +62,7 @@ export class License extends MySqlModel {
         this.addError('general', 'License already exists');
       } else {
         // Save the record and then fetch it
-        const newId = await License.insert(context, License.tableName, this, reference);
+        const newId = await License.insert(context, License.tableName, this, reference, [], transactionClient);
         const response = await License.findById(reference, context, newId);
         return response;
       }
@@ -71,13 +72,13 @@ export class License extends MySqlModel {
   }
 
   //Update an existing License
-  async update(context: MyContext, noTouch = false): Promise<License> {
+  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<License> {
     const id = this.id;
 
     this.prepForSave();
     if (await this.isValid()) {
       if (id) {
-        await License.update(context, License.tableName, this, 'License.update', [], noTouch);
+        await License.update(context, License.tableName, this, 'License.update', [], noTouch, transactionClient);
         return await License.findById('License.update', context, id);
       }
       // This template has never been saved before so we cannot update it!
@@ -87,7 +88,7 @@ export class License extends MySqlModel {
   }
 
   //Delete the License
-  async delete(context: MyContext): Promise<License> {
+  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<License> {
     if (this.id) {
       const deleted = await License.findById('License.delete', context, this.id);
 
@@ -95,7 +96,8 @@ export class License extends MySqlModel {
         context,
         License.tableName,
         this.id,
-        'License.delete'
+        'License.delete',
+        transactionClient
       );
       if (successfullyDeleted) {
         return deleted;

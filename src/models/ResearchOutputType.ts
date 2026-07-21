@@ -1,6 +1,7 @@
 import { MyContext } from "../context";
 import { isNullOrUndefined } from "../utils/helpers";
 import { MySqlModel } from "./MySqlModel";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 // Our current default research output types were derived from a subset of
 // the DataCite resourceType definitions.
@@ -43,7 +44,7 @@ export class ResearchOutputType extends MySqlModel {
   }
 
   //Create a new License
-  async create(context: MyContext): Promise<ResearchOutputType> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<ResearchOutputType> {
     const reference = 'ResearchOutputType.create';
 
     this.prepForSave();
@@ -64,7 +65,9 @@ export class ResearchOutputType extends MySqlModel {
           context,
           ResearchOutputType.tableName,
           this,
-          reference
+          reference,
+          [],
+          transactionClient
         );
         return await ResearchOutputType.findById(reference, context, newId);
       }
@@ -74,13 +77,13 @@ export class ResearchOutputType extends MySqlModel {
   }
 
   //Update an existing License
-  async update(context: MyContext, noTouch = false): Promise<ResearchOutputType> {
+  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<ResearchOutputType> {
     const id = this.id;
     const ref = 'ResearchOutputType.update';
 
     if (await this.isValid()) {
       if (id) {
-        await ResearchOutputType.update(context, ResearchOutputType.tableName, this, ref, [], noTouch);
+        await ResearchOutputType.update(context, ResearchOutputType.tableName, this, ref, [], noTouch, transactionClient);
         return await ResearchOutputType.findById(ref, context, id);
       }
       // This template has never been saved before so we cannot update it!
@@ -90,7 +93,7 @@ export class ResearchOutputType extends MySqlModel {
   }
 
   //Delete the License
-  async delete(context: MyContext): Promise<ResearchOutputType> {
+  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<ResearchOutputType> {
     const ref = 'ResearchOutputType.delete';
     if (this.id) {
       const deleted = await ResearchOutputType.findById(ref, context, this.id);
@@ -99,7 +102,8 @@ export class ResearchOutputType extends MySqlModel {
         context,
         ResearchOutputType.tableName,
         this.id,
-        ref
+        ref,
+        transactionClient
       );
       if (successfullyDeleted) {
         return deleted;

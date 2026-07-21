@@ -7,6 +7,7 @@ import {
 import { MyContext } from "../context";
 import { DefaultTextAreaQuestion, QuestionSchemaMap } from "@dmptool/types";
 import { PinnedSectionTypeEnum } from "./CustomSection";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 /**
  * The type of question the custom question follows (is pinned to)
@@ -140,9 +141,10 @@ export class CustomQuestion extends MySqlModel {
    * Save the custom question
    *
    * @param context The Apollo context.
+   * @param transactionClient the MySQL transaction to use
    * @returns The newly created custom question.
    */
-  async create(context: MyContext): Promise<CustomQuestion> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<CustomQuestion> {
     const ref = 'CustomQuestion.create';
     // Make sure the record is valid
     if (await this.isValid()) {
@@ -167,7 +169,9 @@ export class CustomQuestion extends MySqlModel {
           context,
           CustomQuestion.tableName,
           this,
-          ref
+          ref,
+          [],
+          transactionClient
         );
         return await CustomQuestion.findById(ref, context, newId);
       }
@@ -181,9 +185,10 @@ export class CustomQuestion extends MySqlModel {
    *
    * @param context The Apollo context
    * @param noTouch Whether or not the modification timestamp should be updated
+   * @param transactionClient the MySQL transaction to use
    * @returns The updated custom question.
    */
-  async update(context: MyContext, noTouch = false): Promise<CustomQuestion> {
+  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<CustomQuestion> {
     const ref = 'CustomQuestion.update';
 
     if (isNullOrUndefined(this.id)) {
@@ -200,7 +205,8 @@ export class CustomQuestion extends MySqlModel {
           this,
           ref,
           [],
-          noTouch
+          noTouch,
+          transactionClient
         );
         return await CustomQuestion.findById(ref, context, this.id);
       }
@@ -213,9 +219,10 @@ export class CustomQuestion extends MySqlModel {
    * Delete the custom question
    *
    * @param context The Apollo context
+   * @param transactionClient the MySQL transaction to use
    * @returns The archived custom section.
    */
-  async delete(context: MyContext): Promise<CustomQuestion> {
+  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<CustomQuestion> {
     const ref = 'CustomQuestion.delete';
     if (!this.id) {
       // Cannot delete it if it hasn't been saved yet!
@@ -230,7 +237,8 @@ export class CustomQuestion extends MySqlModel {
         context,
         CustomQuestion.tableName,
         this.id,
-        ref
+        ref,
+        transactionClient
       );
       if (result) {
         return original;
@@ -331,6 +339,7 @@ export class CustomQuestion extends MySqlModel {
  * @param reference The reference to use for logging errors.
  * @param context The Apollo context.
  * @param templateCustomizationId The id of the template customization.
+ * @param sectionType The type of the section.
  * @param sectionId The id of the section (either a versionedSection id or customSection id).
  * @returns The custom questions.
  */
@@ -403,7 +412,7 @@ export class CustomQuestion extends MySqlModel {
     pinnedQuestionId: number | null
   ): Promise<CustomQuestion | null> {
     const sql = `
-    SELECT * FROM customQuestions 
+    SELECT * FROM customQuestions
     WHERE templateCustomizationId = ?
       AND sectionType = ?
       AND sectionId = ?
@@ -411,7 +420,7 @@ export class CustomQuestion extends MySqlModel {
       AND pinnedQuestionId <=> ?
     LIMIT 1
   `;
-    // <=> is MySQL's NULL-safe equality operator.  It correctly handles the case where pinnedQuestionId is null, 
+    // <=> is MySQL's NULL-safe equality operator.  It correctly handles the case where pinnedQuestionId is null,
     // since null = null is false in SQL but null <=> null is true.
     const results = await CustomQuestion.query(context, sql, [
       templateCustomizationId.toString(),

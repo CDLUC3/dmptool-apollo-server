@@ -3,6 +3,7 @@ import { MySqlModel } from "./MySqlModel";
 import { isNullOrUndefined, randomHex, validateURL } from "../utils/helpers";
 import { PaginatedQueryResults, PaginationOptions, PaginationOptionsForCursors, PaginationOptionsForOffsets, PaginationType } from "../types/general";
 import { prepareObjectForLogs } from "../logger";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 export const DEFAULT_DMPTOOL_AFFILIATION_URL = 'https://dmptool.org/affiliations/';
 export const DEFAULT_ROR_AFFILIATION_URL = 'https://ror.org/';
@@ -175,7 +176,7 @@ export class Affiliation extends MySqlModel {
   }
 
   // Save the current record
-  async create(context: MyContext): Promise<Affiliation> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Affiliation> {
     const reference = 'Affiliation.create';
     let current;
 
@@ -206,7 +207,9 @@ export class Affiliation extends MySqlModel {
           context,
           this.tableName,
           this,
-          reference
+          reference,
+          [],
+          transactionClient
         );
         return await Affiliation.findById(reference, context, newId);
       }
@@ -217,7 +220,7 @@ export class Affiliation extends MySqlModel {
   }
 
   // Save the changes made to the affiliation
-  async update(context: MyContext): Promise<Affiliation> {
+  async update(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Affiliation> {
     const reference = 'Affiliation.update';
     if (this.id) {
       const existing = await Affiliation.findById(reference, context, this.id);
@@ -237,7 +240,9 @@ export class Affiliation extends MySqlModel {
           this.tableName,
           this,
           reference,
-          ['ssoEmailDomains']
+          ['ssoEmailDomains'],
+          false,
+          transactionClient
         );
 
         if (updated) {
@@ -253,9 +258,9 @@ export class Affiliation extends MySqlModel {
   }
 
   // Delete this record (will cascade delate all associated AffiliationLinks and AffiliaitonEmailDomains)
-  async delete(context: MyContext): Promise<Affiliation> {
+  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Affiliation> {
     if (this.uri) {
-      const result = await Affiliation.delete(context, this.tableName, this.id, 'Affiliation.delete');
+      const result = await Affiliation.delete(context, this.tableName, this.id, 'Affiliation.delete', transactionClient);
       if (result) {
         return this;
       }

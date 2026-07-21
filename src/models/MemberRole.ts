@@ -2,6 +2,7 @@ import { MyContext } from "../context";
 import { prepareObjectForLogs } from "../logger";
 import { validateURL } from "../utils/helpers";
 import { MySqlModel } from "./MySqlModel";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 export const DEFAULT_DMPTOOL_MEMBER_ROLE_URL = 'https://dmptool.org/contributor_roles/';
 
@@ -42,13 +43,13 @@ export class MemberRole extends MySqlModel {
   }
 
   // Add an association for a MemberRole with a ProjectMember
-  async addToProjectMember(context: MyContext, projectMemberId: number): Promise<boolean> {
+  async addToProjectMember(context: MyContext, projectMemberId: number, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<boolean> {
     const reference = 'MemberRole.addToProjectMember';
     let sql = 'INSERT INTO projectMemberRoles (memberRoleId, projectMemberId, createdById, ';
     sql += 'modifiedById) VALUES (?, ?, ?, ?)';
     const userId = context.token?.id?.toString();
     const vals = [this.id?.toString(), projectMemberId?.toString(), userId, userId];
-    const results = await MemberRole.query(context, sql, vals, reference);
+    const results = await MemberRole.query(context, sql, vals, reference, transactionClient);
 
     if (!results) {
       const payload = { researchDomainId: this.id, projectMemberId };
@@ -60,13 +61,13 @@ export class MemberRole extends MySqlModel {
   }
 
   // Add an association for a MemberRole with a PlanMember
-  async addToPlanMember(context: MyContext, planMemberId: number): Promise<boolean> {
+  async addToPlanMember(context: MyContext, planMemberId: number, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<boolean> {
     const reference = 'MemberRole.addToPlanMember';
     let sql = 'INSERT INTO planMemberRoles (memberRoleId, planMemberId, createdById, ';
     sql += 'modifiedById) VALUES (?, ?, ?, ?)';
     const userId = context.token?.id?.toString();
     const vals = [this.id?.toString(), planMemberId?.toString(), userId, userId];
-    const results = await MemberRole.query(context, sql, vals, reference);
+    const results = await MemberRole.query(context, sql, vals, reference, transactionClient);
 
     if (!results) {
       const payload = { researchDomainId: this.id, planMemberId };
@@ -78,11 +79,11 @@ export class MemberRole extends MySqlModel {
   }
 
   // Remove an association of a MemberRole from a ProjectMember
-  async removeFromProjectMember(context: MyContext, projectMemberId: number): Promise<boolean> {
+  async removeFromProjectMember(context: MyContext, projectMemberId: number, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<boolean> {
     const reference = 'MemberRole.removeFromProjectMember';
     const sql = 'DELETE FROM projectMemberRoles WHERE memberRoleId = ? AND projectMemberId = ?';
     const vals = [this.id?.toString(), projectMemberId?.toString()];
-    const results = await MemberRole.query(context, sql, vals, reference);
+    const results = await MemberRole.query(context, sql, vals, reference, transactionClient);
 
     if (!results) {
       const payload = { memberRoleId: this.id, projectMemberId };
@@ -94,11 +95,11 @@ export class MemberRole extends MySqlModel {
   }
 
   // Remove an association of a MemberRole from a PlanMember
-  async removeFromPlanMember(context: MyContext, planMemberId: number): Promise<boolean> {
+  async removeFromPlanMember(context: MyContext, planMemberId: number, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<boolean> {
     const reference = 'MemberRole.removeFromPlanMember';
     const sql = 'DELETE FROM planMemberRoles WHERE memberRoleId = ? AND planMemberId = ?';
     const vals = [this.id?.toString(), planMemberId?.toString()];
-    const results = await MemberRole.query(context, sql, vals, reference);
+    const results = await MemberRole.query(context, sql, vals, reference, transactionClient);
 
     if (!results) {
       const payload = { memberRoleId: this.id, planMemberId };

@@ -1,5 +1,6 @@
 import { MyContext } from "../context";
 import { MySqlModel } from "./MySqlModel";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 export class VersionedGuidance extends MySqlModel {
   public versionedGuidanceGroupId: number;
@@ -35,13 +36,13 @@ export class VersionedGuidance extends MySqlModel {
   }
 
   // Insert the new record
-  async create(context: MyContext): Promise<VersionedGuidance> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<VersionedGuidance> {
     // First make sure the record is valid
     if (await this.isValid()) {
       this.prepForSave();
 
       // Save the record and then fetch it
-      const newId = await VersionedGuidance.insert(context, VersionedGuidance.tableName, this, 'VersionedGuidance.create');
+      const newId = await VersionedGuidance.insert(context, VersionedGuidance.tableName, this, 'VersionedGuidance.create', [], transactionClient);
       return await VersionedGuidance.findById('VersionedGuidance.create', context, newId);
     }
     // Otherwise return as-is with all the errors

@@ -12,6 +12,7 @@ import {
   ResearchOutputTableRowAnswerType,
   SelectBoxAnswerType
 } from "@dmptool/types";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 export const FILLED_ANSWER_CHECK = `
   JSON_TYPE(json) = 'OBJECT'
@@ -146,7 +147,7 @@ export class Answer extends MySqlModel {
   }
 
   //Create a new Answer
-  async create(context: MyContext): Promise<Answer> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Answer> {
     const reference = 'Answer.create';
 
     this.prepForSave();
@@ -164,7 +165,7 @@ export class Answer extends MySqlModel {
         this.addError('general', 'Answer already exists');
       } else {
         // Save the record and then fetch it
-        const newId = await Answer.insert(context, Answer.tableName, this, reference);
+        const newId = await Answer.insert(context, Answer.tableName, this, reference, [], transactionClient);
         if (!newId) {
           this.addError('general', 'Failed to save answer');
         } else {
@@ -178,12 +179,12 @@ export class Answer extends MySqlModel {
   }
 
   //Update an existing Answer
-  async update(context: MyContext, noTouch = false): Promise<Answer> {
+  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Answer> {
     this.prepForSave();
 
     if (await this.isValid()) {
       if (this.id) {
-        await Answer.update(context, Answer.tableName, this, 'Answer.update', [], noTouch);
+        await Answer.update(context, Answer.tableName, this, 'Answer.update', [], noTouch, transactionClient);
         return await Answer.findById('Answer.update', context, this.id);
       }
       // This template has never been saved before so we cannot update it!
@@ -193,7 +194,7 @@ export class Answer extends MySqlModel {
   }
 
   //Delete the Answer
-  async delete(context: MyContext): Promise<Answer> {
+  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Answer> {
     if (this.id) {
       const deleted = await Answer.findById('Answer.delete', context, this.id);
 
@@ -201,7 +202,8 @@ export class Answer extends MySqlModel {
         context,
         Answer.tableName,
         this.id,
-        'Answer.delete'
+        'Answer.delete',
+        transactionClient
       );
       if (successfullyDeleted) {
         return deleted;

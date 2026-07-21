@@ -2,6 +2,7 @@ import { QuestionSchemaMap } from "@dmptool/types";
 import { MyContext } from "../context";
 import { MySqlModel } from "./MySqlModel";
 import { isNullOrUndefined, removeNullAndUndefinedFromJSON } from "../utils/helpers";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 export class VersionedQuestion extends MySqlModel {
   public versionedTemplateId: number;
@@ -76,11 +77,11 @@ export class VersionedQuestion extends MySqlModel {
   }
 
   // Insert the new record
-  async create(context: MyContext): Promise<VersionedQuestion> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<VersionedQuestion> {
     // First make sure the record is valid
     if (await this.isValid()) {
       // Save the record and then fetch it
-      const newId = await VersionedQuestion.insert(context, this.tableName, this, 'VersionedQuestion.create');
+      const newId = await VersionedQuestion.insert(context, this.tableName, this, 'VersionedQuestion.create', [], transactionClient);
       return await VersionedQuestion.findById('VersionedQuestion.create', context, newId);
     }
     // Otherwise return as-is with all the errors

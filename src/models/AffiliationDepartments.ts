@@ -1,7 +1,8 @@
 import { MyContext } from "../context";
 import { isNullOrUndefined } from "../utils/helpers";
 import { MySqlModel } from "./MySqlModel";
-import {prepareObjectForLogs} from "../logger";
+import { prepareObjectForLogs } from "../logger";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 // A department for an affiliation
 export class AffiliationDepartment extends MySqlModel {
@@ -30,7 +31,7 @@ export class AffiliationDepartment extends MySqlModel {
   }
 
   // Save the current record
-  async create(context: MyContext): Promise<AffiliationDepartment> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<AffiliationDepartment> {
     const reference = 'AffiliationDepartment.create';
     // First make sure the record doesn't already exist
     const current = await AffiliationDepartment.findByAffiliationAndName(
@@ -50,7 +51,9 @@ export class AffiliationDepartment extends MySqlModel {
           context,
           AffiliationDepartment.tableName,
           this,
-          reference
+          reference,
+          [],
+          transactionClient
         );
         return await AffiliationDepartment.findById(reference, context, newId as number);
       }
@@ -60,7 +63,7 @@ export class AffiliationDepartment extends MySqlModel {
   }
 
   // Update the record
-  async update(context: MyContext): Promise<AffiliationDepartment> {
+  async update(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<AffiliationDepartment> {
     const reference = 'AffiliationDepartment.update';
     if (!this.id) {
       this.addError('general', 'The school/department does not exist');
@@ -72,7 +75,10 @@ export class AffiliationDepartment extends MySqlModel {
         context,
         AffiliationDepartment.tableName,
         this,
-        reference
+        reference,
+        [],
+        false,
+        transactionClient
       );
 
       if (updated) {
@@ -87,13 +93,14 @@ export class AffiliationDepartment extends MySqlModel {
   }
 
   // Archive this record
-  async delete(context: MyContext): Promise<AffiliationDepartment> {
+  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<AffiliationDepartment> {
     if (this.id) {
       const result = await AffiliationDepartment.delete(
         context,
         AffiliationDepartment.tableName,
         this.id,
-        'AffiliationDepartment.delete'
+        'AffiliationDepartment.delete',
+        transactionClient
       );
       if (result) {
         return new AffiliationDepartment(this);
@@ -103,13 +110,13 @@ export class AffiliationDepartment extends MySqlModel {
   }
 
   // Add this AffiliationDepartment to a User
-  async addToUser(context: MyContext, userId: number): Promise<boolean> {
+  async addToUser(context: MyContext, userId: number, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<boolean> {
     const reference = 'AffiliationDepartment.addToUser';
     let sql = 'INSERT INTO userDepartments (userId, affiliationDepartmentId, ';
     sql += 'createdById, modifiedById) VALUES (?, ?, ?, ?)';
     const currentUserId = context.token?.id?.toString();
     const vals = [userId?.toString(), this.id?.toString(), currentUserId, currentUserId];
-    const results = await AffiliationDepartment.query(context, sql, vals, reference);
+    const results = await AffiliationDepartment.query(context, sql, vals, reference, transactionClient);
 
     if (!results) {
       const payload = { affiliationDepartmentId: this.id, userId };
@@ -121,11 +128,11 @@ export class AffiliationDepartment extends MySqlModel {
   }
 
   // Remove this AffiliationDepartment from a User
-  async removeFromUser(context: MyContext, userId: number): Promise<boolean> {
+  async removeFromUser(context: MyContext, userId: number, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<boolean> {
     const reference = 'AffiliationDepartment.removeFromUser';
     const sql = 'DELETE FROM userDepartments WHERE affiliationDepartmentId = ? AND userId = ?';
     const vals = [this.id?.toString(), userId?.toString()];
-    const results = await AffiliationDepartment.query(context, sql, vals, reference);
+    const results = await AffiliationDepartment.query(context, sql, vals, reference, transactionClient);
 
     if (!results) {
       const payload = { affiliationDepartmentId: this.id, userId };

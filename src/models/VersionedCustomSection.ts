@@ -2,6 +2,7 @@ import { MySqlModel } from "./MySqlModel";
 import { isNullOrUndefined } from "../utils/helpers";
 import { MyContext } from "../context";
 import { PinnedSectionTypeEnum } from "./CustomSection";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 /**
  * This object represents a versioned snapshot of a custom section that an
@@ -72,9 +73,10 @@ export class VersionedCustomSection extends MySqlModel {
    * Save the custom section version
    *
    * @param context The Apollo context.
+   * @param transactionClient the MySQL transaction to use
    * @returns The newly created custom section version.
    */
-  async create(context: MyContext): Promise<VersionedCustomSection> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<VersionedCustomSection> {
     const ref = 'VersionedCustomSection.create';
     // Make sure the record is valid
     if (await this.isValid()) {
@@ -98,7 +100,9 @@ export class VersionedCustomSection extends MySqlModel {
           context,
           VersionedCustomSection.tableName,
           this,
-          ref
+          ref,
+          [],
+          transactionClient
         );
         return await VersionedCustomSection.findById(ref, context, newId);
       }
@@ -112,9 +116,10 @@ export class VersionedCustomSection extends MySqlModel {
    *
    * @param context The Apollo context
    * @param noTouch Whether or not the modification timestamp should be updated
+   * @param transactionClient the MySQL transaction to use
    * @returns The updated custom section version.
    */
-  async update(context: MyContext, noTouch = false): Promise<VersionedCustomSection> {
+  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<VersionedCustomSection> {
     const ref = 'VersionedCustomSection.update';
 
     if (isNullOrUndefined(this.id)) {
@@ -131,7 +136,8 @@ export class VersionedCustomSection extends MySqlModel {
           this,
           ref,
           [],
-          noTouch
+          noTouch,
+          transactionClient
         );
         return await VersionedCustomSection.findById(ref, context, this.id);
       }
@@ -144,9 +150,10 @@ export class VersionedCustomSection extends MySqlModel {
    * Remove the custom section version
    *
    * @param context The Apollo context
+   * @param transactionClient the MySQL transaction to use
    * @returns The deleted custom section version.
    */
-  async delete(context: MyContext): Promise<VersionedCustomSection> {
+  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<VersionedCustomSection> {
     const ref = 'VersionedCustomSection.delete';
     if (!this.id) {
       // Cannot delete it if it hasn't been saved yet!
@@ -161,7 +168,8 @@ export class VersionedCustomSection extends MySqlModel {
         context,
         VersionedCustomSection.tableName,
         this.id,
-        ref
+        ref,
+        transactionClient
       );
       if (result) {
         return original;

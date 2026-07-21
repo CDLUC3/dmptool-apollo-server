@@ -441,11 +441,11 @@ describe('findBy Queries', () => {
     expect(result).toEqual([]);
   });
 
-  it('findByProjectFundingId should call query with correct params and return the default', async () => {
+  it('findByPlanAndProjectFundingId should call query with correct params and return the default', async () => {
     localQuery.mockResolvedValueOnce([planFunding]);
     const planId = casual.integer(1, 999);
     const projectFundingId = casual.integer(1, 999);
-    const result = await PlanFunding.findByProjectFundingId('testing', context, planId, projectFundingId);
+    const result = await PlanFunding.findByPlanAndProjectFundingId('testing', context, planId, projectFundingId);
     const expectedSql = 'SELECT * FROM planFundings WHERE planId = ? AND projectFundingId = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
     const vals = [planId.toString(), projectFundingId.toString()];
@@ -453,11 +453,11 @@ describe('findBy Queries', () => {
     expect(result).toEqual(planFunding);
   });
 
-  it('findByProjectFundingId should return empty array if it finds no default', async () => {
+  it('findByPlanAndProjectFundingId should return empty array if it finds no default', async () => {
     localQuery.mockResolvedValueOnce([]);
     const planId = casual.integer(1, 999);
     const projectFundingId = casual.integer(1, 999);
-    const result = await PlanFunding.findByProjectFundingId('testing', context, planId, projectFundingId);
+    const result = await PlanFunding.findByPlanAndProjectFundingId('testing', context, planId, projectFundingId);
     expect(result).toEqual(null);
   });
 });
@@ -554,7 +554,7 @@ describe('create', () => {
 
   it('returns the PlanFunding with an error if the question already exists', async () => {
     const mockFindBy = jest.fn();
-    (PlanFunding.findByProjectFundingId as jest.Mock) = mockFindBy;
+    (PlanFunding.findByPlanAndProjectFundingId as jest.Mock) = mockFindBy;
     mockFindBy.mockResolvedValueOnce(planFunding);
 
     const result = await planFunding.create(context);
@@ -565,7 +565,7 @@ describe('create', () => {
 
   it('returns the newly added PlanFunding', async () => {
     const mockFindBy = jest.fn();
-    (PlanFunding.findByProjectFundingId as jest.Mock) = mockFindBy;
+    (PlanFunding.findByPlanAndProjectFundingId as jest.Mock) = mockFindBy;
     mockFindBy.mockResolvedValueOnce(null);
 
     const mockFindById = jest.fn();

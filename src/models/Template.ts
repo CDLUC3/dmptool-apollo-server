@@ -4,6 +4,7 @@ import { defaultLanguageId, supportedLanguages } from "./Language";
 import { MySqlModel } from "./MySqlModel";
 import { prepareObjectForLogs } from "../logger";
 import { isNullOrUndefined } from "../utils/helpers";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 export enum TemplateVisibility {
   ORGANIZATION = 'ORGANIZATION', // Template is only available to Researchers that belong to the same affiliation
@@ -165,7 +166,7 @@ export class Template extends MySqlModel {
   }
 
   // Save the current record
-  async create(context: MyContext): Promise<Template> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Template> {
     // First make sure the record is valid
     if (await this.isValid()) {
       const current = await Template.findByNameAndOwnerId(
@@ -180,7 +181,7 @@ export class Template extends MySqlModel {
       } else {
         this.prepForSave();
         // Save the record and then fetch it
-        const newId = await Template.insert(context, this.tableName, this, 'Template.create');
+        const newId = await Template.insert(context, this.tableName, this, 'Template.create', [], transactionClient);
         return await Template.findById('Template.create', context, newId);
       }
     }
@@ -189,7 +190,7 @@ export class Template extends MySqlModel {
   }
 
   // Save the changes made to the template
-  async update(context: MyContext, noTouch = false): Promise<Template> {
+  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Template> {
     const id = this.id;
 
     // First make sure the record is valid
@@ -212,7 +213,7 @@ export class Template extends MySqlModel {
         }
         So, we have to make a call to findById to get the updated data to return to user
         */
-        await Template.update(context, this.tableName, this, 'Template.update', [], noTouch);
+        await Template.update(context, this.tableName, this, 'Template.update', [], noTouch, transactionClient);
         return await Template.findById('Template.update', context, id);
       }
       // This template has never been saved before so we cannot update it!
@@ -222,11 +223,11 @@ export class Template extends MySqlModel {
   }
 
   // Archive this record
-  async delete(context: MyContext): Promise<Template> {
+  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Template> {
     if (this.id) {
       const original = await Template.findById('Template.delete', context, this.id);
       // Associated TemplateCollaborators and VersionedTemplates will be deletd automatically by MySQL
-      const result = await Template.delete(context, this.tableName, this.id, 'Template.delete');
+      const result = await Template.delete(context, this.tableName, this.id, 'Template.delete', transactionClient);
       if (result) {
         return original;
       }

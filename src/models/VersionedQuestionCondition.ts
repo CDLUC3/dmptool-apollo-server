@@ -1,6 +1,7 @@
 import { MyContext } from "../context";
 import { MySqlModel } from "./MySqlModel";
 import { QuestionConditionActionType, QuestionConditionCondition } from "./QuestionCondition";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 export class VersionedQuestionCondition extends MySqlModel {
   public versionedQuestionId: number;
@@ -37,7 +38,7 @@ export class VersionedQuestionCondition extends MySqlModel {
   }
 
   // Insert the new record
-  async create(context: MyContext): Promise<VersionedQuestionCondition> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<VersionedQuestionCondition> {
     // First make sure the record is valid
     if (await this.isValid()) {
       // Save the record and then fetch it
@@ -46,6 +47,8 @@ export class VersionedQuestionCondition extends MySqlModel {
         this.tableName,
         this,
         'VersionedQuestionCondition.create',
+        [],
+        transactionClient
       );
       return await VersionedQuestionCondition.findById('VersionedQuestion.create', context, newId);
     }

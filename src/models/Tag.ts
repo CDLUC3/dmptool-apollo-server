@@ -1,6 +1,7 @@
 import { MySqlModel } from "./MySqlModel";
 import { MyContext } from "../context";
 import { prepareObjectForLogs } from "../logger";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 const tableName = 'tags';
 export class Tag extends MySqlModel {
@@ -34,7 +35,7 @@ export class Tag extends MySqlModel {
   }
 
   // Save the current record
-  async create(context: MyContext): Promise<Tag> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Tag> {
     this.slug = Tag.slugifyName(this.name);
     const current = await Tag.findBySlug(
       'Section.create',
@@ -47,7 +48,7 @@ export class Tag extends MySqlModel {
       this.addError('general', 'Tag already exists');
     } else {
       if (await this.isValid()) {
-        const newId = await Tag.insert(context, tableName, this, 'Tag.create');
+        const newId = await Tag.insert(context, tableName, this, 'Tag.create', [], transactionClient);
         const response = await Tag.findById('Tag.create', context, newId);
         return response
       }
@@ -55,35 +56,35 @@ export class Tag extends MySqlModel {
     return new Tag(this);
   }
 
-  async update(context: MyContext): Promise<Tag> {
+  async update(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Tag> {
     const id = this.id;
     if (await this.isValid()) {
-      await Tag.update(context, tableName, this, 'Tag.update');
+      await Tag.update(context, tableName, this, 'Tag.update', [], false, transactionClient);
       const updatedTag = await Tag.findById('Tag.update', context, id);
       return updatedTag as Tag;
     }
     return new Tag(this);
   }
 
-  async delete(context: MyContext): Promise<Tag> {
+  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Tag> {
     if (this.id) {
       /*Get tag info to be deleted so we can return this info to the user
       since calling 'delete' doesn't return anything*/
       const deletedSection = await Tag.findById('Tag.delete', context, this.id);
 
-      await Tag.delete(context, tableName, this.id, 'Tag.delete');
+      await Tag.delete(context, tableName, this.id, 'Tag.delete', transactionClient);
       return deletedSection;
     }
     return null;
   }
 
   // Add this Tag to a Section
-  async addToSection(context: MyContext, sectionId: number): Promise<boolean> {
+  async addToSection(context: MyContext, sectionId: number, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<boolean> {
     const reference = 'Tag.addToSection';
     const sql = 'INSERT INTO sectionTags (tagId, sectionId, createdById, modifiedById) VALUES (?, ?, ?, ?)';
     const userId = context.token?.id?.toString();
     const vals = [this.id?.toString(), sectionId?.toString(), userId, userId];
-    const results = await Tag.query(context, sql, vals, reference);
+    const results = await Tag.query(context, sql, vals, reference, transactionClient);
 
     if (!results) {
       const payload = { tagId: this.id, sectionId };
@@ -95,11 +96,11 @@ export class Tag extends MySqlModel {
   }
 
   // Remove this Tag from a Section
-  async removeFromSection(context: MyContext, sectionId: number): Promise<boolean> {
+  async removeFromSection(context: MyContext, sectionId: number, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<boolean> {
     const reference = 'Tag.removeFromSection';
     const sql = 'DELETE FROM sectionTags WHERE tagId = ? AND sectionId = ?';
     const vals = [this.id?.toString(), sectionId?.toString()];
-    const results = await Tag.query(context, sql, vals, reference);
+    const results = await Tag.query(context, sql, vals, reference, transactionClient);
 
     if (!results) {
       const payload = { tagId: this.id, sectionId };

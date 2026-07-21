@@ -1,12 +1,21 @@
 import * as mysql2 from 'mysql2/promise';
-import {mysqlGeneralConfig, mysqlPoolConfig} from "../config/mysqlConfig";
+import { mysqlGeneralConfig, mysqlPoolConfig } from "../config/mysqlConfig";
 import { logger, prepareObjectForLogs } from '../logger';
-import {MyContext} from '../context';
+import { MyContext } from '../context';
 
 export interface DatabaseConnection {
   getConnection(): Promise<mysql2.PoolConnection>;
+  beginTransaction(): Promise<mysql2.PoolConnection>;
+  commitTransaction(transaction: mysql2.PoolConnection): Promise<void>;
   query<T>(context: MyContext, sql: string, values?: string[]): Promise<T>;
   close(): Promise<void>;
+}
+
+export interface DatabaseTransactionClient {
+  connection: mysql2.PoolConnection;
+  begin(): Promise<void>;
+  rollback(): Promise<void>;
+  commit(): Promise<void>;
 }
 
 export class DatabaseError extends Error {
@@ -24,6 +33,24 @@ const POOL_CONFIG = {
   connectTimeout: mysqlGeneralConfig.connectTimeout,
   queueLimit: mysqlGeneralConfig.queueLimit
 };
+
+export class TransactionClient implements DatabaseTransactionClient {
+  public connection: mysql2.PoolConnection;
+
+  constructor(connection: mysql2.PoolConnection) {
+    this.connection = connection;
+  }
+
+  async begin(): Promise<void> {
+    await this.connection.beginTransaction();
+  }
+  async rollback(): Promise<void> {
+    await this.connection.rollback();
+  }
+  async commit(): Promise<void> {
+    await this.connection.commit();
+  }
+}
 
 export class MySQLConnection implements DatabaseConnection {
   private pool: mysql2.Pool;
@@ -83,6 +110,16 @@ export class MySQLConnection implements DatabaseConnection {
       logger.error('Failed to release connection');
       throw new DatabaseError('Failed to release connection', err);
     }
+  }
+
+  public async beginTransaction(): Promise<mysql2.PoolConnection> {
+    const connection = await this.getConnection();
+    await connection.beginTransaction();
+    return connection;
+  }
+
+  public async commitTransaction(transaction: mysql2.PoolConnection): Promise<void> {
+    await transaction.commit();
   }
 
   // Query the database

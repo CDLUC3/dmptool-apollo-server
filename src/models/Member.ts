@@ -1,8 +1,9 @@
-import {MyContext} from "../context";
-import {validateOrcid} from "../resolvers/scalars/orcid";
-import {capitalizeFirstLetter, formatORCID, validateEmail} from "../utils/helpers";
-import {MemberRole} from "./MemberRole";
-import {MySqlModel} from "./MySqlModel";
+import { MyContext } from "../context";
+import { validateOrcid } from "../resolvers/scalars/orcid";
+import { capitalizeFirstLetter, formatORCID, validateEmail } from "../utils/helpers";
+import { MemberRole } from "./MemberRole";
+import { MySqlModel } from "./MySqlModel";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 export class ProjectMember extends MySqlModel {
   public projectId: number;
@@ -67,7 +68,7 @@ export class ProjectMember extends MySqlModel {
   }
 
   //Create a new ProjectMember
-  async create(context: MyContext, projectId: number): Promise<ProjectMember> {
+  async create(context: MyContext, projectId: number, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<ProjectMember> {
     const reference = 'ProjectMember.create';
 
     // First make sure the record is valid
@@ -105,7 +106,8 @@ export class ProjectMember extends MySqlModel {
           ProjectMember.tableName,
           this,
           reference,
-          ['memberRoles']
+          ['memberRoles'],
+          transactionClient
         );
         const response = await ProjectMember.findById(reference, context, newId);
         return response;
@@ -116,7 +118,7 @@ export class ProjectMember extends MySqlModel {
   }
 
   //Update an existing ProjectMember
-  async update(context: MyContext, noTouch = false): Promise<ProjectMember> {
+  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<ProjectMember> {
     const reference = 'ProjectMember.update';
     const id = this.id;
 
@@ -130,7 +132,8 @@ export class ProjectMember extends MySqlModel {
           this,
           reference,
           ['memberRoles'],
-          noTouch
+          noTouch,
+          transactionClient
         );
         return await ProjectMember.findById(reference, context, id);
       }
@@ -141,7 +144,7 @@ export class ProjectMember extends MySqlModel {
   }
 
   //Delete ProjectMember
-  async delete(context: MyContext): Promise<ProjectMember> {
+  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<ProjectMember> {
     if (this.id) {
       const reference = 'ProjectMember.delete';
 
@@ -169,12 +172,12 @@ export class ProjectMember extends MySqlModel {
 
       // Delete all planMember records associated with this projectMember
       for (const planMember of planMembers) {
-        await PlanMember.delete(context, PlanMember.tableName, planMember.id, reference);
+        await PlanMember.delete(context, PlanMember.tableName, planMember.id, reference, transactionClient);
       }
 
       // Delete the projectMember itself
       const deleted = await ProjectMember.findById(reference, context, this.id);
-      const successfullyDeleted = await ProjectMember.delete(context, ProjectMember.tableName, this.id, reference);
+      const successfullyDeleted = await ProjectMember.delete(context, ProjectMember.tableName, this.id, reference, transactionClient);
       if (successfullyDeleted) {
         return deleted;
       } else {
@@ -302,7 +305,7 @@ export class PlanMember extends MySqlModel {
   }
 
   //Create a new PlanMember
-  async create(context: MyContext): Promise<PlanMember> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<PlanMember> {
     const reference = 'PlanMember.create';
 
     // First make sure the record is valid
@@ -319,7 +322,8 @@ export class PlanMember extends MySqlModel {
           PlanMember.tableName,
           this,
           reference,
-          ['memberRoleIds']
+          ['memberRoleIds'],
+          transactionClient
         );
         const response = await PlanMember.findById(reference, context, newId);
         return response;
@@ -330,7 +334,7 @@ export class PlanMember extends MySqlModel {
   }
 
   //Update an existing plan member
-  async update(context: MyContext, noTouch = false): Promise<PlanMember> {
+  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<PlanMember> {
     if (await this.isValid()) {
       if (this.id) {
         await PlanMember.update(
@@ -339,7 +343,8 @@ export class PlanMember extends MySqlModel {
           this,
           'PlanMember.update',
           ['memberRoleIds'],
-          noTouch
+          noTouch,
+          transactionClient
         );
         return await PlanMember.findById('PlanMember.update', context, this.id);
       }
@@ -350,7 +355,7 @@ export class PlanMember extends MySqlModel {
   }
 
   //Delete PlanMember
-  async delete(context: MyContext): Promise<PlanMember> {
+  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<PlanMember> {
     if (this.id) {
       const reference = 'PlanMember.delete';
 
@@ -366,7 +371,8 @@ export class PlanMember extends MySqlModel {
           context,
           PlanMember.tableName,
           this.id,
-          'PlanMember.delete'
+          'PlanMember.delete',
+          transactionClient
         );
         if (successfullyDeleted) {
           return deleted;

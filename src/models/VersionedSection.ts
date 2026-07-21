@@ -13,6 +13,7 @@ import {
 import { prepareObjectForLogs } from "../logger";
 import { isNullOrUndefined } from "../utils/helpers";
 import { TemplateVersionType } from "./VersionedTemplate";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 // Search result for VersionedTemplates
 export class VersionedSectionSearchResult {
@@ -160,11 +161,11 @@ export class VersionedSection extends MySqlModel {
   }
 
   // Insert the new record
-  async create(context: MyContext): Promise<VersionedSection> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<VersionedSection> {
     // First make sure the record is valid
     if (await this.isValid()) {
       // Save the record and then fetch it
-      const newId = await VersionedSection.insert(context, this.tableName, this, 'VersionedSection.create', ['tags', 'versionedTemplate']);
+      const newId = await VersionedSection.insert(context, this.tableName, this, 'VersionedSection.create', ['tags', 'versionedTemplate'], transactionClient);
       return await VersionedSection.findById('VersionedSection.create', context, newId);
     }
     // Otherwise return as-is with all the errors

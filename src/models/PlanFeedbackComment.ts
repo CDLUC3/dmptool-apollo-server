@@ -1,6 +1,7 @@
 import { MyContext } from "../context";
 import { valueIsEmpty } from "../utils/helpers";
 import { MySqlModel } from "./MySqlModel";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 export class PlanFeedbackComment extends MySqlModel {
   public answerId: number;
@@ -34,14 +35,14 @@ export class PlanFeedbackComment extends MySqlModel {
   }
 
   //Create a new PlanFeedbackComment
-  async create(context: MyContext): Promise<PlanFeedbackComment> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<PlanFeedbackComment> {
     const reference = 'PlanFeedbackComment.create';
 
     // First make sure the record is valid
     if (await this.isValid()) {
       this.prepForSave();
       // Save the record and then fetch it
-      const newId = await PlanFeedbackComment.insert(context, PlanFeedbackComment.tableName, this, reference);
+      const newId = await PlanFeedbackComment.insert(context, PlanFeedbackComment.tableName, this, reference, [], transactionClient);
       const response = await PlanFeedbackComment.findById(reference, context, newId);
       return response;
     }
@@ -50,11 +51,11 @@ export class PlanFeedbackComment extends MySqlModel {
   }
 
   //Update an existing PlanFeedbackComment
-  async update(context: MyContext, noTouch = false): Promise<PlanFeedbackComment> {
+  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<PlanFeedbackComment> {
     if (await this.isValid()) {
       if (this.id) {
         this.prepForSave();
-        await PlanFeedbackComment.update(context, PlanFeedbackComment.tableName, this, 'PlanFeedbackComment.update', [], noTouch);
+        await PlanFeedbackComment.update(context, PlanFeedbackComment.tableName, this, 'PlanFeedbackComment.update', [], noTouch, transactionClient);
         return await PlanFeedbackComment.findById('PlanFeedbackComment.update', context, this.id);
       }
       // This PlanFeedbackComment has never been saved before so we cannot update it!
@@ -64,7 +65,7 @@ export class PlanFeedbackComment extends MySqlModel {
   }
 
   //Delete the PlanFeedbackComment
-  async delete(context: MyContext): Promise<PlanFeedbackComment> {
+  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<PlanFeedbackComment> {
     if (this.id) {
       const deleted = await PlanFeedbackComment.findById('PlanFeedbackComment.delete', context, this.id);
 
@@ -72,7 +73,8 @@ export class PlanFeedbackComment extends MySqlModel {
         context,
         PlanFeedbackComment.tableName,
         this.id,
-        'PlanFeedbackComment.delete'
+        'PlanFeedbackComment.delete',
+        transactionClient
       );
       if (successfullyDeleted) {
         return deleted;

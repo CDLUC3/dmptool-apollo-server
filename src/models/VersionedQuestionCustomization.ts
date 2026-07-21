@@ -1,6 +1,7 @@
 import { MyContext } from "../context";
 import { MySqlModel } from "./MySqlModel";
 import { isNullOrUndefined } from "../utils/helpers";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 /**
  * This object represents a snapshot of custom requirements, guidance, and
@@ -64,9 +65,10 @@ export class VersionedQuestionCustomization extends MySqlModel {
    * Save the current record
    *
    * @param context The Apollo context.
+   * @param transactionClient the MySQL transaction to use
    * @returns The newly created versioned question customization.
    */
-  async create(context: MyContext): Promise<VersionedQuestionCustomization> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<VersionedQuestionCustomization> {
     const ref = 'VersionedQuestionCustomization.create';
     // Make sure the record is valid
     if (await this.isValid()) {
@@ -89,7 +91,9 @@ export class VersionedQuestionCustomization extends MySqlModel {
           context,
           VersionedQuestionCustomization.tableName,
           this,
-          ref
+          ref,
+          [],
+          transactionClient
         );
         return await VersionedQuestionCustomization.findById(ref, context, newId);
       }
@@ -103,9 +107,10 @@ export class VersionedQuestionCustomization extends MySqlModel {
    *
    * @param context The Apollo context
    * @param noTouch Whether or not the modification timestamp should be updated
+   * @param transactionClient the MySQL transaction to use
    * @returns The updated versioned question customization.
    */
-  async update(context: MyContext, noTouch = false): Promise<VersionedQuestionCustomization> {
+  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<VersionedQuestionCustomization> {
     const ref = 'VersionedQuestionCustomization.update';
 
     if (!this.id) {
@@ -122,7 +127,8 @@ export class VersionedQuestionCustomization extends MySqlModel {
           this,
           ref,
           [],
-          noTouch
+          noTouch,
+          transactionClient
         );
         return await VersionedQuestionCustomization.findById(ref, context, this.id);
       }
@@ -135,9 +141,10 @@ export class VersionedQuestionCustomization extends MySqlModel {
    * Delete the customization
    *
    * @param context The Apollo context
+   * @param transactionClient the MySQL transaction to use
    * @returns The archived versioned question customization.
    */
-  async delete(context: MyContext): Promise<VersionedQuestionCustomization> {
+  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<VersionedQuestionCustomization> {
     const ref = 'VersionedQuestionCustomization.delete';
     if (!this.id) {
       // Cannot delete it if it hasn't been saved yet!
@@ -152,7 +159,8 @@ export class VersionedQuestionCustomization extends MySqlModel {
         context,
         VersionedQuestionCustomization.tableName,
         this.id,
-        ref
+        ref,
+        transactionClient
       );
       if (result) {
         return original;
@@ -238,11 +246,10 @@ export class VersionedQuestionCustomization extends MySqlModel {
   /**
    * Find the active versioned question customization for a given template and affiliation.
    * Used to surface customization guidance in the plan guidance panel.
-   * 
+   *
    *
    * @param reference The reference to use for logging errors.
    * @param context The Apollo context.
-   * @param templateId The base template id.
    * @param affiliationId The affiliation id.
    * @param versionedQuestionId The versioned question id.
    * @returns The active versioned question customization, or undefined if none exists.

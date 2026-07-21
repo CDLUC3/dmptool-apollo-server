@@ -101,4 +101,13 @@ export const typeDefs = gql`
     answerId: String
     commentText: String
   }
+
+  input AddAnswerInput {
+    planId: Int!
+    versionedSectionId: Int
+    versionedCustomSectionId: Int
+    versionedQuestionId: Int
+    versionedCustomQuestionId: Int
+    json: String!
+  }
 `;

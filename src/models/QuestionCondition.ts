@@ -1,5 +1,6 @@
 import { MyContext } from "../context";
 import { MySqlModel } from "./MySqlModel";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 export enum QuestionConditionActionType {
   SHOW_QUESTION = 'SHOW_QUESTION',
@@ -44,11 +45,11 @@ export class QuestionCondition extends MySqlModel {
   }
 
   //Create a new QuestionCondition
-  async create(context: MyContext): Promise<QuestionCondition> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<QuestionCondition> {
     // First make sure the record is valid
     if (await this.isValid()) {
       // Save the record and then fetch it
-      const newId = await QuestionCondition.insert(context, this.tableName, this, 'QuestionCondition.create');
+      const newId = await QuestionCondition.insert(context, this.tableName, this, 'QuestionCondition.create', [], transactionClient);
       const created = await QuestionCondition.findById('QuestionCondition.create', context, newId);
       if (created) {
         return new QuestionCondition(created);
@@ -60,12 +61,12 @@ export class QuestionCondition extends MySqlModel {
   }
 
   //Update an existing QuestionCondition
-  async update(context: MyContext): Promise<QuestionCondition> {
+  async update(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<QuestionCondition> {
     const id = this.id;
 
     if (await this.isValid()) {
       if (id) {
-        await QuestionCondition.update(context, this.tableName, this, 'QuestionCondition.update');
+        await QuestionCondition.update(context, this.tableName, this, 'QuestionCondition.update', [], false, transactionClient);
         const updated = await QuestionCondition.findById('QuestionCondition.update', context, id);
         if (updated) {
           return new QuestionCondition(updated);
@@ -78,13 +79,13 @@ export class QuestionCondition extends MySqlModel {
   }
 
   //Delete QuestionCondition based on the QuestionCondition object's id and return
-  async delete(context: MyContext): Promise<QuestionCondition> {
+  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<QuestionCondition> {
     if (this.id) {
       /*First get the QuestionCondition to be deleted so we can return this info to the user
       since calling 'delete' doesn't return anything*/
       const deleted = await QuestionCondition.findById('QuestionCondition.delete', context, this.id);
 
-      const successfullyDeleted = await QuestionCondition.delete(context, this.tableName, this.id, 'QuestionCondition.delete');
+      const successfullyDeleted = await QuestionCondition.delete(context, this.tableName, this.id, 'QuestionCondition.delete', transactionClient);
       if (successfullyDeleted) {
         return new QuestionCondition(deleted);
       } else {

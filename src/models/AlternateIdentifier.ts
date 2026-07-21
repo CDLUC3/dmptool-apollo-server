@@ -1,5 +1,6 @@
 import { MyContext } from "../context";
 import { MySqlModel } from "./MySqlModel";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 // Identifiers defined outside the DMP Tool that help identify a DMP/Plan
 export class AlternateIdentifier extends MySqlModel {
@@ -26,7 +27,7 @@ export class AlternateIdentifier extends MySqlModel {
   }
 
   // Save the current record
-  async create(context: MyContext): Promise<AlternateIdentifier> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<AlternateIdentifier> {
     if(await this.isValid()) {
       // First make sure the record doesn't already exist
       const current = await AlternateIdentifier.findByAlternateIdentifier(
@@ -43,7 +44,7 @@ export class AlternateIdentifier extends MySqlModel {
         );
       } else {
         // Save the record and then fetch it
-        const newId = await AlternateIdentifier.insert(context, AlternateIdentifier.tableName, this, 'AlternateIdentifier.create');
+        const newId = await AlternateIdentifier.insert(context, AlternateIdentifier.tableName, this, 'AlternateIdentifier.create', [], transactionClient);
         if (newId) {
           return await AlternateIdentifier.findById('AlternateIdentifier.create', context, newId as number);
         }
@@ -56,9 +57,9 @@ export class AlternateIdentifier extends MySqlModel {
   }
 
   // Delete this record
-  async delete(context: MyContext): Promise<AlternateIdentifier> {
+  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<AlternateIdentifier> {
     if (this.id) {
-      const result = await AlternateIdentifier.delete(context, AlternateIdentifier.tableName, this.id, 'AlternateIdentifier.delete');
+      const result = await AlternateIdentifier.delete(context, AlternateIdentifier.tableName, this.id, 'AlternateIdentifier.delete', transactionClient);
       if (result) {
         return new AlternateIdentifier(this);
       }
@@ -77,6 +78,15 @@ export class AlternateIdentifier extends MySqlModel {
   static async findByAlternateIdentifier(reference: string, context: MyContext, alternateIdentifier: string): Promise<AlternateIdentifier | null> {
     const sql = `SELECT * FROM ${AlternateIdentifier.tableName} WHERE alternateIdentifier = ?`;
     const results = await AlternateIdentifier.query(context, sql, [alternateIdentifier], reference);
+    return Array.isArray(results) && results.length > 0 ? new AlternateIdentifier(results[0]) : null;
+  }
+
+  // Return the first entry that matches one of the specified alternate identifiers
+  static async findByAlternateIdentifiers(reference: string, context: MyContext, alternateIdentifiers: string[]): Promise<AlternateIdentifier | null> {
+    const placeholders = alternateIdentifiers.map(() => '?').join(', ');
+    const sql = `SELECT * FROM ${AlternateIdentifier.tableName} WHERE alternateIdentifier IN (${placeholders})`;
+    const vals = alternateIdentifiers.map(id => id.toString());
+    const results = await AlternateIdentifier.query(context, sql, vals, reference);
     return Array.isArray(results) && results.length > 0 ? new AlternateIdentifier(results[0]) : null;
   }
 

@@ -7,6 +7,7 @@ import { isAdmin, isSuperAdmin } from "./authService";
 import { isNullOrUndefined } from "../utils/helpers";
 import { ProjectMember } from "../models/Member";
 import { MemberRole } from "../models/MemberRole";
+import { TransactionClient } from "../datasources/mysql";
 
 const WRITE_ACCESS_LEVELS = new Set([
   ProjectCollaboratorAccessLevel.OWN,
@@ -115,6 +116,7 @@ export const isProjectReadOnlyForCurrentUser = async (
 export const setCurrentUserAsProjectOwner = async (
   context: MyContext,
   projectId: number,
+  transactionClient?: TransactionClient
 ): Promise<boolean> => {
   if (!isNullOrUndefined(context.token)) {
     // Automatically add the current user as a projectCollaborator with acccessLevel = PRIMARY (Full Access)
@@ -126,7 +128,7 @@ export const setCurrentUserAsProjectOwner = async (
     });
     // Create the ProjectCollaborator record but skip sending an email notification
     // because the user already knows they can edit their own project!
-    const owner = await collaborator.create(context, false);
+    const owner = await collaborator.create(context, false, transactionClient);
     if (owner && !owner.hasErrors()) {
       return true;
     }
@@ -137,7 +139,8 @@ export const setCurrentUserAsProjectOwner = async (
 // Make sure the project has a primary contact defined. If not default to the owner
 export const ensureDefaultProjectContact = async (
   context: MyContext,
-  project: Project
+  project: Project,
+  transactionClient?: TransactionClient
 ): Promise<boolean> => {
   const reference = 'projectService.ensureProjectHasPrimaryContact';
 
@@ -158,7 +161,7 @@ export const ensureDefaultProjectContact = async (
           memberRoles: [dfltRole],
         });
 
-        const created = await member.create(context, project.id);
+        const created = await member.create(context, project.id, transactionClient);
 
         // Actually add the record for the member role. We will want to revisit someday
         // and possibly just add this right into the ProjectMember model

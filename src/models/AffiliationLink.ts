@@ -1,6 +1,7 @@
 import { MyContext } from "../context";
 import { validateURL } from "../utils/helpers";
 import { MySqlModel } from "./MySqlModel";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 // A link that can be displayed to the affiliation's users within the context of the DMPTool
 export class AffiliationLink extends MySqlModel {
@@ -29,7 +30,7 @@ export class AffiliationLink extends MySqlModel {
   }
 
   // Save the current record
-  async create(context: MyContext): Promise<AffiliationLink> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<AffiliationLink> {
     // First make sure the record doesn't already exist
     const currentDomain = await AffiliationLink.findByAffiliationAndURL(
       'AffiliationLink.create',
@@ -45,7 +46,7 @@ export class AffiliationLink extends MySqlModel {
         this.addError('general', `That email domain is already associated with ${assoc}`);
       } else {
       // Save the record and then fetch it
-        const newId = await AffiliationLink.insert(context, AffiliationLink.tableName, this, 'AffiliationLink.create');
+        const newId = await AffiliationLink.insert(context, AffiliationLink.tableName, this, 'AffiliationLink.create', [], transactionClient);
         return await AffiliationLink.findById('AffiliationLink.create', context, newId as number);
       }
     }
@@ -54,7 +55,7 @@ export class AffiliationLink extends MySqlModel {
   }
 
   // Update the link
-  async update(context: MyContext): Promise<AffiliationLink> {
+  async update(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<AffiliationLink> {
     const reference = 'AffiliationLink.update';
     if (!this.id) {
       this.addError('general', 'The link does not exist');
@@ -66,7 +67,10 @@ export class AffiliationLink extends MySqlModel {
         context,
         AffiliationLink.tableName,
         this,
-        reference
+        reference,
+        [],
+        false,
+        transactionClient
       );
 
       if (updated) {
@@ -81,9 +85,9 @@ export class AffiliationLink extends MySqlModel {
   }
 
   // Archive this record
-  async delete(context: MyContext): Promise<AffiliationLink> {
+  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<AffiliationLink> {
     if (this.id) {
-      const result = await AffiliationLink.delete(context, AffiliationLink.tableName, this.id, 'AffiliationLink.delete');
+      const result = await AffiliationLink.delete(context, AffiliationLink.tableName, this.id, 'AffiliationLink.delete', transactionClient);
       if (result) {
         return new AffiliationLink(this);
       }

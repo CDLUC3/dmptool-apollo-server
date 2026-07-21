@@ -20,7 +20,7 @@ import { ProjectCollaboratorAccessLevel } from "../models/Collaborator";
 import { AlternateIdentifier } from "../models/AlternateIdentifier";
 import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
 import {
-  AuthenticationError,
+  AuthenticationError, BadUserInputError,
   ForbiddenError,
   InternalServerError,
   NotFoundError
@@ -31,7 +31,13 @@ import {
   PaginationOptionsForOffsets,
   PaginationType
 } from "../types/general";
-import { PaginatedPlanResults, PlanFeedbackStatus, Resolvers } from "../types";
+import {
+  AddEntirePlanInput,
+  EntirePlanInput,
+  PaginatedPlanResults,
+  PlanFeedbackStatus,
+  Resolvers
+} from "../types";
 import { prepareObjectForLogs } from "../logger";
 
 // Services
@@ -50,6 +56,11 @@ import {
   isAuthorized,
   isSuperAdmin
 } from "../services/authService";
+import {
+  DatabaseTransactionClient,
+  TransactionClient
+} from "../datasources/mysql";
+import {defaultLanguageId} from "../models/Language";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -387,7 +398,7 @@ export const resolvers: Resolvers = {
           const project = await Project.findById(reference, context, plan.projectId);
 
           if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.OWN)) {
-            plan.title = input.title ?? plan.title;
+            plan.title = input.title;
             plan.status = input.status as PlanStatus ?? plan.status;
             plan.visibility = input.visibility as PlanVisibility ?? plan.visibility;
             plan.featured = input.featured ?? plan.featured;
@@ -540,6 +551,154 @@ export const resolvers: Resolvers = {
         throw InternalServerError();
       }
     },
+
+    /**
+     * AUTHENTICATED USERS ONLY: Create an entire plan (and project if applicable)
+     *
+     * @param _ Ignored, this is the entrypoint for the Apollo resolver
+     * @param args the entire plan input (including project, members, funding and answers)
+     * @param context The Apollo context
+     * @returns The QuestionCustomization (with errors if applicable)
+     * @throws NotFoundError when the QuestionCustomization or TemplateCustomization
+     * are not found
+     * @throws ForbiddenError when the caller does not have permission
+     * @throws UnauthorizedError when the JWT token is not present
+     * @throws InternalServerError when a fatal error has occurred
+     */
+    addEntirePlan: authenticatedResolver(
+      'addEntirePlan resolver',
+      UserRole.RESEARCHER,
+      async (
+        _: Record<PropertyKey, never>,
+        { input }: { input: AddEntirePlanInput },
+        context: MyContext
+      ): Promise<Plan> => {
+        const ref = 'createEntirePlan';
+
+        // 1st: Check any alternate identifiers to make sure the Plan doesn't already exist
+        if (input.alternateIdentifiers) {
+          const altId: AlternateIdentifier | undefined = await AlternateIdentifier.findByAlternateIdentifiers(
+            ref,
+            context,
+            input.alternateIdentifiers
+          );
+          if ((await Plan.findById(ref, context, altId.planId))) {
+            throw BadUserInputError('A plan with the specified alternate identifier(s) already exists.');
+          }
+        }
+
+
+        // 5th: Save the Project and Plan Funding
+        request.log.debug(
+          { alternateIdentifier: idIn, projectId: project.id, dmpId: plan.dmpId },
+          'Saving project and plan funding'
+        );
+        const fundedPlan: Plan = await saveFundingWorkflow(request, project, plan, dmp);
+
+        // Now save the Project and Plan Members
+        request.log.debug(
+          { alternateIdentifier: idIn, projectId: project.id, dmpId: fundedPlan.dmpId },
+          'Saving project and plan members'
+        );
+        const finalPlan: Plan = await saveMembersWorkflow(request, project, fundedPlan, dmp);
+
+        // Now that the Project and Plan have been saved, go through and save all
+        // the associated artifacts
+        request.log.debug(
+          { alternateIdentifier: idIn, projectId: project.id, dmpId: finalPlan.dmpId },
+          'Saving non-critical information'
+        );
+        await saveNonFatalPlanArtifacts(request, dmp, finalPlan);
+
+        // Errors would have been added to the Plan object if any errors occurred while
+        // attempting to save the artifacts.
+        if (finalPlan.hasErrors()) {
+          request.log.error(
+            { errors: finalPlan.errors, dmpId: finalPlan.dmpId },
+            'Failed to create Plan.'
+          );
+          throw newFastifyError(ERROR_CODE_INVALID_DMP, finalPlan.errorsToString());
+        }
+
+        // Generate the maDMP JSON so that we can return it
+        const newMaDMP: DMPToolDMPType | undefined = await loadMaDMPFromDynamo(
+          request,
+          finalPlan.dmpId
+        );
+
+        // TODO: Once the RDA group has decided on a way to convey warnings about
+        //       data that could not be supported (e.g. the "cost" section), we will
+        //       want to attach those warnings to the response
+        request.log.warn({ warnings: plan.warnings }, 'Non fatal errors occurred.');
+
+        if (!newMaDMP) {
+          request.log.fatal(
+            { alternateIdentifier: idIn, dmpId: plan.dmpId },
+            'Unable to load newly-created maDMP'
+          );
+          throw newFastifyError(
+            ERROR_CODE_INVALID_DMP,
+            `Your DMP was created but we could not generate a valid JSON response. Try "GET /dmps/${encodeURI(finalPlan.dmpId)}"`
+          );
+        }
+
+        request.log.debug(
+          { alternateIdentifier: idIn, projectId: project.id, dmpId: plan.dmpId },
+          'Finished creating new Plan'
+        );
+        return newMaDMP;
+      }
+    ),
+
+    /**
+     * AUTHENTICATED USERS ONLY: Replace an entire plan (and project if applicable)
+     *
+     * @param _ Ignored, this is the entrypoint for the Apollo resolver
+     * @param args the entire plan input (including project, members, funding and answers)
+     * @param context The Apollo context
+     * @returns The QuestionCustomization (with errors if applicable)
+     * @throws NotFoundError when the QuestionCustomization or TemplateCustomization
+     * are not found
+     * @throws ForbiddenError when the caller does not have permission
+     * @throws UnauthorizedError when the JWT token is not present
+     * @throws InternalServerError when a fatal error has occurred
+     */
+    updateEntirePlan: authenticatedResolver(
+      'updateEntirePlan resolver',
+      UserRole.RESEARCHER,
+      async (
+        _: Record<PropertyKey, never>,
+        { input }: { input: EntirePlanInput },
+        context: MyContext
+      ): Promise<Plan> => {
+
+      }
+    ),
+
+    /**
+     * AUTHENTICATED USERS ONLY: Delete/tomb-stone an entire plan (and project if applicable)
+     *
+     * @param _ Ignored, this is the entrypoint for the Apollo resolver
+     * @param args the DMP id of the plan
+     * @param context The Apollo context
+     * @returns The QuestionCustomization (with errors if applicable)
+     * @throws NotFoundError when the QuestionCustomization or TemplateCustomization
+     * are not found
+     * @throws ForbiddenError when the caller does not have permission
+     * @throws UnauthorizedError when the JWT token is not present
+     * @throws InternalServerError when a fatal error has occurred
+     */
+    deleteEntirePlanByDMPId: authenticatedResolver(
+      'deleteEntirePlanByDMPId resolver',
+      UserRole.RESEARCHER,
+      async (
+        _: Record<PropertyKey, never>,
+        { dmpId }: { dmpId: string },
+        context: MyContext
+      ): Promise<Plan> => {
+
+      }
+    ),
   },
 
   Plan: {

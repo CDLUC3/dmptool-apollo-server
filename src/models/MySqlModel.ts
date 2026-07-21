@@ -12,6 +12,8 @@ import {
   SortDirection
 } from "../types/general";
 import { generalConfig } from "../config/generalConfig";
+import * as mysql2 from "mysql2/promise";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 type MixedArray<T> = T[];
 
@@ -48,6 +50,20 @@ export class MySqlModel {
   // Add an error to the errors array
   addError(property: string, error: string): void {
     this.errors[property] = error;
+  }
+
+  /**
+   * Helper function to concatenate all errors into a single string
+   *
+   * @returns a concatenated string
+   */
+  errorsToString(): string {
+    const errs = Object.keys(this.errors)
+      .filter(k => k !== '__typename' && !!this.errors[k])
+      .map(key => `${key}: ${this.errors[key]}`)
+
+    // Cast to a Set to remove any duplicates and then join the array
+    return Array.from(new Set([...errs])).join(', ');
   }
 
   // Indicates whether or not the standard fields on the record are valid
@@ -141,11 +157,12 @@ export class MySqlModel {
     apolloContext: MyContext,
     tableName: string,
     id: number,
-    reference = 'undefined caller'
+    reference = 'undefined caller',
+    transactionClient: DatabaseTransactionClient | undefined = undefined
   ): Promise<boolean> {
     try {
       const sql = `SELECT id FROM ${tableName} WHERE id = ?`;
-      const results = await MySqlModel.query(apolloContext, sql, [id.toString()], reference);
+      const results = await MySqlModel.query(apolloContext, sql, [id.toString()], reference, transactionClient);
       return results && results.length === 1;
     } catch (err) {
       const msg = `${reference}, ERROR: ${err instanceof Error ? err.message : String(err)}`;
@@ -254,6 +271,7 @@ export class MySqlModel {
     sqlStatement: string,
     values: MixedArray<string | boolean | Buffer> = [],
     reference = 'undefined caller',
+    transactionClient: DatabaseTransactionClient | undefined = undefined
   ): Promise<any[]> { // eslint-disable-line @typescript-eslint/no-explicit-any
     const { logger, dataSources } = apolloContext;
 
@@ -272,7 +290,14 @@ export class MySqlModel {
           return val;
         });
         apolloContext.logger.debug(prepareObjectForLogs({ sql, values: maskedValues }), reference);
-        const resp = await dataSources.sqlDataSource.query(apolloContext, sql, vals);
+
+        let resp: unknown;
+        if (transactionClient) {
+          resp = await transactionClient.connection.query(sql, vals);
+        } else {
+          resp = await dataSources.sqlDataSource.query(apolloContext, sql, vals);
+        }
+
         return Array.isArray(resp) ? resp : [resp];
       } catch (err) {
         const msg = `${reference}, ERROR: ${err instanceof Error ? err.message : String(err)}`;
@@ -520,7 +545,8 @@ export class MySqlModel {
     table: string,
     obj: MySqlModel & { userId?: number },
     reference = 'undefined caller',
-    skipKeys?: string[]
+    skipKeys?: string[],
+    transactionClient: DatabaseTransactionClient | undefined = undefined
   ): Promise<number | null> {
     // If the createdById and modifiedById have not alredy been set, use the value in the token or the userId
     if (!obj.createdById) {
@@ -543,7 +569,7 @@ export class MySqlModel {
     const vals = props.map((entry) => this.prepareValue(entry.value, typeof (entry.value)));
 
     // Send the calcuated INSERT statement to the query function
-    const result = await this.query(apolloContext, sql, vals, reference);
+    const result = await this.query(apolloContext, sql, vals, reference, transactionClient);
     return Array.isArray(result) ? result[0]?.insertId : null;
   }
 
@@ -560,6 +586,7 @@ export class MySqlModel {
     reference = 'undefined caller',
     skipKeys?: string[],
     noTouch?: boolean,
+    transactionClient: DatabaseTransactionClient | undefined = undefined
   ): Promise<MySqlModel | null> {
     // Update the modifier info
     if (noTouch !== true) {
@@ -592,7 +619,7 @@ export class MySqlModel {
     vals.push(obj.id.toString());
 
     // Send the calcuated UPDATE statement to the query function
-    const result = await this.query(apolloContext, sql, vals, reference);
+    const result = await this.query(apolloContext, sql, vals, reference, transactionClient);
     return Array.isArray(result) ? result[0] : null;
   }
 
@@ -608,9 +635,10 @@ export class MySqlModel {
     table: string,
     id: number,
     reference = 'undefined caller',
+    transactionClient: DatabaseTransactionClient | undefined = undefined
   ): Promise<boolean> {
     const sql = `DELETE FROM ${table} WHERE id = ?`;
-    const result = await this.query(apolloContext, sql, [id.toString()], reference);
+    const result = await this.query(apolloContext, sql, [id.toString()], reference, transactionClient);
     return Array.isArray(result) && result[0].affectedRows ? true : false;
   }
 

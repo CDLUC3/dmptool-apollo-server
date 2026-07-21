@@ -2,6 +2,7 @@ import { MySqlModel } from "./MySqlModel";
 import { TemplateCustomizationMigrationStatus } from "./TemplateCustomization";
 import { isNullOrUndefined } from "../utils/helpers";
 import { MyContext } from "../context";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 /**
  * The type of section the custom section follows (is pinned to)
@@ -90,9 +91,10 @@ export class CustomSection extends MySqlModel {
    * Save the custom section
    *
    * @param context The Apollo context.
+   * @param transactionClient the MySQL transaction to use
    * @returns The newly created custom section.
    */
-  async create(context: MyContext): Promise<CustomSection> {
+  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<CustomSection> {
     const ref = 'CustomSection.create';
     // Make sure the record is valid
     if (await this.isValid()) {
@@ -115,7 +117,9 @@ export class CustomSection extends MySqlModel {
           context,
           CustomSection.tableName,
           this,
-          ref
+          ref,
+          [],
+          transactionClient
         );
         return await CustomSection.findById(ref, context, newId);
       }
@@ -129,9 +133,10 @@ export class CustomSection extends MySqlModel {
    *
    * @param context The Apollo context
    * @param noTouch Whether or not the modification timestamp should be updated
+   * @param transactionClient the MySQL transaction to use
    * @returns The updated custom section.
    */
-  async update(context: MyContext, noTouch = false): Promise<CustomSection> {
+  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<CustomSection> {
     const ref = 'CustomSection.update';
 
     if (isNullOrUndefined(this.id)) {
@@ -148,7 +153,8 @@ export class CustomSection extends MySqlModel {
           this,
           ref,
           [],
-          noTouch
+          noTouch,
+          transactionClient
         );
         return await CustomSection.findById(ref, context, this.id);
       }
@@ -161,9 +167,10 @@ export class CustomSection extends MySqlModel {
    * Remove the custom section
    *
    * @param context The Apollo context
+   * @param transactionClient the MySQL transaction to use
    * @returns The deleted custom section.
    */
-  async delete(context: MyContext): Promise<CustomSection> {
+  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<CustomSection> {
     const ref = 'CustomSection.delete';
     if (!this.id) {
       // Cannot delete it if it hasn't been saved yet!
@@ -178,7 +185,8 @@ export class CustomSection extends MySqlModel {
         context,
         CustomSection.tableName,
         this.id,
-        ref
+        ref,
+        transactionClient
       );
       if (result) {
         return original;

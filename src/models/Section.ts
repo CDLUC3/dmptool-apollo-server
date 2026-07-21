@@ -1,6 +1,7 @@
 import { MyContext } from "../context";
 import { MySqlModel } from "./MySqlModel";
 import { Tag } from "./Tag";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 // A Template for creating a DMP
 export class Section extends MySqlModel {
@@ -52,13 +53,13 @@ export class Section extends MySqlModel {
   }
 
   //Create a new Section
-  async create(context: MyContext, templateId: number): Promise<Section> {
+  async create(context: MyContext, templateId: number, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Section> {
 
     // First make sure the record is valid
     if (await this.isValid()) {
       this.templateId = templateId;
       // Save the record and then fetch it
-      const newId = await Section.insert(context, this.tableName, this, 'Section.create', ['tags']);
+      const newId = await Section.insert(context, this.tableName, this, 'Section.create', ['tags'], transactionClient);
       const response = await Section.findById('Section.create', context, newId);
       return response;
     }
@@ -67,14 +68,14 @@ export class Section extends MySqlModel {
   }
 
   //Update an existing Section
-  async update(context: MyContext, noTouch = false): Promise<Section> {
+  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Section> {
     const id = this.id;
 
     if (await this.isValid()) {
       if (id) {
         this.prepForSave();
 
-        await Section.update(context, this.tableName, this, 'Section.update', ['tags'], noTouch);
+        await Section.update(context, this.tableName, this, 'Section.update', ['tags'], noTouch, transactionClient);
         return await Section.findById('Section.update', context, id);
       }
       // This template has never been saved before so we cannot update it!
@@ -84,13 +85,13 @@ export class Section extends MySqlModel {
   }
 
   //Delete Section based on the Section object's id and return
-  async delete(context: MyContext): Promise<Section> {
+  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Section> {
     if (this.id) {
       /*First get the section to be deleted so we can return this info to the user
       since calling 'delete' doesn't return anything*/
       const deletedSection = await Section.findById('Section.delete', context, this.id);
 
-      const successfullyDeleted = await Section.delete(context, this.tableName, this.id, 'Section.delete');
+      const successfullyDeleted = await Section.delete(context, this.tableName, this.id, 'Section.delete', transactionClient);
       if (successfullyDeleted) {
         return deletedSection;
       } else {

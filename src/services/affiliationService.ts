@@ -4,7 +4,7 @@ import { AffiliationEmailDomain } from "../models/AffiliationEmailDomain";
 import { isNullOrUndefined } from "../utils/helpers";
 import { AffiliationLink } from "../models/AffiliationLink";
 
-export interface AffiliationInput {
+export interface ResolveAffiliationInput {
   affiliationId?: string | null;
   affiliationName?: string | null;
 }
@@ -32,7 +32,7 @@ export interface ResolveAffiliationResult {
 export const resolveAffiliation = async (
   reference: string,
   context: MyContext,
-  input: AffiliationInput,
+  input: ResolveAffiliationInput,
   userId?: number,
 ): Promise<ResolveAffiliationResult> => {
   // Guard against the frontend's "other" sentinel leaking through as a literal

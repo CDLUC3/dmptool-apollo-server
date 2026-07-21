@@ -177,7 +177,7 @@ export const resolvers: Resolvers = {
           const { affiliationId, error } = await resolveAffiliation(reference, context, input, context.token.id);
           if (error) {
             const errorMember = new ProjectMember(input);
-            errorMember.addError('affiliation', error);
+            errorMember.addError('affiliationId', error);
             return errorMember;
           }
           input.affiliationId = affiliationId;

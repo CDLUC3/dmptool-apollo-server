@@ -246,6 +246,7 @@
 - Removed `ioredis` package
 
 ### Fixed
+- Fixed `removeProjectFunding`. There were several issues, one of which was not being able to delete a `projectFundings` record without removing it's foreign key dependency in `planFundings` first [#303]
 - Updated `immutable` to `v5.1.9` to address HIGH security vulnerability [#304]
 - Updated `brace-expansion` to `v5.0.7` and `js-yaml` to `v4.3.0` to address vulnerabilities [#310]
 - Build was breaking because of a `package-lock.json` was referencing a file for `dmptool-utils`.

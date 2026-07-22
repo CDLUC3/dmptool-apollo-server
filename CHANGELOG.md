@@ -246,6 +246,7 @@
 - Removed `ioredis` package
 
 ### Fixed
+- Updated `immutable` to `v5.1.9` to address HIGH security vulnerability [#304]
 - Updated `brace-expansion` to `v5.0.7` and `js-yaml` to `v4.3.0` to address vulnerabilities [#310]
 - Build was breaking because of a `package-lock.json` was referencing a file for `dmptool-utils`.
 - Updated `requestFeedback` with better error messaging for when `feedbackEnabled` is false or there are no `feedbackEmails`. Also, added checks for `input.subHeaderLinks` and `input.ssoEmailDomains` in `updateAffiliations` since it was breaking that mutation when those fields were not included. Also, removed the debugging I had previously added to investigate the `requestFeedback` resolver failing. [#285]

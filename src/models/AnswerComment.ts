@@ -33,14 +33,14 @@ export class AnswerComment extends MySqlModel {
   }
 
   //Create a new AnswerComment
-  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<AnswerComment> {
+  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<AnswerComment> {
     const reference = 'AnswerComment.create';
 
     // First make sure the record is valid
     if (await this.isValid()) {
       // Save the record and then fetch it
       const newId = await AnswerComment.insert(context, AnswerComment.tableName, this, reference, [], transactionClient);
-      const response = await AnswerComment.findById(reference, context, newId);
+      const response = await AnswerComment.findById(reference, context, newId, transactionClient);
       return response;
     }
     // Otherwise return as-is with all the errors
@@ -48,11 +48,11 @@ export class AnswerComment extends MySqlModel {
   }
 
   //Update an existing AnswerComment
-  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<AnswerComment> {
+  async update(context: MyContext, noTouch = false, transactionClient?: DatabaseTransactionClient): Promise<AnswerComment> {
     if (await this.isValid()) {
       if (this.id) {
         await AnswerComment.update(context, AnswerComment.tableName, this, 'AnswerComment.update', [], noTouch, transactionClient);
-        return await AnswerComment.findById('AnswerComment.update', context, this.id);
+        return await AnswerComment.findById('AnswerComment.update', context, this.id, transactionClient);
       }
       // This template has never been saved before so we cannot update it!
       this.addError('general', 'AnswerComment has never been saved');
@@ -61,9 +61,9 @@ export class AnswerComment extends MySqlModel {
   }
 
   //Delete the AnswerComment
-  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<AnswerComment> {
+  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<AnswerComment> {
     if (this.id) {
-      const deleted = await AnswerComment.findById('AnswerComment.delete', context, this.id);
+      const deleted = await AnswerComment.findById('AnswerComment.delete', context, this.id, transactionClient);
 
       const successfullyDeleted = await AnswerComment.delete(
         context,
@@ -82,16 +82,16 @@ export class AnswerComment extends MySqlModel {
   }
 
   // Fetch a AnswerComment by it's id
-  static async findById(reference: string, context: MyContext, licenseId: number): Promise<AnswerComment> {
+  static async findById(reference: string, context: MyContext, licenseId: number, transactionClient?: DatabaseTransactionClient): Promise<AnswerComment> {
     const sql = `SELECT * FROM ${AnswerComment.tableName} WHERE id = ?`;
-    const results = await AnswerComment.query(context, sql, [licenseId?.toString()], reference);
+    const results = await AnswerComment.query(context, sql, [licenseId?.toString()], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new AnswerComment(results[0]) : null;
   }
 
   // Fetch a AnswerComment by it's planId and versionedQuestionId
-  static async findByAnswerId(reference: string, context: MyContext, answerId: number): Promise<AnswerComment[]> {
+  static async findByAnswerId(reference: string, context: MyContext, answerId: number, transactionClient?: DatabaseTransactionClient): Promise<AnswerComment[]> {
     const sql = `SELECT * FROM ${AnswerComment.tableName} WHERE answerId = ?`;
-    const results = await AnswerComment.query(context, sql, [answerId.toString()], reference);
+    const results = await AnswerComment.query(context, sql, [answerId.toString()], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? results.map((ans) => new AnswerComment(ans)) : [];
   }
-};
+}

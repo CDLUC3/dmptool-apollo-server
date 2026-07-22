@@ -140,7 +140,7 @@ describe('PlanSearchResult.findByProjectId', () => {
 
     const result = await PlanSearchResult.findByProjectId('testing', context, projectId);
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, sql, [projectId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, sql, [projectId.toString()], 'testing', undefined);
     expect(result).toEqual([planSearchResult]);
   });
 
@@ -830,7 +830,7 @@ describe('PlanProgress.findByPlanId', () => {
     await PlanProgress.findByPlanId('testing', context, planId, versionedTemplateId);
 
     expect(mockFindSectionProgress).toHaveBeenCalledTimes(1);
-    expect(mockFindSectionProgress).toHaveBeenCalledWith('testing', context, planId, versionedTemplateId);
+    expect(mockFindSectionProgress).toHaveBeenCalledWith('testing', context, planId, versionedTemplateId, undefined);
   });
 
   it('should return null if no sections are found', async () => {
@@ -1107,7 +1107,7 @@ describe('findBy Queries', () => {
     const result = await Plan.findById('testing', context, planId);
     const expectedSql = 'SELECT * FROM plans WHERE id = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [planId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [planId.toString()], 'testing', undefined);
     expect(result).toEqual(plan);
   });
 
@@ -1124,7 +1124,7 @@ describe('findBy Queries', () => {
     const result = await Plan.findByDMPId('testing', context, dmpId);
     const expectedSql = 'SELECT * FROM plans WHERE dmpId = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [dmpId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [dmpId.toString()], 'testing', undefined);
     expect(result).toEqual(plan);
   });
 
@@ -1141,7 +1141,7 @@ describe('findBy Queries', () => {
     const result = await Plan.findByProjectId('testing', context, projectId);
     const expectedSql = 'SELECT * FROM plans WHERE projectId = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectId.toString()], 'testing', undefined);
     expect(result).toEqual([plan]);
   });
 
@@ -1158,7 +1158,7 @@ describe('findBy Queries', () => {
     const result = await Plan.findByUserId('testing', context, userId);
     const expectedSql = 'SELECT * FROM plans WHERE createdById = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [userId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [userId.toString()], 'testing', undefined);
     expect(result).toEqual([plan]);
   });
 
@@ -1382,18 +1382,22 @@ describe('create', () => {
     expect(projectFindById).toHaveBeenCalledWith(
       'Plan.create',
       context,
-      collisionPlan.projectId
+      collisionPlan.projectId,
+      undefined
     );
     expect(planFindByProjectId).toHaveBeenCalledWith(
       'Plan.create',
       context,
-      collisionPlan.projectId
+      collisionPlan.projectId,
+      undefined
     );
     expect(insertQuery).toHaveBeenCalledWith(
       context,
       'plans',
       expect.objectContaining({ title: 'My Project 4' }),
-      'Plan.create'
+      'Plan.create',
+      [],
+      undefined
     );
     expect(result.title).toBe('My Project 4');
 

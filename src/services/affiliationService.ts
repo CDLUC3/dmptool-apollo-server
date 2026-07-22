@@ -3,6 +3,7 @@ import { Affiliation } from "../models/Affiliation";
 import { AffiliationEmailDomain } from "../models/AffiliationEmailDomain";
 import { isNullOrUndefined } from "../utils/helpers";
 import { AffiliationLink } from "../models/AffiliationLink";
+import {DatabaseTransactionClient} from "../datasources/mysql";
 
 export interface ResolveAffiliationInput {
   affiliationId?: string | null;
@@ -28,32 +29,34 @@ export interface ResolveAffiliationResult {
  * @param context the Apollo context
  * @param input the affiliationId/affiliationName pair from the mutation input
  * @param userId the id of the user performing the action (used when registering a new affiliation)
+ * @param transactionClient the MySQL transaction to use
  */
 export const resolveAffiliation = async (
   reference: string,
   context: MyContext,
   input: ResolveAffiliationInput,
   userId?: number,
+  transactionClient?: DatabaseTransactionClient
 ): Promise<ResolveAffiliationResult> => {
   // Guard against the frontend's "other" sentinel leaking through as a literal
   // affiliationId instead of being left blank
   if (input.affiliationId === 'other') {
     if (input.affiliationName) {
-      const affiliation = await processOtherAffiliationName(context, input.affiliationName, userId);
+      const affiliation = await processOtherAffiliationName(context, input.affiliationName, userId, transactionClient);
       return { affiliationId: affiliation ? String(affiliation.uri) : null };
     }
     return { affiliationId: null, error: 'An affiliation name is required when "Other" is selected' };
   }
 
   if (input.affiliationId && input.affiliationId.length > 0) {
-    const existingAffiliation = await Affiliation.findByURI(reference, context, input.affiliationId);
+    const existingAffiliation = await Affiliation.findByURI(reference, context, input.affiliationId, transactionClient);
     if (!existingAffiliation && input.affiliationName) {
       const newAffiliation = new Affiliation({
         uri: input.affiliationId,
         name: input.affiliationName,
       });
 
-      const createdAffiliation = await newAffiliation.create(context);
+      const createdAffiliation = await newAffiliation.create(context, transactionClient);
 
       if (!createdAffiliation || createdAffiliation.hasErrors()) {
         return { affiliationId: null, error: 'Unable to create required affiliation' };
@@ -63,7 +66,7 @@ export const resolveAffiliation = async (
     }
     return { affiliationId: input.affiliationId };
   } else if (input.affiliationName) {
-    const affiliation = await processOtherAffiliationName(context, input.affiliationName, userId);
+    const affiliation = await processOtherAffiliationName(context, input.affiliationName, userId, transactionClient);
     return { affiliationId: affiliation ? String(affiliation.uri) : null };
   }
 
@@ -75,9 +78,10 @@ export const processOtherAffiliationName = async (
   context: MyContext,
   name: string,
   userId?: number,
+  transactionClient?: DatabaseTransactionClient
 ): Promise<Affiliation> => {
   // First look to see if the affiliation name already exists
-  const existing = await Affiliation.findByName('processOtherAffiliation', context, name);
+  const existing = await Affiliation.findByName('processOtherAffiliation', context, name, transactionClient);
   if (existing) {
     return existing;
   } else {
@@ -89,7 +93,7 @@ export const processOtherAffiliationName = async (
       newAffiliation.createdById = userId;
       newAffiliation.modifiedById = userId;
     }
-    const result = await newAffiliation.create(context);
+    const result = await newAffiliation.create(context, transactionClient);
 
     // Reinit the Affiliation to ensure it has access to functions like hasErrors()
     return new Affiliation(result);
@@ -104,6 +108,7 @@ export const processOtherAffiliationName = async (
  * @param reference the reference for logging purposes
  * @param affiliation the Affiliation
  * @param desiredEmailDomainIds the desired Email Domains
+ * @param transactionClient the MySQL transaction to use
  * @returns true if successful. If not, errors are added to the Affiliation object
  */
 export const reconcileAffiliationEmailDomains = async (
@@ -111,11 +116,12 @@ export const reconcileAffiliationEmailDomains = async (
   reference: string,
   affiliation: Affiliation,
   desiredEmailDomainIds: AffiliationEmailDomain[],
+  transactionClient?: DatabaseTransactionClient
 ): Promise<boolean> => {
   // If the Affiliation has an id then it already exists so we need to fetch the
   // current email domains so we can compare them to the new ones
   const currentEmailDomains: AffiliationEmailDomain[] = !isNullOrUndefined(affiliation.id)
-    ? await AffiliationEmailDomain.findByAffiliationId(reference, context, affiliation.uri)
+    ? await AffiliationEmailDomain.findByAffiliationId(reference, context, affiliation.uri, transactionClient)
     : [];
 
   const { idsToBeRemoved, idsToBeSaved } = Affiliation.reconcileAssociationIds(
@@ -130,7 +136,7 @@ export const reconcileAffiliationEmailDomains = async (
   for (const id of idsToBeRemoved) {
     const domain = currentEmailDomains.find((domain: AffiliationEmailDomain) => domain.emailDomain === id);
     if (domain) {
-      const wasRemoved: AffiliationEmailDomain = await domain.delete(context);
+      const wasRemoved: AffiliationEmailDomain = await domain.delete(context, transactionClient);
       if (!wasRemoved) {
         removeErrors.push(domain.emailDomain);
       }
@@ -153,7 +159,7 @@ export const reconcileAffiliationEmailDomains = async (
 
       if (desired) {
         desired.affiliationId = affiliation.uri;
-        const wasAdded: AffiliationEmailDomain = await desired.create(context);
+        const wasAdded: AffiliationEmailDomain = await desired.create(context, transactionClient);
         if (!wasAdded) {
           addErrors.push(desired.emailDomain);
         }
@@ -180,6 +186,7 @@ export const reconcileAffiliationEmailDomains = async (
  * @param reference the reference for logging purposes
  * @param affiliation the Affiliation
  * @param desiredLinks the desired Links
+ * @param transactionClient the MySQL transaction to use
  * @returns true if successful. If not, errors are added to the Affiliation object
  */
 export const reconcileAffiliationLinks = async (
@@ -187,11 +194,12 @@ export const reconcileAffiliationLinks = async (
   reference: string,
   affiliation: Affiliation,
   desiredLinks: AffiliationLink[],
+  transactionClient?: DatabaseTransactionClient
 ): Promise<boolean> => {
   // If the Affiliation has an id then it already exists so we need to fetch the
   // current links so we can compare them to the new ones
   const currentLinks: AffiliationLink[] = !isNullOrUndefined(affiliation.id)
-    ? await AffiliationLink.findByAffiliationId(reference, context, affiliation.uri)
+    ? await AffiliationLink.findByAffiliationId(reference, context, affiliation.uri, transactionClient)
     : [];
 
   const { idsToBeRemoved, idsToBeSaved } = Affiliation.reconcileAssociationIds(
@@ -206,7 +214,7 @@ export const reconcileAffiliationLinks = async (
   for (const url of idsToBeRemoved) {
     const link: AffiliationLink = currentLinks.find((cl: AffiliationLink): boolean => cl.url === url);
     if (link) {
-      const wasRemoved: AffiliationLink = await link.delete(context);
+      const wasRemoved: AffiliationLink = await link.delete(context, transactionClient);
       if (!wasRemoved) {
         removeErrors.push(link.url);
       }
@@ -231,14 +239,14 @@ export const reconcileAffiliationLinks = async (
     // If the link exists, update it otherwise add a new one
     if (link) {
       const newLink = new AffiliationLink({ ...link, ...desiredLinks });
-      const wasUpdated: AffiliationLink = await newLink.update(context);
+      const wasUpdated: AffiliationLink = await newLink.update(context, transactionClient);
       if (!wasUpdated || wasUpdated.hasErrors()) {
         updateErrors.push(link.url);
       }
     } else {
       if (desiredLink) {
         desiredLink.affiliationId = affiliation.uri
-        const wasAdded: AffiliationLink = await desiredLink.create(context);
+        const wasAdded: AffiliationLink = await desiredLink.create(context, transactionClient);
         if (!wasAdded || wasAdded.hasErrors()) {
           addErrors.push(desiredLink.url);
         }

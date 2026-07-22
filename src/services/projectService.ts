@@ -7,7 +7,10 @@ import { isAdmin, isSuperAdmin } from "./authService";
 import { isNullOrUndefined } from "../utils/helpers";
 import { ProjectMember } from "../models/Member";
 import { MemberRole } from "../models/MemberRole";
-import { TransactionClient } from "../datasources/mysql";
+import {
+  DatabaseTransactionClient,
+  TransactionClient
+} from "../datasources/mysql";
 
 const WRITE_ACCESS_LEVELS = new Set([
   ProjectCollaboratorAccessLevel.OWN,
@@ -19,6 +22,7 @@ export const hasPermissionOnProject = async (
   context: MyContext,
   project: Project,
   requiredAccessLevel = ProjectCollaboratorAccessLevel.EDIT,
+  transactionClient?: DatabaseTransactionClient
 ): Promise<boolean> => {
   const reference = 'projectService.hasPermissionOnProject';
   if (!context || !context.token) return false;
@@ -36,14 +40,14 @@ export const hasPermissionOnProject = async (
 
     // If the current user is an Admin and the creator of the plan has the same affiliation
     if (await isAdmin(context.token)) {
-      const projectCreator = await User.findById(reference, context, project.createdById);
+      const projectCreator = await User.findById(reference, context, project.createdById, transactionClient);
       if (projectCreator && projectCreator.affiliationId === context.token.affiliationId) {
         return true;
       }
     }
 
     // Otherwise check to see if the user is a collaborator on the project
-    const collaborators = await ProjectCollaborator.findByProjectId(reference, context, project.id);
+    const collaborators = await ProjectCollaborator.findByProjectId(reference, context, project.id, transactionClient);
     if (Array.isArray(collaborators) && collaborators.length > 0) {
       const collab = collaborators.find((collaborator) => collaborator.userId === context.token.id);
       if (collab) {
@@ -82,12 +86,14 @@ export const isProjectReadOnlyForCurrentUser = async (
   reference: string,
   context: MyContext,
   project: Project,
+  transactionClient?: DatabaseTransactionClient
 ): Promise<boolean> => {
   const callerCollaborator = await ProjectCollaborator.findByUserIdAndProjectId(
     reference,
     context,
     context.token?.id,
     project.id,
+    transactionClient
   );
 
   if (WRITE_ACCESS_LEVELS.has(callerCollaborator?.accessLevel)) {
@@ -103,6 +109,7 @@ export const isProjectReadOnlyForCurrentUser = async (
       reference,
       context,
       project.id,
+      transactionClient
     );
     if (primaryCollaborator?.affiliationId === context.token?.affiliationId) {
       return true;
@@ -116,7 +123,7 @@ export const isProjectReadOnlyForCurrentUser = async (
 export const setCurrentUserAsProjectOwner = async (
   context: MyContext,
   projectId: number,
-  transactionClient?: TransactionClient
+  transactionClient?: DatabaseTransactionClient
 ): Promise<boolean> => {
   if (!isNullOrUndefined(context.token)) {
     // Automatically add the current user as a projectCollaborator with acccessLevel = PRIMARY (Full Access)
@@ -140,16 +147,16 @@ export const setCurrentUserAsProjectOwner = async (
 export const ensureDefaultProjectContact = async (
   context: MyContext,
   project: Project,
-  transactionClient?: TransactionClient
+  transactionClient?: DatabaseTransactionClient
 ): Promise<boolean> => {
   const reference = 'projectService.ensureProjectHasPrimaryContact';
 
   if (!isNullOrUndefined(project)) {
-    const current = await ProjectMember.findPrimaryContact(reference, context, project.id);
+    const current = await ProjectMember.findPrimaryContact(reference, context, project.id, transactionClient);
 
     if (isNullOrUndefined(current)) {
-      const owner = await User.findById(reference, context, project.createdById);
-      const dfltRole = await MemberRole.defaultRole(context, reference);
+      const owner = await User.findById(reference, context, project.createdById, transactionClient);
+      const dfltRole = await MemberRole.defaultRole(context, reference, transactionClient);
 
       if (!isNullOrUndefined(owner)) {
         // Create a new member record from the user and set as the primary contact
@@ -165,7 +172,7 @@ export const ensureDefaultProjectContact = async (
 
         // Actually add the record for the member role. We will want to revisit someday
         // and possibly just add this right into the ProjectMember model
-        if (await dfltRole.addToProjectMember(context, created.id)) {
+        if (await dfltRole.addToProjectMember(context, created.id, transactionClient)) {
           return !isNullOrUndefined(created);
         }
       }

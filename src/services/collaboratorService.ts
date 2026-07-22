@@ -5,6 +5,7 @@ import {
   ProjectCollaboratorAccessLevel,
 } from '../models/Collaborator';
 import { isSuperAdmin } from './authService';
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 // Validate that an access level change is allowed:
 //   - the last PRIMARY cannot be demoted
@@ -14,6 +15,7 @@ export const validateProjectCollaboratorAccessChange = async (
   projectId: number,
   currentAccessLevel: ProjectCollaboratorAccessLevel,
   newAccessLevel: ProjectCollaboratorAccessLevel,
+  transactionClient?: DatabaseTransactionClient
 ): Promise<void> => {
   const reference = 'collaboratorService.validateProjectCollaboratorAccessChange';
 
@@ -32,7 +34,7 @@ export const validateProjectCollaboratorAccessChange = async (
   if (newAccessLevel === ProjectCollaboratorAccessLevel.PRIMARY) {
     if (!isSuperAdmin(context.token)) {
       const callerCollaborator = await ProjectCollaborator.findByUserIdAndProjectId(
-        reference, context, context.token?.id, projectId
+        reference, context, context.token?.id, projectId, transactionClient
       );
       if (callerCollaborator?.accessLevel !== ProjectCollaboratorAccessLevel.PRIMARY) {
         throw new GraphQLError(
@@ -50,15 +52,16 @@ export const demoteExistingPrimaryCollaborator = async (
   context: MyContext,
   projectId: number,
   excludeCollaboratorId?: number,
+  transactionClient?: DatabaseTransactionClient
 ): Promise<void> => {
   const reference = 'collaboratorService.demoteExistingPrimaryCollaborator';
-  const collaborators = await ProjectCollaborator.findByProjectId(reference, context, projectId);
+  const collaborators = await ProjectCollaborator.findByProjectId(reference, context, projectId, transactionClient);
   const existingPrimary = collaborators.find(
     (c) => c.accessLevel === ProjectCollaboratorAccessLevel.PRIMARY &&
       c.id !== excludeCollaboratorId
   );
   if (existingPrimary) {
     existingPrimary.accessLevel = ProjectCollaboratorAccessLevel.OWN;
-    await existingPrimary.update(context);
+    await existingPrimary.update(context, transactionClient);
   }
 };

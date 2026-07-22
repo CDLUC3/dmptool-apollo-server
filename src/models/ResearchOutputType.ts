@@ -44,7 +44,7 @@ export class ResearchOutputType extends MySqlModel {
   }
 
   //Create a new License
-  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<ResearchOutputType> {
+  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<ResearchOutputType> {
     const reference = 'ResearchOutputType.create';
 
     this.prepForSave();
@@ -53,7 +53,8 @@ export class ResearchOutputType extends MySqlModel {
       const current = await ResearchOutputType.findByValue(
         reference,
         context,
-        this.value
+        this.value,
+        transactionClient
       );
 
       // Then make sure it doesn't already exist
@@ -69,7 +70,7 @@ export class ResearchOutputType extends MySqlModel {
           [],
           transactionClient
         );
-        return await ResearchOutputType.findById(reference, context, newId);
+        return await ResearchOutputType.findById(reference, context, newId, transactionClient);
       }
     }
     // Otherwise return as-is with all the errors
@@ -77,14 +78,14 @@ export class ResearchOutputType extends MySqlModel {
   }
 
   //Update an existing License
-  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<ResearchOutputType> {
+  async update(context: MyContext, noTouch = false, transactionClient?: DatabaseTransactionClient): Promise<ResearchOutputType> {
     const id = this.id;
     const ref = 'ResearchOutputType.update';
 
     if (await this.isValid()) {
       if (id) {
         await ResearchOutputType.update(context, ResearchOutputType.tableName, this, ref, [], noTouch, transactionClient);
-        return await ResearchOutputType.findById(ref, context, id);
+        return await ResearchOutputType.findById(ref, context, id, transactionClient);
       }
       // This template has never been saved before so we cannot update it!
       this.addError('general', 'Research output type has never been saved');
@@ -93,10 +94,10 @@ export class ResearchOutputType extends MySqlModel {
   }
 
   //Delete the License
-  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<ResearchOutputType> {
+  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<ResearchOutputType> {
     const ref = 'ResearchOutputType.delete';
     if (this.id) {
-      const deleted = await ResearchOutputType.findById(ref, context, this.id);
+      const deleted = await ResearchOutputType.findById(ref, context, this.id, transactionClient);
 
       const successfullyDeleted = await ResearchOutputType.delete(
         context,
@@ -115,23 +116,23 @@ export class ResearchOutputType extends MySqlModel {
   }
 
   // Return all of the member roles
-  static async all(reference: string, context: MyContext): Promise<ResearchOutputType[]> {
+  static async all(reference: string, context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<ResearchOutputType[]> {
     const sql = `SELECT * FROM ${ResearchOutputType.tableName} ORDER BY name`;
-    const results = await ResearchOutputType.query(context, sql, [], reference);
+    const results = await ResearchOutputType.query(context, sql, [], reference, transactionClient);
     return Array.isArray(results) ? results.map((entry) => new ResearchOutputType(entry)) : [];
   }
 
   // Fetch a member role by it's id
-  static async findById(reference: string, context: MyContext, id: number): Promise<ResearchOutputType> {
+  static async findById(reference: string, context: MyContext, id: number, transactionClient?: DatabaseTransactionClient): Promise<ResearchOutputType> {
     const sql = `SELECT * FROM ${ResearchOutputType.tableName} WHERE id = ?`;
-    const results = await ResearchOutputType.query(context, sql, [id?.toString()], reference);
+    const results = await ResearchOutputType.query(context, sql, [id?.toString()], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new ResearchOutputType(results[0]) : null;
   }
 
   // Fetch a member role by it's value
-  static async findByValue(reference: string, context: MyContext, value: string): Promise<ResearchOutputType> {
+  static async findByValue(reference: string, context: MyContext, value: string, transactionClient?: DatabaseTransactionClient): Promise<ResearchOutputType> {
     const sql = `SELECT * FROM ${ResearchOutputType.tableName} WHERE value = ?`;
-    const results = await ResearchOutputType.query(context, sql, [value], reference);
+    const results = await ResearchOutputType.query(context, sql, [value], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new ResearchOutputType(results[0]) : null;
   }
-};
+}

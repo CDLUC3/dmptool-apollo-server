@@ -92,7 +92,7 @@ describe('addToProjectMember', () => {
     expectedSql += 'createdById, modifiedById) VALUES (?, ?, ?, ?)';
     const userId = context.token.id.toString();
     const vals = [mockRole.id.toString(), projectMemberId.toString(), userId, userId]
-    expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, vals, 'MemberRole.addToProjectMember')
+    expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, vals, 'MemberRole.addToProjectMember', undefined)
     expect(result).toBe(true);
   });
 
@@ -134,7 +134,7 @@ describe('addToPlanMember', () => {
     expectedSql += 'createdById, modifiedById) VALUES (?, ?, ?, ?)';
     const userId = context.token.id.toString();
     const vals = [mockRole.id.toString(), planMemberId.toString(), userId, userId]
-    expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, vals, 'MemberRole.addToPlanMember')
+    expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, vals, 'MemberRole.addToPlanMember', undefined)
     expect(result).toBe(true);
   });
 
@@ -174,7 +174,7 @@ describe('removeFromProjectMember', () => {
     expect(querySpy).toHaveBeenCalledTimes(1);
     const expectedSql = 'DELETE FROM projectMemberRoles WHERE memberRoleId = ? AND projectMemberId = ?';
     const vals = [mockRole.id.toString(), projectMemberId.toString()]
-    expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, vals, 'MemberRole.removeFromProjectMember')
+    expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, vals, 'MemberRole.removeFromProjectMember', undefined);
     expect(result).toBe(true);
   });
 
@@ -214,7 +214,7 @@ describe('removeFromPlanMember', () => {
     expect(querySpy).toHaveBeenCalledTimes(1);
     const expectedSql = 'DELETE FROM planMemberRoles WHERE memberRoleId = ? AND planMemberId = ?';
     const vals = [mockRole.id.toString(), planMemberId.toString()]
-    expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, vals, 'MemberRole.removeFromPlanMember')
+    expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, vals, 'MemberRole.removeFromPlanMember', undefined)
     expect(result).toBe(true);
   });
 
@@ -257,7 +257,7 @@ describe('queries', () => {
     await MemberRole.all('Testing', context);
     expect(querySpy).toHaveBeenCalledTimes(1);
     const expectedSql = 'SELECT * FROM memberRoles ORDER BY label';
-    expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, [], 'Testing')
+    expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, [], 'Testing', undefined)
   });
 
   it('findById performs the expected query', async () => {
@@ -266,7 +266,7 @@ describe('queries', () => {
     await MemberRole.findById('Testing', context, memberRoleId);
     expect(querySpy).toHaveBeenCalledTimes(1);
     const expectedSql = 'SELECT * FROM memberRoles WHERE id = ?';
-    expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, [memberRoleId.toString()], 'Testing')
+    expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, [memberRoleId.toString()], 'Testing', undefined)
   });
 
   it('findByURL performs the expected query', async () => {
@@ -275,7 +275,7 @@ describe('queries', () => {
     await MemberRole.findByURL('Testing', context, memberRoleUrl);
     expect(querySpy).toHaveBeenCalledTimes(1);
     const expectedSql = 'SELECT * FROM memberRoles WHERE uri = ?';
-    expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, [memberRoleUrl], 'Testing')
+    expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, [memberRoleUrl], 'Testing', undefined)
   });
 
   it('findByProjectMemberId should call query with correct params and return an array', async () => {
@@ -285,7 +285,7 @@ describe('queries', () => {
     let sql = 'SELECT mr.* FROM projectMemberRoles pmr INNER JOIN memberRoles mr ON pmr.memberRoleId = mr.id';
     sql = `${sql} WHERE pmr.projectMemberId = ?`;
     expect(querySpy).toHaveBeenCalledTimes(1);
-    expect(querySpy).toHaveBeenCalledWith(context, sql, [memberId.toString()], 'testing');
+    expect(querySpy).toHaveBeenCalledWith(context, sql, [memberId.toString()], 'testing', undefined);
   });
 
   it('findByPlanMemberId should call query with correct params and return an array', async () => {
@@ -295,6 +295,6 @@ describe('queries', () => {
     let sql = 'SELECT mr.* FROM planMemberRoles pmr INNER JOIN memberRoles mr ON pmr.memberRoleId = mr.id';
     sql = `${sql} WHERE pmr.planMemberId = ?`;
     expect(querySpy).toHaveBeenCalledTimes(1);
-    expect(querySpy).toHaveBeenCalledWith(context, sql, [memberId.toString()], 'testing');
+    expect(querySpy).toHaveBeenCalledWith(context, sql, [memberId.toString()], 'testing', undefined);
   });
 });

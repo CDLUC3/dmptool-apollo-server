@@ -63,7 +63,8 @@ export class ProjectSearchResult {
     userId: number,
     affiliationId: string | null = null,
     filterOptions: ProjectFilterOptions = {},
-    options: PaginationOptions = Project.getDefaultPaginationOptions()
+    options: PaginationOptions = Project.getDefaultPaginationOptions(),
+    transactionClient?: DatabaseTransactionClient
   ): Promise<PaginatedQueryResults<ProjectSearchResult>> {
     const whereFilters = [];
     const values = [];
@@ -169,6 +170,8 @@ export class ProjectSearchResult {
       values,
       opts,
       reference,
+      true,
+      transactionClient
     )
 
     // Loop through each result and marshal the collaborators, members, and fundings objects
@@ -265,7 +268,7 @@ export class Project extends MySqlModel {
   }
 
   //Create a new Project
-  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Project> {
+  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<Project> {
     const reference = 'Project.create';
 
     // First make sure the record is valid
@@ -274,7 +277,8 @@ export class Project extends MySqlModel {
         reference,
         context,
         this.title,
-        context.token.id
+        context.token.id,
+        transactionClient
       );
 
       // Then make sure it doesn't already exist
@@ -285,7 +289,7 @@ export class Project extends MySqlModel {
 
         // Save the record and then fetch it
         const newId = await Project.insert(context, this.tableName, this, reference, [], transactionClient);
-        const response = await Project.findById(reference, context, newId);
+        const response = await Project.findById(reference, context, newId, transactionClient);
         return response;
       }
     }
@@ -294,7 +298,7 @@ export class Project extends MySqlModel {
   }
 
   //Update an existing Project
-  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Project> {
+  async update(context: MyContext, noTouch = false, transactionClient?: DatabaseTransactionClient): Promise<Project> {
     const id = this.id;
 
     if (await this.isValid()) {
@@ -302,7 +306,7 @@ export class Project extends MySqlModel {
         this.prepForSave();
 
         await Project.update(context, this.tableName, this, 'Project.update', [], noTouch, transactionClient);
-        return await Project.findById('Project.update', context, id);
+        return await Project.findById('Project.update', context, id, transactionClient);
       }
       // This template has never been saved before so we cannot update it!
       this.addError('general', 'Project has never been saved');
@@ -311,9 +315,9 @@ export class Project extends MySqlModel {
   }
 
   //Delete the Project
-  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Project> {
+  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<Project> {
     if (this.id) {
-      const deleted = await Project.findById('Project.delete', context, this.id);
+      const deleted = await Project.findById('Project.delete', context, this.id, transactionClient);
 
       const successfullyDeleted = await Project.delete(
         context,
@@ -332,32 +336,32 @@ export class Project extends MySqlModel {
   }
 
   // Return all of projects for the User
-  static async findByUserId(reference: string, context: MyContext, userId: number): Promise<Project[]> {
+  static async findByUserId(reference: string, context: MyContext, userId: number, transactionClient?: DatabaseTransactionClient): Promise<Project[]> {
     const sql = 'SELECT * FROM projects WHERE createdById = ? ORDER BY created DESC';
-    const results = await Project.query(context, sql, [userId?.toString()], reference);
+    const results = await Project.query(context, sql, [userId?.toString()], reference, transactionClient);
     return Array.isArray(results) ? results.map((item) => new Project(item)) : [];
   }
 
   // Return all of the projects for the Affiliation
-  static async findByAffiliation(reference: string, context: MyContext, affiliationId: string): Promise<Project[]> {
+  static async findByAffiliation(reference: string, context: MyContext, affiliationId: string, transactionClient?: DatabaseTransactionClient): Promise<Project[]> {
     const sql = 'SELECT projects.* FROM projects INNER JOIN users ON projects.createdById = users.id';
     const whereClause = 'WHERE users.affiliationId = ? ORDER BY created DESC';
-    const results = await Project.query(context, `${sql} ${whereClause}`, [affiliationId], reference);
+    const results = await Project.query(context, `${sql} ${whereClause}`, [affiliationId], reference, transactionClient);
     return Array.isArray(results) ? results.map((item) => new Project(item)) : [];
   }
 
-  static async findByOwnerAndTitle(reference: string, context: MyContext, title: string, userId: number): Promise<Project> {
+  static async findByOwnerAndTitle(reference: string, context: MyContext, title: string, userId: number, transactionClient?: DatabaseTransactionClient): Promise<Project> {
     const sql = 'SELECT * FROM projects WHERE createdById = ? AND LOWER(title) LIKE ?';
     const searchTerm = (title ?? '');
     const vals = [userId?.toString(), `%${searchTerm?.toLowerCase()?.trim()}%`]
-    const results = await Project.query(context, sql, vals, reference);
+    const results = await Project.query(context, sql, vals, reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new Project(results[0]) : null;
   }
 
   // Fetch a Project by it's id
-  static async findById(reference: string, context: MyContext, projectFundingId: number): Promise<Project> {
+  static async findById(reference: string, context: MyContext, projectFundingId: number, transactionClient?: DatabaseTransactionClient): Promise<Project> {
     const sql = 'SELECT * FROM projects WHERE id = ?';
-    const results = await Project.query(context, sql, [projectFundingId?.toString()], reference);
+    const results = await Project.query(context, sql, [projectFundingId?.toString()], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new Project(results[0]) : null;
   }
-};
+}

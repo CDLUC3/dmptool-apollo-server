@@ -110,7 +110,7 @@ export class PlanSearchResult {
  * @param projectId The ID of the project to return plans for
  * @returns An array of PlanSearchResult objects
  */
-  static async findByProjectId(reference: string, context: MyContext, projectId: number): Promise<PlanSearchResult[]> {
+  static async findByProjectId(reference: string, context: MyContext, projectId: number, transactionClient?: DatabaseTransactionClient): Promise<PlanSearchResult[]> {
     const sql = 'SELECT p.id, ' +
       'CONCAT(cu.givenName, CONCAT(\' \', cu.surName)) createdBy, p.created, ' +
       'CONCAT(cm.givenName, CONCAT(\' \', cm.surName)) modifiedBy, p.modified, ' +
@@ -135,7 +135,7 @@ export class PlanSearchResult {
       'p.title, p.status, p.visibility, ' +
       'p.dmpId, cr.givenName, cr.surName, p.registered, p.featured ' +
       'ORDER BY p.created DESC;';
-    const results = await Plan.query(context, sql, [projectId?.toString()], reference);
+    const results = await Plan.query(context, sql, [projectId?.toString()], reference, transactionClient);
     return Array.isArray(results) ? results.map((entry) => new PlanSearchResult(entry)) : [];
   }
 
@@ -156,6 +156,7 @@ export class PlanSearchResult {
     userId: number,
     options: PaginationOptions = Plan.getDefaultPaginationOptions(),
     term?: string,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<PaginatedQueryResults<PlanSearchResult>> {
     const whereFilters = ['p.createdById = ?'];
     const values = [userId.toString()];
@@ -224,6 +225,8 @@ export class PlanSearchResult {
       values,
       opts,
       reference,
+      true,
+      transactionClient
     );
 
     context.logger.debug(prepareObjectForLogs({ options, response }), reference);
@@ -276,6 +279,7 @@ export class PlanSectionProgress {
     context: MyContext,
     versionedTemplateId: number,
     affiliationId: string,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<number | undefined> {
     // Join via templateId so the lookup works regardless of which specific
     // versioned template the customization was published against (e.g. after
@@ -291,7 +295,7 @@ export class PlanSectionProgress {
         AND vtc.active = 1
       LIMIT 1
     `;
-    const rows = await Plan.query(context, sql, [versionedTemplateId.toString(), affiliationId], reference);
+    const rows = await Plan.query(context, sql, [versionedTemplateId.toString(), affiliationId], reference, transactionClient);
     return Array.isArray(rows) && rows.length > 0
       ? rows[0].templateCustomizationId
       : undefined;
@@ -305,6 +309,7 @@ export class PlanSectionProgress {
     reference: string,
     context: MyContext,
     templateCustomizationId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<{ id: number; name: string; pinnedSectionType: string; pinnedSectionId: number; totalQuestions: number; totalRequiredQuestions: number }[]> {
     const sql = `
     SELECT
@@ -324,7 +329,7 @@ export class PlanSectionProgress {
     AND vtc.active = 1
     GROUP BY vcs.customSectionId, vcs.name, vcs.pinnedVersionedSectionType, vcs.pinnedVersionedSectionId
   `;
-    const rows = await Plan.query(context, sql, [templateCustomizationId.toString()], reference);
+    const rows = await Plan.query(context, sql, [templateCustomizationId.toString()], reference, transactionClient);
     return Array.isArray(rows) ? rows : [];
   }
 
@@ -335,7 +340,8 @@ export class PlanSectionProgress {
   private static async fetchExtraQuestionsForBaseSections(
     reference: string,
     context: MyContext,
-    templateCustomizationId: number
+    templateCustomizationId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<{ versionedSectionId: number; extraCount: number; requiredCount: number }[]> {
     // sectionId on a BASE custom question points directly to versionedSections.id
     const sql = `
@@ -352,7 +358,8 @@ export class PlanSectionProgress {
       context,
       sql,
       [templateCustomizationId.toString()],
-      reference
+      reference,
+      transactionClient
     );
     return Array.isArray(rows) ? rows : [];
   }
@@ -360,10 +367,11 @@ export class PlanSectionProgress {
   /**
    * Fetch the count of custom questions that have been answered by section type for a given plan and template customization.
    * This allows us to credit answered custom questions in the progress calculation for both base and custom sections.
-   * @param reference
-   * @param context
-   * @param planId
-   * @param templateCustomizationId
+   * @param reference a string reference for logging
+   * @param context the Apollo server context
+   * @param planId the plan's id
+   * @param templateCustomizationId the template customization's id
+   * @param transactionClient the database transaction to use
    * @returns
    */
   private static async fetchAnsweredCustomQuestions(
@@ -371,6 +379,7 @@ export class PlanSectionProgress {
     context: MyContext,
     planId: number,
     templateCustomizationId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<{ sectionId: number; sectionType: string; answeredCount: number; answeredRequiredCount: number }[]> {
     const sql = `
     SELECT
@@ -391,7 +400,8 @@ export class PlanSectionProgress {
     const rows = await Plan.query(
       context, sql,
       [planId.toString(), templateCustomizationId.toString()],
-      reference
+      reference,
+      transactionClient
     );
     return Array.isArray(rows) ? rows : [];
   }
@@ -403,9 +413,11 @@ export class PlanSectionProgress {
    * @param reference The caller's reference string for logging purposes'
    * @param context The Apollo context object
    * @param planId The ID of the plan to return progress information for
+   * @param versionedTemplateId The ID of the versioned template to use for the plan
+   * @param transactionClient The database transaction client to use
    * @returns The progress information for the section or an empty array if the section does not exist
    */
-  static async findByPlanId(reference: string, context: MyContext, planId: number, versionedTemplateId?: number): Promise<PlanSectionProgress[]> {
+  static async findByPlanId(reference: string, context: MyContext, planId: number, versionedTemplateId?: number, transactionClient?: DatabaseTransactionClient): Promise<PlanSectionProgress[]> {
     // First fetch base sections and their question counts, which we will use as the foundation to build out the full section list with custom sections
     // and adjusted question counts
     const sql = `SELECT
@@ -450,7 +462,7 @@ export class PlanSectionProgress {
     ORDER BY vs.displayOrder;
 `
 
-    const results = await Plan.query(context, sql, [planId?.toString()], reference);
+    const results = await Plan.query(context, sql, [planId?.toString()], reference, transactionClient);
     const baseSections: PlanSectionProgress[] = Array.isArray(results)
       ? results.map((entry) => {
         if (entry.tags && typeof entry.tags === 'string') {
@@ -470,7 +482,8 @@ export class PlanSectionProgress {
       reference,
       context,
       versionedTemplateId,
-      affiliationId
+      affiliationId,
+      transactionClient
     );
 
     // No customization exists for this template — return base sections as-is
@@ -479,9 +492,9 @@ export class PlanSectionProgress {
 
     // Fetch custom sections and extra question counts in parallel
     const [customSectionTotals, baseCustomQuestionTotals, answeredCustomTotals] = await Promise.all([
-      this.fetchCustomSections(reference, context, templateCustomizationId),
-      this.fetchExtraQuestionsForBaseSections(reference, context, templateCustomizationId),
-      this.fetchAnsweredCustomQuestions(reference, context, planId, templateCustomizationId),
+      this.fetchCustomSections(reference, context, templateCustomizationId, transactionClient),
+      this.fetchExtraQuestionsForBaseSections(reference, context, templateCustomizationId, transactionClient),
+      this.fetchAnsweredCustomQuestions(reference, context, planId, templateCustomizationId, transactionClient),
     ]);
 
     // Build answered-count maps keyed by sectionId, split by section type ("Base" vs "Custom") since they have different sectionId spaces
@@ -597,20 +610,24 @@ export class PlanProgress {
    * @param reference The caller's reference string for logging purposes'
    * @param context The Apollo context object
    * @param planId The ID of the plan to return progress information for
+   * @param versionedTemplateId The ID of the versioned template to use for the plan
+   * @param transactionClient The database transaction client to use
    * @returns The overall progress information for the plan or null if the plan does not exist
    */
   static async findByPlanId(
     reference: string,
     context: MyContext,
     planId: number,
-    versionedTemplateId?: number
+    versionedTemplateId?: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<PlanProgress> {
     // Reuse PlanSectionProgress which already handles custom questions correctly
     const sections = await PlanSectionProgress.findByPlanId(
       reference,
       context,
       planId,
-      versionedTemplateId
+      versionedTemplateId,
+      transactionClient
     );
 
     if (!sections.length) return null;
@@ -662,9 +679,10 @@ export class Plan extends MySqlModel {
    * Generate a new DMP ID for the plan.
    *
    * @param context The Apollo context object
+   * @param transactionClient The database transaction client to use
    * @returns The new DMP ID
    */
-  async generateDMPId(context: MyContext): Promise<string> {
+  async generateDMPId(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<string> {
     // If the Plan already has a DMP ID, just return it
     if (!valueIsEmpty(this.dmpId)) return this.dmpId;
 
@@ -676,7 +694,7 @@ export class Plan extends MySqlModel {
     while (i < 5) {
       const dmpId = `${dmpIdPrefix}${id}`;
       const sql = `SELECT dmpId FROM ${Plan.tableName} WHERE dmpId = ?`;
-      const results = await Plan.query(context, sql, [dmpId], 'Plan.generateDMPId');
+      const results = await Plan.query(context, sql, [dmpId], 'Plan.generateDMPId', transactionClient);
       if (Array.isArray(results) && results.length <= 0) {
         return dmpId;
       }
@@ -754,10 +772,11 @@ export class Plan extends MySqlModel {
    *                     Built ahead of time (see planService.buildDataCiteXMLForPlan)
    *                     since it requires fetching the plan's members, fundings,
    *                     and alternate identifiers.
+   * @param transactionClient The database transaction client to use
    * @returns The updated Plan or the original Plan if something went wrong
    */
   // Publish the plan (register a DOI)
-  async publish(context: MyContext, visibility = PlanVisibility.PRIVATE, dataciteXML?: string): Promise<Plan> {
+  async publish(context: MyContext, visibility = PlanVisibility.PRIVATE, dataciteXML?: string, transactionClient?: DatabaseTransactionClient): Promise<Plan> {
     if (this.id) {
       // Make sure the plan is valid
       if (await this.isValid()) {
@@ -810,7 +829,7 @@ export class Plan extends MySqlModel {
           this.visibility = visibility;
 
           // Update the plan
-          const updated = await this.update(context);
+          const updated = await this.update(context, false, transactionClient);
           if (updated && !updated.hasErrors()) {
             return new Plan(updated);
           }
@@ -830,16 +849,16 @@ export class Plan extends MySqlModel {
    * @param transactionClient the MySQL transaction client to use for the insert
    * @returns The new Plan or the original Plan if something went wrong
    */
-  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Plan> {
+  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<Plan> {
     const reference = 'Plan.create';
 
     if (!this.id) {
       // Generate a new DMP ID
-      this.dmpId = await this.generateDMPId(context);
+      this.dmpId = await this.generateDMPId(context, transactionClient);
 
       // If the title is blank, use the title of the associated Project
       if (isNullOrUndefined(this.title)) {
-        const project = await Project.findById(reference, context, this.projectId);
+        const project = await Project.findById(reference, context, this.projectId, transactionClient);
         this.title = project?.title ?? 'DMP';
       }
 
@@ -850,7 +869,7 @@ export class Plan extends MySqlModel {
         // Get a list of existing plan titles for the project. We use this to
         // resolve naming collisions so that a duplicate "Test" becomes "Test 1",
         // then "Test 2", etc.
-        const existingPlans: Plan[] = await Plan.findByProjectId(reference, context, this.projectId);
+        const existingPlans: Plan[] = await Plan.findByProjectId(reference, context, this.projectId, transactionClient);
         const existingPlanTitles: string[] = existingPlans
           .filter((plan: Plan | undefined): boolean => !isNullOrUndefined(plan))
           .map((plan: Plan): string | undefined => plan.title)
@@ -863,10 +882,10 @@ export class Plan extends MySqlModel {
 
         // Create the original version snapshot of the DMP
         if (newId) {
-          const newPlan = await Plan.findById(reference, context, newId);
+          const newPlan = await Plan.findById(reference, context, newId, transactionClient);
           if (newPlan) {
             // Auto-populate planGuidance with default affiliations
-            await this.initializePlanGuidance(context, newId, this.versionedTemplateId);
+            await this.initializePlanGuidance(context, newId, this.versionedTemplateId, transactionClient);
 
             return new Plan(newPlan);
           } else {
@@ -885,11 +904,13 @@ export class Plan extends MySqlModel {
    * @param context The Apollo context object
    * @param planId The ID of the newly created plan
    * @param versionedTemplateId The ID of the associated versioned template
+   * @param transactionClient The database transaction client to use
    */
   private async initializePlanGuidance(
     context: MyContext,
     planId: number,
-    versionedTemplateId: number
+    versionedTemplateId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<void> {
     const reference = 'Plan.initializePlanGuidance';
 
@@ -902,7 +923,7 @@ export class Plan extends MySqlModel {
       }
 
       // Get template owner URI
-      const versionedTemplate = await VersionedTemplate.findById(reference, context, versionedTemplateId);
+      const versionedTemplate = await VersionedTemplate.findById(reference, context, versionedTemplateId, transactionClient);
       const templateOwnerUri = versionedTemplate?.ownerId;
 
       // Get user's affiliation URI
@@ -928,7 +949,7 @@ export class Plan extends MySqlModel {
             affiliationId,
             userId
           });
-          await planGuidance.create(context);
+          await planGuidance.create(context, transactionClient);
         } catch (err) {
           // Log but don't fail plan creation if guidance initialization fails
           context.logger.error(
@@ -952,7 +973,7 @@ export class Plan extends MySqlModel {
    * skip updating the maDMP record
    * @returns The updated Plan or the original Plan if something went wrong
    */
-  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Plan> {
+  async update(context: MyContext, noTouch = false, transactionClient?: DatabaseTransactionClient): Promise<Plan> {
     const reference = 'Plan.update';
 
     if (this.id) {
@@ -964,7 +985,7 @@ export class Plan extends MySqlModel {
         // The result of the update function is just a boolean indicating whether the update query succeeded or not,
         // so if it succeeded we need to re-query to get the updated plan with all the new values
         if (result) {
-          return await Plan.findById(reference, context, this.id);
+          return await Plan.findById(reference, context, this.id, transactionClient);
         }
         this.addError('general', 'Unable to update the plan');
       }
@@ -982,10 +1003,10 @@ export class Plan extends MySqlModel {
    * @param transactionClient The MySQL transaction client to use for the delete operation
    * @returns The deleted Plan or null if something went wrong
    */
-  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Plan | null> {
+  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<Plan | null> {
     const reference = 'Plan.delete';
     if (this.id) {
-      const toDelete = await Plan.findById(reference, context, this.id);
+      const toDelete = await Plan.findById(reference, context, this.id, transactionClient);
 
       if (toDelete) {
         // Delete the plan
@@ -1004,11 +1025,12 @@ export class Plan extends MySqlModel {
    * @param reference The caller's reference string for logging purposes'
    * @param context The Apollo context object
    * @param planId The id of the Plan to fetch
+   * @param transactionClient The database transaction client to use
    * @returns The Plan object or null if it does not exist
    */
-  static async findById(reference: string, context: MyContext, planId: number): Promise<Plan | null> {
+  static async findById(reference: string, context: MyContext, planId: number, transactionClient?: DatabaseTransactionClient): Promise<Plan | null> {
     const sql = `SELECT * FROM ${this.tableName} WHERE id = ?`;
-    const results = await Plan.query(context, sql, [planId?.toString()], reference);
+    const results = await Plan.query(context, sql, [planId?.toString()], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? await Plan.processResult(context, results[0]) : null;
   }
 
@@ -1018,11 +1040,12 @@ export class Plan extends MySqlModel {
    * @param reference The caller's reference string for logging purposes'
    * @param context The Apollo context object
    * @param dmpId The DMP id of the Plan to fetch
+   * @param transactionClient The database transaction client to use
    * @returns The Plan object or null if it does not exist
    */
-  static async findByDMPId(reference: string, context: MyContext, dmpId: string): Promise<Plan | null> {
+  static async findByDMPId(reference: string, context: MyContext, dmpId: string, transactionClient?: DatabaseTransactionClient): Promise<Plan | null> {
     const sql = `SELECT * FROM ${this.tableName} WHERE dmpId = ?`;
-    const results = await Plan.query(context, sql, [dmpId?.toString()], reference);
+    const results = await Plan.query(context, sql, [dmpId?.toString()], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? await Plan.processResult(context, results[0]) : null;
   }
 
@@ -1032,11 +1055,12 @@ export class Plan extends MySqlModel {
    * @param reference The caller's reference string for logging purposes'
    * @param context The Apollo context object
    * @param projectId The id of the Project whose Plans we want to fetch
+   * @param transactionClient The database transaction client to use
    * @returns The Plan object or null if it does not exist
    */
-  static async findByProjectId(reference: string, context: MyContext, projectId: number): Promise<Plan[]> {
+  static async findByProjectId(reference: string, context: MyContext, projectId: number, transactionClient?: DatabaseTransactionClient): Promise<Plan[]> {
     const sql = `SELECT * FROM ${this.tableName} WHERE projectId = ?`;
-    const results = await Plan.query(context, sql, [projectId?.toString()], reference);
+    const results = await Plan.query(context, sql, [projectId?.toString()], reference, transactionClient);
 
     return Array.isArray(results)
       ? await Promise.all(results.map(async (result) =>
@@ -1051,11 +1075,12 @@ export class Plan extends MySqlModel {
    * @param reference The caller's reference string for logging purposes'
    * @param context The Apollo context object
    * @param userId The id of the user whose Plans we want to fetch
+   * @param transactionClient The database transaction client to use
    * @returns The Plan object or null if it does not exist
    */
-  static async findByUserId(reference: string, context: MyContext, userId: number): Promise<Plan[]> {
+  static async findByUserId(reference: string, context: MyContext, userId: number, transactionClient?: DatabaseTransactionClient): Promise<Plan[]> {
     const sql = `SELECT * FROM ${this.tableName} WHERE createdById = ?`;
-    const results = await Plan.query(context, sql, [userId?.toString()], reference);
+    const results = await Plan.query(context, sql, [userId?.toString()], reference, transactionClient);
 
     return Array.isArray(results)
       ? await Promise.all(results.map(async (result) =>
@@ -1070,13 +1095,14 @@ export class Plan extends MySqlModel {
    * @param reference The caller's reference string for logging purposes'
    * @param context The Apollo context object
    * @param userId The id of the user whose Plans we want to fetch
+   * @param transactionClient The database transaction client to use
    * @returns The Plan object or null if it does not exist
    */
-  static async findByOwnerAndTitle(reference: string, context: MyContext, title: string, userId: number): Promise<Plan | null> {
+  static async findByOwnerAndTitle(reference: string, context: MyContext, title: string, userId: number, transactionClient?: DatabaseTransactionClient): Promise<Plan | null> {
     const sql = 'SELECT * FROM plans WHERE createdById = ? AND LOWER(title) LIKE ?';
     const searchTerm = (title ?? '');
     const vals = [userId?.toString(), `%${searchTerm?.toLowerCase()?.trim()}%`]
-    const results = await Plan.query(context, sql, vals, reference);
+    const results = await Plan.query(context, sql, vals, reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new Plan(results[0]) : null;
   }
 }

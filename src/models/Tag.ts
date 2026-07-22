@@ -35,12 +35,13 @@ export class Tag extends MySqlModel {
   }
 
   // Save the current record
-  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Tag> {
+  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<Tag> {
     this.slug = Tag.slugifyName(this.name);
     const current = await Tag.findBySlug(
       'Section.create',
       context,
       this.slug,
+      transactionClient
     );
 
     // Then make sure it doesn't already exist
@@ -49,28 +50,28 @@ export class Tag extends MySqlModel {
     } else {
       if (await this.isValid()) {
         const newId = await Tag.insert(context, tableName, this, 'Tag.create', [], transactionClient);
-        const response = await Tag.findById('Tag.create', context, newId);
+        const response = await Tag.findById('Tag.create', context, newId, transactionClient);
         return response
       }
     }
     return new Tag(this);
   }
 
-  async update(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Tag> {
+  async update(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<Tag> {
     const id = this.id;
     if (await this.isValid()) {
       await Tag.update(context, tableName, this, 'Tag.update', [], false, transactionClient);
-      const updatedTag = await Tag.findById('Tag.update', context, id);
+      const updatedTag = await Tag.findById('Tag.update', context, id, transactionClient);
       return updatedTag as Tag;
     }
     return new Tag(this);
   }
 
-  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Tag> {
+  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<Tag> {
     if (this.id) {
       /*Get tag info to be deleted so we can return this info to the user
       since calling 'delete' doesn't return anything*/
-      const deletedSection = await Tag.findById('Tag.delete', context, this.id);
+      const deletedSection = await Tag.findById('Tag.delete', context, this.id, transactionClient);
 
       await Tag.delete(context, tableName, this.id, 'Tag.delete', transactionClient);
       return deletedSection;
@@ -79,7 +80,7 @@ export class Tag extends MySqlModel {
   }
 
   // Add this Tag to a Section
-  async addToSection(context: MyContext, sectionId: number, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<boolean> {
+  async addToSection(context: MyContext, sectionId: number, transactionClient?: DatabaseTransactionClient): Promise<boolean> {
     const reference = 'Tag.addToSection';
     const sql = 'INSERT INTO sectionTags (tagId, sectionId, createdById, modifiedById) VALUES (?, ?, ?, ?)';
     const userId = context.token?.id?.toString();
@@ -96,7 +97,7 @@ export class Tag extends MySqlModel {
   }
 
   // Remove this Tag from a Section
-  async removeFromSection(context: MyContext, sectionId: number, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<boolean> {
+  async removeFromSection(context: MyContext, sectionId: number, transactionClient?: DatabaseTransactionClient): Promise<boolean> {
     const reference = 'Tag.removeFromSection';
     const sql = 'DELETE FROM sectionTags WHERE tagId = ? AND sectionId = ?';
     const vals = [this.id?.toString(), sectionId?.toString()];
@@ -112,12 +113,12 @@ export class Tag extends MySqlModel {
   }
 
   // Add this Tag to a VersionedSectionTags
-  async addToVersionedSectionTags(context: MyContext, versionedSectionId: number): Promise<boolean> {
+  async addToVersionedSectionTags(context: MyContext, versionedSectionId: number, transactionClient?: DatabaseTransactionClient): Promise<boolean> {
     const reference = 'Tag.addToVersionedSectionTags';
     const sql = 'INSERT INTO versionedSectionTags (tagId, versionedSectionId, createdById, modifiedById) VALUES (?, ?, ?, ?)';
     const userId = context.token?.id?.toString();
     const vals = [this.id?.toString(), versionedSectionId?.toString(), userId, userId];
-    const results = await Tag.query(context, sql, vals, reference);
+    const results = await Tag.query(context, sql, vals, reference, transactionClient);
 
     if (!results) {
       const payload = { tagId: this.id, versionedSectionId };
@@ -128,36 +129,36 @@ export class Tag extends MySqlModel {
     return true;
   }
 
-  static async findAll(reference: string, context: MyContext): Promise<Tag[]> {
+  static async findAll(reference: string, context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<Tag[]> {
     const sql = 'SELECT * FROM tags';
-    const results = await Tag.query(context, sql, [], reference);
+    const results = await Tag.query(context, sql, [], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? results : null;
   }
 
-  static async findBySectionId(reference: string, context: MyContext, sectionId: number): Promise<Tag[]> {
+  static async findBySectionId(reference: string, context: MyContext, sectionId: number, transactionClient?: DatabaseTransactionClient): Promise<Tag[]> {
     const sql = `SELECT tags.* FROM sectionTags JOIN tags ON sectionTags.tagId = tags.id WHERE sectionTags.sectionId = ?;`;
-    const result = await Tag.query(context, sql, [sectionId?.toString()], reference);
+    const result = await Tag.query(context, sql, [sectionId?.toString()], reference, transactionClient);
     return Array.isArray(result) ? result.map(item => new Tag(item)) : [];
   }
 
-  static async findByVersionedSectionId(reference: string, context: MyContext, versionedSectionId: number): Promise<Tag[]> {
+  static async findByVersionedSectionId(reference: string, context: MyContext, versionedSectionId: number, transactionClient?: DatabaseTransactionClient): Promise<Tag[]> {
     const sql = `SELECT tags.* FROM versionedSectionTags vst JOIN tags ON vst.tagId = tags.id WHERE vst.versionedSectionId = ?;`;
-    const result = await Tag.query(context, sql, [versionedSectionId?.toString()], reference);
+    const result = await Tag.query(context, sql, [versionedSectionId?.toString()], reference, transactionClient);
     return Array.isArray(result) ? result.map(item => new Tag(item)) : [];
   }
 
-  static async findById(reference: string, context: MyContext, tagId: number): Promise<Tag> {
+  static async findById(reference: string, context: MyContext, tagId: number, transactionClient?: DatabaseTransactionClient): Promise<Tag> {
     const sql = 'SELECT * FROM tags where id = ?';
-    const result = await Tag.query(context, sql, [tagId?.toString()], reference);
+    const result = await Tag.query(context, sql, [tagId?.toString()], reference, transactionClient);
     return Array.isArray(result) && result.length > 0 ? new Tag(result[0]) : null;
   }
 
   // Find tag by slug
-  static async findBySlug(reference: string, context: MyContext, slug: string): Promise<Tag[]> {
+  static async findBySlug(reference: string, context: MyContext, slug: string, transactionClient?: DatabaseTransactionClient): Promise<Tag[]> {
     const sql = 'SELECT * FROM tags WHERE slug = ?';
     const searchTerm = (slug ?? '');
     const vals = [searchTerm];
-    const results = await Tag.query(context, sql, vals, reference);
+    const results = await Tag.query(context, sql, vals, reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? results.map((entry) => new Tag(entry)) : null;
   }
 }

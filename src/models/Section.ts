@@ -53,14 +53,14 @@ export class Section extends MySqlModel {
   }
 
   //Create a new Section
-  async create(context: MyContext, templateId: number, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Section> {
+  async create(context: MyContext, templateId: number, transactionClient?: DatabaseTransactionClient): Promise<Section> {
 
     // First make sure the record is valid
     if (await this.isValid()) {
       this.templateId = templateId;
       // Save the record and then fetch it
       const newId = await Section.insert(context, this.tableName, this, 'Section.create', ['tags'], transactionClient);
-      const response = await Section.findById('Section.create', context, newId);
+      const response = await Section.findById('Section.create', context, newId, transactionClient);
       return response;
     }
     // Otherwise return as-is with all the errors
@@ -68,7 +68,7 @@ export class Section extends MySqlModel {
   }
 
   //Update an existing Section
-  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Section> {
+  async update(context: MyContext, noTouch = false, transactionClient?: DatabaseTransactionClient): Promise<Section> {
     const id = this.id;
 
     if (await this.isValid()) {
@@ -76,7 +76,7 @@ export class Section extends MySqlModel {
         this.prepForSave();
 
         await Section.update(context, this.tableName, this, 'Section.update', ['tags'], noTouch, transactionClient);
-        return await Section.findById('Section.update', context, id);
+        return await Section.findById('Section.update', context, id, transactionClient);
       }
       // This template has never been saved before so we cannot update it!
       this.addError('general', 'Section has never been saved');
@@ -85,11 +85,11 @@ export class Section extends MySqlModel {
   }
 
   //Delete Section based on the Section object's id and return
-  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Section> {
+  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<Section> {
     if (this.id) {
       /*First get the section to be deleted so we can return this info to the user
       since calling 'delete' doesn't return anything*/
-      const deletedSection = await Section.findById('Section.delete', context, this.id);
+      const deletedSection = await Section.findById('Section.delete', context, this.id, transactionClient);
 
       const successfullyDeleted = await Section.delete(context, this.tableName, this.id, 'Section.delete', transactionClient);
       if (successfullyDeleted) {
@@ -102,9 +102,9 @@ export class Section extends MySqlModel {
   }
 
   // Find the current max section displayOrder for the specified templateId
-  static async findMaxDisplayOrder(reference: string, context: MyContext, templateId: number): Promise<number> {
+  static async findMaxDisplayOrder(reference: string, context: MyContext, templateId: number, transactionClient?: DatabaseTransactionClient): Promise<number> {
     const sql = 'SELECT MAX(displayOrder) as maxDisplayOrder FROM sections WHERE templateId = ?';
-    const results = await Section.query(context, sql, [templateId?.toString()], reference);
+    const results = await Section.query(context, sql, [templateId?.toString()], reference, transactionClient);
     if (Array.isArray(results) && results.length > 0) {
       const maxDisplayOrder = results[0].maxDisplayOrder;
       return maxDisplayOrder ? parseInt(maxDisplayOrder) : 0;
@@ -117,25 +117,26 @@ export class Section extends MySqlModel {
     reference: string,
     context: MyContext,
     name: string,
-    templateId: number
+    templateId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<Section> {
     const sql = 'SELECT * FROM sections WHERE LOWER(name) = ? AND templateId = ?';
     const searchTerm = (name ?? '');
     const vals = [searchTerm?.toLowerCase()?.trim(), templateId?.toString()];
-    const results = await Section.query(context, sql, vals, reference);
+    const results = await Section.query(context, sql, vals, reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new Section(results[0]) : null;
   }
 
   // Find all Sections associated with the specified templateId
-  static async findByTemplateId(reference: string, context: MyContext, templateId: number): Promise<Section[]> {
+  static async findByTemplateId(reference: string, context: MyContext, templateId: number, transactionClient?: DatabaseTransactionClient): Promise<Section[]> {
     const sql = 'SELECT * FROM sections WHERE templateId = ? ORDER BY displayOrder ASC';
-    const results = await Section.query(context, sql, [templateId?.toString()], reference);
+    const results = await Section.query(context, sql, [templateId?.toString()], reference, transactionClient);
     return Array.isArray(results) ? results.map((entry) => new Section(entry)) : [];
   }
 
-  static async findById(reference: string, context: MyContext, sectionId: number): Promise<Section> {
+  static async findById(reference: string, context: MyContext, sectionId: number, transactionClient?: DatabaseTransactionClient): Promise<Section> {
     const sql = 'SELECT * FROM sections where id = ?';
-    const result = await Section.query(context, sql, [sectionId?.toString()], reference);
+    const result = await Section.query(context, sql, [sectionId?.toString()], reference, transactionClient);
     return Array.isArray(result) && result.length > 0 ? new Section(result[0]) : null;
   }
 }

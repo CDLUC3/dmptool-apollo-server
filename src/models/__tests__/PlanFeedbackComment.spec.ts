@@ -86,7 +86,7 @@ describe('findBy Queries', () => {
     const result = await PlanFeedbackComment.findById('testing', context, planFeedbackCommentId);
     const expectedSql = 'SELECT * FROM feedbackComments WHERE id = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [planFeedbackCommentId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [planFeedbackCommentId.toString()], 'testing', undefined);
     expect(result).toEqual(planFeedbackComment);
   });
 
@@ -103,7 +103,7 @@ describe('findBy Queries', () => {
     const result = await PlanFeedbackComment.findByFeedbackId('testing', context, feedbackId);
     const expectedSql = 'SELECT * FROM feedbackComments WHERE feedbackId = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [feedbackId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [feedbackId.toString()], 'testing', undefined);
     expect(result).toEqual([planFeedbackComment]);
   });
 
@@ -120,7 +120,7 @@ describe('findBy Queries', () => {
     const result = await PlanFeedbackComment.findByAnswerId('testing', context, answerId);
     const expectedSql = 'SELECT * FROM feedbackComments WHERE answerId = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [answerId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [answerId.toString()], 'testing', undefined);
     expect(result).toEqual([planFeedbackComment]);
   });
 

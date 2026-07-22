@@ -72,7 +72,7 @@ export class QuestionCustomization extends MySqlModel {
    * @param transactionClient the MySQL transaction to use
    * @returns The newly created question customization.
    */
-  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<QuestionCustomization> {
+  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<QuestionCustomization> {
     const ref = 'QuestionCustomization.create';
     // Make sure the record is valid
     if (await this.isValid()) {
@@ -80,7 +80,8 @@ export class QuestionCustomization extends MySqlModel {
         ref,
         context,
         this.templateCustomizationId,
-        this.questionId
+        this.questionId,
+        transactionClient
       );
 
       // Make sure it doesn't already exist
@@ -98,7 +99,7 @@ export class QuestionCustomization extends MySqlModel {
           [],
           transactionClient
         );
-        return await QuestionCustomization.findById(ref, context, newId);
+        return await QuestionCustomization.findById(ref, context, newId, transactionClient);
       }
     }
     // Otherwise return as-is with all the errors
@@ -113,7 +114,7 @@ export class QuestionCustomization extends MySqlModel {
    * @param transactionClient the MySQL transaction to use
    * @returns The updated Question customization.
    */
-  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<QuestionCustomization> {
+  async update(context: MyContext, noTouch = false, transactionClient?: DatabaseTransactionClient): Promise<QuestionCustomization> {
     const ref = 'QuestionCustomization.update';
 
     if (!this.id) {
@@ -133,7 +134,7 @@ export class QuestionCustomization extends MySqlModel {
           noTouch,
           transactionClient
         );
-        return await QuestionCustomization.findById(ref, context, this.id);
+        return await QuestionCustomization.findById(ref, context, this.id, transactionClient);
       }
     }
     // Otherwise return as-is with all the errors
@@ -147,7 +148,7 @@ export class QuestionCustomization extends MySqlModel {
    * @param transactionClient the MySQL transaction to use
    * @returns The archived Question customization.
    */
-  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<QuestionCustomization> {
+  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<QuestionCustomization> {
     const ref = 'QuestionCustomization.delete';
     if (!this.id) {
       // Cannot delete it if it hasn't been saved yet!
@@ -156,7 +157,8 @@ export class QuestionCustomization extends MySqlModel {
       const original: QuestionCustomization = await QuestionCustomization.findById(
         ref,
         context,
-        this.id
+        this.id,
+        transactionClient
       );
       const result: boolean = await QuestionCustomization.delete(
         context,
@@ -182,18 +184,21 @@ export class QuestionCustomization extends MySqlModel {
    * @param reference The reference to use for logging errors.
    * @param context The Apollo context.
    * @param questionCustomizationId The question customization id.
+   * @param transactionClient The MySQL transaction to use.
    * @returns The Question customization.
    */
   static async findById(
     reference: string,
     context: MyContext,
-    questionCustomizationId: number
+    questionCustomizationId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<QuestionCustomization> {
     const results = await QuestionCustomization.query(
       context,
       `SELECT * FROM ${QuestionCustomization.tableName} WHERE id = ?`,
       [questionCustomizationId?.toString()],
-      reference
+      reference,
+      transactionClient
     );
     return Array.isArray(results) && results.length > 0 ? new QuestionCustomization(results[0]) : undefined;
   }
@@ -205,20 +210,23 @@ export class QuestionCustomization extends MySqlModel {
    * @param context The Apollo context.
    * @param templateCustomizatonId The id of the template customization.
    * @param questionId The question id.
+   * @param transactionClient The MySQL transaction to use.
    * @returns The Question customization.
    */
   static async findByCustomizationAndQuestion(
     reference: string,
     context: MyContext,
     templateCustomizatonId: number,
-    questionId: number
+    questionId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<QuestionCustomization> {
     const results = await QuestionCustomization.query(
       context,
       `SELECT * FROM ${QuestionCustomization.tableName}
          WHERE templateCustomizationId = ? AND questionId = ?`,
       [templateCustomizatonId.toString(), questionId?.toString()],
-      reference
+      reference,
+      transactionClient
     );
     return Array.isArray(results) && results.length > 0 ? new QuestionCustomization(results[0]) : undefined;
   }
@@ -231,13 +239,15 @@ export class QuestionCustomization extends MySqlModel {
    * @param context The Apollo context.
    * @param templateCustomizatonId The id of the template customization.
    * @param versionedQuestionId The versioned question id.
+   * @param transactionClient The MySQL transaction to use.
    * @returns The Question customization.
    */
   static async findByCustomizationAndVersionedQuestion(
     reference: string,
     context: MyContext,
     templateCustomizatonId: number,
-    versionedQuestionId: number
+    versionedQuestionId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<QuestionCustomization> {
     const results = await QuestionCustomization.query(
       context,
@@ -245,7 +255,8 @@ export class QuestionCustomization extends MySqlModel {
          INNER JOIN versionedQuestions vq ON qc.questionId = vq.questionId
          WHERE qc.templateCustomizationId = ? AND vq.id = ?`,
       [templateCustomizatonId.toString(), versionedQuestionId?.toString()],
-      reference
+      reference,
+      transactionClient
     );
     return Array.isArray(results) && results.length > 0 ? new QuestionCustomization(results[0]) : undefined;
   }
@@ -256,18 +267,21 @@ export class QuestionCustomization extends MySqlModel {
    * @param reference The reference to use for logging errors.
    * @param context The Apollo context.
    * @param templateCustomizatonId The id of the template customization.
+   * @param transactionClient the MySQL transaction to use
    * @returns The Question customizations.
    */
   static async findByCustomizationId(
     reference: string,
     context: MyContext,
-    templateCustomizatonId: number
+    templateCustomizatonId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<QuestionCustomization[]> {
     const results = await QuestionCustomization.query(
       context,
       `SELECT * FROM ${QuestionCustomization.tableName} WHERE templateCustomizationId = ?`,
       [templateCustomizatonId.toString()],
-      reference
+      reference,
+      transactionClient
     );
     return Array.isArray(results) && results.length > 0 ? results.map(r => new QuestionCustomization(r)) : [];
   }

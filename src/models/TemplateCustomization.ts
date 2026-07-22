@@ -190,14 +190,15 @@ export class TemplateCustomizationOverview {
   static async generateOverview(
     reference: string,
     context: MyContext,
-    templateCustomizationId: number
+    templateCustomizationId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<TemplateCustomizationOverview | undefined> {
 
     // Fetch the required data in parallel
     const [templateRows, customSectionRows, customQuestionRows] = await Promise.all([
-      this.fetchTemplateData(context, templateCustomizationId, reference),
-      this.fetchCustomSections(context, templateCustomizationId, reference),
-      this.fetchCustomQuestions(context, templateCustomizationId, reference)
+      this.fetchTemplateData(context, templateCustomizationId, reference, transactionClient),
+      this.fetchCustomSections(context, templateCustomizationId, reference, transactionClient),
+      this.fetchCustomQuestions(context, templateCustomizationId, reference, transactionClient)
     ]);
 
     if (!templateRows?.length) {
@@ -402,12 +403,14 @@ export class TemplateCustomizationOverview {
    * @param context The Apollo context.
    * @param templateCustomizationId The ID of the template customization.
    * @param reference The reference string for logging.
+   * @param transactionClient The database transaction client.
    * @returns The template customization and funder template overview.
    */
   private static async fetchTemplateData(
     context: MyContext,
     templateCustomizationId: number,
-    reference: string
+    reference: string,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<FetchTemplateResult[]> {
     const sql = `
       SELECT
@@ -453,7 +456,8 @@ export class TemplateCustomizationOverview {
       context,
       sql,
       [templateCustomizationId.toString()],
-      reference
+      reference,
+      transactionClient
     );
     return Array.isArray(results) ? results : [];
   };
@@ -464,12 +468,14 @@ export class TemplateCustomizationOverview {
    * @param context The Apollo context.
    * @param templateCustomizationId The ID of the template customization.
    * @param reference The reference string for logging.
+   * @param transactionClient the database transaction to use
    * @returns The custom section overviews for the template customization.
    */
   private static async fetchCustomSections(
     context: MyContext,
     templateCustomizationId: number,
-    reference: string
+    reference: string,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<FetchCustomSectionResult[]> {
     const customSectionsSQL = `
       SELECT
@@ -485,7 +491,8 @@ export class TemplateCustomizationOverview {
       context,
       customSectionsSQL,
       [templateCustomizationId.toString()],
-      reference
+      reference,
+      transactionClient
     );
     return Array.isArray(results) ? results : [];
   };
@@ -496,12 +503,14 @@ export class TemplateCustomizationOverview {
    * @param context The Apollo context.
    * @param templateCustomizationId The ID of the template customization.
    * @param reference The reference string for logging.
+   * @param transactionClient the database transaction to use
    * @returns The custom question overviews for the template customization.
    */
   private static async fetchCustomQuestions(
     context: MyContext,
     templateCustomizationId: number,
-    reference: string
+    reference: string,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<FetchCustomQuestionResult[]> {
     const customQuestionsSQL = `
       SELECT
@@ -519,7 +528,8 @@ export class TemplateCustomizationOverview {
       context,
       customQuestionsSQL,
       [templateCustomizationId.toString()],
-      reference
+      reference,
+      transactionClient
     );
 
     return Array.isArray(results) ? results : [];
@@ -630,9 +640,10 @@ export class TemplateCustomization extends MySqlModel {
    * Publish the template customization
    *
    * @param context The Apollo context.
+   * @param transactionClient The database transaction client.
    * @returns The published Template customization.
    */
-  async publish(context: MyContext): Promise<TemplateCustomization> {
+  async publish(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<TemplateCustomization> {
     const ref = 'TemplateCustomization.publish';
 
     if (!this.id) {
@@ -655,11 +666,11 @@ export class TemplateCustomization extends MySqlModel {
           active: true,
         });
 
-        const created: VersionedTemplateCustomization = await newVersion.create(context);
+        const created: VersionedTemplateCustomization = await newVersion.create(context, transactionClient);
 
         if (!isNullOrUndefined(created) && !created.hasErrors() && created.id) {
           // Snapshot all child records into their published, versioned equivalents
-          await snapshotCustomizationChildren(ref, context, this, created);
+          await snapshotCustomizationChildren(ref, context, this, created, transactionClient);
 
           if (this.hasErrors()) {
             // Roll back: remove all child rows and the incomplete snapshot,
@@ -673,7 +684,7 @@ export class TemplateCustomization extends MySqlModel {
             this.latestPublishedVersionId = created.id;
             this.latestPublishedDate = created.created;
             // noTouch=true so the update method will not set isDirty to true
-            const published: TemplateCustomization = await this.update(context, true);
+            const published: TemplateCustomization = await this.update(context, true, transactionClient);
 
             if (!published) {
               this.addError('general', 'Unable to publish');
@@ -693,7 +704,7 @@ export class TemplateCustomization extends MySqlModel {
    * @param context The Apollo context.
    * @returns The unpublished Template customization.
    */
-  async unpublish(context: MyContext): Promise<TemplateCustomization> {
+  async unpublish(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<TemplateCustomization> {
     const ref = 'TemplateCustomization.unpublish';
     if (!this.id) {
       // Cannot unpublish it if it hasn't been saved yet!
@@ -709,13 +720,14 @@ export class TemplateCustomization extends MySqlModel {
         const ver: VersionedTemplateCustomization = await VersionedTemplateCustomization.findById(
           ref,
           context,
-          this.latestPublishedVersionId
+          this.latestPublishedVersionId,
+          transactionClient
         );
 
         if (ver) {
           // Deactivate the published version of the customization
           ver.active = false;
-          const updatedVer: VersionedTemplateCustomization = await ver.update(context, false);
+          const updatedVer: VersionedTemplateCustomization = await ver.update(context, false, transactionClient);
 
           if (isNullOrUndefined(updatedVer)) {
             this.addError('general', 'Unable to unpublish');
@@ -725,7 +737,7 @@ export class TemplateCustomization extends MySqlModel {
             this.isDirty = false;
             this.latestPublishedVersionId = undefined;
             this.latestPublishedDate = undefined;
-            const published: TemplateCustomization = await this.update(context);
+            const published: TemplateCustomization = await this.update(context, false, transactionClient);
 
             if (published) {
               return published;
@@ -746,7 +758,7 @@ export class TemplateCustomization extends MySqlModel {
    * @param transactionClient the MySQL transaction to use
    * @returns The newly created Template customization.
    */
-  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<TemplateCustomization> {
+  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<TemplateCustomization> {
     const ref = 'TemplateCustomization.create';
     // Make sure the record is valid
     if (await this.isValid()) {
@@ -754,7 +766,8 @@ export class TemplateCustomization extends MySqlModel {
         ref,
         context,
         this.affiliationId,
-        this.templateId
+        this.templateId,
+        transactionClient
       );
 
       // Make sure it doesn't already exist
@@ -770,7 +783,7 @@ export class TemplateCustomization extends MySqlModel {
           ['templateName'], //skip templateName as it is not a real column in the database and is only used for convenience when fetching a customization with its template name
           transactionClient
         );
-        return await TemplateCustomization.findById(ref, context, newId);
+        return await TemplateCustomization.findById(ref, context, newId, transactionClient);
       }
     }
     // Otherwise return as-is with all the errors
@@ -785,7 +798,7 @@ export class TemplateCustomization extends MySqlModel {
    * @param transactionClient the MySQL transaction to use
    * @returns The updated Template customization.
    */
-  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<TemplateCustomization> {
+  async update(context: MyContext, noTouch = false, transactionClient?: DatabaseTransactionClient): Promise<TemplateCustomization> {
     const ref = 'TemplateCustomization.update';
 
     if (!this.id) {
@@ -808,7 +821,7 @@ export class TemplateCustomization extends MySqlModel {
           noTouch,
           transactionClient
         );
-        return await TemplateCustomization.findById(ref, context, this.id);
+        return await TemplateCustomization.findById(ref, context, this.id, transactionClient);
       }
     }
     // Otherwise return as-is with all the errors
@@ -822,7 +835,7 @@ export class TemplateCustomization extends MySqlModel {
    * @param transactionClient the MySQL transaction to use
    * @returns The archived Template customization.
    */
-  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<TemplateCustomization> {
+  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<TemplateCustomization> {
     const ref = 'TemplateCustomization.delete';
     if (!this.id) {
       // Cannot delete it if it hasn't been saved yet!
@@ -831,7 +844,8 @@ export class TemplateCustomization extends MySqlModel {
       const original: TemplateCustomization = await TemplateCustomization.findById(
         ref,
         context,
-        this.id
+        this.id,
+        transactionClient
       );
       const result: boolean = await TemplateCustomization.delete(
         context,
@@ -857,17 +871,20 @@ export class TemplateCustomization extends MySqlModel {
    * @param reference The reference to use for logging errors.
    * @param context The Apollo context.
    * @param templateCustomizationId The template customization id.
+   * @param transactionClient The MySQL transaction to use.
    * @returns true if the customization was updated or was already dirty
    */
   static async markAsDirty(
     reference: string,
     context: MyContext,
-    templateCustomizationId: number
+    templateCustomizationId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<boolean> {
     const customization: TemplateCustomization = await TemplateCustomization.findById(
       reference,
       context,
-      templateCustomizationId
+      templateCustomizationId,
+      transactionClient
     );
     if (isNullOrUndefined(customization)) return false;
 
@@ -875,7 +892,7 @@ export class TemplateCustomization extends MySqlModel {
     if (customization.isDirty) return true;
 
     customization.isDirty = true;
-    const updated: TemplateCustomization = await customization.update(context);
+    const updated: TemplateCustomization = await customization.update(context, false, transactionClient);
 
     // Return true if the update was successful
     return !isNullOrUndefined(updated) && !updated.hasErrors();
@@ -887,18 +904,21 @@ export class TemplateCustomization extends MySqlModel {
    * @param reference The reference to use for logging errors.
    * @param context The Apollo context.
    * @param templateCustomizationId The template customization id.
+   * @param transactionClient The MySQL transaction to use.
    * @returns The Template customization.
    */
   static async findById(
     reference: string,
     context: MyContext,
-    templateCustomizationId: number
+    templateCustomizationId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<TemplateCustomization> {
     const results = await TemplateCustomization.query(
       context,
       `SELECT * FROM ${TemplateCustomization.tableName} WHERE id = ?`,
       [templateCustomizationId?.toString()],
-      reference
+      reference,
+      transactionClient
     );
     return Array.isArray(results) && results.length > 0 ? new TemplateCustomization(results[0]) : undefined;
   }
@@ -910,20 +930,23 @@ export class TemplateCustomization extends MySqlModel {
    * @param context The Apollo context.
    * @param affiliationId The affiliation id.
    * @param templateId The template id.
+   * @param transactionClient The MySQL transaction to use.
    * @returns The Template customization.
    */
   static async findByAffiliationAndTemplate(
     reference: string,
     context: MyContext,
     affiliationId: string,
-    templateId: number
+    templateId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<TemplateCustomization> {
     const results = await TemplateCustomization.query(
       context,
       `SELECT * FROM ${TemplateCustomization.tableName}
          WHERE affiliationId = ? AND templateId = ?`,
       [affiliationId, templateId?.toString()],
-      reference
+      reference,
+      transactionClient
     );
     return Array.isArray(results) && results.length > 0 ? new TemplateCustomization(results[0]) : undefined;
   }
@@ -934,18 +957,21 @@ export class TemplateCustomization extends MySqlModel {
    * @param reference The reference to use for logging errors.
    * @param context The Apollo context.
    * @param templateId The template id.
+   * @param transactionClient The MySQL transaction to use.
    * @returns The Template customizations.
    */
   static async findByTemplateId(
     reference: string,
     context: MyContext,
-    templateId: number
+    templateId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<TemplateCustomization[]> {
     const results = await TemplateCustomization.query(
       context,
       `SELECT * FROM ${TemplateCustomization.tableName} WHERE templateId = ?`,
       [templateId?.toString()],
-      reference
+      reference,
+      transactionClient
     )
     return Array.isArray(results) ? results.map(c => new TemplateCustomization(c)) : [];
   }
@@ -956,34 +982,39 @@ export class TemplateCustomization extends MySqlModel {
    * @param reference The reference to use for logging errors.
    * @param context The Apollo context.
    * @param versionedTemplateId The versioned template id.
+   * @param transactionClient The MySQL transaction to use.
    * @returns The Template customizations.
    */
   static async findByVersionedTemplateId(
     reference: string,
     context: MyContext,
-    versionedTemplateId: number
+    versionedTemplateId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<TemplateCustomization[]> {
     const results = await TemplateCustomization.query(
       context,
       `SELECT * FROM ${TemplateCustomization.tableName}
          WHERE currentVersionedTemplateId = ?`,
       [versionedTemplateId?.toString()],
-      reference
+      reference,
+      transactionClient
     )
     return Array.isArray(results) ? results.map(c => new TemplateCustomization(c)) : [];
   }
 
   /**
    * Find the TemplateCustomization with the name of the base template it is customizing by its id
-   * @param reference
-   * @param context
-   * @param templateCustomizationId
+   * @param reference The reference to use for logging errors.
+   * @param context The Apollo context.
+   * @param templateCustomizationId The template customization's id.
+   * @param transactionClient The MySQL transaction to use.
    * @returns
    */
   static async findByIdWithTemplateName(
     reference: string,
     context: MyContext,
-    templateCustomizationId: number
+    templateCustomizationId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<TemplateCustomization & { name?: string } | null> {
     const results = await TemplateCustomization.query(
       context,
@@ -992,7 +1023,8 @@ export class TemplateCustomization extends MySqlModel {
       JOIN templates t ON tc.templateId = t.id
       WHERE tc.id = ?`,
       [templateCustomizationId?.toString()],
-      reference
+      reference,
+      transactionClient
     );
     return Array.isArray(results) && results.length > 0
       ? new TemplateCustomization(results[0])

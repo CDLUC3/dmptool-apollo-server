@@ -33,14 +33,14 @@ export class Guidance extends MySqlModel {
   }
 
   // Create a new Guidance
-  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Guidance> {
+  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<Guidance> {
     // First make sure the record is valid
     if (await this.isValid()) {
       this.prepForSave();
 
       // Save the record and then fetch it
       const newId = await Guidance.insert(context, Guidance.tableName, this, 'Guidance.create', [], transactionClient);
-      const response = await Guidance.findById('Guidance.create', context, newId);
+      const response = await Guidance.findById('Guidance.create', context, newId, transactionClient);
       return response;
     }
     // Otherwise return as-is with all the errors
@@ -48,7 +48,7 @@ export class Guidance extends MySqlModel {
   }
 
   // Update an existing Guidance
-  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Guidance> {
+  async update(context: MyContext, noTouch = false, transactionClient?: DatabaseTransactionClient): Promise<Guidance> {
     const id = this.id;
 
     if (await this.isValid()) {
@@ -56,7 +56,7 @@ export class Guidance extends MySqlModel {
         this.prepForSave();
 
         await Guidance.update(context, Guidance.tableName, this, 'Guidance.update', [], noTouch, transactionClient);
-        return await Guidance.findById('Guidance.update', context, id);
+        return await Guidance.findById('Guidance.update', context, id, transactionClient);
       }
       // This guidance has never been saved before so we cannot update it!
       this.addError('general', 'Guidance has never been saved');
@@ -65,10 +65,10 @@ export class Guidance extends MySqlModel {
   }
 
   // Delete Guidance based on the Guidance object's id
-  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Guidance> {
+  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<Guidance> {
     if (this.id) {
       // First get the guidance to be deleted so we can return this info to the user
-      const deletedGuidance = await Guidance.findById('Guidance.delete', context, this.id);
+      const deletedGuidance = await Guidance.findById('Guidance.delete', context, this.id, transactionClient);
 
       const successfullyDeleted = await Guidance.delete(context, Guidance.tableName, this.id, 'Guidance.delete', transactionClient);
       if (successfullyDeleted) {
@@ -81,16 +81,16 @@ export class Guidance extends MySqlModel {
   }
 
   // Find all Guidance items for a specific GuidanceGroup
-  static async findByGuidanceGroupId(reference: string, context: MyContext, guidanceGroupId: number): Promise<Guidance[]> {
+  static async findByGuidanceGroupId(reference: string, context: MyContext, guidanceGroupId: number, transactionClient?: DatabaseTransactionClient): Promise<Guidance[]> {
     const sql = `SELECT * FROM ${Guidance.tableName} WHERE guidanceGroupId = ? ORDER BY id ASC`;
-    const results = await Guidance.query(context, sql, [guidanceGroupId?.toString()], reference);
+    const results = await Guidance.query(context, sql, [guidanceGroupId?.toString()], reference, transactionClient);
     return Array.isArray(results) ? results.map((entry) => new Guidance(entry)) : [];
   }
 
   // Find a specific Guidance by id
-  static async findById(reference: string, context: MyContext, guidanceId: number): Promise<Guidance> {
+  static async findById(reference: string, context: MyContext, guidanceId: number, transactionClient?: DatabaseTransactionClient): Promise<Guidance> {
     const sql = `SELECT * FROM ${Guidance.tableName} WHERE id = ?`;
-    const result = await Guidance.query(context, sql, [guidanceId?.toString()], reference);
+    const result = await Guidance.query(context, sql, [guidanceId?.toString()], reference, transactionClient);
     return Array.isArray(result) && result.length > 0 ? new Guidance(result[0]) : null;
   }
 }
@@ -121,7 +121,7 @@ export class PlanGuidance extends MySqlModel {
   }
 
   //Create a new PlanGuidance
-  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<PlanGuidance> {
+  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<PlanGuidance> {
     const reference = 'PlanGuidance.create';
 
     // First make sure the record is valid
@@ -131,7 +131,9 @@ export class PlanGuidance extends MySqlModel {
         context,
         this.planId,
         this.userId,
-        this.affiliationId);
+        this.affiliationId,
+        transactionClient
+      );
 
       // Then make sure it doesn't already exist
       if (current) {
@@ -147,7 +149,7 @@ export class PlanGuidance extends MySqlModel {
           transactionClient
         );
 
-        const response = await PlanGuidance.findById(reference, context, newId);
+        const response = await PlanGuidance.findById(reference, context, newId, transactionClient);
         return response;
       }
     }
@@ -156,9 +158,9 @@ export class PlanGuidance extends MySqlModel {
   }
 
   //Delete PlanGuidance
-  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<PlanGuidance | null> {
+  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<PlanGuidance | null> {
     if (this.id) {
-      const deleted = await PlanGuidance.findById('PlanGuidance.delete', context, this.id);
+      const deleted = await PlanGuidance.findById('PlanGuidance.delete', context, this.id, transactionClient);
 
       const successfullyDeleted = await PlanGuidance.delete(
         context,
@@ -180,10 +182,11 @@ export class PlanGuidance extends MySqlModel {
   static async findById(
     reference: string,
     context: MyContext,
-    id: number
+    id: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<PlanGuidance | null> {
     const sql = `SELECT * FROM ${this.tableName} WHERE id = ?`;
-    const results = await PlanGuidance.query(context, sql, [id?.toString()], reference);
+    const results = await PlanGuidance.query(context, sql, [id?.toString()], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new PlanGuidance(results[0]) : null;
   }
 
@@ -192,10 +195,11 @@ export class PlanGuidance extends MySqlModel {
     reference: string,
     context: MyContext,
     planId: number,
-    affiliationId: string
+    affiliationId: string,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<PlanGuidance | null> {
     const sql = `SELECT * FROM ${this.tableName} WHERE planId = ? AND affiliationId = ?`;
-    const results = await PlanGuidance.query(context, sql, [planId?.toString(), affiliationId?.toString()], reference);
+    const results = await PlanGuidance.query(context, sql, [planId?.toString(), affiliationId?.toString()], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new PlanGuidance(results[0]) : null;
   }
 
@@ -204,10 +208,11 @@ export class PlanGuidance extends MySqlModel {
     reference: string,
     context: MyContext,
     planId: number,
-    userId: number
+    userId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<PlanGuidance[]> {
     const sql = `SELECT * FROM ${this.tableName} WHERE planId = ? AND userId = ?`;
-    const results = await PlanGuidance.query(context, sql, [planId?.toString(), userId?.toString()], reference);
+    const results = await PlanGuidance.query(context, sql, [planId?.toString(), userId?.toString()], reference, transactionClient);
     return Array.isArray(results) ? results.map((result) => new PlanGuidance(result)) : [];
   }
 
@@ -218,14 +223,16 @@ export class PlanGuidance extends MySqlModel {
     context: MyContext,
     planId: number,
     userId: number,
-    affiliationId: string
+    affiliationId: string,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<PlanGuidance | null> {
     const sql = `SELECT * FROM ${this.tableName} WHERE planId = ? AND userId = ? AND affiliationId = ?`;
     const results = await PlanGuidance.query(
       context,
       sql,
       [planId?.toString(), userId?.toString(), affiliationId?.toString()],
-      reference
+      reference,
+      transactionClient
     );
     return Array.isArray(results) && results.length > 0 ? new PlanGuidance(results[0]) : null;
   }

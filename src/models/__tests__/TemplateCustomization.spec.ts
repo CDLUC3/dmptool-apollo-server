@@ -198,7 +198,8 @@ describe('TemplateCustomization', () => {
       expect(findBySpy).toHaveBeenCalledWith(
         'TemplateCustomization.unpublish',
         mockContext,
-        100
+        100,
+        undefined
       );
       expect(result).toBeInstanceOf(TemplateCustomization);
     });
@@ -224,7 +225,7 @@ describe('TemplateCustomization', () => {
 
       const result = await customization.unpublish(mockContext);
 
-      expect(mockVersionedCustomization.update).toHaveBeenCalledWith(mockContext, false);
+      expect(mockVersionedCustomization.update).toHaveBeenCalledWith(mockContext, false, undefined);
       expect(result.errors.general).toBe('Unable to unpublish');
     });
 
@@ -463,7 +464,8 @@ describe('TemplateCustomization', () => {
         'TemplateCustomization.create',
         mockContext,
         'affil-123',
-        1
+        1,
+        undefined
       );
       expect(result.errors.general).toBe('Template has already been customized');
     });
@@ -490,9 +492,10 @@ describe('TemplateCustomization', () => {
         TemplateCustomization.tableName,
         customization,
         'TemplateCustomization.create',
-        ['templateName'] // skipKeys
+        ['templateName'], // skipKeys
+        undefined
       );
-      expect(findBySpy).toHaveBeenCalledWith('TemplateCustomization.create', mockContext, 100);
+      expect(findBySpy).toHaveBeenCalledWith('TemplateCustomization.create', mockContext, 100, undefined);
       expect(result).toBe(mockCreated);
     });
   });
@@ -541,7 +544,8 @@ describe('TemplateCustomization', () => {
         customization,
         'TemplateCustomization.update',
         ['templateName'], // skipKeys
-        false
+        false,
+        undefined
       );
       expect(result).toBe(mockUpdated);
     });
@@ -571,7 +575,8 @@ describe('TemplateCustomization', () => {
         customization,
         'TemplateCustomization.update',
         ['templateName'], // skipKeys
-        true
+        true,
+        undefined
       );
       expect(result).toBe(mockUpdated);
     });
@@ -593,7 +598,7 @@ describe('TemplateCustomization', () => {
 
       const result = await customization.update(mockContext);
 
-      expect(findBySpy).toHaveBeenCalledWith('TemplateCustomization.update', mockContext, 1);
+      expect(findBySpy).toHaveBeenCalledWith('TemplateCustomization.update', mockContext, 1, undefined);
       expect(result).toBe(mockUpdated);
     });
   });
@@ -635,7 +640,8 @@ describe('TemplateCustomization', () => {
         mockContext,
         TemplateCustomization.tableName,
         1,
-        'TemplateCustomization.delete'
+        'TemplateCustomization.delete',
+        undefined,
       );
       expect(customization.errors.general).toBe('Failed to remove customization');
     });
@@ -657,7 +663,7 @@ describe('TemplateCustomization', () => {
 
       const result = await customization.delete(mockContext);
 
-      expect(findBySpy).toHaveBeenCalledWith('TemplateCustomization.delete', mockContext, 1);
+      expect(findBySpy).toHaveBeenCalledWith('TemplateCustomization.delete', mockContext, 1, undefined);
       expect(result).toBe(mockOriginal);
     });
   });
@@ -672,7 +678,8 @@ describe('TemplateCustomization', () => {
         mockContext,
         `SELECT * FROM ${TemplateCustomization.tableName} WHERE id = ?`,
         ['123'],
-        'test-ref'
+        'test-ref',
+        undefined
       );
       expect(result).toBeUndefined();
     });
@@ -703,7 +710,8 @@ describe('TemplateCustomization', () => {
         mockContext,
         `SELECT * FROM ${TemplateCustomization.tableName} WHERE id = ?`,
         ['123'],
-        'test-ref'
+        'test-ref',
+        undefined
       );
       expect(result.id).toEqual(mockData.id);
     });
@@ -720,7 +728,8 @@ describe('TemplateCustomization', () => {
         `SELECT * FROM ${TemplateCustomization.tableName}
          WHERE affiliationId = ? AND templateId = ?`,
         ['affil-123', '1'],
-        'test-ref'
+        'test-ref',
+        undefined
       );
       expect(result).toBeUndefined();
     });
@@ -752,7 +761,8 @@ describe('TemplateCustomization', () => {
         `SELECT * FROM ${TemplateCustomization.tableName}
          WHERE affiliationId = ? AND templateId = ?`,
         ['affil-123', '1'],
-        'test-ref'
+        'test-ref',
+        undefined
       );
       expect(result.id).toEqual(mockData.id);
     });
@@ -768,7 +778,8 @@ describe('TemplateCustomization', () => {
         mockContext,
         `SELECT * FROM ${TemplateCustomization.tableName} WHERE templateId = ?`,
         ['1'],
-        'test-ref'
+        'test-ref',
+        undefined
       );
       expect(result).toEqual([]);
     });
@@ -809,7 +820,8 @@ describe('TemplateCustomization', () => {
         mockContext,
         `SELECT * FROM ${TemplateCustomization.tableName} WHERE templateId = ?`,
         ['1'],
-        'test-ref'
+        'test-ref',
+        undefined
       );
       expect(result).toHaveLength(2);
       expect(result[0]).toBeInstanceOf(TemplateCustomization);
@@ -830,7 +842,8 @@ describe('TemplateCustomization', () => {
         `SELECT * FROM ${TemplateCustomization.tableName}
          WHERE currentVersionedTemplateId = ?`,
         ['10'],
-        'test-ref'
+        'test-ref',
+        undefined
       );
       expect(result).toEqual([]);
     });
@@ -872,7 +885,8 @@ describe('TemplateCustomization', () => {
         `SELECT * FROM ${TemplateCustomization.tableName}
          WHERE currentVersionedTemplateId = ?`,
         ['10'],
-        'test-ref'
+        'test-ref',
+        undefined
       );
       expect(result).toHaveLength(2);
       expect(result[0]).toBeInstanceOf(TemplateCustomization);
@@ -892,7 +906,8 @@ describe('TemplateCustomization', () => {
         mockContext,
         expect.stringContaining('SELECT tc.*'),
         ['123'],
-        'test-ref'
+        'test-ref',
+        undefined
       );
       expect(result).toBeNull();
     });
@@ -924,7 +939,8 @@ describe('TemplateCustomization', () => {
         mockContext,
         expect.stringContaining('JOIN templates t ON tc.templateId = t.id'),
         ['123'],
-        'test-ref'
+        'test-ref',
+        undefined
       );
       expect(result).toBeInstanceOf(TemplateCustomization);
       expect(result.id).toBe(123);
@@ -1661,7 +1677,8 @@ describe('TemplateCustomizationOverview', () => {
         mockContext,
         expect.stringContaining('SELECT'),
         ['10'],
-        'test-ref'
+        'test-ref',
+        undefined
       );
       expect(result).toEqual(mockResults);
     });
@@ -1705,7 +1722,8 @@ describe('TemplateCustomizationOverview', () => {
         mockContext,
         expect.stringContaining('SELECT'),
         ['10'],
-        'test-ref'
+        'test-ref',
+        undefined
       );
       expect(result).toEqual(mockResults);
     });
@@ -1751,7 +1769,8 @@ describe('TemplateCustomizationOverview', () => {
         mockContext,
         expect.stringContaining('SELECT'),
         ['10'],
-        'test-ref'
+        'test-ref',
+        undefined
       );
       expect(result).toEqual(mockResults);
     });
@@ -2183,7 +2202,7 @@ describe('TemplateCustomizationOverview', () => {
       const result = await TemplateCustomization.markAsDirty('test-ref', mockContext, 123);
 
       expect(mockCustomization.isDirty).toBe(true);
-      expect(mockCustomization.update).toHaveBeenCalledWith(mockContext);
+      expect(mockCustomization.update).toHaveBeenCalledWith(mockContext, false, undefined);
       expect(result).toBe(false);
     });
 
@@ -2211,7 +2230,7 @@ describe('TemplateCustomizationOverview', () => {
       const result = await TemplateCustomization.markAsDirty('test-ref', mockContext, 123);
 
       expect(mockCustomization.isDirty).toBe(true);
-      expect(mockCustomization.update).toHaveBeenCalledWith(mockContext);
+      expect(mockCustomization.update).toHaveBeenCalledWith(mockContext, false, undefined);
       expect(result).toBe(false);
     });
 
@@ -2238,7 +2257,7 @@ describe('TemplateCustomizationOverview', () => {
       const result = await TemplateCustomization.markAsDirty('test-ref', mockContext, 123);
 
       expect(mockCustomization.isDirty).toBe(true);
-      expect(mockCustomization.update).toHaveBeenCalledWith(mockContext);
+      expect(mockCustomization.update).toHaveBeenCalledWith(mockContext, false, undefined);
       expect(result).toBe(true);
     });
   });

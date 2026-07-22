@@ -80,7 +80,7 @@ export class TemplateCollaborator extends Collaborator {
   }
 
   // Save the current record
-  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<TemplateCollaborator> {
+  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<TemplateCollaborator> {
     const reference = 'TemplateCollaborator.create';
 
     const currentCollaborator = await TemplateCollaborator.findByTemplateIdAndEmail(
@@ -88,6 +88,7 @@ export class TemplateCollaborator extends Collaborator {
       context,
       this.templateId,
       this.email,
+      transactionClient
     );
 
     if (currentCollaborator) {
@@ -95,7 +96,7 @@ export class TemplateCollaborator extends Collaborator {
       return currentCollaborator
     } else {
       // See if the user already has an account, if so grab their id
-      const user = await User.findByEmail(reference, context, this.email);
+      const user = await User.findByEmail(reference, context, this.email, transactionClient);
       this.userId = user?.id;
 
       // Set the inviter's Id to the current user
@@ -106,13 +107,13 @@ export class TemplateCollaborator extends Collaborator {
         // Save the record and then fetch it
         const newId = await TemplateCollaborator.insert(context, this.tableName, this, reference, [], transactionClient);
         if (newId) {
-          const inviter = await User.findById(reference, context, this.invitedById);
-          const template = await Template.findById(reference, context, this.templateId);
+          const inviter = await User.findById(reference, context, this.invitedById, transactionClient);
+          const template = await Template.findById(reference, context, this.templateId, transactionClient);
 
           // Send out the invitation notification (no async here, can happen in the background)
           await sendTemplateCollaborationEmail(context, template.name, inviter.getName(), this.email, this.userId)
 
-          return await TemplateCollaborator.findById(reference, context, newId);
+          return await TemplateCollaborator.findById(reference, context, newId, transactionClient);
         }
       }
     }
@@ -122,7 +123,7 @@ export class TemplateCollaborator extends Collaborator {
   }
 
   // Update the record
-  async update(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<TemplateCollaborator> {
+  async update(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<TemplateCollaborator> {
     // First make sure the record is valid
     if (await this.isValid()) {
       if (this.id) {
@@ -131,7 +132,8 @@ export class TemplateCollaborator extends Collaborator {
           context,
           'templates',
           this.templateId,
-          'TemplateCollaborator.update'
+          'TemplateCollaborator.update',
+          transactionClient
         );
 
         if (!templateExists) {
@@ -142,7 +144,7 @@ export class TemplateCollaborator extends Collaborator {
             this.addError('general', 'Unable to update the collaborator');
           }
           if (!this.hasErrors()) {
-            return await TemplateCollaborator.findById('TemplateCollaborator.update', context, this.id);
+            return await TemplateCollaborator.findById('TemplateCollaborator.update', context, this.id, transactionClient);
           }
         }
       } else {
@@ -153,8 +155,8 @@ export class TemplateCollaborator extends Collaborator {
   }
 
   // Remove this record
-  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<TemplateCollaborator> {
-    const existing = await TemplateCollaborator.findById('TemplateCollaborator.delete', context, this.id);
+  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<TemplateCollaborator> {
+    const existing = await TemplateCollaborator.findById('TemplateCollaborator.delete', context, this.id, transactionClient);
     if (existing) {
       const result = await TemplateCollaborator.delete(context, this.tableName, this.id, 'TemplateCollaborator.delete', transactionClient);
       if (!result) {
@@ -169,10 +171,11 @@ export class TemplateCollaborator extends Collaborator {
   static async findByTemplateId(
     reference: string,
     context: MyContext,
-    templateId: number
+    templateId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<TemplateCollaborator[]> {
     const sql = 'SELECT * FROM templateCollaborators WHERE templateId = ? ORDER BY email ASC';
-    const results = await TemplateCollaborator.query(context, sql, [templateId?.toString()], reference);
+    const results = await TemplateCollaborator.query(context, sql, [templateId?.toString()], reference, transactionClient);
     return Array.isArray(results) ? results.map((entry) => new TemplateCollaborator(entry)) : [];
   }
 
@@ -181,9 +184,10 @@ export class TemplateCollaborator extends Collaborator {
     reference: string,
     context: MyContext,
     id: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<TemplateCollaborator> {
     const sql = 'SELECT * FROM templateCollaborators WHERE id = ?';
-    const results = await TemplateCollaborator.query(context, sql, [id?.toString()], reference);
+    const results = await TemplateCollaborator.query(context, sql, [id?.toString()], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new TemplateCollaborator(results[0]) : null;
   }
 
@@ -191,9 +195,10 @@ export class TemplateCollaborator extends Collaborator {
     reference: string,
     context: MyContext,
     invitedById: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<TemplateCollaborator[]> {
     const sql = 'SELECT * FROM templateCollaborators WHERE invitedById = ?';
-    const results = await TemplateCollaborator.query(context, sql, [invitedById?.toString()], reference);
+    const results = await TemplateCollaborator.query(context, sql, [invitedById?.toString()], reference, transactionClient);
     return Array.isArray(results) ? results.map((entry) => new TemplateCollaborator(entry)) : [];
   }
 
@@ -202,9 +207,10 @@ export class TemplateCollaborator extends Collaborator {
     reference: string,
     context: MyContext,
     email: string,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<TemplateCollaborator[]> {
     const sql = 'SELECT * FROM templateCollaborators WHERE email = ?';
-    const results = await TemplateCollaborator.query(context, sql, [email], reference);
+    const results = await TemplateCollaborator.query(context, sql, [email], reference, transactionClient);
     return Array.isArray(results) ? results.map((entry) => new TemplateCollaborator(entry)) : [];
   }
 
@@ -214,10 +220,11 @@ export class TemplateCollaborator extends Collaborator {
     context: MyContext,
     templateId: number,
     email: string,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<TemplateCollaborator> {
     const sql = 'SELECT * FROM templateCollaborators WHERE templateId = ? AND email = ?';
     const vals = [templateId?.toString(), email];
-    const results = await TemplateCollaborator.query(context, sql, vals, reference);
+    const results = await TemplateCollaborator.query(context, sql, vals, reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new TemplateCollaborator(results[0]) : null;
   }
 }
@@ -263,7 +270,7 @@ export class ProjectCollaborator extends Collaborator {
   }
 
   // Save the current record
-  async create(context: MyContext, sendEmailNotification = true, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<ProjectCollaborator> {
+  async create(context: MyContext, sendEmailNotification = true, transactionClient?: DatabaseTransactionClient): Promise<ProjectCollaborator> {
     const reference = 'ProjectCollaborator.create';
 
     const currentCollaborator = await ProjectCollaborator.findByProjectIdAndEmail(
@@ -271,6 +278,7 @@ export class ProjectCollaborator extends Collaborator {
       context,
       this.projectId,
       this.email,
+      transactionClient
     );
 
     if (currentCollaborator) {
@@ -278,7 +286,7 @@ export class ProjectCollaborator extends Collaborator {
       return currentCollaborator
     } else {
       // See if the user already has an account, if so grab their id
-      const user = await User.findByEmail(reference, context, this.email);
+      const user = await User.findByEmail(reference, context, this.email, transactionClient);
       this.userId = user?.id;
 
       // Set the inviter's Id to the current user
@@ -289,15 +297,15 @@ export class ProjectCollaborator extends Collaborator {
         // Save the record and then fetch it
         const newId = await ProjectCollaborator.insert(context, this.tableName, this, reference, [], transactionClient);
         if (newId) {
-          const inviter = await User.findById(reference, context, this.invitedById);
-          const project = await Project.findById(reference, context, this.projectId);
+          const inviter = await User.findById(reference, context, this.invitedById, transactionClient);
+          const project = await Project.findById(reference, context, this.projectId, transactionClient);
 
           if (sendEmailNotification) {
             // Send out the invitation notification (no async here, can happen in the background)
             await sendProjectCollaborationEmail(context, project.title, inviter.getName(), this.email, this.userId)
           }
 
-          return await ProjectCollaborator.findById(reference, context, newId);
+          return await ProjectCollaborator.findById(reference, context, newId, transactionClient);
         }
       }
     }
@@ -307,7 +315,7 @@ export class ProjectCollaborator extends Collaborator {
   }
 
   // Update the record
-  async update(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<ProjectCollaborator> {
+  async update(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<ProjectCollaborator> {
     // First make sure the record is valid
     if (await this.isValid()) {
       if (this.id) {
@@ -316,7 +324,8 @@ export class ProjectCollaborator extends Collaborator {
           context,
           'projects',
           this.projectId,
-          'ProjectCollaborator.update'
+          'ProjectCollaborator.update',
+          transactionClient
         );
 
         if (!projectExists) {
@@ -327,7 +336,7 @@ export class ProjectCollaborator extends Collaborator {
             this.addError('general', 'Unable to update the collaborator');
           }
           if (!this.hasErrors()) {
-            return await ProjectCollaborator.findById('ProjectCollaborator.update', context, this.id);
+            return await ProjectCollaborator.findById('ProjectCollaborator.update', context, this.id, transactionClient);
           }
         }
       } else {
@@ -338,8 +347,8 @@ export class ProjectCollaborator extends Collaborator {
   }
 
   // Remove this record
-  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<ProjectCollaborator> {
-    const existing = await ProjectCollaborator.findById('ProjectCollaborator.delete', context, this.id);
+  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<ProjectCollaborator> {
+    const existing = await ProjectCollaborator.findById('ProjectCollaborator.delete', context, this.id, transactionClient);
     if (existing) {
       const result = await ProjectCollaborator.delete(context, this.tableName, this.id, 'ProjectCollaborator.delete', transactionClient);
       if (!result) {
@@ -354,10 +363,11 @@ export class ProjectCollaborator extends Collaborator {
   static async findByProjectId(
     reference: string,
     context: MyContext,
-    projectId: number
+    projectId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<ProjectCollaborator[]> {
     const sql = 'SELECT * FROM projectCollaborators WHERE projectId = ? ORDER BY email ASC';
-    const results = await ProjectCollaborator.query(context, sql, [projectId?.toString()], reference);
+    const results = await ProjectCollaborator.query(context, sql, [projectId?.toString()], reference, transactionClient);
     return Array.isArray(results) ? results.map((entry) => new ProjectCollaborator(entry)) : [];
   }
 
@@ -366,9 +376,10 @@ export class ProjectCollaborator extends Collaborator {
     reference: string,
     context: MyContext,
     id: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<ProjectCollaborator> {
     const sql = 'SELECT * FROM projectCollaborators WHERE id = ?';
-    const results = await ProjectCollaborator.query(context, sql, [id?.toString()], reference);
+    const results = await ProjectCollaborator.query(context, sql, [id?.toString()], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new ProjectCollaborator(results[0]) : null;
   }
 
@@ -376,9 +387,10 @@ export class ProjectCollaborator extends Collaborator {
     reference: string,
     context: MyContext,
     invitedById: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<ProjectCollaborator[]> {
     const sql = 'SELECT * FROM projectCollaborators WHERE invitedById = ?';
-    const results = await ProjectCollaborator.query(context, sql, [invitedById?.toString()], reference);
+    const results = await ProjectCollaborator.query(context, sql, [invitedById?.toString()], reference, transactionClient);
     return Array.isArray(results) ? results.map((entry) => new ProjectCollaborator(entry)) : [];
   }
 
@@ -387,9 +399,10 @@ export class ProjectCollaborator extends Collaborator {
     reference: string,
     context: MyContext,
     email: string,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<ProjectCollaborator[]> {
     const sql = 'SELECT * FROM projectCollaborators WHERE email = ?';
-    const results = await ProjectCollaborator.query(context, sql, [email], reference);
+    const results = await ProjectCollaborator.query(context, sql, [email], reference, transactionClient);
     return Array.isArray(results) ? results.map((entry) => new ProjectCollaborator(entry)) : [];
   }
 
@@ -399,10 +412,11 @@ export class ProjectCollaborator extends Collaborator {
     reference: string,
     context: MyContext,
     userId: number,
-    projectId: number
+    projectId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<ProjectCollaborator> {
     const sql = 'SELECT * FROM projectCollaborators WHERE userId = ? AND projectId = ?';
-    const results = await ProjectCollaborator.query(context, sql, [userId?.toString(), projectId?.toString()], reference);
+    const results = await ProjectCollaborator.query(context, sql, [userId?.toString(), projectId?.toString()], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new ProjectCollaborator(results[0]) : null;
   }
 
@@ -412,10 +426,11 @@ export class ProjectCollaborator extends Collaborator {
     context: MyContext,
     projectId: number,
     email: string,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<ProjectCollaborator> {
     const sql = 'SELECT * FROM projectCollaborators WHERE projectId = ? AND email = ?';
     const vals = [projectId?.toString(), email];
-    const results = await ProjectCollaborator.query(context, sql, vals, reference);
+    const results = await ProjectCollaborator.query(context, sql, vals, reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new ProjectCollaborator(results[0]) : null;
   }
 
@@ -423,7 +438,8 @@ export class ProjectCollaborator extends Collaborator {
   static async findPotentialCollaboratorByORCID(
     reference: string,
     context: MyContext,
-    orcid: string
+    orcid: string,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<CollaboratorSearchResult> {
     // Get the fully formatted ORCID
     const fullOrcid = formatORCID(orcid);
@@ -432,13 +448,14 @@ export class ProjectCollaborator extends Collaborator {
 
     if (!isNullOrUndefined(fullOrcid) && !isNullOrUndefined(orcid)) {
       // First try to find the user in the User table
-      const user: User = await User.findByOrcid(reference, context, fullOrcid);
+      const user: User = await User.findByOrcid(reference, context, fullOrcid, transactionClient);
       if (!isNullOrUndefined(user)) {
         // We found the person in our users table, so just return the info we have
         const affiliation = await Affiliation.findByURI(
           reference,
           context,
-          user.affiliationId
+          user.affiliationId,
+          transactionClient
         );
 
         return {
@@ -481,7 +498,8 @@ export class ProjectCollaborator extends Collaborator {
     reference: string,
     context: MyContext,
     term: string,
-    options: PaginationOptionsForCursors = Project.getDefaultPaginationOptions()
+    options: PaginationOptionsForCursors = Project.getDefaultPaginationOptions(),
+    transactionClient?: DatabaseTransactionClient
   ): Promise<PaginatedQueryResults<CollaboratorSearchResult>> {
     let results: ProjectCollaboratorSearchResult[] = [];
     let totalCount = 0;
@@ -493,7 +511,8 @@ export class ProjectCollaborator extends Collaborator {
     const projects: Project[] = await Project.findByAffiliation(
       reference,
       context,
-      context.token?.affiliationId
+      context.token?.affiliationId,
+      transactionClient
     );
 
     if (Array.isArray(projects) && projects.length > 0) {
@@ -553,7 +572,8 @@ export class ProjectCollaborator extends Collaborator {
         context,
         sql,
         values,
-        reference
+        reference,
+        transactionClient
       );
 
       // Always execute count query to get total across all pages
@@ -562,7 +582,8 @@ export class ProjectCollaborator extends Collaborator {
         context,
         countSql,
         baseValues, // Use baseValues without cursor
-        reference
+        reference,
+        transactionClient
       );
 
       totalCount = Array.isArray(countResults) && countResults.length > 0 ? countResults[0]?.total : 0;
@@ -588,6 +609,7 @@ export class ProjectCollaborator extends Collaborator {
     reference: string,
     context: MyContext,
     projectId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<ProjectCollaboratorWithUser | null> {
     const sql = `SELECT  pc.id AS collaboratorId, pc.projectId, pc.email, pc.accessLevel, pc.created AS collaboratorCreated,
     u.id AS userId, u.affiliationId, u.active
@@ -597,7 +619,7 @@ export class ProjectCollaborator extends Collaborator {
     AND pc.accessLevel = "PRIMARY"
     `;
     const vals = [projectId?.toString()];
-    const results = await ProjectCollaborator.query(context, sql, vals, reference);
+    const results = await ProjectCollaborator.query(context, sql, vals, reference, transactionClient);
     if (!Array.isArray(results) || results.length === 0) return null;
     return Object.assign(new ProjectCollaborator(results[0]), { affiliationId: results[0].affiliationId ?? null }) as ProjectCollaboratorWithUser;
   }

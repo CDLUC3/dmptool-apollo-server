@@ -176,7 +176,7 @@ export class Affiliation extends MySqlModel {
   }
 
   // Save the current record
-  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Affiliation> {
+  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<Affiliation> {
     const reference = 'Affiliation.create';
     let current;
 
@@ -220,7 +220,7 @@ export class Affiliation extends MySqlModel {
   }
 
   // Save the changes made to the affiliation
-  async update(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Affiliation> {
+  async update(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<Affiliation> {
     const reference = 'Affiliation.update';
     if (this.id) {
       const existing = await Affiliation.findById(reference, context, this.id);
@@ -258,7 +258,7 @@ export class Affiliation extends MySqlModel {
   }
 
   // Delete this record (will cascade delate all associated AffiliationLinks and AffiliaitonEmailDomains)
-  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Affiliation> {
+  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<Affiliation> {
     if (this.uri) {
       const result = await Affiliation.delete(context, this.tableName, this.id, 'Affiliation.delete', transactionClient);
       if (result) {
@@ -307,31 +307,31 @@ export class Affiliation extends MySqlModel {
   }
 
   // Return the specified Affiliation  based on the DB id
-  static async findById(reference: string, context: MyContext, id: number): Promise<Affiliation> {
+  static async findById(reference: string, context: MyContext, id: number, transactionClient?: DatabaseTransactionClient): Promise<Affiliation> {
     const sql = 'SELECT * FROM affiliations WHERE id = ?';
-    const results = await Affiliation.query(context, sql, [id?.toString()], reference);
+    const results = await Affiliation.query(context, sql, [id?.toString()], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? this.processResult(results[0]) : null;
   }
 
   // Return the specified Affiliation based on the URI
-  static async findByURI(reference: string, context: MyContext, uri: string): Promise<Affiliation> {
+  static async findByURI(reference: string, context: MyContext, uri: string, transactionClient?: DatabaseTransactionClient): Promise<Affiliation> {
     const sql = 'SELECT * FROM affiliations WHERE uri = ?';
-    const results = await Affiliation.query(context, sql, [uri], reference);
+    const results = await Affiliation.query(context, sql, [uri], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? this.processResult(results[0]) : null;
   }
 
   // Return the specified Affiliation based on it's name
-  static async findByName(reference: string, context: MyContext, name: string): Promise<Affiliation> {
+  static async findByName(reference: string, context: MyContext, name: string, transactionClient?: DatabaseTransactionClient): Promise<Affiliation> {
     const sql = 'SELECT * FROM affiliations WHERE TRIM(LOWER(name)) = ? OR TRIM(LOWER(displayName)) = ?';
     const trimmed = name?.toLowerCase()?.trim()
-    const results = await Affiliation.query(context, sql, [trimmed, trimmed], reference);
+    const results = await Affiliation.query(context, sql, [trimmed, trimmed], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? this.processResult(results[0]) : null;
   }
 
   // Return the specified Affiliation based on it's SSO entity id
-  static async findByEntityId(reference: string, context: MyContext, entityId: string): Promise<Affiliation> {
+  static async findByEntityId(reference: string, context: MyContext, entityId: string, transactionClient?: DatabaseTransactionClient): Promise<Affiliation> {
     const sql = 'SELECT * FROM affiliations WHERE TRIM(LOWER(ssoEntityId)) = ?';
-    const results = await Affiliation.query(context, sql, [entityId?.toLowerCase()?.trim()], reference);
+    const results = await Affiliation.query(context, sql, [entityId?.toLowerCase()?.trim()], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? this.processResult(results[0]) : null;
   }
 }
@@ -392,6 +392,7 @@ export class AffiliationSearch {
     name: string,
     funderOnly: boolean,
     options: PaginationOptions = Affiliation.getDefaultPaginationOptions(),
+    transactionClient?: DatabaseTransactionClient
   ): Promise<PaginatedQueryResults<AffiliationSearch>> {
     const whereFilters = ['a.active = 1'];
     const values = [];
@@ -434,6 +435,8 @@ export class AffiliationSearch {
       values,
       opts,
       reference,
+      true,
+      transactionClient
     )
 
     // Combine the name and homepage domain to help disambiguated similar names
@@ -457,6 +460,7 @@ export class AffiliationSearch {
     name?: string,
     affiliationUris?: string[],
     options: PaginationOptions = Affiliation.getDefaultPaginationOptions(),
+    transactionClient?: DatabaseTransactionClient
   ): Promise<PaginatedQueryResults<AffiliationSearch>> {
     const whereFilters = [
       'a.active = 1',
@@ -508,6 +512,8 @@ export class AffiliationSearch {
       values,
       opts,
       reference,
+      true,
+      transactionClient
     );
 
     // Combine the name and homepage domain to help disambiguated similar names
@@ -540,7 +546,7 @@ export class PopularFunder {
     this.nbrPlans = options.nbrPlans;
   }
 
-  static async top5(context: MyContext): Promise<PopularFunder[]> {
+  static async top5(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<PopularFunder[]> {
     // Get the date range for the past year
     const today = new Date();
     const lastYear = new Date();
@@ -560,7 +566,8 @@ export class PopularFunder {
       context,
       sql,
       [`${startDate} 00:00:00`, `${endDate} 23:59:59`],
-      'PopularFunder.top5'
+      'PopularFunder.top5',
+      transactionClient
     );
     if (Array.isArray(results) && results.length > 0) {
       return results.map((entry) => { return new PopularFunder(entry) });

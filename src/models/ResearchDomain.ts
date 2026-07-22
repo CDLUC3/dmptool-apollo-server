@@ -53,7 +53,7 @@ export class ResearchDomain extends MySqlModel {
   }
 
   //Create a new ResearchDomain
-  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<ResearchDomain> {
+  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<ResearchDomain> {
     const reference = 'ResearchDomain.create';
 
     // If no URI is present, then use the DMPTool's default URI
@@ -63,9 +63,9 @@ export class ResearchDomain extends MySqlModel {
 
     // First make sure the record is valid
     if (await this.isValid()) {
-      let current = await ResearchDomain.findByURI(reference, context, this.uri);
+      let current = await ResearchDomain.findByURI(reference, context, this.uri, transactionClient);
       if (!current) {
-        current = await ResearchDomain.findByName(reference, context, this.name.toString());
+        current = await ResearchDomain.findByName(reference, context, this.name.toString(), transactionClient);
       }
 
       // Then make sure it doesn't already exist
@@ -81,7 +81,7 @@ export class ResearchDomain extends MySqlModel {
           ['parentResearchDomain'],
           transactionClient
         );
-        const response = await ResearchDomain.findById(reference, context, newId);
+        const response = await ResearchDomain.findById(reference, context, newId, transactionClient);
         return response;
       }
     }
@@ -90,7 +90,7 @@ export class ResearchDomain extends MySqlModel {
   }
 
   //Update an existing ResearchDomain
-  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<ResearchDomain> {
+  async update(context: MyContext, noTouch = false, transactionClient?: DatabaseTransactionClient): Promise<ResearchDomain> {
     const id = this.id;
 
     if (await this.isValid()) {
@@ -104,7 +104,7 @@ export class ResearchDomain extends MySqlModel {
           noTouch,
           transactionClient
         );
-        return await ResearchDomain.findById('ResearchDomain.update', context, id);
+        return await ResearchDomain.findById('ResearchDomain.update', context, id, transactionClient);
       }
       // This template has never been saved before so we cannot update it!
       this.addError('general', 'ResearchDomain has never been saved');
@@ -113,9 +113,9 @@ export class ResearchDomain extends MySqlModel {
   }
 
   //Delete the ResearchDomain
-  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<ResearchDomain> {
+  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<ResearchDomain> {
     if (this.id) {
-      const deleted = await ResearchDomain.findById('ResearchDomain.delete', context, this.id);
+      const deleted = await ResearchDomain.findById('ResearchDomain.delete', context, this.id, transactionClient);
 
       const successfullyDeleted = await ResearchDomain.delete(
         context,
@@ -134,7 +134,7 @@ export class ResearchDomain extends MySqlModel {
   }
 
   // Add this ResearchDomain to a MetadataStandard
-  async addToMetadataStandard(context: MyContext, metadataStandardId: number, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<boolean> {
+  async addToMetadataStandard(context: MyContext, metadataStandardId: number, transactionClient?: DatabaseTransactionClient): Promise<boolean> {
     const reference = 'ResearchDomain.addToMetadataStandard';
     let sql = 'INSERT INTO metadataStandardResearchDomains (researchDomainId, metadataStandardId, ';
     sql += 'createdById, modifiedById) VALUES (?, ?, ?, ?)';
@@ -152,7 +152,7 @@ export class ResearchDomain extends MySqlModel {
   }
 
   // Add this ResearchDomain to a MetadataStandard
-  async addToRepository(context: MyContext, repositoryId: number, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<boolean> {
+  async addToRepository(context: MyContext, repositoryId: number, transactionClient?: DatabaseTransactionClient): Promise<boolean> {
     const reference = 'ResearchDomain.addToRepository';
     let sql = 'INSERT INTO repositoryResearchDomains (researchDomainId, repositoryId, createdById,';
     sql += 'modifiedById) VALUES (?, ?, ?, ?)';
@@ -170,7 +170,7 @@ export class ResearchDomain extends MySqlModel {
   }
 
   // Remove this ResearchDomain from a MetadataStandard
-  async removeFromMetadataStandard(context: MyContext, metadataStandardId: number, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<boolean> {
+  async removeFromMetadataStandard(context: MyContext, metadataStandardId: number, transactionClient?: DatabaseTransactionClient): Promise<boolean> {
     const reference = 'ResearchDomain.removeFromMetadataStandard';
     const sql = 'DELETE FROM metadataStandardResearchDomains WHERE researchDomainId = ? AND metadataStandardId = ?';
     const vals = [this.id?.toString(), metadataStandardId?.toString()];
@@ -186,7 +186,7 @@ export class ResearchDomain extends MySqlModel {
   }
 
   // Remove this ResearchDomain from a repository
-  async removeFromRepository(context: MyContext, repositoryId: number, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<boolean> {
+  async removeFromRepository(context: MyContext, repositoryId: number, transactionClient?: DatabaseTransactionClient): Promise<boolean> {
     const reference = 'ResearchDomain.removeFromRepository';
     const sql = 'DELETE FROM repositoryResearchDomains WHERE researchDomainId = ? AND repositoryId = ?';
     const vals = [this.id?.toString(), repositoryId?.toString()];
@@ -206,7 +206,8 @@ export class ResearchDomain extends MySqlModel {
     reference: string,
     context: MyContext,
     term: string,
-    options: PaginationOptions = ResearchDomain.getDefaultPaginationOptions()
+    options: PaginationOptions = ResearchDomain.getDefaultPaginationOptions(),
+    transactionClient?: DatabaseTransactionClient
   ): Promise<PaginatedQueryResults<ResearchDomain>> {
     const whereFilters = [];
     const values = [];
@@ -246,6 +247,8 @@ export class ResearchDomain extends MySqlModel {
       values,
       opts,
       reference,
+      true,
+      transactionClient
     )
 
     context.logger.debug(prepareObjectForLogs({ options, response }), reference);
@@ -253,17 +256,17 @@ export class ResearchDomain extends MySqlModel {
   }
 
   // Return all of the top level Research Domains (meaning they have no parent)
-  static async topLevelDomains(reference: string, context: MyContext): Promise<ResearchDomain[]> {
+  static async topLevelDomains(reference: string, context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<ResearchDomain[]> {
     const sql = 'SELECT * FROM researchDomains WHERE parentResearchDomainId IS NULL ORDER BY name';
-    const results = await ResearchDomain.query(context, sql, [], reference);
+    const results = await ResearchDomain.query(context, sql, [], reference, transactionClient);
     // No need to reinitialize all of the results to objects here because they're just search results
     return Array.isArray(results) ? results : [];
   }
 
   // Return all of the ResearchDomains for the specified parent Research Domain
-  static async findByParentId(reference: string, context: MyContext, parentResearchDomainId: number): Promise<ResearchDomain[]> {
+  static async findByParentId(reference: string, context: MyContext, parentResearchDomainId: number, transactionClient?: DatabaseTransactionClient): Promise<ResearchDomain[]> {
     const sql = 'SELECT * FROM researchDomains WHERE parentResearchDomainId = ? ORDER BY name';
-    const results = await ResearchDomain.query(context, sql, [parentResearchDomainId?.toString()], reference);
+    const results = await ResearchDomain.query(context, sql, [parentResearchDomainId?.toString()], reference, transactionClient);
     // No need to reinitialize all of the results to objects here because they're just search results
     return Array.isArray(results) ? results : [];
   }
@@ -272,13 +275,14 @@ export class ResearchDomain extends MySqlModel {
   static async findByMetadataStandardId(
     reference: string,
     context: MyContext,
-    metadataStandardId: number
+    metadataStandardId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<ResearchDomain[]> {
     const sql = 'SELECT rd.* FROM metadataStandardResearchDomains jt';
     const joinClause = 'INNER JOIN researchDomains rd ON jt.researchDomainId = rd.id';
     const whereClause = 'WHERE jt.metadataStandardId = ?';
     const vals = [metadataStandardId?.toString()];
-    const results = await ResearchDomain.query(context, `${sql} ${joinClause} ${whereClause}`, vals, reference);
+    const results = await ResearchDomain.query(context, `${sql} ${joinClause} ${whereClause}`, vals, reference, transactionClient);
     return Array.isArray(results) ? results.map((entry) => new ResearchDomain(entry)) : [];
   }
 
@@ -286,33 +290,34 @@ export class ResearchDomain extends MySqlModel {
   static async findByRepositoryId(
     reference: string,
     context: MyContext,
-    repositoryId: number
+    repositoryId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<ResearchDomain[]> {
     const sql = 'SELECT rd.* FROM repositoryResearchDomains jt';
     const joinClause = 'INNER JOIN researchDomains rd ON jt.researchDomainId = rd.id';
     const whereClause = 'WHERE jt.repositoryId = ?';
     const vals = [repositoryId?.toString()];
-    const results = await ResearchDomain.query(context, `${sql} ${joinClause} ${whereClause}`, vals, reference);
+    const results = await ResearchDomain.query(context, `${sql} ${joinClause} ${whereClause}`, vals, reference, transactionClient);
     return Array.isArray(results) ? results.map((entry) => new ResearchDomain(entry)) : [];
   }
 
   // Fetch a ResearchDomain by it's id
-  static async findById(reference: string, context: MyContext, researchDomainId: number): Promise<ResearchDomain | null> {
+  static async findById(reference: string, context: MyContext, researchDomainId: number, transactionClient?: DatabaseTransactionClient): Promise<ResearchDomain | null> {
     const sql = `SELECT * FROM researchDomains WHERE id = ?`;
-    const results = await ResearchDomain.query(context, sql, [researchDomainId?.toString()], reference);
+    const results = await ResearchDomain.query(context, sql, [researchDomainId?.toString()], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new ResearchDomain(results[0]) : null;
   }
 
-  static async findByURI(reference: string, context: MyContext, uri: string): Promise<ResearchDomain> {
+  static async findByURI(reference: string, context: MyContext, uri: string, transactionClient?: DatabaseTransactionClient): Promise<ResearchDomain> {
     const sql = `SELECT * FROM researchDomains WHERE uri = ?`;
-    const results = await ResearchDomain.query(context, sql, [uri], reference);
+    const results = await ResearchDomain.query(context, sql, [uri], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new ResearchDomain(results[0]) : null;
   }
 
-  static async findByName(reference: string, context: MyContext, name: string): Promise<ResearchDomain> {
+  static async findByName(reference: string, context: MyContext, name: string, transactionClient?: DatabaseTransactionClient): Promise<ResearchDomain> {
     const sql = `SELECT * FROM researchDomains WHERE LOWER(name) = ?`;
     const searchTerm = (name ?? '');
-    const results = await ResearchDomain.query(context, sql, [searchTerm?.toLowerCase()?.trim()], reference);
+    const results = await ResearchDomain.query(context, sql, [searchTerm?.toLowerCase()?.trim()], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new ResearchDomain(results[0]) : null;
   }
-};
+}

@@ -9,6 +9,7 @@ import { Question } from "../models/Question";
 import { generateQuestionVersion } from "./questionService";
 import { prepareObjectForLogs } from "../logger";
 import { reorderDisplayOrder } from "../utils/helpers";
+import { DatabaseTransactionClient } from "../datasources/mysql";
 
 // Creates a new Version/Snapshot the specified Section (as a point in time snapshot)
 //    - Creates a new VersionedSection including all of the related Questions
@@ -17,6 +18,7 @@ export const generateSectionVersion = async (
   context: MyContext,
   section: Section,
   versionedTemplateId: number,
+  transactionClient?: DatabaseTransactionClient
 ): Promise<boolean> => {
 
   // If the section has no id then it has not yet been saved so throw an error
@@ -41,20 +43,20 @@ export const generateSectionVersion = async (
   });
 
   try {
-    const created = await versionedSection.create(context);
+    const created = await versionedSection.create(context, transactionClient);
 
     // Get tags associated with section so we can add it to versionedSectionTags table
     const addTagErrors = [];
     if (Array.isArray(section.tags) && section.tags.length > 0) {
       for (const item of section.tags) {
-        const tag = await Tag.findById('generateSectionVersion', context, item.id);
+        const tag = await Tag.findById('generateSectionVersion', context, item.id, transactionClient);
 
         if (!tag) {
           addTagErrors.push(`Tag ${item.id} not found`);
           continue; // <-- Add this line to skip calling addToVersionedSectionTags on null
         }
 
-        const wasAdded = tag.addToVersionedSectionTags(context, created.id);
+        const wasAdded = tag.addToVersionedSectionTags(context, created.id, transactionClient);
         if (!wasAdded) {
           addTagErrors.push(tag.name);
         }
@@ -72,7 +74,7 @@ export const generateSectionVersion = async (
     const onlyTagErrors = errorKeys.length === 1 && errorKeys[0] === 'tags';
     if (created && (!created.hasErrors() || onlyTagErrors)) {
       // Create a version for all the associated questions
-      const questions = await Question.findBySectionId('generateSectionVersion', context, section.id);
+      const questions = await Question.findBySectionId('generateSectionVersion', context, section.id, transactionClient);
       let allQuestionsWereVersioned = true;
 
       for (const question of questions) {
@@ -80,7 +82,7 @@ export const generateSectionVersion = async (
           ...question
         });
 
-        const passed = await generateQuestionVersion(context, questionInstance, versionedTemplateId, created.id);
+        const passed = await generateQuestionVersion(context, questionInstance, versionedTemplateId, created.id, transactionClient);
         if (!passed) {
           allQuestionsWereVersioned = false;
         }
@@ -90,7 +92,7 @@ export const generateSectionVersion = async (
       if (allQuestionsWereVersioned) {
         // Reset the dirty flag on the section and save it
         section.isDirty = false;
-        const updated = await section.update(context, true);
+        const updated = await section.update(context, true, transactionClient);
 
         if (updated && !updated.hasErrors()) return true;
 
@@ -134,18 +136,18 @@ export const cloneSection = (
 }
 
 // Determine whether the specified user has permission to access the Section
-export const hasPermissionOnSection = async (context: MyContext, templateId: number): Promise<boolean> => {
+export const hasPermissionOnSection = async (context: MyContext, templateId: number, transactionClient?: DatabaseTransactionClient): Promise<boolean> => {
   if (!context || !context.token) return false;
 
   // Find associated template info
-  const template = await Template.findById('section resolver.hasPermission', context, templateId);
+  const template = await Template.findById('section resolver.hasPermission', context, templateId, transactionClient);
 
   if (!template) {
     throw NotFoundError();
   }
 
   // Offload permission checks to the Template
-  return await hasPermissionOnTemplate(context, template);
+  return await hasPermissionOnTemplate(context, template, transactionClient);
 }
 
 
@@ -154,10 +156,11 @@ export const updateDisplayOrders = async (
   context: MyContext,
   templateId: number,
   sectionId: number,
-  newDisplayOrder: number
+  newDisplayOrder: number,
+  transactionClient?: DatabaseTransactionClient
 ): Promise<Section[] | []> => {
   // Load all of the sections that belong to the template
-  const sections = await Section.findByTemplateId('sectionService.updateDisplayOrders', context, templateId);
+  const sections = await Section.findByTemplateId('sectionService.updateDisplayOrders', context, templateId, transactionClient);
   if (!sections) {
     throw NotFoundError();
   }
@@ -177,7 +180,7 @@ export const updateDisplayOrders = async (
 
     } else {
       const toUpdate = new Section({ ...reorderedSection });
-      const updatedSection = await toUpdate.update(context);
+      const updatedSection = await toUpdate.update(context, true, transactionClient);
       if (updatedSection && updatedSection.hasErrors()) {
         // If one of them fais, throw an error
         const msg = `Unable to update the display order for section: ${reorderedSection.id}`;

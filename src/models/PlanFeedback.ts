@@ -60,7 +60,7 @@ export class PlanFeedback extends MySqlModel {
   }
 
   //Create new PlanFeedback
-  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<PlanFeedback | null> {
+  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<PlanFeedback | null> {
     const reference = 'PlanFeedback.create';
 
     // First make sure the record is valid
@@ -76,7 +76,7 @@ export class PlanFeedback extends MySqlModel {
         this.addError('general', 'PlanFeedback was not created successfully');
         return new PlanFeedback(this);
       } else {
-        const response = await PlanFeedback.findById(reference, context, newId);
+        const response = await PlanFeedback.findById(reference, context, newId, transactionClient);
         return response;
       }
     }
@@ -85,12 +85,12 @@ export class PlanFeedback extends MySqlModel {
   }
 
   //Update an existing PlanFeedback
-  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<PlanFeedback | null> {
+  async update(context: MyContext, noTouch = false, transactionClient?: DatabaseTransactionClient): Promise<PlanFeedback | null> {
     if (await this.isValid()) {
       if (this.id) {
         this.prepForSave();
         await PlanFeedback.update(context, PlanFeedback.tableName, this, 'PlanFeedback.update', [], noTouch, transactionClient);
-        return await PlanFeedback.findById('PlanFeedback.update', context, this.id);
+        return await PlanFeedback.findById('PlanFeedback.update', context, this.id, transactionClient);
       }
       // This feedback has never been saved before so we cannot update it!
       this.addError('general', 'PlanFeedback has never been saved');
@@ -99,9 +99,9 @@ export class PlanFeedback extends MySqlModel {
   }
 
   //Delete the PlanFeedback
-  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<PlanFeedback | null> {
+  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<PlanFeedback | null> {
     if (this.id) {
-      const deleted = await PlanFeedback.findById('PlanFeedback.delete', context, this.id);
+      const deleted = await PlanFeedback.findById('PlanFeedback.delete', context, this.id, transactionClient);
 
       const successfullyDeleted = await PlanFeedback.delete(
         context,
@@ -120,9 +120,9 @@ export class PlanFeedback extends MySqlModel {
   }
 
   // Fetch a PlanFeedback by it's id
-  static async findById(reference: string, context: MyContext, feedbackId: number): Promise<PlanFeedback | null> {
+  static async findById(reference: string, context: MyContext, feedbackId: number, transactionClient?: DatabaseTransactionClient): Promise<PlanFeedback | null> {
     const sql = `SELECT * FROM ${PlanFeedback.tableName} WHERE id = ?`;
-    const results = await PlanFeedback.query(context, sql, [feedbackId?.toString()], reference);
+    const results = await PlanFeedback.query(context, sql, [feedbackId?.toString()], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new PlanFeedback(results[0]) : null;
   }
 
@@ -131,17 +131,18 @@ export class PlanFeedback extends MySqlModel {
     reference: string,
     context: MyContext,
     planId: number,
-    requestedById: number
+    requestedById: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<PlanFeedback[]> {
     const sql = `SELECT * FROM ${PlanFeedback.tableName} WHERE planId = ? AND requestedById = ?`;
-    const results = await PlanFeedback.query(context, sql, [planId.toString(), requestedById.toString()], reference);
+    const results = await PlanFeedback.query(context, sql, [planId.toString(), requestedById.toString()], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? results.map((ans) => new PlanFeedback(ans)) : [];
   }
 
   // Fetch all of the feedback for a plan
-  static async findByPlanId(reference: string, context: MyContext, planId: number): Promise<PlanFeedback[]> {
+  static async findByPlanId(reference: string, context: MyContext, planId: number, transactionClient?: DatabaseTransactionClient): Promise<PlanFeedback[]> {
     const sql = `SELECT * FROM ${PlanFeedback.tableName} WHERE planId = ?`;
-    const results = await PlanFeedback.query(context, sql, [planId.toString()], reference);
+    const results = await PlanFeedback.query(context, sql, [planId.toString()], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? results.map((ans) => new PlanFeedback(ans)) : [];
   }
 
@@ -149,7 +150,8 @@ export class PlanFeedback extends MySqlModel {
   static async statusForPlan(
     reference: string,
     context: MyContext,
-    planId: number
+    planId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<PlanFeedbackStatus> {
     // Aggregate: total rows and how many are open (completed IS NULL)
     const sql = `
@@ -159,7 +161,7 @@ export class PlanFeedback extends MySqlModel {
       ORDER BY id DESC
       LIMIT 1
     `;
-    const results = await PlanFeedback.query(context, sql, [planId?.toString()], reference);
+    const results = await PlanFeedback.query(context, sql, [planId?.toString()], reference, transactionClient);
     const row = Array.isArray(results) && results.length > 0 ? results[0] : null;
 
     if (!row) {
@@ -171,4 +173,4 @@ export class PlanFeedback extends MySqlModel {
       id: row.id,
     }
   }
-};
+}

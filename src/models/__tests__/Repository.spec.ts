@@ -136,7 +136,7 @@ describe('findBy Queries', () => {
     const result = await Repository.findById('testing', context, repoId);
     const expectedSql = 'SELECT * FROM repositories WHERE id = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [repoId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [repoId.toString()], 'testing', undefined);
     expect(result).toEqual(repo);
   });
 
@@ -153,7 +153,7 @@ describe('findBy Queries', () => {
     const result = await Repository.findByURI('testing', context, uri);
     const expectedSql = 'SELECT * FROM repositories WHERE uri = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [uri], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [uri], 'testing', undefined);
     expect(result).toEqual(repo);
   });
 
@@ -170,7 +170,7 @@ describe('findBy Queries', () => {
     const result = await Repository.findByURIs('testing', context, uris);
     const expectedSql = `SELECT * FROM repositories WHERE uri IN (?, ?)`;
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, uris, 'testing');
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, uris, 'testing', undefined);
     expect(result).toEqual([repo]);
   });
 
@@ -181,7 +181,7 @@ describe('findBy Queries', () => {
     const result = await Repository.findByName('testing', context, name.toLowerCase().trim());
     const expectedSql = 'SELECT * FROM repositories WHERE LOWER(name) = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [name.toLowerCase().trim()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [name.toLowerCase().trim()], 'testing', undefined);
     expect(result).toEqual(repo);
   });
 
@@ -201,7 +201,7 @@ describe('findBy Queries', () => {
     const whereClause = 'WHERE rrd.researchDomainId = ?';
     const vals = [id.toString()];
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, `${sql} ${joinClause} ${whereClause}`, vals, 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, `${sql} ${joinClause} ${whereClause}`, vals, 'testing', undefined);
     expect(result).toEqual([repo]);
   });
 
@@ -234,7 +234,7 @@ describe('findBy Queries', () => {
       availableSortFields: sortFields,
     };
     expect(localPaginationQuery).toHaveBeenCalledTimes(1);
-    expect(localPaginationQuery).toHaveBeenCalledWith(context, sql, whereFilters, '', vals, opts, 'testing');
+    expect(localPaginationQuery).toHaveBeenCalledWith(context, sql, whereFilters, '', vals, opts, 'testing', true, undefined);
     expect(result).toEqual([repo]);
   });
 
@@ -257,7 +257,7 @@ describe('findBy Queries', () => {
       availableSortFields: sortFields,
     };
     expect(localPaginationQuery).toHaveBeenCalledTimes(1);
-    expect(localPaginationQuery).toHaveBeenCalledWith(context, sql, whereFilters, '', vals, opts, 'testing');
+    expect(localPaginationQuery).toHaveBeenCalledWith(context, sql, whereFilters, '', vals, opts, 'testing', true, undefined);
     expect(result).toEqual([repo]);
   });
 
@@ -283,7 +283,7 @@ describe('findBy Queries', () => {
       availableSortFields: sortFields,
     };
     expect(localPaginationQuery).toHaveBeenCalledTimes(1);
-    expect(localPaginationQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, '', vals, opts, 'testing')
+    expect(localPaginationQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, '', vals, opts, 'testing', true, undefined);
     expect(result).toEqual([repo]);
   });
 
@@ -305,7 +305,7 @@ describe('findBy Queries', () => {
       availableSortFields: sortFields,
     };
     expect(localPaginationQuery).toHaveBeenCalledTimes(1);
-    expect(localPaginationQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, '', vals, opts, 'testing')
+    expect(localPaginationQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, '', vals, opts, 'testing', true, undefined);
     expect(result).toEqual([repo]);
   });
 

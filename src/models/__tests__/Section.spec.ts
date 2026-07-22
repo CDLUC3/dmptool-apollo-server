@@ -79,7 +79,7 @@ describe('findBySectionName', () => {
     const result = await Section.findBySectionName('Section query', context, section.name, templateId);
     const expectedSql = 'SELECT * FROM sections WHERE LOWER(name) = ? AND templateId = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [section.name.toLowerCase(), templateId.toString()], 'Section query')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [section.name.toLowerCase(), templateId.toString()], 'Section query', undefined);
     expect(result).toEqual(section);
   });
 
@@ -125,7 +125,7 @@ describe('findByTemplateId', () => {
     const result = await Section.findByTemplateId('Section query', context, templateId);
     const expectedSql = 'SELECT * FROM sections WHERE templateId = ? ORDER BY displayOrder ASC';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [templateId.toString()], 'Section query')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [templateId.toString()], 'Section query', undefined);
     expect(result).toEqual([section]);
   });
 
@@ -171,7 +171,7 @@ describe('findById', () => {
     const result = await Section.findById('Section query', context, sectionId);
     const expectedSql = 'SELECT * FROM sections where id = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [sectionId.toString()], 'Section query')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [sectionId.toString()], 'Section query', undefined);
     expect(result).toEqual(section);
   });
 

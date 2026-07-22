@@ -38,14 +38,14 @@ export class UserEmail extends MySqlModel {
   }
 
   // Confirm the user owns the email
-  static async confirmEmail(context: MyContext, userId: number, email: string, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<UserEmail> {
+  static async confirmEmail(context: MyContext, userId: number, email: string, transactionClient?: DatabaseTransactionClient): Promise<UserEmail> {
     const ref = 'UserEmail.confirmEmail';
     // Fetch all of the existing records with the current email
-    const userEmail = await UserEmail.findByUserIdAndEmail(ref, context, userId, email);
+    const userEmail = await UserEmail.findByUserIdAndEmail(ref, context, userId, email, transactionClient);
 
     if (userEmail) {
       // Fetch all of the other instances of this email
-      const allEmails = await UserEmail.findByEmail(ref, context, email);
+      const allEmails = await UserEmail.findByEmail(ref, context, email, transactionClient);
       const otherEmails = allEmails.filter((entry) => { return entry.userId !== userId });
 
       // If the email has already been confirmed by another account set an error message
@@ -59,7 +59,7 @@ export class UserEmail extends MySqlModel {
         const updated = await userEmail.update(context, transactionClient);
 
         // Claim any invitations to collaborate on a Template by assigning the userId
-        const tmpltCollabs = await TemplateCollaborator.findByEmail(ref, context, email);
+        const tmpltCollabs = await TemplateCollaborator.findByEmail(ref, context, email, transactionClient);
         for (const collab of tmpltCollabs) {
           collab.userId = userId;
           await collab.update(context, transactionClient);
@@ -83,7 +83,7 @@ export class UserEmail extends MySqlModel {
     obj: UserEmail,
     reference = 'undefined caller',
     skipKeys?: string[],
-    transactionClient: DatabaseTransactionClient | undefined = undefined
+    transactionClient?: DatabaseTransactionClient
   ): Promise<number> {
     // Update the creator/modifier info
     const currentDate = getCurrentDate();
@@ -105,12 +105,12 @@ export class UserEmail extends MySqlModel {
   }
 
   // Save the current record
-  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<UserEmail> {
+  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<UserEmail> {
     const ref = 'UserEmail.create';
     // First make sure the record is valid
     if (await this.isValid()) {
       // Fetch all of the existing records with the current email
-      const entries = await UserEmail.findByEmail(ref, context, this.email);
+      const entries = await UserEmail.findByEmail(ref, context, this.email, transactionClient);
 
       // First make sure it's not already attached to this user account
       const existing = entries.find((entry) => { return entry.userId === this.userId; });
@@ -127,7 +127,7 @@ export class UserEmail extends MySqlModel {
       if (Object.keys(this.errors).length === 0) {
         // Save the record and then fetch it
         const newId = await UserEmail.insert(context, this.tableName, this, ref, [], transactionClient);
-        const created = await UserEmail.findById(ref, context, newId);
+        const created = await UserEmail.findById(ref, context, newId, transactionClient);
 
         if (created) {
           // Send out an email confirmation notification. No async, can happen in background
@@ -141,19 +141,19 @@ export class UserEmail extends MySqlModel {
   }
 
   // Save the changes made to the UserEmail
-  async update(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<UserEmail> {
+  async update(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<UserEmail> {
     if (this.id) {
       // First make sure the record is valid
       if (await this.isValid()) {
         // Only allow this if the existing record or the update has been confirmed/verified
-        const existing = await UserEmail.findById('UserEmail.update', context, this.id);
+        const existing = await UserEmail.findById('UserEmail.update', context, this.id, transactionClient);
         if (existing && !existing.isConfirmed && !this.isConfirmed) {
           this.addError('general', 'Email has not yet been confirmed');
         }
 
         if (Object.keys(this.errors).length === 0) {
           await UserEmail.update(context, this.tableName, this, 'UserEmail.update', [], false, transactionClient);
-          return await UserEmail.findById('UserEmail.update', context, this.id);
+          return await UserEmail.findById('UserEmail.update', context, this.id, transactionClient);
         }
       }
     } else {
@@ -164,9 +164,9 @@ export class UserEmail extends MySqlModel {
   }
 
   //Delete this UserEmail
-  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<UserEmail> {
+  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<UserEmail> {
     if (this.id) {
-      const deleted = await UserEmail.findById('UserEmail.delete', context, this.id);
+      const deleted = await UserEmail.findById('UserEmail.delete', context, this.id, transactionClient);
 
       if (deleted) {
         const success = await UserEmail.delete(context, this.tableName, this.id, 'UserEmail.delete', transactionClient);
@@ -182,9 +182,9 @@ export class UserEmail extends MySqlModel {
   }
 
   // Return the specified UserEmail
-  static async findById(reference: string, context: MyContext, id: number): Promise<UserEmail> {
+  static async findById(reference: string, context: MyContext, id: number, transactionClient?: DatabaseTransactionClient): Promise<UserEmail> {
     const sql = 'SELECT * FROM userEmails WHERE id = ?';
-    const results = await UserEmail.query(context, sql, [id?.toString()], reference);
+    const results = await UserEmail.query(context, sql, [id?.toString()], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new UserEmail(results[0]) : null;
   }
 
@@ -193,10 +193,11 @@ export class UserEmail extends MySqlModel {
     reference: string,
     context: MyContext,
     userId: number,
-    email: string
+    email: string,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<UserEmail> {
     const sql = 'SELECT * FROM userEmails WHERE userId = ? AND email = ?';
-    const results = await UserEmail.query(context, sql, [userId?.toString(), email], reference);
+    const results = await UserEmail.query(context, sql, [userId?.toString(), email], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new UserEmail(results[0]) : null;
   }
 
@@ -204,10 +205,11 @@ export class UserEmail extends MySqlModel {
   static async findByUserId(
     reference: string,
     context: MyContext,
-    userId: number
+    userId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<UserEmail[]> {
     const sql = 'SELECT * FROM userEmails WHERE userId = ?';
-    const results = await UserEmail.query(context, sql, [userId?.toString()], reference);
+    const results = await UserEmail.query(context, sql, [userId?.toString()], reference, transactionClient);
     return Array.isArray(results) ? results.map((entry) => new UserEmail(entry)) : [];
   }
 
@@ -215,10 +217,11 @@ export class UserEmail extends MySqlModel {
   static async findPrimaryByUserId(
     reference: string,
     context: MyContext,
-    userId: number
+    userId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<UserEmail | null> {
     const sql = 'SELECT * FROM userEmails WHERE userId = ? AND isPrimary = 1';
-    const results = await UserEmail.query(context, sql, [userId?.toString()], reference);
+    const results = await UserEmail.query(context, sql, [userId?.toString()], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new UserEmail(results[0]) : null;
   }
 
@@ -226,10 +229,11 @@ export class UserEmail extends MySqlModel {
   static async findByEmail(
     reference: string,
     context: MyContext,
-    email: string
+    email: string,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<UserEmail[]> {
     const sql = 'SELECT * FROM userEmails WHERE email = ?';
-    const results = await UserEmail.query(context, sql, [email], reference);
+    const results = await UserEmail.query(context, sql, [email], reference, transactionClient);
     return Array.isArray(results) ? results.map((entry) => new UserEmail(entry)) : [];
   }
 
@@ -245,14 +249,14 @@ export class UserEmail extends MySqlModel {
     userId: number,
     email: string,
     isConfirmed = false,
-    transactionClient: DatabaseTransactionClient | undefined = undefined
+    transactionClient?: DatabaseTransactionClient
   ): Promise<UserEmail> {
     const ref = 'UserEmail.createOrUpdatePrimary';
     // Find current primary email for user
-    const currentPrimary = await UserEmail.findPrimaryByUserId(ref, context, userId);
+    const currentPrimary = await UserEmail.findPrimaryByUserId(ref, context, userId, transactionClient);
 
     // Find if the email already exists for this user
-    const existingEmail = await UserEmail.findByUserIdAndEmail(ref, context, userId, email);
+    const existingEmail = await UserEmail.findByUserIdAndEmail(ref, context, userId, email, transactionClient);
 
     if (!currentPrimary) {
       // No primary exists, create new primary

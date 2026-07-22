@@ -99,7 +99,7 @@ describe('findBy Queries', () => {
     const result = await License.findById('testing', context, licenseId);
     const expectedSql = 'SELECT * FROM licenses WHERE id = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [licenseId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [licenseId.toString()], 'testing', undefined);
     expect(result).toEqual(license);
   });
 
@@ -116,7 +116,7 @@ describe('findBy Queries', () => {
     const result = await License.findByURI('testing', context, uri);
     const expectedSql = 'SELECT * FROM licenses WHERE uri = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [uri], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [uri], 'testing', undefined);
     expect(result).toEqual(license);
   });
 
@@ -133,7 +133,7 @@ describe('findBy Queries', () => {
     const result = await License.findByName('testing', context, name.toLowerCase().trim());
     const expectedSql = 'SELECT * FROM licenses WHERE LOWER(name) = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [name.toLowerCase().trim()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [name.toLowerCase().trim()], 'testing', undefined);
     expect(result).toEqual(license);
   });
 
@@ -149,7 +149,7 @@ describe('findBy Queries', () => {
     const result = await License.all('testing', context);
     const expectedSql = 'SELECT * FROM licenses ORDER BY name ASC';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [], 'testing', undefined);
     expect(result).toEqual([license]);
   });
 
@@ -164,7 +164,7 @@ describe('findBy Queries', () => {
     const result = await License.recommended('testing', context, true);
     const expectedSql = 'SELECT * FROM licenses WHERE recommended = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, ['1'], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, ['1'], 'testing', undefined);
     expect(result).toEqual([license]);
   });
 

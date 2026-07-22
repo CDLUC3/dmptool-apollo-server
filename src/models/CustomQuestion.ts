@@ -144,7 +144,7 @@ export class CustomQuestion extends MySqlModel {
    * @param transactionClient the MySQL transaction to use
    * @returns The newly created custom question.
    */
-  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<CustomQuestion> {
+  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<CustomQuestion> {
     const ref = 'CustomQuestion.create';
     // Make sure the record is valid
     if (await this.isValid()) {
@@ -155,7 +155,8 @@ export class CustomQuestion extends MySqlModel {
         this.sectionType,
         this.sectionId,
         this.pinnedQuestionType,
-        this.pinnedQuestionId
+        this.pinnedQuestionId,
+        transactionClient,
       );
 
       // Make sure it doesn't already exist
@@ -173,7 +174,7 @@ export class CustomQuestion extends MySqlModel {
           [],
           transactionClient
         );
-        return await CustomQuestion.findById(ref, context, newId);
+        return await CustomQuestion.findById(ref, context, newId, transactionClient);
       }
     }
     // Otherwise return as-is with all the errors
@@ -188,7 +189,7 @@ export class CustomQuestion extends MySqlModel {
    * @param transactionClient the MySQL transaction to use
    * @returns The updated custom question.
    */
-  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<CustomQuestion> {
+  async update(context: MyContext, noTouch = false, transactionClient?: DatabaseTransactionClient): Promise<CustomQuestion> {
     const ref = 'CustomQuestion.update';
 
     if (isNullOrUndefined(this.id)) {
@@ -208,7 +209,7 @@ export class CustomQuestion extends MySqlModel {
           noTouch,
           transactionClient
         );
-        return await CustomQuestion.findById(ref, context, this.id);
+        return await CustomQuestion.findById(ref, context, this.id, transactionClient);
       }
     }
     // Otherwise return as-is with all the errors
@@ -222,7 +223,7 @@ export class CustomQuestion extends MySqlModel {
    * @param transactionClient the MySQL transaction to use
    * @returns The archived custom section.
    */
-  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<CustomQuestion> {
+  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<CustomQuestion> {
     const ref = 'CustomQuestion.delete';
     if (!this.id) {
       // Cannot delete it if it hasn't been saved yet!
@@ -231,7 +232,8 @@ export class CustomQuestion extends MySqlModel {
       const original: CustomQuestion = await CustomQuestion.findById(
         ref,
         context,
-        this.id
+        this.id,
+        transactionClient
       );
       const result: boolean = await CustomQuestion.delete(
         context,
@@ -257,18 +259,21 @@ export class CustomQuestion extends MySqlModel {
    * @param reference The reference to use for logging errors.
    * @param context The Apollo context.
    * @param customQuestionId The custom question id.
+   * @param transactionClient The MySQL transaction to use.
    * @returns The custom question.
    */
   static async findById(
     reference: string,
     context: MyContext,
-    customQuestionId: number
+    customQuestionId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<CustomQuestion> {
     const results = await CustomQuestion.query(
       context,
       `SELECT * FROM ${CustomQuestion.tableName} WHERE id = ?`,
       [customQuestionId?.toString()],
-      reference
+      reference,
+      transactionClient
     );
     return Array.isArray(results) && results.length > 0 ? new CustomQuestion(results[0]) : undefined;
   }
@@ -279,18 +284,21 @@ export class CustomQuestion extends MySqlModel {
    * @param reference The reference to use for logging errors.
    * @param context The Apollo context.
    * @param templateCustomizatonId The id of the template customization.
+   * @param transactionClient The MySQL transaction to use.
    * @returns The custom questions.
    */
   static async findByCustomizationId(
     reference: string,
     context: MyContext,
-    templateCustomizatonId: number
+    templateCustomizatonId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<CustomQuestion[]> {
     const results = await CustomQuestion.query(
       context,
       `SELECT * FROM ${CustomQuestion.tableName} WHERE templateCustomizationId = ?`,
       [templateCustomizatonId.toString()],
-      reference
+      reference,
+      transactionClient
     );
     return Array.isArray(results) && results.length > 0 ? results.map(r => new CustomQuestion(r)) : [];
   }
@@ -305,6 +313,7 @@ export class CustomQuestion extends MySqlModel {
    * @param sectionId The id of the section the custom question is attached to.
    * @param pinnedQuestionType The type of pinned question (base or custom).
    * @param pinnedQuestionId The pinned funder question id.
+   * @param transactionClient the MySQL transaction to use.
    * @returns The custom question.
    */
   static async findByCustomizationSectionAndQuestion(
@@ -314,7 +323,8 @@ export class CustomQuestion extends MySqlModel {
     sectionType: PinnedSectionTypeEnum,
     sectionId: number,
     pinnedQuestionType?: PinnedQuestionTypeEnum,
-    pinnedQuestionId?: number
+    pinnedQuestionId?: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<CustomQuestion> {
     const results = await CustomQuestion.query(
       context,
@@ -328,7 +338,8 @@ export class CustomQuestion extends MySqlModel {
         pinnedQuestionType ? pinnedQuestionType : null,
         pinnedQuestionId ? pinnedQuestionId?.toString() : null
       ],
-      reference
+      reference,
+      transactionClient
     );
     return Array.isArray(results) && results.length > 0 ? new CustomQuestion(results[0]) : undefined;
   }
@@ -341,6 +352,7 @@ export class CustomQuestion extends MySqlModel {
  * @param templateCustomizationId The id of the template customization.
  * @param sectionType The type of the section.
  * @param sectionId The id of the section (either a versionedSection id or customSection id).
+ * @param transactionClient The MySQL transaction to use.
  * @returns The custom questions.
  */
   static async findByCustomizationAndSectionId(
@@ -348,14 +360,16 @@ export class CustomQuestion extends MySqlModel {
     context: MyContext,
     templateCustomizationId: number,
     sectionType: PinnedSectionTypeEnum,
-    sectionId: number
+    sectionId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<CustomQuestion[]> {
     const results = await CustomQuestion.query(
       context,
       `SELECT * FROM ${CustomQuestion.tableName}
        WHERE templateCustomizationId = ? AND sectionType = ? AND sectionId = ?`,
       [templateCustomizationId.toString(), sectionType, sectionId.toString()],
-      reference
+      reference,
+      transactionClient
     );
     return Array.isArray(results) ? results.map(r => new CustomQuestion(r)) : [];
   }
@@ -369,6 +383,7 @@ export class CustomQuestion extends MySqlModel {
    * @param context The Apollo context.
    * @param templateCustomizationId The id of the template customization.
    * @param sectionType The type of the section to filter by (either 'BASE' or 'CUSTOM').
+   * @param transactionClient The MySQL transaction to use.
    * @returns The custom questions.
    */
   static async findByCustomizationAndSectionType(
@@ -376,6 +391,7 @@ export class CustomQuestion extends MySqlModel {
     context: MyContext,
     templateCustomizationId: number,
     sectionType: PinnedSectionTypeEnum,
+    transactionClient?: DatabaseTransactionClient
     // No sectionId — we want ALL questions of this type across all sections
   ): Promise<CustomQuestion[]> {
     const results = await CustomQuestion.query(
@@ -383,7 +399,8 @@ export class CustomQuestion extends MySqlModel {
       `SELECT * FROM ${CustomQuestion.tableName}
      WHERE templateCustomizationId = ? AND sectionType = ?`,
       [templateCustomizationId.toString(), sectionType],
-      reference
+      reference,
+      transactionClient
     );
     return Array.isArray(results) ? results.map(r => new CustomQuestion(r)) : [];
   }
@@ -400,6 +417,7 @@ export class CustomQuestion extends MySqlModel {
    * @param sectionId The id of the section.
    * @param pinnedQuestionType The type of the pinned question.
    * @param pinnedQuestionId The id of the pinned question.
+   * @param transactionClient The MySQL transaction to use.
    * @returns The custom question or null if not found.
    */
   static async findByPosition(
@@ -409,7 +427,8 @@ export class CustomQuestion extends MySqlModel {
     sectionType: string,
     sectionId: number,
     pinnedQuestionType: string | null,
-    pinnedQuestionId: number | null
+    pinnedQuestionId: number | null,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<CustomQuestion | null> {
     const sql = `
     SELECT * FROM customQuestions
@@ -428,7 +447,7 @@ export class CustomQuestion extends MySqlModel {
       sectionId.toString(),
       pinnedQuestionType,
       pinnedQuestionId?.toString() ?? null,
-    ], reference);
+    ], reference, transactionClient);
 
     return Array.isArray(results) && results.length > 0 ? new CustomQuestion(results[0]) : null;
 

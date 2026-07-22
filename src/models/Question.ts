@@ -91,7 +91,7 @@ export class Question extends MySqlModel {
   //Create a new Question
   async create(
     context: MyContext,
-    transactionClient: DatabaseTransactionClient | undefined = undefined
+    transactionClient?: DatabaseTransactionClient
   ): Promise<Question> {
     this.prepForSave();
 
@@ -99,7 +99,7 @@ export class Question extends MySqlModel {
     if (await this.isValid()) {
       // Save the record and then fetch it
       const newId = await Question.insert(context, this.tableName, this, 'Question.create', ['questionType'], transactionClient);
-      const response = await Question.findById('Question.create', context, newId);
+      const response = await Question.findById('Question.create', context, newId, transactionClient);
       return response;
 
     }
@@ -108,13 +108,13 @@ export class Question extends MySqlModel {
   }
 
   //Update an existing Section
-  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Question> {
+  async update(context: MyContext, noTouch = false, transactionClient?: DatabaseTransactionClient): Promise<Question> {
     if (this.id) {
       this.prepForSave();
 
       if (await this.isValid()) {
         await Question.update(context, this.tableName, this, 'Question.update', ['questionType'], noTouch, transactionClient);
-        return await Question.findById('Question.update', context, this.id);
+        return await Question.findById('Question.update', context, this.id, transactionClient);
       }
     }
     this.addError('general', 'Question has never been saved');
@@ -122,11 +122,11 @@ export class Question extends MySqlModel {
   }
 
   //Delete Question based on the Question object's id and return
-  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<Question> {
+  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<Question> {
     if (this.id) {
       /*First get the question to be deleted so we can return this info to the user
       since calling 'delete' doesn't return anything*/
-      const deletedSection = await Question.findById('Question.delete', context, this.id);
+      const deletedSection = await Question.findById('Question.delete', context, this.id, transactionClient);
 
       const successfullyDeleted = await Question.delete(context, this.tableName, this.id, 'Question.delete', transactionClient);
       if (successfullyDeleted) {
@@ -139,16 +139,16 @@ export class Question extends MySqlModel {
   }
 
   // Find the Question by it's id
-  static async findById(reference: string, context: MyContext, questionId: number): Promise<Question> {
+  static async findById(reference: string, context: MyContext, questionId: number, transactionClient?: DatabaseTransactionClient): Promise<Question> {
     const sql = 'SELECT * FROM questions WHERE id = ?';
-    const result = await Question.query(context, sql, [questionId?.toString()], reference);
+    const result = await Question.query(context, sql, [questionId?.toString()], reference, transactionClient);
     return Array.isArray(result) && result.length > 0 ? new Question(result[0]) : null;
   }
 
   // Fetch all of the Questions for the specified Section
-  static async findBySectionId(reference: string, context: MyContext, sectionId: number): Promise<Question[]> {
+  static async findBySectionId(reference: string, context: MyContext, sectionId: number, transactionClient?: DatabaseTransactionClient): Promise<Question[]> {
     const sql = 'SELECT * FROM questions WHERE sectionId = ? ORDER BY displayOrder ASC';
-    const results = await Question.query(context, sql, [sectionId?.toString()], reference);
+    const results = await Question.query(context, sql, [sectionId?.toString()], reference, transactionClient);
     return Array.isArray(results) ? results.map((entry) => new Question(entry)) : [];
   }
 }

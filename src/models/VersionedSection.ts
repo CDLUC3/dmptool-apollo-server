@@ -47,6 +47,7 @@ export class VersionedSectionSearchResult {
     context: MyContext,
     term: string,
     options: SectionQueryOptions = VersionedSection.getDefaultPaginationOptions(),
+    transactionClient?: DatabaseTransactionClient
   ): Promise<PaginatedQueryResults<VersionedSectionSearchResult>> {
     // Only include active published templates that are owned by the user's affiliation or marked as best practice
     const whereFilters: string[] = ['vt.active = 1', 'vt.versionType = ?'];
@@ -111,6 +112,8 @@ export class VersionedSectionSearchResult {
       values,
       opts,
       reference,
+      true,
+      transactionClient
     )
 
     context.logger.debug(prepareObjectForLogs({ options, response }), reference);
@@ -161,35 +164,35 @@ export class VersionedSection extends MySqlModel {
   }
 
   // Insert the new record
-  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<VersionedSection> {
+  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<VersionedSection> {
     // First make sure the record is valid
     if (await this.isValid()) {
       // Save the record and then fetch it
       const newId = await VersionedSection.insert(context, this.tableName, this, 'VersionedSection.create', ['tags', 'versionedTemplate'], transactionClient);
-      return await VersionedSection.findById('VersionedSection.create', context, newId);
+      return await VersionedSection.findById('VersionedSection.create', context, newId, transactionClient);
     }
     // Otherwise return as-is with all the errors
     return new VersionedSection(this);
   }
 
   // Find the VersionedSection by id
-  static async findById(reference: string, context: MyContext, id: number): Promise<VersionedSection> {
+  static async findById(reference: string, context: MyContext, id: number, transactionClient?: DatabaseTransactionClient): Promise<VersionedSection> {
     const sql = 'SELECT * FROM versionedSections WHERE id= ?';
-    const results = await VersionedSection.query(context, sql, [id?.toString()], reference);
+    const results = await VersionedSection.query(context, sql, [id?.toString()], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new VersionedSection(results[0]) : null;
   }
 
   // Find the VersionedSections by sectionId
-  static async findBySectionId(reference: string, context: MyContext, sectionId: number): Promise<VersionedSection[]> {
+  static async findBySectionId(reference: string, context: MyContext, sectionId: number, transactionClient?: DatabaseTransactionClient): Promise<VersionedSection[]> {
     const sql = 'SELECT * FROM versionedSections WHERE sectionId = ?';
-    const results = await VersionedSection.query(context, sql, [sectionId?.toString()], reference);
+    const results = await VersionedSection.query(context, sql, [sectionId?.toString()], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? results.map((entry) => new VersionedSection(entry)) : [];
   }
 
   // Find the VersionedSections by versionedTemplateId
-  static async findByTemplateId(reference: string, context: MyContext, versionedTemplateId: number): Promise<VersionedSection[]> {
+  static async findByTemplateId(reference: string, context: MyContext, versionedTemplateId: number, transactionClient?: DatabaseTransactionClient): Promise<VersionedSection[]> {
     const sql = 'SELECT * FROM versionedSections WHERE versionedTemplateId = ?';
-    const results = await VersionedSection.query(context, sql, [versionedTemplateId?.toString()], reference);
+    const results = await VersionedSection.query(context, sql, [versionedTemplateId?.toString()], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? results.map((entry) => new VersionedSection(entry)) : [];
   }
 
@@ -200,18 +203,20 @@ export class VersionedSection extends MySqlModel {
    * @param context The Apollo context
    * @param versionedTemplateId The versionedTemplateId to search for
    * @param sectionId The sectionId to search for
+   * @param transactionClient The MySQL transaction to use.
    * @returns The active VersionedSection or undefined if none was found.
    */
   static async findByVersionedTemplateIdAndSectionId(
     reference: string,
     context: MyContext,
     versionedTemplateId: number,
-    sectionId: number
+    sectionId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<VersionedSection> {
     const sql = `SELECT * FROM versionedSections
          WHERE versionedTemplateId = ? AND sectionId = ? ORDER BY modified DESC`;
     const vals = [versionedTemplateId.toString(), sectionId.toString()];
-    const results = await VersionedSection.query(context, sql, vals, reference);
+    const results = await VersionedSection.query(context, sql, vals, reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new VersionedSection(results[0]) : undefined;
   }
 
@@ -221,6 +226,7 @@ export class VersionedSection extends MySqlModel {
     context: MyContext,
     term: string,
     options: PaginationOptions = VersionedSection.getDefaultPaginationOptions(),
+    transactionClient?: DatabaseTransactionClient
   ): Promise<PaginatedQueryResults<VersionedSection>> {
     const whereFilters = [];
     const values = [];
@@ -260,6 +266,8 @@ export class VersionedSection extends MySqlModel {
       values,
       opts,
       reference,
+      true,
+      transactionClient
     )
 
     context.logger.debug(prepareObjectForLogs({ options, response }), reference);

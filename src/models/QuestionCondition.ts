@@ -45,12 +45,12 @@ export class QuestionCondition extends MySqlModel {
   }
 
   //Create a new QuestionCondition
-  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<QuestionCondition> {
+  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<QuestionCondition> {
     // First make sure the record is valid
     if (await this.isValid()) {
       // Save the record and then fetch it
       const newId = await QuestionCondition.insert(context, this.tableName, this, 'QuestionCondition.create', [], transactionClient);
-      const created = await QuestionCondition.findById('QuestionCondition.create', context, newId);
+      const created = await QuestionCondition.findById('QuestionCondition.create', context, newId, transactionClient);
       if (created) {
         return new QuestionCondition(created);
       }
@@ -61,13 +61,13 @@ export class QuestionCondition extends MySqlModel {
   }
 
   //Update an existing QuestionCondition
-  async update(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<QuestionCondition> {
+  async update(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<QuestionCondition> {
     const id = this.id;
 
     if (await this.isValid()) {
       if (id) {
         await QuestionCondition.update(context, this.tableName, this, 'QuestionCondition.update', [], false, transactionClient);
-        const updated = await QuestionCondition.findById('QuestionCondition.update', context, id);
+        const updated = await QuestionCondition.findById('QuestionCondition.update', context, id, transactionClient);
         if (updated) {
           return new QuestionCondition(updated);
         }
@@ -79,11 +79,11 @@ export class QuestionCondition extends MySqlModel {
   }
 
   //Delete QuestionCondition based on the QuestionCondition object's id and return
-  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<QuestionCondition> {
+  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<QuestionCondition> {
     if (this.id) {
       /*First get the QuestionCondition to be deleted so we can return this info to the user
       since calling 'delete' doesn't return anything*/
-      const deleted = await QuestionCondition.findById('QuestionCondition.delete', context, this.id);
+      const deleted = await QuestionCondition.findById('QuestionCondition.delete', context, this.id, transactionClient);
 
       const successfullyDeleted = await QuestionCondition.delete(context, this.tableName, this.id, 'QuestionCondition.delete', transactionClient);
       if (successfullyDeleted) {
@@ -96,16 +96,16 @@ export class QuestionCondition extends MySqlModel {
   }
 
   // Fetch a QuestionConditions by it's id
-  static async findById(reference: string, context: MyContext, questionConditionId: number): Promise<QuestionCondition> {
+  static async findById(reference: string, context: MyContext, questionConditionId: number, transactionClient?: DatabaseTransactionClient): Promise<QuestionCondition> {
     const sql = 'SELECT * FROM questionConditions WHERE id = ?';
-    const results = await QuestionCondition.query(context, sql, [questionConditionId?.toString()], reference);
+    const results = await QuestionCondition.query(context, sql, [questionConditionId?.toString()], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new QuestionCondition(results[0]) : null;
   }
 
   // Fetch all of the QuestionConditions for the specified Question
-  static async findByQuestionId(reference: string, context: MyContext, questionId: number): Promise<QuestionCondition[]> {
+  static async findByQuestionId(reference: string, context: MyContext, questionId: number, transactionClient?: DatabaseTransactionClient): Promise<QuestionCondition[]> {
     const sql = 'SELECT * FROM questionConditions WHERE questionId = ?';
-    const results = await QuestionCondition.query(context, sql, [questionId?.toString()], reference);
+    const results = await QuestionCondition.query(context, sql, [questionId?.toString()], reference, transactionClient);
     return Array.isArray(results) ? results.map((entry) => new QuestionCondition(entry)) : [];
   }
 }

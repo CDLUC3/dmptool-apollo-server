@@ -137,7 +137,9 @@ describe('VersionedTemplateCustomization', () => {
         mockContext,
         'versionedTemplateCustomizations',
         instance,
-        'VersionedTemplateCustomization.create'
+        'VersionedTemplateCustomization.create',
+        [],
+        undefined,
       );
       expect(createdInstance.unpublishOtherVersions).toHaveBeenCalled();
       expect(result).toBe(createdInstance);
@@ -194,7 +196,8 @@ describe('VersionedTemplateCustomization', () => {
         instance,
         'VersionedTemplateCustomization.update',
         [],
-        false
+        false,
+        undefined,
       );
       expect(result).toBe(mockFetched);
     });
@@ -220,7 +223,8 @@ describe('VersionedTemplateCustomization', () => {
         instance,
         'VersionedTemplateCustomization.update',
         [],
-        true
+        true,
+        undefined,
       );
     });
 
@@ -277,7 +281,8 @@ describe('VersionedTemplateCustomization', () => {
         mockContext,
         expect.stringContaining('UPDATE versionedTemplateCustomizations SET active = 0'),
         ['1', '10'],
-        'test-ref'
+        'test-ref',
+        undefined,
       );
       expect(result).toBe(true);
     });
@@ -305,7 +310,8 @@ describe('VersionedTemplateCustomization', () => {
         mockContext,
         'SELECT * FROM versionedTemplateCustomizations WHERE id = ?',
         ['1'],
-        'test-ref'
+        'test-ref',
+        undefined
       );
 
       expect(result).toBeInstanceOf(VersionedTemplateCustomization);
@@ -337,7 +343,8 @@ describe('VersionedTemplateCustomization', () => {
         mockContext,
         expect.any(String),
         [undefined],
-        'test-ref'
+        'test-ref',
+        undefined
       );
     });
   });
@@ -358,7 +365,8 @@ describe('VersionedTemplateCustomization', () => {
         mockContext,
         expect.stringContaining('SELECT * FROM versionedTemplateCustomizations'),
         ['10', '20'],
-        'test-ref'
+        'test-ref',
+        undefined
       );
       expect(result).toBeInstanceOf(VersionedTemplateCustomization);
       expect(result.templateCustomizationId).toBe(10);

@@ -1,3 +1,4 @@
+import { toErrorMessage } from "@dmptool/utils";
 import { prepareObjectForLogs } from "../logger";
 import { MyContext } from '../context';
 import { isNullOrUndefined, validateDate } from "../utils/helpers";
@@ -12,8 +13,10 @@ import {
   SortDirection
 } from "../types/general";
 import { generalConfig } from "../config/generalConfig";
-import * as mysql2 from "mysql2/promise";
-import { DatabaseTransactionClient } from "../datasources/mysql";
+import {
+  DatabaseTransactionClient,
+  TransactionClient
+} from "../datasources/mysql";
 
 type MixedArray<T> = T[];
 
@@ -66,7 +69,7 @@ export class MySqlModel {
     return Array.from(new Set([...errs])).join(', ');
   }
 
-  // Indicates whether or not the standard fields on the record are valid
+  // Indicates whether the standard fields on the record are valid
   //   - created and modified should be dates
   //   - createdById and modifiedById should be numbers
   //   - id should be a number or null if its a new record
@@ -80,12 +83,6 @@ export class MySqlModel {
     if (this.modifiedById === null) this.addError('modifiedById', 'Modified by can\'t be blank');
 
     return Object.keys(this.errors).length === 0;
-  }
-
-  // Check whether or not the value is a Date
-  static valueIsDate(val: string): boolean {
-    const date = new Date(val);
-    return !isNaN(date.getTime());
   }
 
   /**
@@ -133,7 +130,7 @@ export class MySqlModel {
     }
   }
 
-  // Fetches all of the property info for the object to faciliate inserts and updates
+  // Fetches all of the property info for the object to facilitate inserts and updates
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static propertyInfo(obj: Record<string, any>, skipKeys: string[] = []): { name: string, value: string }[] {
     const excludedKeys = ['id', 'errors', 'tableName'];
@@ -144,6 +141,39 @@ export class MySqlModel {
           name: key,
           value: obj[key]
         }));
+  }
+
+  /**
+   * Initialize a new MySQL connection object from the Apollo server context's
+   * MySQL datasource
+   *
+   * @param context the Apollo server context
+   * @returns a new transaction client
+   * @throws an error if the connection/transaction could not be established
+   */
+  static async initializeTransaction(
+    context: MyContext
+  ): Promise<TransactionClient> {
+    try {
+      // Fetch a transaction client for the database and start a new transaction
+      const transactionClient: DatabaseTransactionClient = new TransactionClient(
+        await context.dataSources.sqlDataSource.getConnection()
+      );
+
+      if (transactionClient) {
+        context.logger.debug('Starting transaction.');
+        await transactionClient.begin();
+      } else {
+        throw new Error('Unable to establish a database transaction!');
+      }
+
+      return transactionClient;
+    } catch (err) {
+      context.logger.error(
+        { err: toErrorMessage(err), jti: context.token.jti },
+        'Fatal error trying to establish MySQL transaction.');
+      throw err;
+    }
   }
 
   // Run a query to check for the existence of a record in the database. Typically used to verify that
@@ -158,7 +188,7 @@ export class MySqlModel {
     tableName: string,
     id: number,
     reference = 'undefined caller',
-    transactionClient: DatabaseTransactionClient | undefined = undefined
+    transactionClient?: DatabaseTransactionClient
   ): Promise<boolean> {
     try {
       const sql = `SELECT id FROM ${tableName} WHERE id = ?`;
@@ -202,7 +232,8 @@ export class MySqlModel {
     groupByClause: string,
     countField: string,
     values: string[],
-    reference = 'undefined caller'
+    reference = 'undefined caller',
+    transactionClient?: DatabaseTransactionClient
   ): Promise<number> {
     try {
       const sqlParts = sqlStatement.split(' FROM ');
@@ -210,7 +241,7 @@ export class MySqlModel {
 
       const countSql = `SELECT COUNT(${countField}) total FROM ${fromClause} ${whereClause} ${groupByClause}`;
 
-      const countResponse = await MySqlModel.query(apolloContext, countSql, values, reference);
+      const countResponse = await MySqlModel.query(apolloContext, countSql, values, reference, transactionClient);
 
       if (groupByClause.trim() && Array.isArray(countResponse)) {
         // When using GROUP BY, count the number of rows returned (each row = one project)
@@ -266,12 +297,13 @@ export class MySqlModel {
   //    - sqlStatement:    The SQL statement to perform e.g. `SELECT * FROM table WHERE id = ?`
   //    - reference:       A reference to contextualize log messages e.g. `users resolver`
   //    - values:          The values to inject into the SQL statement e.g. `[id.toString()]`
+  //    - transactionClient: The database transaction client to use for the query
   static async query(
     apolloContext: MyContext,
     sqlStatement: string,
     values: MixedArray<string | boolean | Buffer> = [],
     reference = 'undefined caller',
-    transactionClient: DatabaseTransactionClient | undefined = undefined
+    transactionClient?: DatabaseTransactionClient
   ): Promise<any[]> { // eslint-disable-line @typescript-eslint/no-explicit-any
     const { logger, dataSources } = apolloContext;
 
@@ -281,7 +313,7 @@ export class MySqlModel {
       const vals = values.map((entry) => this.prepareValue(entry, typeof (entry)));
 
       try {
-        // Mask all of the values like 'a***e' before logging
+        // Mask all the values like 'a***e' before logging
         const maskedValues = vals.map((val) => {
           if (typeof val === 'string' && val.length > 3) {
             const mask = val.slice(1, val.length - 2).replace(/./g, '*');
@@ -289,7 +321,10 @@ export class MySqlModel {
           }
           return val;
         });
-        apolloContext.logger.debug(prepareObjectForLogs({ sql, values: maskedValues }), reference);
+        apolloContext.logger.debug(
+          prepareObjectForLogs({ sql, values: maskedValues, usingTransaction: !!transactionClient }),
+          reference
+        );
 
         let resp: unknown;
         if (transactionClient) {
@@ -331,7 +366,8 @@ export class MySqlModel {
     values: string[],
     options: PaginationOptions,
     reference = 'undefined caller',
-    calculateTotalCount = true
+    calculateTotalCount = true,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<PaginatedQueryResults<T>> {
     const paginationOptions = this.preparePaginationOptions(options);
     try {
@@ -345,7 +381,8 @@ export class MySqlModel {
           values,
           paginationOptions,
           reference,
-          calculateTotalCount
+          calculateTotalCount,
+          transactionClient
         );
 
       } else {
@@ -358,7 +395,8 @@ export class MySqlModel {
           values,
           paginationOptions,
           reference,
-          calculateTotalCount
+          calculateTotalCount,
+          transactionClient
         );
       }
     } catch (err) {
@@ -389,7 +427,8 @@ export class MySqlModel {
     values: string[],
     options: PaginationOptionsForOffsets,
     reference = 'undefined caller',
-    calculateTotalCount = true
+    calculateTotalCount = true,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<PaginatedQueryResults<T>> {
     try {
       // Determine the maximum number of results to return
@@ -404,7 +443,7 @@ export class MySqlModel {
       const orderByClause = `ORDER BY ${options.sortField} ${options.sortDir ?? 'ASC'}`;
       const limitClause = 'LIMIT ? OFFSET ?';
       const sql = `${sqlStatement} ${whereClause} ${groupByClause} ${orderByClause} ${limitClause}`;
-      const rows = await MySqlModel.query(apolloContext, sql, vals, reference);
+      const rows = await MySqlModel.query(apolloContext, sql, vals, reference, transactionClient);
 
       const items = Array.isArray(rows) ? rows : [];
 
@@ -416,7 +455,8 @@ export class MySqlModel {
           groupByClause,
           options.countField ?? 'id',
           values,
-          reference
+          reference,
+          transactionClient
         )
         : 0;
 
@@ -464,7 +504,8 @@ export class MySqlModel {
     values: string[],
     options: PaginationOptionsForCursors,
     reference = 'undefined caller',
-    calculateTotalCount = true
+    calculateTotalCount = true,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<PaginatedQueryResults<T>> {
     try {
       // Determine the maximum number of results to return
@@ -493,7 +534,7 @@ export class MySqlModel {
       let sql = `${sqlStatement.replace('SELECT ', `SELECT ${options.cursorField} cursorId, `)} `
       sql += `${whereClause} ${groupByClause} ${orderByClause} ${limitClause}`;
 
-      const rows = await MySqlModel.query(apolloContext, sql, vals, reference);
+      const rows = await MySqlModel.query(apolloContext, sql, vals, reference, transactionClient);
       const items = Array.isArray(rows) ? rows : [];
 
       // Use original WHERE clause and original values for total count
@@ -505,7 +546,8 @@ export class MySqlModel {
           groupByClause,
           options.countField ?? 'id',
           values,
-          reference
+          reference,
+          transactionClient
         )
         : 0;
 
@@ -546,7 +588,7 @@ export class MySqlModel {
     obj: MySqlModel & { userId?: number },
     reference = 'undefined caller',
     skipKeys?: string[],
-    transactionClient: DatabaseTransactionClient | undefined = undefined
+    transactionClient?: DatabaseTransactionClient
   ): Promise<number | null> {
     // If the createdById and modifiedById have not alredy been set, use the value in the token or the userId
     if (!obj.createdById) {
@@ -561,14 +603,14 @@ export class MySqlModel {
     obj.created = currentDate;
     obj.modified = currentDate;
 
-    // Fetch all of the data from the object
+    // Fetch all the data from the object
     const props = this.propertyInfo(obj, skipKeys);
     const sql = `INSERT INTO ${table} \
                   (${props.map((entry) => entry.name).join(', ')}) \
                  VALUES (${Array(props.length).fill('?').join(', ')})`
     const vals = props.map((entry) => this.prepareValue(entry.value, typeof (entry.value)));
 
-    // Send the calcuated INSERT statement to the query function
+    // Send the calculated INSERT statement to the query function
     const result = await this.query(apolloContext, sql, vals, reference, transactionClient);
     return Array.isArray(result) ? result[0]?.insertId : null;
   }
@@ -586,7 +628,7 @@ export class MySqlModel {
     reference = 'undefined caller',
     skipKeys?: string[],
     noTouch?: boolean,
-    transactionClient: DatabaseTransactionClient | undefined = undefined
+    transactionClient?: DatabaseTransactionClient
   ): Promise<MySqlModel | null> {
     // Update the modifier info
     if (noTouch !== true) {
@@ -594,11 +636,10 @@ export class MySqlModel {
       if (apolloContext?.token?.id) {
         obj.modifiedById = apolloContext?.token?.id;
       }
-      const currentDate = getCurrentDate();
-      obj.modified = currentDate;
+      obj.modified = getCurrentDate();
     }
 
-    // Fetch all of the data from the object
+    // Fetch all the data from the object
     let props = this.propertyInfo(obj, skipKeys);
     // We are updating, so remove the created info
     props = props.filter((entry) => { return !['created', 'createdById'].includes(entry.name) });
@@ -618,7 +659,7 @@ export class MySqlModel {
     // Make sure the record id is the last value
     vals.push(obj.id.toString());
 
-    // Send the calcuated UPDATE statement to the query function
+    // Send the calculated UPDATE statement to the query function
     const result = await this.query(apolloContext, sql, vals, reference, transactionClient);
     return Array.isArray(result) ? result[0] : null;
   }
@@ -635,14 +676,14 @@ export class MySqlModel {
     table: string,
     id: number,
     reference = 'undefined caller',
-    transactionClient: DatabaseTransactionClient | undefined = undefined
+    transactionClient?: DatabaseTransactionClient
   ): Promise<boolean> {
     const sql = `DELETE FROM ${table} WHERE id = ?`;
     const result = await this.query(apolloContext, sql, [id.toString()], reference, transactionClient);
-    return Array.isArray(result) && result[0].affectedRows ? true : false;
+    return !!(!!Array.isArray(result) && result[0].affectedRows);
   }
 
-  // A helper function that can be used when updating an Object that has a many to many relationship.
+  // A helper function that can be used when updating an Object that has a many-to-many relationship.
   // You pass in an array of the current ids for the relationship and another containing the desired
   // ids for the relationship.
   //     - idsOnCurrentRecord:  The foreign key ids that are in the DB now

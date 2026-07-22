@@ -31,6 +31,15 @@ export class ProjectMember extends MySqlModel {
     this.memberRoles = options.memberRoles ?? [];
   }
 
+  // Determine whether the 2 ProjectMembers are the same based on their id, orcid, email or name
+  static areEqual(memberA: ProjectMember, memberB: ProjectMember): boolean {
+    return memberA.id === memberB.id
+      || (memberA.orcid && memberB.orcid && memberA.orcid.toLowerCase().trim() === memberB.orcid.toLowerCase().trim())
+      || (memberA.email && memberB.email && memberA.email.toLowerCase().trim() === memberB.email.toLowerCase().trim())
+      || (memberA.givenName && memberB.givenName && memberA.givenName.toLowerCase().trim() === memberB.givenName.toLowerCase().trim())
+      || (memberA.surName && memberB.surName && memberA.surName.toLowerCase().trim() === memberB.surName.toLowerCase().trim());
+  }
+
   // Ensure data integrity
   async prepForSave(context: MyContext, reference: string): Promise<void> {
     this.email = this.email?.trim()?.replace('%40', '@');
@@ -68,7 +77,7 @@ export class ProjectMember extends MySqlModel {
   }
 
   //Create a new ProjectMember
-  async create(context: MyContext, projectId: number, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<ProjectMember> {
+  async create(context: MyContext, projectId: number, transactionClient?: DatabaseTransactionClient): Promise<ProjectMember> {
     const reference = 'ProjectMember.create';
 
     // First make sure the record is valid
@@ -78,11 +87,11 @@ export class ProjectMember extends MySqlModel {
       // Then try to find an existing entry for each of the identifiers
       const orcid = formatORCID(this.orcid);
       if (orcid) {
-        current = await ProjectMember.findByProjectAndORCID(reference, context, projectId, orcid);
+        current = await ProjectMember.findByProjectAndORCID(reference, context, projectId, orcid, transactionClient);
       }
       // If email is not provided, then skip this check
       if (!current && this.email && this.email.trim().length > 0) {
-        current = await ProjectMember.findByProjectAndEmail(reference, context, projectId, this.email);
+        current = await ProjectMember.findByProjectAndEmail(reference, context, projectId, this.email, transactionClient);
       }
       if (!current) {
         current = await ProjectMember.findByProjectAndName(
@@ -90,7 +99,8 @@ export class ProjectMember extends MySqlModel {
           context,
           projectId,
           this.givenName,
-          this.surName
+          this.surName,
+          transactionClient
         );
       }
 
@@ -109,7 +119,7 @@ export class ProjectMember extends MySqlModel {
           ['memberRoles'],
           transactionClient
         );
-        const response = await ProjectMember.findById(reference, context, newId);
+        const response = await ProjectMember.findById(reference, context, newId, transactionClient);
         return response;
       }
     }
@@ -118,7 +128,7 @@ export class ProjectMember extends MySqlModel {
   }
 
   //Update an existing ProjectMember
-  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<ProjectMember> {
+  async update(context: MyContext, noTouch = false, transactionClient?: DatabaseTransactionClient): Promise<ProjectMember> {
     const reference = 'ProjectMember.update';
     const id = this.id;
 
@@ -135,7 +145,7 @@ export class ProjectMember extends MySqlModel {
           noTouch,
           transactionClient
         );
-        return await ProjectMember.findById(reference, context, id);
+        return await ProjectMember.findById(reference, context, id, transactionClient);
       }
       // This template has never been saved before so we cannot update it!
       this.addError('general', `${reference} has never been saved`);
@@ -144,23 +154,23 @@ export class ProjectMember extends MySqlModel {
   }
 
   //Delete ProjectMember
-  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<ProjectMember> {
+  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<ProjectMember> {
     if (this.id) {
       const reference = 'ProjectMember.delete';
 
       // If there is only one project member, then it cannot be deleted
-      const projectMembers = await ProjectMember.findByProjectId(reference, context, this.projectId);
+      const projectMembers = await ProjectMember.findByProjectId(reference, context, this.projectId, transactionClient);
       if (projectMembers.length === 1) {
         this.addError('general', 'A project needs at least one member, so you cannot remove the last one.');
         return this;
       }
 
       // Get all the plans that are associated with the given projectMemberId
-      const planMembers = await PlanMember.findByProjectMemberId(reference, context, this.id);
+      const planMembers = await PlanMember.findByProjectMemberId(reference, context, this.id, transactionClient);
 
       // Check each plan to ensure it has more than one member
       for (const planMember of planMembers) {
-        const membersInPlan = await PlanMember.findByPlanId(reference, context, planMember.planId);
+        const membersInPlan = await PlanMember.findByPlanId(reference, context, planMember.planId, transactionClient);
         if (membersInPlan.length === 1) {
           this.addError(
             'general',
@@ -176,7 +186,7 @@ export class ProjectMember extends MySqlModel {
       }
 
       // Delete the projectMember itself
-      const deleted = await ProjectMember.findById(reference, context, this.id);
+      const deleted = await ProjectMember.findById(reference, context, this.id, transactionClient);
       const successfullyDeleted = await ProjectMember.delete(context, ProjectMember.tableName, this.id, reference, transactionClient);
       if (successfullyDeleted) {
         return deleted;
@@ -188,23 +198,23 @@ export class ProjectMember extends MySqlModel {
   }
 
   // Return all members of the Project
-  static async findByProjectId(reference: string, context: MyContext, projectId: number): Promise<ProjectMember[]> {
+  static async findByProjectId(reference: string, context: MyContext, projectId: number, transactionClient?: DatabaseTransactionClient): Promise<ProjectMember[]> {
     const sql = `SELECT * FROM ${ProjectMember.tableName} WHERE projectId = ? ORDER BY surName, givenName`;
-    const results = await ProjectMember.query(context, sql, [projectId?.toString()], reference);
+    const results = await ProjectMember.query(context, sql, [projectId?.toString()], reference, transactionClient);
     return Array.isArray(results) ? results.map((item) => new ProjectMember(item)) : [];
   }
 
   // Return all members associated with the Affiliation
-  static async findByAffiliation(reference: string, context: MyContext, affiliationId: string): Promise<ProjectMember[]> {
+  static async findByAffiliation(reference: string, context: MyContext, affiliationId: string, transactionClient?: DatabaseTransactionClient): Promise<ProjectMember[]> {
     const sql = `SELECT * FROM ${ProjectMember.tableName} WHERE affiliationId = ? ORDER BY surName, givenName`;
-    const results = await ProjectMember.query(context, sql, [affiliationId], reference);
+    const results = await ProjectMember.query(context, sql, [affiliationId], reference, transactionClient);
     return Array.isArray(results) ? results.map((item) => new ProjectMember(item)) : [];
   }
 
   // Fetch a member by its id
-  static async findById(reference: string, context: MyContext, projectMemberId: number): Promise<ProjectMember> {
+  static async findById(reference: string, context: MyContext, projectMemberId: number, transactionClient?: DatabaseTransactionClient): Promise<ProjectMember> {
     const sql = `SELECT * FROM ${ProjectMember.tableName} WHERE id = ?`;
-    const results = await ProjectMember.query(context, sql, [projectMemberId?.toString()], reference);
+    const results = await ProjectMember.query(context, sql, [projectMemberId?.toString()], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new ProjectMember(results[0]) : null;
   }
 
@@ -213,10 +223,11 @@ export class ProjectMember extends MySqlModel {
     reference: string,
     context: MyContext,
     projectId: number,
-    email: string
+    email: string,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<ProjectMember> {
     const sql = `SELECT * FROM ${ProjectMember.tableName} WHERE projectId = ? AND email = ?`;
-    const results = await ProjectMember.query(context, sql, [projectId?.toString(), email], reference);
+    const results = await ProjectMember.query(context, sql, [projectId?.toString(), email], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new ProjectMember(results[0]) : null;
   }
 
@@ -225,10 +236,11 @@ export class ProjectMember extends MySqlModel {
     reference: string,
     context: MyContext,
     projectId: number,
-    orcid: string
+    orcid: string,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<ProjectMember> {
     const sql = `SELECT * FROM ${ProjectMember.tableName} WHERE projectId = ? AND orcid = ?`;
-    const results = await ProjectMember.query(context, sql, [projectId?.toString(), orcid], reference);
+    const results = await ProjectMember.query(context, sql, [projectId?.toString(), orcid], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new ProjectMember(results[0]) : null;
   }
 
@@ -238,11 +250,12 @@ export class ProjectMember extends MySqlModel {
     context: MyContext,
     projectId: number,
     givenName: string,
-    surName: string
+    surName: string,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<ProjectMember> {
     const sql = `SELECT * FROM ${ProjectMember.tableName} WHERE projectId = ? AND LOWER(givenName) = ? AND LOWER(surName) = ?`;
     const vals = [projectId?.toString(), givenName?.trim()?.toLowerCase(), surName?.trim()?.toLowerCase()];
-    const results = await ProjectMember.query(context, sql, vals, reference);
+    const results = await ProjectMember.query(context, sql, vals, reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new ProjectMember(results[0]) : null;
   }
 
@@ -254,21 +267,22 @@ export class ProjectMember extends MySqlModel {
     givenName: string,
     surName: string,
     orcid: string,
-    email: string
+    email: string,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<ProjectMember> {
     let sql = `SELECT * FROM ${ProjectMember.tableName}`;
     sql += ' WHERE projectId = ? AND (LOWER(givenName) = ? AND LOWER(surName) = ?) OR (orcid = ?) OR (email = ?)';
     sql += ' ORDER BY orcid DESC, email DESC, surName, givenName';
     const vals = [projectId?.toString(), givenName?.trim()?.toLowerCase(), surName?.trim()?.toLowerCase(), orcid, email];
-    const results = await ProjectMember.query(context, sql, vals, reference);
+    const results = await ProjectMember.query(context, sql, vals, reference, transactionClient);
     // We've sorted by ORCID and the email descending so grab the first match
     return Array.isArray(results) && results.length > 0 ? new ProjectMember(results[0]) : null;
   }
 
   // Get the primary contact for the specified project
-  static async findPrimaryContact(reference: string, context: MyContext, projectId: number): Promise<ProjectMember> {
+  static async findPrimaryContact(reference: string, context: MyContext, projectId: number, transactionClient?: DatabaseTransactionClient): Promise<ProjectMember> {
     const sql = `SELECT * FROM ${ProjectMember.tableName} WHERE projectId = ? AND isPrimaryContact = 1`;
-    const results = await ProjectMember.query(context, sql, [projectId?.toString()], reference);
+    const results = await ProjectMember.query(context, sql, [projectId?.toString()], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new ProjectMember(results[0]) : null;
   }
 }
@@ -305,12 +319,12 @@ export class PlanMember extends MySqlModel {
   }
 
   //Create a new PlanMember
-  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<PlanMember> {
+  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<PlanMember> {
     const reference = 'PlanMember.create';
 
     // First make sure the record is valid
     if (await this.isValid()) {
-      const current = await PlanMember.findByPlanAndProjectMember(reference, context, this.planId, this.projectMemberId);
+      const current = await PlanMember.findByPlanAndProjectMember(reference, context, this.planId, this.projectMemberId, transactionClient);
 
       // Then make sure it doesn't already exist
       if (current) {
@@ -325,7 +339,7 @@ export class PlanMember extends MySqlModel {
           ['memberRoleIds'],
           transactionClient
         );
-        const response = await PlanMember.findById(reference, context, newId);
+        const response = await PlanMember.findById(reference, context, newId, transactionClient);
         return response;
       }
     }
@@ -334,7 +348,7 @@ export class PlanMember extends MySqlModel {
   }
 
   //Update an existing plan member
-  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<PlanMember> {
+  async update(context: MyContext, noTouch = false, transactionClient?: DatabaseTransactionClient): Promise<PlanMember> {
     if (await this.isValid()) {
       if (this.id) {
         await PlanMember.update(
@@ -346,7 +360,7 @@ export class PlanMember extends MySqlModel {
           noTouch,
           transactionClient
         );
-        return await PlanMember.findById('PlanMember.update', context, this.id);
+        return await PlanMember.findById('PlanMember.update', context, this.id, transactionClient);
       }
       // This template has never been saved before so we cannot update it!
       this.addError('general', 'PlanMember has never been saved');
@@ -355,17 +369,17 @@ export class PlanMember extends MySqlModel {
   }
 
   //Delete PlanMember
-  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<PlanMember> {
+  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<PlanMember> {
     if (this.id) {
       const reference = 'PlanMember.delete';
 
       // If there is only one plan member, then it cannot be deleted
-      const members = await PlanMember.findByPlanId(reference, context, this.planId);
+      const members = await PlanMember.findByPlanId(reference, context, this.planId, transactionClient);
       if (members.length === 1) {
         this.addError('general', 'A plan needs at least one member, so you cannot remove the last one.');
         return this;
       } else {
-        const deleted = await PlanMember.findById('PlanMember.delete', context, this.id);
+        const deleted = await PlanMember.findById('PlanMember.delete', context, this.id, transactionClient);
 
         const successfullyDeleted = await PlanMember.delete(
           context,
@@ -385,9 +399,9 @@ export class PlanMember extends MySqlModel {
   }
 
   // Find the project member by its id
-  static async findById(reference: string, context: MyContext, id: number): Promise<PlanMember> {
+  static async findById(reference: string, context: MyContext, id: number, transactionClient?: DatabaseTransactionClient): Promise<PlanMember> {
     const sql = `SELECT * FROM ${this.tableName} WHERE id = ?`;
-    const results = await PlanMember.query(context, sql, [id?.toString()], reference);
+    const results = await PlanMember.query(context, sql, [id?.toString()], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new PlanMember(results[0]) : null;
   }
 
@@ -396,45 +410,47 @@ export class PlanMember extends MySqlModel {
     reference: string,
     context: MyContext,
     planId: number,
-    projectMemberId: number
+    projectMemberId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<PlanMember> {
     const sql = `SELECT * FROM ${this.tableName} WHERE planId = ? AND projectMemberId = ?`;
-    const results = await PlanMember.query(context, sql, [planId?.toString(), projectMemberId?.toString()], reference);
+    const results = await PlanMember.query(context, sql, [planId?.toString(), projectMemberId?.toString()], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new PlanMember(results[0]) : null;
   }
 
-  // Fetch a member by it's projectMember id
+  // Fetch a member by its projectMember id
   static async findByProjectMemberId(
     reference: string,
     context: MyContext,
-    planMemberId: number
+    planMemberId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<PlanMember[]> {
     const sql = `SELECT * FROM ${this.tableName} WHERE projectMemberId = ?`;
-    const results = await PlanMember.query(context, sql, [planMemberId?.toString()], reference);
+    const results = await PlanMember.query(context, sql, [planMemberId?.toString()], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? results.map((item) => new PlanMember(item)) : [];
   }
 
   // Fetch all of the members for a plan
-  static async findByPlanId(reference: string, context: MyContext, planId: number): Promise<PlanMember[]> {
+  static async findByPlanId(reference: string, context: MyContext, planId: number, transactionClient?: DatabaseTransactionClient): Promise<PlanMember[]> {
     const sql = `SELECT * FROM ${this.tableName} WHERE planId = ? ORDER BY isPrimaryContact DESC`;
-    const results = await PlanMember.query(context, sql, [planId?.toString()], reference);
+    const results = await PlanMember.query(context, sql, [planId?.toString()], reference, transactionClient);
     return Array.isArray(results) ? results.map((item) => new PlanMember(item)) : [];
   }
 
   // Fetch all plan members by a projectId
-  static async findByProjectId(reference: string, context: MyContext, projectId: number): Promise<PlanMember[]> {
+  static async findByProjectId(reference: string, context: MyContext, projectId: number, transactionClient?: DatabaseTransactionClient): Promise<PlanMember[]> {
     const sql = `SELECT pm.* FROM ${this.tableName} pm`;
     const joinClause = 'JOIN projectMembers pjm ON pm.projectMemberId = pjm.id';
     const whereClause = 'WHERE pjm.projectId = ?';
     const vals = [projectId?.toString()];
-    const results = await PlanMember.query(context, `${sql} ${joinClause} ${whereClause}`, vals, reference);
+    const results = await PlanMember.query(context, `${sql} ${joinClause} ${whereClause}`, vals, reference, transactionClient);
     return Array.isArray(results) ? results.map((item) => new PlanMember(item)) : [];
   }
 
   // Get the primary contact for the specified plan
-  static async findPrimaryContact(reference: string, context: MyContext, planId: number): Promise<PlanMember> {
+  static async findPrimaryContact(reference: string, context: MyContext, planId: number, transactionClient?: DatabaseTransactionClient): Promise<PlanMember> {
     const sql = `SELECT * FROM ${this.tableName} WHERE planId = ? AND isPrimaryContact = 1`;
-    const results = await PlanMember.query(context, sql, [planId?.toString()], reference);
+    const results = await PlanMember.query(context, sql, [planId?.toString()], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new PlanMember(results[0]) : null;
   }
 }

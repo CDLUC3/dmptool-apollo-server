@@ -180,7 +180,7 @@ describe('addToSection', () => {
     const expectedSql = 'INSERT INTO sectionTags (tagId, sectionId, createdById, modifiedById) VALUES (?, ?, ?, ?)';
     const userId = context.token.id.toString();
     const vals = [mockTag.id.toString(), sectionId.toString(), userId, userId]
-    expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, vals, 'Tag.addToSection')
+    expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, vals, 'Tag.addToSection', undefined)
     expect(result).toBe(true);
   });
 
@@ -220,7 +220,7 @@ describe('removeFromSection', () => {
     expect(querySpy).toHaveBeenCalledTimes(1);
     const expectedSql = 'DELETE FROM sectionTags WHERE tagId = ? AND sectionId = ?';
     const vals = [mockTag.id.toString(), sectionId.toString()]
-    expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, vals, 'Tag.removeFromSection')
+    expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, vals, 'Tag.removeFromSection', undefined)
     expect(result).toBe(true);
   });
 
@@ -261,7 +261,7 @@ describe('addToVersionedSectionTags', () => {
     const expectedSql = 'INSERT INTO versionedSectionTags (tagId, versionedSectionId, createdById, modifiedById) VALUES (?, ?, ?, ?)';
     const userId = context.token.id.toString();
     const vals = [mockTag.id.toString(), versionedSectionId.toString(), userId, userId]
-    expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, vals, 'Tag.addToVersionedSectionTags')
+    expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, vals, 'Tag.addToVersionedSectionTags', undefined);
     expect(result).toBe(true);
   });
 
@@ -306,7 +306,7 @@ describe('findAll', () => {
     const result = await Tag.findAll('Tag query', context);
     const expectedSql = 'SELECT * FROM tags';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [], 'Tag query')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [], 'Tag query', undefined);
     expect(result).toEqual([tag]);
   });
 });
@@ -345,7 +345,7 @@ describe('findBySectionId', () => {
     const result = await Tag.findBySectionId('Tag query', context, sectionId);
     const expectedSql = `SELECT tags.* FROM sectionTags JOIN tags ON sectionTags.tagId = tags.id WHERE sectionTags.sectionId = ?;`;
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [sectionId.toString()], 'Tag query')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [sectionId.toString()], 'Tag query', undefined);
     expect(result).toEqual([tag]);
   });
 });
@@ -383,7 +383,7 @@ describe('findByVersionedSectionId', () => {
     const result = await Tag.findByVersionedSectionId('Tag query', context, versionedSectionId);
     const expectedSql = `SELECT tags.* FROM versionedSectionTags vst JOIN tags ON vst.tagId = tags.id WHERE vst.versionedSectionId = ?;`;
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [versionedSectionId.toString()], 'Tag query')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [versionedSectionId.toString()], 'Tag query', undefined);
     expect(result).toEqual([tag]);
   });
 });
@@ -419,7 +419,7 @@ describe('findById', () => {
     const result = await Tag.findById('Tag query', context, tagId);
     const expectedSql = 'SELECT * FROM tags where id = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [tagId.toString()], 'Tag query')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [tagId.toString()], 'Tag query', undefined);
     expect(result).toEqual(tag);
 
   });
@@ -456,7 +456,7 @@ describe('findBySlug', () => {
     const result = await Tag.findBySlug('Tag query', context, slug);
     const expectedSql = 'SELECT * FROM tags WHERE slug = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [slug], 'Tag query')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [slug], 'Tag query', undefined);
     expect(result).toEqual([tag]);
 
   });

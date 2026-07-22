@@ -42,7 +42,7 @@ export class ProjectFunding extends MySqlModel {
   }
 
   //Create a new ProjectFunding
-  async create(context: MyContext, projectId: number, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<ProjectFunding> {
+  async create(context: MyContext, projectId: number, transactionClient?: DatabaseTransactionClient): Promise<ProjectFunding> {
     const reference = 'ProjectFunding.create';
 
     // First make sure the record is valid
@@ -51,7 +51,8 @@ export class ProjectFunding extends MySqlModel {
         reference,
         context,
         projectId,
-        this.affiliationId
+        this.affiliationId,
+        transactionClient
       );
 
       // Then make sure it doesn't already exist
@@ -60,7 +61,7 @@ export class ProjectFunding extends MySqlModel {
       } else {
         // Save the record and then fetch it
         const newId = await ProjectFunding.insert(context, ProjectFunding.tableName, this, reference, [], transactionClient);
-        const response = await ProjectFunding.findById(reference, context, newId);
+        const response = await ProjectFunding.findById(reference, context, newId, transactionClient);
         return response;
       }
     }
@@ -69,13 +70,13 @@ export class ProjectFunding extends MySqlModel {
   }
 
   //Update an existing ProjectFunding
-  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<ProjectFunding> {
+  async update(context: MyContext, noTouch = false, transactionClient?: DatabaseTransactionClient): Promise<ProjectFunding> {
     const id = this.id;
 
     if (await this.isValid()) {
       if (id) {
         await ProjectFunding.update(context, ProjectFunding.tableName, this, 'ProjectFunding.update', [], noTouch, transactionClient);
-        return await ProjectFunding.findById('ProjectFunding.update', context, id);
+        return await ProjectFunding.findById('ProjectFunding.update', context, id, transactionClient);
       }
       // This template has never been saved before so we cannot update it!
       this.addError('general', 'ProjectFunding has never been saved');
@@ -84,10 +85,10 @@ export class ProjectFunding extends MySqlModel {
   }
 
   //Delete the ProjectFunding
-  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<ProjectFunding> {
+  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<ProjectFunding> {
     if (this.id) {
       const ref = 'ProjectFunding.delete';
-      const deleted = await ProjectFunding.findById(ref, context, this.id);
+      const deleted = await ProjectFunding.findById(ref, context, this.id, transactionClient);
 
       const successfullyDeleted = await ProjectFunding.delete(context, ProjectFunding.tableName, this.id, ref, transactionClient);
       if (successfullyDeleted) {
@@ -100,16 +101,16 @@ export class ProjectFunding extends MySqlModel {
   }
 
   // Return all of the fundings for the Project
-  static async findByProjectId(reference: string, context: MyContext, projectId: number): Promise<ProjectFunding[]> {
+  static async findByProjectId(reference: string, context: MyContext, projectId: number, transactionClient?: DatabaseTransactionClient): Promise<ProjectFunding[]> {
     const sql = `SELECT * FROM ${ProjectFunding.tableName} WHERE projectId = ? ORDER BY created DESC`;
-    const results = await ProjectFunding.query(context, sql, [projectId?.toString()], reference);
+    const results = await ProjectFunding.query(context, sql, [projectId?.toString()], reference, transactionClient);
     return Array.isArray(results) ? results.map((item) => new ProjectFunding(item)) : [];
   }
 
   // Return all of the project fundings for the Affiliation
-  static async findByAffiliation(reference: string, context: MyContext, affiliationId: string): Promise<ProjectFunding[]> {
+  static async findByAffiliation(reference: string, context: MyContext, affiliationId: string, transactionClient?: DatabaseTransactionClient): Promise<ProjectFunding[]> {
     const sql = `SELECT * FROM ${ProjectFunding.tableName} WHERE affiliationId = ? ORDER BY created DESC`;
-    const results = await ProjectFunding.query(context, sql, [affiliationId], reference);
+    const results = await ProjectFunding.query(context, sql, [affiliationId], reference, transactionClient);
     return Array.isArray(results) ? results.map((item) => new ProjectFunding(item)) : [];
   }
 
@@ -119,25 +120,26 @@ export class ProjectFunding extends MySqlModel {
     context: MyContext,
     projectId: number,
     affiliationId: string,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<ProjectFunding> {
     const sql = `SELECT * FROM ${ProjectFunding.tableName} WHERE projectId = ? AND affiliationId = ?`;
-    const results = await ProjectFunding.query(context, sql, [projectId?.toString(), affiliationId], reference);
+    const results = await ProjectFunding.query(context, sql, [projectId?.toString(), affiliationId], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new ProjectFunding(results[0]) : null;
   }
 
   // Fetch project fundings by their ids
-  static async findByIds(reference: string, context: MyContext, projectFundingIds: number[]): Promise<ProjectFunding[]> {
+  static async findByIds(reference: string, context: MyContext, projectFundingIds: number[], transactionClient?: DatabaseTransactionClient): Promise<ProjectFunding[]> {
     if (!projectFundingIds || projectFundingIds.length === 0) return [];
     const placeholders = projectFundingIds.map(() => '?').join(', ');
     const sql = `SELECT * FROM ${ProjectFunding.tableName} WHERE id IN (${placeholders})`;
-    const results = await ProjectFunding.query(context, sql, projectFundingIds.map(id => id?.toString()), reference);
+    const results = await ProjectFunding.query(context, sql, projectFundingIds.map(id => id?.toString()), reference, transactionClient);
     return Array.isArray(results) ? results.map((item) => new ProjectFunding(item)) : [];
   }
 
 // Fetch a project funding by its id
-  static async findById(reference: string, context: MyContext, projectFundingId: number): Promise<ProjectFunding> {
+  static async findById(reference: string, context: MyContext, projectFundingId: number, transactionClient?: DatabaseTransactionClient): Promise<ProjectFunding> {
     const sql = `SELECT * FROM ${ProjectFunding.tableName} WHERE id = ?`;
-    const results = await ProjectFunding.query(context, sql, [projectFundingId?.toString()], reference);
+    const results = await ProjectFunding.query(context, sql, [projectFundingId?.toString()], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new ProjectFunding(results[0]) : null;
   }
 }
@@ -167,12 +169,12 @@ export class PlanFunding extends MySqlModel {
   }
 
   //Create a new PlanFunding
-  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<PlanFunding> {
+  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<PlanFunding> {
     const reference = 'PlanFunding.create';
 
     // First make sure the record is valid
     if (await this.isValid()) {
-      const current = await PlanFunding.findByPlanAndProjectFundingId(reference, context, this.planId, this.projectFundingId);
+      const current = await PlanFunding.findByPlanAndProjectFundingId(reference, context, this.planId, this.projectFundingId, transactionClient);
 
       // Then make sure it doesn't already exist
       if (current) {
@@ -180,7 +182,7 @@ export class PlanFunding extends MySqlModel {
       } else {
         // Save the record and then fetch it
         const newId = await PlanFunding.insert(context, PlanFunding.tableName, this, reference, [], transactionClient);
-        const response = await PlanFunding.findById(reference, context, newId);
+        const response = await PlanFunding.findById(reference, context, newId, transactionClient);
         return response;
       }
     }
@@ -189,11 +191,11 @@ export class PlanFunding extends MySqlModel {
   }
 
   //Update an existing PlanFunding
-  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<PlanFunding> {
+  async update(context: MyContext, noTouch = false, transactionClient?: DatabaseTransactionClient): Promise<PlanFunding> {
     if (await this.isValid()) {
       if (this.id) {
         await PlanFunding.update(context, PlanFunding.tableName, this, 'PlanFunding.update', [], noTouch, transactionClient);
-        return await PlanFunding.findById('PlanFunding.update', context, this.id);
+        return await PlanFunding.findById('PlanFunding.update', context, this.id, transactionClient);
       }
       // This template has never been saved before so we cannot update it!
       this.addError('general', 'PlanFunding has never been saved');
@@ -202,10 +204,10 @@ export class PlanFunding extends MySqlModel {
   }
 
   //Delete the PlanFunding
-  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<PlanFunding> {
+  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<PlanFunding> {
     if (this.id) {
       const ref = 'PlanFunding.delete';
-      const deleted = await PlanFunding.findById(ref, context, this.id);
+      const deleted = await PlanFunding.findById(ref, context, this.id, transactionClient);
 
       const successfullyDeleted = await PlanFunding.delete(context, PlanFunding.tableName, this.id, ref, transactionClient);
       if (successfullyDeleted) {
@@ -218,9 +220,9 @@ export class PlanFunding extends MySqlModel {
   }
 
   // Find the project funding by its id
-  static async findById(reference: string, context: MyContext, projectFundingId: number): Promise<PlanFunding> {
+  static async findById(reference: string, context: MyContext, projectFundingId: number, transactionClient?: DatabaseTransactionClient): Promise<PlanFunding> {
     const sql = `SELECT * FROM ${this.tableName} WHERE id = ?`;
-    const results = await PlanFunding.query(context, sql, [projectFundingId?.toString()], reference);
+    const results = await PlanFunding.query(context, sql, [projectFundingId?.toString()], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new PlanFunding(results[0]) : null;
   }
 
@@ -229,25 +231,26 @@ export class PlanFunding extends MySqlModel {
     reference: string,
     context: MyContext,
     planId: number,
-    projectFundingId: number
+    projectFundingId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<PlanFunding> {
     const sql = `SELECT * FROM ${this.tableName} WHERE planId = ? AND projectFundingId = ?`;
     const vals = [planId?.toString(), projectFundingId?.toString()];
-    const results = await PlanFunding.query(context, sql, vals, reference);
+    const results = await PlanFunding.query(context, sql, vals, reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new PlanFunding(results[0]) : null;
   }
 
   // Find all the funding for the plan using the planId
-  static async findByPlanId(reference: string, context: MyContext, planId: number): Promise<PlanFunding[]> {
+  static async findByPlanId(reference: string, context: MyContext, planId: number, transactionClient?: DatabaseTransactionClient): Promise<PlanFunding[]> {
     const sql = `SELECT * FROM ${this.tableName} WHERE planId = ?`;
-    const results = await PlanFunding.query(context, sql, [planId?.toString()], reference);
+    const results = await PlanFunding.query(context, sql, [planId?.toString()], reference, transactionClient);
     return Array.isArray(results) ? results.map((item) => new PlanFunding(item)) : [];
   }
 
   // Find all the funding for the given projectFundingId
-  static async findByProjectFundingId(reference: string, context: MyContext, projectFundingId: number): Promise<PlanFunding[]> {
+  static async findByProjectFundingId(reference: string, context: MyContext, projectFundingId: number, transactionClient?: DatabaseTransactionClient): Promise<PlanFunding[]> {
     const sql = `SELECT * FROM ${this.tableName} WHERE projectFundingId = ?`;
-    const results = await PlanFunding.query(context, sql, [projectFundingId?.toString()], reference);
+    const results = await PlanFunding.query(context, sql, [projectFundingId?.toString()], reference, transactionClient);
     return Array.isArray(results) ? results.map((item) => new PlanFunding(item)) : [];
   }
 }

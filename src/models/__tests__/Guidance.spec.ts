@@ -70,7 +70,7 @@ describe('Guidance.findByGuidanceGroupId', () => {
     const result = await Guidance.findByGuidanceGroupId('Guidance query', context, guidance.guidanceGroupId);
     const expectedSql = 'SELECT * FROM guidance WHERE guidanceGroupId = ? ORDER BY id ASC';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenCalledWith(context, expectedSql, [guidance.guidanceGroupId.toString()], 'Guidance query');
+    expect(localQuery).toHaveBeenCalledWith(context, expectedSql, [guidance.guidanceGroupId.toString()], 'Guidance query', undefined);
     expect(result.length).toBe(1);
     expect(result[0].id).toEqual(guidance.id);
   });
@@ -116,7 +116,7 @@ describe('Guidance.findById', () => {
     const result = await Guidance.findById('Guidance query', context, guidance.id);
     const expectedSql = 'SELECT * FROM guidance WHERE id = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenCalledWith(context, expectedSql, [guidance.id.toString()], 'Guidance query');
+    expect(localQuery).toHaveBeenCalledWith(context, expectedSql, [guidance.id.toString()], 'Guidance query', undefined);
     expect(result.id).toEqual(guidance.id);
   });
 
@@ -207,7 +207,7 @@ describe('PlanGuidance static methods', () => {
     const result = await PlanGuidance.findById('PlanGuidance query', context, planGuidance.id);
     const expectedSql = 'SELECT * FROM planGuidance WHERE id = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenCalledWith(context, expectedSql, [planGuidance.id.toString()], 'PlanGuidance query');
+    expect(localQuery).toHaveBeenCalledWith(context, expectedSql, [planGuidance.id.toString()], 'PlanGuidance query', undefined);
     expect(result.id).toEqual(planGuidance.id);
   });
 
@@ -235,7 +235,7 @@ describe('PlanGuidance static methods', () => {
   it('findByPlanUserAndAffiliation should return an array of plan guidance', async () => {
     localQuery.mockResolvedValueOnce([planGuidance]);
     const result = await PlanGuidance.findByPlanUserAndAffiliation('PlanGuidance query', context, planGuidance.planId, planGuidance.userId, planGuidance.affiliationId);
-    expect(result).not.toBeNull();    
+    expect(result).not.toBeNull();
     expect(result.planId).toEqual(planGuidance.planId);
     expect(result.userId).toEqual(planGuidance.userId);
     expect(result.affiliationId).toEqual(planGuidance.affiliationId);

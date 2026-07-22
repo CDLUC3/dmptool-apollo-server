@@ -27,13 +27,14 @@ export class AlternateIdentifier extends MySqlModel {
   }
 
   // Save the current record
-  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<AlternateIdentifier> {
+  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<AlternateIdentifier> {
     if(await this.isValid()) {
       // First make sure the record doesn't already exist
       const current = await AlternateIdentifier.findByAlternateIdentifier(
         'AlternateIdentifier.create',
         context,
         this.alternateIdentifier,
+        transactionClient
       );
 
       if (current) {
@@ -46,7 +47,7 @@ export class AlternateIdentifier extends MySqlModel {
         // Save the record and then fetch it
         const newId = await AlternateIdentifier.insert(context, AlternateIdentifier.tableName, this, 'AlternateIdentifier.create', [], transactionClient);
         if (newId) {
-          return await AlternateIdentifier.findById('AlternateIdentifier.create', context, newId as number);
+          return await AlternateIdentifier.findById('AlternateIdentifier.create', context, newId as number, transactionClient);
         }
 
         this.addError('general', 'Failed to save the record.');
@@ -57,7 +58,7 @@ export class AlternateIdentifier extends MySqlModel {
   }
 
   // Delete this record
-  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<AlternateIdentifier> {
+  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<AlternateIdentifier> {
     if (this.id) {
       const result = await AlternateIdentifier.delete(context, AlternateIdentifier.tableName, this.id, 'AlternateIdentifier.delete', transactionClient);
       if (result) {
@@ -68,32 +69,32 @@ export class AlternateIdentifier extends MySqlModel {
   }
 
   // Return the specified AlternateIdentifier
-  static async findById(reference: string, context: MyContext, id: number): Promise<AlternateIdentifier | null> {
+  static async findById(reference: string, context: MyContext, id: number, transactionClient?: DatabaseTransactionClient): Promise<AlternateIdentifier | null> {
     const sql = `SELECT * FROM ${AlternateIdentifier.tableName} WHERE id = ?`;
-    const results = await AlternateIdentifier.query(context, sql, [id?.toString()], reference);
+    const results = await AlternateIdentifier.query(context, sql, [id?.toString()], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new AlternateIdentifier(results[0]) : null;
   }
 
   // Return the entry for the specified AlternateIdentifier
-  static async findByAlternateIdentifier(reference: string, context: MyContext, alternateIdentifier: string): Promise<AlternateIdentifier | null> {
+  static async findByAlternateIdentifier(reference: string, context: MyContext, alternateIdentifier: string, transactionClient?: DatabaseTransactionClient): Promise<AlternateIdentifier | null> {
     const sql = `SELECT * FROM ${AlternateIdentifier.tableName} WHERE alternateIdentifier = ?`;
-    const results = await AlternateIdentifier.query(context, sql, [alternateIdentifier], reference);
+    const results = await AlternateIdentifier.query(context, sql, [alternateIdentifier], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new AlternateIdentifier(results[0]) : null;
   }
 
   // Return the first entry that matches one of the specified alternate identifiers
-  static async findByAlternateIdentifiers(reference: string, context: MyContext, alternateIdentifiers: string[]): Promise<AlternateIdentifier | null> {
+  static async findByAlternateIdentifiers(reference: string, context: MyContext, alternateIdentifiers: string[], transactionClient?: DatabaseTransactionClient): Promise<AlternateIdentifier | null> {
     const placeholders = alternateIdentifiers.map(() => '?').join(', ');
     const sql = `SELECT * FROM ${AlternateIdentifier.tableName} WHERE alternateIdentifier IN (${placeholders})`;
     const vals = alternateIdentifiers.map(id => id.toString());
-    const results = await AlternateIdentifier.query(context, sql, vals, reference);
+    const results = await AlternateIdentifier.query(context, sql, vals, reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new AlternateIdentifier(results[0]) : null;
   }
 
   // Return the AlternateIdentifiers for a given Plan
-  static async findByPlanId(reference: string, context: MyContext, planId: number): Promise<AlternateIdentifier[] | []> {
+  static async findByPlanId(reference: string, context: MyContext, planId: number, transactionClient?: DatabaseTransactionClient): Promise<AlternateIdentifier[] | []> {
     const sql = `SELECT * FROM ${AlternateIdentifier.tableName} WHERE planId = ?`;
-    const results = await AlternateIdentifier.query(context, sql, [planId?.toString()], reference);
+    const results = await AlternateIdentifier.query(context, sql, [planId?.toString()], reference, transactionClient);
     return Array.isArray(results) ? results.map((entry) => new AlternateIdentifier(entry)) : [];
   }
 }

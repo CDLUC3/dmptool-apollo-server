@@ -6,6 +6,7 @@ import { MyContext } from '../context';
 export interface DatabaseConnection {
   getConnection(): Promise<mysql2.PoolConnection>;
   beginTransaction(): Promise<mysql2.PoolConnection>;
+  rollbackTransaction(transaction: mysql2.PoolConnection): Promise<void>;
   commitTransaction(transaction: mysql2.PoolConnection): Promise<void>;
   query<T>(context: MyContext, sql: string, values?: string[]): Promise<T>;
   close(): Promise<void>;
@@ -116,6 +117,10 @@ export class MySQLConnection implements DatabaseConnection {
     const connection = await this.getConnection();
     await connection.beginTransaction();
     return connection;
+  }
+
+  public async rollbackTransaction(transaction: mysql2.PoolConnection): Promise<void> {
+    await transaction.rollback();
   }
 
   public async commitTransaction(transaction: mysql2.PoolConnection): Promise<void> {

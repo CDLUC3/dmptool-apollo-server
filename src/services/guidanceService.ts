@@ -17,6 +17,7 @@ import { prepareObjectForLogs } from "../logger";
 import { getCurrentDate } from "../utils/helpers";
 import { isSuperAdmin } from "./authService";
 import { GuidanceSourceType } from "../types";
+import {DatabaseTransactionClient} from "../datasources/mysql";
 
 const GuidanceSourceType = {
   BEST_PRACTICE: 'BEST_PRACTICE' as const,
@@ -50,9 +51,10 @@ interface TagRow {
 // Check if the user has permission to access the GuidanceGroup
 export const hasPermissionOnGuidanceGroup = async (
   context: MyContext,
-  guidanceGroupId: number
+  guidanceGroupId: number,
+  transactionClient?: DatabaseTransactionClient
 ): Promise<boolean> => {
-  const guidanceGroup = await GuidanceGroup.findById('hasPermissionOnGuidanceGroup', context, guidanceGroupId);
+  const guidanceGroup = await GuidanceGroup.findById('hasPermissionOnGuidanceGroup', context, guidanceGroupId, transactionClient);
 
   if (!guidanceGroup) {
     return false;
@@ -69,6 +71,7 @@ export const hasPermissionOnGuidanceGroup = async (
 export const publishGuidanceGroup = async (
   context: MyContext,
   guidanceGroup: GuidanceGroup,
+  transactionClient?: DatabaseTransactionClient
 ): Promise<boolean> => {
   const reference = 'publishGuidanceGroup';
 
@@ -78,7 +81,7 @@ export const publishGuidanceGroup = async (
   }
 
   // Get the current version number
-  const existingVersions = await VersionedGuidanceGroup.findByGuidanceGroupId(reference, context, guidanceGroup.id);
+  const existingVersions = await VersionedGuidanceGroup.findByGuidanceGroupId(reference, context, guidanceGroup.id, transactionClient);
   const nextVersion = existingVersions.length > 0 ? Math.max(...existingVersions.map(v => v.version || 0)) + 1 : 1;
 
   // Create the new Version
@@ -95,26 +98,26 @@ export const publishGuidanceGroup = async (
   });
 
   try {
-    const created = await versionedGuidanceGroup.create(context);
+    const created = await versionedGuidanceGroup.create(context, transactionClient);
 
     // If the creation was successful
     if (created && !created.hasErrors()) {
       // Deactivate all previous versions
-      await VersionedGuidanceGroup.deactivateAll(reference, context, guidanceGroup.id);
+      await VersionedGuidanceGroup.deactivateAll(reference, context, guidanceGroup.id, transactionClient);
 
       // Set this version as active (in case deactivateAll affected it)
       created.active = true;
       await created.update(context, true);
 
       // Create a version for all the associated guidance items
-      const guidanceItems = await Guidance.findByGuidanceGroupId(reference, context, guidanceGroup.id);
+      const guidanceItems = await Guidance.findByGuidanceGroupId(reference, context, guidanceGroup.id, transactionClient);
       let allGuidanceWereVersioned = true;
 
       for (const guidance of guidanceItems) {
         const guidanceInstance = new Guidance({
           ...guidance
         });
-        const passed = await generateGuidanceVersion(context, guidanceInstance, created.id);
+        const passed = await generateGuidanceVersion(context, guidanceInstance, created.id, transactionClient);
         if (!passed) {
           allGuidanceWereVersioned = false;
         }
@@ -126,7 +129,7 @@ export const publishGuidanceGroup = async (
         guidanceGroup.isDirty = false;
         guidanceGroup.latestPublishedVersion = nextVersion.toString();
         guidanceGroup.latestPublishedDate = getCurrentDate();
-        const updated = await guidanceGroup.update(context, true);
+        const updated = await guidanceGroup.update(context, true, transactionClient);
 
         if (updated && !updated.hasErrors()) return true;
 
@@ -151,6 +154,7 @@ export const publishGuidanceGroup = async (
 export const unpublishGuidanceGroup = async (
   context: MyContext,
   guidanceGroup: GuidanceGroup,
+  transactionClient?: DatabaseTransactionClient
 ): Promise<boolean> => {
   const reference = 'unpublishGuidanceGroup';
 
@@ -160,7 +164,7 @@ export const unpublishGuidanceGroup = async (
 
   try {
     // Deactivate all versions
-    const success = await VersionedGuidanceGroup.deactivateAll(reference, context, guidanceGroup.id);
+    const success = await VersionedGuidanceGroup.deactivateAll(reference, context, guidanceGroup.id, transactionClient);
 
     if (success) {
       return true;
@@ -180,6 +184,7 @@ const generateGuidanceVersion = async (
   context: MyContext,
   guidance: Guidance,
   versionedGuidanceGroupId: number,
+  transactionClient?: DatabaseTransactionClient
 ): Promise<boolean> => {
 
   if (!guidance.id) {
@@ -199,7 +204,7 @@ const generateGuidanceVersion = async (
       modified: guidance.modified,
     });
 
-    const created = await versionedGuidance.create(context);
+    const created = await versionedGuidance.create(context, transactionClient);
 
     if (!created || created.hasErrors()) {
       const msg = `Unable to create versioned guidance for guidance: ${guidance.id}`;
@@ -218,19 +223,20 @@ const generateGuidanceVersion = async (
 export const markGuidanceGroupAsDirty = async (
   context: MyContext,
   guidanceGroupId: number,
+  transactionClient?: DatabaseTransactionClient
 ): Promise<void> => {
   const reference = 'markGuidanceGroupAsDirty';
 
   try {
-    const guidanceGroup = await GuidanceGroup.findById(reference, context, guidanceGroupId);
+    const guidanceGroup = await GuidanceGroup.findById(reference, context, guidanceGroupId, transactionClient);
 
     if (guidanceGroup) {
       // Only mark as dirty if there's an active version
-      const activeVersion = await VersionedGuidanceGroup.findActiveByGuidanceGroupId(reference, context, guidanceGroupId);
+      const activeVersion = await VersionedGuidanceGroup.findActiveByGuidanceGroupId(reference, context, guidanceGroupId, transactionClient);
 
       if (activeVersion) {
         guidanceGroup.isDirty = true;
-        await guidanceGroup.update(context, true);
+        await guidanceGroup.update(context, true, transactionClient);
       }
     }
   } catch (err) {
@@ -246,7 +252,7 @@ export const markGuidanceGroupAsDirty = async (
 function groupGuidanceByTag(
   versionedGuidanceItems: VersionedGuidance[],
   sectionTagIds: number[],
-  tagsMap: Record<number, string>
+  tagsMap: Record<number, string>,
 ): GuidanceItem[] {
 
   // Filter to only include guidance for tags in this section
@@ -296,13 +302,14 @@ export async function getGuidanceSourcesForPlan(
   versionedSectionId?: number,
   versionedQuestionId?: number,
   customSectionId?: number,
-  customQuestionId?: number
+  customQuestionId?: number,
+  transactionClient?: DatabaseTransactionClient
 ): Promise<GuidanceSource[]> {
   const reference = 'getGuidanceSourcesForPlan';
 
   try {
     // Get plan details
-    const plan = await Plan.findById(reference, context, planId);
+    const plan = await Plan.findById(reference, context, planId, transactionClient);
     if (!plan) {
       throw new Error(`Plan ${planId} not found`);
     }
@@ -334,40 +341,40 @@ export async function getGuidanceSourcesForPlan(
     // If there is a versionedQuestionId provided, get tags and guidance for that question's section
     if (versionedQuestionId) {
       // Question-specific query: get question's tags and guidance
-      const question = await VersionedQuestion.findById(reference, context, versionedQuestionId);
+      const question = await VersionedQuestion.findById(reference, context, versionedQuestionId, transactionClient);
       if (!question) {
         return [];
       }
 
       // Get tags for the question's section
-      tagsMap = await getSectionTags(context, question.versionedSectionId);
+      tagsMap = await getSectionTags(context, question.versionedSectionId, transactionClient);
       guidanceText = question.guidanceText || null; // Question-level guidance
     } else if (customQuestionId) {
       // Custom question: guidance is owned by the user's institution
       const customQuestion = await VersionedCustomQuestion.findById(
-        reference, context, customQuestionId
+        reference, context, customQuestionId, transactionClient
       );
       if (!customQuestion) return [];
       guidanceText = customQuestion.guidanceText || null;
       // Get tags from the parent section (which may be BASE or CUSTOM)
       if (customQuestion.versionedSectionType === 'BASE') {
-        tagsMap = await getSectionTags(context, customQuestion.versionedSectionId);
+        tagsMap = await getSectionTags(context, customQuestion.versionedSectionId, transactionClient);
       } else {
         // CUSTOM parent section — fall back to template-wide tags
-        tagsMap = await getSectionTagsMap(context, versionedTemplateId);
+        tagsMap = await getSectionTagsMap(context, versionedTemplateId, transactionClient);
       }
     } else if (versionedSectionId) { // Otherwise, get tags and guidance for the section id provided
 
-      tagsMap = await getSectionTags(context, versionedSectionId);
-      const section = await VersionedSection.findById(reference, context, versionedSectionId);
+      tagsMap = await getSectionTags(context, versionedSectionId, transactionClient);
+      const section = await VersionedSection.findById(reference, context, versionedSectionId, transactionClient);
       guidanceText = section?.guidance || null; // Section-level guidance
     } else if (customSectionId) {
 
       // Custom sections have their own tags and guidance
-      const customSection = await VersionedCustomSection.findById(reference, context, customSectionId);
+      const customSection = await VersionedCustomSection.findById(reference, context, customSectionId, transactionClient);
       if (!customSection) return [];
       guidanceText = customSection?.guidance || null;
-      tagsMap = await getSectionTagsMap(context, versionedTemplateId);
+      tagsMap = await getSectionTagsMap(context, versionedTemplateId, transactionClient);
     }
 
 
@@ -378,14 +385,14 @@ export async function getGuidanceSourcesForPlan(
       if (versionedQuestionId) {
         const questionCustomization = await VersionedQuestionCustomization
           .findActiveByTemplateAffiliationAndQuestion(
-            reference, context, userAffiliationUri, versionedQuestionId
+            reference, context, userAffiliationUri, versionedQuestionId, transactionClient
           );
         customizationGuidanceText = questionCustomization?.guidanceText || null;
 
       } else if (versionedSectionId) {
         const sectionCustomization = await VersionedSectionCustomization
           .findActiveByTemplateAffiliationAndSection(
-            reference, context, userAffiliationUri, versionedSectionId
+            reference, context, userAffiliationUri, versionedSectionId, transactionClient
           );
 
         customizationGuidanceText = sectionCustomization?.guidance || null;
@@ -395,7 +402,7 @@ export async function getGuidanceSourcesForPlan(
     }
 
     // Get template owner info
-    const versionedTemplate = await VersionedTemplate.findById(reference, context, versionedTemplateId);
+    const versionedTemplate = await VersionedTemplate.findById(reference, context, versionedTemplateId, transactionClient);
     const templateOwnerUri = versionedTemplate?.ownerId;
 
     // If there are no tag ids, then just return the guidanceText from the template owner
@@ -407,7 +414,7 @@ export async function getGuidanceSourcesForPlan(
       if (guidanceText) {
         // Custom section/question guidance belongs to the institution, not the template owner
         if ((customSectionId || customQuestionId) && userAffiliationUri) {
-          const affiliation = await Affiliation.findByURI(reference, context, userAffiliationUri);
+          const affiliation = await Affiliation.findByURI(reference, context, userAffiliationUri, transactionClient);
           if (affiliation) {
             result.push({
               id: `customization-${userAffiliationUri}`,
@@ -422,7 +429,7 @@ export async function getGuidanceSourcesForPlan(
           }
           // Base section/question guidance with no tags belongs to the template owner
         } else if (templateOwnerUri) {
-          const affiliation = await Affiliation.findByURI(reference, context, templateOwnerUri);
+          const affiliation = await Affiliation.findByURI(reference, context, templateOwnerUri, transactionClient);
           if (affiliation) {
             result.push({
               id: `affiliation-${templateOwnerUri}`,
@@ -440,14 +447,14 @@ export async function getGuidanceSourcesForPlan(
 
       // Still load planGuidance selections so those orgs appear as pills ***
       // This prevents the user from trying to re-add orgs that already have a planGuidance row
-      const userSelections = await PlanGuidance.findByPlanAndUserId(reference, context, planId, userId);
+      const userSelections = await PlanGuidance.findByPlanAndUserId(reference, context, planId, userId, transactionClient);
       const processedOrgURIs = new Set<string>(result.map(s => s.orgURI));
 
       for (const selection of userSelections) {
         const affiliationUri = selection.affiliationId;
         if (!affiliationUri || processedOrgURIs.has(affiliationUri)) continue;
 
-        const affiliation = await Affiliation.findByURI(reference, context, affiliationUri);
+        const affiliation = await Affiliation.findByURI(reference, context, affiliationUri, transactionClient);
         if (!affiliation) continue;
 
         // Include with empty items — they're selected but have no guidance for this custom section.
@@ -473,7 +480,8 @@ export async function getGuidanceSourcesForPlan(
       reference,
       context,
       planId,
-      userId
+      userId,
+      transactionClient
     );
 
 
@@ -490,7 +498,8 @@ export async function getGuidanceSourcesForPlan(
     const bestPracticeGuidance = await VersionedGuidance.findBestPracticeByTagIds(
       reference,
       context,
-      sectionTagIds
+      sectionTagIds,
+      transactionClient
     );
 
     if (bestPracticeGuidance.length > 0) {
@@ -517,7 +526,7 @@ export async function getGuidanceSourcesForPlan(
       );
 
       if (userAffiliationSelection) {
-        const affiliation = await Affiliation.findByURI(reference, context, userAffiliationUri);
+        const affiliation = await Affiliation.findByURI(reference, context, userAffiliationUri, transactionClient);
 
         if (affiliation) {
           // Fetch TAG-BASED guidance
@@ -525,7 +534,8 @@ export async function getGuidanceSourcesForPlan(
             reference,
             context,
             userAffiliationUri,
-            sectionTagIds
+            sectionTagIds,
+            transactionClient
           );
 
           const items = groupGuidanceByTag(tagBasedGuidance, sectionTagIds, tagsMap);
@@ -564,7 +574,7 @@ export async function getGuidanceSourcesForPlan(
     // 3. Template Owner's Guidance
     // ============================================================
     if (templateOwnerUri && !processedOrgURIs.has(templateOwnerUri)) {
-      const affiliation = await Affiliation.findByURI(reference, context, templateOwnerUri);
+      const affiliation = await Affiliation.findByURI(reference, context, templateOwnerUri, transactionClient);
 
       if (affiliation) {
         // Fetch TAG-BASED guidance
@@ -572,7 +582,8 @@ export async function getGuidanceSourcesForPlan(
           reference,
           context,
           templateOwnerUri,
-          sectionTagIds
+          sectionTagIds,
+          transactionClient
         );
 
         const items = groupGuidanceByTag(tagBasedGuidance, sectionTagIds, tagsMap);
@@ -618,7 +629,7 @@ export async function getGuidanceSourcesForPlan(
       }
 
       // Fetch affiliation details
-      const affiliation = await Affiliation.findByURI(reference, context, affiliationUri);
+      const affiliation = await Affiliation.findByURI(reference, context, affiliationUri, transactionClient);
       if (!affiliation) {
         continue;
       }
@@ -627,7 +638,8 @@ export async function getGuidanceSourcesForPlan(
         reference,
         context,
         affiliationUri,
-        sectionTagIds
+        sectionTagIds,
+        transactionClient
       );
 
       const items = groupGuidanceByTag(tagBasedGuidance, sectionTagIds, tagsMap);
@@ -662,7 +674,8 @@ export async function getGuidanceSourcesForPlan(
  */
 export async function getSectionTags(
   context: MyContext,
-  versionedSectionId: number
+  versionedSectionId: number,
+  transactionClient?: DatabaseTransactionClient
 ): Promise<Record<number, string>> {
   const sql = `
     SELECT DISTINCT
@@ -675,7 +688,7 @@ export async function getSectionTags(
   `;
 
   try {
-    const results = await PlanGuidance.query(context, sql, [versionedSectionId.toString()]);
+    const results = await PlanGuidance.query(context, sql, [versionedSectionId.toString()], 'getSectionTags', transactionClient);
     const tagsMap: Record<number, string> = {};
 
     if (results) {
@@ -696,7 +709,8 @@ export async function getSectionTags(
  */
 export async function getSectionTagIds(
   context: MyContext,
-  versionedTemplateId: number
+  versionedTemplateId: number,
+  transactionClient?: DatabaseTransactionClient
 ): Promise<number[]> {
   const sql = `
     SELECT DISTINCT vst.tagId
@@ -707,7 +721,7 @@ export async function getSectionTagIds(
   `;
 
   try {
-    const results = await PlanGuidance.query(context, sql, [versionedTemplateId.toString()]);
+    const results = await PlanGuidance.query(context, sql, [versionedTemplateId.toString()], 'getSectionTagIds', transactionClient);
     return results ? results.map((row: { tagId: number }) => row.tagId) : [];
   } catch (err) {
     context.logger.error({ err, sql, versionedTemplateId }, 'Error fetching section tag IDs');
@@ -720,7 +734,8 @@ export async function getSectionTagIds(
  */
 export async function getSectionTagsMap(
   context: MyContext,
-  versionedTemplateId: number
+  versionedTemplateId: number,
+  transactionClient?: DatabaseTransactionClient
 ): Promise<Record<number, string>> {
   const sql = `
     SELECT DISTINCT
@@ -734,7 +749,7 @@ export async function getSectionTagsMap(
   `;
 
   try {
-    const results = await PlanGuidance.query(context, sql, [versionedTemplateId.toString()]);
+    const results = await PlanGuidance.query(context, sql, [versionedTemplateId.toString()], 'getSectionTagsMap', transactionClient);
     const tagsMap: Record<number, string> = {};
 
     if (results) {
@@ -757,7 +772,8 @@ export async function addPlanGuidance(
   context: MyContext,
   planId: number,
   affiliationId: number | string,
-  userId: number
+  userId: number,
+  transactionClient?: DatabaseTransactionClient
 ): Promise<boolean> {
   try {
     const planGuidance = new PlanGuidance({
@@ -765,7 +781,7 @@ export async function addPlanGuidance(
       affiliationId,
       userId
     });
-    const created = await planGuidance.create(context);
+    const created = await planGuidance.create(context, transactionClient);
     return !!created && !created.hasErrors?.();
   } catch (err) {
     context.logger.error(prepareObjectForLogs(err), 'Failed to add PlanGuidanceAffiliation');
@@ -781,7 +797,8 @@ export async function addPlanGuidance(
  */
 export async function getAffiliationsWithGuidanceForTemplate(
   context: MyContext,
-  versionedTemplateId: number
+  versionedTemplateId: number,
+  transactionClient?: DatabaseTransactionClient
 ): Promise<string[]> {
   const reference = 'getAffiliationsWithGuidanceForTemplate';
 
@@ -793,7 +810,7 @@ export async function getAffiliationsWithGuidanceForTemplate(
     // ============================================================
 
     // Get the template to find its owner
-    const template = await VersionedTemplate.findById(reference, context, versionedTemplateId);
+    const template = await VersionedTemplate.findById(reference, context, versionedTemplateId, transactionClient);
     if (!template) {
       return [];
     }
@@ -808,7 +825,7 @@ export async function getAffiliationsWithGuidanceForTemplate(
         AND guidance IS NOT NULL
         AND guidance != ''
     `;
-    const sectionsResult = await Affiliation.query(context, sectionsQuery, [versionedTemplateId.toString()], reference);
+    const sectionsResult = await Affiliation.query(context, sectionsQuery, [versionedTemplateId.toString()], reference, transactionClient);
 
     const questionsQuery = `
       SELECT COUNT(*) as count
@@ -817,7 +834,7 @@ export async function getAffiliationsWithGuidanceForTemplate(
         AND guidanceText IS NOT NULL
         AND guidanceText != ''
     `;
-    const questionsResult = await Affiliation.query(context, questionsQuery, [versionedTemplateId.toString()], reference);
+    const questionsResult = await Affiliation.query(context, questionsQuery, [versionedTemplateId.toString()], reference, transactionClient);
 
     const hasGuidance = (sectionsResult[0]?.count > 0) || (questionsResult[0]?.count > 0);
 
@@ -830,7 +847,7 @@ export async function getAffiliationsWithGuidanceForTemplate(
     // ============================================================
 
     // Get all section tag IDs for the template
-    const sectionTagIds = await getSectionTagIds(context, versionedTemplateId);
+    const sectionTagIds = await getSectionTagIds(context, versionedTemplateId, transactionClient);
 
     if (sectionTagIds.length > 0) {
       const tagPlaceholders = sectionTagIds.map(() => '?').join(',');
@@ -848,7 +865,7 @@ export async function getAffiliationsWithGuidanceForTemplate(
       `;
 
       const values = sectionTagIds.map(id => id.toString());
-      const results = await Affiliation.query(context, sql, values, reference);
+      const results = await Affiliation.query(context, sql, values, reference, transactionClient);
 
       if (results) {
         results.forEach((row: { affiliationId: string }) => {

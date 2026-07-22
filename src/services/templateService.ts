@@ -14,9 +14,10 @@ import {prepareObjectForLogs} from "../logger";
 import {
   handleFunderTemplateRepublication
 } from "./templateCustomizationService";
+import {DatabaseTransactionClient} from "../datasources/mysql";
 
 // Determine whether the specified user has permission to access the Template
-export const hasPermissionOnTemplate = async (context: MyContext, template: Template): Promise<boolean> => {
+export const hasPermissionOnTemplate = async (context: MyContext, template: Template, transactionClient?: DatabaseTransactionClient): Promise<boolean> => {
   if (!context || !context.token) return false;
 
   // If the user is a super admin they have access
@@ -33,6 +34,7 @@ export const hasPermissionOnTemplate = async (context: MyContext, template: Temp
     context,
     template?.id,
     context.token?.email,
+    transactionClient
   )
   if (collaborator) {
     return true;
@@ -55,6 +57,7 @@ export const generateTemplateVersion = async (
   comment = '',
   latestPublishVisibility = TemplateVisibility.ORGANIZATION,
   versionType = TemplateVersionType.DRAFT,
+  transactionClient?: DatabaseTransactionClient
 ): Promise<VersionedTemplate> => {
   const ref = 'generateTemplateVersion';
 
@@ -95,7 +98,7 @@ export const generateTemplateVersion = async (
     modifiedById: template.modifiedById,
     modified: template.modified,
   });
-  const created = await versionedTemplate.create(context);
+  const created = await versionedTemplate.create(context, transactionClient);
 
   // If the version was successfully created and there are no errors
   if (created && !created.hasErrors()) {
@@ -103,12 +106,12 @@ export const generateTemplateVersion = async (
     for (const v of versions) {
       if (v.active) {
         const versionInstance = new VersionedTemplate({ ...v, active: false });
-        await versionInstance.update(context);
+        await versionInstance.update(context, transactionClient);
         context.logger.info(`Deactivated version ${v.version} of template ${template.id}`);
       }
     }
 
-    const sections = await Section.findByTemplateId(ref, context, template.id);
+    const sections = await Section.findByTemplateId(ref, context, template.id, transactionClient);
 
     try {
       let allSectionsWereVersioned = true;
@@ -119,10 +122,10 @@ export const generateTemplateVersion = async (
         });
 
         // Get current tags for the section so we can add it to versionedSectionTags table
-        const currentTags = await Tag.findBySectionId(ref, context, sectionInstance.id);
+        const currentTags = await Tag.findBySectionId(ref, context, sectionInstance.id, transactionClient);
         sectionInstance.tags = currentTags;
 
-        const passed = await generateSectionVersion(context, sectionInstance, created.id);
+        const passed = await generateSectionVersion(context, sectionInstance, created.id, transactionClient);
         if (!passed) {
           allSectionsWereVersioned = false;
         }
@@ -138,7 +141,7 @@ export const generateTemplateVersion = async (
         template.isDirty = versionType !== TemplateVersionType.PUBLISHED;
 
         // Pass the noTouch flag to avoid default behavior of setting isDirty, modified, etc.
-        const updated = await template.update(context, true);
+        const updated = await template.update(context, true, transactionClient);
         if (updated && !updated.hasErrors()) return created;
 
         const msg = `Unable to update template: ${template.id}`;
@@ -161,6 +164,7 @@ export const generateTemplateVersion = async (
           context,
           v.id,         // old version id
           created.id,   // new version id
+          transactionClient
         );
         context.logger.info(
           { nbrAffected, oldVersionId: v.id, newVersionId: created.id },
@@ -213,28 +217,29 @@ export const cloneTemplate = (
 export const setDefaultTemplate = async (
   reference: string,
   context: MyContext,
-  template: Template
+  template: Template,
+  transactionClient?: DatabaseTransactionClient
 ): Promise<boolean> => {
   const tSQL = `UPDATE templates SET isDefault = ? WHERE id = ?;`;
   const vtSQL = `UPDATE versionedTemplates SET isDefault = ? WHERE templateId = ?;`;
 
-  const currentDefault: VersionedTemplate = await VersionedTemplate.defaultTemplate(reference, context);
+  const currentDefault: VersionedTemplate = await VersionedTemplate.defaultTemplate(reference, context, transactionClient);
 
   const newId = template.id.toString();
   const oldId = currentDefault?.templateId?.toString();
 
   // Mark the specified template as the default
   context.logger.debug({ newDefault: template.id }, 'Setting new default template.');
-  const tMarked = await Template.query(context, tSQL, ['1', newId], reference);
+  const tMarked = await Template.query(context, tSQL, ['1', newId], reference, transactionClient);
   if (tMarked.length !== 0) {
     // Set the versionedTemplates
-    const vtMarked = await VersionedTemplate.query(context, vtSQL, ['1', newId], reference);
+    const vtMarked = await VersionedTemplate.query(context, vtSQL, ['1', newId], reference, transactionClient);
 
     // If we did NOT successfully mark the new versioned templates
     if (vtMarked.length === 0) {
       // The marking of the versioned templates failed, so roll it back
       context.logger.debug({newDefault: template.id}, 'Mark VersionedTemplate as default failed, rolling back changes.');
-      await Template.query(context, tSQL, ['0', newId], reference);
+      await Template.query(context, tSQL, ['0', newId], reference, transactionClient);
       return false;
     }
 
@@ -242,17 +247,17 @@ export const setDefaultTemplate = async (
     if (oldId) {
       // Unmark the old template
       context.logger.debug({newDefault: template.id}, 'Removing default designation from other templates.');
-      const tUnmarked = await Template.query(context, tSQL, ['0', oldId], reference);
+      const tUnmarked = await Template.query(context, tSQL, ['0', oldId], reference, transactionClient);
       // Unmark the old versionedTemplates
-      const vtUnmarked = await VersionedTemplate.query(context, vtSQL, ['0', oldId], reference);
+      const vtUnmarked = await VersionedTemplate.query(context, vtSQL, ['0', oldId], reference, transactionClient);
 
       if (tUnmarked.length === 0 || vtUnmarked.length === 0) {
         // The unmarking of the old templates failed, so roll it all back
         context.logger.debug({newDefault: template.id}, 'Mark as default failed, rolling back changes.');
-        await Template.query(context, tSQL, ['1', oldId], reference);
-        await VersionedTemplate.query(context, vtSQL, ['1', oldId], reference);
-        await Template.query(context, tSQL, ['0', newId], reference);
-        await VersionedTemplate.query(context, vtSQL, ['0', newId], reference);
+        await Template.query(context, tSQL, ['1', oldId], reference, transactionClient);
+        await VersionedTemplate.query(context, vtSQL, ['1', oldId], reference, transactionClient);
+        await Template.query(context, tSQL, ['0', newId], reference, transactionClient);
+        await VersionedTemplate.query(context, vtSQL, ['0', newId], reference, transactionClient);
         return false;
       }
     }

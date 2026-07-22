@@ -41,7 +41,7 @@ export class License extends MySqlModel {
   }
 
   //Create a new License
-  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<License> {
+  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<License> {
     const reference = 'License.create';
 
     // If no URI is present, then use the DMPTool's default URI
@@ -52,9 +52,9 @@ export class License extends MySqlModel {
     this.prepForSave();
     // First make sure the record is valid
     if (await this.isValid()) {
-      let current = await License.findByURI(reference, context, this.uri);
+      let current = await License.findByURI(reference, context, this.uri, transactionClient);
       if (!current) {
-        current = await License.findByName(reference, context, this.name.toString());
+        current = await License.findByName(reference, context, this.name.toString(), transactionClient);
       }
 
       // Then make sure it doesn't already exist
@@ -63,7 +63,7 @@ export class License extends MySqlModel {
       } else {
         // Save the record and then fetch it
         const newId = await License.insert(context, License.tableName, this, reference, [], transactionClient);
-        const response = await License.findById(reference, context, newId);
+        const response = await License.findById(reference, context, newId, transactionClient);
         return response;
       }
     }
@@ -72,14 +72,14 @@ export class License extends MySqlModel {
   }
 
   //Update an existing License
-  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<License> {
+  async update(context: MyContext, noTouch = false, transactionClient?: DatabaseTransactionClient): Promise<License> {
     const id = this.id;
 
     this.prepForSave();
     if (await this.isValid()) {
       if (id) {
         await License.update(context, License.tableName, this, 'License.update', [], noTouch, transactionClient);
-        return await License.findById('License.update', context, id);
+        return await License.findById('License.update', context, id, transactionClient);
       }
       // This template has never been saved before so we cannot update it!
       this.addError('general', 'License has never been saved');
@@ -88,9 +88,9 @@ export class License extends MySqlModel {
   }
 
   //Delete the License
-  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<License> {
+  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<License> {
     if (this.id) {
-      const deleted = await License.findById('License.delete', context, this.id);
+      const deleted = await License.findById('License.delete', context, this.id, transactionClient);
 
       const successfullyDeleted = await License.delete(
         context,
@@ -109,39 +109,39 @@ export class License extends MySqlModel {
   }
 
   // Fetch a License by it's id
-  static async findById(reference: string, context: MyContext, licenseId: number): Promise<License> {
+  static async findById(reference: string, context: MyContext, licenseId: number, transactionClient?: DatabaseTransactionClient): Promise<License> {
     const sql = `SELECT * FROM ${License.tableName} WHERE id = ?`;
-    const results = await License.query(context, sql, [licenseId?.toString()], reference);
+    const results = await License.query(context, sql, [licenseId?.toString()], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new License(results[0]) : null;
   }
 
   // Find a License by its URI. The URI is case insensitive.
-  static async findByURI(reference: string, context: MyContext, uri: string): Promise<License> {
+  static async findByURI(reference: string, context: MyContext, uri: string, transactionClient?: DatabaseTransactionClient): Promise<License> {
     const sql = `SELECT * FROM ${License.tableName} WHERE uri = ?`;
-    const results = await License.query(context, sql, [uri], reference);
+    const results = await License.query(context, sql, [uri], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new License(results[0]) : null;
   }
 
   // Find a License by its name. The name is case insensitive.
-  static async findByName(reference: string, context: MyContext, name: string): Promise<License> {
+  static async findByName(reference: string, context: MyContext, name: string, transactionClient?: DatabaseTransactionClient): Promise<License> {
     const sql = `SELECT * FROM ${License.tableName} WHERE LOWER(name) = ?`;
-    const results = await License.query(context, sql, [name?.toLowerCase()?.trim()], reference);
+    const results = await License.query(context, sql, [name?.toLowerCase()?.trim()], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new License(results[0]) : null;
   }
 
   // Return all licenses
-  static async all(reference: string, context: MyContext): Promise<License[]> {
+  static async all(reference: string, context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<License[]> {
     const sql = `SELECT * FROM ${License.tableName} ORDER BY name ASC`;
-    const results = await License.query(context, sql, [], reference);
+    const results = await License.query(context, sql, [], reference, transactionClient);
     // No need to initialize new License objects here as they are just search results
     return Array.isArray(results) ? results : [];
   }
 
   // Find licenses that are either recommended or not recommended
-  static async recommended(reference: string, context: MyContext, recommended = true): Promise<License[]> {
+  static async recommended(reference: string, context: MyContext, recommended = true,transactionClient?: DatabaseTransactionClient): Promise<License[]> {
     const sql = `SELECT * FROM ${License.tableName} WHERE recommended = ?`;
     const vals = recommended ? ['1'] : ['0'];
-    const results = await License.query(context, sql, vals, reference);
+    const results = await License.query(context, sql, vals, reference, transactionClient);
     // No need to initialize new License objects here as they are just search results
     return Array.isArray(results) ? results : [];
   }

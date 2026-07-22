@@ -157,7 +157,7 @@ describe('findBy Queries', () => {
     const result = await VersionedQuestion.findById('testing', context, questionId);
     const expectedSql = 'SELECT * FROM versionedQuestions WHERE id = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [questionId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [questionId.toString()], 'testing', undefined);
     expect(result).toBeInstanceOf(VersionedQuestion);
   });
 
@@ -267,7 +267,7 @@ describe('findByVersionedSectionId', () => {
     const result = await VersionedQuestion.findByVersionedSectionId('testing', context, id);
     const expectedSql = 'SELECT * FROM versionedQuestions WHERE versionedSectionId = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'testing', undefined);
     expect(result[0]).toBeInstanceOf(VersionedQuestion);
   });
 });
@@ -318,7 +318,7 @@ describe('findByVersionedTemplateIdAndQuestionId', () => {
     const expectedSql = `SELECT * FROM versionedQuestions
       WHERE versionedTemplateId = ? AND questionId = ? ORDER BY modified DESC`;
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [versionedQuestion.versionedTemplateId.toString(), id.toString()], 'Test')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [versionedQuestion.versionedTemplateId.toString(), id.toString()], 'Test', undefined);
     expect(result).toEqual(versionedQuestion);
     expect(result).toBeInstanceOf(VersionedQuestion);
     expect(Object.keys(result.errors).length).toBe(0);

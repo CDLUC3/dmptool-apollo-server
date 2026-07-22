@@ -36,42 +36,42 @@ export class VersionedGuidance extends MySqlModel {
   }
 
   // Insert the new record
-  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<VersionedGuidance> {
+  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<VersionedGuidance> {
     // First make sure the record is valid
     if (await this.isValid()) {
       this.prepForSave();
 
       // Save the record and then fetch it
       const newId = await VersionedGuidance.insert(context, VersionedGuidance.tableName, this, 'VersionedGuidance.create', [], transactionClient);
-      return await VersionedGuidance.findById('VersionedGuidance.create', context, newId);
+      return await VersionedGuidance.findById('VersionedGuidance.create', context, newId, transactionClient);
     }
     // Otherwise return as-is with all the errors
     return new VersionedGuidance(this);
   }
 
   // Find the VersionedGuidance by id
-  static async findById(reference: string, context: MyContext, id: number): Promise<VersionedGuidance> {
+  static async findById(reference: string, context: MyContext, id: number, transactionClient?: DatabaseTransactionClient): Promise<VersionedGuidance> {
     const sql = `SELECT * FROM ${VersionedGuidance.tableName} WHERE id = ?`;
-    const results = await VersionedGuidance.query(context, sql, [id?.toString()], reference);
+    const results = await VersionedGuidance.query(context, sql, [id?.toString()], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new VersionedGuidance(results[0]) : null;
   }
 
   // Find the VersionedGuidance items by guidanceId
-  static async findByGuidanceId(reference: string, context: MyContext, guidanceId: number): Promise<VersionedGuidance[]> {
+  static async findByGuidanceId(reference: string, context: MyContext, guidanceId: number, transactionClient?: DatabaseTransactionClient): Promise<VersionedGuidance[]> {
     const sql = `SELECT * FROM ${VersionedGuidance.tableName} WHERE guidanceId = ?`;
-    const results = await VersionedGuidance.query(context, sql, [guidanceId?.toString()], reference);
+    const results = await VersionedGuidance.query(context, sql, [guidanceId?.toString()], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? results.map((entry) => new VersionedGuidance(entry)) : [];
   }
 
   // Find the VersionedGuidance items by versionedGuidanceGroupId
-  static async findByVersionedGuidanceGroupId(reference: string, context: MyContext, versionedGuidanceGroupId: number): Promise<VersionedGuidance[]> {
+  static async findByVersionedGuidanceGroupId(reference: string, context: MyContext, versionedGuidanceGroupId: number, transactionClient?: DatabaseTransactionClient): Promise<VersionedGuidance[]> {
     const sql = `SELECT * FROM ${VersionedGuidance.tableName} WHERE versionedGuidanceGroupId = ? ORDER BY tagId ASC`;
-    const results = await VersionedGuidance.query(context, sql, [versionedGuidanceGroupId?.toString()], reference);
+    const results = await VersionedGuidance.query(context, sql, [versionedGuidanceGroupId?.toString()], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? results.map((entry) => new VersionedGuidance(entry)) : [];
   }
 
   // Find best practice VersionedGuidance for specific tags
-  static async findBestPracticeByTagIds(reference: string, context: MyContext, tagIds: number[]): Promise<VersionedGuidance[]> {
+  static async findBestPracticeByTagIds(reference: string, context: MyContext, tagIds: number[], transactionClient?: DatabaseTransactionClient): Promise<VersionedGuidance[]> {
     if (!tagIds || tagIds.length === 0) {
       return [];
     }
@@ -84,7 +84,7 @@ export class VersionedGuidance extends MySqlModel {
       WHERE vg.tagId IN (${placeholders}) AND vgg.bestPractice = 1 AND vgg.active = 1
       ORDER BY vg.id ASC
     `;
-    const results = await VersionedGuidance.query(context, sql, tagIds.map(id => id.toString()), reference);
+    const results = await VersionedGuidance.query(context, sql, tagIds.map(id => id.toString()), reference, transactionClient);
     return Array.isArray(results) ? results.map((entry) => new VersionedGuidance(entry)) : [];
   }
 
@@ -93,7 +93,8 @@ export class VersionedGuidance extends MySqlModel {
     reference: string,
     context: MyContext,
     affiliationId: string,
-    tagIds: number[]
+    tagIds: number[],
+    transactionClient?: DatabaseTransactionClient
   ): Promise<VersionedGuidance[]> {
     if (!tagIds || tagIds.length === 0) {
       return [];
@@ -112,7 +113,8 @@ export class VersionedGuidance extends MySqlModel {
       context,
       sql,
       [affiliationId, ...tagIds.map(id => id.toString())],
-      reference
+      reference,
+      transactionClient
     );
     return Array.isArray(results) ? results.map((entry) => new VersionedGuidance(entry)) : [];
   }

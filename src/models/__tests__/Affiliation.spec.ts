@@ -125,7 +125,7 @@ describe('findById', () => {
     const result = await Affiliation.findById('Test', context, affiliation.id);
     const expectedSql = 'SELECT * FROM affiliations WHERE id = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'Test')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'Test', undefined);
     expect(result).toEqual(affiliation);
   });
 
@@ -350,7 +350,7 @@ describe('findByURI', () => {
     const result = await Affiliation.findByURI('Test', context, affiliation.uri);
     const expectedSql = 'SELECT * FROM affiliations WHERE uri = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id], 'Test')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id], 'Test', undefined)
     expect(result).toEqual(affiliation);
   });
 
@@ -398,7 +398,7 @@ describe('findByName', () => {
     const expectedSql = 'SELECT * FROM affiliations WHERE TRIM(LOWER(name)) = ? OR TRIM(LOWER(displayName)) = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
     const vals = [affiliation.name.toLowerCase(), affiliation.name.toLowerCase()]
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, vals, 'Test')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, vals, 'Test', undefined);
     expect(result).toEqual(affiliation);
   });
 
@@ -415,7 +415,7 @@ describe('findByName', () => {
     const result = await Affiliation.findByEntityId('Test', context, affiliation.ssoEntityId);
     const expectedSql = 'SELECT * FROM affiliations WHERE TRIM(LOWER(ssoEntityId)) = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [affiliation.ssoEntityId.toLowerCase()], 'Test')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [affiliation.ssoEntityId.toLowerCase()], 'Test', undefined);
     expect(result).toEqual(affiliation);
   });
 
@@ -499,7 +499,7 @@ describe('search', () => {
       availableSortFields: sortFields,
     };
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, '', vals, opts, 'Test')
+    expect(localQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, '', vals, opts, 'Test', true, undefined);
     expect(result).toEqual([affiliationSearch]);
   });
 
@@ -521,7 +521,7 @@ describe('search', () => {
       availableSortFields: sortFields,
     };
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, '', vals, opts, 'Test')
+    expect(localQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, '', vals, opts, 'Test', true, undefined);
     expect(result).toEqual([affiliationSearch]);
   });
 
@@ -588,7 +588,8 @@ describe('top5', () => {
       context,
       expectedSql,
       [`${startDate} 00:00:00`, `${endDate} 23:59:59`],
-      'PopularFunder.top5'
+      'PopularFunder.top5',
+      undefined
     );
     expect(result).toEqual([popularFunder]);
   });
@@ -674,7 +675,9 @@ describe('searchManagedWithPublishedGuidance', () => {
       expectedGroupBy,
       expectedVals,
       expectedOpts,
-      'TestRef'
+      'TestRef',
+      true,
+      undefined
     );
     expect(result).toEqual({ results: [affiliationSearch], totalCount: 1 });
   });
@@ -700,7 +703,9 @@ describe('searchManagedWithPublishedGuidance', () => {
       '',
       [],
       expect.any(Object),
-      'TestRef'
+      'TestRef',
+      true,
+      undefined
     );
     expect(result).toEqual({ results: [], totalCount: 0 });
   });

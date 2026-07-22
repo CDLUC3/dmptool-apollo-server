@@ -76,7 +76,7 @@ export class VersionedCustomSection extends MySqlModel {
    * @param transactionClient the MySQL transaction to use
    * @returns The newly created custom section version.
    */
-  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<VersionedCustomSection> {
+  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<VersionedCustomSection> {
     const ref = 'VersionedCustomSection.create';
     // Make sure the record is valid
     if (await this.isValid()) {
@@ -86,7 +86,8 @@ export class VersionedCustomSection extends MySqlModel {
         this.versionedTemplateCustomizationId,
         this.customSectionId,
         this.pinnedVersionedSectionType,
-        this.pinnedVersionedSectionId
+        this.pinnedVersionedSectionId,
+        transactionClient
       );
 
       // Make sure it doesn't already exist
@@ -104,7 +105,7 @@ export class VersionedCustomSection extends MySqlModel {
           [],
           transactionClient
         );
-        return await VersionedCustomSection.findById(ref, context, newId);
+        return await VersionedCustomSection.findById(ref, context, newId, transactionClient);
       }
     }
     // Otherwise return as-is with all the errors
@@ -119,7 +120,7 @@ export class VersionedCustomSection extends MySqlModel {
    * @param transactionClient the MySQL transaction to use
    * @returns The updated custom section version.
    */
-  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<VersionedCustomSection> {
+  async update(context: MyContext, noTouch = false, transactionClient?: DatabaseTransactionClient): Promise<VersionedCustomSection> {
     const ref = 'VersionedCustomSection.update';
 
     if (isNullOrUndefined(this.id)) {
@@ -139,7 +140,7 @@ export class VersionedCustomSection extends MySqlModel {
           noTouch,
           transactionClient
         );
-        return await VersionedCustomSection.findById(ref, context, this.id);
+        return await VersionedCustomSection.findById(ref, context, this.id, transactionClient);
       }
     }
     // Otherwise return as-is with all the errors
@@ -153,7 +154,7 @@ export class VersionedCustomSection extends MySqlModel {
    * @param transactionClient the MySQL transaction to use
    * @returns The deleted custom section version.
    */
-  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<VersionedCustomSection> {
+  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<VersionedCustomSection> {
     const ref = 'VersionedCustomSection.delete';
     if (!this.id) {
       // Cannot delete it if it hasn't been saved yet!
@@ -162,7 +163,8 @@ export class VersionedCustomSection extends MySqlModel {
       const original: VersionedCustomSection = await VersionedCustomSection.findById(
         ref,
         context,
-        this.id
+        this.id,
+        transactionClient
       );
       const result: boolean = await VersionedCustomSection.delete(
         context,
@@ -188,18 +190,21 @@ export class VersionedCustomSection extends MySqlModel {
    * @param reference The reference to use for logging errors.
    * @param context The Apollo context.
    * @param versionedCustomSectionId The custom section version id.
+   * @param transactionClient the MySQL transaction to use
    * @returns The custom section version.
    */
   static async findById(
     reference: string,
     context: MyContext,
-    versionedCustomSectionId: number
+    versionedCustomSectionId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<VersionedCustomSection> {
     const results = await VersionedCustomSection.query(
       context,
       `SELECT * FROM ${VersionedCustomSection.tableName} WHERE id = ?`,
       [versionedCustomSectionId?.toString()],
-      reference
+      reference,
+      transactionClient
     );
     return Array.isArray(results) && results.length > 0 ? new VersionedCustomSection(results[0]) : undefined;
   }
@@ -213,6 +218,7 @@ export class VersionedCustomSection extends MySqlModel {
    * @param customSectionId The custom section id.
    * @param pinnedVersionedSectionType The type of pinned section.
    * @param pinnedVersionedSectionId The section id.
+   * @param transactionClient the MySQL transaction to use
    * @returns The custom section versions.
    */
   static async findByCustomizationAndPinnedSection(
@@ -221,7 +227,8 @@ export class VersionedCustomSection extends MySqlModel {
     versionedTemplateCustomizatonId: number,
     customSectionId: number,
     pinnedVersionedSectionType: PinnedSectionTypeEnum,
-    pinnedVersionedSectionId: number
+    pinnedVersionedSectionId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<VersionedCustomSection> {
     const results = await VersionedCustomSection.query(
       context,
@@ -234,7 +241,8 @@ export class VersionedCustomSection extends MySqlModel {
         pinnedVersionedSectionType,
         pinnedVersionedSectionId?.toString()
       ],
-      reference
+      reference,
+      transactionClient
     );
     return Array.isArray(results) && results.length > 0 ? new VersionedCustomSection(results[0]) : undefined;
   }
@@ -245,7 +253,8 @@ export class VersionedCustomSection extends MySqlModel {
     context: MyContext,
     planId: number,
     customSectionId: number,
-    affiliationId: string
+    affiliationId: string,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<VersionedCustomSection> {
     const sql = `
     SELECT vcs.*
@@ -265,7 +274,8 @@ export class VersionedCustomSection extends MySqlModel {
       context,
       sql,
       [planId.toString(), customSectionId.toString(), affiliationId],
-      reference
+      reference,
+      transactionClient
     );
     return Array.isArray(results) && results.length > 0
       ? new VersionedCustomSection(results[0])
@@ -278,19 +288,22 @@ export class VersionedCustomSection extends MySqlModel {
    * @param reference The reference to use for logging errors.
    * @param context The Apollo context.
    * @param versionedTemplateCustomizatonId The id of the template customization version.
+   * @param transactionClient the MySQL transaction to use
    * @returns The custom section versions.
    */
   static async findByCustomizationId(
     reference: string,
     context: MyContext,
-    versionedTemplateCustomizatonId: number
+    versionedTemplateCustomizatonId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<VersionedCustomSection[]> {
     const results = await VersionedCustomSection.query(
       context,
       `SELECT * FROM ${VersionedCustomSection.tableName}
          WHERE versionedTemplateCustomizationId = ?`,
       [versionedTemplateCustomizatonId.toString()],
-      reference
+      reference,
+      transactionClient
     );
     return Array.isArray(results) && results.length > 0 ? results.map(r => new VersionedCustomSection(r)) : [];
   }

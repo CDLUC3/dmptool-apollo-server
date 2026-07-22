@@ -102,7 +102,7 @@ describe('findBy Queries', () => {
     const result = await ProjectFunding.findById('testing', context, projectFundingId);
     const expectedSql = 'SELECT * FROM projectFundings WHERE id = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectFundingId.toString()], 'testing');
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectFundingId.toString()], 'testing', undefined);
     expect(result).toEqual(projectFunding);
   });
 
@@ -112,7 +112,7 @@ describe('findBy Queries', () => {
     const result = await ProjectFunding.findByIds('testing', context, [projectFundingId]);
     const expectedSql = 'SELECT * FROM projectFundings WHERE id IN (?)';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectFundingId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectFundingId.toString()], 'testing', undefined)
     expect(result).toEqual([projectFunding]);
   });
 
@@ -129,7 +129,7 @@ describe('findBy Queries', () => {
     const result = await ProjectFunding.findByProjectId('testing', context, projectId);
     const expectedSql = 'SELECT * FROM projectFundings WHERE projectId = ? ORDER BY created DESC';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectId.toString()], 'testing', undefined);
     expect(result).toEqual([projectFunding]);
   });
 
@@ -146,7 +146,7 @@ describe('findBy Queries', () => {
     const result = await ProjectFunding.findByAffiliation('testing', context, affiliationId);
     const expectedSql = 'SELECT * FROM projectFundings WHERE affiliationId = ? ORDER BY created DESC';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [affiliationId], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [affiliationId], 'testing', undefined);
     expect(result).toEqual([projectFunding]);
   });
 
@@ -164,7 +164,7 @@ describe('findBy Queries', () => {
     const result = await ProjectFunding.findByProjectAndAffiliation('testing', context, projectId, email);
     const expectedSql = 'SELECT * FROM projectFundings WHERE projectId = ? AND affiliationId = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectId.toString(), email], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectId.toString(), email], 'testing', undefined);
     expect(result).toEqual(projectFunding);
   });
 
@@ -413,7 +413,7 @@ describe('findBy Queries', () => {
     const result = await PlanFunding.findById('testing', context, planFundingId);
     const expectedSql = 'SELECT * FROM planFundings WHERE id = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [planFundingId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [planFundingId.toString()], 'testing', undefined);
     expect(result).toEqual(planFunding);
   });
 
@@ -430,7 +430,7 @@ describe('findBy Queries', () => {
     const result = await PlanFunding.findByPlanId('testing', context, projectId);
     const expectedSql = 'SELECT * FROM planFundings WHERE planId = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectId.toString()], 'testing', undefined);
     expect(result).toEqual([planFunding]);
   });
 
@@ -449,7 +449,7 @@ describe('findBy Queries', () => {
     const expectedSql = 'SELECT * FROM planFundings WHERE planId = ? AND projectFundingId = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
     const vals = [planId.toString(), projectFundingId.toString()];
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, vals, 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, vals, 'testing', undefined);
     expect(result).toEqual(planFunding);
   });
 

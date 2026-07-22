@@ -297,9 +297,11 @@ describe('findBy Queries', () => {
     localQuery.mockResolvedValueOnce([answer]);
     const answerId = casual.integer(1, 999);
     const result = await Answer.findById('testing', context, answerId);
-    const expectedSql = 'SELECT * FROM answers WHERE id = ?';
+    const expectedSql = 'SELECT *\n' +
+      '                 FROM answers\n' +
+      '                 WHERE id = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [answerId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [answerId.toString()], 'testing', undefined);
     expect(result).toEqual(answer);
   });
 
@@ -315,10 +317,13 @@ describe('findBy Queries', () => {
     const planId = casual.integer(1, 9999);
     const versionedQuestionId = casual.integer(1, 9999);
     const result = await Answer.findByPlanIdAndVersionedQuestionId('testing', context, planId, versionedQuestionId);
-    const expectedSql = 'SELECT * FROM answers WHERE planId = ? AND versionedQuestionId = ?';
+    const expectedSql = 'SELECT *\n' +
+      '                 FROM answers\n' +
+      '                 WHERE planId = ?\n' +
+      '                   AND versionedQuestionId = ?';
     const expectedVals = [planId.toString(), versionedQuestionId.toString()];
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, expectedVals, 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, expectedVals, 'testing', undefined);
     expect(result).toEqual(answer);
   });
 
@@ -335,10 +340,13 @@ describe('findBy Queries', () => {
     const planId = casual.integer(1, 9999);
     const versionedSectionId = casual.integer(1, 9999);
     const result = await Answer.findByPlanIdAndVersionedSectionId('testing', context, planId, versionedSectionId);
-    const expectedSql = 'SELECT * FROM answers WHERE planId = ? AND versionedSectionId = ?';
+    const expectedSql = 'SELECT *\n' +
+      '                 FROM answers\n' +
+      '                 WHERE planId = ?\n' +
+      '                   AND versionedSectionId = ?';
     const vals = [planId.toString(), versionedSectionId.toString()];
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, vals, 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, vals, 'testing', undefined);
     expect(result).toEqual([answer]);
   });
 
@@ -361,7 +369,8 @@ describe('findBy Queries', () => {
       context,
       expect.any(String),
       [String(planId), ...questionIds.map(String)],
-      'testing'
+      'testing',
+      undefined
     );
     expect(result).toEqual([answer, answer, answer]);
   });
@@ -378,9 +387,11 @@ describe('findBy Queries', () => {
     localQuery.mockResolvedValueOnce([answer]);
     const planId = casual.integer(1, 9999);
     const result = await Answer.findByPlanId('testing', context, planId);
-    const expectedSql = 'SELECT * FROM answers WHERE planId = ?';
+    const expectedSql = 'SELECT *\n' +
+      '                 FROM answers\n' +
+      '                 WHERE planId = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [planId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [planId.toString()], 'testing', undefined);
     expect(result).toEqual([answer]);
   });
 

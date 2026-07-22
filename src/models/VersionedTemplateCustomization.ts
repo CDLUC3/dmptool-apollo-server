@@ -59,7 +59,7 @@ export class VersionedTemplateCustomization extends MySqlModel {
    * @param transactionClient the MySQL transaction to use
    * @returns The newly created version of the customization.
    */
-  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<VersionedTemplateCustomization> {
+  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<VersionedTemplateCustomization> {
     const ref = 'VersionedTemplateCustomization.create';
 
     // Make sure the record is valid
@@ -81,12 +81,13 @@ export class VersionedTemplateCustomization extends MySqlModel {
         const created: VersionedTemplateCustomization = await VersionedTemplateCustomization.findById(
           ref,
           context,
-          newId
+          newId,
+          transactionClient
         );
 
         if (!isNullOrUndefined(created) && !isNullOrUndefined(created.id)) {
           // Unpublish all other versions of the customization.
-          await created.unpublishOtherVersions(ref, context)
+          await created.unpublishOtherVersions(ref, context, transactionClient);
 
           return created;
         } else {
@@ -109,7 +110,7 @@ export class VersionedTemplateCustomization extends MySqlModel {
    * @param transactionClient the MySQL transaction to use
    * @returns The updated version of the customization.
    */
-  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<VersionedTemplateCustomization> {
+  async update(context: MyContext, noTouch = false, transactionClient?: DatabaseTransactionClient): Promise<VersionedTemplateCustomization> {
     const ref = 'VersionedTemplateCustomization.update';
 
     if (!this.id) {
@@ -129,7 +130,7 @@ export class VersionedTemplateCustomization extends MySqlModel {
         ) as unknown as {affectedRows:number} | null;
 
         if (result && result.affectedRows > 0) {
-          return await VersionedTemplateCustomization.findById(ref, context, this.id);
+          return await VersionedTemplateCustomization.findById(ref, context, this.id, transactionClient);
         } else {
           this.addError('general', 'Unable to update version');
         }
@@ -149,7 +150,7 @@ export class VersionedTemplateCustomization extends MySqlModel {
   async unpublishOtherVersions(
     reference: string,
     context: MyContext,
-    transactionClient: DatabaseTransactionClient | undefined = undefined
+    transactionClient?: DatabaseTransactionClient
   ): Promise<boolean> {
     const results = await VersionedTemplateCustomization.query(
       context,
@@ -176,13 +177,15 @@ export class VersionedTemplateCustomization extends MySqlModel {
   static async findById(
     reference: string,
     context: MyContext,
-    versionedTemplateCustomizationId: number
+    versionedTemplateCustomizationId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<VersionedTemplateCustomization> {
     const results = await VersionedTemplateCustomization.query(
       context,
       `SELECT * FROM ${VersionedTemplateCustomization.tableName} WHERE id = ?`,
       [versionedTemplateCustomizationId?.toString()],
-      reference
+      reference,
+      transactionClient
     );
     return Array.isArray(results) && results.length > 0
       ? new VersionedTemplateCustomization(results[0])
@@ -196,13 +199,15 @@ export class VersionedTemplateCustomization extends MySqlModel {
    * @param context The Apollo context.
    * @param templateCustomizationId The customization id.
    * @param versionedTemplateId The published version of the template id.
+   * @param transactionClient The MySQL transaction to use.
    * @returns The version of the customization.
    */
   static async findByCustomizationAndTemplate(
     reference: string,
     context: MyContext,
     templateCustomizationId: number,
-    versionedTemplateId: number
+    versionedTemplateId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<VersionedTemplateCustomization> {
     const results = await VersionedTemplateCustomization.query(
       context,
@@ -210,7 +215,8 @@ export class VersionedTemplateCustomization extends MySqlModel {
          WHERE templateCustomizationId = ? AND currentVersionedTemplateId = ?
          AND active = 1`,
       [templateCustomizationId.toString(), versionedTemplateId.toString()],
-      reference
+      reference,
+      transactionClient
     );
     return Array.isArray(results) && results.length > 0
       ? new VersionedTemplateCustomization(results[0])

@@ -135,7 +135,7 @@ export class VersionedCustomQuestion extends MySqlModel {
    * @param transactionClient the MySQL transaction to use
    * @returns The newly created custom question version.
    */
-  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<VersionedCustomQuestion> {
+  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<VersionedCustomQuestion> {
     const ref = 'VersionedCustomQuestion.create';
     // Make sure the record is valid
     if (await this.isValid()) {
@@ -147,7 +147,8 @@ export class VersionedCustomQuestion extends MySqlModel {
         this.versionedSectionType,
         this.versionedSectionId,
         this.pinnedVersionedQuestionType,
-        this.pinnedVersionedQuestionId
+        this.pinnedVersionedQuestionId,
+        transactionClient
       );
 
       // Make sure it doesn't already exist
@@ -165,7 +166,7 @@ export class VersionedCustomQuestion extends MySqlModel {
           [],
           transactionClient
         );
-        return await VersionedCustomQuestion.findById(ref, context, newId);
+        return await VersionedCustomQuestion.findById(ref, context, newId, transactionClient);
       }
     }
     // Otherwise return as-is with all the errors
@@ -180,7 +181,7 @@ export class VersionedCustomQuestion extends MySqlModel {
    * @param transactionClient the MySQL transaction to use
    * @returns The updated custom question version.
    */
-  async update(context: MyContext, noTouch = false, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<VersionedCustomQuestion> {
+  async update(context: MyContext, noTouch = false, transactionClient?: DatabaseTransactionClient): Promise<VersionedCustomQuestion> {
     const ref = 'VersionedCustomQuestion.update';
 
     if (isNullOrUndefined(this.id)) {
@@ -200,7 +201,7 @@ export class VersionedCustomQuestion extends MySqlModel {
           noTouch,
           transactionClient
         );
-        return await VersionedCustomQuestion.findById(ref, context, this.id);
+        return await VersionedCustomQuestion.findById(ref, context, this.id, transactionClient);
       }
     }
     // Otherwise return as-is with all the errors
@@ -214,7 +215,7 @@ export class VersionedCustomQuestion extends MySqlModel {
    * @param transactionClient the MySQL transaction to use
    * @returns The archived custom section version.
    */
-  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<VersionedCustomQuestion> {
+  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<VersionedCustomQuestion> {
     const ref = 'VersionedCustomQuestion.delete';
     if (!this.id) {
       // Cannot delete it if it hasn't been saved yet!
@@ -223,7 +224,8 @@ export class VersionedCustomQuestion extends MySqlModel {
       const original: VersionedCustomQuestion = await VersionedCustomQuestion.findById(
         ref,
         context,
-        this.id
+        this.id,
+        transactionClient
       );
       const result: boolean = await VersionedCustomQuestion.delete(
         context,
@@ -249,18 +251,21 @@ export class VersionedCustomQuestion extends MySqlModel {
    * @param reference The reference to use for logging errors.
    * @param context The Apollo context.
    * @param versionedCustomQuestionId The custom question version id.
+   * @param transactionClient The MySQL transaction to use.
    * @returns The custom question version.
    */
   static async findById(
     reference: string,
     context: MyContext,
-    versionedCustomQuestionId: number
+    versionedCustomQuestionId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<VersionedCustomQuestion> {
     const results = await VersionedCustomQuestion.query(
       context,
       `SELECT * FROM ${VersionedCustomQuestion.tableName} WHERE id = ?`,
       [versionedCustomQuestionId?.toString()],
-      reference
+      reference,
+      transactionClient
     );
     return Array.isArray(results) && results.length > 0 ? new VersionedCustomQuestion(results[0]) : undefined;
   }
@@ -271,19 +276,22 @@ export class VersionedCustomQuestion extends MySqlModel {
    * @param reference The reference to use for logging errors.
    * @param context The Apollo context.
    * @param versionedTemplateCustomizatonId The id of the versioned template customization.
+   * @param transactionClient The MySQL transaction to use.
    * @returns The custom questions.
    */
   static async findByCustomizationId(
     reference: string,
     context: MyContext,
-    versionedTemplateCustomizatonId: number
+    versionedTemplateCustomizatonId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<VersionedCustomQuestion[]> {
     const results = await VersionedCustomQuestion.query(
       context,
       `SELECT * FROM ${VersionedCustomQuestion.tableName}
          WHERE versionedTemplateCustomizationId = ?`,
       [versionedTemplateCustomizatonId.toString()],
-      reference
+      reference,
+      transactionClient
     );
     return Array.isArray(results) && results.length > 0 ? results.map(r => new VersionedCustomQuestion(r)) : [];
   }
@@ -299,6 +307,7 @@ export class VersionedCustomQuestion extends MySqlModel {
    * @param versionedSectionId The id of the section the custom question is attached to.
    * @param pinnedVersionedQuestionType The type of pinned question (base or custom).
    * @param pinnedVersionedQuestionId The pinned funder question id.
+   * @param transactionClient the MySQL transaction to use
    * @returns The custom question version.
    */
   static async findByCustomizationSectionAndQuestion(
@@ -309,7 +318,8 @@ export class VersionedCustomQuestion extends MySqlModel {
     versionedSectionType: PinnedSectionTypeEnum,
     versionedSectionId: number,
     pinnedVersionedQuestionType?: PinnedQuestionTypeEnum,
-    pinnedVersionedQuestionId?: number
+    pinnedVersionedQuestionId?: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<VersionedCustomQuestion> {
     const results = await VersionedCustomQuestion.query(
       context,
@@ -325,7 +335,8 @@ export class VersionedCustomQuestion extends MySqlModel {
         pinnedVersionedQuestionType ? pinnedVersionedQuestionType : null,
         pinnedVersionedQuestionId ? pinnedVersionedQuestionId?.toString() : null
       ],
-      reference
+      reference,
+      transactionClient
     );
     return Array.isArray(results) && results.length > 0 ? new VersionedCustomQuestion(results[0]) : undefined;
   }
@@ -335,7 +346,8 @@ export class VersionedCustomQuestion extends MySqlModel {
   static async findByVersionedCustomSectionId(
     reference: string,
     context: MyContext,
-    versionedCustomSectionId: number
+    versionedCustomSectionId: number,
+    transactionClient?: DatabaseTransactionClient
   ): Promise<VersionedCustomQuestion[]> {
     const sql = `
     SELECT vcq.* FROM ${VersionedCustomQuestion.tableName} as vcq
@@ -347,7 +359,7 @@ export class VersionedCustomQuestion extends MySqlModel {
     ORDER BY vcq.pinnedVersionedQuestionType ASC, vcq.pinnedVersionedQuestionId ASC
   `;
     const results = await VersionedCustomQuestion.query(
-      context, sql, [versionedCustomSectionId.toString()], reference
+      context, sql, [versionedCustomSectionId.toString()], reference, transactionClient
     );
     return Array.isArray(results) && results.length > 0
       ? results.map(r => new VersionedCustomQuestion(r))
@@ -359,7 +371,8 @@ export class VersionedCustomQuestion extends MySqlModel {
     reference: string,
     context: MyContext,
     versionedSectionId: number,
-    sectionType: 'BASE' | 'CUSTOM'
+    sectionType: 'BASE' | 'CUSTOM',
+    transactionClient?: DatabaseTransactionClient
   ): Promise<VersionedCustomQuestion[]> {
     const sql = `SELECT vcq.* FROM versionedCustomQuestions as vcq
     JOIN versionedTemplateCustomizations as vtc
@@ -369,7 +382,7 @@ export class VersionedCustomQuestion extends MySqlModel {
       AND vtc.active = 1
     ORDER BY vcq.pinnedVersionedQuestionType ASC, vcq.pinnedVersionedQuestionId ASC`;
     const results = await VersionedCustomQuestion.query(
-      context, sql, [sectionType, versionedSectionId.toString()], reference
+      context, sql, [sectionType, versionedSectionId.toString()], reference, transactionClient
     );
     return Array.isArray(results) ? results.map(r => new VersionedCustomQuestion(r)) : [];
   }

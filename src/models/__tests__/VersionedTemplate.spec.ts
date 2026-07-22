@@ -116,7 +116,7 @@ describe('VersionedTemplateSearchResult', () => {
         availableSortFields: sortFields
       };
       expect(localPaginationQuery).toHaveBeenCalledTimes(1);
-      expect(localPaginationQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, '', vals, opts, 'Test')
+      expect(localPaginationQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, '', vals, opts, 'Test', true, undefined);
       expect(result).toEqual([versionedTemplateSearchResult]);
     });
 
@@ -147,7 +147,7 @@ describe('VersionedTemplateSearchResult', () => {
                   'ORDER BY vt.modified DESC;';
       const vals = [affiliationId, TemplateVersionType.PUBLISHED];
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, sql, vals, 'Test')
+      expect(localQuery).toHaveBeenLastCalledWith(context, sql, vals, 'Test', undefined);
       expect(result).toEqual([versionedTemplateSearchResult]);
     });
 
@@ -247,9 +247,9 @@ describe('CustomizableTemplateSearchResult', () => {
       };
 
       expect(localPaginationQuery).toHaveBeenCalledTimes(1);
-      expect(localPaginationQuery).toHaveBeenCalledWith(context, expect.any(String), whereFilters, '', vals, expectedOpts, 'Test', false);
+      expect(localPaginationQuery).toHaveBeenCalledWith(context, expect.any(String), whereFilters, '', vals, expectedOpts, 'Test', false, undefined);
       expect(localCountQuery).toHaveBeenCalledTimes(1);
-      expect(localCountQuery).toHaveBeenCalledWith(context, expect.any(String), vals, 'Test');
+      expect(localCountQuery).toHaveBeenCalledWith(context, expect.any(String), vals, 'Test', undefined);
       expect(result).toEqual(mockResponse);
     });
 
@@ -613,7 +613,7 @@ describe('VersionedTemplate', () => {
       const result = await VersionedTemplate.findById('Test', context, id);
       const expectedSql = 'SELECT * FROM versionedTemplates WHERE id = ?';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'Test')
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'Test', undefined);
       expect(result).toEqual(versionedTemplate);
       expect(result).toBeInstanceOf(VersionedTemplate);
       expect(Object.keys(result.errors).length).toBe(0);
@@ -625,7 +625,7 @@ describe('VersionedTemplate', () => {
       const result = await VersionedTemplate.findById('Test', context, id);
       const expectedSql = 'SELECT * FROM versionedTemplates WHERE id = ?';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'Test')
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'Test', undefined);
       expect(result).toEqual(null);
     });
 
@@ -635,7 +635,7 @@ describe('VersionedTemplate', () => {
       const result = await VersionedTemplate.findByAffiliationId('Test', context, affiliationId);
       const expectedSql = 'SELECT * FROM versionedTemplates WHERE ownerId = ? ORDER BY modified DESC';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [affiliationId], 'Test')
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [affiliationId], 'Test', undefined);
       expect(result).toEqual([versionedTemplate]);
     });
 
@@ -645,7 +645,7 @@ describe('VersionedTemplate', () => {
       const result = await VersionedTemplate.findByAffiliationId('Test', context, affiliationId);
       const expectedSql = 'SELECT * FROM versionedTemplates WHERE ownerId = ? ORDER BY modified DESC';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [affiliationId], 'Test')
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [affiliationId], 'Test', undefined);
       expect(result).toEqual([]);
     });
 
@@ -656,7 +656,7 @@ describe('VersionedTemplate', () => {
       const result = await VersionedTemplate.findByTemplateId('Test', context, templateId);
       const expectedSql = 'SELECT * FROM versionedTemplates WHERE templateId = ? ORDER BY version DESC';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [templateId.toString()], 'Test')
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [templateId.toString()], 'Test', undefined);
       expect(result).toEqual([versionedTemplate]);
     });
 
@@ -667,7 +667,7 @@ describe('VersionedTemplate', () => {
       const result = await VersionedTemplate.findByTemplateId('Test', context, templateId);
       const expectedSql = 'SELECT * FROM versionedTemplates WHERE templateId = ? ORDER BY version DESC';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [templateId.toString()], 'Test')
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [templateId.toString()], 'Test', undefined);
       expect(result).toEqual([]);
     });
 
@@ -678,7 +678,7 @@ describe('VersionedTemplate', () => {
       const result = await VersionedTemplate.findVersionedTemplateById('Test', context, id);
       const expectedSql = 'SELECT * FROM versionedTemplates WHERE id = ?';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'Test')
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'Test', undefined);
       expect(result).toEqual(versionedTemplate);
     });
 
@@ -688,7 +688,7 @@ describe('VersionedTemplate', () => {
       const result = await VersionedTemplate.findActiveByTemplateId('Test', context, id);
       const expectedSql = 'SELECT * FROM versionedTemplates WHERE templateId = ? AND active = 1 ORDER BY modified DESC';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'Test')
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'Test', undefined);
       expect(result).toEqual(versionedTemplate);
       expect(result).toBeInstanceOf(VersionedTemplate);
       expect(Object.keys(result.errors).length).toBe(0);
@@ -709,7 +709,7 @@ describe('VersionedTemplate', () => {
       const result = await VersionedTemplate.findVersionedTemplateById('Test', context, id);
       const expectedSql = 'SELECT * FROM versionedTemplates WHERE id = ?';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'Test')
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'Test', undefined);
       expect(result).toEqual(null);
     });
 
@@ -718,7 +718,7 @@ describe('VersionedTemplate', () => {
       const result = await VersionedTemplate.defaultTemplate('Test', context);
       const expectedSql = 'SELECT * FROM versionedTemplates WHERE active = 1 AND isDefault = 1 ORDER BY id LIMIT 1;';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [], 'Test')
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [], 'Test', undefined);
       expect(result).toEqual(versionedTemplate);
       expect(result).toBeInstanceOf(VersionedTemplate);
       expect(Object.keys(result.errors).length).toBe(0);
@@ -861,7 +861,7 @@ describe('VersionedTemplate', () => {
                           'JOIN versionedTemplates AS vt ON p.versionedTemplateId = vt.id ' +
                           'WHERE vt.templateId = ? LIMIT 1';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [templateId.toString()], 'Test');
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [templateId.toString()], 'Test', undefined);
       expect(result).toBe(true);
     });
 
@@ -873,7 +873,7 @@ describe('VersionedTemplate', () => {
                           'JOIN versionedTemplates AS vt ON p.versionedTemplateId = vt.id ' +
                           'WHERE vt.templateId = ? LIMIT 1';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [templateId.toString()], 'Test');
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [templateId.toString()], 'Test', undefined);
       expect(result).toBe(false);
     });
 
@@ -913,7 +913,7 @@ describe('VersionedTemplate', () => {
       await VersionedTemplate.deactivateByTemplateId('Test', context, templateId);
       const expectedSql = 'UPDATE versionedTemplates SET active = 0 WHERE templateId = ?';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [templateId.toString()], 'Test');
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [templateId.toString()], 'Test', undefined);
     });
   });
 });

@@ -90,7 +90,7 @@ describe('TemplateSearchResult', () => {
         availableSortFields: sortFields,
       };
       expect(localPaginationQuery).toHaveBeenCalledTimes(1);
-      expect(localPaginationQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, '', vals, opts, 'Test')
+      expect(localPaginationQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, '', vals, opts, 'Test', true, undefined);
       expect(result).toEqual([templateSearchResult]);
     });
 
@@ -198,7 +198,7 @@ describe('Template', () => {
       const result = await Template.findById('Test', context, id);
       const expectedSql = 'SELECT * FROM templates WHERE id = ?';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'Test')
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'Test', undefined);
       expect(result).toEqual(template);
     });
 
@@ -209,7 +209,7 @@ describe('Template', () => {
       const result = await Template.findById('Test', context, id);
       const expectedSql = 'SELECT * FROM templates WHERE id = ?';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'Test')
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'Test', undefined);
       expect(result).toEqual(null);
     });
 
@@ -221,7 +221,7 @@ describe('Template', () => {
       const result = await Template.findByNameAndOwnerId('Test', context, name);
       const expectedSql = 'SELECT * FROM templates WHERE LOWER(name) = ? AND ownerId = ?';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [name, ownerId], 'Test')
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [name, ownerId], 'Test', undefined);
       expect(result).toEqual(template);
     });
 
@@ -233,7 +233,7 @@ describe('Template', () => {
       const result = await Template.findByNameAndOwnerId('Test', context, name);
       const expectedSql = 'SELECT * FROM templates WHERE LOWER(name) = ? AND ownerId = ?';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [name, ownerId], 'Test')
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [name, ownerId], 'Test', undefined);
       expect(result).toEqual(null);
     });
 
@@ -248,7 +248,7 @@ describe('Template', () => {
       const result = await Template.findByAffiliationId('Test', context, context.token.affiliationId);
       const expectedSql = 'SELECT * FROM templates WHERE ownerId = ? ORDER BY modified DESC';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [affiliationId], 'Test')
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [affiliationId], 'Test', undefined);
       expect(result).toEqual([template]);
     });
 
@@ -269,7 +269,7 @@ describe('Template', () => {
       const result = await Template.findByAffiliationId('Test', context, context.token.affiliationId);
       const expectedSql = 'SELECT * FROM templates WHERE ownerId = ? ORDER BY modified DESC';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [affiliationId], 'Test')
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [affiliationId], 'Test', undefined);
       expect(result).toEqual([template]);
     });
 
@@ -284,7 +284,7 @@ describe('Template', () => {
       const result = await Template.findByAffiliationId('Test', context, context.token.affiliationId);
       const expectedSql = 'SELECT * FROM templates WHERE ownerId = ? ORDER BY modified DESC';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [affiliationId], 'Test')
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [affiliationId], 'Test', undefined);
       expect(result).toEqual([]);
     });
   });
@@ -481,17 +481,16 @@ describe('Template', () => {
     it('should mark the template as dirty if it exists', async () => {
       await Template.markTemplateAsDirty('Test', context, template.id);
 
-      expect(Template.findById).toHaveBeenCalledWith('Test', context, template.id);
+      expect(Template.findById).toHaveBeenCalledWith('Test', context, template.id, undefined);
       expect(template.isDirty).toBe(true);
-      expect(template.update).toHaveBeenCalledWith(context);
+      expect(template.update).toHaveBeenCalledWith(context, false, undefined);
     });
 
     it('should not call update if the template does not exist', async () => {
       jest.spyOn(Template, 'findById').mockResolvedValue(null);
 
       await Template.markTemplateAsDirty('Test', context, template.id);
-
-      expect(Template.findById).toHaveBeenCalledWith('Test', context, template.id);
+      expect(Template.findById).toHaveBeenCalledWith('Test', context, template.id, undefined);
       expect(template.update).not.toHaveBeenCalled();
     });
   });

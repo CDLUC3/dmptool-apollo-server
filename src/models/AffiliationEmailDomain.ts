@@ -27,12 +27,13 @@ export class AffiliationEmailDomain extends MySqlModel {
   }
 
   // Save the current record
-  async create(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<AffiliationEmailDomain> {
+  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<AffiliationEmailDomain> {
     // First make sure the record doesn't already exist
     const currentDomain = await AffiliationEmailDomain.findByDomain(
       'AffiliationEmailDomain.create',
       context,
       this.emailDomain,
+      transactionClient
     );
 
     if (await this.isValid()) {
@@ -42,7 +43,7 @@ export class AffiliationEmailDomain extends MySqlModel {
       } else {
       // Save the record and then fetch it
         const newId = await AffiliationEmailDomain.insert(context, this.tableName, this, 'AffiliationEmailDomain.create', [], transactionClient);
-        return await AffiliationEmailDomain.findById('AffiliationEmailDomain.create', context, newId as number);
+        return await AffiliationEmailDomain.findById('AffiliationEmailDomain.create', context, newId as number, transactionClient);
       }
     }
     // Otherwise return as-is with all the errors
@@ -50,7 +51,7 @@ export class AffiliationEmailDomain extends MySqlModel {
   }
 
   // Archive this record
-  async delete(context: MyContext, transactionClient: DatabaseTransactionClient | undefined = undefined): Promise<AffiliationEmailDomain> {
+  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<AffiliationEmailDomain> {
     if (this.id) {
       const result = await AffiliationEmailDomain.delete(context, this.tableName, this.id, 'AffiliationEmailDomain.delete', transactionClient);
       if (result) {
@@ -61,23 +62,23 @@ export class AffiliationEmailDomain extends MySqlModel {
   }
 
   // Return the specified AffiliationEmailDomain
-  static async findById(reference: string, context: MyContext, id: number): Promise<AffiliationEmailDomain> {
+  static async findById(reference: string, context: MyContext, id: number, transactionClient?: DatabaseTransactionClient): Promise<AffiliationEmailDomain> {
     const sql = `SELECT * FROM affiliationEmailDomains WHERE id = ?`;
-    const results = await AffiliationEmailDomain.query(context, sql, [id?.toString()], reference);
+    const results = await AffiliationEmailDomain.query(context, sql, [id?.toString()], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new AffiliationEmailDomain(results[0]) : null;
   }
 
   // Search by the domain
-  static async findByDomain(reference: string, context: MyContext, domain: string): Promise<AffiliationEmailDomain> {
+  static async findByDomain(reference: string, context: MyContext, domain: string, transactionClient?: DatabaseTransactionClient): Promise<AffiliationEmailDomain> {
     const sql = `SELECT * FROM affiliationEmailDomains WHERE emailDomain LIKE ?`;
-    const results = await AffiliationEmailDomain.query(context, sql, [domain], reference);
+    const results = await AffiliationEmailDomain.query(context, sql, [domain], reference, transactionClient);
     return Array.isArray(results) && results.length > 0 ? new AffiliationEmailDomain(results[0]) : null;
   }
 
   // Return all of the AffiliationEmailDomains for the Affiliation
-  static async findByAffiliationId(reference: string, context: MyContext, affiliationId: string): Promise<AffiliationEmailDomain[]> {
+  static async findByAffiliationId(reference: string, context: MyContext, affiliationId: string, transactionClient?: DatabaseTransactionClient): Promise<AffiliationEmailDomain[]> {
     const sql = `SELECT * FROM affiliationEmailDomains WHERE affiliationId = ?`;
-    const results = await AffiliationEmailDomain.query(context, sql, [affiliationId], reference);
+    const results = await AffiliationEmailDomain.query(context, sql, [affiliationId], reference, transactionClient);
     return Array.isArray(results) ? results.map((entry) => new AffiliationEmailDomain(entry)) : [];
   }
 }

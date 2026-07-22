@@ -112,6 +112,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Added `plans` chained resolver to `ProjectSearchResult` in `project` resolver so that querying `userProjects` will include `plan` data for each project [#304]
 - Updated `updateProjectMember` resolver to handle `Other Affiliation`. Added a new, shared `resolveAffiliation` function to `affiliationService.ts`. Updated `updateProjectMember` schema to include `affiliationName` [#309]
 - Updated the `Answer` model to use the newly exported `DefaultResearchOutputTypeAnswer` from `@dmptool/types` instead of manually building it
 - Updated `Guidance` and `VersionedGuidance` classes to make `tagId` optional, since it was causing errors on `dev` where `guidance` records had no `tagId`. This is consistent with the `guidance` table schema which allows the `tagId` field to be `NULL` [#54]
@@ -245,6 +246,7 @@
 - Removed `ioredis` package
 
 ### Fixed
+- Updated `immutable` to `v5.1.9` to address HIGH security vulnerability [#304]
 - Updated `brace-expansion` to `v5.0.7` and `js-yaml` to `v4.3.0` to address vulnerabilities [#310]
 - Build was breaking because of a `package-lock.json` was referencing a file for `dmptool-utils`.
 - Updated `requestFeedback` with better error messaging for when `feedbackEnabled` is false or there are no `feedbackEmails`. Also, added checks for `input.subHeaderLinks` and `input.ssoEmailDomains` in `updateAffiliations` since it was breaking that mutation when those fields were not included. Also, removed the debugging I had previously added to investigate the `requestFeedback` resolver failing. [#285]

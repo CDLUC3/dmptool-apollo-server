@@ -507,4 +507,13 @@ export const resolvers: Resolvers = {
       return normaliseDateTime(parent.modified);
     }
   },
+  ProjectSearchResult: {
+    plans: async (parent: Project, _, context: MyContext): Promise<PlanSearchResult[]> => {
+      return await PlanSearchResult.findByProjectId(
+        'Chained Project.plans',
+        context,
+        parent.id
+      );
+    },
+  }
 };

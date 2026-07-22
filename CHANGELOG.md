@@ -112,6 +112,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Added `plans` chained resolver to `ProjectSearchResult` in `project` resolver so that querying `userProjects` will include `plan` data for each project [#304]
 - Updated `updateProjectMember` resolver to handle `Other Affiliation`. Added a new, shared `resolveAffiliation` function to `affiliationService.ts`. Updated `updateProjectMember` schema to include `affiliationName` [#309]
 - Updated the `Answer` model to use the newly exported `DefaultResearchOutputTypeAnswer` from `@dmptool/types` instead of manually building it
 - Updated `Guidance` and `VersionedGuidance` classes to make `tagId` optional, since it was causing errors on `dev` where `guidance` records had no `tagId`. This is consistent with the `guidance` table schema which allows the `tagId` field to be `NULL` [#54]

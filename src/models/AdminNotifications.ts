@@ -9,7 +9,6 @@ import {
 import { AdminNotificationType } from "../types";
 import { MySqlModel } from "./MySqlModel";
 import { isNullOrUndefined } from "../utils/helpers";
-import { DatabaseTransactionClient } from "../datasources/mysql";
 
 export interface AdminNotificationMetadata {
   planId?: number;
@@ -39,7 +38,6 @@ export class AdminNotificationResults extends MySqlModel {
     userId: number | null,
     options: PaginationOptions = AdminNotificationResults.getDefaultPaginationOptions(),
     isRead?: boolean,
-    transactionClient?: DatabaseTransactionClient
   ): Promise<PaginatedQueryResults<AdminNotificationResults>> {
 
     // SuperAdmins get all notifications (userId is null), Admins only get their own
@@ -79,7 +77,6 @@ export class AdminNotificationResults extends MySqlModel {
       opts,
       reference,
       true,
-      transactionClient
     );
   }
 
@@ -88,19 +85,17 @@ export class AdminNotificationResults extends MySqlModel {
     context: MyContext,
     userId: number | null,
     options?: PaginationOptions,
-    transactionClient?: DatabaseTransactionClient
   ) {
-    return AdminNotificationResults.findByUserId(reference, context, userId, options, true, transactionClient);
+    return AdminNotificationResults.findByUserId(reference, context, userId, options, true);
   }
 
   static async findUnreadByUserId(
     reference: string,
     context: MyContext,
     userId: number | null,
-    options?: PaginationOptions,
-    transactionClient?: DatabaseTransactionClient
+    options?: PaginationOptions
   ) {
-    return AdminNotificationResults.findByUserId(reference, context, userId, options, false, transactionClient);
+    return AdminNotificationResults.findByUserId(reference, context, userId, options, false);
   }
 }
 
@@ -155,28 +150,28 @@ export class AdminNotification extends MySqlModel {
   }
 
 
-  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<AdminNotification | null> {
+  async create(context: MyContext): Promise<AdminNotification | null> {
     const reference = 'AdminNotification.create';
 
     if (await this.isValid()) {
-      const newId = await AdminNotification.insert(context, this.tableName, this, reference, [], transactionClient);
+      const newId = await AdminNotification.insert(context, this.tableName, this, reference, []);
       if (!newId) {
         context.logger.error(`${reference}, ERROR: Failed to create AdminNotification.`);
         this.addError('general', 'AdminNotification was not created successfully');
         return new AdminNotification(this);
       }
-      return await AdminNotification.findById(reference, context, newId, transactionClient);
+      return await AdminNotification.findById(reference, context, newId);
     }
     return new AdminNotification(this);
   }
 
-  async update(context: MyContext, noTouch = false, transactionClient?: DatabaseTransactionClient): Promise<AdminNotification | null> {
+  async update(context: MyContext, noTouch = false): Promise<AdminNotification | null> {
     const reference = 'AdminNotification.update';
     if (this.id) {
       if (await this.isValid()) {
-        const updated = await AdminNotification.update(context, this.tableName, this, reference, [], noTouch, transactionClient);
+        const updated = await AdminNotification.update(context, this.tableName, this, reference, [], noTouch);
         if (updated) {
-          return await AdminNotification.findById(reference, context, this.id, transactionClient);
+          return await AdminNotification.findById(reference, context, this.id);
         }
       }
     } else {
@@ -185,9 +180,9 @@ export class AdminNotification extends MySqlModel {
     return this;
   }
 
-  static async findById(reference: string, context: MyContext, id: number, transactionClient?: DatabaseTransactionClient): Promise<AdminNotification | null> {
+  static async findById(reference: string, context: MyContext, id: number): Promise<AdminNotification | null> {
     const sql = `SELECT * FROM adminNotifications WHERE id = ?`;
-    const results = await AdminNotification.query(context, sql, [id?.toString()], reference, transactionClient);
+    const results = await AdminNotification.query(context, sql, [id?.toString()], reference);
     return Array.isArray(results) && results.length > 0 ? new AdminNotification(results[0]) : null;
   }
 
@@ -196,8 +191,7 @@ export class AdminNotification extends MySqlModel {
     context: MyContext,
     affiliationId: string,
     notificationType: AdminNotificationType,
-    metadata?: AdminNotificationMetadata,
-    transactionClient?: DatabaseTransactionClient
+    metadata?: AdminNotificationMetadata
   ): Promise<boolean> {
     const sql = `
     INSERT INTO adminNotifications (userId, notificationType, affiliationId, metadata, createdById, modifiedById, created, modified)
@@ -213,7 +207,7 @@ export class AdminNotification extends MySqlModel {
       context.token.id.toString(),
       affiliationId,
     ];
-    const result = await AdminNotification.query(context, sql, values, reference, transactionClient);
+    const result = await AdminNotification.query(context, sql, values, reference);
     return Array.isArray(result) && result.length > 0;
   }
 }

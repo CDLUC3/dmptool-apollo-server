@@ -1,7 +1,6 @@
 import { MyContext } from "../context";
 import { MySqlModel } from "./MySqlModel";
 import { QuestionConditionActionType, QuestionConditionCondition } from "./QuestionCondition";
-import { DatabaseTransactionClient } from "../datasources/mysql";
 
 export class VersionedQuestionCondition extends MySqlModel {
   public versionedQuestionId: number;
@@ -38,7 +37,7 @@ export class VersionedQuestionCondition extends MySqlModel {
   }
 
   // Insert the new record
-  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<VersionedQuestionCondition> {
+  async create(context: MyContext): Promise<VersionedQuestionCondition> {
     // First make sure the record is valid
     if (await this.isValid()) {
       // Save the record and then fetch it
@@ -47,26 +46,25 @@ export class VersionedQuestionCondition extends MySqlModel {
         this.tableName,
         this,
         'VersionedQuestionCondition.create',
-        [],
-        transactionClient
+        []
       );
-      return await VersionedQuestionCondition.findById('VersionedQuestion.create', context, newId, transactionClient);
+      return await VersionedQuestionCondition.findById('VersionedQuestion.create', context, newId);
     }
     // Otherwise return as-is with all the errors
     return new VersionedQuestionCondition(this);
   }
 
   // Find the VersionedQuestionCondition by id
-  static async findById(reference: string, context: MyContext, id: number, transactionClient?: DatabaseTransactionClient): Promise<VersionedQuestionCondition> {
+  static async findById(reference: string, context: MyContext, id: number): Promise<VersionedQuestionCondition> {
     const sql = 'SELECT * FROM versionedQuestionConditions WHERE id = ?';
-    const results = await VersionedQuestionCondition.query(context, sql, [id?.toString()], reference, transactionClient);
+    const results = await VersionedQuestionCondition.query(context, sql, [id?.toString()], reference);
     return Array.isArray(results) && results.length > 0 ? new VersionedQuestionCondition(results[0]) : null;
   }
 
   // Find all VersionedQuestionConditions that match versionedQuestionId
-  static async findByVersionedQuestionId(reference: string, context: MyContext, versionedQuestionId: number, transactionClient?: DatabaseTransactionClient): Promise<VersionedQuestionCondition[]> {
+  static async findByVersionedQuestionId(reference: string, context: MyContext, versionedQuestionId: number): Promise<VersionedQuestionCondition[]> {
     const sql = 'SELECT * FROM versionedQuestionConditions WHERE versionedQuestionId = ?';
-    const results = await VersionedQuestionCondition.query(context, sql, [versionedQuestionId?.toString()], reference, transactionClient);
+    const results = await VersionedQuestionCondition.query(context, sql, [versionedQuestionId?.toString()], reference);
     return Array.isArray(results) ? results.map((entry) => new VersionedQuestionCondition(entry)) : [];
   }
 }

@@ -2,7 +2,6 @@ import { QuestionSchemaMap } from "@dmptool/types";
 import { MyContext } from "../context";
 import { MySqlModel } from "./MySqlModel";
 import { isNullOrUndefined, removeNullAndUndefinedFromJSON } from "../utils/helpers";
-import { DatabaseTransactionClient } from "../datasources/mysql";
 
 export class Question extends MySqlModel {
   public templateId: number;
@@ -90,16 +89,15 @@ export class Question extends MySqlModel {
 
   //Create a new Question
   async create(
-    context: MyContext,
-    transactionClient?: DatabaseTransactionClient
+    context: MyContext
   ): Promise<Question> {
     this.prepForSave();
 
     // First make sure the record is valid
     if (await this.isValid()) {
       // Save the record and then fetch it
-      const newId = await Question.insert(context, this.tableName, this, 'Question.create', ['questionType'], transactionClient);
-      const response = await Question.findById('Question.create', context, newId, transactionClient);
+      const newId = await Question.insert(context, this.tableName, this, 'Question.create', ['questionType']);
+      const response = await Question.findById('Question.create', context, newId);
       return response;
 
     }
@@ -108,13 +106,13 @@ export class Question extends MySqlModel {
   }
 
   //Update an existing Section
-  async update(context: MyContext, noTouch = false, transactionClient?: DatabaseTransactionClient): Promise<Question> {
+  async update(context: MyContext, noTouch = false): Promise<Question> {
     if (this.id) {
       this.prepForSave();
 
       if (await this.isValid()) {
-        await Question.update(context, this.tableName, this, 'Question.update', ['questionType'], noTouch, transactionClient);
-        return await Question.findById('Question.update', context, this.id, transactionClient);
+        await Question.update(context, this.tableName, this, 'Question.update', ['questionType'], noTouch);
+        return await Question.findById('Question.update', context, this.id);
       }
     }
     this.addError('general', 'Question has never been saved');
@@ -122,13 +120,13 @@ export class Question extends MySqlModel {
   }
 
   //Delete Question based on the Question object's id and return
-  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<Question> {
+  async delete(context: MyContext): Promise<Question> {
     if (this.id) {
       /*First get the question to be deleted so we can return this info to the user
       since calling 'delete' doesn't return anything*/
-      const deletedSection = await Question.findById('Question.delete', context, this.id, transactionClient);
+      const deletedSection = await Question.findById('Question.delete', context, this.id);
 
-      const successfullyDeleted = await Question.delete(context, this.tableName, this.id, 'Question.delete', transactionClient);
+      const successfullyDeleted = await Question.delete(context, this.tableName, this.id, 'Question.delete');
       if (successfullyDeleted) {
         return deletedSection;
       } else {
@@ -139,16 +137,16 @@ export class Question extends MySqlModel {
   }
 
   // Find the Question by it's id
-  static async findById(reference: string, context: MyContext, questionId: number, transactionClient?: DatabaseTransactionClient): Promise<Question> {
+  static async findById(reference: string, context: MyContext, questionId: number): Promise<Question> {
     const sql = 'SELECT * FROM questions WHERE id = ?';
-    const result = await Question.query(context, sql, [questionId?.toString()], reference, transactionClient);
+    const result = await Question.query(context, sql, [questionId?.toString()], reference);
     return Array.isArray(result) && result.length > 0 ? new Question(result[0]) : null;
   }
 
   // Fetch all of the Questions for the specified Section
-  static async findBySectionId(reference: string, context: MyContext, sectionId: number, transactionClient?: DatabaseTransactionClient): Promise<Question[]> {
+  static async findBySectionId(reference: string, context: MyContext, sectionId: number): Promise<Question[]> {
     const sql = 'SELECT * FROM questions WHERE sectionId = ? ORDER BY displayOrder ASC';
-    const results = await Question.query(context, sql, [sectionId?.toString()], reference, transactionClient);
+    const results = await Question.query(context, sql, [sectionId?.toString()], reference);
     return Array.isArray(results) ? results.map((entry) => new Question(entry)) : [];
   }
 }

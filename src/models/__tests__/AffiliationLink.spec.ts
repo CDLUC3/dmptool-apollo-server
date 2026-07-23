@@ -415,8 +415,7 @@ describe('AffiliationLink', () => {
         context,
         expect.any(String),
         [affiliationId, url],
-        'Test',
-        undefined
+        'Test'
       );
     });
   });

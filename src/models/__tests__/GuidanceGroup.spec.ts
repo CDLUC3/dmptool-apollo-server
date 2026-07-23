@@ -103,7 +103,7 @@ describe('GuidanceGroup.findByAffiliationId', () => {
     const result = await GuidanceGroup.findByAffiliationId('GuidanceGroup query', context, guidanceGroup.affiliationId);
     const expectedSql = 'SELECT * FROM guidanceGroups WHERE affiliationId = ? ORDER BY name ASC';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenCalledWith(context, expectedSql, [guidanceGroup.affiliationId], 'GuidanceGroup query', undefined);
+    expect(localQuery).toHaveBeenCalledWith(context, expectedSql, [guidanceGroup.affiliationId], 'GuidanceGroup query');
     expect(result.length).toBe(1);
     expect(result[0].id).toEqual(guidanceGroup.id);
   });
@@ -149,7 +149,7 @@ describe('GuidanceGroup.findById', () => {
     const result = await GuidanceGroup.findById('GuidanceGroup query', context, guidanceGroup.id);
     const expectedSql = 'SELECT * FROM guidanceGroups WHERE id = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenCalledWith(context, expectedSql, [guidanceGroup.id.toString()], 'GuidanceGroup query', undefined);
+    expect(localQuery).toHaveBeenCalledWith(context, expectedSql, [guidanceGroup.id.toString()], 'GuidanceGroup query');
     expect(result.id).toEqual(guidanceGroup.id);
   });
 

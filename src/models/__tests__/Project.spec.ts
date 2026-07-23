@@ -149,7 +149,7 @@ describe('ProjectSearchResult', () => {
         availableSortFields: sortFields,
       };
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, groupBy, vals, opts, 'Test', true, undefined)
+      expect(localQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, groupBy, vals, opts, 'Test')
       expect(result).toEqual({ items: [projectSearchResult] });
     });
 
@@ -261,7 +261,7 @@ describe('Project', () => {
       const result = await Project.findById('testing', context, projectId);
       const expectedSql = 'SELECT * FROM projects WHERE id = ?';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectId.toString()], 'testing', undefined);
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectId.toString()], 'testing');
       expect(result).toEqual(project);
     });
 
@@ -278,7 +278,7 @@ describe('Project', () => {
       const result = await Project.findByUserId('testing', context, userId);
       const expectedSql = 'SELECT * FROM projects WHERE createdById = ? ORDER BY created DESC';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [userId.toString()], 'testing', undefined);
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [userId.toString()], 'testing');
       expect(result).toEqual([project]);
     });
 
@@ -296,7 +296,7 @@ describe('Project', () => {
       let expectedSql = 'SELECT projects.* FROM projects INNER JOIN users ON projects.createdById = users.id';
       expectedSql += ' WHERE users.affiliationId = ? ORDER BY created DESC';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [affiliationId], 'testing', undefined)
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [affiliationId], 'testing')
       expect(result).toEqual([project]);
     });
 
@@ -314,7 +314,7 @@ describe('Project', () => {
       const expectedSql = 'SELECT * FROM projects WHERE createdById = ? AND LOWER(title) LIKE ?';
       const expectedVals = [context.token.id.toString(), `%${title.toLowerCase().trim()}%`]
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, expectedVals, 'testing', undefined)
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, expectedVals, 'testing')
       expect(result).toEqual(project);
     });
 

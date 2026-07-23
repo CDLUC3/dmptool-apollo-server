@@ -295,7 +295,10 @@ describe('generateSectionVersion', () => {
     const versioned = new VersionedSection({ sectionId: section.id });
     versioned.errors = { general: 'Test failure' };
 
-    (context.dataSources.sqlDataSource.query as jest.Mock).mockResolvedValueOnce(null);
+    context.dataSources.sqlDataSource = {
+      query: jest.fn().mockResolvedValueOnce(null)
+    };
+
     (VersionedSection.insert as jest.Mock) = mockInsert;
     const mockFindByFailure = jest.fn().mockImplementation(() => { return versioned; });
     (VersionedSection.findById as jest.Mock) = mockFindByFailure;

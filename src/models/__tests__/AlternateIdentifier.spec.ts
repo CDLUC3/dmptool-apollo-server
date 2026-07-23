@@ -77,7 +77,7 @@ describe('queries', () => {
     await AlternateIdentifier.findById('Testing', context, identifierId);
     expect(querySpy).toHaveBeenCalledTimes(1);
     const expectedSql = 'SELECT * FROM alternateIdentifiers WHERE id = ?';
-    expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, [identifierId.toString()], 'Testing', undefined);
+    expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, [identifierId.toString()], 'Testing');
   });
 
   it('findByAlternateIdentifier performs the expected query', async () => {
@@ -86,7 +86,7 @@ describe('queries', () => {
     await AlternateIdentifier.findByAlternateIdentifier('Testing', context, identifier);
     expect(querySpy).toHaveBeenCalledTimes(1);
     const expectedSql = 'SELECT * FROM alternateIdentifiers WHERE alternateIdentifier = ?';
-    expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, [identifier], 'Testing', undefined);
+    expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, [identifier], 'Testing');
   });
 
   it('findByPlanId performs the expected query', async () => {
@@ -95,7 +95,7 @@ describe('queries', () => {
     await AlternateIdentifier.findByPlanId('Testing', context, planId);
     expect(querySpy).toHaveBeenCalledTimes(1);
     const expectedSql = 'SELECT * FROM alternateIdentifiers WHERE planId = ?';
-    expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, [planId.toString()], 'Testing', undefined);
+    expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, [planId.toString()], 'Testing');
   })
 });
 

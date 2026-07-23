@@ -1,7 +1,6 @@
 import { MySqlModel } from "./MySqlModel";
 import { MyContext } from "../context";
 import { prepareObjectForLogs } from "../logger";
-import { DatabaseTransactionClient } from "../datasources/mysql";
 
 const tableName = 'tags';
 export class Tag extends MySqlModel {
@@ -35,13 +34,12 @@ export class Tag extends MySqlModel {
   }
 
   // Save the current record
-  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<Tag> {
+  async create(context: MyContext): Promise<Tag> {
     this.slug = Tag.slugifyName(this.name);
     const current = await Tag.findBySlug(
       'Section.create',
       context,
-      this.slug,
-      transactionClient
+      this.slug
     );
 
     // Then make sure it doesn't already exist
@@ -49,43 +47,43 @@ export class Tag extends MySqlModel {
       this.addError('general', 'Tag already exists');
     } else {
       if (await this.isValid()) {
-        const newId = await Tag.insert(context, tableName, this, 'Tag.create', [], transactionClient);
-        const response = await Tag.findById('Tag.create', context, newId, transactionClient);
+        const newId = await Tag.insert(context, tableName, this, 'Tag.create', []);
+        const response = await Tag.findById('Tag.create', context, newId);
         return response
       }
     }
     return new Tag(this);
   }
 
-  async update(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<Tag> {
+  async update(context: MyContext): Promise<Tag> {
     const id = this.id;
     if (await this.isValid()) {
-      await Tag.update(context, tableName, this, 'Tag.update', [], false, transactionClient);
-      const updatedTag = await Tag.findById('Tag.update', context, id, transactionClient);
+      await Tag.update(context, tableName, this, 'Tag.update', [], false);
+      const updatedTag = await Tag.findById('Tag.update', context, id);
       return updatedTag as Tag;
     }
     return new Tag(this);
   }
 
-  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<Tag> {
+  async delete(context: MyContext): Promise<Tag> {
     if (this.id) {
       /*Get tag info to be deleted so we can return this info to the user
       since calling 'delete' doesn't return anything*/
-      const deletedSection = await Tag.findById('Tag.delete', context, this.id, transactionClient);
+      const deletedSection = await Tag.findById('Tag.delete', context, this.id);
 
-      await Tag.delete(context, tableName, this.id, 'Tag.delete', transactionClient);
+      await Tag.delete(context, tableName, this.id, 'Tag.delete');
       return deletedSection;
     }
     return null;
   }
 
   // Add this Tag to a Section
-  async addToSection(context: MyContext, sectionId: number, transactionClient?: DatabaseTransactionClient): Promise<boolean> {
+  async addToSection(context: MyContext, sectionId: number): Promise<boolean> {
     const reference = 'Tag.addToSection';
     const sql = 'INSERT INTO sectionTags (tagId, sectionId, createdById, modifiedById) VALUES (?, ?, ?, ?)';
     const userId = context.token?.id?.toString();
     const vals = [this.id?.toString(), sectionId?.toString(), userId, userId];
-    const results = await Tag.query(context, sql, vals, reference, transactionClient);
+    const results = await Tag.query(context, sql, vals, reference);
 
     if (!results) {
       const payload = { tagId: this.id, sectionId };
@@ -97,11 +95,11 @@ export class Tag extends MySqlModel {
   }
 
   // Remove this Tag from a Section
-  async removeFromSection(context: MyContext, sectionId: number, transactionClient?: DatabaseTransactionClient): Promise<boolean> {
+  async removeFromSection(context: MyContext, sectionId: number): Promise<boolean> {
     const reference = 'Tag.removeFromSection';
     const sql = 'DELETE FROM sectionTags WHERE tagId = ? AND sectionId = ?';
     const vals = [this.id?.toString(), sectionId?.toString()];
-    const results = await Tag.query(context, sql, vals, reference, transactionClient);
+    const results = await Tag.query(context, sql, vals, reference);
 
     if (!results) {
       const payload = { tagId: this.id, sectionId };
@@ -113,12 +111,12 @@ export class Tag extends MySqlModel {
   }
 
   // Add this Tag to a VersionedSectionTags
-  async addToVersionedSectionTags(context: MyContext, versionedSectionId: number, transactionClient?: DatabaseTransactionClient): Promise<boolean> {
+  async addToVersionedSectionTags(context: MyContext, versionedSectionId: number): Promise<boolean> {
     const reference = 'Tag.addToVersionedSectionTags';
     const sql = 'INSERT INTO versionedSectionTags (tagId, versionedSectionId, createdById, modifiedById) VALUES (?, ?, ?, ?)';
     const userId = context.token?.id?.toString();
     const vals = [this.id?.toString(), versionedSectionId?.toString(), userId, userId];
-    const results = await Tag.query(context, sql, vals, reference, transactionClient);
+    const results = await Tag.query(context, sql, vals, reference);
 
     if (!results) {
       const payload = { tagId: this.id, versionedSectionId };
@@ -129,36 +127,36 @@ export class Tag extends MySqlModel {
     return true;
   }
 
-  static async findAll(reference: string, context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<Tag[]> {
+  static async findAll(reference: string, context: MyContext): Promise<Tag[]> {
     const sql = 'SELECT * FROM tags';
-    const results = await Tag.query(context, sql, [], reference, transactionClient);
+    const results = await Tag.query(context, sql, [], reference);
     return Array.isArray(results) && results.length > 0 ? results : null;
   }
 
-  static async findBySectionId(reference: string, context: MyContext, sectionId: number, transactionClient?: DatabaseTransactionClient): Promise<Tag[]> {
+  static async findBySectionId(reference: string, context: MyContext, sectionId: number): Promise<Tag[]> {
     const sql = `SELECT tags.* FROM sectionTags JOIN tags ON sectionTags.tagId = tags.id WHERE sectionTags.sectionId = ?;`;
-    const result = await Tag.query(context, sql, [sectionId?.toString()], reference, transactionClient);
+    const result = await Tag.query(context, sql, [sectionId?.toString()], reference);
     return Array.isArray(result) ? result.map(item => new Tag(item)) : [];
   }
 
-  static async findByVersionedSectionId(reference: string, context: MyContext, versionedSectionId: number, transactionClient?: DatabaseTransactionClient): Promise<Tag[]> {
+  static async findByVersionedSectionId(reference: string, context: MyContext, versionedSectionId: number): Promise<Tag[]> {
     const sql = `SELECT tags.* FROM versionedSectionTags vst JOIN tags ON vst.tagId = tags.id WHERE vst.versionedSectionId = ?;`;
-    const result = await Tag.query(context, sql, [versionedSectionId?.toString()], reference, transactionClient);
+    const result = await Tag.query(context, sql, [versionedSectionId?.toString()], reference);
     return Array.isArray(result) ? result.map(item => new Tag(item)) : [];
   }
 
-  static async findById(reference: string, context: MyContext, tagId: number, transactionClient?: DatabaseTransactionClient): Promise<Tag> {
+  static async findById(reference: string, context: MyContext, tagId: number): Promise<Tag> {
     const sql = 'SELECT * FROM tags where id = ?';
-    const result = await Tag.query(context, sql, [tagId?.toString()], reference, transactionClient);
+    const result = await Tag.query(context, sql, [tagId?.toString()], reference);
     return Array.isArray(result) && result.length > 0 ? new Tag(result[0]) : null;
   }
 
   // Find tag by slug
-  static async findBySlug(reference: string, context: MyContext, slug: string, transactionClient?: DatabaseTransactionClient): Promise<Tag[]> {
+  static async findBySlug(reference: string, context: MyContext, slug: string): Promise<Tag[]> {
     const sql = 'SELECT * FROM tags WHERE slug = ?';
     const searchTerm = (slug ?? '');
     const vals = [searchTerm];
-    const results = await Tag.query(context, sql, vals, reference, transactionClient);
+    const results = await Tag.query(context, sql, vals, reference);
     return Array.isArray(results) && results.length > 0 ? results.map((entry) => new Tag(entry)) : null;
   }
 }

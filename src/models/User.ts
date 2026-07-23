@@ -20,10 +20,6 @@ import {
   PaginationType
 } from '../types/general';
 import { ProjectCollaborator, TemplateCollaborator } from "./Collaborator";
-import {
-  TransactionClient,
-  DatabaseTransactionClient
-} from "../datasources/mysql";
 
 export enum UserRole {
   RESEARCHER = 'RESEARCHER',
@@ -164,10 +160,9 @@ export class User extends MySqlModel {
     reference: string,
     context: MyContext,
     email: string,
-    password: string,
-    transactionClient?: DatabaseTransactionClient
+    password: string
   ): Promise<number | null> {
-    const userEmails = await UserEmail.findByEmail(reference, context, email, transactionClient);
+    const userEmails = await UserEmail.findByEmail(reference, context, email);
 
     const userEmail = userEmails[0];
 
@@ -176,7 +171,7 @@ export class User extends MySqlModel {
       return null;
     }
 
-    const user = await User.findById(reference, context, userEmail.userId, transactionClient);
+    const user = await User.findById(reference, context, userEmail.userId);
 
     // If the user was found, check the password
     // TODO: Add logic to lock the account after too many failures
@@ -192,22 +187,22 @@ export class User extends MySqlModel {
   }
 
   // Find the User by their id
-  static async findById(reference: string, context: MyContext, userId: number, transactionClient?: DatabaseTransactionClient): Promise<User | null> {
+  static async findById(reference: string, context: MyContext, userId: number): Promise<User | null> {
     const sql = 'SELECT * FROM users WHERE id = ?';
-    const results = await User.query(context, sql, [userId?.toString()], reference, transactionClient);
+    const results = await User.query(context, sql, [userId?.toString()], reference);
     return Array.isArray(results) && results.length > 0 ? new User(results[0]) : null;
   }
 
   // Find the User by their ORCID
-  static async findByOrcid(reference: string, context: MyContext, orcid: string, transactionClient?: DatabaseTransactionClient): Promise<User | null> {
+  static async findByOrcid(reference: string, context: MyContext, orcid: string): Promise<User | null> {
     const sql = 'SELECT * FROM users WHERE orcid = ?';
-    const results = await User.query(context, sql, [orcid], reference, transactionClient);
+    const results = await User.query(context, sql, [orcid], reference);
     return Array.isArray(results) && results.length > 0 ? new User(results[0]) : null;
   }
 
   // Find the User by their email address
-  static async findByEmail(reference: string, context: MyContext, email: string, transactionClient?: DatabaseTransactionClient): Promise<User | null> {
-    const emails = await UserEmail.findByEmail(reference, context, email, transactionClient);
+  static async findByEmail(reference: string, context: MyContext, email: string): Promise<User | null> {
+    const emails = await UserEmail.findByEmail(reference, context, email);
     if (!emails || emails.length === 0) return null;
 
     return await User.findById(reference, context, emails[0].userId);
@@ -220,8 +215,7 @@ export class User extends MySqlModel {
     affiliationId: string,
     term: string,
     options: PaginationOptions = User.getDefaultPaginationOptions(),
-    role?: UserRole,
-    transactionClient?: DatabaseTransactionClient
+    role?: UserRole
   ): Promise<PaginatedQueryResults<User>> {
     const whereFilters = ['u.affiliationId = ?'];
     const values = [affiliationId];
@@ -279,9 +273,7 @@ export class User extends MySqlModel {
       '',
       values,
       opts,
-      reference,
-      true,
-      transactionClient
+      reference
     );
 
     context.logger.debug(prepareObjectForLogs({ options, response }), reference);
@@ -295,8 +287,7 @@ export class User extends MySqlModel {
     term: string,
     options: PaginationOptions = User.getDefaultPaginationOptions(),
     role?: UserRole,
-    affiliationId?: string,
-    transactionClient?: DatabaseTransactionClient
+    affiliationId?: string
   ): Promise<PaginatedQueryResults<User>> {
     const whereFilters: string[] = [];
     const values: string[] = [];
@@ -364,9 +355,7 @@ export class User extends MySqlModel {
       '',
       values,
       opts,
-      reference,
-      true,
-      transactionClient
+      reference
     )
 
     context.logger.debug(prepareObjectForLogs({ options, response }), reference);
@@ -374,12 +363,12 @@ export class User extends MySqlModel {
   }
 
   // Update the last_login fields
-  async recordLogIn(context: MyContext, loginType: LogInType, transactionClient?: DatabaseTransactionClient): Promise<boolean> {
+  async recordLogIn(context: MyContext, loginType: LogInType): Promise<boolean> {
     if (this.id) {
       this.last_sign_in = getCurrentDate();
       this.last_sign_in_via = loginType;
 
-      if (await User.update(context, this.tableName, this, 'User.recordLogIn', ['password'], true, transactionClient)) {
+      if (await User.update(context, this.tableName, this, 'User.recordLogIn', ['password'], true)) {
         return true;
       }
     }
@@ -389,7 +378,7 @@ export class User extends MySqlModel {
   }
 
   // Login making sure that the passwords match
-  async login(context: MyContext, email: string, transactionClient?: DatabaseTransactionClient): Promise<User> {
+  async login(context: MyContext, email: string): Promise<User> {
     this.prepForSave();
 
     // Validate the email and password
@@ -398,10 +387,10 @@ export class User extends MySqlModel {
     }
 
     try {
-      const userId = await User.authCheck('User.login', context, email, this.password, transactionClient);
+      const userId = await User.authCheck('User.login', context, email, this.password);
       context.logger.debug(prepareObjectForLogs({ userId }), 'User.login');
       if (userId) {
-        const existing = await User.findById('User.login', context, userId, transactionClient);
+        const existing = await User.findById('User.login', context, userId);
 
         // Update the User's last_sign_in fields
         if (await new User(existing).recordLogIn(context, LogInType.PASSWORD)) {
@@ -448,15 +437,12 @@ export class User extends MySqlModel {
       this.password = passwordHash
 
       try {
-        const transactionClient: DatabaseTransactionClient = new TransactionClient(
-          await context.dataSources.sqlDataSource.getConnection()
-        );
         const sql = `INSERT INTO users \
                       (password, role, givenName, surName, affiliationId, acceptedTerms) \
                      VALUES(?, ?, ?, ?, ?, ?)`;
         const vals = [this.password, this.role, this.givenName, this.surName, this.affiliationId, this.acceptedTerms];
         context.logger.debug(prepareObjectForLogs({ email }), reference);
-        const result = await User.query(context, sql, vals, reference, transactionClient);
+        const result = await User.query(context, sql, vals, reference);
 
         if (!Array.isArray(result) || !result[0].insertId) {
           this.addError('general', 'Unable to register your account');
@@ -473,28 +459,27 @@ export class User extends MySqlModel {
         // Update the user's createdById and modifiedById to indicate themselves
         const sqlUpdate = `UPDATE users SET createdById = ?, modifiedById = ? WHERE id = ?`;
         const valsUpdate = [user.id.toString(), user.id.toString(), user.id.toString()];
-        await User.query(context, sqlUpdate, valsUpdate, reference, transactionClient);
+        await User.query(context, sqlUpdate, valsUpdate, reference);
 
         // Add the email to the UserEmail table and send out a 'please confirm' email
         const userEmail = new UserEmail({ userId: user.id, email: email, isPrimary: true });
-        if (!await userEmail.create(context, transactionClient)) {
+        if (!await userEmail.create(context)) {
           context.logger.error(prepareObjectForLogs({ userEmail }), `${reference} - unable to add UserEmail`);
         }
 
         // Claim any open invitations to collaborate on a Template by assigning the userId
-        const tmpltCollabs = await TemplateCollaborator.findByEmail(reference, context, email, transactionClient);
+        const tmpltCollabs = await TemplateCollaborator.findByEmail(reference, context, email);
         for (const collab of tmpltCollabs) {
           collab.userId = user.id;
-          await collab.update(context, transactionClient);
+          await collab.update(context);
         }
 
         // Claim any open invitations to collaborate on a Project by assigning the userId
-        const projCollabs = await ProjectCollaborator.findByEmail(reference, context, email, transactionClient);
+        const projCollabs = await ProjectCollaborator.findByEmail(reference, context, email);
         for (const collab of projCollabs) {
           collab.userId = user.id;
-          await collab.update(context, transactionClient);
+          await collab.update(context);
         }
-
 
         return user;
       } catch (err) {
@@ -509,10 +494,10 @@ export class User extends MySqlModel {
   }
 
   // Save the changes made to the User
-  async update(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<User> {
+  async update(context: MyContext): Promise<User> {
     if (await this.isValid()) {
       if (this.id) {
-        const original = await User.findById('User.update', context, this.id, transactionClient);
+        const original = await User.findById('User.update', context, this.id);
         // If the user changed their affiliationId
         if (original.affiliationId !== this.affiliationId) {
           // If the user is an ADMIN then demote them to RESEARCHER
@@ -529,8 +514,8 @@ export class User extends MySqlModel {
         }
 
         // Don't allow password changes here
-        await User.update(context, this.tableName, this, 'User.update', ['password'], false, transactionClient);
-        return await User.findById('User.update', context, this.id, transactionClient);
+        await User.update(context, this.tableName, this, 'User.update', ['password'], false);
+        return await User.findById('User.update', context, this.id);
       }
       // This user has never been saved before so we cannot update it!
       this.addError('general', 'User has never been saved');
@@ -543,20 +528,19 @@ export class User extends MySqlModel {
     context: MyContext,
     oldPassword: string,
     newPassword: string,
-    email: string,
-    transactionClient?: DatabaseTransactionClient
+    email: string
   ): Promise<User> {
     const ref = 'User.updatePassword';
     // First make sure the current password is valid
-    const validPassword = await User.authCheck(ref, context, email, oldPassword, transactionClient);
+    const validPassword = await User.authCheck(ref, context, email, oldPassword);
     if (validPassword) {
       this.password = newPassword;
       if (this.validatePassword()) {
         this.password = await this.hashPassword(newPassword);
 
-        const updated = await User.update(context, this.tableName, this, 'User.updatePassword', [], false, transactionClient);
+        const updated = await User.update(context, this.tableName, this, 'User.updatePassword', [], false);
         if (updated) {
-          return await User.findById('updatePassword resolver', context, this.id, transactionClient);
+          return await User.findById('updatePassword resolver', context, this.id);
         }
       }
       // The new password was invalid, so return the object with errors

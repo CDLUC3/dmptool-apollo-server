@@ -16,7 +16,6 @@ import {
   TemplateCustomizationStatus,
   TemplateCustomizationMigrationStatus
 } from "./TemplateCustomization";
-import { DatabaseTransactionClient } from "../datasources/mysql";
 
 export enum TemplateVersionType {
   DRAFT = 'DRAFT',
@@ -66,8 +65,7 @@ export class VersionedTemplateSearchResult {
     reference: string,
     context: MyContext,
     term: string,
-    options: TemplateQueryOptions = VersionedTemplate.getDefaultPaginationOptions(),
-    transactionClient?: DatabaseTransactionClient
+    options: TemplateQueryOptions = VersionedTemplate.getDefaultPaginationOptions()
   ): Promise<PaginatedQueryResults<VersionedTemplateSearchResult>> {
     const userAffiliationId = context.token?.affiliationId;
     const whereFilters = ['vt.active = 1 AND vt.versionType = ?'];
@@ -134,9 +132,7 @@ export class VersionedTemplateSearchResult {
       '',
       values,
       opts,
-      reference,
-      true,
-      transactionClient
+      reference
     )
 
     context.logger.debug(prepareObjectForLogs({ options, response }), reference);
@@ -147,8 +143,7 @@ export class VersionedTemplateSearchResult {
   static async findByAffiliationId(
     reference: string,
     context: MyContext,
-    affiliationId: string,
-    transactionClient?: DatabaseTransactionClient
+    affiliationId: string
   ): Promise<VersionedTemplateSearchResult[]> {
     const sql = 'SELECT vt.id, vt.templateId, vt.name, vt.description, vt.version, vt.visibility, vt.bestPractice, ' +
                 'vt.modified, vt.modifiedById, TRIM(CONCAT(u.givenName, CONCAT(\' \', u.surName))) as modifiedByName, ' +
@@ -160,7 +155,7 @@ export class VersionedTemplateSearchResult {
               'WHERE vt.ownerId = affiliationId AND vt.active = 1 AND vt.versionType = ? ' +
               'ORDER BY vt.modified DESC;';
     const vals = [affiliationId, TemplateVersionType.PUBLISHED];
-    const results = await VersionedTemplate.query(context, sql, vals, reference, transactionClient);
+    const results = await VersionedTemplate.query(context, sql, vals, reference);
     return Array.isArray(results) ? results.map((entry) => new VersionedTemplateSearchResult(entry)) : [];
   }
 }
@@ -215,7 +210,6 @@ export class CustomizableTemplateSearchResult {
    * @param status The status to filter by (optional)
    * @param migrationStatus The migration status to filter by (optional)
    * @param options Pagination options
-   * @param transactionClient the MySQL transaction to use
    * @returns A paginated list of customizable templates
    */
   static async search(
@@ -224,8 +218,7 @@ export class CustomizableTemplateSearchResult {
     term?: string,
     status?: string,
     migrationStatus?: string,
-    options: PaginationOptions = VersionedTemplate.getDefaultPaginationOptions(),
-    transactionClient?: DatabaseTransactionClient
+    options: PaginationOptions = VersionedTemplate.getDefaultPaginationOptions()
   ): Promise<PaginatedQueryResults<CustomizableTemplateSearchResult>> {
     // Versioned templates must be published and publicly visible
     const whereFilters = [
@@ -310,8 +303,7 @@ export class CustomizableTemplateSearchResult {
       values,
       opts,
       reference,
-      false,
-      transactionClient
+      false
     )
     let items = response.items.map(row => new CustomizableTemplateSearchResult(row));
 
@@ -321,8 +313,7 @@ export class CustomizableTemplateSearchResult {
       context,
       `SELECT COUNT(vt.id) AS count ${fromClause} WHERE ${whereFilters.join(' AND ')}`,
       values,
-      reference,
-      transactionClient
+      reference
     );
     if (Array.isArray(countResponse) && countResponse.length > 0) {
       response.totalCount = countResponse[0]?.count ?? 0;
@@ -354,7 +345,7 @@ export class CustomizableTemplateSearchResult {
         WHERE tc.affiliationId = '${userAffiliationId}'
           AND tc.migrationStatus IN ('ORPHANED', 'STALE')
       `;
-      const orphanResponse = await VersionedTemplate.query(context, orphanSql, [], reference, transactionClient);
+      const orphanResponse = await VersionedTemplate.query(context, orphanSql, [], reference);
       // If any orphaned customizations were found, add them to the response
       if (Array.isArray(orphanResponse) && orphanResponse.length > 0) {
         items = items.concat(
@@ -435,23 +426,23 @@ export class VersionedTemplate extends MySqlModel {
   }
 
   // Save the current record
-  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<VersionedTemplate> {
+  async create(context: MyContext): Promise<VersionedTemplate> {
     // First make sure the record is valid
     if (await this.isValid()) {
       // Save the record and then fetch it
-      const newId = await VersionedTemplate.insert(context, this.tableName, this, 'VersionedTemplate.create', [], transactionClient);
-      return await VersionedTemplate.findVersionedTemplateById('VersionedTemplate.create', context, newId, transactionClient);
+      const newId = await VersionedTemplate.insert(context, this.tableName, this, 'VersionedTemplate.create', []);
+      return await VersionedTemplate.findVersionedTemplateById('VersionedTemplate.create', context, newId);
     }
     // Otherwise return as-is with all the errors
     return new VersionedTemplate(this);
   }
 
   // Save the changes made to the VersionedTemplate
-  async update(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<VersionedTemplate> {
+  async update(context: MyContext): Promise<VersionedTemplate> {
     // First make sure the record is valid
     if (await this.isValid()) {
       if (this.id) {
-        const result = await VersionedTemplate.update(context, this.tableName, this, 'VersionedTemplate.update', [], false, transactionClient);
+        const result = await VersionedTemplate.update(context, this.tableName, this, 'VersionedTemplate.update', [], false);
         return result as VersionedTemplate;
       }
       // This template has never been saved before so we cannot update it!
@@ -461,16 +452,16 @@ export class VersionedTemplate extends MySqlModel {
   }
 
   // Fetch the Versioned template by its id
-  static async findById(reference: string, context: MyContext, versionedTemplateId: number, transactionClient?: DatabaseTransactionClient): Promise<VersionedTemplate> {
+  static async findById(reference: string, context: MyContext, versionedTemplateId: number): Promise<VersionedTemplate> {
     const sql = 'SELECT * FROM versionedTemplates WHERE id = ?';
-    const results = await VersionedTemplate.query(context, sql, [versionedTemplateId?.toString()], reference, transactionClient);
+    const results = await VersionedTemplate.query(context, sql, [versionedTemplateId?.toString()], reference);
     return Array.isArray(results) && results.length > 0 ? new VersionedTemplate(results[0]) : null;
   }
 
   // Return all of the versions for the specified Template
-  static async findByTemplateId(reference: string, context: MyContext, templateId: number, transactionClient?: DatabaseTransactionClient): Promise<VersionedTemplate[]> {
+  static async findByTemplateId(reference: string, context: MyContext, templateId: number): Promise<VersionedTemplate[]> {
     const sql = 'SELECT * FROM versionedTemplates WHERE templateId = ? ORDER BY version DESC';
-    const results = await VersionedTemplate.query(context, sql, [templateId.toString()], reference, transactionClient);
+    const results = await VersionedTemplate.query(context, sql, [templateId.toString()], reference);
     return Array.isArray(results) ? results.map((entry) => new VersionedTemplate(entry)) : [];
   }
 
@@ -478,18 +469,17 @@ export class VersionedTemplate extends MySqlModel {
   static async findVersionedTemplateById(
     reference: string,
     context: MyContext,
-    versionedTemplateId: number,
-    transactionClient?: DatabaseTransactionClient
+    versionedTemplateId: number
   ): Promise<VersionedTemplate> {
     const sql = 'SELECT * FROM versionedTemplates WHERE id = ?';
-    const results = await VersionedTemplate.query(context, sql, [versionedTemplateId?.toString()], reference, transactionClient);
+    const results = await VersionedTemplate.query(context, sql, [versionedTemplateId?.toString()], reference);
     return Array.isArray(results) && results.length > 0 ? new VersionedTemplate(results[0]) : null;
   }
 
   // Find all of the templates associated with the context's User's affiliation
-  static async findByAffiliationId(reference: string, context: MyContext, affiliationId: string, transactionClient?: DatabaseTransactionClient): Promise<VersionedTemplate[]> {
+  static async findByAffiliationId(reference: string, context: MyContext, affiliationId: string): Promise<VersionedTemplate[]> {
     const sql = 'SELECT * FROM versionedTemplates WHERE ownerId = ? ORDER BY modified DESC';
-    const results = await VersionedTemplate.query(context, sql, [affiliationId], reference, transactionClient);
+    const results = await VersionedTemplate.query(context, sql, [affiliationId], reference);
     // No need to instantiate the objects here
     return Array.isArray(results) ? results : [];
   }
@@ -500,19 +490,18 @@ export class VersionedTemplate extends MySqlModel {
    * @param reference The reference string to use for logging
    * @param context The Apollo context'
    * @param templateId The template ID to search for
-   * @param transactionClient The MySQL transaction to use.
    * @returns The latest active version of the template, or undefined if none were found
    */
-  static async findActiveByTemplateId(reference: string, context: MyContext, templateId: number, transactionClient?: DatabaseTransactionClient): Promise<VersionedTemplate> {
+  static async findActiveByTemplateId(reference: string, context: MyContext, templateId: number): Promise<VersionedTemplate> {
     const sql = 'SELECT * FROM versionedTemplates WHERE templateId = ? AND active = 1 ORDER BY modified DESC';
-    const results = await VersionedTemplate.query(context, sql, [templateId.toString()], reference, transactionClient);
+    const results = await VersionedTemplate.query(context, sql, [templateId.toString()], reference);
     return Array.isArray(results) && results.length > 0 ? new VersionedTemplate(results[0]) : undefined;
   }
 
-  static async getFilterMetadata(reference: string, context: MyContext, transactionClient?: DatabaseTransactionClient) {
+  static async getFilterMetadata(reference: string, context: MyContext) {
     const [availableAffiliations, hasBestPractice] = await Promise.all([
-      this.getAvailableOwners(reference, context, transactionClient),
-      this.hasBestPracticeTemplates(reference, context, transactionClient)
+      this.getAvailableOwners(reference, context),
+      this.hasBestPracticeTemplates(reference, context)
     ]);
 
     return {
@@ -521,7 +510,7 @@ export class VersionedTemplate extends MySqlModel {
     };
   }
 
-  static async getAvailableOwners(reference: string, context: MyContext, transactionClient?: DatabaseTransactionClient) {
+  static async getAvailableOwners(reference: string, context: MyContext) {
     const whereFilters = ['vt.active = 1 AND vt.versionType = ?'];
     const values = [TemplateVersionType.PUBLISHED.toString()];
 
@@ -531,12 +520,12 @@ export class VersionedTemplate extends MySqlModel {
     LEFT JOIN affiliations a ON a.uri = vt.ownerId
     WHERE ${whereFilters.join(' AND ')}
   `;
-    const results = await VersionedTemplate.query(context, sql, values, reference, transactionClient);
+    const results = await VersionedTemplate.query(context, sql, values, reference);
     // Extract just the ownerURI values as strings
     return Array.isArray(results) ? results.map(row => row.ownerURI) : [];
   }
 
-  static async hasBestPracticeTemplates(reference: string, context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<boolean> {
+  static async hasBestPracticeTemplates(reference: string, context: MyContext): Promise<boolean> {
     const whereFilters = ['vt.active = 1 AND vt.bestPractice = 1 AND vt.versionType = ?'];
     const values = [TemplateVersionType.PUBLISHED.toString()];
 
@@ -547,17 +536,17 @@ export class VersionedTemplate extends MySqlModel {
     WHERE ${whereFilters.join(' AND ')}
   `;
 
-    const result = await VersionedTemplate.query(context, sql, values, reference, transactionClient);
+    const result = await VersionedTemplate.query(context, sql, values, reference);
     const results = Array.isArray(result) ? result : [];
     return results.length > 0 && results[0].count > 0;
   }
 
   // Check if any plans exist that are associated with any versionedTemplate for the given template
-  static async hasAssociatedPlans(reference: string, context: MyContext, templateId: number, transactionClient?: DatabaseTransactionClient): Promise<boolean> {
+  static async hasAssociatedPlans(reference: string, context: MyContext, templateId: number): Promise<boolean> {
     const sql = 'SELECT p.id FROM plans AS p ' +
                 'JOIN versionedTemplates AS vt ON p.versionedTemplateId = vt.id ' +
                 'WHERE vt.templateId = ? LIMIT 1';
-    const results = await VersionedTemplate.query(context, sql, [templateId.toString()], reference, transactionClient);
+    const results = await VersionedTemplate.query(context, sql, [templateId.toString()], reference);
     // Explicitly handle null or non-array results
     if (!results || !Array.isArray(results)) {
       return false;
@@ -566,15 +555,15 @@ export class VersionedTemplate extends MySqlModel {
   }
 
   // Deactivate all versionedTemplates for the given template
-  static async deactivateByTemplateId(reference: string, context: MyContext, templateId: number, transactionClient?: DatabaseTransactionClient): Promise<void> {
+  static async deactivateByTemplateId(reference: string, context: MyContext, templateId: number): Promise<void> {
     const sql = 'UPDATE versionedTemplates SET active = 0 WHERE templateId = ?';
-    await VersionedTemplate.query(context, sql, [templateId.toString()], reference, transactionClient);
+    await VersionedTemplate.query(context, sql, [templateId.toString()], reference);
   }
 
   // Fetch the latest version of the default best practice template
-  static async defaultTemplate(reference: string, context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<VersionedTemplate> {
+  static async defaultTemplate(reference: string, context: MyContext): Promise<VersionedTemplate> {
     const sql = `SELECT * FROM versionedTemplates WHERE active = 1 AND isDefault = 1 ORDER BY id LIMIT 1;`;
-    const results = await VersionedTemplate.query(context, sql, [], reference, transactionClient);
+    const results = await VersionedTemplate.query(context, sql, [], reference);
     return Array.isArray(results) && results.length > 0 ? new VersionedTemplate(results[0]) : undefined;
   }
 }

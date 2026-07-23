@@ -10,7 +10,6 @@ import { CustomSection, PinnedSectionTypeEnum } from "../models/CustomSection";
 import { CustomQuestion } from "../models/CustomQuestion";
 import { SectionCustomization } from "../models/SectionCustomization";
 import { QuestionCustomization } from "../models/QuestionCustomization";
-import {DatabaseTransactionClient} from "../datasources/mysql";
 
 /**
  * A minimal interface representing the shape of a TemplateCustomization that
@@ -38,12 +37,11 @@ export const snapshotCustomizationChildren = async (
   reference: string,
   context: MyContext,
   customization: PublishableCustomization,
-  created: VersionedTemplateCustomization,
-  transactionClient?: DatabaseTransactionClient
+  created: VersionedTemplateCustomization
 ): Promise<void> => {
   // Snapshot custom sections and their questions into versioned equivalents
   const customSections = await CustomSection.findByCustomizationId(
-    reference, context, customization.id, transactionClient);
+    reference, context, customization.id);
 
   for (const section of customSections) {
     const versionedSection = new VersionedCustomSection({
@@ -56,7 +54,7 @@ export const snapshotCustomizationChildren = async (
       requirements: section.requirements,
       guidance: section.guidance,
     });
-    const createdSection = await versionedSection.create(context, transactionClient);
+    const createdSection = await versionedSection.create(context);
 
     if (!createdSection || createdSection.hasErrors()) {
       customization.addError('general', `Unable to version custom section: ${section.name}`);
@@ -65,7 +63,7 @@ export const snapshotCustomizationChildren = async (
 
     // Snapshot custom questions belonging to this custom section
     const customQuestions = await CustomQuestion.findByCustomizationAndSectionId(
-      reference, context, customization.id, PinnedSectionTypeEnum.CUSTOM, section.id, transactionClient);
+      reference, context, customization.id, PinnedSectionTypeEnum.CUSTOM, section.id);
 
     for (const question of customQuestions) {
       const versionedQuestion = new VersionedCustomQuestion({
@@ -83,7 +81,7 @@ export const snapshotCustomizationChildren = async (
         useSampleTextAsDefault: question.useSampleTextAsDefault ?? false,
         required: question.required ?? false,
       });
-      const createdQuestion = await versionedQuestion.create(context, transactionClient);
+      const createdQuestion = await versionedQuestion.create(context);
 
       if (!createdQuestion || createdQuestion.hasErrors()) {
         customization.addError(
@@ -96,7 +94,7 @@ export const snapshotCustomizationChildren = async (
 
   // Snapshot custom questions attached to BASE sections (not covered by the loop above)
   const baseCustomQuestions = await CustomQuestion.findByCustomizationAndSectionType(
-    reference, context, customization.id, PinnedSectionTypeEnum.BASE, transactionClient);
+    reference, context, customization.id, PinnedSectionTypeEnum.BASE);
 
   for (const question of baseCustomQuestions) {
     const versionedQuestion = new VersionedCustomQuestion({
@@ -114,7 +112,7 @@ export const snapshotCustomizationChildren = async (
       useSampleTextAsDefault: question.useSampleTextAsDefault ?? false,
       required: question.required ?? false,
     });
-    const createdQuestion = await versionedQuestion.create(context, transactionClient);
+    const createdQuestion = await versionedQuestion.create(context);
 
     if (!createdQuestion || createdQuestion.hasErrors()) {
       customization.addError(
@@ -126,7 +124,7 @@ export const snapshotCustomizationChildren = async (
 
   // Snapshot sectionCustomizations into versionedSectionCustomizations
   const sectionCustomizations = await SectionCustomization.findByCustomizationId(
-    reference, context, customization.id, transactionClient);
+    reference, context, customization.id);
 
   for (const sectionCust of sectionCustomizations) {
     const versionedSectionRows = await VersionedSection.query(
@@ -134,8 +132,7 @@ export const snapshotCustomizationChildren = async (
       `SELECT id FROM versionedSections
          WHERE sectionId = ? AND versionedTemplateId = ? LIMIT 1`,
       [sectionCust.sectionId.toString(), customization.currentVersionedTemplateId.toString()],
-      reference,
-      transactionClient,
+      reference
     );
 
     if (!versionedSectionRows?.length) {
@@ -154,7 +151,7 @@ export const snapshotCustomizationChildren = async (
       createdById: context.token?.id,
       modifiedById: context.token?.id,
     });
-    const createdSectionCust = await versionedSectionCust.create(context, transactionClient);
+    const createdSectionCust = await versionedSectionCust.create(context);
 
     if (!createdSectionCust || createdSectionCust.hasErrors()) {
       customization.addError(
@@ -166,7 +163,7 @@ export const snapshotCustomizationChildren = async (
 
   // Snapshot questionCustomizations into versionedQuestionCustomizations
   const questionCustomizations = await QuestionCustomization.findByCustomizationId(
-    reference, context, customization.id, transactionClient);
+    reference, context, customization.id);
 
   for (const questionCust of questionCustomizations) {
     const versionedQuestionRows = await VersionedQuestion.query(
@@ -174,8 +171,7 @@ export const snapshotCustomizationChildren = async (
       `SELECT id FROM versionedQuestions
          WHERE questionId = ? AND versionedTemplateId = ? LIMIT 1`,
       [questionCust.questionId.toString(), customization.currentVersionedTemplateId.toString()],
-      reference,
-      transactionClient,
+      reference
     );
 
     if (!versionedQuestionRows?.length) {
@@ -195,7 +191,7 @@ export const snapshotCustomizationChildren = async (
       createdById: context.token?.id,
       modifiedById: context.token?.id,
     });
-    const createdQuestionCust = await versionedQuestionCust.create(context, transactionClient);
+    const createdQuestionCust = await versionedQuestionCust.create(context);
 
     if (!createdQuestionCust || createdQuestionCust.hasErrors()) {
       customization.addError(
@@ -216,28 +212,25 @@ export const snapshotCustomizationChildren = async (
  * @param context The Apollo context.
  * @param createdVersionId The id of the incomplete VersionedTemplateCustomization.
  * @param priorPublishedVersionId The id of the version to re-activate, if any.
- * @param transactionClient the MySQL transaction to use
  */
 export const rollbackPublishedSnapshot = async (
   context: MyContext,
   createdVersionId: number,
-  priorPublishedVersionId: number | undefined,
-  transactionClient?: DatabaseTransactionClient
+  priorPublishedVersionId: number | undefined
 ): Promise<void> => {
   const ref = 'rollbackPublishedSnapshot';
   await VersionedTemplateCustomization.delete(
     context,
     VersionedTemplateCustomization.tableName,
     createdVersionId,
-    ref,
-    transactionClient,
+    ref
   );
   if (priorPublishedVersionId) {
     const priorVer = await VersionedTemplateCustomization.findById(
-      ref, context, priorPublishedVersionId, transactionClient);
+      ref, context, priorPublishedVersionId);
     if (priorVer) {
       priorVer.active = true;
-      await priorVer.update(context, true, transactionClient);
+      await priorVer.update(context, true);
     }
   }
 };

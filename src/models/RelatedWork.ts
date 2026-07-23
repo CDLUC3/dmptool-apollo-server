@@ -21,7 +21,6 @@ import {
 } from '../types';
 import { prepareObjectForLogs } from '../logger';
 import { Plan } from './Plan';
-import { DatabaseTransactionClient } from "../datasources/mysql";
 
 export class Work extends MySqlModel {
   public doi: string;
@@ -46,21 +45,21 @@ export class Work extends MySqlModel {
     this.doi = parseDOI(this.doi);
   }
 
-  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<Work> {
+  async create(context: MyContext): Promise<Work> {
     const reference = 'Work.create';
 
     // First make sure the record is valid
     this.prepForSave();
     if (await this.isValid()) {
-      const current = await Work.findByDoi(reference, context, this.doi, transactionClient);
+      const current = await Work.findByDoi(reference, context, this.doi);
 
       // Then make sure it doesn't already exist
       if (current) {
         this.addError('general', 'Work already exists');
       } else {
         // Save the record and then fetch it
-        const newId = await Work.insert(context, Work.tableName, this, reference, [], transactionClient);
-        return await Work.findById(reference, context, newId, transactionClient);
+        const newId = await Work.insert(context, Work.tableName, this, reference, []);
+        return await Work.findById(reference, context, newId);
       }
     }
 
@@ -68,24 +67,24 @@ export class Work extends MySqlModel {
     return new Work(this);
   }
 
-  async update(context: MyContext, noTouch = false, transactionClient?: DatabaseTransactionClient): Promise<Work> {
+  async update(context: MyContext, noTouch = false): Promise<Work> {
     const id = this.id;
 
     if (await this.isValid()) {
       if (id) {
-        await Work.update(context, Work.tableName, this, 'Work.update', [], noTouch, transactionClient);
-        return await Work.findById('Work.update', context, id, transactionClient);
+        await Work.update(context, Work.tableName, this, 'Work.update', [], noTouch);
+        return await Work.findById('Work.update', context, id);
       }
       this.addError('general', 'Work has never been saved');
     }
     return new Work(this);
   }
 
-  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<Work> {
+  async delete(context: MyContext): Promise<Work> {
     if (this.id) {
-      const deleted = await Work.findById('Work.delete', context, this.id, transactionClient);
+      const deleted = await Work.findById('Work.delete', context, this.id);
 
-      const successfullyDeleted = await Work.delete(context, Work.tableName, this.id, 'Work.delete', transactionClient);
+      const successfullyDeleted = await Work.delete(context, Work.tableName, this.id, 'Work.delete');
       if (successfullyDeleted) {
         return deleted;
       } else {
@@ -96,16 +95,16 @@ export class Work extends MySqlModel {
   }
 
   // Fetch a Work by its id
-  static async findById(reference: string, context: MyContext, workId: number, transactionClient?: DatabaseTransactionClient): Promise<Work> {
+  static async findById(reference: string, context: MyContext, workId: number): Promise<Work> {
     const sql = `SELECT * FROM works WHERE id = ?`;
-    const results = await Work.query(context, sql, [workId?.toString()], reference, transactionClient);
+    const results = await Work.query(context, sql, [workId?.toString()], reference);
     return Array.isArray(results) && results.length > 0 ? new Work(results[0]) : null;
   }
 
   // Fetch a Work by its DOI
-  static async findByDoi(reference: string, context: MyContext, doi: string, transactionClient?: DatabaseTransactionClient): Promise<Work> {
+  static async findByDoi(reference: string, context: MyContext, doi: string): Promise<Work> {
     const sql = `SELECT * FROM works WHERE doi = ?`;
-    const results = await Work.query(context, sql, [doi], reference, transactionClient);
+    const results = await Work.query(context, sql, [doi], reference);
     return Array.isArray(results) && results.length > 0 ? new Work(results[0]) : null;
   }
 }
@@ -182,20 +181,20 @@ export class WorkVersion extends MySqlModel {
     return Object.keys(this.errors).length === 0;
   }
 
-  async create(context: MyContext, doi: string, transactionClient?: DatabaseTransactionClient): Promise<WorkVersion> {
+  async create(context: MyContext, doi: string): Promise<WorkVersion> {
     const reference = 'WorkVersion.create';
 
     // First make sure the record is valid
     if (await this.isValid()) {
-      const current = await WorkVersion.findByDoiAndHash(reference, context, doi, this.hash, transactionClient);
+      const current = await WorkVersion.findByDoiAndHash(reference, context, doi, this.hash);
 
       // Then make sure it doesn't already exist
       if (current) {
         this.addError('general', 'Work version already exists');
       } else {
         // Save the record and then fetch it
-        const newId = await WorkVersion.insert(context, WorkVersion.tableName, this, reference, [], transactionClient);
-        return await WorkVersion.findById(reference, context, newId, transactionClient);
+        const newId = await WorkVersion.insert(context, WorkVersion.tableName, this, reference, []);
+        return await WorkVersion.findById(reference, context, newId);
       }
     }
 
@@ -203,29 +202,28 @@ export class WorkVersion extends MySqlModel {
     return new WorkVersion(this);
   }
 
-  async update(context: MyContext, noTouch = false, transactionClient?: DatabaseTransactionClient): Promise<WorkVersion> {
+  async update(context: MyContext, noTouch = false): Promise<WorkVersion> {
     const id = this.id;
 
     if (await this.isValid()) {
       if (id) {
-        await WorkVersion.update(context, WorkVersion.tableName, this, 'WorkVersion.update', [], noTouch, transactionClient);
-        return await WorkVersion.findById('WorkVersion.update', context, id, transactionClient);
+        await WorkVersion.update(context, WorkVersion.tableName, this, 'WorkVersion.update', [], noTouch);
+        return await WorkVersion.findById('WorkVersion.update', context, id);
       }
       this.addError('general', 'WorkVersion has never been saved');
     }
     return new WorkVersion(this);
   }
 
-  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<WorkVersion> {
+  async delete(context: MyContext): Promise<WorkVersion> {
     if (this.id) {
-      const deleted = await WorkVersion.findById('WorkVersion.delete', context, this.id, transactionClient);
+      const deleted = await WorkVersion.findById('WorkVersion.delete', context, this.id);
 
       const successfullyDeleted = await WorkVersion.delete(
         context,
         WorkVersion.tableName,
         this.id,
-        'WorkVersion.delete',
-        transactionClient
+        'WorkVersion.delete'
       );
       if (successfullyDeleted) {
         return deleted;
@@ -237,9 +235,9 @@ export class WorkVersion extends MySqlModel {
   }
 
   // Fetch a Work by its id
-  static async findById(reference: string, context: MyContext, workVersionId: number, transactionClient?: DatabaseTransactionClient): Promise<WorkVersion> {
+  static async findById(reference: string, context: MyContext, workVersionId: number): Promise<WorkVersion> {
     const sql = `SELECT * FROM workVersions WHERE id = ?`;
-    const results = await WorkVersion.query(context, sql, [workVersionId?.toString()], reference, transactionClient);
+    const results = await WorkVersion.query(context, sql, [workVersionId?.toString()], reference);
     return Array.isArray(results) && results.length > 0 ? new WorkVersion(results[0]) : null;
   }
 
@@ -247,11 +245,10 @@ export class WorkVersion extends MySqlModel {
     reference: string,
     context: MyContext,
     doi: string,
-    hash: Buffer,
-    transactionClient?: DatabaseTransactionClient
+    hash: Buffer
   ): Promise<WorkVersion> {
     const sql = `SELECT wv.* FROM workVersions wv LEFT JOIN works w ON wv.workId = w.id WHERE wv.hash = ? AND w.doi = ?`;
-    const results = await WorkVersion.query(context, sql, [hash, doi?.toString()], reference, transactionClient);
+    const results = await WorkVersion.query(context, sql, [hash, doi?.toString()], reference);
     return Array.isArray(results) && results.length > 0 ? new WorkVersion(results[0]) : null;
   }
 }
@@ -302,33 +299,33 @@ export class RelatedWork extends MySqlModel {
   }
 
   // Create a new RelatedWork
-  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<RelatedWork> {
+  async create(context: MyContext): Promise<RelatedWork> {
     const reference = 'RelatedWork.create';
 
     // First make sure the record is valid
     if (await this.isValid()) {
       // Check that work version exists
-      const workVersion = await WorkVersion.findById(reference, context, this.workVersionId, transactionClient);
+      const workVersion = await WorkVersion.findById(reference, context, this.workVersionId);
       if (!workVersion) {
         this.addError('workVersion', 'Work version does not exist');
       }
 
       // Check that plan exists
-      const plan = await Plan.findById(reference, context, this.planId, transactionClient);
+      const plan = await Plan.findById(reference, context, this.planId);
       if (!plan) {
         this.addError('plan', 'Plan does not exist');
       }
 
       // Check that related work doesn't exist
-      const current = await RelatedWork.findByPlanAndWorkVersionId(reference, context, this.planId, this.workVersionId, transactionClient);
+      const current = await RelatedWork.findByPlanAndWorkVersionId(reference, context, this.planId, this.workVersionId);
       if (current) {
         this.addError('relatedWork', 'RelatedWork already exists');
       }
 
       if (Object.keys(this.errors).length == 0) {
         // Insert related work
-        const newId = await RelatedWork.insert(context, RelatedWork.tableName, this, reference, [], transactionClient);
-        return await RelatedWork.findById(reference, context, newId, transactionClient);
+        const newId = await RelatedWork.insert(context, RelatedWork.tableName, this, reference, []);
+        return await RelatedWork.findById(reference, context, newId);
       }
     }
 
@@ -337,12 +334,12 @@ export class RelatedWork extends MySqlModel {
   }
 
   // Update an existing RelatedWork
-  async update(context: MyContext, noTouch = false, transactionClient?: DatabaseTransactionClient): Promise<RelatedWork> {
+  async update(context: MyContext, noTouch = false): Promise<RelatedWork> {
     if (await this.isValid()) {
       if (this.id) {
-        await RelatedWork.update(context, RelatedWork.tableName, this, 'RelatedWork.update', [], noTouch, transactionClient);
+        await RelatedWork.update(context, RelatedWork.tableName, this, 'RelatedWork.update', [], noTouch);
 
-        return await RelatedWork.findById('RelatedWork.update', context, this.id, transactionClient);
+        return await RelatedWork.findById('RelatedWork.update', context, this.id);
       }
       // This template has never been saved before so we cannot update it!
       this.addError('general', 'RelatedWork has never been saved');
@@ -351,16 +348,15 @@ export class RelatedWork extends MySqlModel {
   }
 
   // Delete the RelatedWork
-  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<RelatedWork> {
+  async delete(context: MyContext): Promise<RelatedWork> {
     if (this.id) {
-      const deleted = await RelatedWork.findById('RelatedWork.delete', context, this.id, transactionClient);
+      const deleted = await RelatedWork.findById('RelatedWork.delete', context, this.id);
 
       const successfullyDeleted = await RelatedWork.delete(
         context,
         RelatedWork.tableName,
         this.id,
-        'RelatedWork.delete',
-        transactionClient
+        'RelatedWork.delete'
       );
       if (successfullyDeleted) {
         return deleted;
@@ -372,9 +368,9 @@ export class RelatedWork extends MySqlModel {
   }
 
   // Find a RelatedWork by its identifier
-  static async findById(reference: string, context: MyContext, id: number, transactionClient?: DatabaseTransactionClient): Promise<RelatedWork> {
+  static async findById(reference: string, context: MyContext, id: number): Promise<RelatedWork> {
     const sql = `SELECT * FROM ${RelatedWork.tableName} WHERE id = ?`;
-    const result = await RelatedWork.query(context, sql, [id.toString()], reference, transactionClient);
+    const result = await RelatedWork.query(context, sql, [id.toString()], reference);
     return Array.isArray(result) && result.length > 0 ? new RelatedWork(result[0]) : null;
   }
 
@@ -383,23 +379,22 @@ export class RelatedWork extends MySqlModel {
     reference: string,
     context: MyContext,
     planId: number,
-    workVersionId: number,
-    transactionClient?: DatabaseTransactionClient
+    workVersionId: number
   ): Promise<RelatedWork> {
     const sql = `SELECT * FROM ${RelatedWork.tableName} WHERE planId = ? AND workVersionId = ?`;
-    const result = await RelatedWork.query(context, sql, [planId.toString(), workVersionId.toString()], reference, transactionClient);
+    const result = await RelatedWork.query(context, sql, [planId.toString(), workVersionId.toString()], reference);
     return Array.isArray(result) && result.length > 0 ? new RelatedWork(result[0]) : null;
   }
 
   // Find a RelatedWork by planID and DOI
-  static async findByDOI(reference: string, context: MyContext, planId: number, doi: string, transactionClient?: DatabaseTransactionClient): Promise<RelatedWork> {
+  static async findByDOI(reference: string, context: MyContext, planId: number, doi: string): Promise<RelatedWork> {
     const sql = `SELECT rw.* FROM ${RelatedWork.tableName} AS rw LEFT JOIN plans p ON rw.planId = p.id LEFT JOIN workVersions wv ON rw.workVersionId = wv.id LEFT JOIN works w ON wv.workId = w.id WHERE rw.planId = ? AND w.doi = ?`;
-    const result = await RelatedWork.query(context, sql, [planId.toString(), doi], reference, transactionClient);
+    const result = await RelatedWork.query(context, sql, [planId.toString(), doi], reference);
     return Array.isArray(result) && result.length > 0 ? new RelatedWork(result[0]) : null;
   }
 
   // Calculate related works stats for a plan
-  static async statsByPlanId(reference: string, context: MyContext, planId: number, transactionClient?: DatabaseTransactionClient): Promise<RelatedWorkStatsResults> {
+  static async statsByPlanId(reference: string, context: MyContext, planId: number): Promise<RelatedWorkStatsResults> {
     const sql = `
       SELECT
         COALESCE(MAX(CASE WHEN p.registered IS NOT NULL THEN 1 ELSE 0 END), 0) AS hasPublishedPlan,
@@ -412,7 +407,7 @@ export class RelatedWork extends MySqlModel {
       WHERE p.id = ?;
     `;
 
-    const result = await RelatedWork.query(context, sql, [planId.toString()], reference, transactionClient);
+    const result = await RelatedWork.query(context, sql, [planId.toString()], reference);
     return Array.isArray(result) && result.length > 0
       ? (result[0] as RelatedWorkStatsResults)
       : { acceptedCount: 0, hasPublishedPlan: false, pendingCount: 0, rejectedCount: 0, totalCount: 0 };
@@ -422,8 +417,7 @@ export class RelatedWork extends MySqlModel {
   static async statsByProjectId(
     reference: string,
     context: MyContext,
-    projectId: number,
-    transactionClient?: DatabaseTransactionClient
+    projectId: number
   ): Promise<RelatedWorkStatsResults> {
     const sql = `
       SELECT
@@ -437,7 +431,7 @@ export class RelatedWork extends MySqlModel {
       WHERE p.projectId = ?;
     `;
 
-    const result = await RelatedWork.query(context, sql, [projectId.toString()], reference, transactionClient);
+    const result = await RelatedWork.query(context, sql, [projectId.toString()], reference);
     return Array.isArray(result) && result.length > 0
       ? (result[0] as RelatedWorkStatsResults)
       : { acceptedCount: 0, hasPublishedPlan: false, pendingCount: 0, rejectedCount: 0, totalCount: 0 };
@@ -576,8 +570,7 @@ export class RelatedWorkSearchResult extends MySqlModel {
     planId?: number,
     doi?: string,
     filterOptions: RelatedWorksFilterOptions = {},
-    options: PaginationOptions = RelatedWorkSearchResult.getDefaultPaginationOptions(),
-    transactionClient?: DatabaseTransactionClient
+    options: PaginationOptions = RelatedWorkSearchResult.getDefaultPaginationOptions()
   ): Promise<RelatedWorkSearchResults<RelatedWorkSearchResult>> {
     const whereFilters = [];
     const values = [];
@@ -659,9 +652,7 @@ export class RelatedWorkSearchResult extends MySqlModel {
       '',
       values,
       opts,
-      reference,
-      true,
-      transactionClient
+      reference
     );
 
     context.logger.debug(prepareObjectForLogs({ options, response }), reference);
@@ -727,7 +718,7 @@ export class RelatedWorkSearchResult extends MySqlModel {
     }
     aggSql.push(`GROUP BY confidence) AS cc)) AS result;`);
 
-    const aggResults = await RelatedWorkSearchResult.query(context, aggSql.join('\n'), aggValues, reference, transactionClient);
+    const aggResults = await RelatedWorkSearchResult.query(context, aggSql.join('\n'), aggValues, reference);
 
     if (Array.isArray(aggResults) && aggResults.length > 0) {
       return {
@@ -747,9 +738,9 @@ export class RelatedWorkSearchResult extends MySqlModel {
   }
 
   // Find a RelatedWorkSearchResult by its identifier
-  static async findById(reference: string, context: MyContext, id: number, transactionClient?: DatabaseTransactionClient): Promise<RelatedWorkSearchResult> {
+  static async findById(reference: string, context: MyContext, id: number): Promise<RelatedWorkSearchResult> {
     const sql = `${this.sqlStatement} WHERE rw.id = ?`;
-    const result = await RelatedWorkSearchResult.query(context, sql, [id.toString()], reference, transactionClient);
+    const result = await RelatedWorkSearchResult.query(context, sql, [id.toString()], reference);
     return Array.isArray(result) && result.length > 0 ? new RelatedWorkSearchResult(result[0]) : null;
   }
 }

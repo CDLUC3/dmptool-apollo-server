@@ -301,7 +301,7 @@ describe('findBy Queries', () => {
       '                 FROM answers\n' +
       '                 WHERE id = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [answerId.toString()], 'testing', undefined);
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [answerId.toString()], 'testing');
     expect(result).toEqual(answer);
   });
 
@@ -323,7 +323,7 @@ describe('findBy Queries', () => {
       '                   AND versionedQuestionId = ?';
     const expectedVals = [planId.toString(), versionedQuestionId.toString()];
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, expectedVals, 'testing', undefined);
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, expectedVals, 'testing');
     expect(result).toEqual(answer);
   });
 
@@ -346,7 +346,7 @@ describe('findBy Queries', () => {
       '                   AND versionedSectionId = ?';
     const vals = [planId.toString(), versionedSectionId.toString()];
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, vals, 'testing', undefined);
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, vals, 'testing');
     expect(result).toEqual([answer]);
   });
 
@@ -369,8 +369,7 @@ describe('findBy Queries', () => {
       context,
       expect.any(String),
       [String(planId), ...questionIds.map(String)],
-      'testing',
-      undefined
+      'testing'
     );
     expect(result).toEqual([answer, answer, answer]);
   });
@@ -391,7 +390,7 @@ describe('findBy Queries', () => {
       '                 FROM answers\n' +
       '                 WHERE planId = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [planId.toString()], 'testing', undefined);
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [planId.toString()], 'testing');
     expect(result).toEqual([answer]);
   });
 

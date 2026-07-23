@@ -86,7 +86,7 @@ describe('VersionedGuidance.findById', () => {
     const result = await VersionedGuidance.findById('VersionedGuidance query', context, versionedGuidance.id);
     const expectedSql = 'SELECT * FROM versionedGuidance WHERE id = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenCalledWith(context, expectedSql, [versionedGuidance.id.toString()], 'VersionedGuidance query', undefined);
+    expect(localQuery).toHaveBeenCalledWith(context, expectedSql, [versionedGuidance.id.toString()], 'VersionedGuidance query');
     expect(result.id).toEqual(versionedGuidance.id);
   });
 
@@ -131,7 +131,7 @@ describe('VersionedGuidance.findByGuidanceId', () => {
     const result = await VersionedGuidance.findByGuidanceId('VersionedGuidance query', context, versionedGuidance.guidanceId);
     const expectedSql = 'SELECT * FROM versionedGuidance WHERE guidanceId = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenCalledWith(context, expectedSql, [versionedGuidance.guidanceId.toString()], 'VersionedGuidance query', undefined);
+    expect(localQuery).toHaveBeenCalledWith(context, expectedSql, [versionedGuidance.guidanceId.toString()], 'VersionedGuidance query');
     expect(result.length).toBe(1);
     expect(result[0].id).toEqual(versionedGuidance.id);
   });
@@ -177,7 +177,7 @@ describe('VersionedGuidance.findByVersionedGuidanceGroupId', () => {
     const result = await VersionedGuidance.findByVersionedGuidanceGroupId('VersionedGuidance query', context, versionedGuidance.versionedGuidanceGroupId);
     const expectedSql = 'SELECT * FROM versionedGuidance WHERE versionedGuidanceGroupId = ? ORDER BY tagId ASC';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenCalledWith(context, expectedSql, [versionedGuidance.versionedGuidanceGroupId.toString()], 'VersionedGuidance query', undefined);
+    expect(localQuery).toHaveBeenCalledWith(context, expectedSql, [versionedGuidance.versionedGuidanceGroupId.toString()], 'VersionedGuidance query');
     expect(result.length).toBe(1);
     expect(result[0].id).toEqual(versionedGuidance.id);
   });

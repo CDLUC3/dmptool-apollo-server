@@ -13,10 +13,7 @@ import {
   SortDirection
 } from "../types/general";
 import { generalConfig } from "../config/generalConfig";
-import {
-  DatabaseTransactionClient,
-  TransactionClient
-} from "../datasources/mysql";
+import { TransactionClient } from "../datasources/mysql";
 
 type MixedArray<T> = T[];
 
@@ -156,7 +153,7 @@ export class MySqlModel {
   ): Promise<TransactionClient> {
     try {
       // Fetch a transaction client for the database and start a new transaction
-      const transactionClient: DatabaseTransactionClient = new TransactionClient(
+      const transactionClient: TransactionClient = new TransactionClient(
         await context.dataSources.sqlDataSource.getConnection()
       );
 
@@ -187,12 +184,11 @@ export class MySqlModel {
     apolloContext: MyContext,
     tableName: string,
     id: number,
-    reference = 'undefined caller',
-    transactionClient?: DatabaseTransactionClient
+    reference = 'undefined caller'
   ): Promise<boolean> {
     try {
       const sql = `SELECT id FROM ${tableName} WHERE id = ?`;
-      const results = await MySqlModel.query(apolloContext, sql, [id.toString()], reference, transactionClient);
+      const results = await MySqlModel.query(apolloContext, sql, [id.toString()], reference);
       return results && results.length === 1;
     } catch (err) {
       const msg = `${reference}, ERROR: ${err instanceof Error ? err.message : String(err)}`;
@@ -232,8 +228,7 @@ export class MySqlModel {
     groupByClause: string,
     countField: string,
     values: string[],
-    reference = 'undefined caller',
-    transactionClient?: DatabaseTransactionClient
+    reference = 'undefined caller'
   ): Promise<number> {
     try {
       const sqlParts = sqlStatement.split(' FROM ');
@@ -241,7 +236,7 @@ export class MySqlModel {
 
       const countSql = `SELECT COUNT(${countField}) total FROM ${fromClause} ${whereClause} ${groupByClause}`;
 
-      const countResponse = await MySqlModel.query(apolloContext, countSql, values, reference, transactionClient);
+      const countResponse = await MySqlModel.query(apolloContext, countSql, values, reference);
 
       if (groupByClause.trim() && Array.isArray(countResponse)) {
         // When using GROUP BY, count the number of rows returned (each row = one project)
@@ -297,15 +292,13 @@ export class MySqlModel {
   //    - sqlStatement:    The SQL statement to perform e.g. `SELECT * FROM table WHERE id = ?`
   //    - reference:       A reference to contextualize log messages e.g. `users resolver`
   //    - values:          The values to inject into the SQL statement e.g. `[id.toString()]`
-  //    - transactionClient: The database transaction client to use for the query
   static async query(
     apolloContext: MyContext,
     sqlStatement: string,
     values: MixedArray<string | boolean | Buffer> = [],
-    reference = 'undefined caller',
-    transactionClient?: DatabaseTransactionClient
+    reference = 'undefined caller'
   ): Promise<any[]> { // eslint-disable-line @typescript-eslint/no-explicit-any
-    const { logger, dataSources } = apolloContext;
+    const { activeTransaction, dataSources, logger } = apolloContext;
 
     // The dataSource, logger and sqlStatement are required so bail if they are not provided
     if (dataSources && logger && dataSources.sqlDataSource && sqlStatement) {
@@ -322,13 +315,13 @@ export class MySqlModel {
           return val;
         });
         apolloContext.logger.debug(
-          prepareObjectForLogs({ sql, values: maskedValues, usingTransaction: !!transactionClient }),
+          prepareObjectForLogs({ sql, values: maskedValues, usingTransaction: !!activeTransaction }),
           reference
         );
 
         let resp: unknown;
-        if (transactionClient) {
-          resp = await transactionClient.connection.query(sql, vals);
+        if (activeTransaction) {
+          resp = await activeTransaction.connection.query(sql, vals);
         } else {
           resp = await dataSources.sqlDataSource.query(apolloContext, sql, vals);
         }
@@ -366,8 +359,7 @@ export class MySqlModel {
     values: string[],
     options: PaginationOptions,
     reference = 'undefined caller',
-    calculateTotalCount = true,
-    transactionClient?: DatabaseTransactionClient
+    calculateTotalCount = true
   ): Promise<PaginatedQueryResults<T>> {
     const paginationOptions = this.preparePaginationOptions(options);
     try {
@@ -381,8 +373,7 @@ export class MySqlModel {
           values,
           paginationOptions,
           reference,
-          calculateTotalCount,
-          transactionClient
+          calculateTotalCount
         );
 
       } else {
@@ -395,8 +386,7 @@ export class MySqlModel {
           values,
           paginationOptions,
           reference,
-          calculateTotalCount,
-          transactionClient
+          calculateTotalCount
         );
       }
     } catch (err) {
@@ -427,8 +417,7 @@ export class MySqlModel {
     values: string[],
     options: PaginationOptionsForOffsets,
     reference = 'undefined caller',
-    calculateTotalCount = true,
-    transactionClient?: DatabaseTransactionClient
+    calculateTotalCount = true
   ): Promise<PaginatedQueryResults<T>> {
     try {
       // Determine the maximum number of results to return
@@ -443,7 +432,7 @@ export class MySqlModel {
       const orderByClause = `ORDER BY ${options.sortField} ${options.sortDir ?? 'ASC'}`;
       const limitClause = 'LIMIT ? OFFSET ?';
       const sql = `${sqlStatement} ${whereClause} ${groupByClause} ${orderByClause} ${limitClause}`;
-      const rows = await MySqlModel.query(apolloContext, sql, vals, reference, transactionClient);
+      const rows = await MySqlModel.query(apolloContext, sql, vals, reference);
 
       const items = Array.isArray(rows) ? rows : [];
 
@@ -455,8 +444,7 @@ export class MySqlModel {
           groupByClause,
           options.countField ?? 'id',
           values,
-          reference,
-          transactionClient
+          reference
         )
         : 0;
 
@@ -504,8 +492,7 @@ export class MySqlModel {
     values: string[],
     options: PaginationOptionsForCursors,
     reference = 'undefined caller',
-    calculateTotalCount = true,
-    transactionClient?: DatabaseTransactionClient
+    calculateTotalCount = true
   ): Promise<PaginatedQueryResults<T>> {
     try {
       // Determine the maximum number of results to return
@@ -534,7 +521,7 @@ export class MySqlModel {
       let sql = `${sqlStatement.replace('SELECT ', `SELECT ${options.cursorField} cursorId, `)} `
       sql += `${whereClause} ${groupByClause} ${orderByClause} ${limitClause}`;
 
-      const rows = await MySqlModel.query(apolloContext, sql, vals, reference, transactionClient);
+      const rows = await MySqlModel.query(apolloContext, sql, vals, reference);
       const items = Array.isArray(rows) ? rows : [];
 
       // Use original WHERE clause and original values for total count
@@ -546,8 +533,7 @@ export class MySqlModel {
           groupByClause,
           options.countField ?? 'id',
           values,
-          reference,
-          transactionClient
+          reference
         )
         : 0;
 
@@ -587,8 +573,7 @@ export class MySqlModel {
     table: string,
     obj: MySqlModel & { userId?: number },
     reference = 'undefined caller',
-    skipKeys?: string[],
-    transactionClient?: DatabaseTransactionClient
+    skipKeys?: string[]
   ): Promise<number | null> {
     // If the createdById and modifiedById have not alredy been set, use the value in the token or the userId
     if (!obj.createdById) {
@@ -611,7 +596,7 @@ export class MySqlModel {
     const vals = props.map((entry) => this.prepareValue(entry.value, typeof (entry.value)));
 
     // Send the calculated INSERT statement to the query function
-    const result = await this.query(apolloContext, sql, vals, reference, transactionClient);
+    const result = await this.query(apolloContext, sql, vals, reference);
     return Array.isArray(result) ? result[0]?.insertId : null;
   }
 
@@ -627,8 +612,7 @@ export class MySqlModel {
     obj: MySqlModel,
     reference = 'undefined caller',
     skipKeys?: string[],
-    noTouch?: boolean,
-    transactionClient?: DatabaseTransactionClient
+    noTouch?: boolean
   ): Promise<MySqlModel | null> {
     // Update the modifier info
     if (noTouch !== true) {
@@ -660,7 +644,7 @@ export class MySqlModel {
     vals.push(obj.id.toString());
 
     // Send the calculated UPDATE statement to the query function
-    const result = await this.query(apolloContext, sql, vals, reference, transactionClient);
+    const result = await this.query(apolloContext, sql, vals, reference);
     return Array.isArray(result) ? result[0] : null;
   }
 
@@ -675,11 +659,10 @@ export class MySqlModel {
     apolloContext: MyContext,
     table: string,
     id: number,
-    reference = 'undefined caller',
-    transactionClient?: DatabaseTransactionClient
+    reference = 'undefined caller'
   ): Promise<boolean> {
     const sql = `DELETE FROM ${table} WHERE id = ?`;
-    const result = await this.query(apolloContext, sql, [id.toString()], reference, transactionClient);
+    const result = await this.query(apolloContext, sql, [id.toString()], reference);
     return !!(!!Array.isArray(result) && result[0].affectedRows);
   }
 

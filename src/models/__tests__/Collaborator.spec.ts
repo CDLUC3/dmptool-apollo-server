@@ -151,7 +151,7 @@ describe('TemplateCollaborator', () => {
       const result = await TemplateCollaborator.findByTemplateId('Test', context, templateId);
       const expectedSql = 'SELECT * FROM templateCollaborators WHERE templateId = ? ORDER BY email ASC';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [templateId.toString()], 'Test', undefined);
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [templateId.toString()], 'Test');
       expect(result).toEqual([templateCollaborator]);
     });
 
@@ -162,7 +162,7 @@ describe('TemplateCollaborator', () => {
       const result = await TemplateCollaborator.findByTemplateId('Test', context, templateId);
       const expectedSql = 'SELECT * FROM templateCollaborators WHERE templateId = ? ORDER BY email ASC';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [templateId.toString()], 'Test', undefined);
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [templateId.toString()], 'Test');
       expect(result).toEqual([]);
     });
 
@@ -173,7 +173,7 @@ describe('TemplateCollaborator', () => {
       const result = await TemplateCollaborator.findById('Test', context, id);
       const expectedSql = 'SELECT * FROM templateCollaborators WHERE id = ?';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'Test', undefined);
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'Test');
       expect(result).toEqual(templateCollaborator);
     });
 
@@ -184,7 +184,7 @@ describe('TemplateCollaborator', () => {
       const result = await TemplateCollaborator.findById('Test', context, id);
       const expectedSql = 'SELECT * FROM templateCollaborators WHERE id = ?';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'Test', undefined);
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'Test');
       expect(result).toEqual(null);
     });
 
@@ -195,7 +195,7 @@ describe('TemplateCollaborator', () => {
       const result = await TemplateCollaborator.findByInvitedById('Test', context, invitedById);
       const expectedSql = 'SELECT * FROM templateCollaborators WHERE invitedById = ?';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [invitedById.toString()], 'Test', undefined);
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [invitedById.toString()], 'Test');
       expect(result).toEqual([templateCollaborator]);
     });
 
@@ -206,7 +206,7 @@ describe('TemplateCollaborator', () => {
       const result = await TemplateCollaborator.findByEmail('Test', context, email);
       const expectedSql = 'SELECT * FROM templateCollaborators WHERE email = ?';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [email], 'Test', undefined);
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [email], 'Test');
       expect(result).toEqual([templateCollaborator]);
     });
 
@@ -217,7 +217,7 @@ describe('TemplateCollaborator', () => {
       const result = await TemplateCollaborator.findByEmail('Test', context, email);
       const expectedSql = 'SELECT * FROM templateCollaborators WHERE email = ?';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [email], 'Test', undefined);
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [email], 'Test');
       expect(result).toEqual([]);
     });
 
@@ -229,7 +229,7 @@ describe('TemplateCollaborator', () => {
       const result = await TemplateCollaborator.findByTemplateIdAndEmail('Test', context, templateId, email);
       const expectedSql = 'SELECT * FROM templateCollaborators WHERE templateId = ? AND email = ?';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [templateId.toString(), email], 'Test', undefined);
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [templateId.toString(), email], 'Test');
       expect(result).toEqual(templateCollaborator);
     });
 
@@ -241,7 +241,7 @@ describe('TemplateCollaborator', () => {
       const result = await TemplateCollaborator.findByTemplateIdAndEmail('Test', context, templateId, email);
       const expectedSql = 'SELECT * FROM templateCollaborators WHERE templateId = ? AND email = ?';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [templateId.toString(), email], 'Test', undefined);
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [templateId.toString(), email], 'Test');
       expect(result).toEqual(null);
     });
 
@@ -553,7 +553,7 @@ describe('ProjectCollaborator', () => {
       const result = await ProjectCollaborator.findByProjectId('Test', context, projectId);
       const expectedSql = 'SELECT * FROM projectCollaborators WHERE projectId = ? ORDER BY email ASC';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectId.toString()], 'Test', undefined);
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectId.toString()], 'Test');
       expect(result).toEqual([projectCollaborator]);
     });
 
@@ -564,7 +564,7 @@ describe('ProjectCollaborator', () => {
       const result = await ProjectCollaborator.findByProjectId('Test', context, projectId);
       const expectedSql = 'SELECT * FROM projectCollaborators WHERE projectId = ? ORDER BY email ASC';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectId.toString()], 'Test', undefined);
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectId.toString()], 'Test');
       expect(result).toEqual([]);
     });
 
@@ -575,7 +575,7 @@ describe('ProjectCollaborator', () => {
       const result = await ProjectCollaborator.findById('Test', context, id);
       const expectedSql = 'SELECT * FROM projectCollaborators WHERE id = ?';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'Test', undefined);
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'Test');
       expect(result).toEqual(projectCollaborator);
     });
 
@@ -586,7 +586,7 @@ describe('ProjectCollaborator', () => {
       const result = await ProjectCollaborator.findById('Test', context, id);
       const expectedSql = 'SELECT * FROM projectCollaborators WHERE id = ?';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'Test', undefined);
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'Test');
       expect(result).toEqual(null);
     });
 
@@ -597,7 +597,7 @@ describe('ProjectCollaborator', () => {
       const result = await ProjectCollaborator.findByInvitedById('Test', context, invitedById);
       const expectedSql = 'SELECT * FROM projectCollaborators WHERE invitedById = ?';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [invitedById.toString()], 'Test', undefined);
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [invitedById.toString()], 'Test');
       expect(result).toEqual([projectCollaborator]);
     });
 
@@ -608,7 +608,7 @@ describe('ProjectCollaborator', () => {
       const result = await ProjectCollaborator.findByEmail('Test', context, email);
       const expectedSql = 'SELECT * FROM projectCollaborators WHERE email = ?';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [email], 'Test', undefined);
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [email], 'Test');
       expect(result).toEqual([projectCollaborator]);
     });
 
@@ -619,7 +619,7 @@ describe('ProjectCollaborator', () => {
       const result = await ProjectCollaborator.findByEmail('Test', context, email);
       const expectedSql = 'SELECT * FROM projectCollaborators WHERE email = ?';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [email], 'Test', undefined);
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [email], 'Test');
       expect(result).toEqual([]);
     });
 
@@ -631,7 +631,7 @@ describe('ProjectCollaborator', () => {
       const result = await ProjectCollaborator.findByUserIdAndProjectId('Test', context, userId, projectId);
       const expectedSql = 'SELECT * FROM projectCollaborators WHERE userId = ? AND projectId = ?';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [userId.toString(), projectId.toString()], 'Test', undefined);
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [userId.toString(), projectId.toString()], 'Test');
       expect(result).toEqual(projectCollaborator);
     });
 
@@ -643,7 +643,7 @@ describe('ProjectCollaborator', () => {
       const result = await ProjectCollaborator.findByUserIdAndProjectId('Test', context, userId, projectId);
       const expectedSql = 'SELECT * FROM projectCollaborators WHERE userId = ? AND projectId = ?';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [userId.toString(), projectId.toString()], 'Test', undefined);
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [userId.toString(), projectId.toString()], 'Test');
       expect(result).toEqual(null);
     });
 
@@ -655,7 +655,7 @@ describe('ProjectCollaborator', () => {
       const result = await ProjectCollaborator.findByProjectIdAndEmail('Test', context, projectId, email);
       const expectedSql = 'SELECT * FROM projectCollaborators WHERE projectId = ? AND email = ?';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectId.toString(), email], 'Test', undefined);
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectId.toString(), email], 'Test');
       expect(result).toEqual(projectCollaborator);
     });
 
@@ -667,7 +667,7 @@ describe('ProjectCollaborator', () => {
       const result = await ProjectCollaborator.findByProjectIdAndEmail('Test', context, projectId, email);
       const expectedSql = 'SELECT * FROM projectCollaborators WHERE projectId = ? AND email = ?';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectId.toString(), email], 'Test', undefined);
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectId.toString(), email], 'Test');
       expect(result).toEqual(null);
     });
 
@@ -949,8 +949,7 @@ describe('ProjectCollaborator', () => {
         context,
         expect.stringContaining('pc.accessLevel = "PRIMARY"'),
         [projectId.toString()],
-        'Test',
-        undefined
+        'Test'
       );
       expect(result).toBeInstanceOf(ProjectCollaborator);
       expect(result.affiliationId).toEqual(affiliationId);

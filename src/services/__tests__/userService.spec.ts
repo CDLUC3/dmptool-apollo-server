@@ -532,7 +532,7 @@ describe('mergeUsers', () => {
     await mergeUsers(context, mergeUser, keepUser);
     expect(mockfindTemplateCollaboratorByInvitedById).toHaveBeenCalledTimes(1);
     expect(mockFindTemplateCollaboratorsByEmail).toHaveBeenCalledTimes(2);
-    expect(mockUpdate).toHaveBeenCalledTimes(4);
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
 
     const byInvitedById = templateCollaboratorStore.filter((e) => {
       return e.invitedById === keepUser.id;

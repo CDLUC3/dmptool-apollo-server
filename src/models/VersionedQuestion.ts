@@ -2,7 +2,6 @@ import { QuestionSchemaMap } from "@dmptool/types";
 import { MyContext } from "../context";
 import { MySqlModel } from "./MySqlModel";
 import { isNullOrUndefined, removeNullAndUndefinedFromJSON } from "../utils/helpers";
-import { DatabaseTransactionClient } from "../datasources/mysql";
 
 export class VersionedQuestion extends MySqlModel {
   public versionedTemplateId: number;
@@ -77,29 +76,29 @@ export class VersionedQuestion extends MySqlModel {
   }
 
   // Insert the new record
-  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<VersionedQuestion> {
+  async create(context: MyContext): Promise<VersionedQuestion> {
     // First make sure the record is valid
     if (await this.isValid()) {
       // Save the record and then fetch it
-      const newId = await VersionedQuestion.insert(context, this.tableName, this, 'VersionedQuestion.create', [], transactionClient);
-      return await VersionedQuestion.findById('VersionedQuestion.create', context, newId, transactionClient);
+      const newId = await VersionedQuestion.insert(context, this.tableName, this, 'VersionedQuestion.create', []);
+      return await VersionedQuestion.findById('VersionedQuestion.create', context, newId);
     }
     // Otherwise return as-is with all the errors
     return new VersionedQuestion(this);
   }
 
   // Find the VersionedQuestion by id
-  static async findById(reference: string, context: MyContext, id: number, transactionClient?: DatabaseTransactionClient): Promise<VersionedQuestion> {
+  static async findById(reference: string, context: MyContext, id: number): Promise<VersionedQuestion> {
     const sql = 'SELECT * FROM versionedQuestions WHERE id = ?';
-    const results = await VersionedQuestion.query(context, sql, [id?.toString()], reference, transactionClient);
+    const results = await VersionedQuestion.query(context, sql, [id?.toString()], reference);
     return Array.isArray(results) && results.length > 0 ? new VersionedQuestion(results[0]) : null;
   }
 
 
   // Find all VersionedQuestion that match versionedSectionId
-  static async findByVersionedSectionId(reference: string, context: MyContext, versionedSectionId: number, transactionClient?: DatabaseTransactionClient): Promise<VersionedQuestion[]> {
+  static async findByVersionedSectionId(reference: string, context: MyContext, versionedSectionId: number): Promise<VersionedQuestion[]> {
     const sql = 'SELECT * FROM versionedQuestions WHERE versionedSectionId = ?';
-    const results = await VersionedQuestion.query(context, sql, [versionedSectionId?.toString()], reference, transactionClient);
+    const results = await VersionedQuestion.query(context, sql, [versionedSectionId?.toString()], reference);
     return Array.isArray(results) ? results.map((entry) => new VersionedQuestion(entry)) : [];
   }
 
@@ -110,20 +109,18 @@ export class VersionedQuestion extends MySqlModel {
    * @param context The Apollo context
    * @param versionedTemplateId The versionedTemplateId to search for
    * @param questionId The questionId to search for
-   * @param transactionClient the MySQL transaction to use
    * @returns The active VersionedQuestion or undefined if none was found.
    */
   static async findByVersionedTemplateIdAndQuestionId(
     reference: string,
     context: MyContext,
     versionedTemplateId: number,
-    questionId: number,
-    transactionClient?: DatabaseTransactionClient
+    questionId: number
   ): Promise<VersionedQuestion> {
     const sql = `SELECT * FROM versionedQuestions
       WHERE versionedTemplateId = ? AND questionId = ? ORDER BY modified DESC`;
     const vals = [versionedTemplateId.toString(), questionId.toString()];
-    const results = await VersionedQuestion.query(context, sql, vals, reference, transactionClient);
+    const results = await VersionedQuestion.query(context, sql, vals, reference);
     return Array.isArray(results) && results.length > 0 ? new VersionedQuestion(results[0]) : undefined;
   }
 }

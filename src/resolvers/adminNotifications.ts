@@ -89,6 +89,7 @@ export const resolvers: Resolvers = {
       ): Promise<boolean> => {
         const reference = 'markNotificationAsRead resolver';
         try {
+          // Establish new database transaction
           const notification = await AdminNotification.findById(reference, context, id);
 
           if (!notification) {

@@ -100,7 +100,7 @@ describe('VersionedGuidanceGroup.findById', () => {
     const result = await VersionedGuidanceGroup.findById('VersionedGuidanceGroup query', context, versionedGuidanceGroup.id);
     const expectedSql = 'SELECT * FROM versionedGuidanceGroups WHERE id = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenCalledWith(context, expectedSql, [versionedGuidanceGroup.id.toString()], 'VersionedGuidanceGroup query', undefined);
+    expect(localQuery).toHaveBeenCalledWith(context, expectedSql, [versionedGuidanceGroup.id.toString()], 'VersionedGuidanceGroup query');
     expect(result.id).toEqual(versionedGuidanceGroup.id);
   });
 
@@ -144,7 +144,7 @@ describe('VersionedGuidanceGroup.findByGuidanceGroupId', () => {
     const result = await VersionedGuidanceGroup.findByGuidanceGroupId('VersionedGuidanceGroup query', context, versionedGuidanceGroup.guidanceGroupId);
     const expectedSql = 'SELECT * FROM versionedGuidanceGroups WHERE guidanceGroupId = ? ORDER BY version DESC';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenCalledWith(context, expectedSql, [versionedGuidanceGroup.guidanceGroupId.toString()], 'VersionedGuidanceGroup query', undefined);
+    expect(localQuery).toHaveBeenCalledWith(context, expectedSql, [versionedGuidanceGroup.guidanceGroupId.toString()], 'VersionedGuidanceGroup query');
     expect(result.length).toBe(1);
     expect(result[0].id).toEqual(versionedGuidanceGroup.id);
   });
@@ -190,7 +190,7 @@ describe('VersionedGuidanceGroup.findActiveByGuidanceGroupId', () => {
     const result = await VersionedGuidanceGroup.findActiveByGuidanceGroupId('VersionedGuidanceGroup query', context, versionedGuidanceGroup.guidanceGroupId);
     const expectedSql = 'SELECT * FROM versionedGuidanceGroups WHERE guidanceGroupId = ? AND active = 1 LIMIT 1';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenCalledWith(context, expectedSql, [versionedGuidanceGroup.guidanceGroupId.toString()], 'VersionedGuidanceGroup query', undefined);
+    expect(localQuery).toHaveBeenCalledWith(context, expectedSql, [versionedGuidanceGroup.guidanceGroupId.toString()], 'VersionedGuidanceGroup query');
     expect(result.id).toEqual(versionedGuidanceGroup.id);
   });
 
@@ -236,7 +236,7 @@ describe('VersionedGuidanceGroup.findActiveBestPractice', () => {
     const result = await VersionedGuidanceGroup.findActiveBestPractice('VersionedGuidanceGroup query', context);
     const expectedSql = 'SELECT * FROM versionedGuidanceGroups WHERE bestPractice = 1 AND active = 1 ORDER BY name ASC';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenCalledWith(context, expectedSql, [], 'VersionedGuidanceGroup query', undefined);
+    expect(localQuery).toHaveBeenCalledWith(context, expectedSql, [], 'VersionedGuidanceGroup query');
     expect(result.length).toBe(1);
     expect(result[0].id).toEqual(versionedGuidanceGroup.id);
   });
@@ -289,7 +289,7 @@ describe('VersionedGuidanceGroup.findActiveByAffiliationId', () => {
       ORDER BY vgg.name ASC
     `;
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenCalledWith(context, expectedSql, [affiliationId], 'VersionedGuidanceGroup query', undefined);
+    expect(localQuery).toHaveBeenCalledWith(context, expectedSql, [affiliationId], 'VersionedGuidanceGroup query');
     expect(result.length).toBe(1);
     expect(result[0].id).toEqual(versionedGuidanceGroup.id);
   });
@@ -324,16 +324,16 @@ describe('VersionedGuidanceGroup.deactivateAll', () => {
 
   it('should call query with correct params to deactivate all versions', async () => {
     localQuery.mockResolvedValueOnce({});
-    const result = await VersionedGuidanceGroup.deactivateAll('VersionedGuidanceGroup query', context, guidanceGroupId, undefined);
+    const result = await VersionedGuidanceGroup.deactivateAll('VersionedGuidanceGroup query', context, guidanceGroupId);
     const expectedSql = 'UPDATE versionedGuidanceGroups SET active = 0 WHERE guidanceGroupId = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenCalledWith(context, expectedSql, [guidanceGroupId.toString()], 'VersionedGuidanceGroup query', undefined);
+    expect(localQuery).toHaveBeenCalledWith(context, expectedSql, [guidanceGroupId.toString()], 'VersionedGuidanceGroup query');
     expect(result).toBe(true);
   });
 
   it('should return false if the query fails', async () => {
     localQuery.mockResolvedValueOnce(null);
-    const result = await VersionedGuidanceGroup.deactivateAll('VersionedGuidanceGroup query', context, guidanceGroupId, undefined);
+    const result = await VersionedGuidanceGroup.deactivateAll('VersionedGuidanceGroup query', context, guidanceGroupId);
     expect(localQuery).toHaveBeenCalledTimes(1);
     expect(result).toBe(false);
   });

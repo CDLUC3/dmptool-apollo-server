@@ -20,10 +20,11 @@ import { ProjectCollaboratorAccessLevel } from "../models/Collaborator";
 import { AlternateIdentifier } from "../models/AlternateIdentifier";
 import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
 import {
-  AuthenticationError, BadUserInputError,
+  AuthenticationError,
+  BadUserInputError,
   ForbiddenError,
   InternalServerError,
-  NotFoundError
+  NotFoundError,
 } from "../utils/graphQLErrors";
 import {
   PaginationOptions,
@@ -33,13 +34,12 @@ import {
 } from "../types/general";
 import {
   AddEntirePlanInput,
-  EntirePlanInput,
   PaginatedPlanResults,
   PlanFeedbackStatus,
-  Resolvers
+  Resolvers,
+  UpdateEntirePlanInput
 } from "../types";
 import { prepareObjectForLogs } from "../logger";
-
 // Services
 import {
   buildDataCiteXMLForPlan,
@@ -57,10 +57,10 @@ import {
   isSuperAdmin
 } from "../services/authService";
 import {
-  DatabaseTransactionClient,
-  TransactionClient
-} from "../datasources/mysql";
-import {defaultLanguageId} from "../models/Language";
+  addEntirePlan,
+  removeEntirePlan,
+  replaceEntirePlan
+} from "../services/entirePlanService";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -587,66 +587,10 @@ export const resolvers: Resolvers = {
           }
         }
 
-
-        // 5th: Save the Project and Plan Funding
-        request.log.debug(
-          { alternateIdentifier: idIn, projectId: project.id, dmpId: plan.dmpId },
-          'Saving project and plan funding'
-        );
-        const fundedPlan: Plan = await saveFundingWorkflow(request, project, plan, dmp);
-
-        // Now save the Project and Plan Members
-        request.log.debug(
-          { alternateIdentifier: idIn, projectId: project.id, dmpId: fundedPlan.dmpId },
-          'Saving project and plan members'
-        );
-        const finalPlan: Plan = await saveMembersWorkflow(request, project, fundedPlan, dmp);
-
-        // Now that the Project and Plan have been saved, go through and save all
-        // the associated artifacts
-        request.log.debug(
-          { alternateIdentifier: idIn, projectId: project.id, dmpId: finalPlan.dmpId },
-          'Saving non-critical information'
-        );
-        await saveNonFatalPlanArtifacts(request, dmp, finalPlan);
-
-        // Errors would have been added to the Plan object if any errors occurred while
-        // attempting to save the artifacts.
-        if (finalPlan.hasErrors()) {
-          request.log.error(
-            { errors: finalPlan.errors, dmpId: finalPlan.dmpId },
-            'Failed to create Plan.'
-          );
-          throw newFastifyError(ERROR_CODE_INVALID_DMP, finalPlan.errorsToString());
-        }
-
-        // Generate the maDMP JSON so that we can return it
-        const newMaDMP: DMPToolDMPType | undefined = await loadMaDMPFromDynamo(
-          request,
-          finalPlan.dmpId
-        );
-
-        // TODO: Once the RDA group has decided on a way to convey warnings about
-        //       data that could not be supported (e.g. the "cost" section), we will
-        //       want to attach those warnings to the response
-        request.log.warn({ warnings: plan.warnings }, 'Non fatal errors occurred.');
-
-        if (!newMaDMP) {
-          request.log.fatal(
-            { alternateIdentifier: idIn, dmpId: plan.dmpId },
-            'Unable to load newly-created maDMP'
-          );
-          throw newFastifyError(
-            ERROR_CODE_INVALID_DMP,
-            `Your DMP was created but we could not generate a valid JSON response. Try "GET /dmps/${encodeURI(finalPlan.dmpId)}"`
-          );
-        }
-
-        request.log.debug(
-          { alternateIdentifier: idIn, projectId: project.id, dmpId: plan.dmpId },
-          'Finished creating new Plan'
-        );
-        return newMaDMP;
+        // Add the Plan within a database transaction
+        return await context.dataSources.sqlDataSource.withTransaction(context, async (): Promise<Plan> => {
+          return await addEntirePlan(ref, context, input);
+        });
       }
     ),
 
@@ -668,10 +612,29 @@ export const resolvers: Resolvers = {
       UserRole.RESEARCHER,
       async (
         _: Record<PropertyKey, never>,
-        { input }: { input: EntirePlanInput },
+        { input }: { input: UpdateEntirePlanInput },
         context: MyContext
       ): Promise<Plan> => {
+        const ref = 'updateEntirePlan';
 
+        // 1st: Find the Plan and Project
+        const plan: Plan = await Plan.findById(ref, context, input.id);
+        if (!plan) {
+          throw NotFoundError();
+        }
+        const project: Project = await Project.findById(ref, context, plan.projectId);
+        if (!project) {
+          throw NotFoundError();
+        }
+
+        if (hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.EDIT)) {
+          // Add the Plan within a database transaction
+          return await context.dataSources.sqlDataSource.withTransaction(context, async (): Promise<Plan> => {
+            return await replaceEntirePlan(ref, context, project, plan, input);
+          });
+        } else {
+          throw context.token ? ForbiddenError() : AuthenticationError();
+        }
       }
     ),
 
@@ -688,15 +651,35 @@ export const resolvers: Resolvers = {
      * @throws UnauthorizedError when the JWT token is not present
      * @throws InternalServerError when a fatal error has occurred
      */
-    deleteEntirePlanByDMPId: authenticatedResolver(
-      'deleteEntirePlanByDMPId resolver',
+    removeEntirePlanByDMPId: authenticatedResolver(
+      'removeEntirePlanByDMPId resolver',
       UserRole.RESEARCHER,
       async (
         _: Record<PropertyKey, never>,
         { dmpId }: { dmpId: string },
         context: MyContext
-      ): Promise<Plan> => {
+      ): Promise<boolean> => {
+        const ref = 'updateEntirePlan';
 
+        // 1st: Find the Plan and Project
+        const plan: Plan = await Plan.findByDMPId(ref, context, dmpId);
+        if (!plan) {
+          throw NotFoundError();
+        }
+        const project: Project = await Project.findById(ref, context, plan.projectId);
+        if (!project) {
+          throw NotFoundError();
+        }
+
+        if (hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.EDIT)) {
+          // Add the Plan within a database transaction
+          const removed: Plan | undefined = await context.dataSources.sqlDataSource.withTransaction(context, async (): Promise<Plan> => {
+            return await removeEntirePlan(ref, context, project, plan);
+          });
+          return removed && !removed.hasErrors();
+        } else {
+          throw context.token ? ForbiddenError() : AuthenticationError();
+        }
       }
     ),
   },

@@ -5,7 +5,6 @@ import {
   ProjectCollaboratorAccessLevel,
 } from '../models/Collaborator';
 import { isSuperAdmin } from './authService';
-import { DatabaseTransactionClient } from "../datasources/mysql";
 
 // Validate that an access level change is allowed:
 //   - the last PRIMARY cannot be demoted
@@ -14,8 +13,7 @@ export const validateProjectCollaboratorAccessChange = async (
   context: MyContext,
   projectId: number,
   currentAccessLevel: ProjectCollaboratorAccessLevel,
-  newAccessLevel: ProjectCollaboratorAccessLevel,
-  transactionClient?: DatabaseTransactionClient
+  newAccessLevel: ProjectCollaboratorAccessLevel
 ): Promise<void> => {
   const reference = 'collaboratorService.validateProjectCollaboratorAccessChange';
 
@@ -34,7 +32,7 @@ export const validateProjectCollaboratorAccessChange = async (
   if (newAccessLevel === ProjectCollaboratorAccessLevel.PRIMARY) {
     if (!isSuperAdmin(context.token)) {
       const callerCollaborator = await ProjectCollaborator.findByUserIdAndProjectId(
-        reference, context, context.token?.id, projectId, transactionClient
+        reference, context, context.token?.id, projectId
       );
       if (callerCollaborator?.accessLevel !== ProjectCollaboratorAccessLevel.PRIMARY) {
         throw new GraphQLError(
@@ -51,17 +49,16 @@ export const validateProjectCollaboratorAccessChange = async (
 export const demoteExistingPrimaryCollaborator = async (
   context: MyContext,
   projectId: number,
-  excludeCollaboratorId?: number,
-  transactionClient?: DatabaseTransactionClient
+  excludeCollaboratorId?: number
 ): Promise<void> => {
   const reference = 'collaboratorService.demoteExistingPrimaryCollaborator';
-  const collaborators = await ProjectCollaborator.findByProjectId(reference, context, projectId, transactionClient);
+  const collaborators = await ProjectCollaborator.findByProjectId(reference, context, projectId);
   const existingPrimary = collaborators.find(
     (c) => c.accessLevel === ProjectCollaboratorAccessLevel.PRIMARY &&
       c.id !== excludeCollaboratorId
   );
   if (existingPrimary) {
     existingPrimary.accessLevel = ProjectCollaboratorAccessLevel.OWN;
-    await existingPrimary.update(context, transactionClient);
+    await existingPrimary.update(context);
   }
 };

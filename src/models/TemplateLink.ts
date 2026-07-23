@@ -1,7 +1,6 @@
 import { MyContext } from "../context";
 import { isNullOrUndefined, validateURL } from "../utils/helpers";
 import { MySqlModel } from "./MySqlModel";
-import { DatabaseTransactionClient } from "../datasources/mysql";
 
 export enum TemplateLinkType {
   FUNDER = 'FUNDER',
@@ -38,15 +37,14 @@ export class TemplateLink extends MySqlModel {
   }
 
   // Save the current record
-  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<TemplateLink> {
+  async create(context: MyContext): Promise<TemplateLink> {
     const reference = 'TemplateLink.create';
     // First make sure the record doesn't already exist
     const current = await TemplateLink.findByTemplateAndURL(
       reference,
       context,
       this.templateId,
-      this.url,
-      transactionClient
+      this.url
     );
 
     // Then make sure it doesn't already exist
@@ -60,10 +58,9 @@ export class TemplateLink extends MySqlModel {
           TemplateLink.tableName,
           this,
           reference,
-          [],
-          transactionClient
+          []
         );
-        return await TemplateLink.findById(reference, context, newId as number, transactionClient);
+        return await TemplateLink.findById(reference, context, newId as number);
       }
     }
     // Otherwise return as-is with all the errors
@@ -71,14 +68,13 @@ export class TemplateLink extends MySqlModel {
   }
 
   // Archive this record
-  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<TemplateLink> {
+  async delete(context: MyContext): Promise<TemplateLink> {
     if (this.id) {
       const result = await TemplateLink.delete(
         context,
         TemplateLink.tableName,
         this.id,
-        'TemplateLink.delete',
-        transactionClient
+        'TemplateLink.delete'
       );
       if (result) {
         return new TemplateLink(this);
@@ -88,23 +84,23 @@ export class TemplateLink extends MySqlModel {
   }
 
   // Return the specified TemplateLink
-  static async findById(reference: string, context: MyContext, id: number, transactionClient?: DatabaseTransactionClient): Promise<TemplateLink> {
+  static async findById(reference: string, context: MyContext, id: number): Promise<TemplateLink> {
     const sql = `SELECT * FROM ${TemplateLink.tableName} WHERE id = ?`;
-    const results = await TemplateLink.query(context, sql, [id?.toString()], reference, transactionClient);
+    const results = await TemplateLink.query(context, sql, [id?.toString()], reference);
     return Array.isArray(results) && results.length > 0 ? new TemplateLink(results[0]) : null;
   }
 
   // Return the specified TemplateLink
-  static async findByTemplateAndURL(reference: string, context: MyContext, templateId: number, url: string, transactionClient?: DatabaseTransactionClient): Promise<TemplateLink> {
+  static async findByTemplateAndURL(reference: string, context: MyContext, templateId: number, url: string): Promise<TemplateLink> {
     const sql = `SELECT * FROM ${TemplateLink.tableName} WHERE templateId = ? AND url = ?`;
-    const results = await TemplateLink.query(context, sql, [templateId.toString(), url], reference, transactionClient);
+    const results = await TemplateLink.query(context, sql, [templateId.toString(), url], reference);
     return Array.isArray(results) && results.length > 0 ? new TemplateLink(results[0]) : null;
   }
 
   // Return all of the TemplateLink for the Template
-  static async findByTemplateId(reference: string, context: MyContext, templateId: number, transactionClient?: DatabaseTransactionClient): Promise<TemplateLink[]> {
+  static async findByTemplateId(reference: string, context: MyContext, templateId: number): Promise<TemplateLink[]> {
     const sql = `SELECT * FROM ${TemplateLink.tableName} WHERE templateId = ?`;
-    const results = await TemplateLink.query(context, sql, [templateId?.toString()], reference, transactionClient);
+    const results = await TemplateLink.query(context, sql, [templateId?.toString()], reference);
     return Array.isArray(results) ? results.map((entry) => new TemplateLink(entry)) : [];
   }
 }

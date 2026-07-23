@@ -1,9 +1,6 @@
 import casual from "casual";
 import { logger } from "../../logger";
-import {
-  mockedMysqlInstance,
-  buildMockContextWithToken, mockUser
-} from "../../__mocks__/context";
+import { buildMockContextWithToken, mockUser } from "../../__mocks__/context";
 import { Project } from "../../models/Project";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { isAdmin, isSuperAdmin } from "../authService";
@@ -49,8 +46,11 @@ describe('hasPermissionOnProject', () => {
   let mockCollaboratorQuery;
 
   beforeEach(async () => {
-    const instance = mockedMysqlInstance;
-    mockQuery = instance.query as jest.MockedFunction<typeof instance.query>;
+
+    mockQuery = jest.fn();
+    context.dataSources.sqlDataSource = {
+      query: mockQuery
+    };
     context = await buildMockContextWithToken(logger);
 
     mockIsSuperAdmin = jest.fn();
@@ -241,7 +241,8 @@ describe('setCurrentUserAsProjectOwner', () => {
         ...collaborator,
         userId: undefined,
       },
-      'ProjectCollaborator.create'
+      'ProjectCollaborator.create',
+      []
     );
     expect(User.findById).toHaveBeenCalledTimes(1);
   });

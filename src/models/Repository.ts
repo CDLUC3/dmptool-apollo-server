@@ -4,7 +4,6 @@ import { PaginatedQueryResults, PaginationOptions, PaginationOptionsForCursors, 
 import { isNullOrUndefined, randomHex, validateURL } from "../utils/helpers";
 import { MySqlModel } from "./MySqlModel";
 import { ResearchDomain } from "./ResearchDomain";
-import { DatabaseTransactionClient } from "../datasources/mysql";
 
 export const DEFAULT_DMPTOOL_REPOSITORY_URL = 'https://dmptool.org/repositories/';;
 
@@ -97,7 +96,7 @@ export class Repository extends MySqlModel {
   }
 
   //Create a new Repository
-  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<Repository> {
+  async create(context: MyContext): Promise<Repository> {
     const reference = 'Repository.create';
 
     // If no URI is present, then use the DMP Tool's default URI
@@ -108,9 +107,9 @@ export class Repository extends MySqlModel {
     this.prepForSave();
     // First make sure the record is valid
     if (await this.isValid()) {
-      let current = await Repository.findByURI(reference, context, this.uri, transactionClient);
+      let current = await Repository.findByURI(reference, context, this.uri);
       if (!current) {
-        current = await Repository.findByName(reference, context, this.name.toString(), transactionClient);
+        current = await Repository.findByName(reference, context, this.name.toString());
       }
 
       // Then make sure it doesn't already exist
@@ -118,8 +117,8 @@ export class Repository extends MySqlModel {
         this.addError('general', 'Repository already exists');
       } else {
         // Save the record and then fetch it
-        const newId = await Repository.insert(context, this.tableName, this, reference, ['researchDomains'], transactionClient);
-        const response = await Repository.findById(reference, context, newId, transactionClient);
+        const newId = await Repository.insert(context, this.tableName, this, reference, ['researchDomains']);
+        const response = await Repository.findById(reference, context, newId);
         return response;
       }
     }
@@ -128,14 +127,14 @@ export class Repository extends MySqlModel {
   }
 
   //Update an existing Repository
-  async update(context: MyContext, noTouch = false, transactionClient?: DatabaseTransactionClient): Promise<Repository> {
+  async update(context: MyContext, noTouch = false): Promise<Repository> {
     const id = this.id;
 
     this.prepForSave();
     if (await this.isValid()) {
       if (id) {
-        await Repository.update(context, this.tableName, this, 'Repository.update', ['researchDomains'], noTouch, transactionClient);
-        return await Repository.findById('Repository.update', context, id, transactionClient);
+        await Repository.update(context, this.tableName, this, 'Repository.update', ['researchDomains'], noTouch);
+        return await Repository.findById('Repository.update', context, id);
       }
       // This template has never been saved before so we cannot update it!
       this.addError('general', 'Repository has never been saved');
@@ -144,16 +143,15 @@ export class Repository extends MySqlModel {
   }
 
   //Delete the Repository
-  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<Repository> {
+  async delete(context: MyContext): Promise<Repository> {
     if (this.id) {
-      const deleted = await Repository.findById('Repository.delete', context, this.id, transactionClient);
+      const deleted = await Repository.findById('Repository.delete', context, this.id);
 
       const successfullyDeleted = await Repository.delete(
         context,
         this.tableName,
         this.id,
-        'Repository.delete',
-        transactionClient
+        'Repository.delete'
       );
       if (successfullyDeleted) {
         return deleted;
@@ -172,8 +170,7 @@ export class Repository extends MySqlModel {
     subjects: string[],
     keyword: string,
     repositoryType: string,
-    options: PaginationOptions = Repository.getDefaultPaginationOptions(),
-    transactionClient?: DatabaseTransactionClient
+    options: PaginationOptions = Repository.getDefaultPaginationOptions()
   ): Promise<PaginatedQueryResults<Repository>> {
     const whereFilters = [];
     const values = [];
@@ -225,9 +222,7 @@ export class Repository extends MySqlModel {
       '',
       values,
       opts,
-      reference,
-      true,
-      transactionClient
+      reference
     )
 
     // Process each repository result to transform repositoryTypes from database format
@@ -240,42 +235,42 @@ export class Repository extends MySqlModel {
   }
 
   // Fetch a Repository by it's id
-  static async findById(reference: string, context: MyContext, repositoryId: number, transactionClient?: DatabaseTransactionClient): Promise<Repository> {
+  static async findById(reference: string, context: MyContext, repositoryId: number): Promise<Repository> {
     const sql = `SELECT * FROM repositories WHERE id = ?`;
-    const results = await Repository.query(context, sql, [repositoryId?.toString()], reference, transactionClient);
+    const results = await Repository.query(context, sql, [repositoryId?.toString()], reference);
     if (Array.isArray(results) && results.length !== 0) {
       return Repository.processResult(new Repository(results[0]));
     }
     return null;
   }
 
-  static async findByURI(reference: string, context: MyContext, uri: string, transactionClient?: DatabaseTransactionClient): Promise<Repository> {
+  static async findByURI(reference: string, context: MyContext, uri: string): Promise<Repository> {
     const sql = `SELECT * FROM repositories WHERE uri = ?`;
-    const results = await Repository.query(context, sql, [uri], reference, transactionClient);
+    const results = await Repository.query(context, sql, [uri], reference);
     if (Array.isArray(results) && results.length !== 0) {
       return Repository.processResult(new Repository(results[0]));
     }
     return null;
   }
 
-  static async findByURIs(reference: string, context: MyContext, uris: string[], transactionClient?: DatabaseTransactionClient): Promise<Repository[]> {
+  static async findByURIs(reference: string, context: MyContext, uris: string[]): Promise<Repository[]> {
     if (!Array.isArray(uris) || uris.length === 0) {
       return [];
     }
     // Create placeholders for each URI
     const placeholders = uris.map(() => '?').join(', ');
     const sql = `SELECT * FROM repositories WHERE uri IN (${placeholders})`;
-    const results = await Repository.query(context, sql, uris, reference, transactionClient);
+    const results = await Repository.query(context, sql, uris, reference);
     if (Array.isArray(results) && results.length !== 0) {
       return results.map((row) => Repository.processResult(new Repository(row)));
     }
     return [];
   }
 
-  static async findByName(reference: string, context: MyContext, name: string, transactionClient?: DatabaseTransactionClient): Promise<Repository> {
+  static async findByName(reference: string, context: MyContext, name: string): Promise<Repository> {
     const sql = `SELECT * FROM repositories WHERE LOWER(name) = ?`;
     const searchTerm = (name ?? '');
-    const results = await Repository.query(context, sql, [searchTerm?.toLowerCase()?.trim()], reference, transactionClient);
+    const results = await Repository.query(context, sql, [searchTerm?.toLowerCase()?.trim()], reference);
     if (Array.isArray(results) && results.length !== 0) {
       return Repository.processResult(new Repository(results[0]));
     }
@@ -286,14 +281,13 @@ export class Repository extends MySqlModel {
   static async findByResearchDomainId(
     reference: string,
     context: MyContext,
-    researchDomainId: number,
-    transactionClient?: DatabaseTransactionClient
+    researchDomainId: number
   ): Promise<Repository[]> {
     const sql = 'SELECT r.* FROM repositories r';
     const joinClause = 'INNER JOIN repositoryResearchDomains rrd ON r.id = rrd.repositoryId';
     const whereClause = 'WHERE rrd.researchDomainId = ?';
     const vals = [researchDomainId?.toString()];
-    const results = await Repository.query(context, `${sql} ${joinClause} ${whereClause}`, vals, reference, transactionClient);
+    const results = await Repository.query(context, `${sql} ${joinClause} ${whereClause}`, vals, reference);
     // No need to reinitialize all of the results to objects here because they're just search results
     if (Array.isArray(results) && results.length !== 0) {
       return results.map((res) => Repository.processResult(res))
@@ -304,8 +298,7 @@ export class Repository extends MySqlModel {
   // Fetch all distinct keywords across all repositories
   static async findAllDistinctKeywords(
     reference: string,
-    context: MyContext,
-    transactionClient?: DatabaseTransactionClient
+    context: MyContext
   ): Promise<string[]> {
     const sql = `
       SELECT DISTINCT jt.keyword
@@ -318,7 +311,7 @@ export class Repository extends MySqlModel {
       ) AS jt
       ORDER BY jt.keyword
     `;
-    const results = await Repository.query(context, sql, [], reference, transactionClient);
+    const results = await Repository.query(context, sql, [], reference);
     if (Array.isArray(results) && results.length !== 0) {
       return results.map((row) => row.keyword);
     }

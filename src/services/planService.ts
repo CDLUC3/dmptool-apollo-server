@@ -27,10 +27,6 @@ import {
   DataCiteSourceFundingAffiliation,
   planToDataCiteMetadata
 } from "./dataciteXMLService";
-import {
-  DatabaseTransactionClient,
-  TransactionClient
-} from "../datasources/mysql";
 
 /**
  * Function to help update Plan member roles. It compares the current roles for
@@ -49,8 +45,7 @@ export async function updateMemberRoles(
   context: MyContext,
   memberId: number,
   currentRoleIds: number[],
-  newRoleIds: number[],
-  transactionClient?: DatabaseTransactionClient
+  newRoleIds: number[]
 ): Promise<{ updatedRoleIds: number[], errors: string[] }> {
 
   const associationErrors = [];
@@ -59,9 +54,9 @@ export async function updateMemberRoles(
   // Remove roles
   const removeErrors = [];
   for (const id of idsToBeRemoved) {
-    const role = await MemberRole.findById(reference, context, id as number, transactionClient);
+    const role = await MemberRole.findById(reference, context, id as number);
     if (role) {
-      const wasRemoved = await role.removeFromPlanMember(context, memberId, transactionClient);
+      const wasRemoved = await role.removeFromPlanMember(context, memberId);
       if (!wasRemoved) {
         removeErrors.push(role.label);
       }
@@ -74,9 +69,9 @@ export async function updateMemberRoles(
   // Add roles
   const addErrors = [];
   for (const id of idsToBeSaved) {
-    const role = await MemberRole.findById(reference, context, id as number, transactionClient);
+    const role = await MemberRole.findById(reference, context, id as number);
     if (role) {
-      const wasAdded = await role.addToPlanMember(context, memberId, transactionClient);
+      const wasAdded = await role.addToPlanMember(context, memberId);
       if (!wasAdded) {
         addErrors.push(role.label);
         // Remove the role from idsToBeSaved if it couldn't be added
@@ -104,30 +99,27 @@ export async function updateMemberRoles(
  * @param context The apollo context object
  * @param plan The plan to check for a primary contact
  * @param project The project that the plan belongs to
- * @param transactionClient the MySQL transaction to use
  * @returns true if a primary contact was found or created, false otherwise
  */
 export const ensureDefaultPlanContact = async (
   context: MyContext,
   plan: Plan,
-  project: Project,
-  transactionClient: TransactionClient
+  project: Project
 ): Promise<boolean> => {
   const reference = 'planService.ensurePlanHasPrimaryContact';
 
   if (!isNullOrUndefined(plan) && !isNullOrUndefined(project)) {
-    const dfltMember = await ProjectMember.findPrimaryContact(reference, context, project.id, transactionClient);
+    const dfltMember = await ProjectMember.findPrimaryContact(reference, context, project.id);
     if (isNullOrUndefined(dfltMember)) {
       return false;
     }
     const dfltMemberRoles = await MemberRole.findByProjectMemberId(
       reference,
       context,
-      dfltMember.id,
-      transactionClient
+      dfltMember.id
     );
 
-    const current = await PlanMember.findPrimaryContact(reference, context, plan.id, transactionClient);
+    const current = await PlanMember.findPrimaryContact(reference, context, plan.id);
     if (isNullOrUndefined(current)) {
       // Create a new member record from the user and set as the primary contact
       const member = new PlanMember({
@@ -137,11 +129,11 @@ export const ensureDefaultPlanContact = async (
         memberRoleIds: dfltMemberRoles.map(role => role.id),
       });
 
-      const created = await member.create(context, transactionClient);
+      const created = await member.create(context);
       if (!isNullOrUndefined(created) && !created.hasErrors()) {
         // Add the roles to the default plan member
         for (const role of dfltMemberRoles) {
-          await role.addToPlanMember(context, created.id, transactionClient);
+          await role.addToPlanMember(context, created.id);
         }
         return true;
       }
@@ -161,25 +153,24 @@ export const ensureDefaultPlanContact = async (
  * @param context The apollo context object
  * @param plan The plan to build DataCite metadata for
  * @param project The project that the plan belongs to
- * @param transactionClient The database transaction client to use
  * @returns The DataCite XML document as a string
  * @throws if the plan has no member marked as primary contact
  */
-export async function buildDataCiteXMLForPlan(context: MyContext, plan: Plan, project?: Project, transactionClient?: DatabaseTransactionClient): Promise<string> {
+export async function buildDataCiteXMLForPlan(context: MyContext, plan: Plan, project?: Project): Promise<string> {
   const reference = 'planService.buildDataCiteXMLForPlan';
 
-  const resolvedProject = project ?? await Project.findById(reference, context, plan.projectId, transactionClient);
+  const resolvedProject = project ?? await Project.findById(reference, context, plan.projectId);
 
   // --- Members ---
   // Project members
-  const projectMembers = await ProjectMember.findByProjectId(reference, context, plan.projectId, transactionClient);
+  const projectMembers = await ProjectMember.findByProjectId(reference, context, plan.projectId);
 
   const members = await Promise.all(projectMembers.map(async (pm) => {
-    const memberRoles = await MemberRole.findByProjectMemberId(reference, context, pm.id, transactionClient);
+    const memberRoles = await MemberRole.findByProjectMemberId(reference, context, pm.id);
 
     let affiliation: DataCiteSourceAffiliation | undefined;
     if (pm.affiliationId) {
-      const aff = await Affiliation.findByURI(reference, context, pm.affiliationId, transactionClient);
+      const aff = await Affiliation.findByURI(reference, context, pm.affiliationId);
       if (aff) {
         affiliation = { name: aff.name || aff.displayName, uri: aff.uri, provenance: aff.provenance };
       }
@@ -198,15 +189,15 @@ export async function buildDataCiteXMLForPlan(context: MyContext, plan: Plan, pr
   }));
 
   // --- Plan Fundings ---
-  const planFundings = await PlanFunding.findByPlanId(reference, context, plan.id, transactionClient);
+  const planFundings = await PlanFunding.findByPlanId(reference, context, plan.id);
 
   const fundings = await Promise.all(planFundings.map(async (pf) => {
-    const projectFunding = await ProjectFunding.findById(reference, context, pf.projectFundingId, transactionClient);
+    const projectFunding = await ProjectFunding.findById(reference, context, pf.projectFundingId);
     if (!projectFunding) return { projectFunding: undefined };
 
     let affiliation: DataCiteSourceFundingAffiliation | undefined;
     if (projectFunding.affiliationId) {
-      const aff = await Affiliation.findByURI(reference, context, projectFunding.affiliationId, transactionClient);
+      const aff = await Affiliation.findByURI(reference, context, projectFunding.affiliationId);
       if (aff) {
         affiliation = {
           name: aff.name || aff.displayName,
@@ -221,7 +212,7 @@ export async function buildDataCiteXMLForPlan(context: MyContext, plan: Plan, pr
   }));
 
   // --- Alternate identifiers ---
-  const alternateIdentifierRecords = await AlternateIdentifier.findByPlanId(reference, context, plan.id, transactionClient);
+  const alternateIdentifierRecords = await AlternateIdentifier.findByPlanId(reference, context, plan.id);
   const alternateIdentifiers = alternateIdentifierRecords.map((a) => ({
     alternateIdentifier: a.alternateIdentifier,
   }));

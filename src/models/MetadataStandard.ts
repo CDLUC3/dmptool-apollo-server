@@ -4,7 +4,6 @@ import { PaginatedQueryResults, PaginationOptions, PaginationOptionsForCursors, 
 import { isNullOrUndefined, randomHex, validateURL } from "../utils/helpers";
 import { MySqlModel } from "./MySqlModel";
 import { ResearchDomain } from "./ResearchDomain";
-import { DatabaseTransactionClient } from "../datasources/mysql";
 
 export const DEFAULT_DMPTOOL_METADATA_STANDARD_URL = 'https://dmptool.org/metadata-standards/';;
 export class MetadataStandard extends MySqlModel {
@@ -63,7 +62,7 @@ export class MetadataStandard extends MySqlModel {
   }
 
   //Create a new MetadataStandard
-  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<MetadataStandard> {
+  async create(context: MyContext): Promise<MetadataStandard> {
     const reference = 'MetadataStandard.create';
 
     // If no URI is present, then use the DMPTool's default URI
@@ -74,9 +73,9 @@ export class MetadataStandard extends MySqlModel {
     this.prepForSave();
     // First make sure the record is valid
     if (await this.isValid()) {
-      let current = await MetadataStandard.findByURI(reference, context, this.uri, transactionClient);
+      let current = await MetadataStandard.findByURI(reference, context, this.uri);
       if (!current) {
-        current = await MetadataStandard.findByName(reference, context, this.name.toString(), transactionClient);
+        current = await MetadataStandard.findByName(reference, context, this.name.toString());
       }
 
       // Then make sure it doesn't already exist
@@ -84,8 +83,8 @@ export class MetadataStandard extends MySqlModel {
         this.addError('general', 'MetadataStandard already exists');
       } else {
         // Save the record and then fetch it
-        const newId = await MetadataStandard.insert(context, this.tableName, this, reference, ['researchDomains'], transactionClient);
-        const response = await MetadataStandard.findById(reference, context, newId, transactionClient);
+        const newId = await MetadataStandard.insert(context, this.tableName, this, reference, ['researchDomains']);
+        const response = await MetadataStandard.findById(reference, context, newId);
         return response;
       }
     }
@@ -94,7 +93,7 @@ export class MetadataStandard extends MySqlModel {
   }
 
   //Update an existing MetadataStandard
-  async update(context: MyContext, noTouch = false, transactionClient?: DatabaseTransactionClient): Promise<MetadataStandard> {
+  async update(context: MyContext, noTouch = false): Promise<MetadataStandard> {
     const id = this.id;
 
     this.prepForSave();
@@ -106,11 +105,10 @@ export class MetadataStandard extends MySqlModel {
           this,
           'MetadataStandard.update',
           ['researchDomains'],
-          noTouch,
-          transactionClient
+          noTouch
         );
 
-        return await MetadataStandard.findById('MetadataStandard.update', context, id, transactionClient);
+        return await MetadataStandard.findById('MetadataStandard.update', context, id);
       }
       // This template has never been saved before so we cannot update it!
       this.addError('general', 'MetadataStandard has never been saved');
@@ -119,16 +117,15 @@ export class MetadataStandard extends MySqlModel {
   }
 
   //Delete the MetadataStandard
-  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<MetadataStandard> {
+  async delete(context: MyContext): Promise<MetadataStandard> {
     if (this.id) {
-      const deleted = await MetadataStandard.findById('MetadataStandard.delete', context, this.id, transactionClient);
+      const deleted = await MetadataStandard.findById('MetadataStandard.delete', context, this.id);
 
       const successfullyDeleted = await MetadataStandard.delete(
         context,
         this.tableName,
         this.id,
-        'MetadataStandard.delete',
-        transactionClient
+        'MetadataStandard.delete'
       );
       if (successfullyDeleted) {
         return deleted;
@@ -145,8 +142,7 @@ export class MetadataStandard extends MySqlModel {
     context: MyContext,
     term: string,
     researchDomainId: number,
-    options: PaginationOptions = MetadataStandard.getDefaultPaginationOptions(),
-    transactionClient?: DatabaseTransactionClient
+    options: PaginationOptions = MetadataStandard.getDefaultPaginationOptions()
   ): Promise<PaginatedQueryResults<MetadataStandard>> {
     const whereFilters = [];
     const values = [];
@@ -190,9 +186,7 @@ export class MetadataStandard extends MySqlModel {
       '',
       values,
       opts,
-      reference,
-      true,
-      transactionClient
+      reference
     )
 
     context.logger.debug(prepareObjectForLogs({ options, response }), reference);
@@ -200,41 +194,41 @@ export class MetadataStandard extends MySqlModel {
   }
 
   // Fetch a MetadataStandard by it's id
-  static async findById(reference: string, context: MyContext, metadataStandardId: number, transactionClient?: DatabaseTransactionClient): Promise<MetadataStandard> {
+  static async findById(reference: string, context: MyContext, metadataStandardId: number): Promise<MetadataStandard> {
     const sql = `SELECT * FROM metadataStandards WHERE id = ?`;
-    const results = await MetadataStandard.query(context, sql, [metadataStandardId?.toString()], reference, transactionClient);
+    const results = await MetadataStandard.query(context, sql, [metadataStandardId?.toString()], reference);
     if (Array.isArray(results) && results.length !== 0){
       return MetadataStandard.processResult(new MetadataStandard(results[0]));
     }
     return null;
   }
 
-  static async findByURI(reference: string, context: MyContext, uri: string, transactionClient?: DatabaseTransactionClient): Promise<MetadataStandard> {
+  static async findByURI(reference: string, context: MyContext, uri: string): Promise<MetadataStandard> {
     const sql = `SELECT * FROM metadataStandards WHERE uri = ?`;
-    const results = await MetadataStandard.query(context, sql, [uri], reference, transactionClient);
+    const results = await MetadataStandard.query(context, sql, [uri], reference);
     if (Array.isArray(results) && results.length !== 0){
       return MetadataStandard.processResult(new MetadataStandard(results[0]));
     }
     return null;
   }
 
-    static async findByURIs(reference: string, context: MyContext, uris: string[], transactionClient?: DatabaseTransactionClient): Promise<MetadataStandard[]> {
+    static async findByURIs(reference: string, context: MyContext, uris: string[]): Promise<MetadataStandard[]> {
     if (!Array.isArray(uris) || uris.length === 0) {
       return [];
     }
     // Create placeholders for each URI
     const placeholders = uris.map(() => '?').join(', ');
     const sql = `SELECT * FROM metadataStandards WHERE uri IN (${placeholders})`;
-    const results = await MetadataStandard.query(context, sql, uris, reference, transactionClient);
+    const results = await MetadataStandard.query(context, sql, uris, reference);
     if (Array.isArray(results) && results.length !== 0) {
       return results.map((row) => MetadataStandard.processResult(new MetadataStandard(row)));
     }
     return [];
   }
 
-  static async findByName(reference: string, context: MyContext, name: string, transactionClient?: DatabaseTransactionClient): Promise<MetadataStandard> {
+  static async findByName(reference: string, context: MyContext, name: string): Promise<MetadataStandard> {
     const sql = `SELECT * FROM metadataStandards WHERE LOWER(name) = ?`;
-    const results = await MetadataStandard.query(context, sql, [name?.toLowerCase()?.trim()], reference, transactionClient);
+    const results = await MetadataStandard.query(context, sql, [name?.toLowerCase()?.trim()], reference);
     if (Array.isArray(results) && results.length !== 0){
       return MetadataStandard.processResult(new MetadataStandard(results[0]));
     }
@@ -245,15 +239,14 @@ export class MetadataStandard extends MySqlModel {
   static async findByResearchDomainId(
     reference: string,
     context: MyContext,
-    researchDomainId: number,
-    transactionClient?: DatabaseTransactionClient
+    researchDomainId: number
   ): Promise<MetadataStandard[]> {
     const sql = 'SELECT ms.* FROM metadataStandards ms';
     const joinClause = 'INNER JOIN metadataStandardResearchDomains msrd ON ms.id = msrd.metadataStandardId';
     const whereClause = 'WHERE msrd.researchDomainId = ?';
     const vals = [researchDomainId?.toString()];
 
-    const results = await MetadataStandard.query(context, `${sql} ${joinClause} ${whereClause}`, vals, reference, transactionClient);
+    const results = await MetadataStandard.query(context, `${sql} ${joinClause} ${whereClause}`, vals, reference);
     if (Array.isArray(results) && results.length !== 0){
       return results.map((res) => MetadataStandard.processResult(res))
     }

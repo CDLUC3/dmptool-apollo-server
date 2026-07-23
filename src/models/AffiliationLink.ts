@@ -1,7 +1,6 @@
 import { MyContext } from "../context";
 import { validateURL } from "../utils/helpers";
 import { MySqlModel } from "./MySqlModel";
-import { DatabaseTransactionClient } from "../datasources/mysql";
 
 // A link that can be displayed to the affiliation's users within the context of the DMPTool
 export class AffiliationLink extends MySqlModel {
@@ -30,14 +29,13 @@ export class AffiliationLink extends MySqlModel {
   }
 
   // Save the current record
-  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<AffiliationLink> {
+  async create(context: MyContext): Promise<AffiliationLink> {
     // First make sure the record doesn't already exist
     const currentDomain = await AffiliationLink.findByAffiliationAndURL(
       'AffiliationLink.create',
       context,
       this.affiliationId,
-      this.url,
-      transactionClient
+      this.url
     );
 
     // Then make sure it doesn't already exist
@@ -47,8 +45,8 @@ export class AffiliationLink extends MySqlModel {
         this.addError('general', `That email domain is already associated with ${assoc}`);
       } else {
       // Save the record and then fetch it
-        const newId = await AffiliationLink.insert(context, AffiliationLink.tableName, this, 'AffiliationLink.create', [], transactionClient);
-        return await AffiliationLink.findById('AffiliationLink.create', context, newId as number, transactionClient);
+        const newId = await AffiliationLink.insert(context, AffiliationLink.tableName, this, 'AffiliationLink.create', []);
+        return await AffiliationLink.findById('AffiliationLink.create', context, newId as number);
       }
     }
     // Otherwise return as-is with all the errors
@@ -56,7 +54,7 @@ export class AffiliationLink extends MySqlModel {
   }
 
   // Update the link
-  async update(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<AffiliationLink> {
+  async update(context: MyContext): Promise<AffiliationLink> {
     const reference = 'AffiliationLink.update';
     if (!this.id) {
       this.addError('general', 'The link does not exist');
@@ -70,12 +68,11 @@ export class AffiliationLink extends MySqlModel {
         this,
         reference,
         [],
-        false,
-        transactionClient
+        false
       );
 
       if (updated) {
-        return await AffiliationLink.findById(reference, context, this.id, transactionClient);
+        return await AffiliationLink.findById(reference, context, this.id);
       }
 
       this.addError('general', 'Unable to update the link');
@@ -86,9 +83,9 @@ export class AffiliationLink extends MySqlModel {
   }
 
   // Archive this record
-  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<AffiliationLink> {
+  async delete(context: MyContext): Promise<AffiliationLink> {
     if (this.id) {
-      const result = await AffiliationLink.delete(context, AffiliationLink.tableName, this.id, 'AffiliationLink.delete', transactionClient);
+      const result = await AffiliationLink.delete(context, AffiliationLink.tableName, this.id, 'AffiliationLink.delete');
       if (result) {
         return new AffiliationLink(this);
       }
@@ -97,23 +94,23 @@ export class AffiliationLink extends MySqlModel {
   }
 
   // Return the specified AffiliationLink
-  static async findById(reference: string, context: MyContext, id: number, transactionClient?: DatabaseTransactionClient): Promise<AffiliationLink> {
+  static async findById(reference: string, context: MyContext, id: number): Promise<AffiliationLink> {
     const sql = `SELECT * FROM ${AffiliationLink.tableName} WHERE id = ?`;
-    const results = await AffiliationLink.query(context, sql, [id?.toString()], reference, transactionClient);
+    const results = await AffiliationLink.query(context, sql, [id?.toString()], reference);
     return Array.isArray(results) && results.length > 0 ? new AffiliationLink(results[0]) : null;
   }
 
   // Return the specified AffiliationLink
-  static async findByAffiliationAndURL(reference: string, context: MyContext, affiliationId: string, url: string, transactionClient?: DatabaseTransactionClient): Promise<AffiliationLink> {
+  static async findByAffiliationAndURL(reference: string, context: MyContext, affiliationId: string, url: string): Promise<AffiliationLink> {
     const sql = `SELECT * FROM ${AffiliationLink.tableName} WHERE affiliationId = ? AND url = ?`;
-    const results = await AffiliationLink.query(context, sql, [affiliationId, url], reference, transactionClient);
+    const results = await AffiliationLink.query(context, sql, [affiliationId, url], reference);
     return Array.isArray(results) && results.length > 0 ? new AffiliationLink(results[0]) : null;
   }
 
   // Return all of the AffiliationLinks for the Affiliation
-  static async findByAffiliationId(reference: string, context: MyContext, affiliationId: string, transactionClient?: DatabaseTransactionClient): Promise<AffiliationLink[]> {
+  static async findByAffiliationId(reference: string, context: MyContext, affiliationId: string): Promise<AffiliationLink[]> {
     const sql = `SELECT * FROM ${AffiliationLink.tableName} WHERE affiliationId = ?`;
-    const results = await AffiliationLink.query(context, sql, [affiliationId], reference, transactionClient);
+    const results = await AffiliationLink.query(context, sql, [affiliationId], reference);
     return Array.isArray(results) ? results.map((entry) => new AffiliationLink(entry)) : [];
   }
 }

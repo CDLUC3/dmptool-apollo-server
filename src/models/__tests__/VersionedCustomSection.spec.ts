@@ -170,8 +170,7 @@ describe("VersionedCustomSection", () => {
         "versionedCustomSections",
         customization,
         "VersionedCustomSection.create",
-        [],
-        undefined
+        []
       );
       expect(result.id).toBe(1);
       expect(result.versionedTemplateCustomizationId).toBe(100);
@@ -252,8 +251,7 @@ describe("VersionedCustomSection", () => {
         customization,
         "VersionedCustomSection.update",
         [],
-        false,
-        undefined
+        false
       );
       expect(result.id).toBe(1);
       expect(result.guidance).toBe("Updated guidance");
@@ -289,8 +287,7 @@ describe("VersionedCustomSection", () => {
         customization,
         "VersionedCustomSection.update",
         [],
-        true,
-        undefined
+        true
       );
     });
 
@@ -352,8 +349,7 @@ describe("VersionedCustomSection", () => {
         mockContext,
         "versionedCustomSections",
         1,
-        "VersionedCustomSection.delete",
-        undefined,
+        "VersionedCustomSection.delete"
       );
       expect(result.id).toBe(1);
       expect(result.versionedTemplateCustomizationId).toBe(100);
@@ -368,7 +364,7 @@ describe("VersionedCustomSection", () => {
         name: "Test Section",
       });
 
-      const result = await customization.delete(mockContext, undefined);
+      const result = await customization.delete(mockContext);
 
       expect(result.errors.general).toBe("Custom section has never been saved");
     });
@@ -420,8 +416,7 @@ describe("VersionedCustomSection", () => {
         mockContext,
         "SELECT * FROM versionedCustomSections WHERE id = ?",
         ["1"],
-        "test.ref",
-        undefined,
+        "test.ref"
       );
       expect(result).toBeInstanceOf(VersionedCustomSection);
       expect(result.id).toBe(1);
@@ -445,8 +440,7 @@ describe("VersionedCustomSection", () => {
         mockContext,
         "SELECT * FROM versionedCustomSections WHERE id = ?",
         [undefined],
-        "test.ref",
-        undefined,
+        "test.ref"
       );
       expect(result).toBeUndefined();
     });
@@ -475,8 +469,7 @@ describe("VersionedCustomSection", () => {
         `SELECT * FROM versionedCustomSections
          WHERE versionedTemplateCustomizationId = ?`,
         ["100"],
-        "test.ref",
-        undefined,
+        "test.ref"
       );
 
       expect(result.length).toBe(1);

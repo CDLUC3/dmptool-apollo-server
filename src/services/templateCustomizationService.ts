@@ -10,7 +10,6 @@ import { CustomQuestion } from "../models/CustomQuestion";
 import { SectionCustomization } from "../models/SectionCustomization";
 import { QuestionCustomization } from "../models/QuestionCustomization";
 import { ForbiddenError, NotFoundError } from "../utils/graphQLErrors";
-import {DatabaseTransactionClient} from "../datasources/mysql";
 
 /**
  * Fetch the TemplateCustomization and make sure the current user has permission
@@ -19,20 +18,17 @@ import {DatabaseTransactionClient} from "../datasources/mysql";
  * @param reference the string reference for logging
  * @param context the Apollo server context
  * @param templateCustomizationId the template customization's id
- * @param transactionClient the MySQL transaction to use
  */
 export const getValidatedCustomization = async (
   reference: string,
   context: MyContext,
-  templateCustomizationId: number,
-  transactionClient?: DatabaseTransactionClient
+  templateCustomizationId: number
 ): Promise<TemplateCustomization> => {
   // Fetch the TemplateCustomization
   const customization: TemplateCustomization = await TemplateCustomization.findById(
     reference,
     context,
-    templateCustomizationId,
-    transactionClient
+    templateCustomizationId
   );
 
   // If it was not found, throw a NotFoundError
@@ -75,21 +71,18 @@ export const hasPermissionOnTemplateCustomization = (
  * @param templateCustomizationId The id of the TemplateCustomization to update.
  * @param entity The entity that the TemplateCustomization belongs to. This is
  * used to add an error to the entity if it supports it.
- * @param transactionClient the MySQL transaction to use
  * @returns true if the TemplateCustomization was successfully updated.
  */
 export const markTemplateCustomizationAsDirty = async (
   reference: string,
   context: MyContext,
   templateCustomizationId: number,
-  entity: CustomSection | CustomQuestion | SectionCustomization | QuestionCustomization,
-  transactionClient?: DatabaseTransactionClient
+  entity: CustomSection | CustomQuestion | SectionCustomization | QuestionCustomization
 ) => {
   const success = await TemplateCustomization.markAsDirty(
     reference,
     context,
-    templateCustomizationId,
-    transactionClient
+    templateCustomizationId
   );
   if (!success) {
     const msg = `Unable to update TemplateCustomization timestamp`;
@@ -109,20 +102,17 @@ export const markTemplateCustomizationAsDirty = async (
  * @param reference The reference to use for logging errors.
  * @param context The Apollo context.
  * @param templateCustomization The customization to check.
- * @param transactionClient the MySQL transaction to use
  * @returns the updated customization.
  */
 export const checkForFunderTemplateDrift = async (
   reference: string,
   context: MyContext,
-  templateCustomization: TemplateCustomization,
-  transactionClient?: DatabaseTransactionClient
+  templateCustomization: TemplateCustomization
 ): Promise<TemplateCustomization> => {
   const currentVersion: VersionedTemplate = await VersionedTemplate.findActiveByTemplateId(
     reference,
     context,
-    templateCustomization.templateId,
-    transactionClient
+    templateCustomization.templateId
   );
 
   if (!currentVersion) {
@@ -159,26 +149,23 @@ export const checkForFunderTemplateDrift = async (
  * @param context The Apollo context.
  * @param oldVersionedTemplateId The id of the funder template as it was when the customization was created.
  * @param newVersionedTemplateId The id of the funder template as it is now.
- * @param transactionClient the MySQL transaction to use
  * @returns the number of customizations that were impacted by the republication.
  */
 export const handleFunderTemplateRepublication = async (
   reference: string,
   context: MyContext,
   oldVersionedTemplateId: number,
-  newVersionedTemplateId: number | undefined,
-  transactionClient?: DatabaseTransactionClient
+  newVersionedTemplateId: number | undefined
 ): Promise<number> => {
   // The funder template was archived if the new version is not defined
   if (newVersionedTemplateId === undefined) {
-    return await handleFunderTemplateArchive(reference, context, oldVersionedTemplateId, transactionClient);
+    return await handleFunderTemplateArchive(reference, context, oldVersionedTemplateId);
   }
 
   const customizations: TemplateCustomization[] = await TemplateCustomization.findByVersionedTemplateId(
     reference,
     context,
-    oldVersionedTemplateId,
-    transactionClient
+    oldVersionedTemplateId
   );
 
   if (Array.isArray(customizations) && customizations.length > 0) {
@@ -187,7 +174,7 @@ export const handleFunderTemplateRepublication = async (
       // versioned template so that plan lookups continue to resolve against new versioned template
       customization.migrationStatus = TemplateCustomizationMigrationStatus.STALE;
       customization.currentVersionedTemplateId = newVersionedTemplateId;
-      await customization.update(context, true, transactionClient);
+      await customization.update(context, true);
 
       // TODO: Process all SectionCustomizations and QuestionCustomizations and
       //       check for drift. If drift is detected, mark them as `STALE` or `ORPHANED`
@@ -207,27 +194,24 @@ export const handleFunderTemplateRepublication = async (
  * @param reference The reference to use for logging errors.
  * @param context The Apollo context.
  * @param templateId The id of the funder template that is being archived.
- * @param transactionClient the MySQL transaction to use
  * @returns the number of customizations that were impacted by the archival.
  */
 export const handleFunderTemplateArchive = async (
   reference: string,
   context: MyContext,
-  templateId: number,
-  transactionClient?: DatabaseTransactionClient
+  templateId: number
 ): Promise<number> => {
   const customizations: TemplateCustomization[] = await TemplateCustomization.findByTemplateId(
     reference,
     context,
-    templateId,
-    transactionClient
+    templateId
   );
 
   if (Array.isArray(customizations) && customizations.length > 0) {
     await Promise.all(customizations.map(async (customization: TemplateCustomization) => {
       // Mark the impacted customizations as orphaned
       customization.migrationStatus = TemplateCustomizationMigrationStatus.ORPHANED;
-      await customization.update(context, true, transactionClient);
+      await customization.update(context, true);
 
       // TODO: Process all SectionCustomizations and QuestionCustomization by
       //       marking them as `ORPHANED` as well.

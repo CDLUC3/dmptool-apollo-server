@@ -453,8 +453,7 @@ describe('AffiliationDepartment', () => {
         context,
         expect.any(String),
         [department.affiliationId, nameWithSpaces.trim().toLowerCase()],
-        'Test',
-        undefined
+        'Test'
       );
     });
   });

@@ -111,7 +111,7 @@ describe('Work queries', () => {
     const result = await Work.findById('testing', context, work.id);
     const expectedSql = 'SELECT * FROM works WHERE id = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [work.id.toString()], 'testing', undefined);
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [work.id.toString()], 'testing');
     expect(result).toEqual(work);
   });
 
@@ -128,7 +128,7 @@ describe('Work queries', () => {
     const result = await Work.findByDoi('testing', context, work.doi);
     const expectedSql = 'SELECT * FROM works WHERE doi = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [work.doi.toString()], 'testing', undefined);
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [work.doi.toString()], 'testing');
     expect(result).toEqual(work);
   });
 
@@ -347,7 +347,7 @@ describe('WorkVersion queries', () => {
     const result = await WorkVersion.findById('testing', context, workVersion.id);
     const expectedSql = 'SELECT * FROM workVersions WHERE id = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [workVersion.id.toString()], 'testing', undefined);
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [workVersion.id.toString()], 'testing');
     expect(result).toEqual(workVersion);
   });
 
@@ -366,7 +366,7 @@ describe('WorkVersion queries', () => {
     const expectedSql =
       'SELECT wv.* FROM workVersions wv LEFT JOIN works w ON wv.workId = w.id WHERE wv.hash = ? AND w.doi = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [workVersion.hash, doi.toString()], 'testing', undefined);
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [workVersion.hash, doi.toString()], 'testing');
     expect(result).toEqual(workVersion);
   });
 
@@ -574,7 +574,7 @@ describe('RelatedWork queries', () => {
     const result = await RelatedWork.findById('testing', context, relatedWork.id);
     const expectedSql = 'SELECT * FROM relatedWorks WHERE id = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [relatedWork.id.toString()], 'testing', undefined);
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [relatedWork.id.toString()], 'testing');
     expect(result).toEqual(relatedWork);
   });
 
@@ -597,8 +597,7 @@ describe('RelatedWork queries', () => {
       context,
       expectedSql,
       [planId.toString(), workVersionId.toString()],
-      'testing',
-      undefined
+      'testing'
     );
     expect(result).toEqual(relatedWork);
   });
@@ -634,7 +633,7 @@ describe('RelatedWork queries', () => {
       WHERE p.id = ?;
     `;
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [planId.toString()], 'testing', undefined);
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [planId.toString()], 'testing');
     expect(result).toEqual(stats);
   });
 
@@ -674,7 +673,7 @@ describe('RelatedWork queries', () => {
       WHERE p.projectId = ?;
     `;
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectId.toString()], 'testing', undefined);
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectId.toString()], 'testing');
     expect(result).toEqual(stats);
   });
 
@@ -854,7 +853,7 @@ describe('RelatedWorkSearchResult queries', () => {
     const result = await RelatedWorkSearchResult.findById('testing', context, relatedWork.id);
     const expectedSql = `${RelatedWorkSearchResult.sqlStatement} WHERE rw.id = ?`;
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [relatedWork.id.toString()], 'testing', undefined);
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [relatedWork.id.toString()], 'testing');
     expect(result).toEqual(relatedWork);
   });
 

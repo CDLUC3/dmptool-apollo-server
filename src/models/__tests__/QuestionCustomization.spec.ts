@@ -149,8 +149,7 @@ describe("QuestionCustomization", () => {
         "questionCustomizations",
         customization,
         "QuestionCustomization.create",
-        [],
-        undefined
+        []
       );
       expect(result.id).toBe(1);
       expect(result.templateCustomizationId).toBe(100);
@@ -214,8 +213,7 @@ describe("QuestionCustomization", () => {
         customization,
         "QuestionCustomization.update",
         [],
-        false,
-        undefined
+        false
       );
       expect(result.id).toBe(1);
       expect(result.guidanceText).toBe("Updated guidance");
@@ -245,8 +243,7 @@ describe("QuestionCustomization", () => {
         customization,
         "QuestionCustomization.update",
         [],
-        true,
-        undefined
+        true
       );
     });
 
@@ -297,8 +294,7 @@ describe("QuestionCustomization", () => {
         mockContext,
         "questionCustomizations",
         1,
-        "QuestionCustomization.delete",
-        undefined
+        "QuestionCustomization.delete"
       );
       expect(result.id).toBe(1);
       expect(result.templateCustomizationId).toBe(100);
@@ -354,8 +350,7 @@ describe("QuestionCustomization", () => {
         mockContext,
         "SELECT * FROM questionCustomizations WHERE id = ?",
         ["1"],
-        "test.ref",
-        undefined
+        "test.ref"
       );
       expect(result).toBeInstanceOf(QuestionCustomization);
       expect(result.id).toBe(1);
@@ -379,8 +374,7 @@ describe("QuestionCustomization", () => {
         mockContext,
         "SELECT * FROM questionCustomizations WHERE id = ?",
         [undefined],
-        "test.ref",
-        undefined
+        "test.ref"
       );
       expect(result).toBeUndefined();
     });
@@ -408,8 +402,7 @@ describe("QuestionCustomization", () => {
         `SELECT * FROM questionCustomizations
          WHERE templateCustomizationId = ? AND questionId = ?`,
         ["100", "300"],
-        "test.ref",
-        undefined
+        "test.ref"
       );
       expect(result).toBeInstanceOf(QuestionCustomization);
       expect(result.templateCustomizationId).toBe(100);
@@ -444,8 +437,7 @@ describe("QuestionCustomization", () => {
         `SELECT * FROM questionCustomizations
          WHERE templateCustomizationId = ? AND questionId = ?`,
         ["100", undefined],
-        "test.ref",
-        undefined
+        "test.ref"
       );
       expect(result).toBeUndefined();
     });
@@ -474,8 +466,7 @@ describe("QuestionCustomization", () => {
          INNER JOIN versionedQuestions vq ON qc.questionId = vq.questionId
          WHERE qc.templateCustomizationId = ? AND vq.id = ?`,
         ["100", "300"],
-        "test.ref",
-        undefined
+        "test.ref"
       );
       expect(result).toBeInstanceOf(QuestionCustomization);
       expect(result.templateCustomizationId).toBe(100);
@@ -510,8 +501,7 @@ describe("QuestionCustomization", () => {
          INNER JOIN versionedQuestions vq ON qc.questionId = vq.questionId
          WHERE qc.templateCustomizationId = ? AND vq.id = ?`,
         ["100", undefined],
-        "test.ref",
-        undefined
+        "test.ref"
       );
       expect(result).toBeUndefined();
     });
@@ -537,8 +527,7 @@ describe("QuestionCustomization", () => {
         mockContext,
         `SELECT * FROM questionCustomizations WHERE templateCustomizationId = ?`,
         ["100"],
-        "test.ref",
-        undefined
+        "test.ref"
       );
 
       expect(result.length).toBe(1);

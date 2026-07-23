@@ -1,6 +1,5 @@
 import { GraphQLError } from 'graphql';
 import { logger } from '../../logger';
-import { MySqlModel } from '../../models/MySqlModel';
 import { Project } from '../../models/Project';
 import { Plan } from '../../models/Plan';
 import { Affiliation } from '../../models/Affiliation';
@@ -15,10 +14,16 @@ import { ResearchDomain } from '../../models/ResearchDomain';
 import { VersionedTemplate } from '../../models/VersionedTemplate';
 import { buildMockContextWithToken } from '../../__mocks__/context';
 import {
+  BAD_REQUEST_ERROR_CODE,
+  INTERNAL_SERVER_ERROR_CODE,
+} from '../../utils/graphQLErrors';
+import {
   addEntirePlan,
   processFundingAssociations,
   processMemberAssociations,
-} from '../transactionalProcessingService';
+  removeEntirePlan,
+  replaceEntirePlan,
+} from '../entirePlanService';
 
 jest.mock('../projectService', () => ({
   ensureDefaultProjectContact: jest.fn().mockResolvedValue(true),
@@ -29,9 +34,8 @@ jest.mock('../planService', () => ({
   ensureDefaultPlanContact: jest.fn().mockResolvedValue(true),
 }));
 
-describe('transactionalProcessingService', () => {
+describe('entirePlanService', () => {
   let context;
-  let transactionClient;
   let project: Project;
   let plan: Plan;
 
@@ -130,10 +134,6 @@ describe('transactionalProcessingService', () => {
     jest.clearAllMocks();
     jest.restoreAllMocks();
     context = await buildMockContextWithToken(logger);
-    transactionClient = {
-      commit: jest.fn(),
-      rollback: jest.fn(),
-    };
     project = new Project({ id: 1001, title: 'Project', abstractText: 'A' });
     plan = new Plan({ id: 2002, projectId: project.id, title: 'Plan title' });
   });
@@ -151,7 +151,6 @@ describe('transactionalProcessingService', () => {
       const errors = await processMemberAssociations(
         'test-ref',
         context,
-        transactionClient,
         project,
         plan,
         [{
@@ -206,7 +205,6 @@ describe('transactionalProcessingService', () => {
       const errors = await processMemberAssociations(
         'test-ref',
         context,
-        transactionClient,
         project,
         plan,
         [],
@@ -264,7 +262,6 @@ describe('transactionalProcessingService', () => {
       const errors = await processMemberAssociations(
         'test-ref',
         context,
-        transactionClient,
         project,
         plan,
         [{
@@ -292,7 +289,6 @@ describe('transactionalProcessingService', () => {
       const errors = await processFundingAssociations(
         'test-ref',
         context,
-        transactionClient,
         project,
         plan,
         [{
@@ -348,7 +344,6 @@ describe('transactionalProcessingService', () => {
       const errors = await processFundingAssociations(
         'test-ref',
         context,
-        transactionClient,
         project,
         plan,
         [],
@@ -393,7 +388,6 @@ describe('transactionalProcessingService', () => {
       const errors = await processFundingAssociations(
         'test-ref',
         context,
-        transactionClient,
         project,
         plan,
         [{
@@ -429,9 +423,6 @@ describe('transactionalProcessingService', () => {
 
     const setupAddEntirePlanDefaults = () => {
       setupAssociationDefaults();
-      jest.spyOn(MySqlModel, 'initializeTransaction').mockResolvedValue(
-        transactionClient
-      );
 
       const existingProject = new Project({
         id: 101,
@@ -460,34 +451,157 @@ describe('transactionalProcessingService', () => {
         });
     };
 
-    it('creates a full plan and commits the transaction', async () => {
+    it('creates a full plan', async () => {
       setupAddEntirePlanDefaults();
 
       const response = await addEntirePlan('test-ref', context, baseInput as never);
 
       expect(response.id).toBe(404);
       expect(response.errors).toEqual({});
-      expect(transactionClient.commit).toHaveBeenCalledTimes(1);
-      expect(transactionClient.rollback).toHaveBeenCalledTimes(0);
     });
 
-    it('rolls back and returns plan errors for bad request failures', async () => {
+    it('creates a full plan with the default template and a new project', async () => {
+      setupAssociationDefaults();
+      jest.spyOn(Project, 'findByOwnerAndTitle').mockResolvedValue(null);
+      jest
+        .spyOn(Project.prototype, 'create')
+        .mockImplementation(async function projectCreate() {
+          this.id = 505;
+          return this;
+        });
+      jest
+        .spyOn(VersionedTemplate, 'defaultTemplate')
+        .mockResolvedValue(new VersionedTemplate({ id: 606, name: 'Default VT' }));
+      jest.spyOn(AlternateIdentifier, 'findByPlanId').mockResolvedValue([]);
+      jest
+        .spyOn(Plan.prototype, 'create')
+        .mockImplementation(async function planCreate() {
+          this.id = 707;
+          this.dmpId = 'doi.org/10.1234/default';
+          return this;
+        });
+
+      const response = await addEntirePlan('test-ref', context, {
+        ...baseInput,
+        templateId: undefined,
+        project: {
+          title: '  New Project  ',
+          abstractText: '  new abstract  ',
+          startDate: '2026-01-01',
+          endDate: '2026-12-31',
+          researchDomainId: undefined,
+          isTestProject: false,
+        },
+      } as never);
+
+      expect(VersionedTemplate.defaultTemplate).toHaveBeenCalledTimes(1);
+      expect(Project.prototype.create).toHaveBeenCalledTimes(1);
+      expect(response.id).toBe(707);
+      expect(response.projectId).toBe(505);
+    });
+
+    it('throws a bad request error when the specified template cannot be found', async () => {
+      jest.spyOn(VersionedTemplate, 'findActiveByTemplateId').mockResolvedValue(null);
+
+      await expect(addEntirePlan('test-ref', context, baseInput as never)).rejects.toMatchObject({
+        extensions: { code: BAD_REQUEST_ERROR_CODE },
+        message: 'Unable to find the specified versioned template!',
+      });
+    });
+
+    it('throws an internal server error when a default template cannot be found', async () => {
+      jest.spyOn(VersionedTemplate, 'defaultTemplate').mockResolvedValue(null);
+
+      await expect(
+        addEntirePlan('test-ref', context, {
+          ...baseInput,
+          templateId: undefined,
+        } as never)
+      ).rejects.toMatchObject({
+        extensions: { code: INTERNAL_SERVER_ERROR_CODE },
+      });
+    });
+
+    it('throws an internal server error when the versioned template has no id', async () => {
+      jest
+        .spyOn(VersionedTemplate, 'findActiveByTemplateId')
+        .mockResolvedValue(new VersionedTemplate({ name: 'Broken VT' }));
+
+      await expect(addEntirePlan('test-ref', context, baseInput as never)).rejects.toMatchObject({
+        extensions: { code: INTERNAL_SERVER_ERROR_CODE },
+      });
+    });
+
+    it('throws an internal server error when the project cannot be initialized', async () => {
+      jest
+        .spyOn(VersionedTemplate, 'findActiveByTemplateId')
+        .mockResolvedValue(new VersionedTemplate({ id: 303, name: 'VT-1' }));
+
+      await expect(
+        addEntirePlan('test-ref', context, {
+          ...baseInput,
+          project: {
+            ...baseInput.project,
+            title: '',
+          },
+        } as never)
+      ).rejects.toMatchObject({
+        extensions: { code: INTERNAL_SERVER_ERROR_CODE },
+      });
+    });
+
+    it('throws a bad request error when the project save fails', async () => {
+      setupAddEntirePlanDefaults();
+      jest
+        .spyOn(Project.prototype, 'update')
+        .mockImplementation(async function failedProjectUpdate() {
+          this.addError('general', 'Unable to update project');
+          return this;
+        });
+
+      await expect(addEntirePlan('test-ref', context, baseInput as never)).rejects.toMatchObject({
+        extensions: { code: BAD_REQUEST_ERROR_CODE },
+      });
+    });
+
+    it('throws a bad request error when the plan save fails', async () => {
       setupAddEntirePlanDefaults();
       jest
         .spyOn(Plan.prototype, 'create')
         .mockImplementation(async function failedPlanCreate() {
+          this.addError('general', 'Unable to create plan');
           return this;
         });
 
-      const response = await addEntirePlan('test-ref', context, baseInput as never);
-
-      expect(transactionClient.rollback).toHaveBeenCalledTimes(1);
-      expect(response.errors.general).toBe(
-        'Unable to create the plan from the maDMP JSON.'
-      );
+      await expect(addEntirePlan('test-ref', context, baseInput as never)).rejects.toMatchObject({
+        extensions: { code: BAD_REQUEST_ERROR_CODE },
+      });
     });
 
-    it('rolls back and throws internal server error for unexpected failures', async () => {
+    it('surfaces alternate identifier processing errors as a bad request', async () => {
+      setupAddEntirePlanDefaults();
+      jest.spyOn(Plan, 'reconcileAssociationIds').mockReturnValue({
+        idsToBeRemoved: [],
+        idsToBeSaved: ['ark:/12345/abc'],
+      });
+      jest
+        .spyOn(AlternateIdentifier.prototype, 'create')
+        .mockImplementation(async function failedCreate() {
+          this.addError('general', 'Unable to create alternate identifier');
+          return this;
+        });
+
+      await expect(
+        addEntirePlan('test-ref', context, {
+          ...baseInput,
+          alternateIdentifiers: ['ark:/12345/abc'],
+        } as never)
+      ).rejects.toMatchObject({
+        extensions: { code: BAD_REQUEST_ERROR_CODE },
+      });
+    });
+
+    it('throws internal server error for unexpected failures', async () => {
       setupAddEntirePlanDefaults();
       jest
         .spyOn(Project, 'findById')
@@ -501,7 +615,140 @@ describe('transactionalProcessingService', () => {
       }
       expect(err).toBeInstanceOf(GraphQLError);
       expect((err as GraphQLError).extensions?.code).toBe('INTERNAL_SERVER');
-      expect(transactionClient.rollback).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('replaceEntirePlan', () => {
+    const baseInput = {
+      title: 'Replacement Plan',
+      languageId: 'en-US',
+      status: 'DRAFT',
+      visibility: 'PRIVATE',
+      project: {
+        title: 'Replacement Project',
+        abstractText: 'Updated abstract',
+        startDate: '2026-01-01',
+        endDate: '2026-12-31',
+        researchDomainId: 202,
+        isTestProject: true,
+      },
+      alternateIdentifiers: [],
+      members: [],
+      funding: [],
+    };
+
+    const setupReplaceDefaults = () => {
+      setupAssociationDefaults();
+      jest
+        .spyOn(ResearchDomain, 'findById')
+        .mockResolvedValue({ id: 202 } as ResearchDomain);
+      jest
+        .spyOn(Project.prototype, 'update')
+        .mockImplementation(async function projectUpdate() {
+          return this;
+        });
+      jest
+        .spyOn(Plan.prototype, 'update')
+        .mockImplementation(async function planUpdate() {
+          return this;
+        });
+      jest.spyOn(AlternateIdentifier, 'findByPlanId').mockResolvedValue([]);
+    };
+
+    it('replaces the project and plan successfully', async () => {
+      setupReplaceDefaults();
+      plan.versionedTemplateId = 303;
+
+      const response = await replaceEntirePlan('test-ref', context, project, plan, baseInput as never);
+
+      expect(response).toBe(plan);
+      expect(project.title).toBe('Replacement Project');
+      expect(plan.title).toBe('Replacement Plan');
+    });
+
+    it('throws a bad request error when the project update fails', async () => {
+      setupReplaceDefaults();
+      jest.spyOn(Project.prototype, 'update').mockResolvedValue(null);
+
+      await expect(
+        replaceEntirePlan('test-ref', context, project, plan, baseInput as never)
+      ).rejects.toMatchObject({
+        extensions: { code: BAD_REQUEST_ERROR_CODE },
+      });
+    });
+
+    it('throws a bad request error when the plan update fails', async () => {
+      setupReplaceDefaults();
+      jest.spyOn(Plan.prototype, 'update').mockResolvedValue(null);
+
+      await expect(
+        replaceEntirePlan('test-ref', context, project, plan, baseInput as never)
+      ).rejects.toMatchObject({
+        extensions: { code: BAD_REQUEST_ERROR_CODE },
+      });
+    });
+  });
+
+  describe('removeEntirePlan', () => {
+    beforeEach(() => {
+      jest.spyOn(Plan.prototype, 'update').mockImplementation(async function updatePlan() {
+        return this;
+      });
+      jest.spyOn(Plan.prototype, 'delete').mockResolvedValue(true as never);
+      jest.spyOn(Project.prototype, 'delete').mockResolvedValue(true as never);
+      jest.spyOn(Plan, 'findByProjectId').mockResolvedValue([]);
+    });
+
+    it('archives a published plan instead of deleting it', async () => {
+      plan.registered = '2026-03-01';
+
+      const response = await removeEntirePlan('test-ref', context, project, plan);
+
+      expect(Plan.prototype.update).toHaveBeenCalledTimes(1);
+      expect(Plan.prototype.delete).not.toHaveBeenCalled();
+      expect(response.title).toContain('OBSOLETE:');
+    });
+
+    it('deletes an unpublished plan and its orphaned project', async () => {
+      const response = await removeEntirePlan('test-ref', context, project, plan);
+
+      expect(Plan.prototype.delete).toHaveBeenCalledTimes(1);
+      expect(Project.prototype.delete).toHaveBeenCalledTimes(1);
+      expect(response).toBe(plan);
+    });
+
+    it('does not delete the project when other plans still exist', async () => {
+      jest.spyOn(Plan, 'findByProjectId').mockResolvedValue([new Plan({ id: 999, projectId: project.id })]);
+
+      await removeEntirePlan('test-ref', context, project, plan);
+
+      expect(Plan.prototype.delete).toHaveBeenCalledTimes(1);
+      expect(Project.prototype.delete).not.toHaveBeenCalled();
+    });
+
+    it('throws a bad request error when archiving a published plan fails', async () => {
+      plan.registeredById = context.token.id;
+      jest.spyOn(Plan.prototype, 'update').mockResolvedValue(false as never);
+
+      await expect(removeEntirePlan('test-ref', context, project, plan)).rejects.toMatchObject({
+        extensions: { code: BAD_REQUEST_ERROR_CODE },
+      });
+    });
+
+    it('throws a bad request error when deleting the plan fails', async () => {
+      jest.spyOn(Plan.prototype, 'delete').mockResolvedValue(false as never);
+
+      await expect(removeEntirePlan('test-ref', context, project, plan)).rejects.toMatchObject({
+        extensions: { code: BAD_REQUEST_ERROR_CODE },
+      });
+    });
+
+    it('throws a bad request error when deleting the orphaned project fails', async () => {
+      jest.spyOn(Project.prototype, 'delete').mockResolvedValue(false as never);
+
+      await expect(removeEntirePlan('test-ref', context, project, plan)).rejects.toMatchObject({
+        extensions: { code: BAD_REQUEST_ERROR_CODE },
+      });
     });
   });
 });

@@ -103,7 +103,7 @@ describe('findBy Queries', () => {
     const result = await PlanFeedback.findById('testing', context, feedbackId);
     const expectedSql = 'SELECT * FROM feedback WHERE id = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [feedbackId.toString()], 'testing', undefined);
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [feedbackId.toString()], 'testing');
     expect(result).toEqual(planFeedback);
   });
 
@@ -122,7 +122,7 @@ describe('findBy Queries', () => {
     const expectedSql = 'SELECT * FROM feedback WHERE planId = ? AND requestedById = ?';
     const expectedVals = [planId.toString(), requestedById.toString()];
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, expectedVals, 'testing', undefined);
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, expectedVals, 'testing');
     expect(result).toEqual([planFeedback]);
   });
 
@@ -141,7 +141,7 @@ describe('findBy Queries', () => {
     const expectedSql = 'SELECT * FROM feedback WHERE planId = ?';
     const vals = [planId.toString()];
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, vals, 'testing', undefined);
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, vals, 'testing');
     expect(result).toEqual([planFeedback]);
   });
 
@@ -332,7 +332,7 @@ describe('statusForPlan', () => {
     const expectedSql = `\n      SELECT id, completed\n      FROM feedback\n      WHERE planId = ?\n      ORDER BY id DESC\n      LIMIT 1\n    `;
 
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [planId.toString()], 'testing', undefined);
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [planId.toString()], 'testing');
     expect(result).toEqual({ status: 'NONE', id: null });
   });
 
@@ -340,7 +340,7 @@ describe('statusForPlan', () => {
     const planId = casual.integer(1, 9999);
     localQuery.mockResolvedValueOnce([{ id: 42, completed: null }]);
     const result = await PlanFeedback.statusForPlan('testing', context, planId);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expect.any(String), [planId.toString()], 'testing', undefined);
+    expect(localQuery).toHaveBeenLastCalledWith(context, expect.any(String), [planId.toString()], 'testing');
     expect(result).toEqual({ status: 'REQUESTED', id: 42 });
   });
 

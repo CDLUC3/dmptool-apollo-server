@@ -222,7 +222,7 @@ describe('AdminNotification', () => {
       const result = await AdminNotification.findById('Test', context, validNotificationData.id);
       const expectedSql = 'SELECT * FROM adminNotifications WHERE id = ?';
       expect(mockQuery).toHaveBeenCalledTimes(1);
-      expect(mockQuery).toHaveBeenCalledWith(context, expectedSql, [validNotificationData.id.toString()], 'Test', undefined);
+      expect(mockQuery).toHaveBeenCalledWith(context, expectedSql, [validNotificationData.id.toString()], 'Test');
       expect(result).toBeInstanceOf(AdminNotification);
     });
 
@@ -330,7 +330,7 @@ describe('AdminNotificationResults', () => {
 
       await AdminNotificationResults.findReadByUserId('Test', context, 123);
 
-      expect(mockFind).toHaveBeenCalledWith('Test', context, 123, undefined, true, undefined);
+      expect(mockFind).toHaveBeenCalledWith('Test', context, 123, undefined, true);
 
       AdminNotificationResults.findByUserId = original;
     });
@@ -344,7 +344,7 @@ describe('AdminNotificationResults', () => {
 
       await AdminNotificationResults.findUnreadByUserId('Test', context, 123);
 
-      expect(mockFind).toHaveBeenCalledWith('Test', context, 123, undefined, false, undefined);
+      expect(mockFind).toHaveBeenCalledWith('Test', context, 123, undefined, false);
 
       AdminNotificationResults.findByUserId = original;
     });

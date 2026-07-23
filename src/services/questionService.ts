@@ -8,21 +8,20 @@ import { QuestionCondition } from "../models/QuestionCondition";
 import { VersionedQuestionCondition } from "../models/VersionedQuestionCondition";
 import { prepareObjectForLogs } from "../logger";
 import { reorderDisplayOrder } from "../utils/helpers";
-import {DatabaseTransactionClient} from "../datasources/mysql";
 
 // Determine whether the specified user has permission to access the Section
-export const hasPermissionOnQuestion = async (context: MyContext, templateId: number, transactionClient?: DatabaseTransactionClient): Promise<boolean> => {
+export const hasPermissionOnQuestion = async (context: MyContext, templateId: number): Promise<boolean> => {
   if (!context || !context.token) return false;
 
   // Find associated template info
-  const template = await Template.findById('question resolver.hasPermission', context, templateId, transactionClient);
+  const template = await Template.findById('question resolver.hasPermission', context, templateId);
 
   if (!template) {
     throw NotFoundError();
   }
 
   // Offload permission checks to the Template
-  return await hasPermissionOnTemplate(context, template, transactionClient);
+  return await hasPermissionOnTemplate(context, template);
 }
 
 // Creates a new Version/Snapshot the specified Question (as a point in time snapshot)
@@ -31,8 +30,7 @@ export const generateQuestionVersion = async (
   context: MyContext,
   question: Question,
   versionedTemplateId: number,
-  versionedSectionId: number,
-  transactionClient?: DatabaseTransactionClient
+  versionedSectionId: number
 ): Promise<boolean> => {
 
   // If the section has no id then it has not yet been saved so throw an error
@@ -60,11 +58,11 @@ export const generateQuestionVersion = async (
   });
 
   try {
-    const saved = await versionedQuestion.create(context, transactionClient);
+    const saved = await versionedQuestion.create(context);
 
     if (saved && !saved.hasErrors()) {
       // Version any QuestionConditions as well
-      const questionConditions = await QuestionCondition.findByQuestionId('generateQuestionVersion', context, saved.questionId, transactionClient);
+      const questionConditions = await QuestionCondition.findByQuestionId('generateQuestionVersion', context, saved.questionId);
       let allConditionsWereVersioned = true;
 
       if (questionConditions.length > 0) {
@@ -73,7 +71,7 @@ export const generateQuestionVersion = async (
             ...condition
           });
 
-          const passed = await generateQuestionConditionVersion(context, questionConditionInstance, saved.id, transactionClient);
+          const passed = await generateQuestionConditionVersion(context, questionConditionInstance, saved.id);
           if (!passed) {
             // If one of the conditions failed to version
             allConditionsWereVersioned = false;
@@ -85,7 +83,7 @@ export const generateQuestionVersion = async (
       if (allConditionsWereVersioned) {
         // Reset the dirty flag
         question.isDirty = false;
-        const updated = await question.update(context, true, transactionClient);
+        const updated = await question.update(context, true);
 
         if (updated && !updated.hasErrors()) return true;
 
@@ -145,8 +143,7 @@ export const cloneQuestion = (
 export const generateQuestionConditionVersion = async (
   context: MyContext,
   questionCondition: QuestionCondition,
-  versionedQuestionId: number,
-  transactionClient?: DatabaseTransactionClient
+  versionedQuestionId: number
 ): Promise<boolean> => {
   // If the section has no id then it has not yet been saved so throw an error
   if (!questionCondition.id) {
@@ -163,7 +160,7 @@ export const generateQuestionConditionVersion = async (
     target: questionCondition.target,
   });
 
-  const created = await versionedQuestionCondition.create(context, transactionClient);
+  const created = await versionedQuestionCondition.create(context);
   if (created && !created.hasErrors()) {
     return true;
   }
@@ -179,11 +176,10 @@ export const updateDisplayOrders = async (
   context: MyContext,
   sectionId: number,
   questionId: number,
-  newDisplayOrder: number,
-  transactionClient?: DatabaseTransactionClient
+  newDisplayOrder: number
 ): Promise<Question[] | []> => {
   // Load all of the questions that belong to the section
-  const questions = await Question.findBySectionId('questionService.updateDisplayOrders', context, sectionId, transactionClient);
+  const questions = await Question.findBySectionId('questionService.updateDisplayOrders', context, sectionId);
   if (!questions) {
     throw NotFoundError();
   }
@@ -203,7 +199,7 @@ export const updateDisplayOrders = async (
 
     } else {
       const toUpdate = new Question({ ...reorderedQuestion });
-      const updatedSection = await toUpdate.update(context, true, transactionClient);
+      const updatedSection = await toUpdate.update(context, true);
       if (updatedSection && updatedSection.hasErrors()) {
         // If one of them fais, throw an error
         const msg = `Unable to update the display order for section: ${reorderedQuestion.id}`;

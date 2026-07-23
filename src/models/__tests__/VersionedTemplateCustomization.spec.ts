@@ -139,7 +139,6 @@ describe('VersionedTemplateCustomization', () => {
         instance,
         'VersionedTemplateCustomization.create',
         [],
-        undefined,
       );
       expect(createdInstance.unpublishOtherVersions).toHaveBeenCalled();
       expect(result).toBe(createdInstance);
@@ -197,7 +196,6 @@ describe('VersionedTemplateCustomization', () => {
         'VersionedTemplateCustomization.update',
         [],
         false,
-        undefined,
       );
       expect(result).toBe(mockFetched);
     });
@@ -224,7 +222,6 @@ describe('VersionedTemplateCustomization', () => {
         'VersionedTemplateCustomization.update',
         [],
         true,
-        undefined,
       );
     });
 
@@ -282,7 +279,6 @@ describe('VersionedTemplateCustomization', () => {
         expect.stringContaining('UPDATE versionedTemplateCustomizations SET active = 0'),
         ['1', '10'],
         'test-ref',
-        undefined,
       );
       expect(result).toBe(true);
     });
@@ -310,8 +306,7 @@ describe('VersionedTemplateCustomization', () => {
         mockContext,
         'SELECT * FROM versionedTemplateCustomizations WHERE id = ?',
         ['1'],
-        'test-ref',
-        undefined
+        'test-ref'
       );
 
       expect(result).toBeInstanceOf(VersionedTemplateCustomization);
@@ -343,8 +338,7 @@ describe('VersionedTemplateCustomization', () => {
         mockContext,
         expect.any(String),
         [undefined],
-        'test-ref',
-        undefined
+        'test-ref'
       );
     });
   });
@@ -365,8 +359,7 @@ describe('VersionedTemplateCustomization', () => {
         mockContext,
         expect.stringContaining('SELECT * FROM versionedTemplateCustomizations'),
         ['10', '20'],
-        'test-ref',
-        undefined
+        'test-ref'
       );
       expect(result).toBeInstanceOf(VersionedTemplateCustomization);
       expect(result.templateCustomizationId).toBe(10);

@@ -255,8 +255,7 @@ describe("CustomQuestion", () => {
         "customQuestions",
         customization,
         "CustomQuestion.create",
-        [],
-        undefined
+        []
       );
       expect(result.id).toBe(1);
       expect(result.templateCustomizationId).toBe(100);
@@ -357,8 +356,7 @@ describe("CustomQuestion", () => {
         customization,
         "CustomQuestion.update",
         [],
-        false,
-        undefined
+        false
       );
       expect(result.id).toBe(1);
       expect(result.questionText).toBe("Updated question");
@@ -406,8 +404,7 @@ describe("CustomQuestion", () => {
         customization,
         "CustomQuestion.update",
         [],
-        true,
-        undefined
+        true
       );
     });
 
@@ -486,8 +483,7 @@ describe("CustomQuestion", () => {
         mockContext,
         "customQuestions",
         1,
-        "CustomQuestion.delete",
-        undefined
+        "CustomQuestion.delete"
       );
       expect(result.id).toBe(1);
       expect(result.templateCustomizationId).toBe(100);
@@ -570,8 +566,7 @@ describe("CustomQuestion", () => {
         mockContext,
         "SELECT * FROM customQuestions WHERE id = ?",
         ["1"],
-        "test.ref",
-        undefined
+        "test.ref"
       );
       expect(result).toBeInstanceOf(CustomQuestion);
       expect(result.id).toBe(1);
@@ -595,8 +590,7 @@ describe("CustomQuestion", () => {
         mockContext,
         "SELECT * FROM customQuestions WHERE id = ?",
         [undefined],
-        "test.ref",
-        undefined
+        "test.ref"
       );
       expect(result).toBeUndefined();
     });
@@ -629,8 +623,7 @@ describe("CustomQuestion", () => {
         mockContext,
         `SELECT * FROM customQuestions WHERE templateCustomizationId = ?`,
         ["100"],
-        "test.ref",
-        undefined
+        "test.ref"
       );
 
       expect(result.length).toBe(1);
@@ -687,8 +680,7 @@ describe("CustomQuestion", () => {
          WHERE templateCustomizationId = ? AND sectionType = ? AND sectionId = ?
            AND pinnedQuestionType = ? AND pinnedQuestionId = ?`,
         ["1", "BASE", "200", "CUSTOM", "300"],
-        "test.ref",
-        undefined
+        "test.ref"
       );
       expect(result).toBeInstanceOf(CustomQuestion);
       expect(result.id).toBe(1);
@@ -730,8 +722,7 @@ describe("CustomQuestion", () => {
          WHERE templateCustomizationId = ? AND sectionType = ? AND sectionId = ?
            AND pinnedQuestionType = ? AND pinnedQuestionId = ?`,
         ["1", "BASE", "200", null, null],
-        "test.ref",
-        undefined
+        "test.ref"
       );
       expect(result).toBeUndefined();
     });
@@ -780,8 +771,7 @@ describe("CustomQuestion", () => {
         mockContext,
         expectedSql,
         ["100", PinnedSectionTypeEnum.BASE, "200", PinnedQuestionTypeEnum.BASE, "300"],
-        "test.ref",
-        undefined
+        "test.ref"
       );
       expect(result).toBeInstanceOf(CustomQuestion);
       expect(result.id).toBe(1);
@@ -838,8 +828,7 @@ describe("CustomQuestion", () => {
         mockContext,
         expectedSql,
         ["100", PinnedSectionTypeEnum.BASE, "200", null, null],
-        "test.ref",
-        undefined
+        "test.ref"
       );
       expect(result).toBeInstanceOf(CustomQuestion);
       expect(result.id).toBe(2);

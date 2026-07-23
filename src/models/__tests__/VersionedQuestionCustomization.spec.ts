@@ -159,8 +159,7 @@ describe("VersionedQuestionCustomization", () => {
         "versionedQuestionCustomizations",
         customization,
         "VersionedQuestionCustomization.create",
-        [],
-        undefined,
+        []
       );
       expect(result.id).toBe(1);
       expect(result.versionedTemplateCustomizationId).toBe(100);
@@ -229,8 +228,7 @@ describe("VersionedQuestionCustomization", () => {
         customization,
         "VersionedQuestionCustomization.update",
         [],
-        false,
-        undefined
+        false
       );
       expect(result.id).toBe(1);
       expect(result.guidanceText).toBe("Updated guidance");
@@ -262,8 +260,7 @@ describe("VersionedQuestionCustomization", () => {
         customization,
         "VersionedQuestionCustomization.update",
         [],
-        true,
-        undefined
+        true
       );
     });
 
@@ -318,8 +315,7 @@ describe("VersionedQuestionCustomization", () => {
         mockContext,
         "versionedQuestionCustomizations",
         1,
-        "VersionedQuestionCustomization.delete",
-        undefined
+        "VersionedQuestionCustomization.delete"
       );
       expect(result.id).toBe(1);
       expect(result.versionedTemplateCustomizationId).toBe(100);
@@ -379,8 +375,7 @@ describe("VersionedQuestionCustomization", () => {
         mockContext,
         "SELECT * FROM versionedQuestionCustomizations WHERE id = ?",
         ["1"],
-        "test.ref",
-        undefined
+        "test.ref"
       );
       expect(result).toBeInstanceOf(VersionedQuestionCustomization);
       expect(result.id).toBe(1);
@@ -404,8 +399,7 @@ describe("VersionedQuestionCustomization", () => {
         mockContext,
         "SELECT * FROM versionedQuestionCustomizations WHERE id = ?",
         [undefined],
-        "test.ref",
-        undefined
+        "test.ref"
       );
       expect(result).toBeUndefined();
     });
@@ -434,8 +428,7 @@ describe("VersionedQuestionCustomization", () => {
         `SELECT * FROM versionedQuestionCustomizations
          WHERE versionedTemplateCustomizationId = ? AND versionedQuestionId = ?`,
         ["100", "300"],
-        "test.ref",
-        undefined
+        "test.ref"
       );
       expect(result).toBeInstanceOf(VersionedQuestionCustomization);
       expect(result.versionedTemplateCustomizationId).toBe(100);
@@ -470,8 +463,7 @@ describe("VersionedQuestionCustomization", () => {
         `SELECT * FROM versionedQuestionCustomizations
          WHERE versionedTemplateCustomizationId = ? AND versionedQuestionId = ?`,
         ["100", undefined],
-        "test.ref",
-        undefined
+        "test.ref"
       );
       expect(result).toBeUndefined();
     });
@@ -498,8 +490,7 @@ describe("VersionedQuestionCustomization", () => {
         `SELECT * FROM versionedQuestionCustomizations
          WHERE versionedTemplateCustomizationId = ?`,
         ["100"],
-        "test.ref",
-        undefined
+        "test.ref"
       );
 
       expect(result.length).toBe(1);
@@ -553,8 +544,7 @@ describe("VersionedQuestionCustomization", () => {
         mockContext,
         expectedSql,
         ["affil-123", "300"],
-        "test.ref",
-        undefined
+        "test.ref"
       );
       expect(result).toBeInstanceOf(VersionedQuestionCustomization);
       expect(result.id).toBe(1);

@@ -2,7 +2,6 @@ import { MySqlModel } from "./MySqlModel";
 import { TemplateCustomizationMigrationStatus } from "./TemplateCustomization";
 import { isNullOrUndefined } from "../utils/helpers";
 import { MyContext } from "../context";
-import { DatabaseTransactionClient } from "../datasources/mysql";
 
 /**
  * The type of section the custom section follows (is pinned to)
@@ -91,10 +90,9 @@ export class CustomSection extends MySqlModel {
    * Save the custom section
    *
    * @param context The Apollo context.
-   * @param transactionClient the MySQL transaction to use
    * @returns The newly created custom section.
    */
-  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<CustomSection> {
+  async create(context: MyContext): Promise<CustomSection> {
     const ref = 'CustomSection.create';
     // Make sure the record is valid
     if (await this.isValid()) {
@@ -103,8 +101,7 @@ export class CustomSection extends MySqlModel {
         context,
         this.templateCustomizationId,
         this.pinnedSectionType,
-        this.pinnedSectionId,
-        transactionClient
+        this.pinnedSectionId
       );
 
       // Make sure it doesn't already exist
@@ -119,10 +116,9 @@ export class CustomSection extends MySqlModel {
           CustomSection.tableName,
           this,
           ref,
-          [],
-          transactionClient
+          []
         );
-        return await CustomSection.findById(ref, context, newId, transactionClient);
+        return await CustomSection.findById(ref, context, newId);
       }
     }
     // Otherwise return as-is with all the errors
@@ -134,10 +130,9 @@ export class CustomSection extends MySqlModel {
    *
    * @param context The Apollo context
    * @param noTouch Whether or not the modification timestamp should be updated
-   * @param transactionClient the MySQL transaction to use
    * @returns The updated custom section.
    */
-  async update(context: MyContext, noTouch = false, transactionClient?: DatabaseTransactionClient): Promise<CustomSection> {
+  async update(context: MyContext, noTouch = false): Promise<CustomSection> {
     const ref = 'CustomSection.update';
 
     if (isNullOrUndefined(this.id)) {
@@ -154,10 +149,9 @@ export class CustomSection extends MySqlModel {
           this,
           ref,
           [],
-          noTouch,
-          transactionClient
+          noTouch
         );
-        return await CustomSection.findById(ref, context, this.id, transactionClient);
+        return await CustomSection.findById(ref, context, this.id);
       }
     }
     // Otherwise return as-is with all the errors
@@ -168,10 +162,9 @@ export class CustomSection extends MySqlModel {
    * Remove the custom section
    *
    * @param context The Apollo context
-   * @param transactionClient the MySQL transaction to use
    * @returns The deleted custom section.
    */
-  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<CustomSection> {
+  async delete(context: MyContext): Promise<CustomSection> {
     const ref = 'CustomSection.delete';
     if (!this.id) {
       // Cannot delete it if it hasn't been saved yet!
@@ -180,15 +173,13 @@ export class CustomSection extends MySqlModel {
       const original: CustomSection = await CustomSection.findById(
         ref,
         context,
-        this.id,
-        transactionClient
+        this.id
       );
       const result: boolean = await CustomSection.delete(
         context,
         CustomSection.tableName,
         this.id,
-        ref,
-        transactionClient
+        ref
       );
       if (result) {
         return original;
@@ -207,21 +198,18 @@ export class CustomSection extends MySqlModel {
    * @param reference The reference to use for logging errors.
    * @param context The Apollo context.
    * @param customSectionId The custom section id.
-   * @param transactionClient The MySQL transaction to use.
    * @returns The custom section.
    */
   static async findById(
     reference: string,
     context: MyContext,
-    customSectionId: number,
-    transactionClient?: DatabaseTransactionClient
+    customSectionId: number
   ): Promise<CustomSection> {
     const results = await CustomSection.query(
       context,
       `SELECT * FROM ${CustomSection.tableName} WHERE id = ?`,
       [customSectionId?.toString()],
-      reference,
-      transactionClient
+      reference
     );
     return Array.isArray(results) && results.length > 0 ? new CustomSection(results[0]) : undefined;
   }
@@ -234,7 +222,6 @@ export class CustomSection extends MySqlModel {
    * @param templateCustomizatonId The id of the template customization.
    * @param pinnedSectionType The type of pinned section.
    * @param pinnedSectionId The section id.
-   * @param transactionClient The MySQL transaction to use.
    * @returns The custom sections.
    */
   static async findByCustomizationAndPinnedSection(
@@ -242,16 +229,14 @@ export class CustomSection extends MySqlModel {
     context: MyContext,
     templateCustomizatonId: number,
     pinnedSectionType: PinnedSectionTypeEnum,
-    pinnedSectionId: number,
-    transactionClient?: DatabaseTransactionClient
+    pinnedSectionId: number
   ): Promise<CustomSection> {
     const results = await CustomSection.query(
       context,
       `SELECT * FROM ${CustomSection.tableName}
          WHERE templateCustomizationId = ? AND pinnedSectionType = ? AND pinnedSectionId = ?`,
       [templateCustomizatonId.toString(), pinnedSectionType, pinnedSectionId?.toString()],
-      reference,
-      transactionClient
+      reference
     );
     return Array.isArray(results) && results.length > 0 ? new CustomSection(results[0]) : undefined;
   }
@@ -262,21 +247,18 @@ export class CustomSection extends MySqlModel {
    * @param reference The reference to use for logging errors.
    * @param context The Apollo context.
    * @param templateCustomizatonId The id of the template customization.
-   * @param transactionClient The MySQL transaction to use.
    * @returns The custom sections.
    */
   static async findByCustomizationId(
     reference: string,
     context: MyContext,
-    templateCustomizatonId: number,
-    transactionClient?: DatabaseTransactionClient
+    templateCustomizatonId: number
   ): Promise<CustomSection[]> {
     const results = await CustomSection.query(
       context,
       `SELECT * FROM ${CustomSection.tableName} WHERE templateCustomizationId = ?`,
       [templateCustomizatonId.toString()],
-      reference,
-      transactionClient
+      reference
     );
     return Array.isArray(results) && results.length > 0 ? results.map(r => new CustomSection(r)) : [];
   }

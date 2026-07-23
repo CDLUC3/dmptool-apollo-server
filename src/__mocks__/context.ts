@@ -1,22 +1,14 @@
 jest.mock('../datasources/mysql', () => {
   return {
     __esModule: true,
-    TransactionClient: jest.fn().mockImplementation(() => ({
-      connection: null,
-      begin: jest.fn(),
-      rollback: jest.fn(),
-      commit: jest.fn()
-    })),
-
     MySQLConnection: jest.fn().mockImplementation(() => ({
       pool: null,
+      validateConnection: jest.fn(),
       getConnection: jest.fn(),
       releaseConnection: jest.fn(),
-      beginTransaction: jest.fn(),
-      rollbackTransaction: jest.fn(),
-      commitTransaction: jest.fn(),
-      close: jest.fn(),
-      query: jest.fn()
+      query: jest.fn(),
+      withTransaction: jest.fn(),
+      close: jest.fn()
     }))
   };
 });
@@ -71,6 +63,7 @@ import { JWTAccessToken } from "../services/tokenService";
 import { MyContext } from "../context";
 import { DMPHubAPI } from "../datasources/dmphubAPI";
 import { EZIDAPI } from "../datasources/EZIDAPI";
+import { MySQLConnection } from "../datasources/mysql";
 import { User, UserRole } from "../models/User";
 import { defaultLanguageId } from "../models/Language";
 
@@ -103,12 +96,19 @@ export class MockCache {
 }
 
 // Lazy instantiate to allow mocks to be set up first
-let cachedMysqlInstance: Record<string, jest.Mock> | null = null;
+let cachedMysqlInstance: jest.Mocked<MySQLConnection> | null = null;
 const getMockedMysqlInstance = () => {
   if (!cachedMysqlInstance) {
     // The mock is already instantiated, so just return it
     const mockModule = jest.requireMock('../datasources/mysql');
-    cachedMysqlInstance = mockModule.MySQLConnection();
+    // Handle both callable constructor and getInstance pattern
+    if (typeof mockModule.MySQLConnection === 'function') {
+      cachedMysqlInstance = mockModule.MySQLConnection() as jest.Mocked<MySQLConnection>;
+    } else if (mockModule.MySQLConnection.getInstance) {
+      cachedMysqlInstance = mockModule.MySQLConnection.getInstance() as jest.Mocked<MySQLConnection>;
+    } else {
+      cachedMysqlInstance = mockModule.MySQLConnection as jest.Mocked<MySQLConnection>;
+    }
   }
   return cachedMysqlInstance;
 };
@@ -171,7 +171,7 @@ export const mockSuperAdminToken = async (): Promise<JWTAccessToken> => {
 interface MockDataSources {
   dmphubAPIDataSource: DMPHubAPI;
   ezidAPIDataSource: EZIDAPI;
-  sqlDataSource: Record<string, jest.Mock> | null;
+  sqlDataSource: jest.Mocked<MySQLConnection>;
 }
 let cachedDataSources: MockDataSources | null = null;
 export const getMockDataSources = () => {

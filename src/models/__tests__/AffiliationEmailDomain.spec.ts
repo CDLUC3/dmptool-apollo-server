@@ -295,8 +295,7 @@ describe('AffiliationEmailDomain', () => {
         context,
         expect.stringContaining('LIKE'),
         [testDomain],
-        'Test',
-        undefined
+        'Test'
       );
     });
   });

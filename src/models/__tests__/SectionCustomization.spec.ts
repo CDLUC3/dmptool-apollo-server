@@ -145,8 +145,7 @@ describe("SectionCustomization", () => {
         "sectionCustomizations",
         customization,
         "SectionCustomization.create",
-        [],
-        undefined,
+        []
       );
       expect(result.id).toBe(1);
       expect(result.templateCustomizationId).toBe(100);
@@ -210,8 +209,7 @@ describe("SectionCustomization", () => {
         customization,
         "SectionCustomization.update",
         [],
-        false,
-        undefined
+        false
       );
       expect(result.id).toBe(1);
       expect(result.guidance).toBe("Updated guidance");
@@ -241,8 +239,7 @@ describe("SectionCustomization", () => {
         customization,
         "SectionCustomization.update",
         [],
-        true,
-        undefined,
+        true
       );
     });
 
@@ -293,8 +290,7 @@ describe("SectionCustomization", () => {
         mockContext,
         "sectionCustomizations",
         1,
-        "SectionCustomization.delete",
-        undefined,
+        "SectionCustomization.delete"
       );
       expect(result.id).toBe(1);
       expect(result.templateCustomizationId).toBe(100);
@@ -350,8 +346,7 @@ describe("SectionCustomization", () => {
         mockContext,
         "SELECT * FROM sectionCustomizations WHERE id = ?",
         ["1"],
-        "test.ref",
-        undefined
+        "test.ref"
       );
       expect(result).toBeInstanceOf(SectionCustomization);
       expect(result.id).toBe(1);
@@ -375,8 +370,7 @@ describe("SectionCustomization", () => {
         mockContext,
         "SELECT * FROM sectionCustomizations WHERE id = ?",
         [undefined],
-        "test.ref",
-        undefined
+        "test.ref"
       );
       expect(result).toBeUndefined();
     });
@@ -404,8 +398,7 @@ describe("SectionCustomization", () => {
         `SELECT * FROM sectionCustomizations
          WHERE templateCustomizationId = ? AND sectionId = ?`,
         ["100", "300"],
-        "test.ref",
-        undefined
+        "test.ref"
       );
       expect(result).toBeInstanceOf(SectionCustomization);
       expect(result.templateCustomizationId).toBe(100);
@@ -440,8 +433,7 @@ describe("SectionCustomization", () => {
         `SELECT * FROM sectionCustomizations
          WHERE templateCustomizationId = ? AND sectionId = ?`,
         ["100", undefined],
-        "test.ref",
-        undefined
+        "test.ref"
       );
       expect(result).toBeUndefined();
     });
@@ -470,8 +462,7 @@ describe("SectionCustomization", () => {
          INNER JOIN versionedSections vs ON sc.sectionId = vs.sectionId
          WHERE sc.templateCustomizationId = ? AND vs.id = ?`,
         ["100", "500"],
-        "test.ref",
-        undefined
+        "test.ref"
       );
       expect(result).toBeInstanceOf(SectionCustomization);
       expect(result.templateCustomizationId).toBe(100);
@@ -507,8 +498,7 @@ describe("SectionCustomization", () => {
          INNER JOIN versionedSections vs ON sc.sectionId = vs.sectionId
          WHERE sc.templateCustomizationId = ? AND vs.id = ?`,
         ["100", undefined],
-        "test.ref",
-        undefined
+        "test.ref"
       );
       expect(result).toBeUndefined();
     });
@@ -534,8 +524,7 @@ describe("SectionCustomization", () => {
         mockContext,
         `SELECT * FROM sectionCustomizations WHERE templateCustomizationId = ?`,
         ["100"],
-        "test.ref",
-        undefined
+        "test.ref"
       );
 
       expect(result.length).toBe(1);

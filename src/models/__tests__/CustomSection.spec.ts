@@ -138,8 +138,7 @@ describe("CustomSection", () => {
         "customSections",
         customization,
         "CustomSection.create",
-        [],
-        undefined
+        []
       );
       expect(result.id).toBe(1);
       expect(result.templateCustomizationId).toBe(100);
@@ -216,8 +215,7 @@ describe("CustomSection", () => {
         customization,
         "CustomSection.update",
         [],
-        false,
-        undefined,
+        false
       );
       expect(result.id).toBe(1);
       expect(result.guidance).toBe("Updated guidance");
@@ -251,8 +249,7 @@ describe("CustomSection", () => {
         customization,
         "CustomSection.update",
         [],
-        true,
-        undefined,
+        true
       );
     });
 
@@ -311,8 +308,7 @@ describe("CustomSection", () => {
         mockContext,
         "customSections",
         1,
-        "CustomSection.delete",
-        undefined,
+        "CustomSection.delete"
       );
       expect(result.id).toBe(1);
       expect(result.templateCustomizationId).toBe(100);
@@ -375,8 +371,7 @@ describe("CustomSection", () => {
         mockContext,
         "SELECT * FROM customSections WHERE id = ?",
         ["1"],
-        "test.ref",
-        undefined
+        "test.ref"
       );
       expect(result).toBeInstanceOf(CustomSection);
       expect(result.id).toBe(1);
@@ -400,8 +395,7 @@ describe("CustomSection", () => {
         mockContext,
         "SELECT * FROM customSections WHERE id = ?",
         [undefined],
-        "test.ref",
-        undefined
+        "test.ref"
       );
       expect(result).toBeUndefined();
     });
@@ -428,8 +422,7 @@ describe("CustomSection", () => {
         mockContext,
         `SELECT * FROM customSections WHERE templateCustomizationId = ?`,
         ["100"],
-        "test.ref",
-        undefined
+        "test.ref"
       );
 
       expect(result.length).toBe(1);

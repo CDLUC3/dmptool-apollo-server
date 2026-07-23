@@ -2,7 +2,6 @@ import { MyContext } from "../context";
 import { MySqlModel } from "./MySqlModel";
 import { isNullOrUndefined } from "../utils/helpers";
 import { TemplateCustomizationMigrationStatus } from "./TemplateCustomization";
-import { DatabaseTransactionClient } from "../datasources/mysql";
 
 /**
  * This object represents custom guidance text an organization has added to an
@@ -66,10 +65,9 @@ export class SectionCustomization extends MySqlModel {
    * Save the current record
    *
    * @param context The Apollo context.
-   * @param transactionClient the MySQL transaction to use
    * @returns The newly created Section customization.
    */
-  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<SectionCustomization> {
+  async create(context: MyContext): Promise<SectionCustomization> {
     const ref = 'SectionCustomization.create';
     // Make sure the record is valid
     if (await this.isValid()) {
@@ -77,8 +75,7 @@ export class SectionCustomization extends MySqlModel {
         ref,
         context,
         this.templateCustomizationId,
-        this.sectionId,
-        transactionClient
+        this.sectionId
       );
 
       // Make sure it doesn't already exist
@@ -92,10 +89,9 @@ export class SectionCustomization extends MySqlModel {
           SectionCustomization.tableName,
           this,
           ref,
-          [],
-          transactionClient
+          []
         );
-        return await SectionCustomization.findById(ref, context, newId, transactionClient);
+        return await SectionCustomization.findById(ref, context, newId);
       }
     }
     // Otherwise return as-is with all the errors
@@ -107,10 +103,9 @@ export class SectionCustomization extends MySqlModel {
    *
    * @param context The Apollo context
    * @param noTouch Whether or not the modification timestamp should be updated
-   * @param transactionClient the MySQL transaction to use
    * @returns The updated Section customization.
    */
-  async update(context: MyContext, noTouch = false, transactionClient?: DatabaseTransactionClient): Promise<SectionCustomization> {
+  async update(context: MyContext, noTouch = false): Promise<SectionCustomization> {
     const ref = 'SectionCustomization.update';
 
     if (!this.id) {
@@ -127,10 +122,9 @@ export class SectionCustomization extends MySqlModel {
           this,
           ref,
           [],
-          noTouch,
-          transactionClient
+          noTouch
         );
-        return await SectionCustomization.findById(ref, context, this.id, transactionClient);
+        return await SectionCustomization.findById(ref, context, this.id);
       }
     }
     // Otherwise return as-is with all the errors
@@ -141,10 +135,9 @@ export class SectionCustomization extends MySqlModel {
    * Archive the customization
    *
    * @param context The Apollo context
-   * @param transactionClient the MySQL client to use
    * @returns The archived Section customization.
    */
-  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<SectionCustomization> {
+  async delete(context: MyContext): Promise<SectionCustomization> {
     const ref = 'SectionCustomization.delete';
     if (!this.id) {
       // Cannot delete it if it hasn't been saved yet!
@@ -153,15 +146,13 @@ export class SectionCustomization extends MySqlModel {
       const original: SectionCustomization = await SectionCustomization.findById(
         ref,
         context,
-        this.id,
-        transactionClient
+        this.id
       );
       const result: boolean = await SectionCustomization.delete(
         context,
         SectionCustomization.tableName,
         this.id,
-        ref,
-        transactionClient
+        ref
       );
       if (result) {
         return original;
@@ -180,21 +171,18 @@ export class SectionCustomization extends MySqlModel {
    * @param reference The reference to use for logging errors.
    * @param context The Apollo context.
    * @param sectionCustomizationId The section customization id.
-   * @param transactionClient The MySQL client to use.
    * @returns The Section customization.
    */
   static async findById(
     reference: string,
     context: MyContext,
-    sectionCustomizationId: number,
-    transactionClient?: DatabaseTransactionClient
+    sectionCustomizationId: number
   ): Promise<SectionCustomization> {
     const results = await SectionCustomization.query(
       context,
       `SELECT * FROM ${SectionCustomization.tableName} WHERE id = ?`,
       [sectionCustomizationId?.toString()],
-      reference,
-      transactionClient
+      reference
     );
     return Array.isArray(results) && results.length > 0 ? new SectionCustomization(results[0]) : undefined;
   }
@@ -206,23 +194,20 @@ export class SectionCustomization extends MySqlModel {
    * @param context The Apollo context.
    * @param templateCustomizatonId The id of the template customization.
    * @param sectionId The section id.
-   * @param transactionClient the MySQL transaction to use
    * @returns The Section customization.
    */
   static async findByCustomizationAndSection(
     reference: string,
     context: MyContext,
     templateCustomizatonId: number,
-    sectionId: number,
-    transactionClient?: DatabaseTransactionClient
+    sectionId: number
   ): Promise<SectionCustomization> {
     const results = await SectionCustomization.query(
       context,
       `SELECT * FROM ${SectionCustomization.tableName}
          WHERE templateCustomizationId = ? AND sectionId = ?`,
       [templateCustomizatonId.toString(), sectionId?.toString()],
-      reference,
-      transactionClient
+      reference
     );
     return Array.isArray(results) && results.length > 0 ? new SectionCustomization(results[0]) : undefined;
   }
@@ -234,15 +219,13 @@ export class SectionCustomization extends MySqlModel {
    * @param context The Apollo context.
    * @param templateCustomizatonId The id of the template customization.
    * @param versionedSectionId The versioned section id.
-   * @param transactionClient the MySQL transaction to use
    * @returns The Section customization.
    */
   static async findByCustomizationAndVersionedSection(
     reference: string,
     context: MyContext,
     templateCustomizatonId: number,
-    versionedSectionId: number,
-    transactionClient?: DatabaseTransactionClient
+    versionedSectionId: number
   ): Promise<SectionCustomization> {
     const results = await SectionCustomization.query(
       context,
@@ -250,8 +233,7 @@ export class SectionCustomization extends MySqlModel {
          INNER JOIN versionedSections vs ON sc.sectionId = vs.sectionId
          WHERE sc.templateCustomizationId = ? AND vs.id = ?`,
       [templateCustomizatonId.toString(), versionedSectionId?.toString()],
-      reference,
-      transactionClient
+      reference
     );
     return Array.isArray(results) && results.length > 0 ? new SectionCustomization(results[0]) : undefined;
   }
@@ -262,21 +244,18 @@ export class SectionCustomization extends MySqlModel {
    * @param reference The reference to use for logging errors.
    * @param context The Apollo context.
    * @param templateCustomizatonId The id of the template customization.
-   * @param transactionClient the MySQL transaction to use
    * @returns The Section customizations.
    */
   static async findByCustomizationId(
     reference: string,
     context: MyContext,
-    templateCustomizatonId: number,
-    transactionClient?: DatabaseTransactionClient
+    templateCustomizatonId: number
   ): Promise<SectionCustomization[]> {
     const results = await SectionCustomization.query(
       context,
       `SELECT * FROM ${SectionCustomization.tableName} WHERE templateCustomizationId = ?`,
       [templateCustomizatonId.toString()],
-      reference,
-      transactionClient
+      reference
     );
     return Array.isArray(results) && results.length > 0 ? results.map(r => new SectionCustomization(r)) : [];
   }

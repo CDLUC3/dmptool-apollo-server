@@ -1030,9 +1030,9 @@ describe('findByEmail', () => {
     const email = casual.email;
     emailQuery.mockResolvedValueOnce([{ userId: user.id }]);
     localQuery.mockResolvedValueOnce(user);
-    const result = await User.findByEmail('Testing', context, email, undefined);
+    const result = await User.findByEmail('Testing', context, email);
     expect(emailQuery).toHaveBeenCalledTimes(1);
-    expect(emailQuery).toHaveBeenLastCalledWith('Testing', context, email, undefined);
+    expect(emailQuery).toHaveBeenLastCalledWith('Testing', context, email);
     expect(localQuery).toHaveBeenCalledTimes(1);
     expect(localQuery).toHaveBeenLastCalledWith('Testing', context, user.id);
     expect(result).toEqual(user);
@@ -1041,9 +1041,9 @@ describe('findByEmail', () => {
   it('should return null if it finds no users', async () => {
     const email = casual.email;
     emailQuery.mockResolvedValueOnce([]);
-    const result = await User.findByEmail('Testing', context, email, undefined);
+    const result = await User.findByEmail('Testing', context, email);
     expect(emailQuery).toHaveBeenCalledTimes(1);
-    expect(emailQuery).toHaveBeenLastCalledWith('Testing', context, email, undefined);
+    expect(emailQuery).toHaveBeenLastCalledWith('Testing', context, email);
     expect(localQuery).not.toHaveBeenCalled();
     expect(result).toEqual(null);
   });
@@ -1083,7 +1083,7 @@ describe('findById', () => {
     const result = await User.findById('Testing', context, id);
     const expectedSql = 'SELECT * FROM users WHERE id = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'Testing', undefined);
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'Testing');
     expect(result).toEqual(user);
   });
 
@@ -1129,7 +1129,7 @@ describe('findByOrcid', () => {
     const result = await User.findByOrcid('Testing', context, orcid);
     const expectedSql = 'SELECT * FROM users WHERE orcid = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [orcid], 'Testing', undefined);
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [orcid], 'Testing');
     expect(result).toEqual(user);
   });
 

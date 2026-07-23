@@ -3,7 +3,6 @@ import { MySqlModel } from "./MySqlModel";
 import { isNullOrUndefined, randomHex, validateURL } from "../utils/helpers";
 import { PaginatedQueryResults, PaginationOptions, PaginationOptionsForCursors, PaginationOptionsForOffsets, PaginationType } from "../types/general";
 import { prepareObjectForLogs } from "../logger";
-import { DatabaseTransactionClient } from "../datasources/mysql";
 
 export const DEFAULT_DMPTOOL_AFFILIATION_URL = 'https://dmptool.org/affiliations/';
 export const DEFAULT_ROR_AFFILIATION_URL = 'https://ror.org/';
@@ -176,7 +175,7 @@ export class Affiliation extends MySqlModel {
   }
 
   // Save the current record
-  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<Affiliation> {
+  async create(context: MyContext): Promise<Affiliation> {
     const reference = 'Affiliation.create';
     let current;
 
@@ -209,7 +208,6 @@ export class Affiliation extends MySqlModel {
           this,
           reference,
           [],
-          transactionClient
         );
         return await Affiliation.findById(reference, context, newId);
       }
@@ -220,7 +218,7 @@ export class Affiliation extends MySqlModel {
   }
 
   // Save the changes made to the affiliation
-  async update(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<Affiliation> {
+  async update(context: MyContext): Promise<Affiliation> {
     const reference = 'Affiliation.update';
     if (this.id) {
       const existing = await Affiliation.findById(reference, context, this.id);
@@ -241,8 +239,7 @@ export class Affiliation extends MySqlModel {
           this,
           reference,
           ['ssoEmailDomains'],
-          false,
-          transactionClient
+          false
         );
 
         if (updated) {
@@ -258,9 +255,9 @@ export class Affiliation extends MySqlModel {
   }
 
   // Delete this record (will cascade delate all associated AffiliationLinks and AffiliaitonEmailDomains)
-  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<Affiliation> {
+  async delete(context: MyContext): Promise<Affiliation> {
     if (this.uri) {
-      const result = await Affiliation.delete(context, this.tableName, this.id, 'Affiliation.delete', transactionClient);
+      const result = await Affiliation.delete(context, this.tableName, this.id, 'Affiliation.delete');
       if (result) {
         return this;
       }
@@ -307,31 +304,31 @@ export class Affiliation extends MySqlModel {
   }
 
   // Return the specified Affiliation  based on the DB id
-  static async findById(reference: string, context: MyContext, id: number, transactionClient?: DatabaseTransactionClient): Promise<Affiliation> {
+  static async findById(reference: string, context: MyContext, id: number): Promise<Affiliation> {
     const sql = 'SELECT * FROM affiliations WHERE id = ?';
-    const results = await Affiliation.query(context, sql, [id?.toString()], reference, transactionClient);
+    const results = await Affiliation.query(context, sql, [id?.toString()], reference);
     return Array.isArray(results) && results.length > 0 ? this.processResult(results[0]) : null;
   }
 
   // Return the specified Affiliation based on the URI
-  static async findByURI(reference: string, context: MyContext, uri: string, transactionClient?: DatabaseTransactionClient): Promise<Affiliation> {
+  static async findByURI(reference: string, context: MyContext, uri: string): Promise<Affiliation> {
     const sql = 'SELECT * FROM affiliations WHERE uri = ?';
-    const results = await Affiliation.query(context, sql, [uri], reference, transactionClient);
+    const results = await Affiliation.query(context, sql, [uri], reference);
     return Array.isArray(results) && results.length > 0 ? this.processResult(results[0]) : null;
   }
 
   // Return the specified Affiliation based on it's name
-  static async findByName(reference: string, context: MyContext, name: string, transactionClient?: DatabaseTransactionClient): Promise<Affiliation> {
+  static async findByName(reference: string, context: MyContext, name: string): Promise<Affiliation> {
     const sql = 'SELECT * FROM affiliations WHERE TRIM(LOWER(name)) = ? OR TRIM(LOWER(displayName)) = ?';
     const trimmed = name?.toLowerCase()?.trim()
-    const results = await Affiliation.query(context, sql, [trimmed, trimmed], reference, transactionClient);
+    const results = await Affiliation.query(context, sql, [trimmed, trimmed], reference);
     return Array.isArray(results) && results.length > 0 ? this.processResult(results[0]) : null;
   }
 
   // Return the specified Affiliation based on it's SSO entity id
-  static async findByEntityId(reference: string, context: MyContext, entityId: string, transactionClient?: DatabaseTransactionClient): Promise<Affiliation> {
+  static async findByEntityId(reference: string, context: MyContext, entityId: string): Promise<Affiliation> {
     const sql = 'SELECT * FROM affiliations WHERE TRIM(LOWER(ssoEntityId)) = ?';
-    const results = await Affiliation.query(context, sql, [entityId?.toLowerCase()?.trim()], reference, transactionClient);
+    const results = await Affiliation.query(context, sql, [entityId?.toLowerCase()?.trim()], reference);
     return Array.isArray(results) && results.length > 0 ? this.processResult(results[0]) : null;
   }
 }
@@ -391,8 +388,7 @@ export class AffiliationSearch {
     context: MyContext,
     name: string,
     funderOnly: boolean,
-    options: PaginationOptions = Affiliation.getDefaultPaginationOptions(),
-    transactionClient?: DatabaseTransactionClient
+    options: PaginationOptions = Affiliation.getDefaultPaginationOptions()
   ): Promise<PaginatedQueryResults<AffiliationSearch>> {
     const whereFilters = ['a.active = 1'];
     const values = [];
@@ -435,8 +431,7 @@ export class AffiliationSearch {
       values,
       opts,
       reference,
-      true,
-      transactionClient
+      true
     )
 
     // Combine the name and homepage domain to help disambiguated similar names
@@ -459,8 +454,7 @@ export class AffiliationSearch {
     context: MyContext,
     name?: string,
     affiliationUris?: string[],
-    options: PaginationOptions = Affiliation.getDefaultPaginationOptions(),
-    transactionClient?: DatabaseTransactionClient
+    options: PaginationOptions = Affiliation.getDefaultPaginationOptions()
   ): Promise<PaginatedQueryResults<AffiliationSearch>> {
     const whereFilters = [
       'a.active = 1',
@@ -512,8 +506,7 @@ export class AffiliationSearch {
       values,
       opts,
       reference,
-      true,
-      transactionClient
+      true
     );
 
     // Combine the name and homepage domain to help disambiguated similar names
@@ -546,7 +539,7 @@ export class PopularFunder {
     this.nbrPlans = options.nbrPlans;
   }
 
-  static async top5(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<PopularFunder[]> {
+  static async top5(context: MyContext): Promise<PopularFunder[]> {
     // Get the date range for the past year
     const today = new Date();
     const lastYear = new Date();
@@ -566,8 +559,7 @@ export class PopularFunder {
       context,
       sql,
       [`${startDate} 00:00:00`, `${endDate} 23:59:59`],
-      'PopularFunder.top5',
-      transactionClient
+      'PopularFunder.top5'
     );
     if (Array.isArray(results) && results.length > 0) {
       return results.map((entry) => { return new PopularFunder(entry) });

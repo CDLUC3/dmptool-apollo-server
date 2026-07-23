@@ -113,7 +113,7 @@ describe('VersionedSectionSearchResult', () => {
         availableSortFields: sortFields,
       };
       expect(localPaginationQuery).toHaveBeenCalledTimes(1);
-      expect(localPaginationQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, groupBy, vals, opts, 'Test', true, undefined);
+      expect(localPaginationQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, groupBy, vals, opts, 'Test');
       expect(result).toEqual([versionedSectionSearchResult]);
     });
 
@@ -202,7 +202,7 @@ describe('findByName', () => {
     };
 
     expect(localPaginationQuery).toHaveBeenCalledTimes(1);
-    expect(localPaginationQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, '', vals, opts, 'Test', true, undefined);
+    expect(localPaginationQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, '', vals, opts, 'Test');
     /* As part of this unit test, all fields without a value default to 'undefined' for the mocked VersionedSection, but
 the getVersionedSectionsBySectionId method returns an empty array for tags, and not undefined*/
     expect(result).toEqual([versionedSection])
@@ -251,7 +251,7 @@ describe('findByTemplateId', () => {
     const result = await VersionedSection.findByTemplateId('VersionedSection query', context, versionedTemplateId);
     const expectedSql = 'SELECT * FROM versionedSections WHERE versionedTemplateId = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [versionedTemplateId.toString()], 'VersionedSection query', undefined);
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [versionedTemplateId.toString()], 'VersionedSection query');
     /* As part of this unit test, all fields without a value default to 'undefined' for the mocked VersionedSection, but
 the getVersionedSectionsBySectionId method returns an empty array for tags, and not undefined*/
     expect(result).toEqual([versionedSection])
@@ -377,7 +377,7 @@ describe('finders', () => {
     const result = await VersionedSection.findById('testing', context, id);
     const expectedSql = 'SELECT * FROM versionedSections WHERE id= ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'testing', undefined);
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'testing');
     expect(result).toBeInstanceOf(VersionedSection);
   });
 
@@ -388,7 +388,7 @@ describe('finders', () => {
     const expectedSql = `SELECT * FROM versionedSections
          WHERE versionedTemplateId = ? AND sectionId = ? ORDER BY modified DESC`;
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [versionedSection.versionedTemplateId.toString(), id.toString()], 'Test', undefined);
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [versionedSection.versionedTemplateId.toString(), id.toString()], 'Test');
     expect(result).toEqual(versionedSection);
     expect(result).toBeInstanceOf(VersionedSection);
     expect(Object.keys(result.errors).length).toBe(0);

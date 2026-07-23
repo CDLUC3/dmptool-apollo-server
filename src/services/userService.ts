@@ -5,7 +5,6 @@ import { defaultLanguageId } from "../models/Language";
 import { User, UserRole } from "../models/User";
 import { UserEmail } from "../models/UserEmail";
 import { randomHex } from "../utils/helpers";
-import {DatabaseTransactionClient} from "../datasources/mysql";
 
 // Generate a random password (used when anonymizing and when creating an account via SSO)
 export const generateRandomPassword = () => {
@@ -45,21 +44,20 @@ export const generateRandomPassword = () => {
 }
 
 // Anonymize the User record (our version of deleting the account)
-export const anonymizeUser = async (context: MyContext, user: User, transactionClient?: DatabaseTransactionClient): Promise<User> => {
+export const anonymizeUser = async (context: MyContext, user: User): Promise<User> => {
   const ref = 'UserService.anonymize';
   if (!user.id) {
     user.addError('general', 'This user has never been saved so can not anonymize their information');
     return user;
   }
 
-  const userBefore = await User.findById(ref, context, user.id, transactionClient);
+  const userBefore = await User.findById(ref, context, user.id);
 
   // Anonymize the user's information
   await UserEmail.createOrUpdatePrimary(context,
     user.id,
     `${randomHex(6)}@deleted-account.${generalConfig.domain}`,
-    false,
-    transactionClient);
+    false);
   user.password = await user.hashPassword(generateRandomPassword());
   user.givenName = 'Deleted';
   user.surName = 'Account';
@@ -80,22 +78,22 @@ export const anonymizeUser = async (context: MyContext, user: User, transactionC
   // Deactivate the account
   user.active = false;
 
-  const anonymized = await user.update(context, transactionClient);
+  const anonymized = await user.update(context);
 
   // If the anonymized record couldn't be saved add an error
   if (!anonymized) {
     userBefore.addError('general', 'Unable to anonymize your account at this time');
   } else {
     // Remove all UserEmail entries
-    const userEmails = await UserEmail.findByUserId(ref, context, user.id, transactionClient);
+    const userEmails = await UserEmail.findByUserId(ref, context, user.id);
     for (const userEmail of userEmails) {
-      const deleted = await userEmail.delete(context, transactionClient);
+      const deleted = await userEmail.delete(context);
 
       if (deleted) {
         // Remove any collaborations
-        const templateCollaborators = await TemplateCollaborator.findByEmail(ref, context, userEmail.email, transactionClient);
+        const templateCollaborators = await TemplateCollaborator.findByEmail(ref, context, userEmail.email);
         for (const collaborator of templateCollaborators) {
-          await collaborator.delete(context, transactionClient);
+          await collaborator.delete(context);
         }
       }
     }
@@ -108,11 +106,10 @@ export const anonymizeUser = async (context: MyContext, user: User, transactionC
 export const mergeUsers = async (
   context: MyContext,
   userToMerge: User,
-  userToKeep: User,
-  transactionClient?: DatabaseTransactionClient
+  userToKeep: User
 ): Promise<User> => {
   const ref = 'UserService.mergeUsers';
-  const original = await User.findById(ref, context, userToKeep.id, transactionClient);
+  const original = await User.findById(ref, context, userToKeep.id);
 
   const toBeMerged = new User(userToMerge);
   const toBeKept = new User(userToKeep);
@@ -130,20 +127,20 @@ export const mergeUsers = async (
     toBeKept.role = toBeMerged.role
   }
 
-  const merged = await toBeKept.update(context, transactionClient);
+  const merged = await toBeKept.update(context);
   if (merged && Array.isArray(merged.errors) && merged.errors.length > 0) {
     original.addError('general', 'Unable to merge the user at this time');
     return original;
 
   } else {
-    const mergingEmails = await UserEmail.findByUserId(ref, context, toBeMerged.id, transactionClient);
-    const keepingEmails = await UserEmail.findByUserId(ref, context, toBeKept.id, transactionClient);
+    const mergingEmails = await UserEmail.findByUserId(ref, context, toBeMerged.id);
+    const keepingEmails = await UserEmail.findByUserId(ref, context, toBeKept.id);
 
     // Update any Collaboration invites
-    const invites = await TemplateCollaborator.findByInvitedById(ref, context, toBeMerged.id, transactionClient);
+    const invites = await TemplateCollaborator.findByInvitedById(ref, context, toBeMerged.id);
     for (const collab of invites) {
       collab.invitedById = toBeKept.id;
-      await collab.update(context, transactionClient);
+      await collab.update(context);
     }
 
     // Merge the UserEmails
@@ -152,24 +149,24 @@ export const mergeUsers = async (
       // If the User we are keeping doesn't have the email then update the UserId
       if (!matched) {
         mergeEmail.userId = toBeKept.id;
-        await mergeEmail.update(context, transactionClient);
+        await mergeEmail.update(context);
 
         // See if there are any collaborations for the email and attach it to the user to keep
-        const tmpltCollaborators = await TemplateCollaborator.findByEmail(ref, context, mergeEmail.email, transactionClient);
+        const tmpltCollaborators = await TemplateCollaborator.findByEmail(ref, context, mergeEmail.email);
         for (const collab of tmpltCollaborators) {
           collab.userId = toBeKept.id;
-          await collab.update(context, transactionClient);
+          await collab.update(context);
         }
 
       } else {
         if (!matched.isConfirmed && mergeEmail.isConfirmed) {
           // Otherwise update it if it exists and is confirmed in the User to merge but not the other
           matched.isConfirmed = true;
-          await matched.update(context, transactionClient);
+          await matched.update(context);
         }
 
         // Then delete the original
-        await mergeEmail.delete(context, transactionClient);
+        await mergeEmail.delete(context);
       }
     }
 

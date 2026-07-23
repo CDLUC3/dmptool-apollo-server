@@ -4,7 +4,6 @@ import { defaultLanguageId, supportedLanguages } from "./Language";
 import { MySqlModel } from "./MySqlModel";
 import { prepareObjectForLogs } from "../logger";
 import { isNullOrUndefined } from "../utils/helpers";
-import { DatabaseTransactionClient } from "../datasources/mysql";
 
 export enum TemplateVisibility {
   ORGANIZATION = 'ORGANIZATION', // Template is only available to Researchers that belong to the same affiliation
@@ -57,8 +56,7 @@ export class TemplateSearchResult {
     context: MyContext,
     affiliationId: string,
     term: string,
-    options: PaginationOptions = Template.getDefaultPaginationOptions(),
-    transactionClient?: DatabaseTransactionClient
+    options: PaginationOptions = Template.getDefaultPaginationOptions()
   ): Promise<PaginatedQueryResults<TemplateSearchResult>> {
     const whereFilters = ['t.ownerId = ?'];
     const values: string[] = [affiliationId];
@@ -104,9 +102,7 @@ export class TemplateSearchResult {
       '',
       values,
       opts,
-      reference,
-      true,
-      transactionClient
+      reference
     )
 
     context.logger.debug(prepareObjectForLogs({ options, response }), reference);
@@ -169,14 +165,13 @@ export class Template extends MySqlModel {
   }
 
   // Save the current record
-  async create(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<Template> {
+  async create(context: MyContext): Promise<Template> {
     // First make sure the record is valid
     if (await this.isValid()) {
       const current = await Template.findByNameAndOwnerId(
         'TemplateCollaborator.create',
         context,
-        this.name,
-        transactionClient
+        this.name
       );
 
       // Then make sure it doesn't already exist
@@ -185,8 +180,8 @@ export class Template extends MySqlModel {
       } else {
         this.prepForSave();
         // Save the record and then fetch it
-        const newId = await Template.insert(context, this.tableName, this, 'Template.create', [], transactionClient);
-        return await Template.findById('Template.create', context, newId, transactionClient);
+        const newId = await Template.insert(context, this.tableName, this, 'Template.create', []);
+        return await Template.findById('Template.create', context, newId);
       }
     }
     // Otherwise return as-is with all the errors
@@ -194,7 +189,7 @@ export class Template extends MySqlModel {
   }
 
   // Save the changes made to the template
-  async update(context: MyContext, noTouch = false, transactionClient?: DatabaseTransactionClient): Promise<Template> {
+  async update(context: MyContext, noTouch = false): Promise<Template> {
     const id = this.id;
 
     // First make sure the record is valid
@@ -217,8 +212,8 @@ export class Template extends MySqlModel {
         }
         So, we have to make a call to findById to get the updated data to return to user
         */
-        await Template.update(context, this.tableName, this, 'Template.update', [], noTouch, transactionClient);
-        return await Template.findById('Template.update', context, id, transactionClient);
+        await Template.update(context, this.tableName, this, 'Template.update', [], noTouch);
+        return await Template.findById('Template.update', context, id);
       }
       // This template has never been saved before so we cannot update it!
       this.addError('general', 'Template has never been saved');
@@ -227,11 +222,11 @@ export class Template extends MySqlModel {
   }
 
   // Archive this record
-  async delete(context: MyContext, transactionClient?: DatabaseTransactionClient): Promise<Template> {
+  async delete(context: MyContext): Promise<Template> {
     if (this.id) {
-      const original = await Template.findById('Template.delete', context, this.id, transactionClient);
+      const original = await Template.findById('Template.delete', context, this.id);
       // Associated TemplateCollaborators and VersionedTemplates will be deletd automatically by MySQL
-      const result = await Template.delete(context, this.tableName, this.id, 'Template.delete', transactionClient);
+      const result = await Template.delete(context, this.tableName, this.id, 'Template.delete');
       if (result) {
         return original;
       }
@@ -240,9 +235,9 @@ export class Template extends MySqlModel {
   }
 
   // Return the specified Template
-  static async findById(reference: string, context: MyContext, templateId: number, transactionClient?: DatabaseTransactionClient): Promise<Template> {
+  static async findById(reference: string, context: MyContext, templateId: number): Promise<Template> {
     const sql = 'SELECT * FROM templates WHERE id = ?';
-    const results = await Template.query(context, sql, [templateId?.toString()], reference, transactionClient);
+    const results = await Template.query(context, sql, [templateId?.toString()], reference);
     return Array.isArray(results) && results.length > 0 ? new Template(results[0]) : null;
   }
 
@@ -250,13 +245,12 @@ export class Template extends MySqlModel {
   static async findByNameAndOwnerId(
     reference: string,
     context: MyContext,
-    name: string,
-    transactionClient?: DatabaseTransactionClient
+    name: string
   ): Promise<Template> {
     const sql = 'SELECT * FROM templates WHERE LOWER(name) = ? AND ownerId = ?';
     const searchTerm = (name ?? '');
     const vals = [searchTerm?.toLowerCase()?.trim(), context.token?.affiliationId];
-    const results = await Template.query(context, sql, vals, reference, transactionClient);
+    const results = await Template.query(context, sql, vals, reference);
     return Array.isArray(results) && results.length > 0 ? new Template(results[0]) : null;
   }
 
@@ -264,11 +258,10 @@ export class Template extends MySqlModel {
   static async findByAffiliationId(
     reference: string,
     context: MyContext,
-    affiliationId: string,
-    transactionClient?: DatabaseTransactionClient
+    affiliationId: string
   ): Promise<Template[]> {
     const sql = 'SELECT * FROM templates WHERE ownerId = ? ORDER BY modified DESC';
-    const results = await Template.query(context, sql, [affiliationId], reference, transactionClient);
+    const results = await Template.query(context, sql, [affiliationId], reference);
     return Array.isArray(results) ? results.map((item) => new Template(item)) : [];
   }
 
@@ -276,13 +269,12 @@ export class Template extends MySqlModel {
   static async markTemplateAsDirty(
     reference: string,
     context: MyContext,
-    templateId: number,
-    transactionClient?: DatabaseTransactionClient
+    templateId: number
   ): Promise<void> {
-    const template = await Template.findById(reference, context, templateId, transactionClient);
+    const template = await Template.findById(reference, context, templateId);
     if (template) {
       template.isDirty = true;
-      await template.update(context, false, transactionClient);
+      await template.update(context, false);
     }
   };
 }

@@ -61,7 +61,7 @@ export class License extends MySqlModel {
         this.addError('general', 'License already exists');
       } else {
         // Save the record and then fetch it
-        const newId = await License.insert(context, License.tableName, this, reference, []);
+        const newId = await License.insert(context, License.tableName, this, reference);
         const response = await License.findById(reference, context, newId);
         return response;
       }

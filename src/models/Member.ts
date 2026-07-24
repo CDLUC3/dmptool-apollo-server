@@ -35,8 +35,10 @@ export class ProjectMember extends MySqlModel {
     return memberA.id === memberB.id
       || (memberA.orcid && memberB.orcid && memberA.orcid.toLowerCase().trim() === memberB.orcid.toLowerCase().trim())
       || (memberA.email && memberB.email && memberA.email.toLowerCase().trim() === memberB.email.toLowerCase().trim())
-      || (memberA.givenName && memberB.givenName && memberA.givenName.toLowerCase().trim() === memberB.givenName.toLowerCase().trim())
-      || (memberA.surName && memberB.surName && memberA.surName.toLowerCase().trim() === memberB.surName.toLowerCase().trim());
+      || (
+        memberA.givenName && memberB.givenName && memberA.givenName.toLowerCase().trim() === memberB.givenName.toLowerCase().trim()
+        && memberA.surName && memberB.surName && memberA.surName.toLowerCase().trim() === memberB.surName.toLowerCase().trim()
+      );
   }
 
   // Ensure data integrity

@@ -38,7 +38,7 @@ export class AnswerComment extends MySqlModel {
     // First make sure the record is valid
     if (await this.isValid()) {
       // Save the record and then fetch it
-      const newId = await AnswerComment.insert(context, AnswerComment.tableName, this, reference, []);
+      const newId = await AnswerComment.insert(context, AnswerComment.tableName, this, reference);
       const response = await AnswerComment.findById(reference, context, newId);
       return response;
     }

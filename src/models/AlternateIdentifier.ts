@@ -32,7 +32,7 @@ export class AlternateIdentifier extends MySqlModel {
       const current = await AlternateIdentifier.findByAlternateIdentifier(
         'AlternateIdentifier.create',
         context,
-        this.alternateIdentifier
+        this.alternateIdentifier,
       );
 
       if (current) {
@@ -43,7 +43,7 @@ export class AlternateIdentifier extends MySqlModel {
         );
       } else {
         // Save the record and then fetch it
-        const newId = await AlternateIdentifier.insert(context, AlternateIdentifier.tableName, this, 'AlternateIdentifier.create', []);
+        const newId = await AlternateIdentifier.insert(context, AlternateIdentifier.tableName, this, 'AlternateIdentifier.create');
         if (newId) {
           return await AlternateIdentifier.findById('AlternateIdentifier.create', context, newId as number);
         }

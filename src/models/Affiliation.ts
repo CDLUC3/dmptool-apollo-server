@@ -206,8 +206,7 @@ export class Affiliation extends MySqlModel {
           context,
           this.tableName,
           this,
-          reference,
-          [],
+          reference
         );
         return await Affiliation.findById(reference, context, newId);
       }
@@ -238,8 +237,7 @@ export class Affiliation extends MySqlModel {
           this.tableName,
           this,
           reference,
-          ['ssoEmailDomains'],
-          false
+          ['ssoEmailDomains']
         );
 
         if (updated) {
@@ -388,7 +386,7 @@ export class AffiliationSearch {
     context: MyContext,
     name: string,
     funderOnly: boolean,
-    options: PaginationOptions = Affiliation.getDefaultPaginationOptions()
+    options: PaginationOptions = Affiliation.getDefaultPaginationOptions(),
   ): Promise<PaginatedQueryResults<AffiliationSearch>> {
     const whereFilters = ['a.active = 1'];
     const values = [];
@@ -430,8 +428,7 @@ export class AffiliationSearch {
       '',
       values,
       opts,
-      reference,
-      true
+      reference
     )
 
     // Combine the name and homepage domain to help disambiguated similar names
@@ -505,8 +502,7 @@ export class AffiliationSearch {
       groupByClause,
       values,
       opts,
-      reference,
-      true
+      reference
     );
 
     // Combine the name and homepage domain to help disambiguated similar names

@@ -58,7 +58,7 @@ export class ProjectFunding extends MySqlModel {
         this.addError('general', 'Project already has an entry for this funding');
       } else {
         // Save the record and then fetch it
-        const newId = await ProjectFunding.insert(context, ProjectFunding.tableName, this, reference, []);
+        const newId = await ProjectFunding.insert(context, ProjectFunding.tableName, this, reference);
         const response = await ProjectFunding.findById(reference, context, newId);
         return response;
       }
@@ -117,7 +117,7 @@ export class ProjectFunding extends MySqlModel {
     reference: string,
     context: MyContext,
     projectId: number,
-    affiliationId: string
+    affiliationId: string,
   ): Promise<ProjectFunding> {
     const sql = `SELECT * FROM ${ProjectFunding.tableName} WHERE projectId = ? AND affiliationId = ?`;
     const results = await ProjectFunding.query(context, sql, [projectId?.toString(), affiliationId], reference);
@@ -178,7 +178,7 @@ export class PlanFunding extends MySqlModel {
         this.addError('general', 'Plan already has an entry for this funding');
       } else {
         // Save the record and then fetch it
-        const newId = await PlanFunding.insert(context, PlanFunding.tableName, this, reference, []);
+        const newId = await PlanFunding.insert(context, PlanFunding.tableName, this, reference);
         const response = await PlanFunding.findById(reference, context, newId);
         return response;
       }

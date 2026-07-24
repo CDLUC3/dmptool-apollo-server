@@ -31,7 +31,7 @@ export class AffiliationEmailDomain extends MySqlModel {
     const currentDomain = await AffiliationEmailDomain.findByDomain(
       'AffiliationEmailDomain.create',
       context,
-      this.emailDomain
+      this.emailDomain,
     );
 
     if (await this.isValid()) {
@@ -40,7 +40,7 @@ export class AffiliationEmailDomain extends MySqlModel {
         this.addError('general', 'The AffiliationEmailDomain already exists');
       } else {
       // Save the record and then fetch it
-        const newId = await AffiliationEmailDomain.insert(context, this.tableName, this, 'AffiliationEmailDomain.create', []);
+        const newId = await AffiliationEmailDomain.insert(context, this.tableName, this, 'AffiliationEmailDomain.create');
         return await AffiliationEmailDomain.findById('AffiliationEmailDomain.create', context, newId as number);
       }
     }

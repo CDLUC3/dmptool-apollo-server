@@ -254,8 +254,7 @@ describe("CustomQuestion", () => {
         mockContext,
         "customQuestions",
         customization,
-        "CustomQuestion.create",
-        []
+        "CustomQuestion.create"
       );
       expect(result.id).toBe(1);
       expect(result.templateCustomizationId).toBe(100);

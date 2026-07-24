@@ -38,7 +38,7 @@ export class Guidance extends MySqlModel {
       this.prepForSave();
 
       // Save the record and then fetch it
-      const newId = await Guidance.insert(context, Guidance.tableName, this, 'Guidance.create', []);
+      const newId = await Guidance.insert(context, Guidance.tableName, this, 'Guidance.create');
       const response = await Guidance.findById('Guidance.create', context, newId);
       return response;
     }
@@ -130,8 +130,7 @@ export class PlanGuidance extends MySqlModel {
         context,
         this.planId,
         this.userId,
-        this.affiliationId
-      );
+        this.affiliationId);
 
       // Then make sure it doesn't already exist
       if (current) {
@@ -143,7 +142,7 @@ export class PlanGuidance extends MySqlModel {
           PlanGuidance.tableName,
           this,
           reference,
-          []
+          [],
         );
 
         const response = await PlanGuidance.findById(reference, context, newId);

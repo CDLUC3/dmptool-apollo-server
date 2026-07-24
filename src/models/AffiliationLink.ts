@@ -35,7 +35,7 @@ export class AffiliationLink extends MySqlModel {
       'AffiliationLink.create',
       context,
       this.affiliationId,
-      this.url
+      this.url,
     );
 
     // Then make sure it doesn't already exist
@@ -45,7 +45,7 @@ export class AffiliationLink extends MySqlModel {
         this.addError('general', `That email domain is already associated with ${assoc}`);
       } else {
       // Save the record and then fetch it
-        const newId = await AffiliationLink.insert(context, AffiliationLink.tableName, this, 'AffiliationLink.create', []);
+        const newId = await AffiliationLink.insert(context, AffiliationLink.tableName, this, 'AffiliationLink.create');
         return await AffiliationLink.findById('AffiliationLink.create', context, newId as number);
       }
     }
@@ -66,9 +66,7 @@ export class AffiliationLink extends MySqlModel {
         context,
         AffiliationLink.tableName,
         this,
-        reference,
-        [],
-        false
+        reference
       );
 
       if (updated) {

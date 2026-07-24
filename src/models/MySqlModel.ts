@@ -140,39 +140,6 @@ export class MySqlModel {
         }));
   }
 
-  /**
-   * Initialize a new MySQL connection object from the Apollo server context's
-   * MySQL datasource
-   *
-   * @param context the Apollo server context
-   * @returns a new transaction client
-   * @throws an error if the connection/transaction could not be established
-   */
-  static async initializeTransaction(
-    context: MyContext
-  ): Promise<TransactionClient> {
-    try {
-      // Fetch a transaction client for the database and start a new transaction
-      const transactionClient: TransactionClient = new TransactionClient(
-        await context.dataSources.sqlDataSource.getConnection()
-      );
-
-      if (transactionClient) {
-        context.logger.debug('Starting transaction.');
-        await transactionClient.begin();
-      } else {
-        throw new Error('Unable to establish a database transaction!');
-      }
-
-      return transactionClient;
-    } catch (err) {
-      context.logger.error(
-        { err: toErrorMessage(err), jti: context.token.jti },
-        'Fatal error trying to establish MySQL transaction.');
-      throw err;
-    }
-  }
-
   // Run a query to check for the existence of a record in the database. Typically used to verify that
   // a foreign key relationship exists. (e.g. TemplateCollaborator runs a check to make sure the
   // templateId exists before creating a new record)
@@ -296,7 +263,7 @@ export class MySqlModel {
     apolloContext: MyContext,
     sqlStatement: string,
     values: MixedArray<string | boolean | Buffer> = [],
-    reference = 'undefined caller'
+    reference = 'undefined caller',
   ): Promise<any[]> { // eslint-disable-line @typescript-eslint/no-explicit-any
     const { activeTransaction, dataSources, logger } = apolloContext;
 
@@ -612,7 +579,7 @@ export class MySqlModel {
     obj: MySqlModel,
     reference = 'undefined caller',
     skipKeys?: string[],
-    noTouch?: boolean
+    noTouch?: boolean,
   ): Promise<MySqlModel | null> {
     // Update the modifier info
     if (noTouch !== true) {
@@ -659,11 +626,11 @@ export class MySqlModel {
     apolloContext: MyContext,
     table: string,
     id: number,
-    reference = 'undefined caller'
+    reference = 'undefined caller',
   ): Promise<boolean> {
     const sql = `DELETE FROM ${table} WHERE id = ?`;
     const result = await this.query(apolloContext, sql, [id.toString()], reference);
-    return !!(!!Array.isArray(result) && result[0].affectedRows);
+    return Array.isArray(result) && result[0].affectedRows ? true : false;
   }
 
   // A helper function that can be used when updating an Object that has a many-to-many relationship.

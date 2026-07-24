@@ -167,8 +167,7 @@ export class CustomQuestion extends MySqlModel {
           context,
           CustomQuestion.tableName,
           this,
-          ref,
-          []
+          ref
         );
         return await CustomQuestion.findById(ref, context, newId);
       }

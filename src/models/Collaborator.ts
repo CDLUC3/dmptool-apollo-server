@@ -86,7 +86,7 @@ export class TemplateCollaborator extends Collaborator {
       reference,
       context,
       this.templateId,
-      this.email
+      this.email,
     );
 
     if (currentCollaborator) {
@@ -103,7 +103,7 @@ export class TemplateCollaborator extends Collaborator {
       // First make sure the record is valid
       if (await this.isValid()) {
         // Save the record and then fetch it
-        const newId = await TemplateCollaborator.insert(context, this.tableName, this, reference, []);
+        const newId = await TemplateCollaborator.insert(context, this.tableName, this, reference);
         if (newId) {
           const inviter = await User.findById(reference, context, this.invitedById);
           const template = await Template.findById(reference, context, this.templateId);
@@ -136,7 +136,7 @@ export class TemplateCollaborator extends Collaborator {
         if (!templateExists) {
           this.addError('general', 'Template does not exist');
         } else {
-          const result = await TemplateCollaborator.update(context, this.tableName, this, 'TemplateCollaborator.update', [], false);
+          const result = await TemplateCollaborator.update(context, this.tableName, this, 'TemplateCollaborator.update');
           if (!result) {
             this.addError('general', 'Unable to update the collaborator');
           }
@@ -179,7 +179,7 @@ export class TemplateCollaborator extends Collaborator {
   static async findById(
     reference: string,
     context: MyContext,
-    id: number
+    id: number,
   ): Promise<TemplateCollaborator> {
     const sql = 'SELECT * FROM templateCollaborators WHERE id = ?';
     const results = await TemplateCollaborator.query(context, sql, [id?.toString()], reference);
@@ -189,7 +189,7 @@ export class TemplateCollaborator extends Collaborator {
   static async findByInvitedById(
     reference: string,
     context: MyContext,
-    invitedById: number
+    invitedById: number,
   ): Promise<TemplateCollaborator[]> {
     const sql = 'SELECT * FROM templateCollaborators WHERE invitedById = ?';
     const results = await TemplateCollaborator.query(context, sql, [invitedById?.toString()], reference);
@@ -200,7 +200,7 @@ export class TemplateCollaborator extends Collaborator {
   static async findByEmail(
     reference: string,
     context: MyContext,
-    email: string
+    email: string,
   ): Promise<TemplateCollaborator[]> {
     const sql = 'SELECT * FROM templateCollaborators WHERE email = ?';
     const results = await TemplateCollaborator.query(context, sql, [email], reference);
@@ -212,7 +212,7 @@ export class TemplateCollaborator extends Collaborator {
     reference: string,
     context: MyContext,
     templateId: number,
-    email: string
+    email: string,
   ): Promise<TemplateCollaborator> {
     const sql = 'SELECT * FROM templateCollaborators WHERE templateId = ? AND email = ?';
     const vals = [templateId?.toString(), email];
@@ -269,7 +269,7 @@ export class ProjectCollaborator extends Collaborator {
       reference,
       context,
       this.projectId,
-      this.email
+      this.email,
     );
 
     if (currentCollaborator) {
@@ -286,7 +286,7 @@ export class ProjectCollaborator extends Collaborator {
       // First make sure the record is valid
       if (await this.isValid()) {
         // Save the record and then fetch it
-        const newId = await ProjectCollaborator.insert(context, this.tableName, this, reference, []);
+        const newId = await ProjectCollaborator.insert(context, this.tableName, this, reference);
         if (newId) {
           const inviter = await User.findById(reference, context, this.invitedById);
           const project = await Project.findById(reference, context, this.projectId);
@@ -321,7 +321,7 @@ export class ProjectCollaborator extends Collaborator {
         if (!projectExists) {
           this.addError('general', 'Project does not exist');
         } else {
-          const result = await ProjectCollaborator.update(context, this.tableName, this, 'ProjectCollaborator.update', [], false);
+          const result = await ProjectCollaborator.update(context, this.tableName, this, 'ProjectCollaborator.update');
           if (!result) {
             this.addError('general', 'Unable to update the collaborator');
           }
@@ -364,7 +364,7 @@ export class ProjectCollaborator extends Collaborator {
   static async findById(
     reference: string,
     context: MyContext,
-    id: number
+    id: number,
   ): Promise<ProjectCollaborator> {
     const sql = 'SELECT * FROM projectCollaborators WHERE id = ?';
     const results = await ProjectCollaborator.query(context, sql, [id?.toString()], reference);
@@ -374,7 +374,7 @@ export class ProjectCollaborator extends Collaborator {
   static async findByInvitedById(
     reference: string,
     context: MyContext,
-    invitedById: number
+    invitedById: number,
   ): Promise<ProjectCollaborator[]> {
     const sql = 'SELECT * FROM projectCollaborators WHERE invitedById = ?';
     const results = await ProjectCollaborator.query(context, sql, [invitedById?.toString()], reference);
@@ -385,7 +385,7 @@ export class ProjectCollaborator extends Collaborator {
   static async findByEmail(
     reference: string,
     context: MyContext,
-    email: string
+    email: string,
   ): Promise<ProjectCollaborator[]> {
     const sql = 'SELECT * FROM projectCollaborators WHERE email = ?';
     const results = await ProjectCollaborator.query(context, sql, [email], reference);
@@ -410,7 +410,7 @@ export class ProjectCollaborator extends Collaborator {
     reference: string,
     context: MyContext,
     projectId: number,
-    email: string
+    email: string,
   ): Promise<ProjectCollaborator> {
     const sql = 'SELECT * FROM projectCollaborators WHERE projectId = ? AND email = ?';
     const vals = [projectId?.toString(), email];
@@ -586,7 +586,7 @@ export class ProjectCollaborator extends Collaborator {
   static async findPrimaryUserByProjectId(
     reference: string,
     context: MyContext,
-    projectId: number
+    projectId: number,
   ): Promise<ProjectCollaboratorWithUser | null> {
     const sql = `SELECT  pc.id AS collaboratorId, pc.projectId, pc.email, pc.accessLevel, pc.created AS collaboratorCreated,
     u.id AS userId, u.affiliationId, u.active

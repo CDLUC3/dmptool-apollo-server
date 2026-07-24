@@ -145,7 +145,7 @@ export class Answer extends MySqlModel {
   }
 
   //Create a new Answer
-  async create(context: MyContext, ): Promise<Answer> {
+  async create(context: MyContext): Promise<Answer> {
     const reference = 'Answer.create';
 
     this.prepForSave();
@@ -163,7 +163,7 @@ export class Answer extends MySqlModel {
         this.addError('general', 'Answer already exists');
       } else {
         // Save the record and then fetch it
-        const newId = await Answer.insert(context, Answer.tableName, this, reference, []);
+        const newId = await Answer.insert(context, Answer.tableName, this, reference);
         if (!newId) {
           this.addError('general', 'Failed to save answer');
         } else {
@@ -213,9 +213,7 @@ export class Answer extends MySqlModel {
 
   // Fetch a Answer by its id
   static async findById(reference: string, context: MyContext, licenseId: number): Promise<Answer> {
-    const sql = `SELECT *
-                 FROM ${Answer.tableName}
-                 WHERE id = ?`;
+    const sql = `SELECT * FROM ${Answer.tableName} WHERE id = ?`;
     const results = await Answer.query(context, sql, [licenseId?.toString()], reference);
     return Array.isArray(results) && results.length > 0 ? new Answer(results[0]) : null;
   }
@@ -227,10 +225,7 @@ export class Answer extends MySqlModel {
     planId: number,
     versionedQuestionId: number
   ): Promise<Answer> {
-    const sql = `SELECT *
-                 FROM answers
-                 WHERE planId = ?
-                   AND versionedQuestionId = ?`;
+    const sql = `SELECT * FROM answers WHERE planId = ? AND versionedQuestionId = ?`;
     const results = await Answer.query(context, sql, [planId.toString(), versionedQuestionId.toString()], reference);
     return Array.isArray(results) && results.length > 0 ? new Answer(results[0]) : null;
   }
@@ -241,10 +236,7 @@ export class Answer extends MySqlModel {
     planId: number,
     versionedCustomQuestionId: number
   ): Promise<Answer> {
-    const sql = `SELECT *
-                 FROM answers
-                 WHERE planId = ?
-                   AND versionedCustomQuestionId = ?`;
+    const sql = `SELECT * FROM answers WHERE planId = ? AND versionedCustomQuestionId = ?`;
     const results = await Answer.query(context, sql, [planId.toString(), versionedCustomQuestionId.toString()], reference);
     return Array.isArray(results) && results.length > 0 ? new Answer(results[0]) : null;
   }
@@ -257,19 +249,14 @@ export class Answer extends MySqlModel {
     planId: number,
     versionedSectionId: number
   ): Promise<Answer[]> {
-    const sql = `SELECT *
-                 FROM answers
-                 WHERE planId = ?
-                   AND versionedSectionId = ?`;
+    const sql = `SELECT * FROM answers WHERE planId = ? AND versionedSectionId = ?`;
     const results = await Answer.query(context, sql, [planId.toString(), versionedSectionId.toString()], reference);
     return Array.isArray(results) && results.length > 0 ? results.map((ans) => new Answer(ans)) : [];
   }
 
   // Fetch all of the answers for a plan
   static async findByPlanId(reference: string, context: MyContext, planId: number): Promise<Answer[]> {
-    const sql = `SELECT *
-                 FROM answers
-                 WHERE planId = ?`;
+    const sql = `SELECT * FROM answers WHERE planId = ?`;
     const results = await Answer.query(context, sql, [planId.toString()], reference);
     return Array.isArray(results) && results.length > 0 ? results.map((ans) => new Answer(ans)) : [];
   }

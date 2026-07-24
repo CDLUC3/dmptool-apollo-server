@@ -499,7 +499,7 @@ describe('search', () => {
       availableSortFields: sortFields,
     };
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, '', vals, opts, 'Test', true);
+    expect(localQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, '', vals, opts, 'Test');
     expect(result).toEqual([affiliationSearch]);
   });
 
@@ -521,7 +521,7 @@ describe('search', () => {
       availableSortFields: sortFields,
     };
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, '', vals, opts, 'Test', true);
+    expect(localQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, '', vals, opts, 'Test');
     expect(result).toEqual([affiliationSearch]);
   });
 
@@ -674,8 +674,7 @@ describe('searchManagedWithPublishedGuidance', () => {
       expectedGroupBy,
       expectedVals,
       expectedOpts,
-      'TestRef',
-      true
+      'TestRef'
     );
     expect(result).toEqual({ results: [affiliationSearch], totalCount: 1 });
   });
@@ -701,8 +700,7 @@ describe('searchManagedWithPublishedGuidance', () => {
       '',
       [],
       expect.any(Object),
-      'TestRef',
-      true
+      'TestRef'
     );
     expect(result).toEqual({ results: [], totalCount: 0 });
   });

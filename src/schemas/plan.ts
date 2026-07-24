@@ -286,6 +286,11 @@ export const typeDefs = gql`
     registered: String
     languageId: String
     featured: String
+
+    members: String
+    funding: String
+    alternateIdentifiers: String
+    relatedWorks: String
   }
 
   "A version of the plan"

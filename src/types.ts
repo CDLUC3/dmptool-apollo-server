@@ -156,7 +156,7 @@ export type AddProjectFundingInput = {
   /** The funder's unique id/url for the award/grant (normally assigned after the grant has been awarded) */
   grantId?: InputMaybe<Scalars['String']['input']>;
   /** The project */
-  projectId: Scalars['Int']['input'];
+  projectId?: InputMaybe<Scalars['Int']['input']>;
   /** The status of the funding resquest */
   status?: InputMaybe<ProjectFundingStatus>;
 };

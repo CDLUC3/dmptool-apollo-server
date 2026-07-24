@@ -192,7 +192,7 @@ export type AddProjectMemberInput = {
   /** The Member's ORCID */
   orcid?: InputMaybe<Scalars['String']['input']>;
   /** The research project */
-  projectId: Scalars['Int']['input'];
+  projectId?: InputMaybe<Scalars['Int']['input']>;
   /** The Member's last/sur name */
   surName?: InputMaybe<Scalars['String']['input']>;
 };
@@ -2789,13 +2789,17 @@ export type PlanDownloadFormat =
 /** The error messages for the plan */
 export type PlanErrors = {
   __typename?: 'PlanErrors';
+  alternateIdentifiers?: Maybe<Scalars['String']['output']>;
   dmp_id?: Maybe<Scalars['String']['output']>;
   featured?: Maybe<Scalars['String']['output']>;
+  funding?: Maybe<Scalars['String']['output']>;
   general?: Maybe<Scalars['String']['output']>;
   languageId?: Maybe<Scalars['String']['output']>;
+  members?: Maybe<Scalars['String']['output']>;
   projectId?: Maybe<Scalars['String']['output']>;
   registered?: Maybe<Scalars['String']['output']>;
   registeredById?: Maybe<Scalars['String']['output']>;
+  relatedWorks?: Maybe<Scalars['String']['output']>;
   status?: Maybe<Scalars['String']['output']>;
   title?: Maybe<Scalars['String']['output']>;
   versionedTemplateId?: Maybe<Scalars['String']['output']>;
@@ -7650,13 +7654,17 @@ export type PlanResolvers<ContextType = MyContext, ParentType extends ResolversP
 };
 
 export type PlanErrorsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PlanErrors'] = ResolversParentTypes['PlanErrors']> = {
+  alternateIdentifiers?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   dmp_id?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   featured?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  funding?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   general?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   languageId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  members?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   projectId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   registered?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   registeredById?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  relatedWorks?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   status?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   title?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   versionedTemplateId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;

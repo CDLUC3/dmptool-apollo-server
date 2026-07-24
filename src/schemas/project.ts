@@ -80,6 +80,8 @@ export const projectTypeDefs = gql`
     fundings: [ProjectSearchResultFunding!]
     "Search results errors"
     errors: ProjectErrors
+    "The plans in the project"
+    plans: [PlanSearchResult!]
   }
 
   type ProjectSearchResults implements PaginatedQueryResults {

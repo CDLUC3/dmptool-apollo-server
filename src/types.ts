@@ -3353,6 +3353,8 @@ export type ProjectSearchResult = {
   modifiedById?: Maybe<Scalars['Int']['output']>;
   /** The name of the person who last modified the project */
   modifiedByName?: Maybe<Scalars['String']['output']>;
+  /** The plans in the project */
+  plans?: Maybe<Array<PlanSearchResult>>;
   /** The type of research being done */
   researchDomain?: Maybe<Scalars['String']['output']>;
   /** The estimated date the research project will begin (use YYYY-MM-DD format) */
@@ -7940,6 +7942,7 @@ export type ProjectSearchResultResolvers<ContextType = MyContext, ParentType ext
   modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   modifiedByName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  plans?: Resolver<Maybe<Array<ResolversTypes['PlanSearchResult']>>, ParentType, ContextType>;
   researchDomain?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   startDate?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   title?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;

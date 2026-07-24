@@ -241,7 +241,7 @@ export class ResearchDomain extends MySqlModel {
       '',
       values,
       opts,
-      reference
+      reference,
     )
 
     context.logger.debug(prepareObjectForLogs({ options, response }), reference);

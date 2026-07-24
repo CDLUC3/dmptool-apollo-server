@@ -85,8 +85,7 @@ export class VersionedSectionCustomization extends MySqlModel {
           context,
           VersionedSectionCustomization.tableName,
           this,
-          ref,
-          []
+          ref
         );
         return await VersionedSectionCustomization.findById(ref, context, newId);
       }

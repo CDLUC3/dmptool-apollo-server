@@ -66,7 +66,7 @@ export class PlanFeedback extends MySqlModel {
     if (await this.isValid()) {
       // My assumption is that you can have multiple rounds of requests for the same planId, so we don't need to check if it already exists
       // Save the record and then fetch it
-      const newId = await PlanFeedback.insert(context, PlanFeedback.tableName, this, reference, []);
+      const newId = await PlanFeedback.insert(context, PlanFeedback.tableName, this, reference);
       // If no id was returned then something went wrong with the insert and we should log an error and return the object with an error message
       if (!newId) {
         const msg = `${reference}, ERROR: Failed to create PlanFeedback.`;

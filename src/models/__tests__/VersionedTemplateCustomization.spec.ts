@@ -137,8 +137,7 @@ describe('VersionedTemplateCustomization', () => {
         mockContext,
         'versionedTemplateCustomizations',
         instance,
-        'VersionedTemplateCustomization.create',
-        [],
+        'VersionedTemplateCustomization.create'
       );
       expect(createdInstance.unpublishOtherVersions).toHaveBeenCalled();
       expect(result).toBe(createdInstance);

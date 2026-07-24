@@ -39,7 +39,7 @@ export class Tag extends MySqlModel {
     const current = await Tag.findBySlug(
       'Section.create',
       context,
-      this.slug
+      this.slug,
     );
 
     // Then make sure it doesn't already exist
@@ -47,7 +47,7 @@ export class Tag extends MySqlModel {
       this.addError('general', 'Tag already exists');
     } else {
       if (await this.isValid()) {
-        const newId = await Tag.insert(context, tableName, this, 'Tag.create', []);
+        const newId = await Tag.insert(context, tableName, this, 'Tag.create');
         const response = await Tag.findById('Tag.create', context, newId);
         return response
       }
@@ -58,7 +58,7 @@ export class Tag extends MySqlModel {
   async update(context: MyContext): Promise<Tag> {
     const id = this.id;
     if (await this.isValid()) {
-      await Tag.update(context, tableName, this, 'Tag.update', [], false);
+      await Tag.update(context, tableName, this, 'Tag.update');
       const updatedTag = await Tag.findById('Tag.update', context, id);
       return updatedTag as Tag;
     }

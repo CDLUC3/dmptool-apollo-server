@@ -144,8 +144,7 @@ describe("SectionCustomization", () => {
         mockContext,
         "sectionCustomizations",
         customization,
-        "SectionCustomization.create",
-        []
+        "SectionCustomization.create"
       );
       expect(result.id).toBe(1);
       expect(result.templateCustomizationId).toBe(100);

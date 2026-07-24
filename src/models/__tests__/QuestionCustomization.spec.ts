@@ -148,8 +148,7 @@ describe("QuestionCustomization", () => {
         mockContext,
         "questionCustomizations",
         customization,
-        "QuestionCustomization.create",
-        []
+        "QuestionCustomization.create"
       );
       expect(result.id).toBe(1);
       expect(result.templateCustomizationId).toBe(100);

@@ -139,7 +139,7 @@ describe('reconcileAffiliationEmailDomains', () => {
     expect(findByAffiliationIdSpy).toHaveBeenCalledWith(
       reference,
       context,
-      affiliation.uri
+      affiliation.uri,
     );
     expect(reconcileSpy).toHaveBeenCalledWith(['old.edu'], ['new.edu']);
     expect(existing.delete).toHaveBeenCalledWith(context);

@@ -222,7 +222,7 @@ export class Repository extends MySqlModel {
       '',
       values,
       opts,
-      reference
+      reference,
     )
 
     // Process each repository result to transform repositoryTypes from database format

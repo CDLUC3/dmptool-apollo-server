@@ -41,7 +41,7 @@ export class PlanFeedbackComment extends MySqlModel {
     if (await this.isValid()) {
       this.prepForSave();
       // Save the record and then fetch it
-      const newId = await PlanFeedbackComment.insert(context, PlanFeedbackComment.tableName, this, reference, []);
+      const newId = await PlanFeedbackComment.insert(context, PlanFeedbackComment.tableName, this, reference);
       const response = await PlanFeedbackComment.findById(reference, context, newId);
       return response;
     }

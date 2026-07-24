@@ -167,7 +167,7 @@ export class ProjectSearchResult {
       groupByClause,
       values,
       opts,
-      reference
+      reference,
     )
 
     // Loop through each result and marshal the collaborators, members, and fundings objects
@@ -283,7 +283,7 @@ export class Project extends MySqlModel {
         this.prepForSave();
 
         // Save the record and then fetch it
-        const newId = await Project.insert(context, this.tableName, this, reference, []);
+        const newId = await Project.insert(context, this.tableName, this, reference);
         const response = await Project.findById(reference, context, newId);
         return response;
       }

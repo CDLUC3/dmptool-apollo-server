@@ -40,7 +40,7 @@ export class VersionedTemplateLink extends MySqlModel {
       reference,
       context,
       this.templateId,
-      this.url
+      this.url,
     );
 
     // Then make sure it doesn't already exist
@@ -53,8 +53,7 @@ export class VersionedTemplateLink extends MySqlModel {
           context,
           VersionedTemplateLink.tableName,
           this,
-          reference,
-          []
+          reference
         );
         return await VersionedTemplateLink.findById(reference, context, newId as number);
       }

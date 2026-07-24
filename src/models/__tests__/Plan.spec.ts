@@ -1396,8 +1396,7 @@ describe('create', () => {
       context,
       'plans',
       expect.objectContaining({ title: 'My Project 4' }),
-      'Plan.create',
-      []
+      'Plan.create'
     );
     expect(result.title).toBe('My Project 4');
 

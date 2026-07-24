@@ -45,8 +45,7 @@ export class VersionedQuestionCondition extends MySqlModel {
         context,
         this.tableName,
         this,
-        'VersionedQuestionCondition.create',
-        []
+        'VersionedQuestionCondition.create'
       );
       return await VersionedQuestionCondition.findById('VersionedQuestion.create', context, newId);
     }

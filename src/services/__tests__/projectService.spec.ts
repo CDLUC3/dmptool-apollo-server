@@ -241,8 +241,7 @@ describe('setCurrentUserAsProjectOwner', () => {
         ...collaborator,
         userId: undefined,
       },
-      'ProjectCollaborator.create',
-      []
+      'ProjectCollaborator.create'
     );
     expect(User.findById).toHaveBeenCalledTimes(1);
   });

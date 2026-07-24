@@ -64,8 +64,7 @@ export class ResearchOutputType extends MySqlModel {
           context,
           ResearchOutputType.tableName,
           this,
-          reference,
-          []
+          reference
         );
         return await ResearchOutputType.findById(reference, context, newId);
       }

@@ -16,7 +16,7 @@ import { reorderDisplayOrder } from "../utils/helpers";
 export const generateSectionVersion = async (
   context: MyContext,
   section: Section,
-  versionedTemplateId: number
+  versionedTemplateId: number,
 ): Promise<boolean> => {
 
   // If the section has no id then it has not yet been saved so throw an error
@@ -177,7 +177,7 @@ export const updateDisplayOrders = async (
 
     } else {
       const toUpdate = new Section({ ...reorderedSection });
-      const updatedSection = await toUpdate.update(context, true);
+      const updatedSection = await toUpdate.update(context);
       if (updatedSection && updatedSection.hasErrors()) {
         // If one of them fais, throw an error
         const msg = `Unable to update the display order for section: ${reorderedSection.id}`;

@@ -56,7 +56,7 @@ export class TemplateSearchResult {
     context: MyContext,
     affiliationId: string,
     term: string,
-    options: PaginationOptions = Template.getDefaultPaginationOptions()
+    options: PaginationOptions = Template.getDefaultPaginationOptions(),
   ): Promise<PaginatedQueryResults<TemplateSearchResult>> {
     const whereFilters = ['t.ownerId = ?'];
     const values: string[] = [affiliationId];
@@ -102,7 +102,7 @@ export class TemplateSearchResult {
       '',
       values,
       opts,
-      reference
+      reference,
     )
 
     context.logger.debug(prepareObjectForLogs({ options, response }), reference);
@@ -171,7 +171,7 @@ export class Template extends MySqlModel {
       const current = await Template.findByNameAndOwnerId(
         'TemplateCollaborator.create',
         context,
-        this.name
+        this.name,
       );
 
       // Then make sure it doesn't already exist
@@ -180,7 +180,7 @@ export class Template extends MySqlModel {
       } else {
         this.prepForSave();
         // Save the record and then fetch it
-        const newId = await Template.insert(context, this.tableName, this, 'Template.create', []);
+        const newId = await Template.insert(context, this.tableName, this, 'Template.create');
         return await Template.findById('Template.create', context, newId);
       }
     }
@@ -274,7 +274,7 @@ export class Template extends MySqlModel {
     const template = await Template.findById(reference, context, templateId);
     if (template) {
       template.isDirty = true;
-      await template.update(context, false);
+      await template.update(context);
     }
   };
 }

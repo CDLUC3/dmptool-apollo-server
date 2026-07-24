@@ -483,7 +483,7 @@ describe('Template', () => {
 
       expect(Template.findById).toHaveBeenCalledWith('Test', context, template.id);
       expect(template.isDirty).toBe(true);
-      expect(template.update).toHaveBeenCalledWith(context, false);
+      expect(template.update).toHaveBeenCalledWith(context);
     });
 
     it('should not call update if the template does not exist', async () => {

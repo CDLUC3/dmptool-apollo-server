@@ -88,8 +88,7 @@ export class SectionCustomization extends MySqlModel {
           context,
           SectionCustomization.tableName,
           this,
-          ref,
-          []
+          ref
         );
         return await SectionCustomization.findById(ref, context, newId);
       }

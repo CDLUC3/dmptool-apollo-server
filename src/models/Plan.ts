@@ -154,7 +154,7 @@ export class PlanSearchResult {
     context: MyContext,
     userId: number,
     options: PaginationOptions = Plan.getDefaultPaginationOptions(),
-    term?: string
+    term?: string,
   ): Promise<PaginatedQueryResults<PlanSearchResult>> {
     const whereFilters = ['p.createdById = ?'];
     const values = [userId.toString()];
@@ -222,7 +222,7 @@ export class PlanSearchResult {
       groupBy,
       values,
       opts,
-      reference
+      reference,
     );
 
     context.logger.debug(prepareObjectForLogs({ options, response }), reference);
@@ -274,7 +274,7 @@ export class PlanSectionProgress {
     reference: string,
     context: MyContext,
     versionedTemplateId: number,
-    affiliationId: string
+    affiliationId: string,
   ): Promise<number | undefined> {
     // Join via templateId so the lookup works regardless of which specific
     // versioned template the customization was published against (e.g. after
@@ -303,7 +303,7 @@ export class PlanSectionProgress {
   private static async fetchCustomSections(
     reference: string,
     context: MyContext,
-    templateCustomizationId: number
+    templateCustomizationId: number,
   ): Promise<{ id: number; name: string; pinnedSectionType: string; pinnedSectionId: number; totalQuestions: number; totalRequiredQuestions: number }[]> {
     const sql = `
     SELECT
@@ -359,17 +359,17 @@ export class PlanSectionProgress {
   /**
    * Fetch the count of custom questions that have been answered by section type for a given plan and template customization.
    * This allows us to credit answered custom questions in the progress calculation for both base and custom sections.
-   * @param reference a string reference for logging
-   * @param context the Apollo server context
-   * @param planId the plan's id
-   * @param templateCustomizationId the template customization's id
+   * @param reference
+   * @param context
+   * @param planId
+   * @param templateCustomizationId
    * @returns
    */
   private static async fetchAnsweredCustomQuestions(
     reference: string,
     context: MyContext,
     planId: number,
-    templateCustomizationId: number
+    templateCustomizationId: number,
   ): Promise<{ sectionId: number; sectionType: string; answeredCount: number; answeredRequiredCount: number }[]> {
     const sql = `
     SELECT
@@ -402,7 +402,6 @@ export class PlanSectionProgress {
    * @param reference The caller's reference string for logging purposes'
    * @param context The Apollo context object
    * @param planId The ID of the plan to return progress information for
-   * @param versionedTemplateId The ID of the versioned template to use for the plan
    * @returns The progress information for the section or an empty array if the section does not exist
    */
   static async findByPlanId(reference: string, context: MyContext, planId: number, versionedTemplateId?: number): Promise<PlanSectionProgress[]> {
@@ -597,7 +596,6 @@ export class PlanProgress {
    * @param reference The caller's reference string for logging purposes'
    * @param context The Apollo context object
    * @param planId The ID of the plan to return progress information for
-   * @param versionedTemplateId The ID of the versioned template to use for the plan
    * @returns The overall progress information for the plan or null if the plan does not exist
    */
   static async findByPlanId(
@@ -811,7 +809,7 @@ export class Plan extends MySqlModel {
           this.visibility = visibility;
 
           // Update the plan
-          const updated = await this.update(context, false);
+          const updated = await this.update(context);
           if (updated && !updated.hasErrors()) {
             return new Plan(updated);
           }
@@ -859,7 +857,7 @@ export class Plan extends MySqlModel {
         this.title = resolveNamingCollision(this.title, existingPlanTitles);
 
         // Create the new Plan
-        const newId = await Plan.insert(context, Plan.tableName, this, reference, []);
+        const newId = await Plan.insert(context, Plan.tableName, this, reference);
 
         // Create the original version snapshot of the DMP
         if (newId) {

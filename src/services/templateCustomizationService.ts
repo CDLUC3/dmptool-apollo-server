@@ -15,9 +15,9 @@ import { ForbiddenError, NotFoundError } from "../utils/graphQLErrors";
  * Fetch the TemplateCustomization and make sure the current user has permission
  * to access it.
  *
- * @param reference the string reference for logging
- * @param context the Apollo server context
- * @param templateCustomizationId the template customization's id
+ * @param reference
+ * @param context
+ * @param templateCustomizationId
  */
 export const getValidatedCustomization = async (
   reference: string,
@@ -35,7 +35,7 @@ export const getValidatedCustomization = async (
   if (!customization) throw NotFoundError();
 
   // Check if the current user has permission to access the Customization
-  if (!(hasPermissionOnTemplateCustomization(context, customization))) {
+  if (!(await hasPermissionOnTemplateCustomization(context, customization))) {
     throw ForbiddenError();
   }
   return customization;
@@ -50,7 +50,7 @@ export const getValidatedCustomization = async (
  */
 export const hasPermissionOnTemplateCustomization = (
   context: MyContext,
-  templateCustomization: TemplateCustomization,
+  templateCustomization: TemplateCustomization
 ): boolean => {
   if (!context || !context.token || !templateCustomization) return false;
 
@@ -204,7 +204,7 @@ export const handleFunderTemplateArchive = async (
   const customizations: TemplateCustomization[] = await TemplateCustomization.findByTemplateId(
     reference,
     context,
-    templateId
+    templateId,
   );
 
   if (Array.isArray(customizations) && customizations.length > 0) {

@@ -160,7 +160,7 @@ export class User extends MySqlModel {
     reference: string,
     context: MyContext,
     email: string,
-    password: string
+    password: string,
   ): Promise<number | null> {
     const userEmails = await UserEmail.findByEmail(reference, context, email);
 
@@ -273,7 +273,7 @@ export class User extends MySqlModel {
       '',
       values,
       opts,
-      reference
+      reference,
     );
 
     context.logger.debug(prepareObjectForLogs({ options, response }), reference);
@@ -287,7 +287,7 @@ export class User extends MySqlModel {
     term: string,
     options: PaginationOptions = User.getDefaultPaginationOptions(),
     role?: UserRole,
-    affiliationId?: string
+    affiliationId?: string,
   ): Promise<PaginatedQueryResults<User>> {
     const whereFilters: string[] = [];
     const values: string[] = [];
@@ -355,7 +355,7 @@ export class User extends MySqlModel {
       '',
       values,
       opts,
-      reference
+      reference,
     )
 
     context.logger.debug(prepareObjectForLogs({ options, response }), reference);
@@ -514,7 +514,7 @@ export class User extends MySqlModel {
         }
 
         // Don't allow password changes here
-        await User.update(context, this.tableName, this, 'User.update', ['password'], false);
+        await User.update(context, this.tableName, this, 'User.update', ['password']);
         return await User.findById('User.update', context, this.id);
       }
       // This user has never been saved before so we cannot update it!
@@ -538,7 +538,7 @@ export class User extends MySqlModel {
       if (this.validatePassword()) {
         this.password = await this.hashPassword(newPassword);
 
-        const updated = await User.update(context, this.tableName, this, 'User.updatePassword', [], false);
+        const updated = await User.update(context, this.tableName, this, 'User.updatePassword', []);
         if (updated) {
           return await User.findById('updatePassword resolver', context, this.id);
         }

@@ -13,7 +13,7 @@ export const validateProjectCollaboratorAccessChange = async (
   context: MyContext,
   projectId: number,
   currentAccessLevel: ProjectCollaboratorAccessLevel,
-  newAccessLevel: ProjectCollaboratorAccessLevel
+  newAccessLevel: ProjectCollaboratorAccessLevel,
 ): Promise<void> => {
   const reference = 'collaboratorService.validateProjectCollaboratorAccessChange';
 
@@ -49,7 +49,7 @@ export const validateProjectCollaboratorAccessChange = async (
 export const demoteExistingPrimaryCollaborator = async (
   context: MyContext,
   projectId: number,
-  excludeCollaboratorId?: number
+  excludeCollaboratorId?: number,
 ): Promise<void> => {
   const reference = 'collaboratorService.demoteExistingPrimaryCollaborator';
   const collaborators = await ProjectCollaborator.findByProjectId(reference, context, projectId);

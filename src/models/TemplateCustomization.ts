@@ -724,7 +724,7 @@ export class TemplateCustomization extends MySqlModel {
             this.isDirty = false;
             this.latestPublishedVersionId = undefined;
             this.latestPublishedDate = undefined;
-            const published: TemplateCustomization = await this.update(context, false);
+            const published: TemplateCustomization = await this.update(context);
 
             if (published) {
               return published;
@@ -765,7 +765,7 @@ export class TemplateCustomization extends MySqlModel {
           TemplateCustomization.tableName,
           this,
           ref,
-          ['templateName'], //skip templateName as it is not a real column in the database and is only used for convenience when fetching a customization with its template name
+          ['templateName'] //skip templateName as it is not a real column in the database and is only used for convenience when fetching a customization with its template name
         );
         return await TemplateCustomization.findById(ref, context, newId);
       }
@@ -868,7 +868,7 @@ export class TemplateCustomization extends MySqlModel {
     if (customization.isDirty) return true;
 
     customization.isDirty = true;
-    const updated: TemplateCustomization = await customization.update(context, false);
+    const updated: TemplateCustomization = await customization.update(context);
 
     // Return true if the update was successful
     return !isNullOrUndefined(updated) && !updated.hasErrors();
@@ -971,7 +971,7 @@ export class TemplateCustomization extends MySqlModel {
    * @param reference The reference to use for logging errors.
    * @param context The Apollo context.
    * @param templateCustomizationId The template customization's id.
-   * @returns
+   * @returns the Template customization
    */
   static async findByIdWithTemplateName(
     reference: string,

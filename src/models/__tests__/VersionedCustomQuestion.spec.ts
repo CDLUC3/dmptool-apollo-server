@@ -302,8 +302,7 @@ describe("VersionedCustomQuestion", () => {
         mockContext,
         "versionedCustomQuestions",
         customization,
-        "VersionedCustomQuestion.create",
-        []
+        "VersionedCustomQuestion.create"
       );
       expect(result.id).toBe(1);
       expect(result.versionedTemplateCustomizationId).toBe(100);

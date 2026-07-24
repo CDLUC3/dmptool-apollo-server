@@ -41,7 +41,7 @@ export class VersionedGuidance extends MySqlModel {
       this.prepForSave();
 
       // Save the record and then fetch it
-      const newId = await VersionedGuidance.insert(context, VersionedGuidance.tableName, this, 'VersionedGuidance.create', []);
+      const newId = await VersionedGuidance.insert(context, VersionedGuidance.tableName, this, 'VersionedGuidance.create');
       return await VersionedGuidance.findById('VersionedGuidance.create', context, newId);
     }
     // Otherwise return as-is with all the errors

@@ -56,8 +56,7 @@ export const anonymizeUser = async (context: MyContext, user: User): Promise<Use
   // Anonymize the user's information
   await UserEmail.createOrUpdatePrimary(context,
     user.id,
-    `${randomHex(6)}@deleted-account.${generalConfig.domain}`,
-    false);
+    `${randomHex(6)}@deleted-account.${generalConfig.domain}`);
   user.password = await user.hashPassword(generateRandomPassword());
   user.givenName = 'Deleted';
   user.surName = 'Account';
@@ -106,7 +105,7 @@ export const anonymizeUser = async (context: MyContext, user: User): Promise<Use
 export const mergeUsers = async (
   context: MyContext,
   userToMerge: User,
-  userToKeep: User
+  userToKeep: User,
 ): Promise<User> => {
   const ref = 'UserService.mergeUsers';
   const original = await User.findById(ref, context, userToKeep.id);

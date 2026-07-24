@@ -30,7 +30,7 @@ export const generateQuestionVersion = async (
   context: MyContext,
   question: Question,
   versionedTemplateId: number,
-  versionedSectionId: number
+  versionedSectionId: number,
 ): Promise<boolean> => {
 
   // If the section has no id then it has not yet been saved so throw an error
@@ -143,7 +143,7 @@ export const cloneQuestion = (
 export const generateQuestionConditionVersion = async (
   context: MyContext,
   questionCondition: QuestionCondition,
-  versionedQuestionId: number
+  versionedQuestionId: number,
 ): Promise<boolean> => {
   // If the section has no id then it has not yet been saved so throw an error
   if (!questionCondition.id) {
@@ -199,7 +199,7 @@ export const updateDisplayOrders = async (
 
     } else {
       const toUpdate = new Question({ ...reorderedQuestion });
-      const updatedSection = await toUpdate.update(context, true);
+      const updatedSection = await toUpdate.update(context);
       if (updatedSection && updatedSection.hasErrors()) {
         // If one of them fais, throw an error
         const msg = `Unable to update the display order for section: ${reorderedQuestion.id}`;

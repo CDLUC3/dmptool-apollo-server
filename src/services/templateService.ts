@@ -32,7 +32,7 @@ export const hasPermissionOnTemplate = async (context: MyContext, template: Temp
     'template resolver.hasPermission',
     context,
     template?.id,
-    context.token?.email
+    context.token?.email,
   )
   if (collaborator) {
     return true;
@@ -54,7 +54,7 @@ export const generateTemplateVersion = async (
   versionerId: number,
   comment = '',
   latestPublishVisibility = TemplateVisibility.ORGANIZATION,
-  versionType = TemplateVersionType.DRAFT
+  versionType = TemplateVersionType.DRAFT,
 ): Promise<VersionedTemplate> => {
   const ref = 'generateTemplateVersion';
 
@@ -160,7 +160,7 @@ export const generateTemplateVersion = async (
           ref,
           context,
           v.id,         // old version id
-          created.id   // new version id
+          created.id,   // new version id
         );
         context.logger.info(
           { nbrAffected, oldVersionId: v.id, newVersionId: created.id },

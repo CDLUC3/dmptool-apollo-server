@@ -89,8 +89,7 @@ export class VersionedQuestionCustomization extends MySqlModel {
           context,
           VersionedQuestionCustomization.tableName,
           this,
-          ref,
-          []
+          ref
         );
         return await VersionedQuestionCustomization.findById(ref, context, newId);
       }

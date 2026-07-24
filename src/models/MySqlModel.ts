@@ -1,4 +1,3 @@
-import { toErrorMessage } from "@dmptool/utils";
 import { prepareObjectForLogs } from "../logger";
 import { MyContext } from '../context';
 import { isNullOrUndefined, validateDate } from "../utils/helpers";
@@ -13,7 +12,6 @@ import {
   SortDirection
 } from "../types/general";
 import { generalConfig } from "../config/generalConfig";
-import { TransactionClient } from "../datasources/mysql";
 
 type MixedArray<T> = T[];
 

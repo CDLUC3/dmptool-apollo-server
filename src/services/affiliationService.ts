@@ -14,6 +14,7 @@ export interface ResolveAffiliationResult {
   error?: string;
 }
 
+
 /**
  * Resolves the affiliationId to use for a ProjectMember create/update.
  *
@@ -32,7 +33,7 @@ export const resolveAffiliation = async (
   reference: string,
   context: MyContext,
   input: ResolveAffiliationInput,
-  userId?: number
+  userId?: number,
 ): Promise<ResolveAffiliationResult> => {
   // Guard against the frontend's "other" sentinel leaking through as a literal
   // affiliationId instead of being left blank
@@ -73,7 +74,7 @@ export const resolveAffiliation = async (
 export const processOtherAffiliationName = async (
   context: MyContext,
   name: string,
-  userId?: number
+  userId?: number,
 ): Promise<Affiliation> => {
   // First look to see if the affiliation name already exists
   const existing = await Affiliation.findByName('processOtherAffiliation', context, name);
@@ -109,7 +110,7 @@ export const reconcileAffiliationEmailDomains = async (
   context: MyContext,
   reference: string,
   affiliation: Affiliation,
-  desiredEmailDomainIds: AffiliationEmailDomain[]
+  desiredEmailDomainIds: AffiliationEmailDomain[],
 ): Promise<boolean> => {
   // If the Affiliation has an id then it already exists so we need to fetch the
   // current email domains so we can compare them to the new ones
@@ -185,7 +186,7 @@ export const reconcileAffiliationLinks = async (
   context: MyContext,
   reference: string,
   affiliation: Affiliation,
-  desiredLinks: AffiliationLink[]
+  desiredLinks: AffiliationLink[],
 ): Promise<boolean> => {
   // If the Affiliation has an id then it already exists so we need to fetch the
   // current links so we can compare them to the new ones

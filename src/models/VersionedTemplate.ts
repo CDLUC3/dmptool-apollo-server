@@ -65,7 +65,7 @@ export class VersionedTemplateSearchResult {
     reference: string,
     context: MyContext,
     term: string,
-    options: TemplateQueryOptions = VersionedTemplate.getDefaultPaginationOptions()
+    options: TemplateQueryOptions = VersionedTemplate.getDefaultPaginationOptions(),
   ): Promise<PaginatedQueryResults<VersionedTemplateSearchResult>> {
     const userAffiliationId = context.token?.affiliationId;
     const whereFilters = ['vt.active = 1 AND vt.versionType = ?'];
@@ -132,7 +132,7 @@ export class VersionedTemplateSearchResult {
       '',
       values,
       opts,
-      reference
+      reference,
     )
 
     context.logger.debug(prepareObjectForLogs({ options, response }), reference);
@@ -218,7 +218,7 @@ export class CustomizableTemplateSearchResult {
     term?: string,
     status?: string,
     migrationStatus?: string,
-    options: PaginationOptions = VersionedTemplate.getDefaultPaginationOptions()
+    options: PaginationOptions = VersionedTemplate.getDefaultPaginationOptions(),
   ): Promise<PaginatedQueryResults<CustomizableTemplateSearchResult>> {
     // Versioned templates must be published and publicly visible
     const whereFilters = [
@@ -430,7 +430,7 @@ export class VersionedTemplate extends MySqlModel {
     // First make sure the record is valid
     if (await this.isValid()) {
       // Save the record and then fetch it
-      const newId = await VersionedTemplate.insert(context, this.tableName, this, 'VersionedTemplate.create', []);
+      const newId = await VersionedTemplate.insert(context, this.tableName, this, 'VersionedTemplate.create');
       return await VersionedTemplate.findVersionedTemplateById('VersionedTemplate.create', context, newId);
     }
     // Otherwise return as-is with all the errors
@@ -442,7 +442,7 @@ export class VersionedTemplate extends MySqlModel {
     // First make sure the record is valid
     if (await this.isValid()) {
       if (this.id) {
-        const result = await VersionedTemplate.update(context, this.tableName, this, 'VersionedTemplate.update', [], false);
+        const result = await VersionedTemplate.update(context, this.tableName, this, 'VersionedTemplate.update');
         return result as VersionedTemplate;
       }
       // This template has never been saved before so we cannot update it!

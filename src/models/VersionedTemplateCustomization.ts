@@ -70,8 +70,7 @@ export class VersionedTemplateCustomization extends MySqlModel {
         context,
         VersionedTemplateCustomization.tableName,
         this,
-        ref,
-        []
+        ref
       );
 
       if (newId) {
@@ -83,7 +82,7 @@ export class VersionedTemplateCustomization extends MySqlModel {
 
         if (!isNullOrUndefined(created) && !isNullOrUndefined(created.id)) {
           // Unpublish all other versions of the customization.
-          await created.unpublishOtherVersions(ref, context);
+          await created.unpublishOtherVersions(ref, context)
 
           return created;
         } else {

@@ -153,8 +153,7 @@ describe("VersionedSectionCustomization", () => {
         mockContext,
         "versionedSectionCustomizations",
         customization,
-        "VersionedSectionCustomization.create",
-        []
+        "VersionedSectionCustomization.create"
       );
       expect(result.id).toBe(1);
       expect(result.versionedTemplateCustomizationId).toBe(100);

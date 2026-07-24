@@ -58,7 +58,7 @@ export class Work extends MySqlModel {
         this.addError('general', 'Work already exists');
       } else {
         // Save the record and then fetch it
-        const newId = await Work.insert(context, Work.tableName, this, reference, []);
+        const newId = await Work.insert(context, Work.tableName, this, reference);
         return await Work.findById(reference, context, newId);
       }
     }
@@ -193,7 +193,7 @@ export class WorkVersion extends MySqlModel {
         this.addError('general', 'Work version already exists');
       } else {
         // Save the record and then fetch it
-        const newId = await WorkVersion.insert(context, WorkVersion.tableName, this, reference, []);
+        const newId = await WorkVersion.insert(context, WorkVersion.tableName, this, reference);
         return await WorkVersion.findById(reference, context, newId);
       }
     }
@@ -223,7 +223,7 @@ export class WorkVersion extends MySqlModel {
         context,
         WorkVersion.tableName,
         this.id,
-        'WorkVersion.delete'
+        'WorkVersion.delete',
       );
       if (successfullyDeleted) {
         return deleted;
@@ -245,7 +245,7 @@ export class WorkVersion extends MySqlModel {
     reference: string,
     context: MyContext,
     doi: string,
-    hash: Buffer
+    hash: Buffer,
   ): Promise<WorkVersion> {
     const sql = `SELECT wv.* FROM workVersions wv LEFT JOIN works w ON wv.workId = w.id WHERE wv.hash = ? AND w.doi = ?`;
     const results = await WorkVersion.query(context, sql, [hash, doi?.toString()], reference);
@@ -356,7 +356,7 @@ export class RelatedWork extends MySqlModel {
         context,
         RelatedWork.tableName,
         this.id,
-        'RelatedWork.delete'
+        'RelatedWork.delete',
       );
       if (successfullyDeleted) {
         return deleted;
@@ -379,7 +379,7 @@ export class RelatedWork extends MySqlModel {
     reference: string,
     context: MyContext,
     planId: number,
-    workVersionId: number
+    workVersionId: number,
   ): Promise<RelatedWork> {
     const sql = `SELECT * FROM ${RelatedWork.tableName} WHERE planId = ? AND workVersionId = ?`;
     const result = await RelatedWork.query(context, sql, [planId.toString(), workVersionId.toString()], reference);
@@ -417,7 +417,7 @@ export class RelatedWork extends MySqlModel {
   static async statsByProjectId(
     reference: string,
     context: MyContext,
-    projectId: number
+    projectId: number,
   ): Promise<RelatedWorkStatsResults> {
     const sql = `
       SELECT
@@ -570,7 +570,7 @@ export class RelatedWorkSearchResult extends MySqlModel {
     planId?: number,
     doi?: string,
     filterOptions: RelatedWorksFilterOptions = {},
-    options: PaginationOptions = RelatedWorkSearchResult.getDefaultPaginationOptions()
+    options: PaginationOptions = RelatedWorkSearchResult.getDefaultPaginationOptions(),
   ): Promise<RelatedWorkSearchResults<RelatedWorkSearchResult>> {
     const whereFilters = [];
     const values = [];
@@ -652,7 +652,7 @@ export class RelatedWorkSearchResult extends MySqlModel {
       '',
       values,
       opts,
-      reference
+      reference,
     );
 
     context.logger.debug(prepareObjectForLogs({ options, response }), reference);

@@ -169,8 +169,7 @@ describe("VersionedCustomSection", () => {
         mockContext,
         "versionedCustomSections",
         customization,
-        "VersionedCustomSection.create",
-        []
+        "VersionedCustomSection.create"
       );
       expect(result.id).toBe(1);
       expect(result.versionedTemplateCustomizationId).toBe(100);

@@ -45,7 +45,7 @@ export class VersionedSectionSearchResult {
     reference: string,
     context: MyContext,
     term: string,
-    options: SectionQueryOptions = VersionedSection.getDefaultPaginationOptions()
+    options: SectionQueryOptions = VersionedSection.getDefaultPaginationOptions(),
   ): Promise<PaginatedQueryResults<VersionedSectionSearchResult>> {
     // Only include active published templates that are owned by the user's affiliation or marked as best practice
     const whereFilters: string[] = ['vt.active = 1', 'vt.versionType = ?'];
@@ -109,7 +109,7 @@ export class VersionedSectionSearchResult {
       groupBy,
       values,
       opts,
-      reference
+      reference,
     )
 
     context.logger.debug(prepareObjectForLogs({ options, response }), reference);
@@ -219,7 +219,7 @@ export class VersionedSection extends MySqlModel {
     reference: string,
     context: MyContext,
     term: string,
-    options: PaginationOptions = VersionedSection.getDefaultPaginationOptions()
+    options: PaginationOptions = VersionedSection.getDefaultPaginationOptions(),
   ): Promise<PaginatedQueryResults<VersionedSection>> {
     const whereFilters = [];
     const values = [];
@@ -258,7 +258,7 @@ export class VersionedSection extends MySqlModel {
       '',
       values,
       opts,
-      reference
+      reference,
     )
 
     context.logger.debug(prepareObjectForLogs({ options, response }), reference);

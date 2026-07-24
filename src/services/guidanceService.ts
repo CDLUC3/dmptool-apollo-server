@@ -68,7 +68,7 @@ export const hasPermissionOnGuidanceGroup = async (
 // - Sets active flag to true on new version and false on all previous versions
 export const publishGuidanceGroup = async (
   context: MyContext,
-  guidanceGroup: GuidanceGroup
+  guidanceGroup: GuidanceGroup,
 ): Promise<boolean> => {
   const reference = 'publishGuidanceGroup';
 
@@ -150,7 +150,7 @@ export const publishGuidanceGroup = async (
 // Unpublish a GuidanceGroup by setting all versions to inactive
 export const unpublishGuidanceGroup = async (
   context: MyContext,
-  guidanceGroup: GuidanceGroup
+  guidanceGroup: GuidanceGroup,
 ): Promise<boolean> => {
   const reference = 'unpublishGuidanceGroup';
 
@@ -179,7 +179,7 @@ export const unpublishGuidanceGroup = async (
 const generateGuidanceVersion = async (
   context: MyContext,
   guidance: Guidance,
-  versionedGuidanceGroupId: number
+  versionedGuidanceGroupId: number,
 ): Promise<boolean> => {
 
   if (!guidance.id) {
@@ -217,7 +217,7 @@ const generateGuidanceVersion = async (
 // Mark a GuidanceGroup as dirty when any of its guidance is modified
 export const markGuidanceGroupAsDirty = async (
   context: MyContext,
-  guidanceGroupId: number
+  guidanceGroupId: number,
 ): Promise<void> => {
   const reference = 'markGuidanceGroupAsDirty';
 
@@ -246,7 +246,7 @@ export const markGuidanceGroupAsDirty = async (
 function groupGuidanceByTag(
   versionedGuidanceItems: VersionedGuidance[],
   sectionTagIds: number[],
-  tagsMap: Record<number, string>,
+  tagsMap: Record<number, string>
 ): GuidanceItem[] {
 
   // Filter to only include guidance for tags in this section
@@ -675,7 +675,7 @@ export async function getSectionTags(
   `;
 
   try {
-    const results = await PlanGuidance.query(context, sql, [versionedSectionId.toString()], 'getSectionTags');
+    const results = await PlanGuidance.query(context, sql, [versionedSectionId.toString()]);
     const tagsMap: Record<number, string> = {};
 
     if (results) {
@@ -707,7 +707,7 @@ export async function getSectionTagIds(
   `;
 
   try {
-    const results = await PlanGuidance.query(context, sql, [versionedTemplateId.toString()], 'getSectionTagIds');
+    const results = await PlanGuidance.query(context, sql, [versionedTemplateId.toString()]);
     return results ? results.map((row: { tagId: number }) => row.tagId) : [];
   } catch (err) {
     context.logger.error({ err, sql, versionedTemplateId }, 'Error fetching section tag IDs');
@@ -734,7 +734,7 @@ export async function getSectionTagsMap(
   `;
 
   try {
-    const results = await PlanGuidance.query(context, sql, [versionedTemplateId.toString()], 'getSectionTagsMap');
+    const results = await PlanGuidance.query(context, sql, [versionedTemplateId.toString()]);
     const tagsMap: Record<number, string> = {};
 
     if (results) {

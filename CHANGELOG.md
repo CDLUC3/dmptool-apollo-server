@@ -3,6 +3,14 @@
 ## v1.1.0
 
 ### Added
+- Added new helper SQL script to delete all existing research output questions and answers
+- Added new `TransactionClient` class to the `datasources/mysql.ts` file to allow for the use of MySQL transactions
+- Added a `AddAnswerInput`, `AddProjectInput`, `EntirePlanProjectFragment`, `EntirePlanMemberFragment`, `EntirePlanFundingFragment`, `EntirePlanAnswerFragment`, `AddEntirePlanInput`, `UpdateEntirePlanInput` to schema
+- Added new `addEntirePlan`, `updateEntirePlan` and `removeEntirePlan` schema and resolvers to allow a caller to include all of the Project, Plan, Member, Funding, Answer and RelatedWork information in one mutation (to support REST API functionality and future integrations)
+- Added new `entirePlanService` to support the above resolvers
+- Added a new `Funding.findByProjectFundingId`
+- Added a new `errorsToString` function to the `MySQLModel`
+- Added a new `findByOwnerAndTitle` to the `Plan` model
 - Added files for EZID creation: `config/ezidConfig.ts` and `datasources/EZIDAPI.ts`, and updated `Plan.publish` to call on the new `registerIdentifier` [#32]
 - Added new `buildDataCiteXMLForPlan` to build XML for EZID registration in `planService.ts` and added new `dataciteXMLService.ts` with helper functions for the new `buildDataCiteXMLForPlan` function [#32]
 - Added a `plansByProjectId` query and resolver
@@ -112,6 +120,8 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Fixed issue with JSON of default questions and answers in the local data migration file
+- Renamed old `Funding.findByProjectFundingId` to `Funding.findByPlanAndProjectFundingId`
 - Updated `updateProjectMember` resolver to handle `Other Affiliation`. Added a new, shared `resolveAffiliation` function to `affiliationService.ts`. Updated `updateProjectMember` schema to include `affiliationName` [#309]
 - Updated the `Answer` model to use the newly exported `DefaultResearchOutputTypeAnswer` from `@dmptool/types` instead of manually building it
 - Updated `Guidance` and `VersionedGuidance` classes to make `tagId` optional, since it was causing errors on `dev` where `guidance` records had no `tagId`. This is consistent with the `guidance` table schema which allows the `tagId` field to be `NULL` [#54]
@@ -224,6 +234,8 @@
 - Updates to appease newer version of eslint
 
 ### Removed
+- Removed unused `valueIsDate` function from the `MySQLModel`
+- Removed old `processResult` functions from the `Answer` and `Question` models. These functions were added to help add the `commonStandardId` to existing JSON records. It proved to be inadequate so we eneded up just deleting old data
 - Removed unused SQS env variable from example dotenv file
 - Removed override for `brace-expansion` dependency
 - Removed overrides for `ws` and `brace-expansion` dependencies

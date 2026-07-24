@@ -92,8 +92,7 @@ export class QuestionCustomization extends MySqlModel {
           context,
           QuestionCustomization.tableName,
           this,
-          ref,
-          []
+          ref
         );
         return await QuestionCustomization.findById(ref, context, newId);
       }

@@ -124,7 +124,7 @@ export class UserEmail extends MySqlModel {
 
       if (Object.keys(this.errors).length === 0) {
         // Save the record and then fetch it
-        const newId = await UserEmail.insert(context, this.tableName, this, ref, []);
+        const newId = await UserEmail.insert(context, this.tableName, this, ref);
         const created = await UserEmail.findById(ref, context, newId);
 
         if (created) {
@@ -150,7 +150,7 @@ export class UserEmail extends MySqlModel {
         }
 
         if (Object.keys(this.errors).length === 0) {
-          await UserEmail.update(context, this.tableName, this, 'UserEmail.update', [], false);
+          await UserEmail.update(context, this.tableName, this, 'UserEmail.update');
           return await UserEmail.findById('UserEmail.update', context, this.id);
         }
       }

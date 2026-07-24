@@ -44,7 +44,7 @@ export class TemplateLink extends MySqlModel {
       reference,
       context,
       this.templateId,
-      this.url
+      this.url,
     );
 
     // Then make sure it doesn't already exist
@@ -57,8 +57,7 @@ export class TemplateLink extends MySqlModel {
           context,
           TemplateLink.tableName,
           this,
-          reference,
-          []
+          reference
         );
         return await TemplateLink.findById(reference, context, newId as number);
       }

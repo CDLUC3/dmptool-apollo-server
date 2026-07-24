@@ -80,7 +80,7 @@ export class VersionedQuestion extends MySqlModel {
     // First make sure the record is valid
     if (await this.isValid()) {
       // Save the record and then fetch it
-      const newId = await VersionedQuestion.insert(context, this.tableName, this, 'VersionedQuestion.create', []);
+      const newId = await VersionedQuestion.insert(context, this.tableName, this, 'VersionedQuestion.create');
       return await VersionedQuestion.findById('VersionedQuestion.create', context, newId);
     }
     // Otherwise return as-is with all the errors

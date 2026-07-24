@@ -80,13 +80,13 @@ export const hasPermissionOnProject = async (
 export const isProjectReadOnlyForCurrentUser = async (
   reference: string,
   context: MyContext,
-  project: Project
+  project: Project,
 ): Promise<boolean> => {
   const callerCollaborator = await ProjectCollaborator.findByUserIdAndProjectId(
     reference,
     context,
     context.token?.id,
-    project.id
+    project.id,
   );
 
   if (WRITE_ACCESS_LEVELS.has(callerCollaborator?.accessLevel)) {
@@ -101,7 +101,7 @@ export const isProjectReadOnlyForCurrentUser = async (
     const primaryCollaborator = await ProjectCollaborator.findPrimaryUserByProjectId(
       reference,
       context,
-      project.id
+      project.id,
     );
     if (primaryCollaborator?.affiliationId === context.token?.affiliationId) {
       return true;
@@ -114,7 +114,7 @@ export const isProjectReadOnlyForCurrentUser = async (
 // Set the current user as the owner of the project
 export const setCurrentUserAsProjectOwner = async (
   context: MyContext,
-  projectId: number
+  projectId: number,
 ): Promise<boolean> => {
   if (!isNullOrUndefined(context.token)) {
     // Automatically add the current user as a projectCollaborator with acccessLevel = PRIMARY (Full Access)

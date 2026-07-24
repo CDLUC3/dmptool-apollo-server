@@ -168,7 +168,7 @@ export const resolvers: Resolvers = {
           throw NotFoundError(`Project with ID, ${plan.projectId}, not found`);
         }
 
-        if ((await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.COMMENT))) {
+        if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.COMMENT)) {
           return plan;
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();
@@ -398,7 +398,7 @@ export const resolvers: Resolvers = {
           const project = await Project.findById(reference, context, plan.projectId);
 
           if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.OWN)) {
-            plan.title = input.title;
+            plan.title = input.title ?? plan.title;
             plan.status = input.status as PlanStatus ?? plan.status;
             plan.visibility = input.visibility as PlanVisibility ?? plan.visibility;
             plan.featured = input.featured ?? plan.featured;

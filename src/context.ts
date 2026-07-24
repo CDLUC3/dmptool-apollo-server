@@ -38,7 +38,7 @@ export function buildContext(
   token: JWTAccessToken | null = null,
   sqlDataSource: MySQLConnection | null = null,
   dmphubAPIDataSource: DMPHubAPI | null = null,
-  ezidAPIDataSource: EZIDAPI | null = null
+  ezidAPIDataSource: EZIDAPI | null = null,
 ): MyContext {
   if (!cache) {
     // If calling from outside the Apollo server context setup an HttpCache.

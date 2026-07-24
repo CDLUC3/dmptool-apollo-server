@@ -2183,7 +2183,7 @@ describe('TemplateCustomizationOverview', () => {
       const result = await TemplateCustomization.markAsDirty('test-ref', mockContext, 123);
 
       expect(mockCustomization.isDirty).toBe(true);
-      expect(mockCustomization.update).toHaveBeenCalledWith(mockContext, false);
+      expect(mockCustomization.update).toHaveBeenCalledWith(mockContext);
       expect(result).toBe(false);
     });
 
@@ -2211,7 +2211,7 @@ describe('TemplateCustomizationOverview', () => {
       const result = await TemplateCustomization.markAsDirty('test-ref', mockContext, 123);
 
       expect(mockCustomization.isDirty).toBe(true);
-      expect(mockCustomization.update).toHaveBeenCalledWith(mockContext, false);
+      expect(mockCustomization.update).toHaveBeenCalledWith(mockContext);
       expect(result).toBe(false);
     });
 
@@ -2238,7 +2238,7 @@ describe('TemplateCustomizationOverview', () => {
       const result = await TemplateCustomization.markAsDirty('test-ref', mockContext, 123);
 
       expect(mockCustomization.isDirty).toBe(true);
-      expect(mockCustomization.update).toHaveBeenCalledWith(mockContext, false);
+      expect(mockCustomization.update).toHaveBeenCalledWith(mockContext);
       expect(result).toBe(true);
     });
   });

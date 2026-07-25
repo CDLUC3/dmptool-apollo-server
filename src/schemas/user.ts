@@ -120,6 +120,8 @@ export const typeDefs = gql`
     emails: [UserEmail]
     "The user's primary email address"
     email: String
+    "The timestamp of when the user last changed their password"
+    passwordChangedAt: String
   }
 
   type UserSearchResults implements PaginatedQueryResults {

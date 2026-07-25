@@ -371,7 +371,7 @@ describe('sendEmail', () => {
     expect(logger.info).toHaveBeenCalledTimes(1);
     expect(mockSendEmail).toHaveBeenCalledTimes(1);
     expect(mockSendEmail).toHaveBeenCalledWith({
-      "bcc": email,
+      "bcc": "",
       "cc": "",
       "from": `"${generalConfig.applicationName}" <${emailConfig.doNotReplyAddress}>`,
       "html": expectedHtml,

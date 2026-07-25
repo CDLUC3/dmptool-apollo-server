@@ -170,6 +170,7 @@ export const resolvers: Resolvers = {
           const project = await Project.findById(reference, context, funding.projectId);
           if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.EDIT)) {
             const removed = await funding.delete(context);
+            console.log("***Removed funding", removed);
             if (removed && !removed.hasErrors()) {
               const plans = await Plan.findByProjectId(reference, context, funding.projectId);
               for (const plan of plans) {

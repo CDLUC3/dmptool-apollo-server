@@ -112,6 +112,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `sendContactUsEmail` in `emailService.ts` to not include a `bcc` [#303]
 - Added `plans` chained resolver to `ProjectSearchResult` in `project` resolver so that querying `userProjects` will include `plan` data for each project [#304]
 - Updated `updateProjectMember` resolver to handle `Other Affiliation`. Added a new, shared `resolveAffiliation` function to `affiliationService.ts`. Updated `updateProjectMember` schema to include `affiliationName` [#309]
 - Updated the `Answer` model to use the newly exported `DefaultResearchOutputTypeAnswer` from `@dmptool/types` instead of manually building it

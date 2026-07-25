@@ -10,19 +10,14 @@ import { ForbiddenError, InternalServerError } from "../utils/graphQLErrors";
 import { GraphQLError } from "graphql";
 import { prepareObjectForLogs } from "../logger";
 import { UserEmail } from "../models/UserEmail";
-import { revokeAccessToken, revokeRefreshToken, verifyAccessToken } from '../services/tokenService';
-import jwt, { JwtPayload } from 'jsonwebtoken';
 
 export const resolvers: Resolvers = {
   Query: {
     validatePasswordResetToken: async (_, { token }, context: MyContext): Promise<boolean> => {
       const reference = 'validatePasswordResetToken resolver';
       try {
-        console.log("***Token", token);
         const hashedToken = hashToken(token);
-        console.log("***hashedToken", hashedToken);
         const resetTokenRecord = await PasswordResetToken.findValidByToken(context, hashedToken);
-        console.log("***resetTokenRecord", resetTokenRecord);
         if (!resetTokenRecord) return false;
 
         const user = await User.findById(reference, context, resetTokenRecord.userId);
@@ -47,12 +42,6 @@ export const resolvers: Resolvers = {
 
           await PasswordResetToken.createForUser(context, user.id, hashedToken, expiresAt);
           await sendResetPasswordEmail(context, user, userEmail[0].email, rawToken);
-
-          // If the requester is currently logged in as this same user, log them out now
-          if (context.token?.id === user.id && context.token?.jti) {
-            await revokeRefreshToken(context, context.token.jti);
-            await revokeAccessToken(context, context.token.jti);
-          }
         }
         return true;
       } catch (err) {

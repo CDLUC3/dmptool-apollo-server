@@ -1,5 +1,5 @@
 import { v4 } from 'uuid';
-import { createHash, timingSafeEqual } from 'crypto';
+import { timingSafeEqual } from 'crypto';
 import jwt, { JwtPayload } from 'jsonwebtoken';
 import { Response } from "express";
 import { logger, prepareObjectForLogs } from '../logger';
@@ -12,11 +12,15 @@ import {
   DEFAULT_UNAUTHORIZED_MESSAGE,
   InternalServerError
 } from '../utils/graphQLErrors';
-import { Cache } from '../datasources/cache';
+import { cache } from "../datasources";
 import { MyContext } from '../context';
 import { defaultLanguageId } from '../models/Language';
 import { KeyvAdapter } from "@apollo/utils.keyvadapter";
 import { hashToken } from "../utils/helpers";
+
+const VERSION_TAG = '{dmspt}';
+
+const versionKey = (userId: number | string) => `${VERSION_TAG}:version:${userId}`;
 
 export interface JWTAccessToken extends JwtPayload {
   id: number,
@@ -27,12 +31,28 @@ export interface JWTAccessToken extends JwtPayload {
   affiliationId: string,
   languageId: string,
   jti: string,
+  tokenVersion: number,
 }
 
 export interface JWTRefreshToken extends JwtPayload {
   jti: string,
   id: number,
+  tokenVersion: number,
 }
+
+// Current version for a user. Defaults to 0 if never set.
+export const getUserTokenVersion = async (cache: KeyvAdapter, userId: number | string): Promise<number> => {
+  const raw = await cache.get(versionKey(userId));
+  const parsed = parseInt(raw as string, 10);
+  return Number.isNaN(parsed) ? 0 : parsed;
+};
+
+// Call this on password reset (and optionally on "log out everywhere")
+export const bumpUserTokenVersion = async (cache: KeyvAdapter, userId: number | string): Promise<number> => {
+  const next = (await getUserTokenVersion(cache, userId)) + 1;
+  await cache.set(versionKey(userId), next.toString()); // no TTL — must outlive any token
+  return next;
+};
 
 // Helper function to set a secure HTTP-only cookie
 export const setTokenCookie = (res: Response, name: string, value: string, maxAge?: number): void => {
@@ -60,9 +80,8 @@ export const generateCSRFToken = async (cache: KeyvAdapter): Promise<string> => 
 }
 
 // Generate an access token for the User
-const generateAccessToken = async (context: MyContext, jti: string, user: User): Promise<string> => {
+const generateAccessToken = async (context: MyContext, jti: string, user: User, tokenVersion: number): Promise<string> => {
   const email = await user.getEmail(context);
-
   try {
     const payload: JWTAccessToken = {
       id: user.id,
@@ -73,6 +92,7 @@ const generateAccessToken = async (context: MyContext, jti: string, user: User):
       role: user.role.toString() || UserRole.RESEARCHER,
       languageId: user.languageId || defaultLanguageId,
       jti,
+      tokenVersion,
     };
 
     context.logger.debug(prepareObjectForLogs(payload), 'generateAccessToken payload');
@@ -86,11 +106,12 @@ const generateAccessToken = async (context: MyContext, jti: string, user: User):
 }
 
 // Generate a refresh token for the User and add it to the Cache.
-const generateRefreshToken = async (context: MyContext, jti: string, userId: number): Promise<string> => {
+const generateRefreshToken = async (context: MyContext, jti: string, userId: number, tokenVersion: number): Promise<string> => {
   try {
     const payload: JWTRefreshToken = {
       jti,
       id: userId,
+      tokenVersion,
     };
 
     const token = jwt.sign(payload, generalConfig.jwtRefreshSecret, { expiresIn: generalConfig.jwtRefreshTTL });
@@ -110,14 +131,16 @@ const generateRefreshToken = async (context: MyContext, jti: string, userId: num
 // Generate an Access Token and a Refresh Token
 export const generateAuthTokens = async (context: MyContext, user: User): Promise<{ accessToken: string; refreshToken: string }> => {
   if (generalConfig.jwtSecret && generalConfig.jwtRefreshSecret && user && user.id && await user.getEmail(context)) {
+    const tokenVersion = await getUserTokenVersion(context.cache, user.id);
+
     try {
       // Generate a unique id for the JWT
       const jti = `${user.id}-${new Date().getTime()}`;
       // Generate an Access Token
-      const accessToken = await generateAccessToken(context, jti, user);
+      const accessToken = await generateAccessToken(context, jti, user, tokenVersion);
 
       // Generate a Refresh Token
-      const refreshToken = await generateRefreshToken(context, jti, user.id);
+      const refreshToken = await generateRefreshToken(context, jti, user.id, tokenVersion);
 
       return { accessToken, refreshToken };
     } catch (err) {
@@ -166,7 +189,15 @@ const verifyRefreshToken = async (context: MyContext, refreshToken: string): Pro
       // Make sure the token hasn't been tampered with
       const storedHash = await context.cache.get(`{dmspr}:${token.jti}`);
       const calculatedHash = hashToken(refreshToken);
-      return timingSafeEqual(Buffer.from(storedHash), Buffer.from(calculatedHash)) ? token : null;
+      const matches = storedHash && timingSafeEqual(Buffer.from(storedHash), Buffer.from(calculatedHash));
+      if (!matches) return null;
+
+      const currentVersion = await getUserTokenVersion(context.cache, token.id);
+      if (token.tokenVersion < currentVersion) {
+        logger.warn(`Attempt to use refresh token issued before password reset! userId: ${token.id}`);
+        return null;
+      }
+      return token;
     }
     return null;
   } catch (err) {
@@ -180,9 +211,9 @@ const verifyRefreshToken = async (context: MyContext, refreshToken: string): Pro
 // See if the access token is in the black list of revoked tokens
 export const isRevokedCallback = async (req: Express.Request, token?: jwt.Jwt): Promise<boolean> => {
   if (token && token.payload && typeof token.payload === 'object') {
-    // Fetch the unique JTI from the token
-    const jti = (token.payload as JwtPayload).jti;
-    const cache = Cache.getInstance().adapter;
+    const payload = token.payload as JwtPayload;
+    const jti = payload.jti;
+    const userId = payload.id;
 
     if (jti) {
       try {
@@ -196,6 +227,18 @@ export const isRevokedCallback = async (req: Express.Request, token?: jwt.Jwt): 
         logger.error(err, 'isRevokedCallback - unable to fetch token from cache');
       }
     }
+
+    if (userId !== undefined && payload.tokenVersion !== undefined) {
+      try {
+        const currentVersion = await getUserTokenVersion(cache, userId);
+        if (payload.tokenVersion < currentVersion) {
+          logger.warn(`Attempt to use token issued before password reset! userId: ${userId}`);
+          return true;
+        }
+      } catch (err) {
+        logger.error(prepareObjectForLogs(err), 'isRevokedCallback - unable to check token version');
+      }
+    }
   }
   return false;
 };
@@ -207,11 +250,12 @@ export const refreshAccessToken = async (
 ): Promise<string> => {
   try {
     const verifiedRefreshToken = await verifyRefreshToken(context, refreshToken);
+
     if (verifiedRefreshToken) {
       // TODO: We can eventually add some checks here to see if the account if locked or deactivated
       const user = await User.findById('refreshAccessToken', context, verifiedRefreshToken.id);
       if (user) {
-        return generateAccessToken(context, verifiedRefreshToken.jti, user);
+        return generateAccessToken(context, verifiedRefreshToken.jti, user, verifiedRefreshToken.tokenVersion);
       }
     }
     // Otherwise the refresh token was invalid or something else went wrong!

@@ -20,6 +20,7 @@ import {
   PaginationType
 } from '../types/general';
 import { ProjectCollaborator, TemplateCollaborator } from "./Collaborator";
+import { bumpUserTokenVersion } from '../services/tokenService';
 
 export enum UserRole {
   RESEARCHER = 'RESEARCHER',
@@ -375,6 +376,7 @@ export class User extends MySqlModel {
       this.passwordChangedAt = getCurrentDate();
 
       if (await User.update(context, this.tableName, this, 'User.setPassword')) {
+        await bumpUserTokenVersion(context.cache, this.id);
         return true;
       }
     }

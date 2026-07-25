@@ -16,6 +16,7 @@ import { Cache } from '../datasources/cache';
 import { MyContext } from '../context';
 import { defaultLanguageId } from '../models/Language';
 import { KeyvAdapter } from "@apollo/utils.keyvadapter";
+import { hashToken } from "../utils/helpers";
 
 export interface JWTAccessToken extends JwtPayload {
   id: number,
@@ -26,16 +27,11 @@ export interface JWTAccessToken extends JwtPayload {
   affiliationId: string,
   languageId: string,
   jti: string,
- }
+}
 
 export interface JWTRefreshToken extends JwtPayload {
   jti: string,
   id: number,
-}
-
-// Hash a token before placing it in the cache
-const hashToken = (token: string): string => {
-  return createHash('sha256').update(`${token}${generalConfig.hashTokenSecret}`).digest('hex');
 }
 
 // Helper function to set a secure HTTP-only cookie
@@ -57,7 +53,7 @@ export const generateCSRFToken = async (cache: KeyvAdapter): Promise<string> => 
     // Add the refresh token to the Cache
     await cache.set(`{csrf}:${csrfToken}`, hashedToken, { ttl: generalConfig.csrfTTL });
     return csrfToken;
-  } catch(err) {
+  } catch (err) {
     logger.error(err, 'generateCSRFToken error!');
     return null;
   }
@@ -81,7 +77,7 @@ const generateAccessToken = async (context: MyContext, jti: string, user: User):
 
     context.logger.debug(prepareObjectForLogs(payload), 'generateAccessToken payload');
     return jwt.sign(payload, generalConfig.jwtSecret as string, { expiresIn: generalConfig.jwtTTL });
-  } catch(err) {
+  } catch (err) {
     if (context?.logger) {
       context.logger.error(prepareObjectForLogs(err), `generateAccessToken error`);
     }
@@ -103,7 +99,7 @@ const generateRefreshToken = async (context: MyContext, jti: string, userId: num
     // Add the refresh token to the Cache
     await context.cache.set(`{dmspr}:${jti}`, hashedToken, { ttl: generalConfig.jwtRefreshTTL })
     return token;
-  } catch(err) {
+  } catch (err) {
     if (context?.logger) {
       context.logger.error(prepareObjectForLogs(err), 'generateRefreshToken error');
     }
@@ -124,7 +120,7 @@ export const generateAuthTokens = async (context: MyContext, user: User): Promis
       const refreshToken = await generateRefreshToken(context, jti, user.id);
 
       return { accessToken, refreshToken };
-    } catch(err) {
+    } catch (err) {
       context.logger.error(prepareObjectForLogs(err), 'generateAuthTokens - unable to generate tokens');
     }
   }
@@ -139,7 +135,7 @@ export const verifyCSRFToken = async (cache: KeyvAdapter, csrfToken: string): Pr
 
     const calculatedHash = hashToken(csrfToken);
     return timingSafeEqual(Buffer.from(storedHash), Buffer.from(calculatedHash));
-  } catch(err) {
+  } catch (err) {
     logger.error(err, 'verifyCSRFToken failure');
     return false;
   }
@@ -155,7 +151,7 @@ export const verifyAccessToken = (context: MyContext, accessToken: string): JwtP
     if (token && (token.exp >= now / 1000)) {
       return token;
     }
-  } catch(err) {
+  } catch (err) {
     context.logger.error(prepareObjectForLogs(err), 'verifyAccessToken error');
   }
   return null;
@@ -173,7 +169,7 @@ const verifyRefreshToken = async (context: MyContext, refreshToken: string): Pro
       return timingSafeEqual(Buffer.from(storedHash), Buffer.from(calculatedHash)) ? token : null;
     }
     return null;
-  } catch(err) {
+  } catch (err) {
     if (logger) {
       context.logger.error(prepareObjectForLogs(err), 'verifyRefreshToken error');
     }
@@ -196,7 +192,7 @@ export const isRevokedCallback = async (req: Express.Request, token?: jwt.Jwt): 
           logger.warn(`Attempt to access revoked access token! jti: ${jti}`);
           return true;
         }
-      } catch(err) {
+      } catch (err) {
         logger.error(err, 'isRevokedCallback - unable to fetch token from cache');
       }
     }
@@ -233,7 +229,7 @@ export const revokeRefreshToken = async (context: MyContext, jti: string): Promi
   try {
     await context.cache.delete(`{dmspr}:${jti}`);
     return true;
-  } catch(err) {
+  } catch (err) {
     context.logger.error(prepareObjectForLogs(err), 'revokeRefreshToken - unable to delete token from cache');
     throw InternalServerError(`${DEFAULT_INTERNAL_SERVER_MESSAGE} - ${err.message}`);
   }
@@ -243,7 +239,7 @@ export const revokeAccessToken = async (context: MyContext, jti: string): Promis
   try {
     await context.cache.set(`{dmspbl}:${jti}`, new Date().toISOString(), { ttl: generalConfig.jwtTTL });
     return true;
-  } catch(err) {
+  } catch (err) {
     context.logger.error(prepareObjectForLogs(err), 'revokeAccessToken - unable to add token to black list');
     throw InternalServerError(`${DEFAULT_INTERNAL_SERVER_MESSAGE} - ${err.message}`);
   }

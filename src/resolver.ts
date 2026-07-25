@@ -41,6 +41,7 @@ import { resolvers as versionedQuestionResolvers } from './resolvers/versionedQu
 import { resolvers as versionedQuestionConditionResolvers } from './resolvers/versionedQuestionCondition';
 import { resolvers as versionedSectionResolvers } from './resolvers/versionedSection';
 import { resolvers as versionedTemplateResolvers } from './resolvers/versionedTemplate';
+import { resolvers as passwordResetResolvers } from './resolvers/passwordReset';
 
 const scalarResolvers = {
   DmspId: dmspIdScalar,
@@ -86,4 +87,5 @@ export const resolvers: IResolvers = mergeResolvers([
   versionedQuestionConditionResolvers,
   versionedSectionResolvers,
   versionedTemplateResolvers,
+  passwordResetResolvers,
 ]);

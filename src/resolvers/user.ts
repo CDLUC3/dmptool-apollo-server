@@ -12,10 +12,17 @@ import { processOtherAffiliationName } from "../services/affiliationService";
 import { prepareObjectForLogs } from "../logger";
 import { GraphQLError } from "graphql";
 import { PaginationOptionsForCursors, PaginationOptionsForOffsets, PaginationType } from "../types/general";
-import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
+import {
+  isNullOrUndefined,
+  normaliseDateTime
+} from "../utils/helpers";
+import { formatISO9075 } from "date-fns";
 import {
   authenticatedResolver,
 } from "../services/authService";
+import crypto from 'crypto';
+
+const PASSWORD_RESET_EXPIRY_MS = 30 * 60 * 1000; // 30 minutes
 
 export const resolvers: Resolvers = {
   Query: {

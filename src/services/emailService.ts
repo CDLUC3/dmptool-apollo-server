@@ -56,6 +56,16 @@ Please do not reply to this email. If you have any questions or need help, pleas
 <p>-----------------------------------------------------------</p>
 <p>%{attribution}</p>
 `,
+  sendResetPassword: `
+<p>Hello %{userEmail},</p>
+<p>Someone has requested a link to change your DMP Tool password. You can do this through the link below.</p>
+<p><a href="%{resetPasswordUrl}">Change my password</a></p>
+<p>If you didn't request this, please ignore this email.</p>
+<p>Your password won't change until you access the link above and create a new one.</p>
+<p>All the best,<br>The DMP Tool team</p>
+<p><small>Please do not reply to this email. If you have any questions or need help, please contact us at
+<a href="mailto:%{helpDeskEmail}">%{helpDeskEmail}</a> or visit the <a href="%{helpUrl}">Help Page</a>.</small></p>
+`,
 }
 
 const transporter = nodemailer.createTransport({
@@ -83,7 +93,7 @@ const sendEmail = async (
   replyTo: string = emailConfig.helpDeskAddress
 ): Promise<boolean> => {
   // Add the App name to the start of the subject line. We include the env when not in production
-  const subjectLine = `${generalConfig.applicationName} - ${subject}`;
+  const subjectLine = `${generalConfig.applicationName} - ${subject} `;
 
   if (['development'].includes(process.env.NODE_ENV || '')) {
     // When running in development mode, we do not have access to AWS SES and we probably don't want to
@@ -98,7 +108,7 @@ const sendEmail = async (
     // Otherwise go ahead and send the email
     let response;
     const options = {
-      from: `"${generalConfig.applicationName}" <${emailConfig.doNotReplyAddress}>`,
+      from: `"${generalConfig.applicationName}" < ${emailConfig.doNotReplyAddress}> `,
       sender: emailConfig.doNotReplyAddress,
       replyTo,
       to: toAddresses.join(', '),
@@ -265,9 +275,9 @@ export const sendFeedbackCompleteEmail = async (
   const message = emailMessages.feedbackComplete
     .replace('%{planOwnerName}', planOwnerName)
     .replace('%{adminName}', adminName)
-    .replace('%{planUrl}', `${domain}${planURL}`)
+    .replace('%{planUrl}', `${domain}${planURL} `)
     .replace('%{planTitle}', planTitle)
-    .replace('%{profileUrl}', `${domain}/account/profile`)
+    .replace('%{profileUrl}', `${domain} /account/profile`)
     .replace('%{helpDeskEmail}', emailConfig.helpDeskAddress)
     .replace('%{helpUrl}', `${domain}/help`);
 
@@ -344,5 +354,38 @@ export const sendContactUsEmail = async (
     body,
     true, // asHTML
     email, // replyTo
+  );
+}
+
+export const sendResetPasswordEmail = async (
+  context: MyContext,
+  user: User,
+  userEmail: string,
+  resetToken: string,
+): Promise<boolean> => {
+  const emailAddress = await user.getEmail(context);
+  if (!emailAddress) {
+    context.logger.error(
+      prepareObjectForLogs({ userId: user.id }),
+      `User with ID ${user.id} does not have an email address and cannot be sent a reset password email`
+    );
+    return false;
+  }
+  const domain = generalConfig.domain;
+  const resetPasswordUrl = `${generalConfig.domain}/login/reset-password?token=${resetToken}`;
+  const message = emailMessages.sendResetPassword
+    .replace('%{userEmail}', userEmail)
+    .replace('%{resetPasswordUrl}', resetPasswordUrl)
+    .replace('%{helpDeskEmail}', emailConfig.helpDeskAddress)
+    .replace('%{helpUrl}', `${domain}/help`);
+
+  return await sendEmail(
+    context,
+    'ResetPassword',
+    [emailAddress],
+    [],
+    [],
+    'Reset Your Password',
+    message
   );
 }

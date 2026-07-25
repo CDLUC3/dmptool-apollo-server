@@ -3,6 +3,9 @@
 ## v1.1.0
 
 ### Added
+- Added `getUserTokenVersion` and `bumpUserTokenVersion` to `tokenService` so that we can save the `tokenVersion` in the `JWT` payload, and validate it against the current version in `isRevokedCallback` on `/graphql` requests [#133]
+- Added new `PasswordResetToken` model, `passwordReset` resolver, `passwordReset` schema, and separate `passwordResetTokens` table to store the `resetPasswordToken` and `resetPasswordExpiresAt` [#133]
+- Added `passwordChangedAt` field to the `users` table, and `User` model to record when password last changed [#133]
 - Added files for EZID creation: `config/ezidConfig.ts` and `datasources/EZIDAPI.ts`, and updated `Plan.publish` to call on the new `registerIdentifier` [#32]
 - Added new `buildDataCiteXMLForPlan` to build XML for EZID registration in `planService.ts` and added new `dataciteXMLService.ts` with helper functions for the new `buildDataCiteXMLForPlan` function [#32]
 - Added a `plansByProjectId` query and resolver

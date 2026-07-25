@@ -1,7 +1,6 @@
 import { MySqlModel } from './MySqlModel';
 import { MyContext } from '../context';
 import { getCurrentDate } from '../utils/helpers';
-import { prepareObjectForLogs } from '../logger';
 
 export class PasswordResetToken extends MySqlModel {
   public userId: number;
@@ -63,13 +62,14 @@ export class PasswordResetToken extends MySqlModel {
     return saved?.id ? saved : null;
   }
 
-  // Find the still-valid token row matching a hashed token value
+  // Find the still-valid token by the passwordResetToken record ID
   static async findById(reference: string, context: MyContext, id: number): Promise<PasswordResetToken | null> {
     const sql = 'SELECT * FROM passwordResetTokens WHERE id = ?';
     const results = await PasswordResetToken.query(context, sql, [id?.toString()], reference);
     return Array.isArray(results) && results.length > 0 ? new PasswordResetToken(results[0]) : null;
   }
 
+  // Find valid token using the hashed token value, only if it has not expired and has not been used
   static async findValidByToken(context: MyContext, resetToken: string): Promise<PasswordResetToken | null> {
     const sql = `
       SELECT * FROM passwordResetTokens
@@ -79,11 +79,5 @@ export class PasswordResetToken extends MySqlModel {
     `;
     const results = await PasswordResetToken.query(context, sql, [resetToken], 'PasswordResetToken.findValidByToken');
     return Array.isArray(results) && results.length > 0 ? new PasswordResetToken(results[0]) : null;
-  }
-
-  static async findByUserId(reference: string, context: MyContext, userId: number): Promise<PasswordResetToken[]> {
-    const sql = 'SELECT * FROM passwordResetTokens WHERE userId = ?';
-    const results = await PasswordResetToken.query(context, sql, [userId?.toString()], reference);
-    return Array.isArray(results) ? results.map((entry) => new PasswordResetToken(entry)) : [];
   }
 }

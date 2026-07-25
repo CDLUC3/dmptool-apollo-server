@@ -93,7 +93,7 @@ const sendEmail = async (
   replyTo: string = emailConfig.helpDeskAddress
 ): Promise<boolean> => {
   // Add the App name to the start of the subject line. We include the env when not in production
-  const subjectLine = `${generalConfig.applicationName} - ${subject} `;
+  const subjectLine = `${generalConfig.applicationName} - ${subject}`;
 
   if (['development'].includes(process.env.NODE_ENV || '')) {
     // When running in development mode, we do not have access to AWS SES and we probably don't want to
@@ -108,7 +108,7 @@ const sendEmail = async (
     // Otherwise go ahead and send the email
     let response;
     const options = {
-      from: `"${generalConfig.applicationName}" < ${emailConfig.doNotReplyAddress}> `,
+      from: `"${generalConfig.applicationName}" <${emailConfig.doNotReplyAddress}>`,
       sender: emailConfig.doNotReplyAddress,
       replyTo,
       to: toAddresses.join(', '),
@@ -275,9 +275,9 @@ export const sendFeedbackCompleteEmail = async (
   const message = emailMessages.feedbackComplete
     .replace('%{planOwnerName}', planOwnerName)
     .replace('%{adminName}', adminName)
-    .replace('%{planUrl}', `${domain}${planURL} `)
+    .replace('%{planUrl}', `${domain}${planURL}`)
     .replace('%{planTitle}', planTitle)
-    .replace('%{profileUrl}', `${domain} /account/profile`)
+    .replace('%{profileUrl}', `${domain}/account/profile`)
     .replace('%{helpDeskEmail}', emailConfig.helpDeskAddress)
     .replace('%{helpUrl}', `${domain}/help`);
 
@@ -363,8 +363,7 @@ export const sendResetPasswordEmail = async (
   userEmail: string,
   resetToken: string,
 ): Promise<boolean> => {
-  const emailAddress = await user.getEmail(context);
-  if (!emailAddress) {
+  if (!userEmail) {
     context.logger.error(
       prepareObjectForLogs({ userId: user.id }),
       `User with ID ${user.id} does not have an email address and cannot be sent a reset password email`
@@ -376,13 +375,13 @@ export const sendResetPasswordEmail = async (
   const message = emailMessages.sendResetPassword
     .replace('%{userEmail}', userEmail)
     .replace('%{resetPasswordUrl}', resetPasswordUrl)
-    .replace('%{helpDeskEmail}', emailConfig.helpDeskAddress)
+    .replaceAll('%{helpDeskEmail}', emailConfig.helpDeskAddress)
     .replace('%{helpUrl}', `${domain}/help`);
 
   return await sendEmail(
     context,
     'ResetPassword',
-    [emailAddress],
+    [userEmail],
     [],
     [],
     'Reset Your Password',

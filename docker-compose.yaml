@@ -103,7 +103,6 @@ services:
       dockerfile: Dockerfile
     ports:
       - "4000:4000"
-      - "9230:9229"
     networks:
       - dmptool-network
     expose:

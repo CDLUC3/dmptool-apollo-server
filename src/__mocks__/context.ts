@@ -124,6 +124,7 @@ export const mockToken = async (
     languageId: defaultLanguageId,
     jti: casual.integer(1, 999999).toString(),
     expiresIn: casual.integer(1, 999999999),
+    tokenVersion: 1,
   }
 }
 

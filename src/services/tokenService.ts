@@ -12,14 +12,13 @@ import {
   DEFAULT_UNAUTHORIZED_MESSAGE,
   InternalServerError
 } from '../utils/graphQLErrors';
-import { cache } from "../datasources";
+import { Cache } from '../datasources/cache';
 import { MyContext } from '../context';
 import { defaultLanguageId } from '../models/Language';
 import { KeyvAdapter } from "@apollo/utils.keyvadapter";
 import { hashToken } from "../utils/helpers";
 
 const VERSION_TAG = '{dmspt}';
-
 const versionKey = (userId: number | string) => `${VERSION_TAG}:version:${userId}`;
 
 export interface JWTAccessToken extends JwtPayload {
@@ -214,6 +213,7 @@ export const isRevokedCallback = async (req: Express.Request, token?: jwt.Jwt): 
     const payload = token.payload as JwtPayload;
     const jti = payload.jti;
     const userId = payload.id;
+    const cache = Cache.getInstance().adapter;
 
     if (jti) {
       try {

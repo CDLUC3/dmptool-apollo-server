@@ -13,6 +13,7 @@ import { UserEmail } from "../models/UserEmail";
 
 export const resolvers: Resolvers = {
   Query: {
+    // Validate the reset token for a password reset request
     validatePasswordResetToken: async (_, { token }, context: MyContext): Promise<boolean> => {
       const reference = 'validatePasswordResetToken resolver';
       try {
@@ -29,6 +30,7 @@ export const resolvers: Resolvers = {
     },
   },
   Mutation: {
+    // Send a password reset email to the user with a valid account
     sendPasswordResetEmail: async (_, { email }, context: MyContext): Promise<boolean> => {
       const reference = 'sendPasswordResetEmail resolver';
       try {
@@ -49,7 +51,7 @@ export const resolvers: Resolvers = {
         return true;
       }
     },
-
+    // Reset the user's password using a valid reset token
     resetPassword: async (_, { token, newPassword }, context: MyContext): Promise<boolean> => {
       const reference = 'resetPassword resolver';
       try {

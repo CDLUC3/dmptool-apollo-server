@@ -122,6 +122,7 @@
 ### Updated
 - Fixed issue with JSON of default questions and answers in the local data migration file
 - Renamed old `Funding.findByProjectFundingId` to `Funding.findByPlanAndProjectFundingId`
+- Updated `sendContactUsEmail` in `emailService.ts` to not include a `bcc` [#303]
 - Added `plans` chained resolver to `ProjectSearchResult` in `project` resolver so that querying `userProjects` will include `plan` data for each project [#304]
 - Updated `updateProjectMember` resolver to handle `Other Affiliation`. Added a new, shared `resolveAffiliation` function to `affiliationService.ts`. Updated `updateProjectMember` schema to include `affiliationName` [#309]
 - Updated the `Answer` model to use the newly exported `DefaultResearchOutputTypeAnswer` from `@dmptool/types` instead of manually building it
@@ -258,6 +259,7 @@
 - Removed `ioredis` package
 
 ### Fixed
+- Fixed `removeProjectFunding`. There were several issues, one of which was not being able to delete a `projectFundings` record without removing it's foreign key dependency in `planFundings` first [#303]
 - Updated `immutable` to `v5.1.9` to address HIGH security vulnerability [#304]
 - Updated `brace-expansion` to `v5.0.7` and `js-yaml` to `v4.3.0` to address vulnerabilities [#310]
 - Build was breaking because of a `package-lock.json` was referencing a file for `dmptool-utils`.
@@ -273,6 +275,7 @@
 - Fixed issue with templates not cloning with sections and questions by updating the `addTemplate` mutation to clone from non-versioned template, section and question [#1006]
 
 ### Chore
+- Added override for `brace-expansion` to `v5.0.8` [#314]
 - Addressed security vulnerability in `nodemailer` and `undici` packages, and added debugging to troubleshoot request feedback failure [#285]
 - Updated `nodemailer` to `v9.0.1` and `undici` to `v7.28.0` [#240]
 - Updated `fast-xml-parser` to `v1.2.0` and `uuid` to `11.1.1` to address vulnerabilities.

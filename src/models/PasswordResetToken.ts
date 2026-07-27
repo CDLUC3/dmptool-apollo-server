@@ -1,7 +1,10 @@
+import crypto from 'crypto';
 import { MySqlModel } from './MySqlModel';
 import { MyContext } from '../context';
 import { getCurrentDate } from '../utils/helpers';
 import { prepareObjectForLogs } from '../logger';
+import { hashToken, getFutureDate } from '../utils/helpers';
+import { generalConfig } from '../config/generalConfig';
 
 export class PasswordResetToken extends MySqlModel {
   public userId: number;
@@ -67,15 +70,18 @@ export class PasswordResetToken extends MySqlModel {
   static async createForUser(
     context: MyContext,
     userId: number,
-    resetToken: string,
-    expiresAt: string
-  ): Promise<PasswordResetToken | null> {
+): Promise<{ record: PasswordResetToken; rawToken: string } | null> {
      const reference = 'PasswordResetToken.createForUser';
 
-    if (!userId || !resetToken || !expiresAt) {
+    if (!userId) {
       context.logger.error(`${reference} called with missing arguments for userId ${userId}`);
       return null;
     }
+
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = hashToken(rawToken);
+    const expiresAt = getFutureDate(generalConfig.passwordResetTokenExpiryMilliseconds);
+
 
     // Supersede any prior unused tokens for this user
     await PasswordResetToken.query(
@@ -85,16 +91,21 @@ export class PasswordResetToken extends MySqlModel {
       `${reference} - invalidatePrevious`
     );
 
-    const newToken = new PasswordResetToken({ userId, resetPasswordToken: resetToken, resetPasswordExpiresAt: expiresAt });
+    const newToken = new PasswordResetToken({ userId, resetPasswordToken: hashedToken, resetPasswordExpiresAt: expiresAt });
     const saved = await newToken.create(context);
 
     context.logger.debug(prepareObjectForLogs({ userId, savedId: saved?.id }), reference);
-    return saved?.id ? saved : null;
+    return saved?.id ? { record: saved, rawToken } : null;
   }
 
   // Find the still-valid token by the passwordResetToken record ID
   static async findById(reference: string, context: MyContext, id: number): Promise<PasswordResetToken | null> {
-    const sql = 'SELECT * FROM passwordResetTokens WHERE id = ?';
+    const sql = `
+      SELECT * FROM passwordResetTokens
+      WHERE id = ?
+        AND resetPasswordExpiresAt > NOW()
+        AND usedAt IS NULL
+    `;
     const results = await PasswordResetToken.query(context, sql, [id?.toString()], reference);
     return Array.isArray(results) && results.length > 0 ? new PasswordResetToken(results[0]) : null;
   }

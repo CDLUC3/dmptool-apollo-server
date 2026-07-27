@@ -2,8 +2,16 @@ import casual from 'casual';
 import { PasswordResetToken } from '../PasswordResetToken';
 import { buildMockContextWithToken } from '../../__mocks__/context';
 import { logger } from '../../logger';
+import * as helpers from '../../utils/helpers';
 
 jest.mock('../../context.ts');
+
+jest.mock('../../utils/helpers', () => ({
+  ...jest.requireActual('../../utils/helpers'),
+  getFutureDate: jest.fn(),
+  hashToken: jest.fn(),
+}));
+
 
 let context;
 
@@ -152,12 +160,21 @@ describe('findById', () => {
 
     const result = await PasswordResetToken.findById('Test', context, 1);
 
-    expect(queryMock).toHaveBeenCalledWith(
-      context,
-      'SELECT * FROM passwordResetTokens WHERE id = ?',
-      ['1'],
-      'Test'
+    const normalizeSql = (sql: string) => sql.replace(/\s+/g, ' ').trim();
+
+    expect(queryMock).toHaveBeenCalledTimes(1);
+
+    const [calledContext, calledSql, calledParams, calledReference] = queryMock.mock.calls[0];
+
+    expect(calledContext).toBe(context);
+    expect(normalizeSql(calledSql)).toEqual(
+      normalizeSql(`SELECT * FROM passwordResetTokens
+        WHERE id = ?
+          AND resetPasswordExpiresAt > NOW()
+          AND usedAt IS NULL`)
     );
+    expect(calledParams).toEqual(['1']);
+    expect(calledReference).toEqual('Test');
 
     expect(result.id).toEqual(1);
   });
@@ -215,6 +232,9 @@ describe('createForUser', () => {
   beforeEach(async () => {
     jest.resetAllMocks();
     context = await buildMockContextWithToken(logger);
+
+    (helpers.getFutureDate as jest.Mock).mockReturnValue('2030-01-01 00:00:00');
+    (helpers.hashToken as jest.Mock).mockReturnValue('hashed-token');
   });
 
   afterEach(() => {
@@ -226,9 +246,7 @@ describe('createForUser', () => {
     const result = await PasswordResetToken.createForUser(
       context,
       /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-      null as any,
-      '',
-      ''
+      null as any
     );
 
     expect(result).toBeNull();
@@ -249,12 +267,7 @@ describe('createForUser', () => {
       .spyOn(PasswordResetToken.prototype, 'create')
       .mockResolvedValue(savedToken);
 
-    const result = await PasswordResetToken.createForUser(
-      context,
-      1,
-      'hashed-token',
-      '2030-01-01 00:00:00'
-    );
+    const result = await PasswordResetToken.createForUser(context, 1);
 
     expect(queryMock).toHaveBeenCalledWith(
       context,
@@ -264,7 +277,7 @@ describe('createForUser', () => {
     );
 
     expect(createMock).toHaveBeenCalledTimes(1);
-    expect(result).toEqual(savedToken);
+    expect(result).toEqual({ record: savedToken, rawToken: expect.any(String) });
   });
 
   it('should return null if create fails', async () => {
@@ -274,12 +287,7 @@ describe('createForUser', () => {
       .spyOn(PasswordResetToken.prototype, 'create')
       .mockResolvedValue(new PasswordResetToken({ userId: 1 }));
 
-    const result = await PasswordResetToken.createForUser(
-      context,
-      1,
-      'hashed-token',
-      '2030-01-01 00:00:00'
-    );
+    const result = await PasswordResetToken.createForUser(context, 1);
 
     expect(result).toBeNull();
   });

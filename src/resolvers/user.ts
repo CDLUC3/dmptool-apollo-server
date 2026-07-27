@@ -435,6 +435,31 @@ export const resolvers: Resolvers = {
       }
     },
 
+    // Change the current user's password
+    updatePassword: async (_, { oldPassword, newPassword, email }, context: MyContext): Promise<User> => {
+      const reference = 'updatePassword resolver';
+      try {
+        if (isAuthorized(context?.token)) {
+          const user = await User.findById(reference, context, context.token.id);
+          // Only continue if the user is active and not locked
+          if (!user || !user.active || user.locked) {
+            throw ForbiddenError();
+          }
+
+          const updated = await new User(user).updatePassword(context, oldPassword, newPassword, email);
+          if (!updated || updated.hasErrors()) {
+            user.addError('general', 'Unable to update the password at this time');
+          }
+          return user.hasErrors() ? user : User.findById(reference, context, context.token.id);
+        }
+        // Unauthenticated
+        throw AuthenticationError();
+      } catch (err) {
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    },
+
     // Deactivate the specified user Account (SuperAdmin and Admin only)
     deactivateUser: async (_, { userId }, context: MyContext): Promise<User> => {
       const reference = 'deactivateUser resolver';

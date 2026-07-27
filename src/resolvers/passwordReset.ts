@@ -1,10 +1,9 @@
-import crypto from 'crypto';
+
 import { Resolvers } from "../types";
 import { MyContext } from '../context';
 import { User } from '../models/User';
 import { PasswordResetToken } from '../models/PasswordResetToken';
-import { hashToken, getFutureDate } from '../utils/helpers';
-import { generalConfig } from '../config/generalConfig';
+import { hashToken } from '../utils/helpers';
 import { sendResetPasswordEmail } from '../services/emailService'; // wherever this lives
 import { ForbiddenError, InternalServerError } from "../utils/graphQLErrors";
 import { GraphQLError } from "graphql";
@@ -34,20 +33,25 @@ export const resolvers: Resolvers = {
     sendPasswordResetEmail: async (_, { email }, context: MyContext): Promise<boolean> => {
       const reference = 'sendPasswordResetEmail resolver';
       try {
-        const userEmail = await UserEmail.findByEmail(reference, context, email);
-        const user = userEmail[0] ? await User.findById(reference, context, userEmail[0].userId) : null;
+        // We will only allow reset for user's primary
+        const userEmails = await UserEmail.findByEmail(reference, context, email);
+        const matchingEmail = userEmails.find(
+          userEmail => userEmail.email === email
+        );
+
+        if (!matchingEmail || !matchingEmail.isPrimary) {
+          return true; // Don't reveal whether the email exists or is primary
+        }
+
+        const user = await User.findById(reference, context, matchingEmail.userId);
 
         if (user && user.active && !user.locked) {
-          const rawToken = crypto.randomBytes(32).toString('hex');
-          const hashedToken = hashToken(rawToken);
-          const expiresAt = getFutureDate(generalConfig.passwordResetTokenExpiryMilliseconds);
-
-          const created = await PasswordResetToken.createForUser(context, user.id, hashedToken, expiresAt);
+          const created = await PasswordResetToken.createForUser(context, user.id);
           if (!created) {
             context.logger.error(prepareObjectForLogs({ userId: user.id }), `${reference} - failed to create reset token`);
             return true; // exits here — sendResetPasswordEmail is skipped
           }
-          await sendResetPasswordEmail(context, user, userEmail[0].email, rawToken);
+          await sendResetPasswordEmail(context, user, matchingEmail.email, created.rawToken);
         }
         return true;
       } catch (err) {

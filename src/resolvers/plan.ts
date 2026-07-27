@@ -61,6 +61,7 @@ import {
   removeEntirePlan,
   replaceEntirePlan
 } from "../services/entirePlanService";
+import {toErrorMessage} from "@dmptool/utils";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -574,23 +575,45 @@ export const resolvers: Resolvers = {
         context: MyContext
       ): Promise<Plan> => {
         const ref = 'createEntirePlan';
+        const plan: Plan = new Plan({});
 
-        // 1st: Check any alternate identifiers to make sure the Plan doesn't already exist
-        if (input.alternateIdentifiers) {
-          const altId: AlternateIdentifier | undefined = await AlternateIdentifier.findByAlternateIdentifiers(
-            ref,
-            context,
-            input.alternateIdentifiers
-          );
-          if ((await Plan.findById(ref, context, altId.planId))) {
-            throw BadUserInputError('A plan with the specified alternate identifier(s) already exists.');
+        try {
+          // 1st: Check any alternate identifiers to make sure the Plan doesn't already exist
+          if (input.alternateIdentifiers) {
+            const altId: AlternateIdentifier | undefined = await AlternateIdentifier.findByAlternateIdentifiers(
+              ref,
+              context,
+              input.alternateIdentifiers
+            );
+            if ((await Plan.findById(ref, context, altId.planId))) {
+              throw BadUserInputError('A plan with the specified alternate identifier(s) already exists.');
+            }
           }
-        }
 
-        // Add the Plan within a database transaction
-        return await context.dataSources.sqlDataSource.withTransaction(context, async (): Promise<Plan> => {
-          return await addEntirePlan(ref, context, input);
-        });
+          // Add the Plan within a database transaction
+          return await context.dataSources.sqlDataSource.withTransaction(context, async (): Promise<Plan> => {
+            return await addEntirePlan(ref, context, input, plan);
+          });
+        } catch (error) {
+          if (error instanceof GraphQLError) {
+            if (error.extensions?.code === 'BAD_REQUEST') {
+              if (plan.hasErrors() && !plan.errors['general']) {
+                plan.addError('general', 'Unable to process your request.');
+              }
+              // Return the plan with its populated validation errors
+              return plan;
+            } else {
+              throw error;
+            }
+          }
+
+          // Log unexpected errors and throw 500
+          context.logger.error(
+            prepareObjectForLogs({ ref, error: toErrorMessage(error) }),
+            `Failure in ${ref}`
+          );
+          throw InternalServerError();
+        }
       }
     ),
 
@@ -627,11 +650,32 @@ export const resolvers: Resolvers = {
           throw NotFoundError();
         }
 
-        if (hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.EDIT)) {
-          // Add the Plan within a database transaction
-          return await context.dataSources.sqlDataSource.withTransaction(context, async (): Promise<Plan> => {
-            return await replaceEntirePlan(ref, context, project, plan, input);
-          });
+        if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.EDIT)) {
+          try {
+            // Add the Plan within a database transaction
+            return await context.dataSources.sqlDataSource.withTransaction(context, async (): Promise<Plan> => {
+              return await replaceEntirePlan(ref, context, project, plan, input);
+            });
+          } catch (error) {
+            if (error instanceof GraphQLError) {
+              if (error.extensions?.code === 'BAD_REQUEST') {
+                if (plan.hasErrors() && !plan.errors['general']) {
+                  plan.addError('general', 'Unable to process your request.');
+                }
+                // Return the plan with its populated validation errors
+                return plan;
+              } else {
+                throw error;
+              }
+            }
+
+            // Log unexpected errors and throw 500
+            context.logger.error(
+              prepareObjectForLogs({ ref, error: toErrorMessage(error) }),
+              `Failure in ${ref}`
+            );
+            throw InternalServerError();
+          }
         } else {
           throw context.token ? ForbiddenError() : AuthenticationError();
         }
@@ -671,12 +715,19 @@ export const resolvers: Resolvers = {
           throw NotFoundError();
         }
 
-        if (hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.EDIT)) {
-          // Add the Plan within a database transaction
-          const removed: Plan | undefined = await context.dataSources.sqlDataSource.withTransaction(context, async (): Promise<Plan> => {
-            return await removeEntirePlan(ref, context, project, plan);
-          });
-          return removed && !removed.hasErrors();
+        if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.EDIT)) {
+          try {
+            // Add the Plan within a database transaction
+            const removed: Plan | undefined = await context.dataSources.sqlDataSource.withTransaction(context, async (): Promise<Plan> => {
+              return await removeEntirePlan(ref, context, project, plan);
+            });
+            return removed && !removed.hasErrors();
+          } catch (err) {
+            if (err instanceof GraphQLError) throw err;
+
+            context.logger.error(prepareObjectForLogs(err), `Failure in ${ref}`);
+            throw InternalServerError();
+          }
         } else {
           throw context.token ? ForbiddenError() : AuthenticationError();
         }

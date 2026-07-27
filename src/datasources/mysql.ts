@@ -3,7 +3,6 @@ import { mysqlGeneralConfig, mysqlPoolConfig } from "../config/mysqlConfig";
 import { logger, prepareObjectForLogs } from '../logger';
 import { MyContext } from '../context';
 import { toErrorMessage } from "@dmptool/utils";
-import {GraphQLError} from "graphql";
 
 export interface DatabaseConnection {
   getConnection(): Promise<mysql2.PoolConnection>;
@@ -164,19 +163,12 @@ export class MySQLConnection implements DatabaseConnection {
       return result;
 
     } catch (err) {
+      // Always log, rollback and rethrow!
       context.logger.error(
         prepareObjectForLogs({ err: toErrorMessage(err) }),
         'Rolling back transaction'
       );
-      // Always rollback!
       await txClient.rollback();
-
-      // In scenarios where we encountered a standard GraphQL error that was
-      // a Bad Request, we just want to return the object because it contains
-      // contextual errors.
-      if (err instanceof GraphQLError && err.extensions?.code === 'BAD_REQUEST_ERROR_CODE') {
-        return result;
-      }
       throw err;
 
     } finally {

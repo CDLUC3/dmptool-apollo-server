@@ -147,7 +147,7 @@ describe('MySQLConnection', () => {
       await sqlDataSource.close();
     });
 
-    it('should rollback and return undefined for bad request GraphQL errors', async () => {
+    it('should rollback and rethrow GraphQL errors', async () => {
       const sqlDataSource = new MySQLConnection();
       const err = new GraphQLError('Validation failed', {
         extensions: { code: 'BAD_REQUEST_ERROR_CODE' }
@@ -156,7 +156,7 @@ describe('MySQLConnection', () => {
         throw err;
       });
 
-      await expect(sqlDataSource.withTransaction(context, action)).resolves.toBeUndefined();
+      await expect(sqlDataSource.withTransaction(context, action)).rejects.toThrow(err);
 
       expect(mockConnection.beginTransaction).toHaveBeenCalledTimes(1);
       expect(mockConnection.commit).not.toHaveBeenCalled();

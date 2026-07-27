@@ -463,7 +463,7 @@ describe('entirePlanService', () => {
     it('creates a full plan', async () => {
       const { existingProject } = setupAddEntirePlanDefaults();
 
-      const response = await addEntirePlan('test-ref', context, baseInput as never);
+      const response = await addEntirePlan('test-ref', context, baseInput as never, plan);
 
       expect(response.id).toBe(404);
       expect(response.errors).toEqual({});
@@ -533,7 +533,7 @@ describe('entirePlanService', () => {
           researchDomainUrl: undefined,
           isTestProject: false,
         },
-      } as never);
+      } as never, plan);
 
       expect(VersionedTemplate.defaultTemplate).toHaveBeenCalledTimes(1);
       expect(Project.prototype.create).toHaveBeenCalledTimes(1);
@@ -555,7 +555,7 @@ describe('entirePlanService', () => {
     it('throws a bad request error when the specified template cannot be found', async () => {
       jest.spyOn(VersionedTemplate, 'findActiveByTemplateId').mockResolvedValue(null);
 
-      await expect(addEntirePlan('test-ref', context, baseInput as never)).rejects.toMatchObject({
+      await expect(addEntirePlan('test-ref', context, baseInput as never, plan)).rejects.toMatchObject({
         extensions: { code: BAD_REQUEST_ERROR_CODE },
         message: 'Unable to find the specified versioned template!',
       });
@@ -568,7 +568,7 @@ describe('entirePlanService', () => {
         addEntirePlan('test-ref', context, {
           ...baseInput,
           templateId: undefined,
-        } as never)
+        } as never, plan)
       ).rejects.toMatchObject({
         extensions: { code: INTERNAL_SERVER_ERROR_CODE },
       });
@@ -579,7 +579,7 @@ describe('entirePlanService', () => {
         .spyOn(VersionedTemplate, 'findActiveByTemplateId')
         .mockResolvedValue(new VersionedTemplate({ name: 'Broken VT' }));
 
-      await expect(addEntirePlan('test-ref', context, baseInput as never)).rejects.toMatchObject({
+      await expect(addEntirePlan('test-ref', context, baseInput as never, plan)).rejects.toMatchObject({
         extensions: { code: INTERNAL_SERVER_ERROR_CODE },
       });
     });
@@ -596,7 +596,7 @@ describe('entirePlanService', () => {
             ...baseInput.project,
             title: '',
           },
-        } as never)
+        } as never, plan)
       ).rejects.toMatchObject({
         extensions: { code: INTERNAL_SERVER_ERROR_CODE },
       });
@@ -611,7 +611,7 @@ describe('entirePlanService', () => {
           return this;
         });
 
-      await expect(addEntirePlan('test-ref', context, baseInput as never)).rejects.toMatchObject({
+      await expect(addEntirePlan('test-ref', context, baseInput as never, plan)).rejects.toMatchObject({
         extensions: { code: BAD_REQUEST_ERROR_CODE },
       });
     });
@@ -625,7 +625,7 @@ describe('entirePlanService', () => {
           return this;
         });
 
-      await expect(addEntirePlan('test-ref', context, baseInput as never)).rejects.toMatchObject({
+      await expect(addEntirePlan('test-ref', context, baseInput as never, plan)).rejects.toMatchObject({
         extensions: { code: BAD_REQUEST_ERROR_CODE },
       });
     });
@@ -647,7 +647,7 @@ describe('entirePlanService', () => {
         addEntirePlan('test-ref', context, {
           ...baseInput,
           alternateIdentifiers: ['ark:/12345/abc'],
-        } as never)
+        } as never, plan)
       ).rejects.toMatchObject({
         extensions: { code: BAD_REQUEST_ERROR_CODE },
       });
@@ -661,7 +661,7 @@ describe('entirePlanService', () => {
 
       let err: unknown;
       try {
-        await addEntirePlan('test-ref', context, baseInput as never);
+        await addEntirePlan('test-ref', context, baseInput as never, plan);
       } catch (error) {
         err = error;
       }

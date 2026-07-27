@@ -794,14 +794,15 @@ const handleEntirePlanError = async (
  * @param reference the string reference for logging
  * @param context the Apollo server context
  * @param input the Plan input
+ * @param plan the Plan to be created
  * @returns the newly created Plan or a Plan with errors for context into what went wrong
  */
 export const addEntirePlan = async (
   reference: string,
   context: MyContext,
   input: AddEntirePlanInput,
+  plan: Plan,
 ): Promise<Plan> => {
-  let plan: Plan = new Plan({});
   const logBase: LogBase = { ref: reference, title: input.title };
 
   try {

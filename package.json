@@ -103,5 +103,8 @@
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.62.1"
+  },
+  "overrides": {
+    "brace-expansion": "5.0.8"
   }
 }

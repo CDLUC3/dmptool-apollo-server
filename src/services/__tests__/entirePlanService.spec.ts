@@ -24,6 +24,11 @@ import {
   removeEntirePlan,
   replaceEntirePlan,
 } from '../entirePlanService';
+import {
+  ensureDefaultProjectContact,
+  setCurrentUserAsProjectOwner,
+} from '../projectService';
+import { ensureDefaultPlanContact } from '../planService';
 
 jest.mock('../projectService', () => ({
   ensureDefaultProjectContact: jest.fn().mockResolvedValue(true),
@@ -55,6 +60,7 @@ describe('entirePlanService', () => {
     } as Affiliation);
 
     jest.spyOn(PlanMember, 'findByPlanId').mockResolvedValue([]);
+    jest.spyOn(ProjectMember, 'findById').mockResolvedValue(null);
     jest.spyOn(ProjectMember, 'findByProjectId').mockResolvedValue([]);
     jest
       .spyOn(ProjectMember, 'findByProjectAndNameOrORCIDOrEmail')
@@ -62,7 +68,10 @@ describe('entirePlanService', () => {
     jest.spyOn(PlanMember, 'findByProjectMemberId').mockResolvedValue([]);
 
     jest.spyOn(PlanFunding, 'findByPlanId').mockResolvedValue([]);
+    jest.spyOn(MemberRole, 'findById').mockResolvedValue(null);
+    jest.spyOn(MemberRole, 'findByURL').mockResolvedValue(null);
     jest.spyOn(ProjectFunding, 'findByProjectId').mockResolvedValue([]);
+    jest.spyOn(ProjectFunding, 'findById').mockResolvedValue(null);
     jest
       .spyOn(ProjectFunding, 'findByProjectAndAffiliation')
       .mockResolvedValue(null);
@@ -144,7 +153,7 @@ describe('entirePlanService', () => {
       const roleOne = makeRole(1, 'One');
       const roleTwo = makeRole(2, 'Two');
       jest
-        .spyOn(MemberRole, 'findById')
+        .spyOn(MemberRole, 'findByURL')
         .mockResolvedValueOnce(roleOne)
         .mockResolvedValueOnce(roleTwo);
 
@@ -154,13 +163,12 @@ describe('entirePlanService', () => {
         project,
         plan,
         [{
-          projectId: project.id,
-          affiliationId: 'https://ror.example.org/abc',
+          affiliation: 'https://ror.example.org/abc',
           givenName: 'Taylor',
-          surName: 'Smith',
+          surname: 'Smith',
           orcid: '0000-0000-0000-0000',
           email: 'taylor@example.org',
-          memberRoleIds: [1, 2],
+          memberRoles: ['http://example.com/role/1', 'http://example.com/role/2'],
         }],
       );
 
@@ -245,13 +253,13 @@ describe('entirePlanService', () => {
         .spyOn(ProjectMember, 'findByProjectId')
         .mockResolvedValue([currentProjectMember]);
       jest
-        .spyOn(ProjectMember, 'findByProjectAndNameOrORCIDOrEmail')
+        .spyOn(ProjectMember, 'findById')
         .mockResolvedValue(currentProjectMember);
       jest.spyOn(Plan, 'reconcileAssociationIds').mockReturnValue({
         idsToBeRemoved: [],
         idsToBeSaved: [currentProjectMember.id],
       });
-      jest.spyOn(MemberRole, 'findById').mockResolvedValue(newRole);
+      jest.spyOn(MemberRole, 'findByURL').mockResolvedValue(newRole);
       jest
         .spyOn(ProjectMember.prototype, 'update')
         .mockImplementation(async function failedUpdate() {
@@ -266,12 +274,12 @@ describe('entirePlanService', () => {
         plan,
         [{
           projectMemberId: currentProjectMember.id,
-          affiliationId: 'https://ror.example.org/new',
+          affiliation: 'https://ror.example.org/new',
           givenName: 'New',
-          surName: 'Member',
+          surname: 'Member',
           orcid: '0000-0000-0000-0000',
           email: 'new@example.org',
-          memberRoleIds: [5],
+          memberRoles: ['http://example.com/role/5'],
         }],
       );
 
@@ -292,8 +300,7 @@ describe('entirePlanService', () => {
         project,
         plan,
         [{
-          projectId: project.id,
-          affiliationId: 'https://ror.example.org/abc',
+          funder: 'https://ror.example.org/abc',
           status: 'GRANTED',
           funderOpportunityNumber: 'OPP-1',
           funderProjectNumber: 'PROJ-2',
@@ -372,7 +379,7 @@ describe('entirePlanService', () => {
         .spyOn(ProjectFunding, 'findByProjectId')
         .mockResolvedValue([currentProjectFunding]);
       jest
-        .spyOn(ProjectFunding, 'findByProjectAndAffiliation')
+        .spyOn(ProjectFunding, 'findById')
         .mockResolvedValue(currentProjectFunding);
       jest.spyOn(Plan, 'reconcileAssociationIds').mockReturnValue({
         idsToBeRemoved: [],
@@ -392,6 +399,7 @@ describe('entirePlanService', () => {
         plan,
         [{
           projectFundingId: currentProjectFunding.id,
+          funder: 'http://example.com/funder/1',
           status: 'PLANNED',
           funderOpportunityNumber: 'OPP-X',
           funderProjectNumber: 'PROJ-Y',
@@ -408,12 +416,11 @@ describe('entirePlanService', () => {
       title: 'My Entire Plan',
       templateId: 99,
       project: {
-        id: 101,
         title: '  Existing Project  ',
         abstractText: '  project abstract  ',
         startDate: '2026-01-01',
         endDate: '2026-12-31',
-        researchDomainId: 202,
+        researchDomainUrl: 'https://ror.example.org/domain/202',
         isTestProject: true,
       },
       alternateIdentifiers: [],
@@ -429,9 +436,9 @@ describe('entirePlanService', () => {
         title: 'Existing Project',
         abstractText: 'existing',
       });
-      jest.spyOn(Project, 'findById').mockResolvedValue(existingProject);
+      jest.spyOn(Project, 'findByOwnerAndTitle').mockResolvedValue(existingProject);
       jest
-        .spyOn(ResearchDomain, 'findById')
+        .spyOn(ResearchDomain, 'findByURI')
         .mockResolvedValue({ id: 202 } as ResearchDomain);
       jest
         .spyOn(Project.prototype, 'update')
@@ -449,19 +456,53 @@ describe('entirePlanService', () => {
           this.dmpId = 'doi.org/10.1234/example';
           return this;
         });
+
+      return { existingProject };
     };
 
     it('creates a full plan', async () => {
-      setupAddEntirePlanDefaults();
+      const { existingProject } = setupAddEntirePlanDefaults();
 
       const response = await addEntirePlan('test-ref', context, baseInput as never);
 
       expect(response.id).toBe(404);
       expect(response.errors).toEqual({});
+      expect(Project.findByOwnerAndTitle).toHaveBeenCalledWith(
+        'test-ref',
+        context,
+        baseInput.project.title,
+        context.token.id,
+      );
+      expect(ResearchDomain.findByURI).toHaveBeenCalledWith(
+        'test-ref',
+        context,
+        baseInput.project.researchDomainUrl,
+      );
+      expect(existingProject.title).toBe('Existing Project');
+      expect(existingProject.abstractText).toBe('project abstract');
+      expect(existingProject.startDate).toBe(baseInput.project.startDate);
+      expect(existingProject.endDate).toBe(baseInput.project.endDate);
+      expect(existingProject.researchDomainId).toBe(202);
+      expect(existingProject.isTestProject).toBe(true);
+      expect(Project.prototype.update).toHaveBeenCalledTimes(1);
+      expect(setCurrentUserAsProjectOwner).toHaveBeenCalledWith(
+        context,
+        existingProject.id,
+      );
+      expect(ensureDefaultProjectContact).toHaveBeenCalledWith(
+        context,
+        existingProject,
+      );
+      expect(ensureDefaultPlanContact).toHaveBeenCalledWith(
+        context,
+        response,
+        existingProject,
+      );
     });
 
     it('creates a full plan with the default template and a new project', async () => {
       setupAssociationDefaults();
+      const researchDomainSpy = jest.spyOn(ResearchDomain, 'findByURI');
       jest.spyOn(Project, 'findByOwnerAndTitle').mockResolvedValue(null);
       jest
         .spyOn(Project.prototype, 'create')
@@ -489,7 +530,7 @@ describe('entirePlanService', () => {
           abstractText: '  new abstract  ',
           startDate: '2026-01-01',
           endDate: '2026-12-31',
-          researchDomainId: undefined,
+          researchDomainUrl: undefined,
           isTestProject: false,
         },
       } as never);
@@ -498,6 +539,17 @@ describe('entirePlanService', () => {
       expect(Project.prototype.create).toHaveBeenCalledTimes(1);
       expect(response.id).toBe(707);
       expect(response.projectId).toBe(505);
+      expect(researchDomainSpy).not.toHaveBeenCalled();
+      expect(setCurrentUserAsProjectOwner).toHaveBeenCalledWith(context, 505);
+      expect(ensureDefaultProjectContact).toHaveBeenCalledWith(
+        context,
+        expect.objectContaining({ id: 505, title: 'New Project' }),
+      );
+      expect(ensureDefaultPlanContact).toHaveBeenCalledWith(
+        context,
+        response,
+        expect.objectContaining({ id: 505, title: 'New Project' }),
+      );
     });
 
     it('throws a bad request error when the specified template cannot be found', async () => {
@@ -604,7 +656,7 @@ describe('entirePlanService', () => {
     it('throws internal server error for unexpected failures', async () => {
       setupAddEntirePlanDefaults();
       jest
-        .spyOn(Project, 'findById')
+        .spyOn(Project, 'findByOwnerAndTitle')
         .mockRejectedValue(new Error('database unavailable'));
 
       let err: unknown;
@@ -629,7 +681,7 @@ describe('entirePlanService', () => {
         abstractText: 'Updated abstract',
         startDate: '2026-01-01',
         endDate: '2026-12-31',
-        researchDomainId: 202,
+        researchDomainUrl: 'https://ror.example.org/domain/202',
         isTestProject: true,
       },
       alternateIdentifiers: [],
@@ -640,7 +692,7 @@ describe('entirePlanService', () => {
     const setupReplaceDefaults = () => {
       setupAssociationDefaults();
       jest
-        .spyOn(ResearchDomain, 'findById')
+        .spyOn(ResearchDomain, 'findByURI')
         .mockResolvedValue({ id: 202 } as ResearchDomain);
       jest
         .spyOn(Project.prototype, 'update')
@@ -663,7 +715,14 @@ describe('entirePlanService', () => {
 
       expect(response).toBe(plan);
       expect(project.title).toBe('Replacement Project');
+      expect(project.abstractText).toBe('Updated abstract');
+      expect(project.researchDomainId).toBe(202);
       expect(plan.title).toBe('Replacement Plan');
+      expect(ResearchDomain.findByURI).toHaveBeenCalledWith(
+        'test-ref',
+        context,
+        baseInput.project.researchDomainUrl,
+      );
     });
 
     it('throws a bad request error when the project update fails', async () => {

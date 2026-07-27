@@ -320,6 +320,7 @@ export const typeDefs = gql`
 
   "Input to create/replace a Project/Plan member"
   input EntirePlanMemberFragment {
+    projectMemberId: Int
     givenName: String
     surname: String
     email: String
@@ -331,6 +332,7 @@ export const typeDefs = gql`
 
   "Input to create/replace a Project/Plan funding"
   input EntirePlanFundingFragment {
+    projectFundingId: Int
     funder: String!
     status: ProjectFundingStatus
     funderOpportunityNumber: String
@@ -357,7 +359,7 @@ export const typeDefs = gql`
     languageId: String!
 
     "The research project this plan is associated with"
-    project: AddProjectInput!
+    project: EntirePlanProjectFragment!
 
     "The id of the template being used (the default template will be used if not provided)"
     templateId: Int
@@ -366,11 +368,11 @@ export const typeDefs = gql`
     alternateIdentifiers: [String!]
 
     "The project members involved with the data described in the plan"
-    members: [AddProjectMemberInput!]
+    members: [EntirePlanMemberFragment!]
     "The funding sources associated with the data described in the plan"
-    funding: [AddProjectFundingInput!]
+    funding: [EntirePlanFundingFragment!]
     "The answers to the questions in the plan's narrative"
-    answers: [AddAnswerInput!]
+    answers: [EntirePlanAnswerFragment!]
   }
 
   "Input to update an entire Project and Plan"
@@ -392,13 +394,14 @@ export const typeDefs = gql`
     alternateIdentifiers: [String!]
 
     "The research project this plan is associated with"
-    project: AddProjectInput!
+    project: EntirePlanProjectFragment!
 
     "The project members involved with the data described in the plan"
-    members: [AddProjectMemberInput!]
+    members: [EntirePlanMemberFragment!]
     "The funding sources associated with the data described in the plan"
-    funding: [AddProjectFundingInput!]
+    funding: [EntirePlanFundingFragment!]
     "The answers to the questions in the plan's narrative"
-    answers: [AddAnswerInput!]
+    answers: [EntirePlanAnswerFragment!]
   }
+
 `;

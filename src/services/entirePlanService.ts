@@ -1,37 +1,26 @@
-import {GraphQLError} from "graphql";
-import {toErrorMessage} from "@dmptool/utils";
-import {MyContext} from "../context";
-import {prepareObjectForLogs} from "../logger";
-import {ensureDefaultPlanContact} from "./planService";
-import {AlternateIdentifier} from "../models/AlternateIdentifier";
-import {defaultLanguageId} from "../models/Language";
-import {Project} from "../models/Project";
-import {Affiliation} from "../models/Affiliation";
-import {MemberRole} from "../models/MemberRole";
-import {ResearchDomain} from "../models/ResearchDomain";
-import {VersionedTemplate} from "../models/VersionedTemplate";
-import {PlanMember, ProjectMember} from "../models/Member";
-import {Plan, PlanStatus, PlanVisibility} from "../models/Plan";
-import {
-  PlanFunding,
-  ProjectFunding,
-  ProjectFundingStatus
-} from "../models/Funding";
+import { GraphQLError } from "graphql";
+import { toErrorMessage } from "@dmptool/utils";
+import { MyContext } from "../context";
+import { prepareObjectForLogs } from "../logger";
+import { ensureDefaultPlanContact } from "./planService";
+import { ensureDefaultProjectContact, setCurrentUserAsProjectOwner } from "./projectService";
+import { AlternateIdentifier } from "../models/AlternateIdentifier";
+import { defaultLanguageId } from "../models/Language";
+import { Project } from "../models/Project";
+import { Affiliation } from "../models/Affiliation";
+import { MemberRole } from "../models/MemberRole";
+import { ResearchDomain } from "../models/ResearchDomain";
+import { VersionedTemplate } from "../models/VersionedTemplate";
+import { PlanMember, ProjectMember } from "../models/Member";
+import { Plan, PlanStatus, PlanVisibility } from "../models/Plan";
+import { PlanFunding, ProjectFunding, ProjectFundingStatus } from "../models/Funding";
 import {
   AddEntirePlanInput,
-  AddProjectFundingInput,
-  AddProjectInput,
-  AddProjectMemberInput,
-  UpdateEntirePlanInput,
-  UpdateProjectFundingInput,
-  UpdateProjectInput,
-  UpdateProjectMemberInput
+  EntirePlanFundingFragment,
+  EntirePlanMemberFragment, EntirePlanProjectFragment,
+  UpdateEntirePlanInput
 } from "../types";
-import {BadRequestError, InternalServerError} from "../utils/graphQLErrors";
-import {
-  ensureDefaultProjectContact,
-  setCurrentUserAsProjectOwner
-} from "./projectService";
+import { BadRequestError, InternalServerError } from "../utils/graphQLErrors";
 
 interface LogBase {
   ref: string;
@@ -48,11 +37,8 @@ type AssociationAction = 'add' | 'update' | 'remove';
 type ProjectAssociationType = ProjectMember | ProjectFunding;
 type PlanAssociationType = PlanMember | PlanFunding;
 
-// The type of the associated object
-type AssociationInputType = AddProjectMemberInput
-  | UpdateProjectMemberInput
-  | AddProjectFundingInput
-  | UpdateProjectFundingInput;
+// The input type for an associated object
+type AssociationInputType = EntirePlanMemberFragment | EntirePlanFundingFragment;
 
 // A reconciled associated object
 interface ReconciledAssociation<AssociationInputType, ProjectAssociationType> {
@@ -188,9 +174,9 @@ const processAssociations  = async (
       (m: PlanAssociationType): boolean => config.getPlanObjProjectObjId(m) === item.id
     );
 
-    const affiliation: Affiliation = input && 'affiliationId' in input
-      ? await Affiliation.findByURI(reference, context, input.affiliationId)
-      : undefined;
+    const affiliation: Affiliation = input && ('affiliation' in input)
+      ? await Affiliation.findByURI(reference, context, input.affiliation)
+      : (input && 'funder' in input ? await Affiliation.findByURI(reference, context, input.funder) : undefined);
 
     const logName = input
       ? config.getLogIdentifier(input, affiliation?.uri)
@@ -237,7 +223,7 @@ export const processMemberAssociations = async(
   context: MyContext,
   project: Project,
   plan: Plan,
-  members: AddProjectMemberInput[] | UpdateProjectMemberInput[]
+  members: EntirePlanMemberFragment[]
 ): Promise<string | undefined> => {
   return processAssociations(
     // Define the context needed to process the associations
@@ -257,16 +243,18 @@ export const processMemberAssociations = async(
       fetchProjectObjs: (id: number): Promise<ProjectMember[]> => {
         return ProjectMember.findByProjectId(reference, context, id);
       },
-      findOrCreateProjectObj: async (m: ProjectMember): Promise<ProjectMember> => {
-        const member: ProjectMember = await ProjectMember.findByProjectAndNameOrORCIDOrEmail(
-          reference,
-          context,
-          project.id,
-          m.givenName,
-          m.surName,
-          m.orcid,
-          m.email
-        );
+      findOrCreateProjectObj: async (m: EntirePlanMemberFragment): Promise<ProjectMember> => {
+        const member: ProjectMember = m.projectMemberId
+          ? await ProjectMember.findById(reference, context, m.projectMemberId)
+          : await ProjectMember.findByProjectAndNameOrORCIDOrEmail(
+            reference,
+            context,
+            project.id,
+            m.givenName,
+            m.surname,
+            m.orcid,
+            m.email
+          );
         return member || new ProjectMember(m);
       },
       getPlanObjProjectObjId: (pm: PlanMember): number => pm.projectMemberId,
@@ -275,8 +263,8 @@ export const processMemberAssociations = async(
       },
       getLogIdentifier: (a: AssociationInputType): string => {
         return 'surname' in a && 'givenName' in a
-          ? [a?.surName, a?.givenName].filter(Boolean).join(' ').trim()
-          : 'affiliationId' in a ? a.affiliationId : '';
+          ? [a?.surname, a?.givenName].filter(Boolean).join(' ').trim()
+          : 'affiliation' in a ? a.affiliation : '';
       },
 
       // Define all the functions to handle the association
@@ -289,14 +277,14 @@ export const processMemberAssociations = async(
         logName,
         errors
       }: ReconciliationHandlerContext): Promise<void> => {
-        const pMemberIn = input as AddProjectMemberInput | UpdateProjectMemberInput;
+        const pMemberIn = input as EntirePlanMemberFragment;
 
         // Add the project member first
         const newProjMember: ProjectMember = await new ProjectMember({
           projectId: project.id,
           affiliationId: affiliation?.uri,
           givenName: pMemberIn.givenName,
-          surName: pMemberIn.surName,
+          surName: pMemberIn.surname,
           orcid: pMemberIn.orcid,
           email: pMemberIn.email,
         }).create(context, project.id);
@@ -305,15 +293,21 @@ export const processMemberAssociations = async(
           return;
 
         } else {
-          const roles: MemberRole[] = await Promise.all(pMemberIn.memberRoleIds.map(async (id: number): Promise<MemberRole> => {
-            return await MemberRole.findById(reference, context, id);
-          }).filter(Boolean));
+          const roles: MemberRole[] = (
+            await Promise.all(
+              (pMemberIn.memberRoles || []).map(async (id: string): Promise<MemberRole> => {
+                return await MemberRole.findByURL(reference, context, id);
+              })
+            )
+          ).filter((role): role is MemberRole => Boolean(role));
 
           // Add the roles to the new project member
           for (const role of roles) {
-            const addedRole: boolean = await role.addToProjectMember(context, newProjMember.id);
-            if (!addedRole) {
-              errors.push(`Unable to add new role ${role.label} to project member: ${logName}`);
+            if (role) {
+              const addedRole: boolean = await role.addToProjectMember(context, newProjMember.id);
+              if (!addedRole) {
+                errors.push(`Unable to add new role ${role.label} to project member: ${logName}`);
+              }
             }
           }
 
@@ -330,9 +324,11 @@ export const processMemberAssociations = async(
           } else {
             // Add the roles to the new plan member
             for (const role of roles) {
-              const addedRole: boolean = await role.addToPlanMember(context, newPlanMember.id);
-              if (!addedRole) {
-                errors.push(`Unable to add new role ${role.label} to plan member: ${logName}`);
+              if (role) {
+                const addedRole: boolean = await role.addToPlanMember(context, newPlanMember.id);
+                if (!addedRole) {
+                  errors.push(`Unable to add new role ${role.label} to plan member: ${logName}`);
+                }
               }
             }
           }
@@ -373,37 +369,44 @@ export const processMemberAssociations = async(
         logName,
         errors
       }: ReconciliationHandlerContext) => {
-        const inObj = input as AddProjectMemberInput | UpdateProjectMemberInput;
+        const inObj = input as EntirePlanMemberFragment;
 
         const cPlanObj = currentPlanObj as PlanMember;
         const cProjObj = currentProjectObj as ProjectMember;
+        const incomingRoles: MemberRole[] = (
+          await Promise.all(
+            (inObj.memberRoles || []).map(async (id: string): Promise<MemberRole> => {
+              return await MemberRole.findByURL(reference, context, id);
+            })
+          )
+        ).filter((role): role is MemberRole => Boolean(role));
+        const incomingRoleIds: number[] = incomingRoles.map((role: MemberRole) => role.id);
+        const projRoleIds: number[] = cProjObj.memberRoles.map((role: MemberRole) => role.id);
 
         // The only thing to update for a plan member are roles
-        cPlanObj.memberRoleIds = inObj.memberRoleIds;
-        const projRoleIds: number[] = cProjObj.memberRoles.map((role: MemberRole) => role.id);
-        for (const id in cPlanObj.memberRoleIds) {
-          const role: MemberRole = await MemberRole.findById(reference, context, Number(id));
-          if (role) {
-            // If the project member doesn't have this role then add it there first
-            if (!projRoleIds.includes(role.id)) {
-              const addedToProj: boolean = await role.addToProjectMember(context, cProjObj.id);
-              if (!addedToProj) {
-                errors.push(`Unable to add role ${role.label} to project member ${logName}`);
-              }
-            }
+        cPlanObj.memberRoleIds = incomingRoleIds;
 
-            // Add the role to the plan member
-            const wasAdded = await role.addToPlanMember(context, cPlanObj.id);
-            if (!wasAdded) {
-              errors.push(`Unable to add role ${role.label} to plan member ${logName}`);
+        // Update the project members
+        for (const role of incomingRoles) {
+          // If the project member doesn't have this role then add it there first
+          if (!projRoleIds.includes(role.id)) {
+            const addedToProj: boolean = await role.addToProjectMember(context, cProjObj.id);
+            if (!addedToProj) {
+              errors.push(`Unable to add role ${role.label} to project member ${logName}`);
             }
+          }
+
+          // Add the role to the plan member
+          const wasAdded = await role.addToPlanMember(context, cPlanObj.id);
+          if (!wasAdded) {
+            errors.push(`Unable to add role ${role.label} to plan member ${logName}`);
           }
         }
 
         // Update the project member
         cProjObj.affiliationId = affiliation?.uri;
         cProjObj.givenName = inObj.givenName;
-        cProjObj.surName = inObj.surName;
+        cProjObj.surName = inObj.surname;
         cProjObj.orcid = inObj.orcid;
         cProjObj.email = inObj.email;
         const updProj: ProjectMember = await cProjObj.update(context, true);
@@ -413,7 +416,7 @@ export const processMemberAssociations = async(
         // that are no longer there
         if (!isShared) {
           for (const role of cProjObj.memberRoles) {
-            if (!cPlanObj.memberRoleIds.includes(role.id)) {
+            if (!incomingRoleIds.includes(role.id)) {
               const wasRemoved: boolean = await role.removeFromProjectMember(context, cProjObj.id);
               if (!wasRemoved) {
                 errors.push(`Unable to remove role ${role.label} from project member ${logName}`);
@@ -441,7 +444,7 @@ export const processFundingAssociations = async(
   context: MyContext,
   project: Project,
   plan: Plan,
-  funding: AddProjectFundingInput[] | UpdateProjectFundingInput[]
+  funding: EntirePlanFundingFragment[]
 ): Promise<string | undefined> => {
   return processAssociations(
     // Define the context needed to process the associations
@@ -461,13 +464,15 @@ export const processFundingAssociations = async(
       fetchProjectObjs: (id: number): Promise<ProjectFunding[]> => {
         return ProjectFunding.findByProjectId(reference, context, id);
       },
-      findOrCreateProjectObj: async (m: ProjectFunding): Promise<ProjectFunding> => {
-        const funding: ProjectFunding = await ProjectFunding.findByProjectAndAffiliation(
-          reference,
-          context,
-          project.id,
-          m.affiliationId
-        );
+      findOrCreateProjectObj: async (m: EntirePlanFundingFragment): Promise<ProjectFunding> => {
+        const funding: ProjectFunding = m.projectFundingId
+        ? await ProjectFunding.findById(reference, context, m.projectFundingId)
+        : await ProjectFunding.findByProjectAndAffiliation(
+            reference,
+            context,
+            project.id,
+            m.funder
+          );
         return funding || new ProjectFunding(m);
       },
       getPlanObjProjectObjId: (pm: PlanFunding): number => pm.projectFundingId,
@@ -475,8 +480,8 @@ export const processFundingAssociations = async(
         return (await PlanFunding.findByProjectFundingId(reference, context, id)).length > 0;
       },
       getLogIdentifier: (a: AssociationInputType): string => {
-        return 'affiliationId' in a
-          ? a.affiliationId
+        return 'funder' in a
+          ? a.funder
           : ('projectFundingId' in a ? a.projectFundingId.toString() : '?');
       },
 
@@ -490,7 +495,7 @@ export const processFundingAssociations = async(
         logName,
         errors
       }: ReconciliationHandlerContext): Promise<void> => {
-        const pFundingIn = input as AddProjectFundingInput | UpdateProjectFundingInput;
+        const pFundingIn = input as EntirePlanFundingFragment;
 
         // Add the project funding
         const newProjFunding: ProjectFunding = await new ProjectFunding({
@@ -544,7 +549,7 @@ export const processFundingAssociations = async(
         logName,
         errors
       }: ReconciliationHandlerContext) => {
-        const inObj = input as AddProjectFundingInput | UpdateProjectFundingInput;
+        const inObj = input as EntirePlanFundingFragment;
 
         // There is nothing to update on a PlanFunding, it is just a join table
 
@@ -685,21 +690,19 @@ const processAssociatedObjectForEntirePlan = async (
 const findOrInitializeProject = async (
   ref: string,
   context: MyContext,
-  input: AddProjectInput | UpdateProjectInput,
+  input: EntirePlanProjectFragment,
 ): Promise<Project | undefined> => {
   let project: Project | undefined;
 
   // We must have title
   if (!input || !input.title) return undefined;
 
-  // Attempt to find it by the specified id or title
-  project = input.id
-    ? await Project.findById(ref, context, input.id)
-    : await Project.findByOwnerAndTitle(ref, context, input.title, context.token.id);
+  // Attempt to find it by the owner and title
+  project = await Project.findByOwnerAndTitle(ref, context, input.title, context.token.id);
 
   // Attempt to find the specified ResearchDomain
-  const researchDomain: ResearchDomain | undefined = input.researchDomainId
-    ? await ResearchDomain.findById(ref, context, input.researchDomainId)
+  const researchDomain: ResearchDomain | undefined = input.researchDomainUrl
+    ? await ResearchDomain.findByURI(ref, context, input.researchDomainUrl)
     : undefined;
 
   // If no project was found, initialize one
@@ -912,8 +915,8 @@ export const replaceEntirePlan = async (
   try {
     // 1st: Save the project information
     context.logger.debug(logBase, 'Replacing project information');
-    const researchDomain: ResearchDomain | null = input.project?.researchDomainId
-      ? await ResearchDomain.findById(reference, context, input.project.researchDomainId)
+    const researchDomain: ResearchDomain | null = input.project?.researchDomainUrl
+      ? await ResearchDomain.findByURI(reference, context, input.project.researchDomainUrl)
       : null;
 
     // Process the standard project level information

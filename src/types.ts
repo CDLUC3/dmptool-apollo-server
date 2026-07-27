@@ -90,15 +90,15 @@ export type AddEntirePlanInput = {
   /** External identifiers for the plan (for use when integrating with external systems) */
   alternateIdentifiers?: InputMaybe<Array<Scalars['String']['input']>>;
   /** The answers to the questions in the plan's narrative */
-  answers?: InputMaybe<Array<AddAnswerInput>>;
+  answers?: InputMaybe<Array<EntirePlanAnswerFragment>>;
   /** The funding sources associated with the data described in the plan */
-  funding?: InputMaybe<Array<AddProjectFundingInput>>;
+  funding?: InputMaybe<Array<EntirePlanFundingFragment>>;
   /** The language of the plan */
   languageId: Scalars['String']['input'];
   /** The project members involved with the data described in the plan */
-  members?: InputMaybe<Array<AddProjectMemberInput>>;
+  members?: InputMaybe<Array<EntirePlanMemberFragment>>;
   /** The research project this plan is associated with */
-  project: AddProjectInput;
+  project: EntirePlanProjectFragment;
   /** The status of the plan */
   status: PlanStatus;
   /** The id of the template being used (the default template will be used if not provided) */
@@ -1127,6 +1127,7 @@ export type EntirePlanFundingFragment = {
   funderOpportunityNumber?: InputMaybe<Scalars['String']['input']>;
   funderProjectNumber?: InputMaybe<Scalars['String']['input']>;
   grantId?: InputMaybe<Scalars['String']['input']>;
+  projectFundingId?: InputMaybe<Scalars['Int']['input']>;
   status?: InputMaybe<ProjectFundingStatus>;
 };
 
@@ -1138,6 +1139,7 @@ export type EntirePlanMemberFragment = {
   isPrimaryContact?: InputMaybe<Scalars['Boolean']['input']>;
   memberRoles?: InputMaybe<Array<Scalars['String']['input']>>;
   orcid?: InputMaybe<Scalars['String']['input']>;
+  projectMemberId?: InputMaybe<Scalars['Int']['input']>;
   surname?: InputMaybe<Scalars['String']['input']>;
 };
 
@@ -5173,6 +5175,11 @@ export type TypeCount = {
   typeId: Scalars['String']['output'];
 };
 
+export type UpdateAnswerInput = {
+  id: Scalars['Int']['input'];
+  json?: InputMaybe<Scalars['String']['input']>;
+};
+
 /** Input parameters for updating a custom section */
 export type UpdateCustomQuestionInput = {
   /** The id of the custom question */
@@ -5212,19 +5219,19 @@ export type UpdateEntirePlanInput = {
   /** External identifiers for the plan (for use when integrating with external systems) */
   alternateIdentifiers?: InputMaybe<Array<Scalars['String']['input']>>;
   /** The answers to the questions in the plan's narrative */
-  answers?: InputMaybe<Array<AddAnswerInput>>;
+  answers?: InputMaybe<Array<EntirePlanAnswerFragment>>;
   /** The DMP id of the plan (required if no 'id' is provided) */
   dmpId?: InputMaybe<Scalars['String']['input']>;
   /** The funding sources associated with the data described in the plan */
-  funding?: InputMaybe<Array<AddProjectFundingInput>>;
+  funding?: InputMaybe<Array<EntirePlanFundingFragment>>;
   /** The id of the plan (required if no 'dmpId' is provided) */
   id?: InputMaybe<Scalars['Int']['input']>;
   /** The language of the plan */
   languageId?: InputMaybe<Scalars['String']['input']>;
   /** The project members involved with the data described in the plan */
-  members?: InputMaybe<Array<AddProjectMemberInput>>;
+  members?: InputMaybe<Array<EntirePlanMemberFragment>>;
   /** The research project this plan is associated with */
-  project: AddProjectInput;
+  project: EntirePlanProjectFragment;
   /** The status of the plan */
   status?: InputMaybe<PlanStatus>;
   /** The title of the plan */
@@ -6555,6 +6562,7 @@ export type ResolversTypes = {
   TemplateVisibility: TemplateVisibility;
   TypeCount: ResolverTypeWrapper<TypeCount>;
   URL: ResolverTypeWrapper<Scalars['URL']['output']>;
+  UpdateAnswerInput: UpdateAnswerInput;
   UpdateCustomQuestionInput: UpdateCustomQuestionInput;
   UpdateCustomSectionInput: UpdateCustomSectionInput;
   UpdateEntirePlanInput: UpdateEntirePlanInput;
@@ -6798,6 +6806,7 @@ export type ResolversParentTypes = {
   TemplateSearchResults: TemplateSearchResults;
   TypeCount: TypeCount;
   URL: Scalars['URL']['output'];
+  UpdateAnswerInput: UpdateAnswerInput;
   UpdateCustomQuestionInput: UpdateCustomQuestionInput;
   UpdateCustomSectionInput: UpdateCustomSectionInput;
   UpdateEntirePlanInput: UpdateEntirePlanInput;

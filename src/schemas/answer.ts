@@ -110,4 +110,9 @@ export const typeDefs = gql`
     versionedCustomQuestionId: Int
     json: String!
   }
+
+  input UpdateAnswerInput {
+    id: Int!
+    json: String
+  }
 `;

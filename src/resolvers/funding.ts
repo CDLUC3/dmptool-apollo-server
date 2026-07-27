@@ -169,12 +169,30 @@ export const resolvers: Resolvers = {
           // Only allow the owner of the project to delete it
           const project = await Project.findById(reference, context, funding.projectId);
           if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.EDIT)) {
+
+            const plans = await Plan.findByProjectId(reference, context, funding.projectId);
+
+            // Delete the planFundings record(s) for this projectFundingId first, or the
+            // FK constraint (planfundings_ibfk_4) will block deleting the projectFunding below
+            for (const plan of plans) {
+              const planFunding = await PlanFunding.findByProjectFundingId(reference, context, plan.id, projectFundingId);
+              if (planFunding) {
+                const wasRemoved = await planFunding.delete(context);
+                if (!wasRemoved || wasRemoved.hasErrors()) {
+                  context.logger.error(
+                    prepareObjectForLogs({ projectFundingId, planId: plan.id }),
+                    `Failed to remove PlanFunding before deleting ProjectFunding in ${reference}`
+                  );
+                  throw InternalServerError();
+                }
+              }
+            }
+
             const removed = await funding.delete(context);
             console.log("***Removed funding", removed);
             if (removed && !removed.hasErrors()) {
-              const plans = await Plan.findByProjectId(reference, context, funding.projectId);
               for (const plan of plans) {
-                // Update the maDMP version of the Plan
+                // Update the maDMP version of the Plan now that the funding is actually gone
                 await saveMaDMPVersion(reference, context, plan.id, plan.dmpId);
               }
             }

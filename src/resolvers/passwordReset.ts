@@ -42,7 +42,11 @@ export const resolvers: Resolvers = {
           const hashedToken = hashToken(rawToken);
           const expiresAt = getFutureDate(generalConfig.passwordResetTokenExpiryMilliseconds);
 
-          await PasswordResetToken.createForUser(context, user.id, hashedToken, expiresAt);
+          const created = await PasswordResetToken.createForUser(context, user.id, hashedToken, expiresAt);
+          if (!created) {
+            context.logger.error(prepareObjectForLogs({ userId: user.id }), `${reference} - failed to create reset token`);
+            return true; // exits here — sendResetPasswordEmail is skipped
+          }
           await sendResetPasswordEmail(context, user, userEmail[0].email, rawToken);
         }
         return true;
@@ -72,7 +76,10 @@ export const resolvers: Resolvers = {
           throw InternalServerError();
         }
 
-        await resetTokenRecord.markUsed(context);
+        const marked = await resetTokenRecord.markUsed(context);
+        if (!marked) {
+          context.logger.error(prepareObjectForLogs({ tokenId: resetTokenRecord.id }), `${reference} - failed to mark token as used`);
+        }
 
         return true;
       } catch (err) {

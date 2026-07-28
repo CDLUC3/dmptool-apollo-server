@@ -20,6 +20,7 @@ import {
   PaginationType
 } from '../types/general';
 import { ProjectCollaborator, TemplateCollaborator } from "./Collaborator";
+import { bumpUserTokenVersion } from '../services/tokenService';
 
 export enum UserRole {
   RESEARCHER = 'RESEARCHER',
@@ -57,6 +58,7 @@ export class User extends MySqlModel {
   public locked?: boolean;
   public active?: boolean;
   public isArchived?: boolean;
+  public passwordChangedAt?: string;
 
   public tableName = 'users';
 
@@ -82,6 +84,7 @@ export class User extends MySqlModel {
     this.notify_on_feedback_complete = options.notify_on_feedback_complete ?? true;
     this.notify_on_plan_shared = options.notify_on_plan_shared ?? true;
     this.notify_on_plan_visibility_change = options.notify_on_plan_visibility_change ?? true;
+    this.passwordChangedAt = options.passwordChangedAt;
     this.isArchived = options.isArchived ?? false;
 
     this.prepForSave();
@@ -360,6 +363,25 @@ export class User extends MySqlModel {
 
     context.logger.debug(prepareObjectForLogs({ options, response }), reference);
     return response;
+  }
+
+  // Set the user's password
+  async setPassword(context: MyContext, newPassword: string): Promise<boolean> {
+    if (this.id) {
+      this.password = newPassword;
+      if (!this.validatePassword()) {
+        return false;
+      }
+      this.password = await this.hashPassword(newPassword);
+      this.passwordChangedAt = getCurrentDate();
+
+      if (await User.update(context, this.tableName, this, 'User.setPassword')) {
+        await bumpUserTokenVersion(context.cache, this.id);
+        return true;
+      }
+    }
+    context.logger.error(`setPassword failed for user ${this.id}`);
+    return false;
   }
 
   // Update the last_login fields

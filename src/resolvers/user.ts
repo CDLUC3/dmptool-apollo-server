@@ -12,10 +12,14 @@ import { processOtherAffiliationName } from "../services/affiliationService";
 import { prepareObjectForLogs } from "../logger";
 import { GraphQLError } from "graphql";
 import { PaginationOptionsForCursors, PaginationOptionsForOffsets, PaginationType } from "../types/general";
-import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
+import {
+  isNullOrUndefined,
+  normaliseDateTime
+} from "../utils/helpers";
 import {
   authenticatedResolver,
 } from "../services/authService";
+
 
 export const resolvers: Resolvers = {
   Query: {

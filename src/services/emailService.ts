@@ -56,6 +56,16 @@ Please do not reply to this email. If you have any questions or need help, pleas
 <p>-----------------------------------------------------------</p>
 <p>%{attribution}</p>
 `,
+  sendResetPassword: `
+<p>Hello %{userEmail},</p>
+<p>Someone has requested a link to change your DMP Tool password. You can do this through the link below.</p>
+<p><a href="%{resetPasswordUrl}">Change my password</a></p>
+<p>If you didn't request this, please ignore this email.</p>
+<p>Your password won't change until you access the link above and create a new one.</p>
+<p>All the best,<br>The DMP Tool team</p>
+<p><small>Please do not reply to this email. If you have any questions or need help, please contact us at
+<a href="mailto:%{helpDeskEmail}">%{helpDeskEmail}</a> or visit the <a href="%{helpUrl}">Help Page</a>.</small></p>
+`,
 }
 
 const transporter = nodemailer.createTransport({
@@ -344,5 +354,37 @@ export const sendContactUsEmail = async (
     body,
     true, // asHTML
     email, // replyTo
+  );
+}
+
+export const sendResetPasswordEmail = async (
+  context: MyContext,
+  user: User,
+  userEmail: string,
+  resetToken: string,
+): Promise<boolean> => {
+  if (!userEmail) {
+    context.logger.error(
+      prepareObjectForLogs({ userId: user.id }),
+      `User with ID ${user.id} does not have an email address and cannot be sent a reset password email`
+    );
+    return false;
+  }
+  const domain = generalConfig.domain;
+  const resetPasswordUrl = `${generalConfig.domain}/login/reset-password?token=${resetToken}`;
+  const message = emailMessages.sendResetPassword
+    .replace('%{userEmail}', userEmail)
+    .replace('%{resetPasswordUrl}', resetPasswordUrl)
+    .replaceAll('%{helpDeskEmail}', emailConfig.helpDeskAddress)
+    .replace('%{helpUrl}', `${domain}/help`);
+
+  return await sendEmail(
+    context,
+    'ResetPassword',
+    [userEmail],
+    [],
+    [],
+    'Reset Your Password',
+    message
   );
 }

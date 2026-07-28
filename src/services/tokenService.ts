@@ -1,5 +1,5 @@
 import { v4 } from 'uuid';
-import { createHash, timingSafeEqual } from 'crypto';
+import { timingSafeEqual } from 'crypto';
 import jwt, { JwtPayload } from 'jsonwebtoken';
 import { Response } from "express";
 import { logger, prepareObjectForLogs } from '../logger';
@@ -16,6 +16,10 @@ import { Cache } from '../datasources/cache';
 import { MyContext } from '../context';
 import { defaultLanguageId } from '../models/Language';
 import { KeyvAdapter } from "@apollo/utils.keyvadapter";
+import { hashToken } from "../utils/helpers";
+
+const VERSION_TAG = '{dmspt}';
+const versionKey = (userId: number | string) => `${VERSION_TAG}:version:${userId}`;
 
 export interface JWTAccessToken extends JwtPayload {
   id: number,
@@ -26,17 +30,28 @@ export interface JWTAccessToken extends JwtPayload {
   affiliationId: string,
   languageId: string,
   jti: string,
- }
+  tokenVersion: number,
+}
 
 export interface JWTRefreshToken extends JwtPayload {
   jti: string,
   id: number,
+  tokenVersion: number,
 }
 
-// Hash a token before placing it in the cache
-const hashToken = (token: string): string => {
-  return createHash('sha256').update(`${token}${generalConfig.hashTokenSecret}`).digest('hex');
-}
+// Current version for a user. Defaults to 0 if never set.
+export const getUserTokenVersion = async (cache: KeyvAdapter, userId: number | string): Promise<number> => {
+  const raw = await cache.get(versionKey(userId));
+  const parsed = parseInt(raw as string, 10);
+  return Number.isNaN(parsed) ? 0 : parsed;
+};
+
+// Call this on password reset (and optionally on "log out everywhere")
+export const bumpUserTokenVersion = async (cache: KeyvAdapter, userId: number | string): Promise<number> => {
+  const next = (await getUserTokenVersion(cache, userId)) + 1;
+  await cache.set(versionKey(userId), next.toString()); // no TTL — must outlive any token
+  return next;
+};
 
 // Helper function to set a secure HTTP-only cookie
 export const setTokenCookie = (res: Response, name: string, value: string, maxAge?: number): void => {
@@ -57,16 +72,15 @@ export const generateCSRFToken = async (cache: KeyvAdapter): Promise<string> => 
     // Add the refresh token to the Cache
     await cache.set(`{csrf}:${csrfToken}`, hashedToken, { ttl: generalConfig.csrfTTL });
     return csrfToken;
-  } catch(err) {
+  } catch (err) {
     logger.error(err, 'generateCSRFToken error!');
     return null;
   }
 }
 
 // Generate an access token for the User
-const generateAccessToken = async (context: MyContext, jti: string, user: User): Promise<string> => {
+const generateAccessToken = async (context: MyContext, jti: string, user: User, tokenVersion: number): Promise<string> => {
   const email = await user.getEmail(context);
-
   try {
     const payload: JWTAccessToken = {
       id: user.id,
@@ -77,11 +91,12 @@ const generateAccessToken = async (context: MyContext, jti: string, user: User):
       role: user.role.toString() || UserRole.RESEARCHER,
       languageId: user.languageId || defaultLanguageId,
       jti,
+      tokenVersion,
     };
 
     context.logger.debug(prepareObjectForLogs(payload), 'generateAccessToken payload');
     return jwt.sign(payload, generalConfig.jwtSecret as string, { expiresIn: generalConfig.jwtTTL });
-  } catch(err) {
+  } catch (err) {
     if (context?.logger) {
       context.logger.error(prepareObjectForLogs(err), `generateAccessToken error`);
     }
@@ -90,11 +105,12 @@ const generateAccessToken = async (context: MyContext, jti: string, user: User):
 }
 
 // Generate a refresh token for the User and add it to the Cache.
-const generateRefreshToken = async (context: MyContext, jti: string, userId: number): Promise<string> => {
+const generateRefreshToken = async (context: MyContext, jti: string, userId: number, tokenVersion: number): Promise<string> => {
   try {
     const payload: JWTRefreshToken = {
       jti,
       id: userId,
+      tokenVersion,
     };
 
     const token = jwt.sign(payload, generalConfig.jwtRefreshSecret, { expiresIn: generalConfig.jwtRefreshTTL });
@@ -103,7 +119,7 @@ const generateRefreshToken = async (context: MyContext, jti: string, userId: num
     // Add the refresh token to the Cache
     await context.cache.set(`{dmspr}:${jti}`, hashedToken, { ttl: generalConfig.jwtRefreshTTL })
     return token;
-  } catch(err) {
+  } catch (err) {
     if (context?.logger) {
       context.logger.error(prepareObjectForLogs(err), 'generateRefreshToken error');
     }
@@ -114,17 +130,19 @@ const generateRefreshToken = async (context: MyContext, jti: string, userId: num
 // Generate an Access Token and a Refresh Token
 export const generateAuthTokens = async (context: MyContext, user: User): Promise<{ accessToken: string; refreshToken: string }> => {
   if (generalConfig.jwtSecret && generalConfig.jwtRefreshSecret && user && user.id && await user.getEmail(context)) {
+    const tokenVersion = await getUserTokenVersion(context.cache, user.id);
+
     try {
       // Generate a unique id for the JWT
       const jti = `${user.id}-${new Date().getTime()}`;
       // Generate an Access Token
-      const accessToken = await generateAccessToken(context, jti, user);
+      const accessToken = await generateAccessToken(context, jti, user, tokenVersion);
 
       // Generate a Refresh Token
-      const refreshToken = await generateRefreshToken(context, jti, user.id);
+      const refreshToken = await generateRefreshToken(context, jti, user.id, tokenVersion);
 
       return { accessToken, refreshToken };
-    } catch(err) {
+    } catch (err) {
       context.logger.error(prepareObjectForLogs(err), 'generateAuthTokens - unable to generate tokens');
     }
   }
@@ -139,7 +157,7 @@ export const verifyCSRFToken = async (cache: KeyvAdapter, csrfToken: string): Pr
 
     const calculatedHash = hashToken(csrfToken);
     return timingSafeEqual(Buffer.from(storedHash), Buffer.from(calculatedHash));
-  } catch(err) {
+  } catch (err) {
     logger.error(err, 'verifyCSRFToken failure');
     return false;
   }
@@ -155,7 +173,7 @@ export const verifyAccessToken = (context: MyContext, accessToken: string): JwtP
     if (token && (token.exp >= now / 1000)) {
       return token;
     }
-  } catch(err) {
+  } catch (err) {
     context.logger.error(prepareObjectForLogs(err), 'verifyAccessToken error');
   }
   return null;
@@ -170,10 +188,18 @@ const verifyRefreshToken = async (context: MyContext, refreshToken: string): Pro
       // Make sure the token hasn't been tampered with
       const storedHash = await context.cache.get(`{dmspr}:${token.jti}`);
       const calculatedHash = hashToken(refreshToken);
-      return timingSafeEqual(Buffer.from(storedHash), Buffer.from(calculatedHash)) ? token : null;
+      const matches = storedHash && timingSafeEqual(Buffer.from(storedHash), Buffer.from(calculatedHash));
+      if (!matches) return null;
+
+      const currentVersion = await getUserTokenVersion(context.cache, token.id);
+      if (token.tokenVersion < currentVersion) {
+        logger.warn(`Attempt to use refresh token issued before password reset! userId: ${token.id}`);
+        return null;
+      }
+      return token;
     }
     return null;
-  } catch(err) {
+  } catch (err) {
     if (logger) {
       context.logger.error(prepareObjectForLogs(err), 'verifyRefreshToken error');
     }
@@ -184,8 +210,9 @@ const verifyRefreshToken = async (context: MyContext, refreshToken: string): Pro
 // See if the access token is in the black list of revoked tokens
 export const isRevokedCallback = async (req: Express.Request, token?: jwt.Jwt): Promise<boolean> => {
   if (token && token.payload && typeof token.payload === 'object') {
-    // Fetch the unique JTI from the token
-    const jti = (token.payload as JwtPayload).jti;
+    const payload = token.payload as JwtPayload;
+    const jti = payload.jti;
+    const userId = payload.id;
     const cache = Cache.getInstance().adapter;
 
     if (jti) {
@@ -196,8 +223,20 @@ export const isRevokedCallback = async (req: Express.Request, token?: jwt.Jwt): 
           logger.warn(`Attempt to access revoked access token! jti: ${jti}`);
           return true;
         }
-      } catch(err) {
+      } catch (err) {
         logger.error(err, 'isRevokedCallback - unable to fetch token from cache');
+      }
+    }
+
+    if (userId !== undefined && payload.tokenVersion !== undefined) {
+      try {
+        const currentVersion = await getUserTokenVersion(cache, userId);
+        if (payload.tokenVersion < currentVersion) {
+          logger.warn(`Attempt to use token issued before password reset! userId: ${userId}`);
+          return true;
+        }
+      } catch (err) {
+        logger.error(prepareObjectForLogs(err), 'isRevokedCallback - unable to check token version');
       }
     }
   }
@@ -211,11 +250,12 @@ export const refreshAccessToken = async (
 ): Promise<string> => {
   try {
     const verifiedRefreshToken = await verifyRefreshToken(context, refreshToken);
+
     if (verifiedRefreshToken) {
       // TODO: We can eventually add some checks here to see if the account if locked or deactivated
       const user = await User.findById('refreshAccessToken', context, verifiedRefreshToken.id);
       if (user) {
-        return generateAccessToken(context, verifiedRefreshToken.jti, user);
+        return generateAccessToken(context, verifiedRefreshToken.jti, user, verifiedRefreshToken.tokenVersion);
       }
     }
     // Otherwise the refresh token was invalid or something else went wrong!
@@ -233,7 +273,7 @@ export const revokeRefreshToken = async (context: MyContext, jti: string): Promi
   try {
     await context.cache.delete(`{dmspr}:${jti}`);
     return true;
-  } catch(err) {
+  } catch (err) {
     context.logger.error(prepareObjectForLogs(err), 'revokeRefreshToken - unable to delete token from cache');
     throw InternalServerError(`${DEFAULT_INTERNAL_SERVER_MESSAGE} - ${err.message}`);
   }
@@ -243,7 +283,7 @@ export const revokeAccessToken = async (context: MyContext, jti: string): Promis
   try {
     await context.cache.set(`{dmspbl}:${jti}`, new Date().toISOString(), { ttl: generalConfig.jwtTTL });
     return true;
-  } catch(err) {
+  } catch (err) {
     context.logger.error(prepareObjectForLogs(err), 'revokeAccessToken - unable to add token to black list');
     throw InternalServerError(`${DEFAULT_INTERNAL_SERVER_MESSAGE} - ${err.message}`);
   }

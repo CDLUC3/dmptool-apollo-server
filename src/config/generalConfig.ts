@@ -45,6 +45,8 @@ export const generalConfig = {
 
   csrfLength: Number.parseInt(process.env.CSRF_LENGTH) || 32,
   csrfTTL: Number.parseInt(process.env.CSRF_TTL) || 3600, // Default is 1 hour
+
+  passwordResetTokenExpiryMilliseconds: Number.parseInt(process.env.PASSWORD_RESET_TOKEN_EXPIRY_MS) || (30 * 60 * 1000), // Default is 30 minutes
 }
 
 /**

@@ -3,6 +3,9 @@
 ## v1.1.0
 
 ### Added
+- Added `getUserTokenVersion` and `bumpUserTokenVersion` to `tokenService` so that we can save the `tokenVersion` in the `JWT` payload, and validate it against the current version in `isRevokedCallback` on `/graphql` requests [#133]
+- Added new `PasswordResetToken` model, `passwordReset` resolver, `passwordReset` schema, and separate `passwordResetTokens` table to store the `resetPasswordToken` and `resetPasswordExpiresAt` [#133]
+- Added `passwordChangedAt` field to the `users` table, and `User` model to record when password last changed [#133]
 - Added new helper SQL script to delete all existing research output questions and answers
 - Added new `TransactionClient` class to the `datasources/mysql.ts` file to allow for the use of MySQL transactions
 - Added a `AddAnswerInput`, `AddProjectInput`, `EntirePlanProjectFragment`, `EntirePlanMemberFragment`, `EntirePlanFundingFragment`, `EntirePlanAnswerFragment`, `AddEntirePlanInput`, `UpdateEntirePlanInput` to schema
@@ -120,6 +123,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `emailService` with a `sendResetPasswordEmail` to send an email with the `change password link` [#133]
 - Fixed issue with JSON of default questions and answers in the local data migration file
 - Renamed old `Funding.findByProjectFundingId` to `Funding.findByPlanAndProjectFundingId`
 - Updated `sendContactUsEmail` in `emailService.ts` to not include a `bcc` [#303]

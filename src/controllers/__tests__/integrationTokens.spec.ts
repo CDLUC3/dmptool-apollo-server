@@ -1,5 +1,5 @@
 import casual from 'casual';
-import express, {Application, Request, Response} from 'express';
+import express, { Application, Request, Response } from 'express';
 import bodyParser from 'body-parser';
 import cookieParser from 'cookie-parser';
 import request from 'supertest';
@@ -79,6 +79,7 @@ const mockedUser: UserModel.User = {
   register: jest.fn(),
   update: jest.fn(),
   updatePassword: jest.fn(),
+  setPassword: jest.fn(),
   addError: jest.fn(),
   hasErrors: jest.fn(),
   errorsToString: jest.fn()

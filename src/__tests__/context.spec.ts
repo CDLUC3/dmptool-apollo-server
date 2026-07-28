@@ -1,6 +1,6 @@
 import { buildContext } from '../context';
 import { DMPHubAPI } from '../datasources/dmphubAPI';
-import { MockCache, mockDataSources } from '../__mocks__/context';
+import { getMockDataSources, MockCache } from '../__mocks__/context';
 // For some reason esLint is reporting this isn't used, but it used below
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { randomHex } from '../utils/helpers';
@@ -15,13 +15,16 @@ describe('buildContext', () => {
   let loggerMock;
   let cacheMock;
   let tokenMock;
-  let dataSourcesMock: { sqlDataSource: MySQLConnection, dmphubAPIDataSource: DMPHubAPI };
+  let dataSourcesMock: {
+    sqlDataSource: MySQLConnection,
+    dmphubAPIDataSource: DMPHubAPI
+  };
 
   beforeEach(() => {
     loggerMock = logger;
     cacheMock = MockCache.getInstance();
     tokenMock = { accessToken: 'test-token' };
-    dataSourcesMock = mockDataSources
+    dataSourcesMock = getMockDataSources();
 
     // Clear all mocks before each test
     jest.clearAllMocks();

@@ -8,11 +8,13 @@ import { PlanFunding, ProjectFunding } from "../models/Funding";
 import { Affiliation } from "../models/Affiliation";
 import { AlternateIdentifier } from "../models/AlternateIdentifier";
 import {
-  createDMP, deleteDMP,
+  createDMP,
+  deleteDMP,
   DMPExists,
   DynamoConnectionParams,
   EnvironmentEnum,
-  planToDMPCommonStandard, tombstoneDMP,
+  planToDMPCommonStandard,
+  tombstoneDMP,
   updateDMP
 } from "@dmptool/utils";
 import { getDynamoConnectionParams } from "../config/awsConfig";
@@ -21,11 +23,10 @@ import { DMPToolDMPType } from "@dmptool/types";
 import { getRDSConnectionParams } from "../config/mysqlConfig";
 import {
   buildDataCiteXML,
-  planToDataCiteMetadata,
   DataCiteSourceAffiliation,
-  DataCiteSourceFundingAffiliation
+  DataCiteSourceFundingAffiliation,
+  planToDataCiteMetadata
 } from "./dataciteXMLService";
-
 
 /**
  * Function to help update Plan member roles. It compares the current roles for
@@ -115,7 +116,7 @@ export const ensureDefaultPlanContact = async (
     const dfltMemberRoles = await MemberRole.findByProjectMemberId(
       reference,
       context,
-      dfltMember.id,
+      dfltMember.id
     );
 
     const current = await PlanMember.findPrimaryContact(reference, context, plan.id);
@@ -151,6 +152,7 @@ export const ensureDefaultPlanContact = async (
  *
  * @param context The apollo context object
  * @param plan The plan to build DataCite metadata for
+ * @param project The project that the plan belongs to
  * @returns The DataCite XML document as a string
  * @throws if the plan has no member marked as primary contact
  */
@@ -229,7 +231,6 @@ export async function buildDataCiteXMLForPlan(context: MyContext, plan: Plan, pr
   return buildDataCiteXML(dataciteInput);
 }
 
-
 /**
  * Plan versioning management:
  *
@@ -275,7 +276,7 @@ export async function saveMaDMPVersion(
   context: MyContext,
   planId: number,
   dmpId: string,
-  shouldDelete = false,
+  shouldDelete = false
 ): Promise<boolean> {
   if (isNullOrUndefined(planId)) return false;
 

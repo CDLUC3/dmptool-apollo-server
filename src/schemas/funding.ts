@@ -90,7 +90,7 @@ export const typeDefs = gql`
 
   input AddProjectFundingInput {
     "The project"
-    projectId: Int!
+    projectId: Int
     "The funder URI"
     affiliationId: String!
     "The status of the funding resquest"

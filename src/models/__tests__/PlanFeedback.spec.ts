@@ -103,7 +103,7 @@ describe('findBy Queries', () => {
     const result = await PlanFeedback.findById('testing', context, feedbackId);
     const expectedSql = 'SELECT * FROM feedback WHERE id = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [feedbackId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [feedbackId.toString()], 'testing');
     expect(result).toEqual(planFeedback);
   });
 
@@ -122,7 +122,7 @@ describe('findBy Queries', () => {
     const expectedSql = 'SELECT * FROM feedback WHERE planId = ? AND requestedById = ?';
     const expectedVals = [planId.toString(), requestedById.toString()];
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, expectedVals, 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, expectedVals, 'testing');
     expect(result).toEqual([planFeedback]);
   });
 
@@ -141,7 +141,7 @@ describe('findBy Queries', () => {
     const expectedSql = 'SELECT * FROM feedback WHERE planId = ?';
     const vals = [planId.toString()];
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, vals, 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, vals, 'testing');
     expect(result).toEqual([planFeedback]);
   });
 
@@ -340,6 +340,7 @@ describe('statusForPlan', () => {
     const planId = casual.integer(1, 9999);
     localQuery.mockResolvedValueOnce([{ id: 42, completed: null }]);
     const result = await PlanFeedback.statusForPlan('testing', context, planId);
+    expect(localQuery).toHaveBeenLastCalledWith(context, expect.any(String), [planId.toString()], 'testing');
     expect(result).toEqual({ status: 'REQUESTED', id: 42 });
   });
 

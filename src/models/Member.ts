@@ -1,8 +1,8 @@
-import {MyContext} from "../context";
-import {validateOrcid} from "../resolvers/scalars/orcid";
-import {capitalizeFirstLetter, formatORCID, validateEmail} from "../utils/helpers";
-import {MemberRole} from "./MemberRole";
-import {MySqlModel} from "./MySqlModel";
+import { MyContext } from "../context";
+import { validateOrcid } from "../resolvers/scalars/orcid";
+import { capitalizeFirstLetter, formatORCID, validateEmail } from "../utils/helpers";
+import { MemberRole } from "./MemberRole";
+import { MySqlModel } from "./MySqlModel";
 
 export class ProjectMember extends MySqlModel {
   public projectId: number;
@@ -28,6 +28,17 @@ export class ProjectMember extends MySqlModel {
     this.email = options.email;
     this.isPrimaryContact = options.isPrimaryContact ?? false;
     this.memberRoles = options.memberRoles ?? [];
+  }
+
+  // Determine whether the 2 ProjectMembers are the same based on their id, orcid, email or name
+  static areEqual(memberA: ProjectMember, memberB: ProjectMember): boolean {
+    return memberA.id === memberB.id
+      || (memberA.orcid && memberB.orcid && memberA.orcid.toLowerCase().trim() === memberB.orcid.toLowerCase().trim())
+      || (memberA.email && memberB.email && memberA.email.toLowerCase().trim() === memberB.email.toLowerCase().trim())
+      || (
+        memberA.givenName && memberB.givenName && memberA.givenName.toLowerCase().trim() === memberB.givenName.toLowerCase().trim()
+        && memberA.surName && memberB.surName && memberA.surName.toLowerCase().trim() === memberB.surName.toLowerCase().trim()
+      );
   }
 
   // Ensure data integrity
@@ -397,7 +408,7 @@ export class PlanMember extends MySqlModel {
     return Array.isArray(results) && results.length > 0 ? new PlanMember(results[0]) : null;
   }
 
-  // Fetch a member by it's projectMember id
+  // Fetch a member by its projectMember id
   static async findByProjectMemberId(
     reference: string,
     context: MyContext,

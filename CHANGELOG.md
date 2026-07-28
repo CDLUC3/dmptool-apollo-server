@@ -6,6 +6,14 @@
 - Added `getUserTokenVersion` and `bumpUserTokenVersion` to `tokenService` so that we can save the `tokenVersion` in the `JWT` payload, and validate it against the current version in `isRevokedCallback` on `/graphql` requests [#133]
 - Added new `PasswordResetToken` model, `passwordReset` resolver, `passwordReset` schema, and separate `passwordResetTokens` table to store the `resetPasswordToken` and `resetPasswordExpiresAt` [#133]
 - Added `passwordChangedAt` field to the `users` table, and `User` model to record when password last changed [#133]
+- Added new helper SQL script to delete all existing research output questions and answers
+- Added new `TransactionClient` class to the `datasources/mysql.ts` file to allow for the use of MySQL transactions
+- Added a `AddAnswerInput`, `AddProjectInput`, `EntirePlanProjectFragment`, `EntirePlanMemberFragment`, `EntirePlanFundingFragment`, `EntirePlanAnswerFragment`, `AddEntirePlanInput`, `UpdateEntirePlanInput` to schema
+- Added new `addEntirePlan`, `updateEntirePlan` and `removeEntirePlan` schema and resolvers to allow a caller to include all of the Project, Plan, Member, Funding, Answer and RelatedWork information in one mutation (to support REST API functionality and future integrations)
+- Added new `entirePlanService` to support the above resolvers
+- Added a new `Funding.findByProjectFundingId`
+- Added a new `errorsToString` function to the `MySQLModel`
+- Added a new `findByOwnerAndTitle` to the `Plan` model
 - Added files for EZID creation: `config/ezidConfig.ts` and `datasources/EZIDAPI.ts`, and updated `Plan.publish` to call on the new `registerIdentifier` [#32]
 - Added new `buildDataCiteXMLForPlan` to build XML for EZID registration in `planService.ts` and added new `dataciteXMLService.ts` with helper functions for the new `buildDataCiteXMLForPlan` function [#32]
 - Added a `plansByProjectId` query and resolver
@@ -116,6 +124,9 @@
 
 ### Updated
 - Updated `emailService` with a `sendResetPasswordEmail` to send an email with the `change password link` [#133]
+- Fixed issue with JSON of default questions and answers in the local data migration file
+- Renamed old `Funding.findByProjectFundingId` to `Funding.findByPlanAndProjectFundingId`
+- Updated `sendContactUsEmail` in `emailService.ts` to not include a `bcc` [#303]
 - Added `plans` chained resolver to `ProjectSearchResult` in `project` resolver so that querying `userProjects` will include `plan` data for each project [#304]
 - Updated `updateProjectMember` resolver to handle `Other Affiliation`. Added a new, shared `resolveAffiliation` function to `affiliationService.ts`. Updated `updateProjectMember` schema to include `affiliationName` [#309]
 - Updated the `Answer` model to use the newly exported `DefaultResearchOutputTypeAnswer` from `@dmptool/types` instead of manually building it
@@ -229,6 +240,8 @@
 - Updates to appease newer version of eslint
 
 ### Removed
+- Removed unused `valueIsDate` function from the `MySQLModel`
+- Removed old `processResult` functions from the `Answer` and `Question` models. These functions were added to help add the `commonStandardId` to existing JSON records. It proved to be inadequate so we eneded up just deleting old data
 - Removed unused SQS env variable from example dotenv file
 - Removed override for `brace-expansion` dependency
 - Removed overrides for `ws` and `brace-expansion` dependencies
@@ -250,6 +263,7 @@
 - Removed `ioredis` package
 
 ### Fixed
+- Fixed `removeProjectFunding`. There were several issues, one of which was not being able to delete a `projectFundings` record without removing it's foreign key dependency in `planFundings` first [#303]
 - Updated `immutable` to `v5.1.9` to address HIGH security vulnerability [#304]
 - Updated `brace-expansion` to `v5.0.7` and `js-yaml` to `v4.3.0` to address vulnerabilities [#310]
 - Build was breaking because of a `package-lock.json` was referencing a file for `dmptool-utils`.
@@ -265,6 +279,7 @@
 - Fixed issue with templates not cloning with sections and questions by updating the `addTemplate` mutation to clone from non-versioned template, section and question [#1006]
 
 ### Chore
+- Added override for `brace-expansion` to `v5.0.8` [#314]
 - Addressed security vulnerability in `nodemailer` and `undici` packages, and added debugging to troubleshoot request feedback failure [#285]
 - Updated `nodemailer` to `v9.0.1` and `undici` to `v7.28.0` [#240]
 - Updated `fast-xml-parser` to `v1.2.0` and `uuid` to `11.1.1` to address vulnerabilities.

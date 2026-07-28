@@ -376,7 +376,7 @@ export const resolvers: Resolvers = {
               for (const fund of input.funding) {
                 const newFunding = new ProjectFunding(fund);
 
-                // Check if a funding record already exists for this affiliation on the project. If so, 
+                // Check if a funding record already exists for this affiliation on the project. If so,
                 // update it instead of creating a new one to avoid duplicates.
                 const existingFunding = await ProjectFunding.findByProjectAndAffiliation(
                   reference,

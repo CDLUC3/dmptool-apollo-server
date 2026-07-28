@@ -1,22 +1,14 @@
-import { Logger } from "pino";
-import { JWTAccessToken } from "../services/tokenService";
-import { MyContext } from "../context";
-import { Authorizer, DMPHubAPI } from "../datasources/dmphubAPI";
-import { EZIDAPI } from "../datasources/EZIDAPI";
-import { MySQLConnection } from "../datasources/mysql";
-import { User, UserRole } from "../models/User";
-import casual from "casual";
-import { defaultLanguageId } from "../models/Language";
-
 jest.mock('../datasources/mysql', () => {
   return {
     __esModule: true,
     MySQLConnection: jest.fn().mockImplementation(() => ({
       pool: null,
+      validateConnection: jest.fn(),
       getConnection: jest.fn(),
       releaseConnection: jest.fn(),
-      close: jest.fn(),
-      query: jest.fn()
+      query: jest.fn(),
+      withTransaction: jest.fn(),
+      close: jest.fn()
     }))
   };
 });
@@ -57,13 +49,26 @@ jest.mock('../datasources/dmphubAPI', () => {
       put: jest.fn(),
       patch: jest.fn(),
       delete: jest.fn(),
-      authorizer: new Authorizer(),
+      authorizer: jest.fn().mockImplementation(() => ({
+        authenticate: jest.fn(),
+        hasExpired: jest.fn(),
+      }))(),
     })),
   };
 });
 
+import casual from "casual";
+import { Logger } from "pino";
+import { JWTAccessToken } from "../services/tokenService";
+import { MyContext } from "../context";
+import { DMPHubAPI } from "../datasources/dmphubAPI";
+import { EZIDAPI } from "../datasources/EZIDAPI";
+import { MySQLConnection } from "../datasources/mysql";
+import { User, UserRole } from "../models/User";
+import { defaultLanguageId } from "../models/Language";
+
 // Mock Cache for testing, just has a local storage hash
-let mockCacheStore = {};
+let mockCacheStore: Record<string, string> = {};
 // eslint-disable-next-line  @typescript-eslint/no-extraneous-class
 export class MockCache {
   public static getInstance() {
@@ -90,7 +95,29 @@ export class MockCache {
   }
 }
 
-export const mockedMysqlInstance = new MySQLConnection();
+// Lazy instantiate to allow mocks to be set up first
+let cachedMysqlInstance: jest.Mocked<MySQLConnection> | null = null;
+const getMockedMysqlInstance = () => {
+  if (!cachedMysqlInstance) {
+    // The mock is already instantiated, so just return it
+    const mockModule = jest.requireMock('../datasources/mysql');
+    // Handle both callable constructor and getInstance pattern
+    if (typeof mockModule.MySQLConnection === 'function') {
+      cachedMysqlInstance = mockModule.MySQLConnection() as jest.Mocked<MySQLConnection>;
+    } else if (mockModule.MySQLConnection.getInstance) {
+      cachedMysqlInstance = mockModule.MySQLConnection.getInstance() as jest.Mocked<MySQLConnection>;
+    } else {
+      cachedMysqlInstance = mockModule.MySQLConnection as jest.Mocked<MySQLConnection>;
+    }
+  }
+  return cachedMysqlInstance;
+};
+
+export const mockedMysqlInstance = new Proxy({}, {
+  get() {
+    return getMockedMysqlInstance();
+  }
+});
 
 // Generate a mock user
 export const mockUser = (
@@ -141,11 +168,30 @@ export const mockSuperAdminToken = async (): Promise<JWTAccessToken> => {
   return { ...token, role: UserRole.SUPERADMIN };
 }
 
-export const mockDataSources = {
-  dmphubAPIDataSource: new DMPHubAPI({ cache: null, token: null}),
-  ezidAPIDataSource: new EZIDAPI({ cache: null }),
-  sqlDataSource: mockedMysqlInstance,
+// Lazy create mockDataSources to allow mocks to be set up first
+interface MockDataSources {
+  dmphubAPIDataSource: DMPHubAPI;
+  ezidAPIDataSource: EZIDAPI;
+  sqlDataSource: jest.Mocked<MySQLConnection>;
 }
+let cachedDataSources: MockDataSources | null = null;
+export const getMockDataSources = () => {
+  if (!cachedDataSources) {
+    cachedDataSources = {
+      dmphubAPIDataSource: new DMPHubAPI({ cache: null, token: null}),
+      ezidAPIDataSource: new EZIDAPI({ cache: null }),
+      sqlDataSource: getMockedMysqlInstance(),
+    };
+  }
+  return cachedDataSources;
+};
+
+// Backward compatibility
+export const mockDataSources = new Proxy({}, {
+  get(target, prop) {
+    return getMockDataSources()[prop];
+  }
+});
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function buildContext(logger: Logger, token: JWTAccessToken = null, cache: any = null): MyContext {
@@ -154,7 +200,7 @@ export function buildContext(logger: Logger, token: JWTAccessToken = null, cache
     token: token,
     logger: logger,
     requestId: casual.rgb_hex,
-    dataSources: mockDataSources,
+    dataSources: getMockDataSources(),
   }
 }
 

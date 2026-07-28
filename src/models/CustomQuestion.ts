@@ -331,6 +331,7 @@ export class CustomQuestion extends MySqlModel {
  * @param reference The reference to use for logging errors.
  * @param context The Apollo context.
  * @param templateCustomizationId The id of the template customization.
+ * @param sectionType The type of the section.
  * @param sectionId The id of the section (either a versionedSection id or customSection id).
  * @returns The custom questions.
  */
@@ -366,7 +367,7 @@ export class CustomQuestion extends MySqlModel {
     reference: string,
     context: MyContext,
     templateCustomizationId: number,
-    sectionType: PinnedSectionTypeEnum,
+    sectionType: PinnedSectionTypeEnum
     // No sectionId — we want ALL questions of this type across all sections
   ): Promise<CustomQuestion[]> {
     const results = await CustomQuestion.query(
@@ -403,7 +404,7 @@ export class CustomQuestion extends MySqlModel {
     pinnedQuestionId: number | null
   ): Promise<CustomQuestion | null> {
     const sql = `
-    SELECT * FROM customQuestions 
+    SELECT * FROM customQuestions
     WHERE templateCustomizationId = ?
       AND sectionType = ?
       AND sectionId = ?
@@ -411,7 +412,7 @@ export class CustomQuestion extends MySqlModel {
       AND pinnedQuestionId <=> ?
     LIMIT 1
   `;
-    // <=> is MySQL's NULL-safe equality operator.  It correctly handles the case where pinnedQuestionId is null, 
+    // <=> is MySQL's NULL-safe equality operator.  It correctly handles the case where pinnedQuestionId is null,
     // since null = null is false in SQL but null <=> null is true.
     const results = await CustomQuestion.query(context, sql, [
       templateCustomizationId.toString(),

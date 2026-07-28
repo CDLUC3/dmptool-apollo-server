@@ -261,7 +261,7 @@ describe('Project', () => {
       const result = await Project.findById('testing', context, projectId);
       const expectedSql = 'SELECT * FROM projects WHERE id = ?';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectId.toString()], 'testing')
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectId.toString()], 'testing');
       expect(result).toEqual(project);
     });
 
@@ -278,7 +278,7 @@ describe('Project', () => {
       const result = await Project.findByUserId('testing', context, userId);
       const expectedSql = 'SELECT * FROM projects WHERE createdById = ? ORDER BY created DESC';
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [userId.toString()], 'testing')
+      expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [userId.toString()], 'testing');
       expect(result).toEqual([project]);
     });
 

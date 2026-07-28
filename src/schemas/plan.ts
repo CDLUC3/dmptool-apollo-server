@@ -23,7 +23,7 @@ export const typeDefs = gql`
     "Publish a plan (changes status to PUBLISHED)"
     publishPlan(planId: Int!, visibility: PlanVisibility): Plan
     "Update a plan"
-    updatePlan(input: UpdatePlanInput): Plan
+    updatePlan(input: UpdatePlanInput!): Plan
     "Change the plan's status"
     updatePlanStatus(planId: Int!, status: PlanStatus!): Plan
     "Change the plan's title"
@@ -35,6 +35,13 @@ export const typeDefs = gql`
     addAlternateIdentifierToPlan(planId: Int!, alternateIdentifier: String!): AlternateIdentifier
     "Assign an alternate identifier to the plan"
     removeAlternateIdentifierFromPlan(planId: Int!, alternateIdentifier: String!): AlternateIdentifier
+
+    "Create an entire plan (and project if applicable) in one shot"
+    addEntirePlan(input: AddEntirePlanInput!): Plan
+    "Replace an entire plan (and update components of the project) in one shot"
+    updateEntirePlan(input: UpdateEntirePlanInput!): Plan
+    "Delete/tomb-stone an entire plan (and project if applicable) in one shot"
+    removeEntirePlanByDMPId(dmpId: String!): Boolean
   }
 
   type PlanSearchResult{
@@ -279,6 +286,11 @@ export const typeDefs = gql`
     registered: String
     languageId: String
     featured: String
+
+    members: String
+    funding: String
+    alternateIdentifiers: String
+    relatedWorks: String
   }
 
   "A version of the plan"
@@ -295,4 +307,101 @@ export const typeDefs = gql`
     alternateIdentifier: String
     planId: String
   }
+
+  "Input to create/replace a research Project"
+  input EntirePlanProjectFragment {
+    title: String!
+    abstractText: String
+    isTestProject: Boolean
+    startDate: String
+    endDate: String
+    researchDomainUrl: String
+  }
+
+  "Input to create/replace a Project/Plan member"
+  input EntirePlanMemberFragment {
+    projectMemberId: Int
+    givenName: String
+    surname: String
+    email: String
+    orcid: String
+    isPrimaryContact: Boolean
+    affiliation: String
+    memberRoles: [String!]
+  }
+
+  "Input to create/replace a Project/Plan funding"
+  input EntirePlanFundingFragment {
+    projectFundingId: Int
+    funder: String!
+    status: ProjectFundingStatus
+    funderOpportunityNumber: String
+    funderProjectNumber: String
+    grantId: String
+  }
+
+  "Input to create/replace a Plan answer"
+  input EntirePlanAnswerFragment {
+    json: String!
+    sectionId: Int
+    questionId: Int
+  }
+
+  "Input to create an entire Plan (and Project if applicable)"
+  input AddEntirePlanInput {
+    "The title of the plan"
+    title: String!
+    "The status of the plan"
+    status: PlanStatus!
+    "The visibility of the plan"
+    visibility: PlanVisibility!
+    "The language of the plan"
+    languageId: String!
+
+    "The research project this plan is associated with"
+    project: EntirePlanProjectFragment!
+
+    "The id of the template being used (the default template will be used if not provided)"
+    templateId: Int
+
+    "External identifiers for the plan (for use when integrating with external systems)"
+    alternateIdentifiers: [String!]
+
+    "The project members involved with the data described in the plan"
+    members: [EntirePlanMemberFragment!]
+    "The funding sources associated with the data described in the plan"
+    funding: [EntirePlanFundingFragment!]
+    "The answers to the questions in the plan's narrative"
+    answers: [EntirePlanAnswerFragment!]
+  }
+
+  "Input to update an entire Project and Plan"
+  input UpdateEntirePlanInput {
+    "The title of the plan"
+    title: String!
+    "The id of the plan (required if no 'dmpId' is provided)"
+    id: Int
+    "The DMP id of the plan (required if no 'id' is provided)"
+    dmpId: String
+    "The status of the plan"
+    status: PlanStatus
+    "The visibility of the plan"
+    visibility: PlanVisibility
+    "The language of the plan"
+    languageId: String
+
+    "External identifiers for the plan (for use when integrating with external systems)"
+    alternateIdentifiers: [String!]
+
+    "The research project this plan is associated with"
+    project: EntirePlanProjectFragment!
+
+    "The project members involved with the data described in the plan"
+    members: [EntirePlanMemberFragment!]
+    "The funding sources associated with the data described in the plan"
+    funding: [EntirePlanFundingFragment!]
+    "The answers to the questions in the plan's narrative"
+    answers: [EntirePlanAnswerFragment!]
+  }
+
 `;

@@ -349,7 +349,7 @@ export const sendContactUsEmail = async (
     'ContactUs',
     [emailConfig.helpDeskAddress], // to
     [],// cc
-    [email],// bcc
+    [],// bcc
     `${emailSubjects.contactUs}: ${subject}`,
     body,
     true, // asHTML

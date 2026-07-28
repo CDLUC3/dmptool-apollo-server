@@ -1083,7 +1083,7 @@ describe('findById', () => {
     const result = await User.findById('Testing', context, id);
     const expectedSql = 'SELECT * FROM users WHERE id = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'Testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'Testing');
     expect(result).toEqual(user);
   });
 
@@ -1129,7 +1129,7 @@ describe('findByOrcid', () => {
     const result = await User.findByOrcid('Testing', context, orcid);
     const expectedSql = 'SELECT * FROM users WHERE orcid = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [orcid], 'Testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [orcid], 'Testing');
     expect(result).toEqual(user);
   });
 

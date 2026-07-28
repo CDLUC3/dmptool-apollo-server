@@ -635,7 +635,7 @@ describe('TemplateCustomization', () => {
         mockContext,
         TemplateCustomization.tableName,
         1,
-        'TemplateCustomization.delete'
+        'TemplateCustomization.delete',
       );
       expect(customization.errors.general).toBe('Failed to remove customization');
     });

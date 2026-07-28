@@ -130,4 +130,4 @@ export class ResearchOutputType extends MySqlModel {
     const results = await ResearchOutputType.query(context, sql, [value], reference);
     return Array.isArray(results) && results.length > 0 ? new ResearchOutputType(results[0]) : null;
   }
-};
+}

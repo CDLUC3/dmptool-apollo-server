@@ -729,7 +729,7 @@ describe("CustomQuestion", () => {
 
   describe("findByPosition", () => {
     const expectedSql = `
-    SELECT * FROM customQuestions 
+    SELECT * FROM customQuestions
     WHERE templateCustomizationId = ?
       AND sectionType = ?
       AND sectionId = ?

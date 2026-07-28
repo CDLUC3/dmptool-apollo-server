@@ -313,7 +313,7 @@ describe('generateQuestionVersion', () => {
     const versioned = new VersionedQuestion({ questionId: question.id });
     versioned.errors = { general: 'Test failure' };
 
-    (context.dataSources.sqlDataSource.query as jest.Mock).mockResolvedValueOnce(null);
+    // (context.dataSources.sqlDataSource.query as jest.Mock).mockResolvedValueOnce(null);
     (VersionedQuestion.insert as jest.Mock) = mockInsert;
     const mockFindByFailure = jest.fn().mockImplementation(() => { return versioned; });
     (VersionedQuestion.findById as jest.Mock) = mockFindByFailure;
@@ -489,7 +489,11 @@ describe('generateQuestionConditionVersion', () => {
     const versioned = new VersionedQuestionCondition({ questionId: questionCondition.id });
     versioned.errors = { general: 'Test failure' };
 
-    (context.dataSources.sqlDataSource.query as jest.Mock).mockResolvedValueOnce(null);
+    // const mockQuery = jest.fn().mockResolvedValueOnce(null);
+    // context.dataSources.sqlDataSource = {
+    //   query: mockQuery
+    // };
+
     (VersionedQuestionCondition.insert as jest.Mock) = mockInsert;
     const mockFindByFailure = jest.fn().mockImplementation(() => { return versioned; });
     (VersionedQuestionCondition.findById as jest.Mock) = mockFindByFailure;

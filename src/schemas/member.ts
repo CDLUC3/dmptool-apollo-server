@@ -116,7 +116,7 @@ export const typeDefs = gql`
 
   input AddProjectMemberInput {
     "The research project"
-    projectId: Int!
+    projectId: Int
     "The Member's affiliation URI"
     affiliationId: String
     "The Member's affiliation name"

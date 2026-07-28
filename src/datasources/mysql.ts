@@ -1,18 +1,31 @@
 import * as mysql2 from 'mysql2/promise';
-import {mysqlGeneralConfig, mysqlPoolConfig} from "../config/mysqlConfig";
+import { mysqlGeneralConfig, mysqlPoolConfig } from "../config/mysqlConfig";
 import { logger, prepareObjectForLogs } from '../logger';
-import {MyContext} from '../context';
+import { MyContext } from '../context';
+import { toErrorMessage } from "@dmptool/utils";
 
 export interface DatabaseConnection {
   getConnection(): Promise<mysql2.PoolConnection>;
   query<T>(context: MyContext, sql: string, values?: string[]): Promise<T>;
   close(): Promise<void>;
+  withTransaction<T>(
+    context: MyContext,
+    action: (txClient: TransactionClient) => Promise<T>
+  ): Promise<T>;
 }
 
+/**
+ * A database error
+ */
 export class DatabaseError extends Error {
-  constructor(message: string, public readonly originalError?: Error) {
+  public readonly code?: string;
+
+  constructor(message: string, public readonly originalError?: unknown) {
     super(message);
     this.name = 'DatabaseError';
+    if (originalError && typeof originalError === 'object' && 'code' in originalError) {
+      this.code = (originalError as { code: string }).code;
+    }
   }
 }
 
@@ -25,9 +38,26 @@ const POOL_CONFIG = {
   queueLimit: mysqlGeneralConfig.queueLimit
 };
 
+export class TransactionClient {
+  public connection: mysql2.PoolConnection;
+
+  constructor(connection: mysql2.PoolConnection) {
+    this.connection = connection;
+  }
+
+  async begin(): Promise<void> {
+    await this.connection.beginTransaction();
+  }
+  async rollback(): Promise<void> {
+    await this.connection.rollback();
+  }
+  async commit(): Promise<void> {
+    await this.connection.commit();
+  }
+}
+
 export class MySQLConnection implements DatabaseConnection {
   private pool: mysql2.Pool;
-  public initPromise: Promise<void>;
 
   constructor() {
     logger.info('Establishing MySQL connection pool...');
@@ -36,9 +66,6 @@ export class MySQLConnection implements DatabaseConnection {
         ...mysqlPoolConfig,
         ...POOL_CONFIG
       });
-
-      // Add initialization check
-      this.initPromise = this.validateConnection();
 
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       this.pool.on('connection', (_connection) => {
@@ -61,7 +88,7 @@ export class MySQLConnection implements DatabaseConnection {
   }
 
   // Verify that the pool is able to establish a connection
-  private async validateConnection(): Promise<void> {
+  public async validateConnection(): Promise<void> {
     const connection = await this.getConnection();
     connection.release();
   }
@@ -89,9 +116,6 @@ export class MySQLConnection implements DatabaseConnection {
   public async query<T>(context: MyContext, sql: string, values: string[] = []): Promise<T> {
     let connection: mysql2.PoolConnection | null = null;
     try {
-      // Wait for initialization to complete before querying
-      await this.initPromise;
-
       connection = await this.getConnection();
       const sanitizedValues = values.map(val =>
         typeof val === 'string' ? val.trim() : val
@@ -106,6 +130,52 @@ export class MySQLConnection implements DatabaseConnection {
       if (connection) {
         connection.release();
       }
+    }
+  }
+
+  /**
+   * Runs a callback within a managed transaction.
+   * Auto-commits on success, auto-rollbacks on error, and ensures release.
+   */
+  public async withTransaction<T>(
+    context: MyContext,
+    action: (txClient: TransactionClient) => Promise<T>
+  ): Promise<T> {
+    let connection: mysql2.PoolConnection;
+    try {
+      connection = await this.getConnection();
+    } catch (error) {
+      throw new DatabaseError('Failed to get connection for transaction', error);
+    }
+    const txClient = new TransactionClient(connection);
+    let result: Awaited<T>;
+
+    try {
+      context.logger.debug('Starting database transaction');
+      await txClient.begin();
+      // Store current transaction in context for nested calls if needed
+      context.activeTransaction = txClient;
+
+      result = await action(txClient);
+
+      context.logger.debug('Committing database transaction');
+      await txClient.commit();
+      return result;
+
+    } catch (err) {
+      // Always log, rollback and rethrow!
+      context.logger.error(
+        prepareObjectForLogs({ err: toErrorMessage(err) }),
+        'Rolling back transaction'
+      );
+      await txClient.rollback();
+      throw err;
+
+    } finally {
+      // Clear transaction context & release connection
+      context.logger.debug('Releasing database connection');
+      context.activeTransaction = undefined;
+      connection.release();
     }
   }
 

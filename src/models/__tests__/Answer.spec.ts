@@ -299,7 +299,7 @@ describe('findBy Queries', () => {
     const result = await Answer.findById('testing', context, answerId);
     const expectedSql = 'SELECT * FROM answers WHERE id = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [answerId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [answerId.toString()], 'testing');
     expect(result).toEqual(answer);
   });
 
@@ -318,7 +318,7 @@ describe('findBy Queries', () => {
     const expectedSql = 'SELECT * FROM answers WHERE planId = ? AND versionedQuestionId = ?';
     const expectedVals = [planId.toString(), versionedQuestionId.toString()];
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, expectedVals, 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, expectedVals, 'testing');
     expect(result).toEqual(answer);
   });
 
@@ -338,7 +338,7 @@ describe('findBy Queries', () => {
     const expectedSql = 'SELECT * FROM answers WHERE planId = ? AND versionedSectionId = ?';
     const vals = [planId.toString(), versionedSectionId.toString()];
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, vals, 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, vals, 'testing');
     expect(result).toEqual([answer]);
   });
 
@@ -380,7 +380,7 @@ describe('findBy Queries', () => {
     const result = await Answer.findByPlanId('testing', context, planId);
     const expectedSql = 'SELECT * FROM answers WHERE planId = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [planId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [planId.toString()], 'testing');
     expect(result).toEqual([answer]);
   });
 

@@ -355,8 +355,8 @@ export class VersionedCustomQuestion extends MySqlModel {
   ): Promise<VersionedCustomQuestion[]> {
     const sql = `SELECT vcq.* FROM versionedCustomQuestions as vcq
     JOIN versionedTemplateCustomizations as vtc
-      ON vcq.versionedTemplateCustomizationId = vtc.id 
-    WHERE vcq.versionedSectionType = ? 
+      ON vcq.versionedTemplateCustomizationId = vtc.id
+    WHERE vcq.versionedSectionType = ?
       AND vcq.versionedSectionId = ?
       AND vtc.active = 1
     ORDER BY vcq.pinnedVersionedQuestionType ASC, vcq.pinnedVersionedQuestionId ASC`;

@@ -41,7 +41,7 @@ const apolloServer = new ApolloServer({
 
 const startServer = async () => {
   // Ensure the connection pool is ready
-  await sqlDataSource.initPromise;
+  await sqlDataSource.validateConnection();
   await apolloServer.start();
 
   // Healthcheck endpoint (declare this BEFORE CORS definition due to AWS ALB limitations)

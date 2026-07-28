@@ -267,7 +267,7 @@ describe('findBy Queries', () => {
     const result = await Question.findById('testing', context, questionId);
     const expectedSql = 'SELECT * FROM questions WHERE id = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [questionId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [questionId.toString()], 'testing');
     expect(result).toEqual(question);
   });
 
@@ -284,7 +284,7 @@ describe('findBy Queries', () => {
     const result = await Question.findBySectionId('testing', context, questionId);
     const expectedSql = 'SELECT * FROM questions WHERE sectionId = ? ORDER BY displayOrder ASC';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [questionId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [questionId.toString()], 'testing');
     expect(result).toEqual([question]);
   });
 

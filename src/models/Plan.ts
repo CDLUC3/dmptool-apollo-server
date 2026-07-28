@@ -139,7 +139,7 @@ export class PlanSearchResult {
   }
 
   /**
-   * Find projects/plans for a specified userId, with pagination and optional search term filtering. 
+   * Find projects/plans for a specified userId, with pagination and optional search term filtering.
    * This method returns a paginated list of PlanSearchResult objects that match the search criteria.
    *
    * @param reference The caller's reference string for logging purposes'
@@ -958,7 +958,7 @@ export class Plan extends MySqlModel {
 
         // Update the plan
         const result = await Plan.update(context, Plan.tableName, this, reference, [], noTouch);
-        // The result of the update function is just a boolean indicating whether the update query succeeded or not, 
+        // The result of the update function is just a boolean indicating whether the update query succeeded or not,
         // so if it succeeded we need to re-query to get the updated plan with all the new values
         if (result) {
           return await Plan.findById(reference, context, this.id);
@@ -1058,5 +1058,21 @@ export class Plan extends MySqlModel {
         await Plan.processResult(context, result)
       ))
       : [];
+  }
+
+  /**
+   * Fetch the Plan by the title and creator/owner
+   *
+   * @param reference The caller's reference string for logging purposes'
+   * @param context The Apollo context object
+   * @param userId The id of the user whose Plans we want to fetch
+   * @returns The Plan object or null if it does not exist
+   */
+  static async findByOwnerAndTitle(reference: string, context: MyContext, title: string, userId: number): Promise<Plan | null> {
+    const sql = 'SELECT * FROM plans WHERE createdById = ? AND LOWER(title) LIKE ?';
+    const searchTerm = (title ?? '');
+    const vals = [userId?.toString(), `%${searchTerm?.toLowerCase()?.trim()}%`]
+    const results = await Plan.query(context, sql, vals, reference);
+    return Array.isArray(results) && results.length > 0 ? new Plan(results[0]) : null;
   }
 }

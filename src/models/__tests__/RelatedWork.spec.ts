@@ -597,7 +597,7 @@ describe('RelatedWork queries', () => {
       context,
       expectedSql,
       [planId.toString(), workVersionId.toString()],
-      'testing',
+      'testing'
     );
     expect(result).toEqual(relatedWork);
   });

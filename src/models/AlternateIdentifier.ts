@@ -80,6 +80,15 @@ export class AlternateIdentifier extends MySqlModel {
     return Array.isArray(results) && results.length > 0 ? new AlternateIdentifier(results[0]) : null;
   }
 
+  // Return the first entry that matches one of the specified alternate identifiers
+  static async findByAlternateIdentifiers(reference: string, context: MyContext, alternateIdentifiers: string[]): Promise<AlternateIdentifier | null> {
+    const placeholders = alternateIdentifiers.map(() => '?').join(', ');
+    const sql = `SELECT * FROM ${AlternateIdentifier.tableName} WHERE alternateIdentifier IN (${placeholders})`;
+    const vals = alternateIdentifiers.map(id => id.toString());
+    const results = await AlternateIdentifier.query(context, sql, vals, reference);
+    return Array.isArray(results) && results.length > 0 ? new AlternateIdentifier(results[0]) : null;
+  }
+
   // Return the AlternateIdentifiers for a given Plan
   static async findByPlanId(reference: string, context: MyContext, planId: number): Promise<AlternateIdentifier[] | []> {
     const sql = `SELECT * FROM ${AlternateIdentifier.tableName} WHERE planId = ?`;

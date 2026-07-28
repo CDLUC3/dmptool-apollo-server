@@ -538,7 +538,7 @@ export class User extends MySqlModel {
       if (this.validatePassword()) {
         this.password = await this.hashPassword(newPassword);
 
-        const updated = await User.update(context, this.tableName, this, 'User.updatePassword');
+        const updated = await User.update(context, this.tableName, this, 'User.updatePassword', []);
         if (updated) {
           return await User.findById('updatePassword resolver', context, this.id);
         }

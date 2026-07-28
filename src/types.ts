@@ -30,6 +30,15 @@ export type Scalars = {
   URL: { input: string; output: string; }
 };
 
+export type AddAnswerInput = {
+  json: Scalars['String']['input'];
+  planId: Scalars['Int']['input'];
+  versionedCustomQuestionId?: InputMaybe<Scalars['Int']['input']>;
+  versionedCustomSectionId?: InputMaybe<Scalars['Int']['input']>;
+  versionedQuestionId?: InputMaybe<Scalars['Int']['input']>;
+  versionedSectionId?: InputMaybe<Scalars['Int']['input']>;
+};
+
 /** Input parameters for adding a custom section to a funder template */
 export type AddCustomQuestionInput = {
   /** Guidance to complete the question */
@@ -74,6 +83,30 @@ export type AddCustomSectionInput = {
   requirements?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the parent template customization */
   templateCustomizationId: Scalars['Int']['input'];
+};
+
+/** Input to create an entire Plan (and Project if applicable) */
+export type AddEntirePlanInput = {
+  /** External identifiers for the plan (for use when integrating with external systems) */
+  alternateIdentifiers?: InputMaybe<Array<Scalars['String']['input']>>;
+  /** The answers to the questions in the plan's narrative */
+  answers?: InputMaybe<Array<EntirePlanAnswerFragment>>;
+  /** The funding sources associated with the data described in the plan */
+  funding?: InputMaybe<Array<EntirePlanFundingFragment>>;
+  /** The language of the plan */
+  languageId: Scalars['String']['input'];
+  /** The project members involved with the data described in the plan */
+  members?: InputMaybe<Array<EntirePlanMemberFragment>>;
+  /** The research project this plan is associated with */
+  project: EntirePlanProjectFragment;
+  /** The status of the plan */
+  status: PlanStatus;
+  /** The id of the template being used (the default template will be used if not provided) */
+  templateId?: InputMaybe<Scalars['Int']['input']>;
+  /** The title of the plan */
+  title: Scalars['String']['input'];
+  /** The visibility of the plan */
+  visibility: PlanVisibility;
 };
 
 /** Input for adding a new GuidanceGroup */
@@ -123,9 +156,26 @@ export type AddProjectFundingInput = {
   /** The funder's unique id/url for the award/grant (normally assigned after the grant has been awarded) */
   grantId?: InputMaybe<Scalars['String']['input']>;
   /** The project */
-  projectId: Scalars['Int']['input'];
+  projectId?: InputMaybe<Scalars['Int']['input']>;
   /** The status of the funding resquest */
   status?: InputMaybe<ProjectFundingStatus>;
+};
+
+export type AddProjectInput = {
+  /** The research project description/abstract */
+  abstractText?: InputMaybe<Scalars['String']['input']>;
+  /** The actual or anticipated end date of the project */
+  endDate?: InputMaybe<Scalars['String']['input']>;
+  /** Optional id of project */
+  id?: InputMaybe<Scalars['Int']['input']>;
+  /** Whether or not the project is a mock/test */
+  isTestProject?: InputMaybe<Scalars['Boolean']['input']>;
+  /** The id of the research domain */
+  researchDomainId?: InputMaybe<Scalars['Int']['input']>;
+  /** The actual or anticipated start date for the project */
+  startDate?: InputMaybe<Scalars['String']['input']>;
+  /** The title of the research project */
+  title: Scalars['String']['input'];
 };
 
 export type AddProjectMemberInput = {
@@ -142,7 +192,7 @@ export type AddProjectMemberInput = {
   /** The Member's ORCID */
   orcid?: InputMaybe<Scalars['String']['input']>;
   /** The research project */
-  projectId: Scalars['Int']['input'];
+  projectId?: InputMaybe<Scalars['Int']['input']>;
   /** The Member's last/sur name */
   surName?: InputMaybe<Scalars['String']['input']>;
 };
@@ -1064,6 +1114,45 @@ export type DoiMatchSource = {
   parentAwardId?: Maybe<Scalars['String']['output']>;
 };
 
+/** Input to create/replace a Plan answer */
+export type EntirePlanAnswerFragment = {
+  json: Scalars['String']['input'];
+  questionId?: InputMaybe<Scalars['Int']['input']>;
+  sectionId?: InputMaybe<Scalars['Int']['input']>;
+};
+
+/** Input to create/replace a Project/Plan funding */
+export type EntirePlanFundingFragment = {
+  funder: Scalars['String']['input'];
+  funderOpportunityNumber?: InputMaybe<Scalars['String']['input']>;
+  funderProjectNumber?: InputMaybe<Scalars['String']['input']>;
+  grantId?: InputMaybe<Scalars['String']['input']>;
+  projectFundingId?: InputMaybe<Scalars['Int']['input']>;
+  status?: InputMaybe<ProjectFundingStatus>;
+};
+
+/** Input to create/replace a Project/Plan member */
+export type EntirePlanMemberFragment = {
+  affiliation?: InputMaybe<Scalars['String']['input']>;
+  email?: InputMaybe<Scalars['String']['input']>;
+  givenName?: InputMaybe<Scalars['String']['input']>;
+  isPrimaryContact?: InputMaybe<Scalars['Boolean']['input']>;
+  memberRoles?: InputMaybe<Array<Scalars['String']['input']>>;
+  orcid?: InputMaybe<Scalars['String']['input']>;
+  projectMemberId?: InputMaybe<Scalars['Int']['input']>;
+  surname?: InputMaybe<Scalars['String']['input']>;
+};
+
+/** Input to create/replace a research Project */
+export type EntirePlanProjectFragment = {
+  abstractText?: InputMaybe<Scalars['String']['input']>;
+  endDate?: InputMaybe<Scalars['String']['input']>;
+  isTestProject?: InputMaybe<Scalars['Boolean']['input']>;
+  researchDomainUrl?: InputMaybe<Scalars['String']['input']>;
+  startDate?: InputMaybe<Scalars['String']['input']>;
+  title: Scalars['String']['input'];
+};
+
 export type ExternalFunding = {
   __typename?: 'ExternalFunding';
   /** The funder's unique id/url for the call for submissions to apply for a grant */
@@ -1506,6 +1595,8 @@ export type Mutation = {
   addCustomQuestion: CustomQuestion;
   /** Add a custom section to a funder template */
   addCustomSection: CustomSection;
+  /** Create an entire plan (and project if applicable) in one shot */
+  addEntirePlan?: Maybe<Plan>;
   /** Add feedback comment for an answer within a round of feedback */
   addFeedbackComment?: Maybe<PlanFeedbackComment>;
   /** Create a new Guidance item */
@@ -1620,6 +1711,8 @@ export type Mutation = {
   removeCustomQuestion: CustomQuestion;
   /** Remove a custom section */
   removeCustomSection: CustomSection;
+  /** Delete/tomb-stone an entire plan (and project if applicable) in one shot */
+  removeEntirePlanByDMPId?: Maybe<Scalars['Boolean']['output']>;
   /** Remove feedback comment for an answer within a round of feedback */
   removeFeedbackComment?: Maybe<PlanFeedbackComment>;
   /** Delete a Guidance item */
@@ -1696,6 +1789,8 @@ export type Mutation = {
   updateCustomQuestion: CustomQuestion;
   /** Update a custom section */
   updateCustomSection: CustomSection;
+  /** Replace an entire plan (and update components of the project) in one shot */
+  updateEntirePlan?: Maybe<Plan>;
   /** Update feedback comment for an answer within a round of feedback */
   updateFeedbackComment?: Maybe<PlanFeedbackComment>;
   /** Update an existing Guidance item */
@@ -1808,6 +1903,11 @@ export type MutationAddCustomQuestionArgs = {
 
 export type MutationAddCustomSectionArgs = {
   input: AddCustomSectionInput;
+};
+
+
+export type MutationAddEntirePlanArgs = {
+  input: AddEntirePlanInput;
 };
 
 
@@ -2120,6 +2220,11 @@ export type MutationRemoveCustomSectionArgs = {
 };
 
 
+export type MutationRemoveEntirePlanByDmpIdArgs = {
+  dmpId: Scalars['String']['input'];
+};
+
+
 export type MutationRemoveFeedbackCommentArgs = {
   planFeedbackCommentId: Scalars['Int']['input'];
   planId: Scalars['Int']['input'];
@@ -2307,6 +2412,11 @@ export type MutationUpdateCustomSectionArgs = {
 };
 
 
+export type MutationUpdateEntirePlanArgs = {
+  input: UpdateEntirePlanInput;
+};
+
+
 export type MutationUpdateFeedbackCommentArgs = {
   commentText: Scalars['String']['input'];
   planFeedbackCommentId: Scalars['Int']['input'];
@@ -2354,7 +2464,7 @@ export type MutationUpdatePasswordArgs = {
 
 
 export type MutationUpdatePlanArgs = {
-  input?: InputMaybe<UpdatePlanInput>;
+  input: UpdatePlanInput;
 };
 
 
@@ -2681,13 +2791,17 @@ export type PlanDownloadFormat =
 /** The error messages for the plan */
 export type PlanErrors = {
   __typename?: 'PlanErrors';
+  alternateIdentifiers?: Maybe<Scalars['String']['output']>;
   dmp_id?: Maybe<Scalars['String']['output']>;
   featured?: Maybe<Scalars['String']['output']>;
+  funding?: Maybe<Scalars['String']['output']>;
   general?: Maybe<Scalars['String']['output']>;
   languageId?: Maybe<Scalars['String']['output']>;
+  members?: Maybe<Scalars['String']['output']>;
   projectId?: Maybe<Scalars['String']['output']>;
   registered?: Maybe<Scalars['String']['output']>;
   registeredById?: Maybe<Scalars['String']['output']>;
+  relatedWorks?: Maybe<Scalars['String']['output']>;
   status?: Maybe<Scalars['String']['output']>;
   title?: Maybe<Scalars['String']['output']>;
   versionedTemplateId?: Maybe<Scalars['String']['output']>;
@@ -5061,6 +5175,11 @@ export type TypeCount = {
   typeId: Scalars['String']['output'];
 };
 
+export type UpdateAnswerInput = {
+  id: Scalars['Int']['input'];
+  json?: InputMaybe<Scalars['String']['input']>;
+};
+
 /** Input parameters for updating a custom section */
 export type UpdateCustomQuestionInput = {
   /** The id of the custom question */
@@ -5093,6 +5212,32 @@ export type UpdateCustomSectionInput = {
   name: Scalars['String']['input'];
   /** The requirements for the custom section */
   requirements?: InputMaybe<Scalars['String']['input']>;
+};
+
+/** Input to update an entire Project and Plan */
+export type UpdateEntirePlanInput = {
+  /** External identifiers for the plan (for use when integrating with external systems) */
+  alternateIdentifiers?: InputMaybe<Array<Scalars['String']['input']>>;
+  /** The answers to the questions in the plan's narrative */
+  answers?: InputMaybe<Array<EntirePlanAnswerFragment>>;
+  /** The DMP id of the plan (required if no 'id' is provided) */
+  dmpId?: InputMaybe<Scalars['String']['input']>;
+  /** The funding sources associated with the data described in the plan */
+  funding?: InputMaybe<Array<EntirePlanFundingFragment>>;
+  /** The id of the plan (required if no 'dmpId' is provided) */
+  id?: InputMaybe<Scalars['Int']['input']>;
+  /** The language of the plan */
+  languageId?: InputMaybe<Scalars['String']['input']>;
+  /** The project members involved with the data described in the plan */
+  members?: InputMaybe<Array<EntirePlanMemberFragment>>;
+  /** The research project this plan is associated with */
+  project: EntirePlanProjectFragment;
+  /** The status of the plan */
+  status?: InputMaybe<PlanStatus>;
+  /** The title of the plan */
+  title: Scalars['String']['input'];
+  /** The visibility of the plan */
+  visibility?: InputMaybe<PlanVisibility>;
 };
 
 /** Input for updating a GuidanceGroup */
@@ -6205,12 +6350,15 @@ export type ResolversInterfaceTypes<_RefType extends Record<string, unknown>> = 
 
 /** Mapping between all available schema types and the resolvers types */
 export type ResolversTypes = {
+  AddAnswerInput: AddAnswerInput;
   AddCustomQuestionInput: AddCustomQuestionInput;
   AddCustomSectionInput: AddCustomSectionInput;
+  AddEntirePlanInput: AddEntirePlanInput;
   AddGuidanceGroupInput: AddGuidanceGroupInput;
   AddGuidanceInput: AddGuidanceInput;
   AddMetadataStandardInput: AddMetadataStandardInput;
   AddProjectFundingInput: AddProjectFundingInput;
+  AddProjectInput: AddProjectInput;
   AddProjectMemberInput: AddProjectMemberInput;
   AddQuestionConditionInput: AddQuestionConditionInput;
   AddQuestionCustomizationInput: AddQuestionCustomizationInput;
@@ -6265,6 +6413,10 @@ export type ResolversTypes = {
   DoiMatch: ResolverTypeWrapper<DoiMatch>;
   DoiMatchSource: ResolverTypeWrapper<DoiMatchSource>;
   EmailAddress: ResolverTypeWrapper<Scalars['EmailAddress']['output']>;
+  EntirePlanAnswerFragment: EntirePlanAnswerFragment;
+  EntirePlanFundingFragment: EntirePlanFundingFragment;
+  EntirePlanMemberFragment: EntirePlanMemberFragment;
+  EntirePlanProjectFragment: EntirePlanProjectFragment;
   ExternalFunding: ResolverTypeWrapper<ExternalFunding>;
   ExternalMember: ResolverTypeWrapper<ExternalMember>;
   ExternalProject: ResolverTypeWrapper<ExternalProject>;
@@ -6410,8 +6562,10 @@ export type ResolversTypes = {
   TemplateVisibility: TemplateVisibility;
   TypeCount: ResolverTypeWrapper<TypeCount>;
   URL: ResolverTypeWrapper<Scalars['URL']['output']>;
+  UpdateAnswerInput: UpdateAnswerInput;
   UpdateCustomQuestionInput: UpdateCustomQuestionInput;
   UpdateCustomSectionInput: UpdateCustomSectionInput;
+  UpdateEntirePlanInput: UpdateEntirePlanInput;
   UpdateGuidanceGroupInput: UpdateGuidanceGroupInput;
   UpdateGuidanceInput: UpdateGuidanceInput;
   UpdateMetadataStandardInput: UpdateMetadataStandardInput;
@@ -6466,12 +6620,15 @@ export type ResolversTypes = {
 
 /** Mapping between all available schema types and the resolvers parents */
 export type ResolversParentTypes = {
+  AddAnswerInput: AddAnswerInput;
   AddCustomQuestionInput: AddCustomQuestionInput;
   AddCustomSectionInput: AddCustomSectionInput;
+  AddEntirePlanInput: AddEntirePlanInput;
   AddGuidanceGroupInput: AddGuidanceGroupInput;
   AddGuidanceInput: AddGuidanceInput;
   AddMetadataStandardInput: AddMetadataStandardInput;
   AddProjectFundingInput: AddProjectFundingInput;
+  AddProjectInput: AddProjectInput;
   AddProjectMemberInput: AddProjectMemberInput;
   AddQuestionConditionInput: AddQuestionConditionInput;
   AddQuestionCustomizationInput: AddQuestionCustomizationInput;
@@ -6522,6 +6679,10 @@ export type ResolversParentTypes = {
   DoiMatch: DoiMatch;
   DoiMatchSource: DoiMatchSource;
   EmailAddress: Scalars['EmailAddress']['output'];
+  EntirePlanAnswerFragment: EntirePlanAnswerFragment;
+  EntirePlanFundingFragment: EntirePlanFundingFragment;
+  EntirePlanMemberFragment: EntirePlanMemberFragment;
+  EntirePlanProjectFragment: EntirePlanProjectFragment;
   ExternalFunding: ExternalFunding;
   ExternalMember: ExternalMember;
   ExternalProject: ExternalProject;
@@ -6645,8 +6806,10 @@ export type ResolversParentTypes = {
   TemplateSearchResults: TemplateSearchResults;
   TypeCount: TypeCount;
   URL: Scalars['URL']['output'];
+  UpdateAnswerInput: UpdateAnswerInput;
   UpdateCustomQuestionInput: UpdateCustomQuestionInput;
   UpdateCustomSectionInput: UpdateCustomSectionInput;
+  UpdateEntirePlanInput: UpdateEntirePlanInput;
   UpdateGuidanceGroupInput: UpdateGuidanceGroupInput;
   UpdateGuidanceInput: UpdateGuidanceInput;
   UpdateMetadataStandardInput: UpdateMetadataStandardInput;
@@ -7293,6 +7456,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   addAnswerComment?: Resolver<Maybe<ResolversTypes['AnswerComment']>, ParentType, ContextType, RequireFields<MutationAddAnswerCommentArgs, 'answerId' | 'commentText'>>;
   addCustomQuestion?: Resolver<ResolversTypes['CustomQuestion'], ParentType, ContextType, RequireFields<MutationAddCustomQuestionArgs, 'input'>>;
   addCustomSection?: Resolver<ResolversTypes['CustomSection'], ParentType, ContextType, RequireFields<MutationAddCustomSectionArgs, 'input'>>;
+  addEntirePlan?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType, RequireFields<MutationAddEntirePlanArgs, 'input'>>;
   addFeedbackComment?: Resolver<Maybe<ResolversTypes['PlanFeedbackComment']>, ParentType, ContextType, RequireFields<MutationAddFeedbackCommentArgs, 'answerId' | 'commentText' | 'planFeedbackId' | 'planId'>>;
   addGuidance?: Resolver<ResolversTypes['Guidance'], ParentType, ContextType, RequireFields<MutationAddGuidanceArgs, 'input'>>;
   addGuidanceGroup?: Resolver<ResolversTypes['GuidanceGroup'], ParentType, ContextType, RequireFields<MutationAddGuidanceGroupArgs, 'input'>>;
@@ -7350,6 +7514,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   removeAnswerComment?: Resolver<Maybe<ResolversTypes['AnswerComment']>, ParentType, ContextType, RequireFields<MutationRemoveAnswerCommentArgs, 'answerCommentId' | 'answerId'>>;
   removeCustomQuestion?: Resolver<ResolversTypes['CustomQuestion'], ParentType, ContextType, RequireFields<MutationRemoveCustomQuestionArgs, 'customQuestionId'>>;
   removeCustomSection?: Resolver<ResolversTypes['CustomSection'], ParentType, ContextType, RequireFields<MutationRemoveCustomSectionArgs, 'customSectionId'>>;
+  removeEntirePlanByDMPId?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType, RequireFields<MutationRemoveEntirePlanByDmpIdArgs, 'dmpId'>>;
   removeFeedbackComment?: Resolver<Maybe<ResolversTypes['PlanFeedbackComment']>, ParentType, ContextType, RequireFields<MutationRemoveFeedbackCommentArgs, 'planFeedbackCommentId' | 'planId'>>;
   removeGuidance?: Resolver<ResolversTypes['Guidance'], ParentType, ContextType, RequireFields<MutationRemoveGuidanceArgs, 'guidanceId'>>;
   removeGuidanceGroup?: Resolver<ResolversTypes['GuidanceGroup'], ParentType, ContextType, RequireFields<MutationRemoveGuidanceGroupArgs, 'guidanceGroupId'>>;
@@ -7388,6 +7553,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   updateAnswerComment?: Resolver<Maybe<ResolversTypes['AnswerComment']>, ParentType, ContextType, RequireFields<MutationUpdateAnswerCommentArgs, 'answerCommentId' | 'answerId' | 'commentText'>>;
   updateCustomQuestion?: Resolver<ResolversTypes['CustomQuestion'], ParentType, ContextType, RequireFields<MutationUpdateCustomQuestionArgs, 'input'>>;
   updateCustomSection?: Resolver<ResolversTypes['CustomSection'], ParentType, ContextType, RequireFields<MutationUpdateCustomSectionArgs, 'input'>>;
+  updateEntirePlan?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType, RequireFields<MutationUpdateEntirePlanArgs, 'input'>>;
   updateFeedbackComment?: Resolver<Maybe<ResolversTypes['PlanFeedbackComment']>, ParentType, ContextType, RequireFields<MutationUpdateFeedbackCommentArgs, 'commentText' | 'planFeedbackCommentId' | 'planId'>>;
   updateGuidance?: Resolver<ResolversTypes['Guidance'], ParentType, ContextType, RequireFields<MutationUpdateGuidanceArgs, 'input'>>;
   updateGuidanceGroup?: Resolver<ResolversTypes['GuidanceGroup'], ParentType, ContextType, RequireFields<MutationUpdateGuidanceGroupArgs, 'input'>>;
@@ -7395,7 +7561,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   updateMemberRole?: Resolver<Maybe<ResolversTypes['MemberRole']>, ParentType, ContextType, RequireFields<MutationUpdateMemberRoleArgs, 'displayOrder' | 'id' | 'label' | 'url'>>;
   updateMetadataStandard?: Resolver<Maybe<ResolversTypes['MetadataStandard']>, ParentType, ContextType, RequireFields<MutationUpdateMetadataStandardArgs, 'input'>>;
   updatePassword?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationUpdatePasswordArgs, 'email' | 'newPassword' | 'oldPassword'>>;
-  updatePlan?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType, Partial<MutationUpdatePlanArgs>>;
+  updatePlan?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType, RequireFields<MutationUpdatePlanArgs, 'input'>>;
   updatePlanFunding?: Resolver<Maybe<Array<Maybe<ResolversTypes['PlanFunding']>>>, ParentType, ContextType, RequireFields<MutationUpdatePlanFundingArgs, 'planId' | 'projectFundingIds'>>;
   updatePlanMember?: Resolver<Maybe<ResolversTypes['PlanMember']>, ParentType, ContextType, RequireFields<MutationUpdatePlanMemberArgs, 'planId' | 'planMemberId'>>;
   updatePlanStatus?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType, RequireFields<MutationUpdatePlanStatusArgs, 'planId' | 'status'>>;
@@ -7497,13 +7663,17 @@ export type PlanResolvers<ContextType = MyContext, ParentType extends ResolversP
 };
 
 export type PlanErrorsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PlanErrors'] = ResolversParentTypes['PlanErrors']> = {
+  alternateIdentifiers?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   dmp_id?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   featured?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  funding?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   general?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   languageId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  members?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   projectId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   registered?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   registeredById?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  relatedWorks?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   status?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   title?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   versionedTemplateId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;

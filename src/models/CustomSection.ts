@@ -115,7 +115,8 @@ export class CustomSection extends MySqlModel {
           context,
           CustomSection.tableName,
           this,
-          ref
+          ref,
+          []
         );
         return await CustomSection.findById(ref, context, newId);
       }

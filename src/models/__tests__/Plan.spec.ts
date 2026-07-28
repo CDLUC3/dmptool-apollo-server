@@ -19,13 +19,11 @@ import { Project } from "../Project";
 import { VersionedTemplate } from "../VersionedTemplate";
 import { PaginationType } from "../../types/general";
 
-
 jest.mock('../../context.ts');
 
 let context;
 
 const normalizeSQL = (sql: string) => sql.replace(/\s+/g, ' ').trim();
-
 
 beforeEach(async () => {
   jest.resetAllMocks();
@@ -140,7 +138,7 @@ describe('PlanSearchResult.findByProjectId', () => {
 
     const result = await PlanSearchResult.findByProjectId('testing', context, projectId);
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, sql, [projectId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, sql, [projectId.toString()], 'testing');
     expect(result).toEqual([planSearchResult]);
   });
 
@@ -1107,7 +1105,7 @@ describe('findBy Queries', () => {
     const result = await Plan.findById('testing', context, planId);
     const expectedSql = 'SELECT * FROM plans WHERE id = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [planId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [planId.toString()], 'testing');
     expect(result).toEqual(plan);
   });
 
@@ -1124,7 +1122,7 @@ describe('findBy Queries', () => {
     const result = await Plan.findByDMPId('testing', context, dmpId);
     const expectedSql = 'SELECT * FROM plans WHERE dmpId = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [dmpId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [dmpId.toString()], 'testing');
     expect(result).toEqual(plan);
   });
 
@@ -1141,7 +1139,7 @@ describe('findBy Queries', () => {
     const result = await Plan.findByProjectId('testing', context, projectId);
     const expectedSql = 'SELECT * FROM plans WHERE projectId = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectId.toString()], 'testing');
     expect(result).toEqual([plan]);
   });
 
@@ -1158,7 +1156,7 @@ describe('findBy Queries', () => {
     const result = await Plan.findByUserId('testing', context, userId);
     const expectedSql = 'SELECT * FROM plans WHERE createdById = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [userId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [userId.toString()], 'testing');
     expect(result).toEqual([plan]);
   });
 
@@ -1178,7 +1176,7 @@ describe('publish', () => {
 
   const mockDataciteXML = '<?xml version="1.0" encoding="UTF-8"?><resource>mock</resource>';
 
-  beforeEach(() => {
+  beforeEach(async () => {
     mockFindById = jest.fn();
     (Plan.findById as jest.Mock) = mockFindById;
     updateQuery = jest.fn();
@@ -1200,8 +1198,13 @@ describe('publish', () => {
     });
 
     // Mock the EZID registerIdentifier call on the context datasource
-    mockRegisterIdentifier = context.dataSources.ezidAPIDataSource.registerIdentifier as jest.Mock;
-    mockRegisterIdentifier.mockResolvedValue(`doi:${generalConfig.dmpIdShoulder}test`);
+    context = await buildMockContextWithToken(logger);
+
+    mockRegisterIdentifier = jest.fn();
+    // Create a mock datasource with the query function
+    context.dataSources.ezidAPIDataSource = {
+      registerIdentifier: mockRegisterIdentifier
+    };
   });
 
   it('returns the newly published Plan', async () => {

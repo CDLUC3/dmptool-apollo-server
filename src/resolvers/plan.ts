@@ -21,9 +21,10 @@ import { AlternateIdentifier } from "../models/AlternateIdentifier";
 import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
 import {
   AuthenticationError,
+  BadUserInputError,
   ForbiddenError,
   InternalServerError,
-  NotFoundError
+  NotFoundError,
 } from "../utils/graphQLErrors";
 import {
   PaginationOptions,
@@ -31,9 +32,14 @@ import {
   PaginationOptionsForOffsets,
   PaginationType
 } from "../types/general";
-import { PaginatedPlanResults, PlanFeedbackStatus, Resolvers } from "../types";
+import {
+  AddEntirePlanInput,
+  PaginatedPlanResults,
+  PlanFeedbackStatus,
+  Resolvers,
+  UpdateEntirePlanInput
+} from "../types";
 import { prepareObjectForLogs } from "../logger";
-
 // Services
 import {
   buildDataCiteXMLForPlan,
@@ -50,6 +56,12 @@ import {
   isAuthorized,
   isSuperAdmin
 } from "../services/authService";
+import {
+  addEntirePlan,
+  removeEntirePlan,
+  replaceEntirePlan
+} from "../services/entirePlanService";
+import {toErrorMessage} from "@dmptool/utils";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -540,6 +552,187 @@ export const resolvers: Resolvers = {
         throw InternalServerError();
       }
     },
+
+    /**
+     * AUTHENTICATED USERS ONLY: Create an entire plan (and project if applicable)
+     *
+     * @param _ Ignored, this is the entrypoint for the Apollo resolver
+     * @param args the entire plan input (including project, members, funding and answers)
+     * @param context The Apollo context
+     * @returns The QuestionCustomization (with errors if applicable)
+     * @throws NotFoundError when the QuestionCustomization or TemplateCustomization
+     * are not found
+     * @throws ForbiddenError when the caller does not have permission
+     * @throws UnauthorizedError when the JWT token is not present
+     * @throws InternalServerError when a fatal error has occurred
+     */
+    addEntirePlan: authenticatedResolver(
+      'addEntirePlan resolver',
+      UserRole.RESEARCHER,
+      async (
+        _: Record<PropertyKey, never>,
+        { input }: { input: AddEntirePlanInput },
+        context: MyContext
+      ): Promise<Plan> => {
+        const ref = 'createEntirePlan';
+        const plan: Plan = new Plan({});
+
+        try {
+          // 1st: Check any alternate identifiers to make sure the Plan doesn't already exist
+          if (input.alternateIdentifiers) {
+            const altId: AlternateIdentifier | undefined = await AlternateIdentifier.findByAlternateIdentifiers(
+              ref,
+              context,
+              input.alternateIdentifiers
+            );
+            if ((await Plan.findById(ref, context, altId.planId))) {
+              throw BadUserInputError('A plan with the specified alternate identifier(s) already exists.');
+            }
+          }
+
+          // Add the Plan within a database transaction
+          return await context.dataSources.sqlDataSource.withTransaction(context, async (): Promise<Plan> => {
+            return await addEntirePlan(ref, context, input, plan);
+          });
+        } catch (error) {
+          if (error instanceof GraphQLError) {
+            if (error.extensions?.code === 'BAD_REQUEST') {
+              if (plan.hasErrors() && !plan.errors['general']) {
+                plan.addError('general', 'Unable to process your request.');
+              }
+              // Return the plan with its populated validation errors
+              return plan;
+            } else {
+              throw error;
+            }
+          }
+
+          // Log unexpected errors and throw 500
+          context.logger.error(
+            prepareObjectForLogs({ ref, error: toErrorMessage(error) }),
+            `Failure in ${ref}`
+          );
+          throw InternalServerError();
+        }
+      }
+    ),
+
+    /**
+     * AUTHENTICATED USERS ONLY: Replace an entire plan (and project if applicable)
+     *
+     * @param _ Ignored, this is the entrypoint for the Apollo resolver
+     * @param args the entire plan input (including project, members, funding and answers)
+     * @param context The Apollo context
+     * @returns The QuestionCustomization (with errors if applicable)
+     * @throws NotFoundError when the QuestionCustomization or TemplateCustomization
+     * are not found
+     * @throws ForbiddenError when the caller does not have permission
+     * @throws UnauthorizedError when the JWT token is not present
+     * @throws InternalServerError when a fatal error has occurred
+     */
+    updateEntirePlan: authenticatedResolver(
+      'updateEntirePlan resolver',
+      UserRole.RESEARCHER,
+      async (
+        _: Record<PropertyKey, never>,
+        { input }: { input: UpdateEntirePlanInput },
+        context: MyContext
+      ): Promise<Plan> => {
+        const ref = 'updateEntirePlan';
+
+        // 1st: Find the Plan and Project
+        const plan: Plan = await Plan.findById(ref, context, input.id);
+        if (!plan) {
+          throw NotFoundError();
+        }
+        const project: Project = await Project.findById(ref, context, plan.projectId);
+        if (!project) {
+          throw NotFoundError();
+        }
+
+        if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.EDIT)) {
+          try {
+            // Add the Plan within a database transaction
+            return await context.dataSources.sqlDataSource.withTransaction(context, async (): Promise<Plan> => {
+              return await replaceEntirePlan(ref, context, project, plan, input);
+            });
+          } catch (error) {
+            if (error instanceof GraphQLError) {
+              if (error.extensions?.code === 'BAD_REQUEST') {
+                if (plan.hasErrors() && !plan.errors['general']) {
+                  plan.addError('general', 'Unable to process your request.');
+                }
+                // Return the plan with its populated validation errors
+                return plan;
+              } else {
+                throw error;
+              }
+            }
+
+            // Log unexpected errors and throw 500
+            context.logger.error(
+              prepareObjectForLogs({ ref, error: toErrorMessage(error) }),
+              `Failure in ${ref}`
+            );
+            throw InternalServerError();
+          }
+        } else {
+          throw context.token ? ForbiddenError() : AuthenticationError();
+        }
+      }
+    ),
+
+    /**
+     * AUTHENTICATED USERS ONLY: Delete/tomb-stone an entire plan (and project if applicable)
+     *
+     * @param _ Ignored, this is the entrypoint for the Apollo resolver
+     * @param args the DMP id of the plan
+     * @param context The Apollo context
+     * @returns The QuestionCustomization (with errors if applicable)
+     * @throws NotFoundError when the QuestionCustomization or TemplateCustomization
+     * are not found
+     * @throws ForbiddenError when the caller does not have permission
+     * @throws UnauthorizedError when the JWT token is not present
+     * @throws InternalServerError when a fatal error has occurred
+     */
+    removeEntirePlanByDMPId: authenticatedResolver(
+      'removeEntirePlanByDMPId resolver',
+      UserRole.RESEARCHER,
+      async (
+        _: Record<PropertyKey, never>,
+        { dmpId }: { dmpId: string },
+        context: MyContext
+      ): Promise<boolean> => {
+        const ref = 'updateEntirePlan';
+
+        // 1st: Find the Plan and Project
+        const plan: Plan = await Plan.findByDMPId(ref, context, dmpId);
+        if (!plan) {
+          throw NotFoundError();
+        }
+        const project: Project = await Project.findById(ref, context, plan.projectId);
+        if (!project) {
+          throw NotFoundError();
+        }
+
+        if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.EDIT)) {
+          try {
+            // Add the Plan within a database transaction
+            const removed: Plan | undefined = await context.dataSources.sqlDataSource.withTransaction(context, async (): Promise<Plan> => {
+              return await removeEntirePlan(ref, context, project, plan);
+            });
+            return removed && !removed.hasErrors();
+          } catch (err) {
+            if (err instanceof GraphQLError) throw err;
+
+            context.logger.error(prepareObjectForLogs(err), `Failure in ${ref}`);
+            throw InternalServerError();
+          }
+        } else {
+          throw context.token ? ForbiddenError() : AuthenticationError();
+        }
+      }
+    ),
   },
 
   Plan: {

@@ -27,6 +27,9 @@ export async function attachApolloServer(
   );
   context.logger.info({}, 'Attaching Apollo server');
 
+  // Make sure we're able to establish a connection to the MySQL DB before continuing
+  await sqlDataSource.validateConnection()
+
   // expressMiddleware accepts the same arguments:
   //   an Apollo Server instance and optional configuration options
   return expressMiddleware(apolloServer, {

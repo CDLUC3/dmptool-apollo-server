@@ -169,4 +169,4 @@ export class PlanFeedback extends MySqlModel {
       id: row.id,
     }
   }
-};
+}

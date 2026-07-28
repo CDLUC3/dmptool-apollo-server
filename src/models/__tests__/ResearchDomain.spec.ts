@@ -128,7 +128,7 @@ describe('findBy Queries', () => {
       availableSortFields: sortFields,
     };
     expect(localPaginationQuery).toHaveBeenCalledTimes(1);
-    expect(localPaginationQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, '', vals, opts, 'testing')
+    expect(localPaginationQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, '', vals, opts, 'testing');
     expect(result).toEqual([domain]);
   });
 
@@ -145,7 +145,7 @@ describe('findBy Queries', () => {
     const result = await ResearchDomain.findById('testing', context, domainId);
     const expectedSql = 'SELECT * FROM researchDomains WHERE id = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [domainId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [domainId.toString()], 'testing');
     expect(result).toEqual(domain);
   });
 
@@ -162,7 +162,7 @@ describe('findBy Queries', () => {
     const result = await ResearchDomain.findByURI('testing', context, uri);
     const expectedSql = 'SELECT * FROM researchDomains WHERE uri = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [uri], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [uri], 'testing');
     expect(result).toEqual(domain);
   });
 
@@ -179,7 +179,7 @@ describe('findBy Queries', () => {
     const result = await ResearchDomain.findByName('testing', context, name.toLowerCase().trim());
     const expectedSql = 'SELECT * FROM researchDomains WHERE LOWER(name) = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [name.toLowerCase().trim()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [name.toLowerCase().trim()], 'testing');
     expect(result).toEqual(domain);
   });
 
@@ -195,7 +195,7 @@ describe('findBy Queries', () => {
     const result = await ResearchDomain.topLevelDomains('testing', context);
     const expectedSql = 'SELECT * FROM researchDomains WHERE parentResearchDomainId IS NULL ORDER BY name';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [], 'testing');
     expect(result).toEqual([domain]);
   });
 
@@ -211,7 +211,7 @@ describe('findBy Queries', () => {
     const result = await ResearchDomain.findByParentId('testing', context, domainId);
     const expectedSql = 'SELECT * FROM researchDomains WHERE parentResearchDomainId = ? ORDER BY name';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [domainId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [domainId.toString()], 'testing');
     expect(result).toEqual([domain]);
   });
 
@@ -507,7 +507,7 @@ describe('addToMetadataStandard', () => {
     expectedSql += 'createdById, modifiedById) VALUES (?, ?, ?, ?)';
     const userId = context.token.id.toString();
     const vals = [mockDomain.id.toString(), standardId.toString(), userId, userId]
-    expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, vals, 'ResearchDomain.addToMetadataStandard')
+    expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, vals, 'ResearchDomain.addToMetadataStandard');
     expect(result).toBe(true);
   });
 
@@ -547,7 +547,7 @@ describe('removeFromRepository', () => {
     expect(querySpy).toHaveBeenCalledTimes(1);
     const expectedSql = 'DELETE FROM repositoryResearchDomains WHERE researchDomainId = ? AND repositoryId = ?';
     const vals = [mockDomain.id.toString(), repositoryId.toString()]
-    expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, vals, 'ResearchDomain.removeFromRepository')
+    expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, vals, 'ResearchDomain.removeFromRepository');
     expect(result).toBe(true);
   });
 

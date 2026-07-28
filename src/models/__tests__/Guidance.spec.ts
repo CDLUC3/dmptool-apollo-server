@@ -235,7 +235,7 @@ describe('PlanGuidance static methods', () => {
   it('findByPlanUserAndAffiliation should return an array of plan guidance', async () => {
     localQuery.mockResolvedValueOnce([planGuidance]);
     const result = await PlanGuidance.findByPlanUserAndAffiliation('PlanGuidance query', context, planGuidance.planId, planGuidance.userId, planGuidance.affiliationId);
-    expect(result).not.toBeNull();    
+    expect(result).not.toBeNull();
     expect(result.planId).toEqual(planGuidance.planId);
     expect(result.userId).toEqual(planGuidance.userId);
     expect(result.affiliationId).toEqual(planGuidance.affiliationId);

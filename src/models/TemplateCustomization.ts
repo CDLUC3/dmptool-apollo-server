@@ -968,10 +968,10 @@ export class TemplateCustomization extends MySqlModel {
 
   /**
    * Find the TemplateCustomization with the name of the base template it is customizing by its id
-   * @param reference 
-   * @param context 
-   * @param templateCustomizationId 
-   * @returns 
+   * @param reference The reference to use for logging errors.
+   * @param context The Apollo context.
+   * @param templateCustomizationId The template customization's id.
+   * @returns the Template customization
    */
   static async findByIdWithTemplateName(
     reference: string,

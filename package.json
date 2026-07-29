@@ -61,6 +61,7 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-jwt": "^8.5.1",
+    "fast-xml-parser": "^5.10.1",
     "graphql": "^16.14.2",
     "graphql-tag": "^2.12.7",
     "http-cache-semantics": "^4.2.0",

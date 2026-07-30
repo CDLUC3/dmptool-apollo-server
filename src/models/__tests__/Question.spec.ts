@@ -36,6 +36,13 @@ describe('Question', () => {
     sampleText: casual.sentences(10),
     useSampleTextAsDefault: true,
     displayOrder: casual.integer(1, 20),
+    tags: [
+      {
+        id: casual.integer(1, 9),
+        name: casual.word,
+        description: casual.sentences(3),
+      }
+    ]
   }
   beforeEach(() => {
     question = new Question(questionData);
@@ -49,6 +56,7 @@ describe('Question', () => {
     expect(question.sampleText).toEqual(questionData.sampleText);
     expect(question.useSampleTextAsDefault).toEqual(questionData.useSampleTextAsDefault);
     expect(question.displayOrder).toEqual(questionData.displayOrder);
+    expect(question.tags).toEqual(questionData.tags);
     expect(question.required).toEqual(false);
   });
 
@@ -140,6 +148,13 @@ describe('ResearchOutputTable Question', () => {
     sampleText: casual.sentences(10),
     useSampleTextAsDefault: true,
     displayOrder: casual.integer(1, 20),
+    tags: [
+      {
+        id: casual.integer(1, 9),
+        name: casual.word,
+        description: casual.sentences(3),
+      }
+    ]
   }
   beforeEach(() => {
     question = new Question(questionData);

@@ -5,6 +5,7 @@ import { Template } from "../models/Template";
 import { updateDisplayOrders } from "../services/questionService";
 import { AuthenticationError, BadRequestError, ForbiddenError, InternalServerError, NotFoundError } from "../utils/graphQLErrors";
 import { QuestionCondition } from "../models/QuestionCondition";
+import { Tag } from "../models/Tag";
 import { prepareObjectForLogs } from "../logger";
 import { isAdmin, isAuthorized } from "../services/authService";
 import { hasPermissionOnSection } from "../services/sectionService";
@@ -58,7 +59,8 @@ export const resolvers: Resolvers = {
       guidanceText,
       sampleText,
       useSampleTextAsDefault,
-      required
+      required,
+      tags,
     } }, context: MyContext): Promise<Question> => {
 
       const reference = 'addQuestion resolver';
@@ -95,8 +97,30 @@ export const resolvers: Resolvers = {
             // Update the associated template to set isDirty=1
             await Template.markTemplateAsDirty('Question resolver - addQuestion', context, templateId);
 
-            // Return newly created question
-            return await Question.findById(reference, context, questionId);
+            // Add any new Tags provided in the request
+            const addTagErrors = [];
+            if (Array.isArray(tags) && tags.length > 0) {
+              for (const item of tags) {
+                const tag = await Tag.findById(reference, context, item.id);
+
+                if (!tag) {
+                  addTagErrors.push(`Tag ${item.id} not found`);
+                }
+
+                const wasAdded = tag.addToQuestion(context, questionId)
+                if (!wasAdded) {
+                  addTagErrors.push(tag.name);
+                }
+
+              }
+            }
+
+            if (addTagErrors.length > 0) {
+              newQuestion.addError('tags', `Saved but we were unable to assign tags: ${addTagErrors.join(', ')}`);
+            }
+
+            // Return newly created section with tags
+            return newQuestion.hasErrors() ? newQuestion : await Question.findById(reference, context, newQuestion.id);
           }
           // Otherwise it had errors so return it as-is
           return newQuestion;
@@ -120,9 +144,9 @@ export const resolvers: Resolvers = {
       guidanceText,
       sampleText,
       useSampleTextAsDefault,
-      required
+      required,
+      tags
     } }, context: MyContext): Promise<Question> => {
-
       const reference = 'updateQuestion resolver';
       try {
         // Get Question based on provided questionId
@@ -152,9 +176,51 @@ export const resolvers: Resolvers = {
           });
 
           const updatedQuestion = await question.update(context);
+
           if (updatedQuestion && !updatedQuestion.hasErrors()) {
             // Update the associated template to set isDirty=1
             await Template.markTemplateAsDirty('Question resolver - updateQuestion', context, questionData.templateId);
+
+            // Get current tags for the question
+            const currentTags = await Tag.findByQuestionId(reference, context, questionData.id);
+            const currentTagIds = currentTags.map((tag) => tag.id);
+
+            // Use the helper function to determine which Tags to keep and which to remove
+            const { idsToBeRemoved, idsToBeSaved } = Question.reconcileAssociationIds(
+              currentTagIds,
+              tags ? (tags as Tag[]).map((d) => d.id) : []
+            );
+
+            // Delete any Tag associations that were removed
+            const removeTagErrors = [];
+            for (const id of idsToBeRemoved) {
+              const tag = await Tag.findById(reference, context, id as number);
+              if (tag) {
+                const wasRemoved = tag.removeFromQuestion(context, updatedQuestion.id)
+                if (!wasRemoved) {
+                  removeTagErrors.push(tag.name);
+                }
+              }
+            }
+            // if any errors were found when adding/removing tags then return them
+            if (removeTagErrors.length > 0) {
+              updatedQuestion.addError('tags', `Saved but we were unable to remove tags: ${removeTagErrors.join(', ')}`);
+            }
+
+            // Add any new Tag associations
+            const addTagErrors = [];
+            for (const id of idsToBeSaved) {
+              const tag = await Tag.findById(reference, context, id as number);
+              if (tag) {
+                const wasAdded = tag.addToQuestion(context, updatedQuestion.id)
+                if (!wasAdded) {
+                  addTagErrors.push(tag.name);
+                }
+              }
+            }
+            if (addTagErrors.length > 0) {
+              updatedQuestion.addError('tags', `Saved but we were unable to assign tags: ${addTagErrors.join(', ')}`);
+            }
 
             // Refetch the question or the updated question with errors
             const final = await Question.findById(reference, context, questionId);
@@ -261,6 +327,10 @@ export const resolvers: Resolvers = {
   },
 
   Question: {
+    // Chained resolver to fetch the Affiliation info for the user
+    tags: async (parent: Question, _, context: MyContext): Promise<Tag[]> => {
+      return await Tag.findByQuestionId('Chained Question.tags', context, parent.id);
+    },
     questionConditions: async (parent: Question, _, context: MyContext): Promise<QuestionCondition[]> => {
       return await QuestionCondition.findByQuestionId(
         'Chained Question.questionConditions',

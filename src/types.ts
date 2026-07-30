@@ -242,6 +242,8 @@ export type AddQuestionInput = {
   sampleText?: InputMaybe<Scalars['String']['input']>;
   /** The unique id of the Section that the question belongs to */
   sectionId: Scalars['Int']['input'];
+  /** The Tags associated with this question. A question might not have any tags */
+  tags?: InputMaybe<Array<TagInput>>;
   /** The unique id of the Template that the question belongs to */
   templateId: Scalars['Int']['input'];
   /** Boolean indicating whether we should use content from sampleText as the default answer */
@@ -320,8 +322,6 @@ export type AddSectionInput = {
   name: Scalars['String']['input'];
   /** Requirements that a user must consider in this section */
   requirements?: InputMaybe<Scalars['String']['input']>;
-  /** The Tags associated with this section. A section might not have any tags */
-  tags?: InputMaybe<Array<TagInput>>;
   /** The id of the template that the section belongs to */
   templateId: Scalars['Int']['input'];
 };
@@ -4241,6 +4241,8 @@ export type Question = {
   sectionId: Scalars['Int']['output'];
   /** The original question id if this question is a copy of another */
   sourceQestionId?: Maybe<Scalars['Int']['output']>;
+  /** The Tags associated with this question. A question might not have any tags */
+  tags?: Maybe<Array<Maybe<Tag>>>;
   /** The unique id of the Template that the question belongs to */
   templateId: Scalars['Int']['output'];
   /** Boolean indicating whether we should use content from sampleText as the default answer */
@@ -5408,6 +5410,8 @@ export type UpdateQuestionInput = {
   requirementText?: InputMaybe<Scalars['String']['input']>;
   /** Sample text to possibly provide a starting point or example to answer question */
   sampleText?: InputMaybe<Scalars['String']['input']>;
+  /** The Tags associated with this question. A question might not have any tags */
+  tags?: InputMaybe<Array<TagInput>>;
   /** Boolean indicating whether we should use content from sampleText as the default answer */
   useSampleTextAsDefault?: InputMaybe<Scalars['Boolean']['input']>;
 };
@@ -5462,8 +5466,6 @@ export type UpdateSectionInput = {
   requirements?: InputMaybe<Scalars['String']['input']>;
   /** The unique identifer for the Section */
   sectionId: Scalars['Int']['input'];
-  /** The Tags associated with this section. A section might not have any tags */
-  tags?: InputMaybe<Array<TagInput>>;
 };
 
 /** Input parameters for updating a Template Customization */
@@ -8178,6 +8180,7 @@ export type QuestionResolvers<ContextType = MyContext, ParentType extends Resolv
   sampleText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   sectionId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   sourceQestionId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  tags?: Resolver<Maybe<Array<Maybe<ResolversTypes['Tag']>>>, ParentType, ContextType>;
   templateId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   useSampleTextAsDefault?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
 };

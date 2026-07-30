@@ -62,6 +62,15 @@ export const hasPermissionOnGuidanceGroup = async (
   return context?.token?.affiliationId === guidanceGroup.affiliationId || isSuperAdmin(context?.token);
 };
 
+// Resolve a tags map from a primary source, falling back to a secondary source if the primary is empty
+async function resolveTagsMap(
+  primary: Promise<Record<number, string>>,
+  fallback: () => Promise<Record<number, string>>
+): Promise<Record<number, string>> {
+  const primaryTags = await primary;
+  return Object.keys(primaryTags).length > 0 ? primaryTags : await fallback();
+}
+
 // Creates a new Version/Snapshot of the specified GuidanceGroup
 // - Creates a new VersionedGuidanceGroup including all of the related Guidance
 // - Resets the isDirty flag on the GuidanceGroup
@@ -299,7 +308,6 @@ export async function getGuidanceSourcesForPlan(
   customQuestionId?: number
 ): Promise<GuidanceSource[]> {
   const reference = 'getGuidanceSourcesForPlan';
-
   try {
     // Get plan details
     const plan = await Plan.findById(reference, context, planId);
@@ -327,7 +335,7 @@ export async function getGuidanceSourcesForPlan(
     // First, get guidance text from template/section/question, and tagsMap
     // ============================================================
 
-    // Get section tag IDs and section-level guidance
+    // Get question/section tag IDs and section-level guidance
     let tagsMap: Record<number, string>;
     let guidanceText: string | null = null;
 
@@ -338,9 +346,8 @@ export async function getGuidanceSourcesForPlan(
       if (!question) {
         return [];
       }
-
-      // Get tags for the question's section
-      tagsMap = await getSectionTags(context, question.versionedSectionId);
+      // If the question has tags, then use them rather than the section tags, which we're moving off of
+      tagsMap = await resolveTagsMap(getQuestionTags(context, versionedQuestionId), () => getSectionTags(context, question.versionedSectionId));
       guidanceText = question.guidanceText || null; // Question-level guidance
     } else if (customQuestionId) {
       // Custom question: guidance is owned by the user's institution
@@ -351,14 +358,28 @@ export async function getGuidanceSourcesForPlan(
       guidanceText = customQuestion.guidanceText || null;
       // Get tags from the parent section (which may be BASE or CUSTOM)
       if (customQuestion.versionedSectionType === 'BASE') {
-        tagsMap = await getSectionTags(context, customQuestion.versionedSectionId);
+        // Prefer the union of question-level tags in the section; fall back to
+        // legacy section-level tags during the transition period.
+        const sectionId = customQuestion.versionedSectionId;
+
+        tagsMap = await resolveTagsMap(
+          getQuestionTagsForSection(context, sectionId),
+          () => getSectionTags(context, sectionId)
+        );
       } else {
-        // CUSTOM parent section — fall back to template-wide tags
-        tagsMap = await getSectionTagsMap(context, versionedTemplateId);
+        // CUSTOM parent section — no specific section to derive tags from,
+        // so fall back to template-wide tags (question tags preferred, section tags as legacy fallback)
+        tagsMap = await resolveTagsMap(getQuestionTagsMap(context, versionedTemplateId),
+          () => getSectionTagsMap(context, versionedTemplateId)
+        );
       }
     } else if (versionedSectionId) { // Otherwise, get tags and guidance for the section id provided
 
-      tagsMap = await getSectionTags(context, versionedSectionId);
+      tagsMap = await resolveTagsMap(
+        getQuestionTagsForSection(context, versionedSectionId),
+        () => getSectionTags(context, versionedSectionId)
+      );
+
       const section = await VersionedSection.findById(reference, context, versionedSectionId);
       guidanceText = section?.guidance || null; // Section-level guidance
     } else if (customSectionId) {
@@ -367,7 +388,9 @@ export async function getGuidanceSourcesForPlan(
       const customSection = await VersionedCustomSection.findById(reference, context, customSectionId);
       if (!customSection) return [];
       guidanceText = customSection?.guidance || null;
-      tagsMap = await getSectionTagsMap(context, versionedTemplateId);
+
+      // Same template-wide fallback pattern as the CUSTOM customQuestion branch above
+      tagsMap = await resolveTagsMap(getQuestionTagsMap(context, versionedTemplateId), () => getSectionTagsMap(context, versionedTemplateId));
     }
 
 
@@ -563,48 +586,61 @@ export async function getGuidanceSourcesForPlan(
     // ============================================================
     // 3. Template Owner's Guidance
     // ============================================================
-    if (templateOwnerUri && !processedOrgURIs.has(templateOwnerUri)) {
-      const affiliation = await Affiliation.findByURI(reference, context, templateOwnerUri);
+    // ============================================================
+    // 3. Template Owner's Guidance
+    // ============================================================
+    if (templateOwnerUri) {
+      const alreadyAdded = processedOrgURIs.has(templateOwnerUri);
+      const existingSource = alreadyAdded
+        ? guidanceSources.find(s => s.orgURI === templateOwnerUri)
+        : null;
 
-      if (affiliation) {
-        // Fetch TAG-BASED guidance
-        const tagBasedGuidance = await VersionedGuidance.findByAffiliationAndTagIds(
-          reference,
-          context,
-          templateOwnerUri,
-          sectionTagIds
-        );
-
-        const items = groupGuidanceByTag(tagBasedGuidance, sectionTagIds, tagsMap);
-
-        // Only prepend section-level guidanceText for versioned sections/questions.
-        // For custom sections/questions, the content was created by the user's institution —
-        // the template owner has no guidance to contribute here.
+      if (alreadyAdded && existingSource) {
+        // Template owner's affiliation guidance was already added in step 2
+        // (e.g., because the current user shares the template owner's affiliation).
+        // Still need to attach the section/question's own guidanceText, which is
+        // only ever sourced here.
         if (guidanceText && !customSectionId && !customQuestionId) {
-          items.unshift({
-            title: affiliation.displayName || affiliation.name,
+          existingSource.items.unshift({
+            title: existingSource.label,
             guidanceText
           });
         }
+      } else {
+        const affiliation = await Affiliation.findByURI(reference, context, templateOwnerUri);
 
-        // Always include template owner as a source, even with no guidance for a custom section
-        // so that the Guidance Panel can show "no guidance available"
-        guidanceSources.push({
-          id: `affiliation-${templateOwnerUri}`,
-          type: GuidanceSourceType.TEMPLATE_OWNER,
-          label: affiliation.displayName || affiliation.name,
-          shortName: (affiliation.acronyms && affiliation.acronyms[0]) ||
-            affiliation.displayName ||
-            affiliation.name,
-          orgURI: templateOwnerUri,
-          items,
-          hasGuidance: true
-        });
+        if (affiliation) {
+          const tagBasedGuidance = await VersionedGuidance.findByAffiliationAndTagIds(
+            reference,
+            context,
+            templateOwnerUri,
+            sectionTagIds
+          );
 
-        processedOrgURIs.add(templateOwnerUri);
+          const items = groupGuidanceByTag(tagBasedGuidance, sectionTagIds, tagsMap);
 
+          if (guidanceText && !customSectionId && !customQuestionId) {
+            items.unshift({
+              title: affiliation.displayName || affiliation.name,
+              guidanceText
+            });
+          }
+
+          guidanceSources.push({
+            id: `affiliation-${templateOwnerUri}`,
+            type: GuidanceSourceType.TEMPLATE_OWNER,
+            label: affiliation.displayName || affiliation.name,
+            shortName: (affiliation.acronyms && affiliation.acronyms[0]) ||
+              affiliation.displayName ||
+              affiliation.name,
+            orgURI: templateOwnerUri,
+            items,
+            hasGuidance: true
+          });
+
+          processedOrgURIs.add(templateOwnerUri);
+        }
       }
-
     }
 
     // ============================================================
@@ -692,6 +728,41 @@ export async function getSectionTags(
 }
 
 /**
+ * Get question tags for a specific question (tagId -> tagName)
+ */
+export async function getQuestionTags(
+  context: MyContext,
+  versionedQuestionId: number
+): Promise<Record<number, string>> {
+  const sql = `
+    SELECT DISTINCT
+      t.id,
+      t.name
+    FROM tags t
+    JOIN versionedQuestionTags vqt ON t.id = vqt.tagId
+    WHERE vqt.versionedQuestionId = ?
+    ORDER BY t.name;
+  `;
+
+  try {
+    const results = await PlanGuidance.query(context, sql, [versionedQuestionId.toString()]);
+    const tagsMap: Record<number, string> = {};
+
+    if (results) {
+      (results as TagRow[]).forEach((row) => {
+        tagsMap[row.id] = row.name;
+      });
+    }
+
+    return tagsMap;
+  } catch (err) {
+    context.logger.error({ err, sql, versionedQuestionId }, 'Error fetching question tags');
+    return {};
+  }
+}
+
+
+/**
  * Get section tag IDs for all sections in a template (just IDs, no names)
  */
 export async function getSectionTagIds(
@@ -746,6 +817,79 @@ export async function getSectionTagsMap(
     return tagsMap;
   } catch (err) {
     context.logger.error({ err, sql, versionedTemplateId }, 'Error fetching section tags');
+    return {};
+  }
+}
+
+/**
+ * Get the union of question-level tags across an entire template (tagId -> tagName).
+ * Template-wide equivalent of getSectionTagsMap, used as a fallback when a custom
+ * section/question has no specific parent section to derive tags from.
+ */
+export async function getQuestionTagsMap(
+  context: MyContext,
+  versionedTemplateId: number
+): Promise<Record<number, string>> {
+  const sql = `
+    SELECT DISTINCT
+      t.id,
+      t.name
+    FROM tags t
+    JOIN versionedQuestionTags vqt ON t.id = vqt.tagId
+    JOIN versionedQuestions vq ON vqt.versionedQuestionId = vq.id
+    WHERE vq.versionedTemplateId = ?
+    ORDER BY t.name;
+  `;
+
+  try {
+    const results = await PlanGuidance.query(context, sql, [versionedTemplateId.toString()]);
+    const tagsMap: Record<number, string> = {};
+
+    if (results) {
+      (results as TagRow[]).forEach((row) => {
+        tagsMap[row.id] = row.name;
+      });
+    }
+
+    return tagsMap;
+  } catch (err) {
+    context.logger.error({ err, sql, versionedTemplateId }, 'Error fetching question tags map');
+    return {};
+  }
+}
+
+/**
+ * Get the union of tags across all questions in a section (tagId -> tagName).
+ * Used as a stand-in for custom questions, which don't yet support their own tags.
+ */
+export async function getQuestionTagsForSection(
+  context: MyContext,
+  versionedSectionId: number
+): Promise<Record<number, string>> {
+  const sql = `
+    SELECT DISTINCT
+      t.id,
+      t.name
+    FROM tags t
+    JOIN versionedQuestionTags vqt ON t.id = vqt.tagId
+    JOIN versionedQuestions vq ON vqt.versionedQuestionId = vq.id
+    WHERE vq.versionedSectionId = ?
+    ORDER BY t.name;
+  `;
+
+  try {
+    const results = await PlanGuidance.query(context, sql, [versionedSectionId.toString()]);
+    const tagsMap: Record<number, string> = {};
+
+    if (results) {
+      (results as TagRow[]).forEach((row) => {
+        tagsMap[row.id] = row.name;
+      });
+    }
+
+    return tagsMap;
+  } catch (err) {
+    context.logger.error({ err, sql, versionedSectionId }, 'Error fetching question tags for section');
     return {};
   }
 }

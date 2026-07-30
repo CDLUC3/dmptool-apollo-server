@@ -2,6 +2,8 @@ import gql from "graphql-tag";
 
 export const typeDefs = gql`
   extend type Query {
+    "Get a VersionedTemplate by its id"
+    versionedTemplate(id: Int!): VersionedTemplate
     "Get all of the VersionedTemplate for the specified Template (a.k. the Template history)"
     templateVersions(templateId: Int!): [VersionedTemplate]
     "Search for VersionedTemplate whose name or owning Org's name contains the search term"

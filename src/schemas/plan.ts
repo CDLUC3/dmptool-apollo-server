@@ -343,8 +343,10 @@ export const typeDefs = gql`
   "Input to create/replace a Plan answer"
   input EntirePlanAnswerFragment {
     json: String!
-    sectionId: Int
-    questionId: Int
+    versionedSectionId: Int
+    versionedCustomSectionId: Int
+    versionedQuestionId: Int
+    versionedCustomQuestion: Int
   }
 
   "Input to create an entire Plan (and Project if applicable)"
@@ -362,7 +364,7 @@ export const typeDefs = gql`
     project: EntirePlanProjectFragment!
 
     "The id of the template being used (the default template will be used if not provided)"
-    templateId: Int
+    versionedTemplateId: Int
 
     "External identifiers for the plan (for use when integrating with external systems)"
     alternateIdentifiers: [String!]

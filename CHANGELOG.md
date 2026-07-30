@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added `questionTags` and `versionedQuestionTags` tables [#274]
 - Added `getUserTokenVersion` and `bumpUserTokenVersion` to `tokenService` so that we can save the `tokenVersion` in the `JWT` payload, and validate it against the current version in `isRevokedCallback` on `/graphql` requests [#133]
 - Added new `PasswordResetToken` model, `passwordReset` resolver, `passwordReset` schema, and separate `passwordResetTokens` table to store the `resetPasswordToken` and `resetPasswordExpiresAt` [#133]
 - Added `passwordChangedAt` field to the `users` table, and `User` model to record when password last changed [#133]

@@ -586,9 +586,6 @@ export async function getGuidanceSourcesForPlan(
     // ============================================================
     // 3. Template Owner's Guidance
     // ============================================================
-    // ============================================================
-    // 3. Template Owner's Guidance
-    // ============================================================
     if (templateOwnerUri) {
       const alreadyAdded = processedOrgURIs.has(templateOwnerUri);
       const existingSource = alreadyAdded

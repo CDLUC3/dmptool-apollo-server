@@ -327,7 +327,7 @@ export const resolvers: Resolvers = {
   },
 
   Question: {
-    // Chained resolver to fetch the Affiliation info for the user
+    // Chained resolver to fetch the Tag info
     tags: async (parent: Question, _, context: MyContext): Promise<Tag[]> => {
       return await Tag.findByQuestionId('Chained Question.tags', context, parent.id);
     },

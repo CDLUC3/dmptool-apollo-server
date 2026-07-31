@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added `questionTags` and `versionedQuestionTags` tables [#274]
 - Added `getUserTokenVersion` and `bumpUserTokenVersion` to `tokenService` so that we can save the `tokenVersion` in the `JWT` payload, and validate it against the current version in `isRevokedCallback` on `/graphql` requests [#133]
 - Added new `PasswordResetToken` model, `passwordReset` resolver, `passwordReset` schema, and separate `passwordResetTokens` table to store the `resetPasswordToken` and `resetPasswordExpiresAt` [#133]
 - Added `passwordChangedAt` field to the `users` table, and `User` model to record when password last changed [#133]
@@ -123,6 +124,14 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `Plan.findByPlanId` to prefer questionTags and fall back to sectionTags [#274]
+- Updated `Question` model to have `tags`, since we moved the best practice tags to the Question page [#274]
+- Updated `Tag` model with functions for adding and removing tags from questions and versioned questions [#274]
+- Updated `addQuestion` and `updateQuestion` resolvers to add any tag data to `questionTags` table, and to include `tags` chained resolver [#274]
+- Removed `tags` from `section` resolver [#274]
+- Updated `addTemplate` mutation resolver so that make sure to copy over questionTags when cloning [#274]
+- Updated `guidanceService.ts` to prefer `questionTags` and fall back to `sectionTags` if there are no `questionTags`. That way we can ease into transitioning to `questionTags` [#274]
+- Updated `questionService`'s `generateQuestionVersion` to include `questionTags`, and also made sure to add current tags in `generateSectionVersion` before calling `generateQuestionVersion` [#274]
 - Updated `emailService` with a `sendResetPasswordEmail` to send an email with the `change password link` [#133]
 - Fixed issue with JSON of default questions and answers in the local data migration file
 - Renamed old `Funding.findByProjectFundingId` to `Funding.findByPlanAndProjectFundingId`

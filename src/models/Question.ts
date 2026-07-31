@@ -1,6 +1,7 @@
 import { QuestionSchemaMap } from "@dmptool/types";
 import { MyContext } from "../context";
 import { MySqlModel } from "./MySqlModel";
+import { Tag } from "./Tag";
 import { isNullOrUndefined, removeNullAndUndefinedFromJSON } from "../utils/helpers";
 
 export class Question extends MySqlModel {
@@ -15,6 +16,7 @@ export class Question extends MySqlModel {
   public useSampleTextAsDefault?: boolean;
   public required: boolean;
   public displayOrder: number;
+  public tags: Tag[];
   public isDirty: boolean;
 
   private tableName = 'questions';
@@ -39,6 +41,7 @@ export class Question extends MySqlModel {
     this.useSampleTextAsDefault = options.useSampleTextAsDefault ?? false;
     this.required = options.required ?? false;
     this.displayOrder = options.displayOrder;
+    this.tags = options.tags;
     this.isDirty = options.isDirty ?? false;
   }
 
@@ -96,7 +99,7 @@ export class Question extends MySqlModel {
     // First make sure the record is valid
     if (await this.isValid()) {
       // Save the record and then fetch it
-      const newId = await Question.insert(context, this.tableName, this, 'Question.create', ['questionType']);
+      const newId = await Question.insert(context, this.tableName, this, 'Question.create', ['questionType', 'tags']);
       const response = await Question.findById('Question.create', context, newId);
       return response;
 
@@ -111,7 +114,7 @@ export class Question extends MySqlModel {
       this.prepForSave();
 
       if (await this.isValid()) {
-        await Question.update(context, this.tableName, this, 'Question.update', ['questionType'], noTouch);
+        await Question.update(context, this.tableName, this, 'Question.update', ['questionType', 'tags'], noTouch);
         return await Question.findById('Question.update', context, this.id);
       }
     }

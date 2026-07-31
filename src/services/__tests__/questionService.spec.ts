@@ -10,10 +10,11 @@ import { Question } from "../../models/Question";
 import { VersionedQuestion } from "../../models/VersionedQuestion";
 import { QuestionCondition, QuestionConditionActionType, QuestionConditionCondition } from "../../models/QuestionCondition";
 import { VersionedQuestionCondition } from "../../models/VersionedQuestionCondition";
+import { Tag } from "../../models/Tag";
 import { getRandomEnumValue } from "../../__tests__/helpers";
 import { getCurrentDate } from "../../utils/helpers";
 import { CURRENT_SCHEMA_VERSION } from "@dmptool/types";
-import {MyContext} from "../../context";
+import { MyContext } from "../../context";
 
 // Pulling context in here so that the mysql gets mocked
 jest.mock('../../context.ts');
@@ -184,6 +185,8 @@ describe('generateQuestionVersion', () => {
   let mockUpdate;
   let mockFindQuestionById;
   let mockFindVersionedQuestionById;
+  let mockFindTagById;
+  let mockAddToVersionedQuestionTags;
 
   beforeEach(() => {
     // Mock the QuestionConditions
@@ -298,6 +301,14 @@ describe('generateQuestionVersion', () => {
       }
       return obj;
     });
+
+    mockAddToVersionedQuestionTags = jest.fn().mockResolvedValue(true);
+    (Tag.prototype.addToVersionedQuestionTags as jest.Mock) = mockAddToVersionedQuestionTags;
+
+    mockFindTagById = jest.fn().mockImplementation((_, __, id) => {
+      return new Tag({ id, name: `tag-${id}`, description: casual.sentence });
+    });
+
   });
 
   it('does not allow an unsaved question to be versioned', async () => {
@@ -380,6 +391,95 @@ describe('generateQuestionVersion', () => {
     expect(updated.modifiedById).toEqual(question.modifiedById);
     expect(updated.modified).toEqual(question.modified);
     expect(updated.isDirty).toEqual(false);
+  });
+  it('versions the Question and assigns its tags', async () => {
+    const tag1 = { id: casual.integer(1, 99), name: casual.word };
+    const tag2 = { id: casual.integer(1, 99), name: casual.word };
+    const question = new Question({ ...questionStore[0], tags: [tag1, tag2] });
+
+    (VersionedQuestion.insert as jest.Mock) = mockInsert;
+    (VersionedQuestion.findById as jest.Mock) = mockFindVersionedQuestionById;
+    (Question.update as jest.Mock) = mockUpdate;
+    (Question.findById as jest.Mock) = mockFindQuestionById;
+    (Tag.findById as jest.Mock) = mockFindTagById;
+
+    const versionedTemplateId = casual.integer(1, 999);
+    const versionedSectionId = casual.integer(1, 999);
+
+    expect(
+      await generateQuestionVersion(context, question, versionedTemplateId, versionedSectionId)
+    ).toEqual(true);
+
+    const newVersion = versionedQuestionStore[0];
+    expect(mockFindTagById).toHaveBeenCalledTimes(2);
+    expect(mockFindTagById).toHaveBeenCalledWith('generateQuestionVersion', context, tag1.id);
+    expect(mockFindTagById).toHaveBeenCalledWith('generateQuestionVersion', context, tag2.id);
+    expect(mockAddToVersionedQuestionTags).toHaveBeenCalledTimes(2);
+    expect(mockAddToVersionedQuestionTags).toHaveBeenCalledWith(context, newVersion.id);
+    expect(newVersion.errors?.tags).toBeUndefined();
+  });
+
+  it('adds a tags error when a tag fails to be assigned', async () => {
+    const tagName = `tag-10`;
+    const question = new Question({ ...questionStore[0], tags: [{ id: 10, name: tagName }] });
+
+    (VersionedQuestion.insert as jest.Mock) = mockInsert;
+    (VersionedQuestion.findById as jest.Mock) = mockFindVersionedQuestionById;
+    (Question.update as jest.Mock) = mockUpdate;
+    (Question.findById as jest.Mock) = mockFindQuestionById;
+    (Tag.findById as jest.Mock) = mockFindTagById; // now returns id + matching name
+    (Tag.prototype.addToVersionedQuestionTags as jest.Mock) = jest.fn().mockResolvedValue(false);
+
+    const versionedTemplateId = casual.integer(1, 999);
+    const versionedSectionId = casual.integer(1, 999);
+
+    expect(
+      await generateQuestionVersion(context, question, versionedTemplateId, versionedSectionId)
+    ).toEqual(true);
+
+    const newVersion = versionedQuestionStore[0];
+    expect(newVersion.errors.tags).toContain("Saved but we were unable to assign tags: tag-10");
+  });
+
+  it('adds a tags error when a tag fails to be assigned', async () => {
+    const tag = { id: 10, name: 'Data Formatting' };
+    const question = new Question({ ...questionStore[0], tags: [tag] });
+
+    (VersionedQuestion.insert as jest.Mock) = mockInsert;
+    (VersionedQuestion.findById as jest.Mock) = mockFindVersionedQuestionById;
+    (Question.update as jest.Mock) = mockUpdate;
+    (Question.findById as jest.Mock) = mockFindQuestionById;
+    (Tag.findById as jest.Mock) = mockFindTagById;
+    (Tag.prototype.addToVersionedQuestionTags as jest.Mock) = jest.fn().mockResolvedValue(false);
+
+    const versionedTemplateId = casual.integer(1, 999);
+    const versionedSectionId = casual.integer(1, 999);
+
+    expect(
+      await generateQuestionVersion(context, question, versionedTemplateId, versionedSectionId)
+    ).toEqual(true);
+
+    const newVersion = versionedQuestionStore[0];
+    expect(newVersion.errors.tags).toContain("Saved but we were unable to assign tags: tag-10");
+  });
+
+  it('skips tag assignment when the question has no tags', async () => {
+    const question = new Question({ ...questionStore[0], tags: [] });
+
+    (VersionedQuestion.insert as jest.Mock) = mockInsert;
+    (VersionedQuestion.findById as jest.Mock) = mockFindVersionedQuestionById;
+    (Question.update as jest.Mock) = mockUpdate;
+    (Question.findById as jest.Mock) = mockFindQuestionById;
+    (Tag.findById as jest.Mock) = mockFindTagById;
+
+    const versionedTemplateId = casual.integer(1, 999);
+    const versionedSectionId = casual.integer(1, 999);
+
+    expect(
+      await generateQuestionVersion(context, question, versionedTemplateId, versionedSectionId)
+    ).toEqual(true);
+
+    expect(mockFindTagById).not.toHaveBeenCalled();
   });
 });
 

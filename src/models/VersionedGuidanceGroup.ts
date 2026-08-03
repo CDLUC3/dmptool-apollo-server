@@ -104,7 +104,7 @@ export class VersionedGuidanceGroup extends MySqlModel {
   // Find active VersionedGuidanceGroups for a specific affiliation
   static async findActiveByAffiliationId(reference: string, context: MyContext, affiliationId: string): Promise<VersionedGuidanceGroup[]> {
     const sql = `
-      SELECT vgg.* 
+      SELECT vgg.*
       FROM ${VersionedGuidanceGroup.tableName} vgg
       INNER JOIN guidanceGroups gg ON vgg.guidanceGroupId = gg.id
       WHERE gg.affiliationId = ? AND vgg.active = 1

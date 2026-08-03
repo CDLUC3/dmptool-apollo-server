@@ -3,6 +3,31 @@
 ## v1.1.0
 
 ### Added
+- Added override for `minimatch`
+- Added versionedTemplate schema and resolver so we can fetch a versioned template by its id.
+- Added `questionTags` and `versionedQuestionTags` tables [#274]
+- Added `getUserTokenVersion` and `bumpUserTokenVersion` to `tokenService` so that we can save the `tokenVersion` in the `JWT` payload, and validate it against the current version in `isRevokedCallback` on `/graphql` requests [#133]
+- Added new `PasswordResetToken` model, `passwordReset` resolver, `passwordReset` schema, and separate `passwordResetTokens` table to store the `resetPasswordToken` and `resetPasswordExpiresAt` [#133]
+- Added `passwordChangedAt` field to the `users` table, and `User` model to record when password last changed [#133]
+- Added new helper SQL script to delete all existing research output questions and answers
+- Added new `TransactionClient` class to the `datasources/mysql.ts` file to allow for the use of MySQL transactions
+- Added a `AddAnswerInput`, `AddProjectInput`, `EntirePlanProjectFragment`, `EntirePlanMemberFragment`, `EntirePlanFundingFragment`, `EntirePlanAnswerFragment`, `AddEntirePlanInput`, `UpdateEntirePlanInput` to schema
+- Added new `addEntirePlan`, `updateEntirePlan` and `removeEntirePlan` schema and resolvers to allow a caller to include all of the Project, Plan, Member, Funding, Answer and RelatedWork information in one mutation (to support REST API functionality and future integrations)
+- Added new `entirePlanService` to support the above resolvers
+- Added a new `Funding.findByProjectFundingId`
+- Added a new `errorsToString` function to the `MySQLModel`
+- Added a new `findByOwnerAndTitle` to the `Plan` model
+- Added files for EZID creation: `config/ezidConfig.ts` and `datasources/EZIDAPI.ts`, and updated `Plan.publish` to call on the new `registerIdentifier` [#32]
+- Added new `buildDataCiteXMLForPlan` to build XML for EZID registration in `planService.ts` and added new `dataciteXMLService.ts` with helper functions for the new `buildDataCiteXMLForPlan` function [#32]
+- Added a `plansByProjectId` query and resolver
+- Added an `updatePlan` mutation and resolver
+- Added `contactUs` resolver to allow users to send us emails [#297]
+- Added a scripts/sql/ directory to store useful maintenance and debugging scripts
+- Added `isArchived` field to the `users` table to help us filter those users out when returned in `users` response [#281]
+- Added `findByProjectIdWithPagination` method to the `PlanSearchResult` model for the `plans` resolver [#281]
+- Added `userProjects` query to return all projects for a specified user, with search term and pagination [#281]
+- Added `updateUserRole` mutation for admins to change a user's role, `updateUserInfo` mutation for super admins to update a specified user's profile, and an `archiveUser` mutation to archive a user[#281]
+- Added a default researc h output table question to the default template
 - Added data migration to add `displayAbbreviation` and `displayDomain` to the `affiliations` table
 - Added data migration to backfill those new DB fields
 - Added LocalStack port env variable to the docker compose file and `awsConfig` file
@@ -101,6 +126,32 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated override for `brace-expansion`
+- Switched entirePlan schema, resolvers and service to use versionedXId instead of xId (e.g. use versionedTemplates instead of Templates)
+- Updated entirePlan service to use the default MemberRole when none is provided 
+- Updated `Plan.findByPlanId` to prefer questionTags and fall back to sectionTags [#274]
+- Updated `Question` model to have `tags`, since we moved the best practice tags to the Question page [#274]
+- Updated `Tag` model with functions for adding and removing tags from questions and versioned questions [#274]
+- Updated `addQuestion` and `updateQuestion` resolvers to add any tag data to `questionTags` table, and to include `tags` chained resolver [#274]
+- Removed `tags` from `section` resolver [#274]
+- Updated `addTemplate` mutation resolver so that make sure to copy over questionTags when cloning [#274]
+- Updated `guidanceService.ts` to prefer `questionTags` and fall back to `sectionTags` if there are no `questionTags`. That way we can ease into transitioning to `questionTags` [#274]
+- Updated `questionService`'s `generateQuestionVersion` to include `questionTags`, and also made sure to add current tags in `generateSectionVersion` before calling `generateQuestionVersion` [#274]
+- Updated `emailService` with a `sendResetPasswordEmail` to send an email with the `change password link` [#133]
+- Fixed issue with JSON of default questions and answers in the local data migration file
+- Renamed old `Funding.findByProjectFundingId` to `Funding.findByPlanAndProjectFundingId`
+- Updated `sendContactUsEmail` in `emailService.ts` to not include a `bcc` [#303]
+- Added `plans` chained resolver to `ProjectSearchResult` in `project` resolver so that querying `userProjects` will include `plan` data for each project [#304]
+- Updated `updateProjectMember` resolver to handle `Other Affiliation`. Added a new, shared `resolveAffiliation` function to `affiliationService.ts`. Updated `updateProjectMember` schema to include `affiliationName` [#309]
+- Updated the `Answer` model to use the newly exported `DefaultResearchOutputTypeAnswer` from `@dmptool/types` instead of manually building it
+- Updated `Guidance` and `VersionedGuidance` classes to make `tagId` optional, since it was causing errors on `dev` where `guidance` records had no `tagId`. This is consistent with the `guidance` table schema which allows the `tagId` field to be `NULL` [#54]
+- Updated `emailService.ts` with the addition of `sendContactUsEmail` [#297]
+- Updated `plans` resolver to have pagination for a specified `userId` with optional `search term`, and added a chained resolver for `PlanSearchResult` for `templateOwnerAffiliationName` [#281]
+- Updated `PlanSearchResult` model to include `createdById` and `templateOwnerAffiliationName` for the Admin Users page [#281]
+- Update local migration to add RO question to default template
+- Updated `users` resolver to include `role` and `affiliationId` [#240]
+- Added `findByAffiliationId` and `search` to pass in `role` as optional [#240]
+- Added `findByUserId` to `Plan` model to find all plans for a given user [#240]
 - Updated Trivy scripts to ignore the entire `docker/` directory
 - Updated Localstack startup file to remove unused lambda function and SQS.
 - Bumped version of `@dmptool/utils`
@@ -203,6 +254,8 @@
 - Updates to appease newer version of eslint
 
 ### Removed
+- Removed unused `valueIsDate` function from the `MySQLModel`
+- Removed old `processResult` functions from the `Answer` and `Question` models. These functions were added to help add the `commonStandardId` to existing JSON records. It proved to be inadequate so we eneded up just deleting old data
 - Removed unused SQS env variable from example dotenv file
 - Removed override for `brace-expansion` dependency
 - Removed overrides for `ws` and `brace-expansion` dependencies
@@ -224,6 +277,12 @@
 - Removed `ioredis` package
 
 ### Fixed
+- Added missing `fast-xml-parser` back so that `re3data-os-populate.ts` can run
+- Fixed `removeProjectFunding`. There were several issues, one of which was not being able to delete a `projectFundings` record without removing it's foreign key dependency in `planFundings` first [#303]
+- Updated `immutable` to `v5.1.9` to address HIGH security vulnerability [#304]
+- Updated `brace-expansion` to `v5.0.7` and `js-yaml` to `v4.3.0` to address vulnerabilities [#310]
+- Build was breaking because of a `package-lock.json` was referencing a file for `dmptool-utils`.
+- Updated `requestFeedback` with better error messaging for when `feedbackEnabled` is false or there are no `feedbackEmails`. Also, added checks for `input.subHeaderLinks` and `input.ssoEmailDomains` in `updateAffiliations` since it was breaking that mutation when those fields were not included. Also, removed the debugging I had previously added to investigate the `requestFeedback` resolver failing. [#285]
 - Fixed error in `data-migrations/local-only/2026-05-08-1111-seed-project-plan.sql` when inserting data for `templates` and `versionedTemplates` tables which were missing the new `isDefault` value.
 - Fixed an issue with duplicate URIs being returned to `findRe3DataByURIs` by deduping [#33]
 - Fixed bug in `openSearchService` that was throwing an error and not returning repositories [#196]
@@ -235,6 +294,9 @@
 - Fixed issue with templates not cloning with sections and questions by updating the `addTemplate` mutation to clone from non-versioned template, section and question [#1006]
 
 ### Chore
+- Added override for `brace-expansion` to `v5.0.8` [#314]
+- Addressed security vulnerability in `nodemailer` and `undici` packages, and added debugging to troubleshoot request feedback failure [#285]
+- Updated `nodemailer` to `v9.0.1` and `undici` to `v7.28.0` [#240]
 - Updated `fast-xml-parser` to `v1.2.0` and `uuid` to `11.1.1` to address vulnerabilities.
 - Added `@types/nodemailer` [#189]
 - Added override for `lodash` to `4.18.1` to address high vulnerability issue

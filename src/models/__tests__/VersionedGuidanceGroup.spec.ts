@@ -282,7 +282,7 @@ describe('VersionedGuidanceGroup.findActiveByAffiliationId', () => {
     localQuery.mockResolvedValueOnce([versionedGuidanceGroup]);
     const result = await VersionedGuidanceGroup.findActiveByAffiliationId('VersionedGuidanceGroup query', context, affiliationId);
     const expectedSql = `
-      SELECT vgg.* 
+      SELECT vgg.*
       FROM versionedGuidanceGroups vgg
       INNER JOIN guidanceGroups gg ON vgg.guidanceGroupId = gg.id
       WHERE gg.affiliationId = ? AND vgg.active = 1

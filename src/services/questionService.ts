@@ -2,6 +2,7 @@ import { MyContext } from "../context";
 import { Template } from "../models/Template";
 import { hasPermissionOnTemplate } from "./templateService";
 import { Question } from "../models/Question";
+import { Tag } from "../models/Tag";
 import { VersionedQuestion } from "../models/VersionedQuestion";
 import { NotFoundError } from "../utils/graphQLErrors";
 import { QuestionCondition } from "../models/QuestionCondition";
@@ -61,6 +62,30 @@ export const generateQuestionVersion = async (
     const saved = await versionedQuestion.create(context);
 
     if (saved && !saved.hasErrors()) {
+
+      // Get tags associated with question so we can add it to versionedQuestionTags table
+      const addTagErrors = [];
+      if (Array.isArray(question.tags) && question.tags.length > 0) {
+        for (const item of question.tags) {
+          const tag = await Tag.findById('generateQuestionVersion', context, item.id);
+
+          if (!tag) {
+            addTagErrors.push(`Tag ${item.id} not found`);
+            continue; // <-- Add this line to skip calling addToVersionedQuestionTags on null
+          }
+
+          const wasAdded = await tag.addToVersionedQuestionTags(context, saved.id);
+          if (!wasAdded) {
+            addTagErrors.push(tag.name);
+          }
+
+        }
+      }
+
+      if (addTagErrors.length > 0) {
+        saved.addError('tags', `Saved but we were unable to assign tags: ${addTagErrors.join(', ')}`);
+      }
+
       // Version any QuestionConditions as well
       const questionConditions = await QuestionCondition.findByQuestionId('generateQuestionVersion', context, saved.questionId);
       let allConditionsWereVersioned = true;
@@ -208,5 +233,5 @@ export const updateDisplayOrders = async (
       }
     }
   }
-  return  reorderedQuestions;
+  return reorderedQuestions;
 }

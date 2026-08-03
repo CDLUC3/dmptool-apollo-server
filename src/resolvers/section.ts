@@ -62,7 +62,6 @@ export const resolvers: Resolvers = {
           introduction,
           requirements,
           guidance,
-          tags,
           displayOrder
         }
       },
@@ -90,6 +89,7 @@ export const resolvers: Resolvers = {
 
           // create the new section
           const newSection = await section.create(context, templateId);
+
           // if the section was not created, return the errors
           if (!newSection?.id) {
             // A null was returned so add a generic error and return it
@@ -97,28 +97,6 @@ export const resolvers: Resolvers = {
               section.addError('general', 'Unable to create the section');
             }
             return section;
-          }
-
-          // Add any new Tags provided in the request
-          const addTagErrors = [];
-          if (Array.isArray(tags) && tags.length > 0) {
-            for (const item of tags) {
-              const tag = await Tag.findById(reference, context, item.id);
-
-              if (!tag) {
-                addTagErrors.push(`Tag ${item.id} not found`);
-              }
-
-              const wasAdded = tag.addToSection(context, newSection.id)
-              if (!wasAdded) {
-                addTagErrors.push(tag.name);
-              }
-
-            }
-          }
-
-          if (addTagErrors.length > 0) {
-            newSection.addError('tags', `Saved but we were unable to assign tags: ${addTagErrors.join(', ')}`);
           }
 
           // if a copyFromVersionedSectionId is provided, clone all the questions
@@ -141,29 +119,22 @@ export const resolvers: Resolvers = {
               });
 
               const addedQuestion = await newQuestion.create(context);
+
               if (!addedQuestion?.id) {
                 // A null was returned so add a generic error and return it
                 if (!newQuestion.errors['general']) {
                   newQuestion.addError('general', 'Unable to create the question');
                 }
-              }
-            }
-
-            const versionedTags = await Tag.findByVersionedSectionId(reference, context, original.sectionId);
-            // Add tags from the copied versionedSection to the section
-            if (versionedTags && Array.isArray(versionedTags) && versionedTags.length > 0) {
-              const addTagErrors = [];
-              for (const tagIn of versionedTags) {
-                const tag = await Tag.findById(reference, context, tagIn.id);
-                if (tag) {
-                  const wasAdded = tag.addToSection(context, newSection.id)
+              } else {
+                // Copy the source versioned question's tags onto the newly cloned question
+                const sourceTags = await Tag.findByVersionedQuestionId(reference, context, versionedQuestion.id);
+                for (const tag of sourceTags) {
+                  const wasAdded = await tag.addToQuestion(context, addedQuestion.id);
                   if (!wasAdded) {
-                    addTagErrors.push(tag.name);
+                    context.logger.error(`${reference} failed to copy tag ${tag.id} to cloned question ${addedQuestion.id}`);
+                    newQuestion.addError('general', 'Question created but unable to copy all tags');
                   }
                 }
-              }
-              if (addTagErrors.length > 0) {
-                newSection.addError('tags', `Section created but we were unable to assign tags: ${addTagErrors.join(', ')}`);
               }
             }
           }
@@ -171,8 +142,8 @@ export const resolvers: Resolvers = {
           // Update the associated template to set isDirty=1
           await Template.markTemplateAsDirty('Section resolver - addSection', context, templateId);
 
-          // Return newly created section with tags
-          return newSection.hasErrors() ? newSection : await Section.findById(reference, context, newSection.id);
+          // Return newly created section
+          return await Section.findById(reference, context, newSection.id);
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();
       } catch (err) {
@@ -193,7 +164,6 @@ export const resolvers: Resolvers = {
           introduction,
           requirements,
           guidance,
-          tags,
           displayOrder,
           bestPractice
         }
@@ -237,52 +207,11 @@ export const resolvers: Resolvers = {
             return section;
           }
 
-          // Get current tags for the section
-          const currentTags = await Tag.findBySectionId(reference, context, sectionId);
-          const currentTagIds = currentTags.map((tag) => tag.id);
-
-          // Use the helper function to determine which Tags to keep and which to remove
-          const { idsToBeRemoved, idsToBeSaved } = Section.reconcileAssociationIds(
-            currentTagIds,
-            tags ? (tags as Tag[]).map((d) => d.id) : []
-          );
-
-          // Delete any Tag associations that were removed
-          const removeTagErrors = [];
-          for (const id of idsToBeRemoved) {
-            const tag = await Tag.findById(reference, context, id as number);
-            if (tag) {
-              const wasRemoved = tag.removeFromSection(context, updatedSection.id)
-              if (!wasRemoved) {
-                removeTagErrors.push(tag.name);
-              }
-            }
-          }
-          // if any errors were found when adding/removing tags then return them
-          if (removeTagErrors.length > 0) {
-            updatedSection.addError('tags', `Saved but we were unable to remove tags: ${removeTagErrors.join(', ')}`);
-          }
-
-          // Add any new Tag associations
-          const addTagErrors = [];
-          for (const id of idsToBeSaved) {
-            const tag = await Tag.findById(reference, context, id as number);
-            if (tag) {
-              const wasAdded = tag.addToSection(context, updatedSection.id)
-              if (!wasAdded) {
-                addTagErrors.push(tag.name);
-              }
-            }
-          }
-          if (addTagErrors.length > 0) {
-            updatedSection.addError('tags', `Saved but we were unable to assign tags: ${addTagErrors.join(', ')}`);
-          }
-
           // Update the associated template to set isDirty=1
           await Template.markTemplateAsDirty('Section resolver - updateSection', context, sectionData.templateId);
 
-          // Return newly updated section with tags
-          return updatedSection.hasErrors() ? updatedSection : await Section.findById(reference, context, updatedSection.id);
+          // Return newly updated section
+          return await Section.findById(reference, context, updatedSection.id);
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();
       } catch (err) {

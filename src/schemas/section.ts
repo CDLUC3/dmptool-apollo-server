@@ -96,8 +96,6 @@ export const typeDefs = gql`
     guidance: String
     "The order in which the section will be displayed in the template"
     displayOrder: Int
-    "The Tags associated with this section. A section might not have any tags"
-    tags: [TagInput!]
   }
 
   "Input for updating a section"
@@ -116,7 +114,5 @@ export const typeDefs = gql`
     displayOrder: Int
     "Whether or not this Section is designated as a 'Best Practice' section"
     bestPractice: Boolean
-    "The Tags associated with this section. A section might not have any tags"
-    tags: [TagInput!]
   }
 `;

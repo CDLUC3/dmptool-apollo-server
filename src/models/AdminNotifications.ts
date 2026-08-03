@@ -76,6 +76,7 @@ export class AdminNotificationResults extends MySqlModel {
       values,
       opts,
       reference,
+      true,
     );
   }
 
@@ -92,7 +93,7 @@ export class AdminNotificationResults extends MySqlModel {
     reference: string,
     context: MyContext,
     userId: number | null,
-    options?: PaginationOptions,
+    options?: PaginationOptions
   ) {
     return AdminNotificationResults.findByUserId(reference, context, userId, options, false);
   }
@@ -153,7 +154,7 @@ export class AdminNotification extends MySqlModel {
     const reference = 'AdminNotification.create';
 
     if (await this.isValid()) {
-      const newId = await AdminNotification.insert(context, this.tableName, this, reference);
+      const newId = await AdminNotification.insert(context, this.tableName, this, reference, []);
       if (!newId) {
         context.logger.error(`${reference}, ERROR: Failed to create AdminNotification.`);
         this.addError('general', 'AdminNotification was not created successfully');
@@ -190,7 +191,7 @@ export class AdminNotification extends MySqlModel {
     context: MyContext,
     affiliationId: string,
     notificationType: AdminNotificationType,
-    metadata?: AdminNotificationMetadata,
+    metadata?: AdminNotificationMetadata
   ): Promise<boolean> {
     const sql = `
     INSERT INTO adminNotifications (userId, notificationType, affiliationId, metadata, createdById, modifiedById, created, modified)

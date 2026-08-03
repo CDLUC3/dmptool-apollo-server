@@ -317,4 +317,4 @@ export class Repository extends MySqlModel {
     }
     return [];
   }
-};
+}

@@ -125,7 +125,7 @@ describe('findById', () => {
     const result = await Affiliation.findById('Test', context, affiliation.id);
     const expectedSql = 'SELECT * FROM affiliations WHERE id = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'Test')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'Test');
     expect(result).toEqual(affiliation);
   });
 
@@ -398,7 +398,7 @@ describe('findByName', () => {
     const expectedSql = 'SELECT * FROM affiliations WHERE TRIM(LOWER(name)) = ? OR TRIM(LOWER(displayName)) = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
     const vals = [affiliation.name.toLowerCase(), affiliation.name.toLowerCase()]
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, vals, 'Test')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, vals, 'Test');
     expect(result).toEqual(affiliation);
   });
 
@@ -415,7 +415,7 @@ describe('findByName', () => {
     const result = await Affiliation.findByEntityId('Test', context, affiliation.ssoEntityId);
     const expectedSql = 'SELECT * FROM affiliations WHERE TRIM(LOWER(ssoEntityId)) = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [affiliation.ssoEntityId.toLowerCase()], 'Test')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [affiliation.ssoEntityId.toLowerCase()], 'Test');
     expect(result).toEqual(affiliation);
   });
 
@@ -499,7 +499,7 @@ describe('search', () => {
       availableSortFields: sortFields,
     };
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, '', vals, opts, 'Test')
+    expect(localQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, '', vals, opts, 'Test');
     expect(result).toEqual([affiliationSearch]);
   });
 
@@ -521,7 +521,7 @@ describe('search', () => {
       availableSortFields: sortFields,
     };
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, '', vals, opts, 'Test')
+    expect(localQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, '', vals, opts, 'Test');
     expect(result).toEqual([affiliationSearch]);
   });
 

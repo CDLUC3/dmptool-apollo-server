@@ -1,55 +1,132 @@
 import { GraphQLError } from "graphql";
 import { MyContext } from "../context";
-import { Plan, PlanSearchResult, PlanSectionProgress, PlanProgress, PlanStatus, PlanVisibility } from "../models/Plan";
-import { prepareObjectForLogs } from "../logger";
-import { AuthenticationError, ForbiddenError, InternalServerError, NotFoundError } from "../utils/graphQLErrors";
+import {
+  Plan,
+  PlanProgress,
+  PlanSearchResult,
+  PlanSectionProgress,
+  PlanStatus,
+  PlanVisibility
+} from "../models/Plan";
 import { Project } from "../models/Project";
-import { User } from "../models/User";
-import { isAuthorized } from "../services/authService";
+import { User, UserRole } from "../models/User";
+import { PlanMember } from "../models/Member";
+import { PlanFunding } from "../models/Funding";
+import { PlanFeedback } from "../models/PlanFeedback";
+import { Affiliation } from "../models/Affiliation";
+import { VersionedTemplate } from "../models/VersionedTemplate";
+import { Answer } from "../models/Answer";
+import { ProjectCollaboratorAccessLevel } from "../models/Collaborator";
+import { AlternateIdentifier } from "../models/AlternateIdentifier";
+import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
+import {
+  AuthenticationError,
+  BadUserInputError,
+  ForbiddenError,
+  InternalServerError,
+  NotFoundError,
+} from "../utils/graphQLErrors";
+import {
+  PaginationOptions,
+  PaginationOptionsForCursors,
+  PaginationOptionsForOffsets,
+  PaginationType
+} from "../types/general";
+import {
+  AddEntirePlanInput,
+  PaginatedPlanResults,
+  PlanFeedbackStatus,
+  Resolvers,
+  UpdateEntirePlanInput
+} from "../types";
+import { prepareObjectForLogs } from "../logger";
+// Services
+import {
+  buildDataCiteXMLForPlan,
+  ensureDefaultPlanContact,
+  saveMaDMPVersion
+} from "../services/planService";
 import {
   hasPermissionOnProject,
   isProjectReadOnlyForCurrentUser
 } from "../services/projectService";
-import { PlanMember } from "../models/Member";
-import { PlanFunding } from "../models/Funding";
-import { PlanFeedback } from "../models/PlanFeedback";
-import { PlanFeedbackStatus, Resolvers } from "../types";
-import { VersionedTemplate } from "../models/VersionedTemplate";
-import { Answer } from "../models/Answer";
-import { ProjectCollaboratorAccessLevel } from "../models/Collaborator";
-import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
 import {
-  ensureDefaultPlanContact,
-  saveMaDMPVersion
-} from "../services/planService";
-import { AlternateIdentifier } from "../models/AlternateIdentifier";
-
+  authenticatedResolver,
+  isAdmin,
+  isAuthorized,
+  isSuperAdmin
+} from "../services/authService";
+import {
+  addEntirePlan,
+  removeEntirePlan,
+  replaceEntirePlan
+} from "../services/entirePlanService";
+import {toErrorMessage} from "@dmptool/utils";
 
 export const resolvers: Resolvers = {
   Query: {
-    // return all of the projects that the current user owns or is a collaborator on
-    plans: async (_, { projectId }, context: MyContext): Promise<PlanSearchResult[]> => {
-      const reference = 'plans resolver';
-      try {
-        if (isAuthorized(context.token)) {
-          const project = await Project.findById(reference, context, projectId);
+    // Find all of the plans for a specified userId, with pagination and optional search term filtering
+    plans: authenticatedResolver(
+      'plansWithPagination resolver',
+      UserRole.ADMIN,
+      async (
+        _: Record<PropertyKey, never>,
+        { userId, term, paginationOptions }: { userId: number; term?: string; paginationOptions?: PaginationOptions },
+        context: MyContext
+      ): Promise<PaginatedPlanResults> => {
+        const reference = 'plansWithPagination resolver';
+        try {
 
-          if (!project) {
-            throw NotFoundError(`Project with ID ${projectId} not found`);
+          const superAdmin: boolean = isSuperAdmin(context.token);
+
+          if (!superAdmin) {
+            // Admin must belong to the same affiliation as the target user
+            const targetUser = await User.findById(reference, context, userId);
+            if (!targetUser) throw NotFoundError(`User with ID ${userId} not found`);
+
+            if (!(isAdmin(context.token) && context.token.affiliationId === targetUser.affiliationId)) {
+              throw ForbiddenError();
+            }
           }
-          if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.COMMENT)) {
-            return await PlanSearchResult.findByProjectId(reference, context, projectId);
-          }
+
+          const opts = !isNullOrUndefined(paginationOptions) && paginationOptions.type === PaginationType.OFFSET
+            ? paginationOptions as PaginationOptionsForOffsets
+            : { ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors;
+
+          return await PlanSearchResult.findByUserIdWithPagination(reference, context, userId, opts, term);
+        } catch (err) {
+          if (err instanceof GraphQLError) throw err;
+          context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+          throw InternalServerError();
         }
-        throw context?.token ? ForbiddenError() : AuthenticationError();
-      } catch (err) {
-        if (err instanceof GraphQLError) throw err;
+      },
+    ),
+    // Find all the plans for a specified project
+    plansByProjectId: authenticatedResolver(
+      '`plansByProjectId` resolver',
+      UserRole.RESEARCHER,
+      async (
+        _: Record<PropertyKey, never>,
+        { projectId }: { projectId: number; },
+        context: MyContext
+      ): Promise<Plan[]> => {
+        const reference = 'plansByProjectId resolver';
+        try {
+          const project: Project = await Project.findById(reference, context, projectId);
+          if (!project) throw NotFoundError(`Project with ID ${projectId} not found`);
 
-        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
-        throw InternalServerError();
-      }
-    },
+          if (hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.COMMENT)) {
+            return await Plan.findByProjectId(reference, context, projectId);
+          }
 
+          throw context?.token ? ForbiddenError() : AuthenticationError();
+        } catch (err) {
+          if (err instanceof GraphQLError) throw err;
+          context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+          throw InternalServerError();
+        }
+      },
+    ),
     // Find the plan by its id
     plan: async (_, { planId }, context: MyContext): Promise<Plan> => {
       const reference = 'plan resolver';
@@ -275,8 +352,21 @@ export const resolvers: Resolvers = {
                 if (!contactWasSet) {
                   plan.addError('general', 'Plan must have a primary contact');
                 } else {
+                  // Build the DataCite XML metadata document before publishing
+                  let dataciteXML: string;
+                  try {
+                    dataciteXML = await buildDataCiteXMLForPlan(context, plan);
+                  } catch (err) {
+                    context.logger.error(
+                      prepareObjectForLogs(err),
+                      `${reference} failed to build DataCite metadata`
+                    );
+                    plan.addError('general', 'Unable to build metadata required to publish this plan');
+                    return plan;
+                  }
+
                   // All criteria was satisfied, so publish the plan
-                  const published = await plan.publish(context, visibility as PlanVisibility);
+                  const published = await plan.publish(context, visibility as PlanVisibility, dataciteXML);
 
                   if (published && !published.hasErrors()) {
                     // Update the maDMP version of the record
@@ -287,6 +377,41 @@ export const resolvers: Resolvers = {
               }
             }
             return plan;
+          }
+        }
+        throw context?.token ? ForbiddenError() : AuthenticationError();
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    },
+
+    updatePlan: async (_, { input }, context: MyContext): Promise<Plan> => {
+      const reference = 'update plan resolver';
+      try {
+        if (isAuthorized(context.token)) {
+          const plan = await Plan.findById(reference, context, input.id);
+          if (!plan) {
+            throw NotFoundError(`Plan with id ${input.id} not found`);
+          }
+          const project = await Project.findById(reference, context, plan.projectId);
+
+          if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.OWN)) {
+            plan.title = input.title ?? plan.title;
+            plan.status = input.status as PlanStatus ?? plan.status;
+            plan.visibility = input.visibility as PlanVisibility ?? plan.visibility;
+            plan.featured = input.featured ?? plan.featured;
+            plan.languageId = input.languageId ?? plan.languageId;
+
+            const updated = await plan.update(context);
+
+            if (updated && !updated.hasErrors()) {
+              // Update the maDMP version of the record
+              await saveMaDMPVersion(reference, context, updated.id, updated.dmpId);
+            }
+            return updated;
           }
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();
@@ -427,6 +552,187 @@ export const resolvers: Resolvers = {
         throw InternalServerError();
       }
     },
+
+    /**
+     * AUTHENTICATED USERS ONLY: Create an entire plan (and project if applicable)
+     *
+     * @param _ Ignored, this is the entrypoint for the Apollo resolver
+     * @param args the entire plan input (including project, members, funding and answers)
+     * @param context The Apollo context
+     * @returns The QuestionCustomization (with errors if applicable)
+     * @throws NotFoundError when the QuestionCustomization or TemplateCustomization
+     * are not found
+     * @throws ForbiddenError when the caller does not have permission
+     * @throws UnauthorizedError when the JWT token is not present
+     * @throws InternalServerError when a fatal error has occurred
+     */
+    addEntirePlan: authenticatedResolver(
+      'addEntirePlan resolver',
+      UserRole.RESEARCHER,
+      async (
+        _: Record<PropertyKey, never>,
+        { input }: { input: AddEntirePlanInput },
+        context: MyContext
+      ): Promise<Plan> => {
+        const ref = 'createEntirePlan';
+        const plan: Plan = new Plan({});
+
+        try {
+          // 1st: Check any alternate identifiers to make sure the Plan doesn't already exist
+          if (input.alternateIdentifiers) {
+            const altId: AlternateIdentifier | undefined = await AlternateIdentifier.findByAlternateIdentifiers(
+              ref,
+              context,
+              input.alternateIdentifiers
+            );
+            if ((await Plan.findById(ref, context, altId.planId))) {
+              throw BadUserInputError('A plan with the specified alternate identifier(s) already exists.');
+            }
+          }
+
+          // Add the Plan within a database transaction
+          return await context.dataSources.sqlDataSource.withTransaction(context, async (): Promise<Plan> => {
+            return await addEntirePlan(ref, context, input, plan);
+          });
+        } catch (error) {
+          if (error instanceof GraphQLError) {
+            if (error.extensions?.code === 'BAD_REQUEST') {
+              if (plan.hasErrors() && !plan.errors['general']) {
+                plan.addError('general', 'Unable to process your request.');
+              }
+              // Return the plan with its populated validation errors
+              return plan;
+            } else {
+              throw error;
+            }
+          }
+
+          // Log unexpected errors and throw 500
+          context.logger.error(
+            prepareObjectForLogs({ ref, error: toErrorMessage(error) }),
+            `Failure in ${ref}`
+          );
+          throw InternalServerError();
+        }
+      }
+    ),
+
+    /**
+     * AUTHENTICATED USERS ONLY: Replace an entire plan (and project if applicable)
+     *
+     * @param _ Ignored, this is the entrypoint for the Apollo resolver
+     * @param args the entire plan input (including project, members, funding and answers)
+     * @param context The Apollo context
+     * @returns The QuestionCustomization (with errors if applicable)
+     * @throws NotFoundError when the QuestionCustomization or TemplateCustomization
+     * are not found
+     * @throws ForbiddenError when the caller does not have permission
+     * @throws UnauthorizedError when the JWT token is not present
+     * @throws InternalServerError when a fatal error has occurred
+     */
+    updateEntirePlan: authenticatedResolver(
+      'updateEntirePlan resolver',
+      UserRole.RESEARCHER,
+      async (
+        _: Record<PropertyKey, never>,
+        { input }: { input: UpdateEntirePlanInput },
+        context: MyContext
+      ): Promise<Plan> => {
+        const ref = 'updateEntirePlan';
+
+        // 1st: Find the Plan and Project
+        const plan: Plan = await Plan.findById(ref, context, input.id);
+        if (!plan) {
+          throw NotFoundError();
+        }
+        const project: Project = await Project.findById(ref, context, plan.projectId);
+        if (!project) {
+          throw NotFoundError();
+        }
+
+        if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.EDIT)) {
+          try {
+            // Add the Plan within a database transaction
+            return await context.dataSources.sqlDataSource.withTransaction(context, async (): Promise<Plan> => {
+              return await replaceEntirePlan(ref, context, project, plan, input);
+            });
+          } catch (error) {
+            if (error instanceof GraphQLError) {
+              if (error.extensions?.code === 'BAD_REQUEST') {
+                if (plan.hasErrors() && !plan.errors['general']) {
+                  plan.addError('general', 'Unable to process your request.');
+                }
+                // Return the plan with its populated validation errors
+                return plan;
+              } else {
+                throw error;
+              }
+            }
+
+            // Log unexpected errors and throw 500
+            context.logger.error(
+              prepareObjectForLogs({ ref, error: toErrorMessage(error) }),
+              `Failure in ${ref}`
+            );
+            throw InternalServerError();
+          }
+        } else {
+          throw context.token ? ForbiddenError() : AuthenticationError();
+        }
+      }
+    ),
+
+    /**
+     * AUTHENTICATED USERS ONLY: Delete/tomb-stone an entire plan (and project if applicable)
+     *
+     * @param _ Ignored, this is the entrypoint for the Apollo resolver
+     * @param args the DMP id of the plan
+     * @param context The Apollo context
+     * @returns The QuestionCustomization (with errors if applicable)
+     * @throws NotFoundError when the QuestionCustomization or TemplateCustomization
+     * are not found
+     * @throws ForbiddenError when the caller does not have permission
+     * @throws UnauthorizedError when the JWT token is not present
+     * @throws InternalServerError when a fatal error has occurred
+     */
+    removeEntirePlanByDMPId: authenticatedResolver(
+      'removeEntirePlanByDMPId resolver',
+      UserRole.RESEARCHER,
+      async (
+        _: Record<PropertyKey, never>,
+        { dmpId }: { dmpId: string },
+        context: MyContext
+      ): Promise<boolean> => {
+        const ref = 'updateEntirePlan';
+
+        // 1st: Find the Plan and Project
+        const plan: Plan = await Plan.findByDMPId(ref, context, dmpId);
+        if (!plan) {
+          throw NotFoundError();
+        }
+        const project: Project = await Project.findById(ref, context, plan.projectId);
+        if (!project) {
+          throw NotFoundError();
+        }
+
+        if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.EDIT)) {
+          try {
+            // Add the Plan within a database transaction
+            const removed: Plan | undefined = await context.dataSources.sqlDataSource.withTransaction(context, async (): Promise<Plan> => {
+              return await removeEntirePlan(ref, context, project, plan);
+            });
+            return removed && !removed.hasErrors();
+          } catch (err) {
+            if (err instanceof GraphQLError) throw err;
+
+            context.logger.error(prepareObjectForLogs(err), `Failure in ${ref}`);
+            throw InternalServerError();
+          }
+        } else {
+          throw context.token ? ForbiddenError() : AuthenticationError();
+        }
+      }
+    ),
   },
 
   Plan: {
@@ -525,6 +831,29 @@ export const resolvers: Resolvers = {
         );
       }
       return [];
+    },
+    templateOwnerAffiliationName: async (parent: PlanSearchResult, _, context: MyContext): Promise<string | null> => {
+      if (!parent?.versionedTemplateId) return null;
+
+      const versionedTemplate = await VersionedTemplate.findById(
+        'planSearchResult.templateOwnerAffiliationName resolver',
+        context,
+        parent.versionedTemplateId
+      );
+      if (!versionedTemplate?.ownerId) return null;
+
+      const affiliation = await Affiliation.findByURI(
+        'planSearchResult.templateOwnerAffiliationName resolver',
+        context,
+        versionedTemplate.ownerId
+      );
+      return affiliation?.displayName || null;
+    },
+    planCreator: async (parent: PlanSearchResult, _, context: MyContext): Promise<User> => {
+      if (parent?.createdById) {
+        return await User.findById('planSearchResult.planCreator resolver', context, parent.createdById);
+      }
+      return null;
     }
   }
 

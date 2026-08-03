@@ -5,6 +5,7 @@ import { typeDefs as adminNotificationTypeDefs } from './schemas/adminNotificati
 import { typeDefs as affiliationTypeDefs } from './schemas/affiliation';
 import { typeDefs as answerTypeDefs } from './schemas/answer';
 import { typeDefs as collaboratorTypeDefs } from './schemas/collaborator';
+import { typeDefs as contactUsTypeDefs } from './schemas/contactUs';
 import { typeDefs as memberTypeDefs } from './schemas/member';
 import { typeDefs as memberRoleTypeDefs } from './schemas/memberRole';
 import { typeDefs as feedbackTypeDefs } from './schemas/feedback';
@@ -35,6 +36,7 @@ import { typeDefs as versionedGuidanceTypeDefs } from './schemas/versionedGuidan
 import { typeDefs as versionedQuestionConditionTypeDefs } from './schemas/versionedQuestionCondition';
 import { typeDefs as versionedSectionTypeDefs } from './schemas/versionedSection';
 import { typeDefs as versionedTemplateTypeDefs } from './schemas/versionedTemplate';
+import { typeDefs as passwordResetTypeDefs } from './schemas/passwordReset';
 
 export const typeDefs = mergeTypeDefs([
   baseTypeDefs,
@@ -42,6 +44,7 @@ export const typeDefs = mergeTypeDefs([
   affiliationTypeDefs,
   answerTypeDefs,
   collaboratorTypeDefs,
+  contactUsTypeDefs,
   memberRoleTypeDefs,
   memberTypeDefs,
   feedbackTypeDefs,
@@ -72,4 +75,5 @@ export const typeDefs = mergeTypeDefs([
   versionedQuestionConditionTypeDefs,
   versionedSectionTypeDefs,
   versionedTemplateTypeDefs,
+  passwordResetTypeDefs,
 ]);

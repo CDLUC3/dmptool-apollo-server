@@ -123,7 +123,7 @@ describe('findBy functions', () => {
     const result = await UserEmail.findById('Test', context, id);
     const expectedSql = 'SELECT * FROM userEmails WHERE id = ?';
     expect(mockQuery).toHaveBeenCalledTimes(1);
-    expect(mockQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'Test')
+    expect(mockQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'Test');
     expect(result).toEqual(mockUserEmail);
   });
 
@@ -142,7 +142,7 @@ describe('findBy functions', () => {
     const result = await UserEmail.findByUserIdAndEmail('Test', context, id, email);
     const expectedSql = 'SELECT * FROM userEmails WHERE userId = ? AND email = ?';
     expect(mockQuery).toHaveBeenCalledTimes(1);
-    expect(mockQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString(), email], 'Test')
+    expect(mockQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString(), email], 'Test');
     expect(result).toEqual(mockUserEmail);
   });
 
@@ -162,7 +162,7 @@ describe('findBy functions', () => {
     const result = await UserEmail.findByUserId('Test', context, id);
     const expectedSql = 'SELECT * FROM userEmails WHERE userId = ?';
     expect(mockQuery).toHaveBeenCalledTimes(1);
-    expect(mockQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'Test')
+    expect(mockQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'Test');
     expect(result).toEqual([mockUserEmail]);
   });
 
@@ -179,7 +179,7 @@ describe('findBy functions', () => {
     const result = await UserEmail.findByEmail('Test', context, mockUserEmail.email);
     const expectedSql = 'SELECT * FROM userEmails WHERE email = ?';
     expect(mockQuery).toHaveBeenCalledTimes(1);
-    expect(mockQuery).toHaveBeenLastCalledWith(context, expectedSql, [mockUserEmail.email], 'Test')
+    expect(mockQuery).toHaveBeenLastCalledWith(context, expectedSql, [mockUserEmail.email], 'Test');
     expect(result).toEqual([mockUserEmail]);
   });
 

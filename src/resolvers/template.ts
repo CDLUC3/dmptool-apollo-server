@@ -7,6 +7,7 @@ import { Question } from "../models/Question";
 import { VersionedSection } from '../models/VersionedSection';
 import { VersionedQuestion } from "../models/VersionedQuestion";
 import { User, UserRole } from '../models/User';
+import { Tag } from "../models/Tag";
 import { MyContext } from "../context";
 import {
   cloneTemplate,
@@ -192,6 +193,17 @@ export const resolvers: Resolvers = {
                       if (newQuestion && newQuestion.hasErrors()) {
                         context.logger.error(`${reference} failed to clone question`);
                         newTemplate.addError('questions', 'Created Template but unable to clone all questions');
+                      } else if (newQuestion?.id) {
+                        // Get tags that belong to the source question, so we can copy them onto the clone
+                        const sourceTags = await Tag.findByQuestionId(reference, context, q.id);
+
+                        for (const tag of sourceTags) {
+                          const wasAdded = await tag.addToQuestion(context, newQuestion.id);
+                          if (!wasAdded) {
+                            context.logger.error(`${reference} failed to copy tag ${tag.id} to cloned question ${newQuestion.id}`);
+                            newTemplate.addError('questions', 'Created Template but unable to clone all question tags');
+                          }
+                        }
                       }
                     }
                   }

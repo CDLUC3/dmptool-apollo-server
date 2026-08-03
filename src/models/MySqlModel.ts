@@ -50,7 +50,21 @@ export class MySqlModel {
     this.errors[property] = error;
   }
 
-  // Indicates whether or not the standard fields on the record are valid
+  /**
+   * Helper function to concatenate all errors into a single string
+   *
+   * @returns a concatenated string
+   */
+  errorsToString(): string {
+    const errs = Object.keys(this.errors)
+      .filter(k => k !== '__typename' && !!this.errors[k])
+      .map(key => `${key}: ${this.errors[key]}`)
+
+    // Cast to a Set to remove any duplicates and then join the array
+    return Array.from(new Set([...errs])).join(', ');
+  }
+
+  // Indicates whether the standard fields on the record are valid
   //   - created and modified should be dates
   //   - createdById and modifiedById should be numbers
   //   - id should be a number or null if its a new record
@@ -64,12 +78,6 @@ export class MySqlModel {
     if (this.modifiedById === null) this.addError('modifiedById', 'Modified by can\'t be blank');
 
     return Object.keys(this.errors).length === 0;
-  }
-
-  // Check whether or not the value is a Date
-  static valueIsDate(val: string): boolean {
-    const date = new Date(val);
-    return !isNaN(date.getTime());
   }
 
   /**
@@ -117,7 +125,7 @@ export class MySqlModel {
     }
   }
 
-  // Fetches all of the property info for the object to faciliate inserts and updates
+  // Fetches all of the property info for the object to facilitate inserts and updates
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static propertyInfo(obj: Record<string, any>, skipKeys: string[] = []): { name: string, value: string }[] {
     const excludedKeys = ['id', 'errors', 'tableName'];
@@ -255,7 +263,7 @@ export class MySqlModel {
     values: MixedArray<string | boolean | Buffer> = [],
     reference = 'undefined caller',
   ): Promise<any[]> { // eslint-disable-line @typescript-eslint/no-explicit-any
-    const { logger, dataSources } = apolloContext;
+    const { activeTransaction, dataSources, logger } = apolloContext;
 
     // The dataSource, logger and sqlStatement are required so bail if they are not provided
     if (dataSources && logger && dataSources.sqlDataSource && sqlStatement) {
@@ -263,7 +271,7 @@ export class MySqlModel {
       const vals = values.map((entry) => this.prepareValue(entry, typeof (entry)));
 
       try {
-        // Mask all of the values like 'a***e' before logging
+        // Mask all the values like 'a***e' before logging
         const maskedValues = vals.map((val) => {
           if (typeof val === 'string' && val.length > 3) {
             const mask = val.slice(1, val.length - 2).replace(/./g, '*');
@@ -271,8 +279,18 @@ export class MySqlModel {
           }
           return val;
         });
-        apolloContext.logger.debug(prepareObjectForLogs({ sql, values: maskedValues }), reference);
-        const resp = await dataSources.sqlDataSource.query(apolloContext, sql, vals);
+        apolloContext.logger.debug(
+          prepareObjectForLogs({ sql, values: maskedValues, usingTransaction: !!activeTransaction }),
+          reference
+        );
+
+        let resp: unknown;
+        if (activeTransaction) {
+          resp = await activeTransaction.connection.query(sql, vals);
+        } else {
+          resp = await dataSources.sqlDataSource.query(apolloContext, sql, vals);
+        }
+
         return Array.isArray(resp) ? resp : [resp];
       } catch (err) {
         const msg = `${reference}, ERROR: ${err instanceof Error ? err.message : String(err)}`;
@@ -535,14 +553,14 @@ export class MySqlModel {
     obj.created = currentDate;
     obj.modified = currentDate;
 
-    // Fetch all of the data from the object
+    // Fetch all the data from the object
     const props = this.propertyInfo(obj, skipKeys);
     const sql = `INSERT INTO ${table} \
                   (${props.map((entry) => entry.name).join(', ')}) \
                  VALUES (${Array(props.length).fill('?').join(', ')})`
     const vals = props.map((entry) => this.prepareValue(entry.value, typeof (entry.value)));
 
-    // Send the calcuated INSERT statement to the query function
+    // Send the calculated INSERT statement to the query function
     const result = await this.query(apolloContext, sql, vals, reference);
     return Array.isArray(result) ? result[0]?.insertId : null;
   }
@@ -567,11 +585,10 @@ export class MySqlModel {
       if (apolloContext?.token?.id) {
         obj.modifiedById = apolloContext?.token?.id;
       }
-      const currentDate = getCurrentDate();
-      obj.modified = currentDate;
+      obj.modified = getCurrentDate();
     }
 
-    // Fetch all of the data from the object
+    // Fetch all the data from the object
     let props = this.propertyInfo(obj, skipKeys);
     // We are updating, so remove the created info
     props = props.filter((entry) => { return !['created', 'createdById'].includes(entry.name) });
@@ -591,7 +608,7 @@ export class MySqlModel {
     // Make sure the record id is the last value
     vals.push(obj.id.toString());
 
-    // Send the calcuated UPDATE statement to the query function
+    // Send the calculated UPDATE statement to the query function
     const result = await this.query(apolloContext, sql, vals, reference);
     return Array.isArray(result) ? result[0] : null;
   }
@@ -614,7 +631,7 @@ export class MySqlModel {
     return Array.isArray(result) && result[0].affectedRows ? true : false;
   }
 
-  // A helper function that can be used when updating an Object that has a many to many relationship.
+  // A helper function that can be used when updating an Object that has a many-to-many relationship.
   // You pass in an array of the current ids for the relationship and another containing the desired
   // ids for the relationship.
   //     - idsOnCurrentRecord:  The foreign key ids that are in the DB now

@@ -13,6 +13,14 @@ import { PlanGuidance } from "./Guidance";
 import { VersionedTemplate } from "./VersionedTemplate";
 import { Project } from "./Project";
 import { Tag } from "./Tag";
+import {
+  PaginatedQueryResults,
+  PaginationOptions,
+  PaginationOptionsForCursors,
+  PaginationOptionsForOffsets,
+  PaginationType
+} from '../types/general';
+import { prepareObjectForLogs } from '../logger';
 
 export const DEFAULT_TEMPORARY_DMP_ID_PREFIX = 'temp-dmpId-';
 
@@ -52,6 +60,7 @@ export class PlanSearchResult {
   public id: number;
   public createdBy: string;
   public created: string;
+  public createdById: number;
   public modifiedBy: string;
   public modified: string;
   public title: string;
@@ -62,6 +71,7 @@ export class PlanSearchResult {
   public members: string;
   public templateTitle: string;
   public versionedTemplateId: number;
+  public templateOwnerAffiliationName: string;
 
   // The following fields will only be set when the plan is published!
   public dmpId: string;
@@ -72,6 +82,7 @@ export class PlanSearchResult {
     this.id = options.id;
     this.createdBy = options.createdBy;
     this.created = options.created;
+    this.createdById = options.createdById;
     this.modifiedBy = options.modifiedBy;
     this.modified = options.modified;
     this.title = options.title;
@@ -80,8 +91,9 @@ export class PlanSearchResult {
     this.featured = options.featured ?? false;
     this.funding = options.funding;
     this.members = options.members;
-    this.templateTitle = options.title;
+    this.templateTitle = options.templateTitle;
     this.versionedTemplateId = options.versionedTemplateId;
+    this.templateOwnerAffiliationName = options.templateOwnerAffiliationName;
 
     this.dmpId = options.dmpId;
     this.registeredBy = options.registeredBy;
@@ -89,14 +101,14 @@ export class PlanSearchResult {
   }
 
   /**
-   * Find high-level details about the plans for a project. This information is
-   * meant to supply an overview of the plans.
-   *
-   * @param reference The caller's reference string for logging purposes'
-   * @param context The Apollo context object
-   * @param projectId The ID of the project to return plans for
-   * @returns An array of PlanSearchResult objects
-   */
+ * Find high-level details about the plans for a project. This information is
+ * meant to supply an overview of the plans.
+ *
+ * @param reference The caller's reference string for logging purposes'
+ * @param context The Apollo context object
+ * @param projectId The ID of the project to return plans for
+ * @returns An array of PlanSearchResult objects
+ */
   static async findByProjectId(reference: string, context: MyContext, projectId: number): Promise<PlanSearchResult[]> {
     const sql = 'SELECT p.id, ' +
       'CONCAT(cu.givenName, CONCAT(\' \', cu.surName)) createdBy, p.created, ' +
@@ -124,6 +136,97 @@ export class PlanSearchResult {
       'ORDER BY p.created DESC;';
     const results = await Plan.query(context, sql, [projectId?.toString()], reference);
     return Array.isArray(results) ? results.map((entry) => new PlanSearchResult(entry)) : [];
+  }
+
+  /**
+   * Find projects/plans for a specified userId, with pagination and optional search term filtering.
+   * This method returns a paginated list of PlanSearchResult objects that match the search criteria.
+   *
+   * @param reference The caller's reference string for logging purposes'
+   * @param context The Apollo context object
+   * @param userId The ID of the user to return projects for
+   * @param options Pagination options for the query
+   * @param term Optional search term to filter the results
+   * @returns An array of PlanSearchResult objects
+   */
+  static async findByUserIdWithPagination(
+    reference: string,
+    context: MyContext,
+    userId: number,
+    options: PaginationOptions = Plan.getDefaultPaginationOptions(),
+    term?: string,
+  ): Promise<PaginatedQueryResults<PlanSearchResult>> {
+    const whereFilters = ['p.createdById = ?'];
+    const values = [userId.toString()];
+
+    // Handle the incoming search term
+    const searchTerm = (term ?? '').toLowerCase().trim();
+    if (searchTerm) {
+      whereFilters.push(`(
+      LOWER(p.title) LIKE ? OR
+      LOWER(vt.name) LIKE ?
+    )`);
+      values.push(`%${searchTerm}%`, `%${searchTerm}%`);
+    }
+
+    const sqlStatement = `
+    SELECT p.id, p.createdById,
+      CONCAT(cu.givenName, ' ', cu.surName) createdBy, p.created,
+      CONCAT(cm.givenName, ' ', cm.surName) modifiedBy, p.modified,
+      p.versionedTemplateId, p.title, p.status, p.visibility, p.dmpId,
+      vt.name AS templateTitle,
+      CONCAT(cr.givenName, ' ', cr.surName) registeredBy, p.registered, p.featured,
+      GROUP_CONCAT(DISTINCT CONCAT(prc.givenName, ' ', prc.surName, ' (', r.label, ')')) members,
+      GROUP_CONCAT(DISTINCT fundings.name) funding
+    FROM plans p
+    LEFT JOIN users cu ON cu.id = p.createdById
+    LEFT JOIN users cm ON cm.id = p.modifiedById
+    LEFT JOIN users cr ON cr.id = p.registeredById
+    LEFT JOIN versionedTemplates vt ON vt.id = p.versionedTemplateId
+    LEFT JOIN planMembers plc ON plc.planId = p.id
+    LEFT JOIN projectMembers prc ON prc.id = plc.projectMemberId
+    LEFT JOIN planMemberRoles plcr ON plc.id = plcr.planMemberId
+    LEFT JOIN memberRoles r ON plcr.memberRoleId = r.id
+    LEFT JOIN planFundings ON planFundings.planId = p.id
+    LEFT JOIN projectFundings ON projectFundings.id = planFundings.projectFundingId
+    LEFT JOIN affiliations fundings ON projectFundings.affiliationId = fundings.uri
+  `;
+
+    const groupBy = `
+    GROUP BY p.id, p.createdById,cu.givenName, cu.surName, cm.givenName, cm.surName,
+    p.title, p.status, p.visibility,
+    p.dmpId, cr.givenName, cr.surName, p.registered, p.featured, vt.name
+  `;
+
+    let opts;
+    if (options.type === PaginationType.OFFSET) {
+      opts = {
+        ...options,
+        availableSortFields: ['p.title', 'p.status', 'p.created', 'p.modified', 'p.registered', 'p.visibility'],
+      } as PaginationOptionsForOffsets;
+    } else {
+      opts = {
+        ...options,
+        cursorField: 'CONCAT(p.title, p.id)',
+      } as PaginationOptionsForCursors;
+    }
+
+    if (isNullOrUndefined(opts.sortField)) opts.sortField = 'p.created';
+    if (isNullOrUndefined(opts.sortDir)) opts.sortDir = 'DESC';
+    opts.countField = 'p.id';
+
+    const response: PaginatedQueryResults<PlanSearchResult> = await Plan.queryWithPagination(
+      context,
+      sqlStatement,
+      whereFilters,
+      groupBy,
+      values,
+      opts,
+      reference,
+    );
+
+    context.logger.debug(prepareObjectForLogs({ options, response }), reference);
+    return response;
   }
 }
 
@@ -303,7 +406,9 @@ export class PlanSectionProgress {
    */
   static async findByPlanId(reference: string, context: MyContext, planId: number, versionedTemplateId?: number): Promise<PlanSectionProgress[]> {
     // First fetch base sections and their question counts, which we will use as the foundation to build out the full section list with custom sections
-    // and adjusted question counts
+    // and adjusted question counts.
+    // COALESCE(questionTagAgg.tags, sectionTagAgg.tags, JSON_ARRAY()) ensures that we try and use question tags first, then section tags, and 
+    // if neither exist we return an empty array for the tags field.
     const sql = `SELECT
       vs.id AS versionedSectionId,
       vs.displayOrder,
@@ -318,10 +423,26 @@ export class PlanSectionProgress {
           WHEN a.id IS NOT NULL AND ${FILLED_ANSWER_CHECK} AND vq.required = 1
           THEN vq.id
         END) AS answeredRequiredQuestions,
-      COALESCE(tagAgg.tags, JSON_ARRAY()) AS tags
+      COALESCE(questionTagAgg.tags, sectionTagAgg.tags, JSON_ARRAY()) AS tags
     FROM plans p
       JOIN versionedTemplates vt ON p.versionedTemplateId = vt.id
       JOIN versionedSections vs ON vt.id = vs.versionedTemplateId
+      LEFT JOIN (
+        SELECT
+          vq2.versionedSectionId,
+          JSON_ARRAYAGG(
+            JSON_OBJECT(
+              'id', t.id,
+              'slug', t.slug,
+              'name', t.name,
+              'description', t.description
+            )
+          ) AS tags
+        FROM versionedQuestionTags vqt
+          JOIN versionedQuestions vq2 ON vq2.id = vqt.versionedQuestionId
+          JOIN tags t ON t.id = vqt.tagId
+        GROUP BY vq2.versionedSectionId
+      ) questionTagAgg ON questionTagAgg.versionedSectionId = vs.id
       LEFT JOIN (
         SELECT
           vst.versionedSectionId,
@@ -336,13 +457,13 @@ export class PlanSectionProgress {
         FROM versionedSectionTags vst
           JOIN tags t ON t.id = vst.tagId
         GROUP BY vst.versionedSectionId
-      ) tagAgg ON tagAgg.versionedSectionId = vs.id
+      ) sectionTagAgg ON sectionTagAgg.versionedSectionId = vs.id
       LEFT JOIN versionedQuestions vq ON vs.id = vq.versionedSectionId
       LEFT JOIN answers a
         ON a.planId = p.id
         AND a.versionedQuestionId = vq.id
     WHERE p.id = ?
-    GROUP BY vs.id, vs.displayOrder, vs.name, tagAgg.tags
+    GROUP BY vs.id, vs.displayOrder, vs.name, questionTagAgg.tags, sectionTagAgg.tags
     ORDER BY vs.displayOrder;
 `
 
@@ -646,14 +767,61 @@ export class Plan extends MySqlModel {
    *
    * @param context The Apollo context object
    * @param visibility The visibility of the plan. Defaults to PRIVATE.
+   * @param dataciteXML The DataCite XML metadata document to submit to EZID.
+   *                     Built ahead of time (see planService.buildDataCiteXMLForPlan)
+   *                     since it requires fetching the plan's members, fundings,
+   *                     and alternate identifiers.
    * @returns The updated Plan or the original Plan if something went wrong
    */
   // Publish the plan (register a DOI)
-  async publish(context: MyContext, visibility = PlanVisibility.PRIVATE): Promise<Plan> {
+  async publish(context: MyContext, visibility = PlanVisibility.PRIVATE, dataciteXML?: string): Promise<Plan> {
     if (this.id) {
       // Make sure the plan is valid
       if (await this.isValid()) {
         if (!this.isPublished()) {
+
+          // Refuse to register a temporary placeholder DMP ID
+          if (this.dmpId.startsWith(DEFAULT_TEMPORARY_DMP_ID_PREFIX)) {
+            this.addError('dmpId', 'Plan does not have a valid DMP ID');
+            return new Plan(this);
+          }
+
+          // If the DataCite XML metadata document was not provided, we cannot register the DOI
+          if (!dataciteXML) {
+            this.addError('general', 'Unable to build DataCite metadata for this plan');
+            return new Plan(this);
+          }
+
+          // Convert the stored URL form (https://doi.org/10.x/y) to EZID form (doi:10.x/y)
+          const ezidIdentifier = this.dmpId.replace(
+            generalConfig.dmpIdBaseURL,
+            'doi:'
+          );
+
+          const doiSuffix = ezidIdentifier.replace('doi:', '');
+          const domain = generalConfig.domain.startsWith('http')
+            ? generalConfig.domain
+            : `https://${generalConfig.domain}`;
+
+          const metadata: Record<string, string> = {
+            '_profile': 'datacite',
+            '_target': `${domain}/dmps/${doiSuffix}`,
+            'datacite': dataciteXML,
+          };
+
+          try {
+            await context.dataSources.ezidAPIDataSource.registerIdentifier(
+              context, ezidIdentifier, metadata, 'Plan.publish'
+            );
+          } catch (err) {
+            context.logger.error(
+              prepareObjectForLogs(err),
+              'Plan.publish failed to register DOI with EZID'
+            );
+            this.addError('general', 'Failed to register the plan\'s DOI with EZID');
+            return new Plan(this);
+          }
+
           this.registered = getCurrentDate();
           this.registeredById = context.token.id;
           this.visibility = visibility;
@@ -808,7 +976,7 @@ export class Plan extends MySqlModel {
 
         // Update the plan
         const result = await Plan.update(context, Plan.tableName, this, reference, [], noTouch);
-        // The result of the update function is just a boolean indicating whether the update query succeeded or not, 
+        // The result of the update function is just a boolean indicating whether the update query succeeded or not,
         // so if it succeeded we need to re-query to get the updated plan with all the new values
         if (result) {
           return await Plan.findById(reference, context, this.id);
@@ -889,5 +1057,40 @@ export class Plan extends MySqlModel {
         await Plan.processResult(context, result)
       ))
       : [];
+  }
+
+  /**
+   * Fetch the Plans associated with a user
+   *
+   * @param reference The caller's reference string for logging purposes'
+   * @param context The Apollo context object
+   * @param userId The id of the user whose Plans we want to fetch
+   * @returns The Plan object or null if it does not exist
+   */
+  static async findByUserId(reference: string, context: MyContext, userId: number): Promise<Plan[]> {
+    const sql = `SELECT * FROM ${this.tableName} WHERE createdById = ?`;
+    const results = await Plan.query(context, sql, [userId?.toString()], reference);
+
+    return Array.isArray(results)
+      ? await Promise.all(results.map(async (result) =>
+        await Plan.processResult(context, result)
+      ))
+      : [];
+  }
+
+  /**
+   * Fetch the Plan by the title and creator/owner
+   *
+   * @param reference The caller's reference string for logging purposes'
+   * @param context The Apollo context object
+   * @param userId The id of the user whose Plans we want to fetch
+   * @returns The Plan object or null if it does not exist
+   */
+  static async findByOwnerAndTitle(reference: string, context: MyContext, title: string, userId: number): Promise<Plan | null> {
+    const sql = 'SELECT * FROM plans WHERE createdById = ? AND LOWER(title) LIKE ?';
+    const searchTerm = (title ?? '');
+    const vals = [userId?.toString(), `%${searchTerm?.toLowerCase()?.trim()}%`]
+    const results = await Plan.query(context, sql, vals, reference);
+    return Array.isArray(results) && results.length > 0 ? new Plan(results[0]) : null;
   }
 }

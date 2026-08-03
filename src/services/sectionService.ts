@@ -18,6 +18,7 @@ export const generateSectionVersion = async (
   section: Section,
   versionedTemplateId: number,
 ): Promise<boolean> => {
+  const ref = 'generateSectionVersion';
 
   // If the section has no id then it has not yet been saved so throw an error
   if (!section.id) {
@@ -79,6 +80,11 @@ export const generateSectionVersion = async (
         const questionInstance = new Question({
           ...question
         });
+
+        // Get current tags for the question so we can add it to versionedQuestionTags table
+        const currentTags = await Tag.findByQuestionId(ref, context, questionInstance.id);
+        questionInstance.tags = currentTags;
+
         const passed = await generateQuestionVersion(context, questionInstance, versionedTemplateId, created.id);
         if (!passed) {
           allQuestionsWereVersioned = false;

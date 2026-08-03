@@ -20,6 +20,7 @@ import {
   PaginationType
 } from '../types/general';
 import { ProjectCollaborator, TemplateCollaborator } from "./Collaborator";
+import { bumpUserTokenVersion } from '../services/tokenService';
 
 export enum UserRole {
   RESEARCHER = 'RESEARCHER',
@@ -56,6 +57,8 @@ export class User extends MySqlModel {
 
   public locked?: boolean;
   public active?: boolean;
+  public isArchived?: boolean;
+  public passwordChangedAt?: string;
 
   public tableName = 'users';
 
@@ -81,6 +84,8 @@ export class User extends MySqlModel {
     this.notify_on_feedback_complete = options.notify_on_feedback_complete ?? true;
     this.notify_on_plan_shared = options.notify_on_plan_shared ?? true;
     this.notify_on_plan_visibility_change = options.notify_on_plan_visibility_change ?? true;
+    this.passwordChangedAt = options.passwordChangedAt;
+    this.isArchived = options.isArchived ?? false;
 
     this.prepForSave();
   }
@@ -98,10 +103,10 @@ export class User extends MySqlModel {
     this.givenName = capitalizeFirstLetter(this.givenName);
     this.surName = capitalizeFirstLetter(this.surName);
     // Set the languageId to the default if it is not a supported language
-    if (!supportedLanguages.map((l) => l.id).includes(this.languageId)){
+    if (!supportedLanguages.map((l) => l.id).includes(this.languageId)) {
       this.languageId = defaultLanguageId;
     }
-    this.orcid = this.orcid? formatORCID(this.orcid) : null;
+    this.orcid = this.orcid ? formatORCID(this.orcid) : null;
   }
 
   // Verify that the email does not already exist and that the required fields have values
@@ -174,11 +179,11 @@ export class User extends MySqlModel {
     // If the user was found, check the password
     // TODO: Add logic to lock the account after too many failures
 
-      // Otherwise check the password
-      if (user && await bcrypt.compare(password, user.password)) {
-        context.logger.debug(prepareObjectForLogs({ id: user.id }), "Successful authCheck");
-        return user.id;
-      }
+    // Otherwise check the password
+    if (user && await bcrypt.compare(password, user.password)) {
+      context.logger.debug(prepareObjectForLogs({ id: user.id }), "Successful authCheck");
+      return user.id;
+    }
 
     context.logger.debug("Failed authCheck");
     return null;
@@ -213,10 +218,17 @@ export class User extends MySqlModel {
     affiliationId: string,
     term: string,
     options: PaginationOptions = User.getDefaultPaginationOptions(),
+    role?: UserRole
   ): Promise<PaginatedQueryResults<User>> {
     const whereFilters = ['u.affiliationId = ?'];
     const values = [affiliationId];
 
+    whereFilters.push('u.isArchived = 0');
+
+    if (!isNullOrUndefined(role)) {
+      whereFilters.push('u.role = ?');
+      values.push(role);
+    }
     // Handle the incoming search term
     const searchTerm = (term ?? '').toLowerCase().trim();
     if (!isNullOrUndefined(searchTerm)) {
@@ -240,7 +252,7 @@ export class User extends MySqlModel {
       opts = {
         ...options,
         // Specify the fields available for sorting
-        availableSortFields: ['u.surName', 'u.givenName', 'u.created', 'ue.email', 'u.orcid'],
+        availableSortFields: ['u.surName', 'u.givenName', 'u.created', 'ue.email', 'u.orcid', 'u.role', 'u.active', 'u.last_sign_in', 'a.name'],
       } as PaginationOptionsForOffsets;
     } else {
       opts = {
@@ -277,9 +289,13 @@ export class User extends MySqlModel {
     context: MyContext,
     term: string,
     options: PaginationOptions = User.getDefaultPaginationOptions(),
+    role?: UserRole,
+    affiliationId?: string,
   ): Promise<PaginatedQueryResults<User>> {
-    const whereFilters = [];
-    const values = [];
+    const whereFilters: string[] = [];
+    const values: string[] = [];
+
+    whereFilters.push('u.isArchived = 0');
 
     // Handle the incoming search term
     const searchTerm = (term ?? '').toLowerCase().trim();
@@ -293,13 +309,25 @@ export class User extends MySqlModel {
       values.push(`%${searchTerm}%`, `%${searchTerm}%`, `%${searchTerm}%`, `%${searchTerm}%`, `%${searchTerm}%`);
     }
 
+    // Add role filter if provided
+    if (!isNullOrUndefined(role)) {
+      whereFilters.push('u.role = ?');
+      values.push(role);
+    }
+
+    // Add affiliation filter if provided
+    if (!isNullOrUndefined(affiliationId)) {
+      whereFilters.push('a.uri = ?');
+      values.push(affiliationId);
+    }
+
     // Determine the type of pagination being used
     let opts;
     if (options.type === PaginationType.OFFSET) {
       opts = {
         ...options,
         // Specify the fields available for sorting
-        availableSortFields: ['u.surName', 'u.givenName', 'u.created', 'ue.email', 'u.orcid'],
+        availableSortFields: ['u.surName', 'u.givenName', 'u.created', 'ue.email', 'u.orcid', 'u.role', 'u.active', 'u.last_sign_in', 'a.name'],
       } as PaginationOptionsForOffsets;
     } else {
       opts = {
@@ -318,7 +346,7 @@ export class User extends MySqlModel {
 
     // Join users with user_emails
     const sqlStatement = `
-    SELECT u.*, a.name FROM users u
+    SELECT u.*, a.name, a.uri FROM users u
                       LEFT JOIN affiliations a ON u.affiliationId = a.uri
                       LEFT JOIN userEmails ue ON u.id = ue.userId AND ue.isPrimary = 1
   `;
@@ -335,6 +363,25 @@ export class User extends MySqlModel {
 
     context.logger.debug(prepareObjectForLogs({ options, response }), reference);
     return response;
+  }
+
+  // Set the user's password
+  async setPassword(context: MyContext, newPassword: string): Promise<boolean> {
+    if (this.id) {
+      this.password = newPassword;
+      if (!this.validatePassword()) {
+        return false;
+      }
+      this.password = await this.hashPassword(newPassword);
+      this.passwordChangedAt = getCurrentDate();
+
+      if (await User.update(context, this.tableName, this, 'User.setPassword')) {
+        await bumpUserTokenVersion(context.cache, this.id);
+        return true;
+      }
+    }
+    context.logger.error(`setPassword failed for user ${this.id}`);
+    return false;
   }
 
   // Update the last_login fields
@@ -438,7 +485,7 @@ export class User extends MySqlModel {
 
         // Add the email to the UserEmail table and send out a 'please confirm' email
         const userEmail = new UserEmail({ userId: user.id, email: email, isPrimary: true });
-        if (!await userEmail.create(context)){
+        if (!await userEmail.create(context)) {
           context.logger.error(prepareObjectForLogs({ userEmail }), `${reference} - unable to add UserEmail`);
         }
 
@@ -513,7 +560,7 @@ export class User extends MySqlModel {
       if (this.validatePassword()) {
         this.password = await this.hashPassword(newPassword);
 
-        const updated = await User.update(context, this.tableName, this, 'User.updatePassword');
+        const updated = await User.update(context, this.tableName, this, 'User.updatePassword', []);
         if (updated) {
           return await User.findById('updatePassword resolver', context, this.id);
         }

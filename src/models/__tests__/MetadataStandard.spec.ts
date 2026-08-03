@@ -104,7 +104,7 @@ describe('findBy Queries', () => {
     const result = await MetadataStandard.findById('testing', context, standardId);
     const expectedSql = 'SELECT * FROM metadataStandards WHERE id = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [standardId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [standardId.toString()], 'testing');
     expect(result).toEqual(standard);
   });
 
@@ -121,7 +121,7 @@ describe('findBy Queries', () => {
     const result = await MetadataStandard.findByURI('testing', context, uri);
     const expectedSql = 'SELECT * FROM metadataStandards WHERE uri = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [uri], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [uri], 'testing');
     expect(result).toEqual(standard);
   });
 
@@ -148,7 +148,7 @@ describe('findBy Queries', () => {
     const result = await MetadataStandard.findByName('testing', context, name.toLowerCase().trim());
     const expectedSql = 'SELECT * FROM metadataStandards WHERE LOWER(name) = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [name.toLowerCase().trim()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [name.toLowerCase().trim()], 'testing');
     expect(result).toEqual(standard);
   });
 
@@ -168,7 +168,7 @@ describe('findBy Queries', () => {
     const whereClause = 'WHERE msrd.researchDomainId = ?';
     const vals = [id.toString()];
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, `${sql} ${joinClause} ${whereClause}`, vals, 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, `${sql} ${joinClause} ${whereClause}`, vals, 'testing');
     expect(result).toEqual([standard]);
   });
 
@@ -271,7 +271,7 @@ describe('findBy Queries', () => {
     expect(localPaginationQuery).toHaveBeenCalledTimes(1);
     const where = ["(LOWER(m.name) LIKE ? OR LOWER(m.keywords) LIKE ?)"];
     const vals = ["%%", "%%"];
-    expect(localPaginationQuery).toHaveBeenLastCalledWith(context, sql, where, '', vals, opts, 'testing')
+    expect(localPaginationQuery).toHaveBeenLastCalledWith(context, sql, where, '', vals, opts, 'testing');
     expect(result).toEqual([standard]);
   });
 

@@ -2,12 +2,13 @@ import gql from "graphql-tag";
 
 export const typeDefs = gql`
   extend type Query {
-    "Get all plans for the research project"
-    plans(projectId: Int!): [PlanSearchResult!]
+    "Get all plans for the research project with pagination support"
+    plans(userId: Int!,term: String, paginationOptions: PaginationOptions): PaginatedPlanResults
+    "Get all of the plans for a specific Project"
+    plansByProjectId(projectId: Int!): [Plan]
 
     "Get a specific plan"
     plan(planId: Int!): Plan
-
     "Lookup a plan by its DMP id"
     planByDMPId(dmpId: String!): Plan
     "Lookup a plan by an alternate identifier"
@@ -21,6 +22,8 @@ export const typeDefs = gql`
     uploadPlan(projectId: Int!, fileName: String, fileContent: String): Plan
     "Publish a plan (changes status to PUBLISHED)"
     publishPlan(planId: Int!, visibility: PlanVisibility): Plan
+    "Update a plan"
+    updatePlan(input: UpdatePlanInput!): Plan
     "Change the plan's status"
     updatePlanStatus(planId: Int!, status: PlanStatus!): Plan
     "Change the plan's title"
@@ -32,9 +35,16 @@ export const typeDefs = gql`
     addAlternateIdentifierToPlan(planId: Int!, alternateIdentifier: String!): AlternateIdentifier
     "Assign an alternate identifier to the plan"
     removeAlternateIdentifierFromPlan(planId: Int!, alternateIdentifier: String!): AlternateIdentifier
+
+    "Create an entire plan (and project if applicable) in one shot"
+    addEntirePlan(input: AddEntirePlanInput!): Plan
+    "Replace an entire plan (and update components of the project) in one shot"
+    updateEntirePlan(input: UpdateEntirePlanInput!): Plan
+    "Delete/tomb-stone an entire plan (and project if applicable) in one shot"
+    removeEntirePlanByDMPId(dmpId: String!): Boolean
   }
 
-  type PlanSearchResult {
+  type PlanSearchResult{
     "The unique identifer for the Object"
     id: Int
     "The user who created the Object"
@@ -68,7 +78,31 @@ export const typeDefs = gql`
     versionedSections: [PlanSectionProgress!]
     "The versioned template id the plan is based on"
     versionedTemplateId: Int
+    "The name of the affiliation that owns the template the plan is based on"
+    templateOwnerAffiliationName: String
+    "The user who created the plan"
+    planCreator: User
   }
+
+  type PaginatedPlanResults implements PaginatedQueryResults {
+  "The plans that match the search criteria"
+  items: [PlanSearchResult]
+  "The total number of possible items"
+  totalCount: Int
+  "The number of items returned"
+  limit: Int
+  "The cursor to use for the next page of results (for infinite scroll/load more)"
+  nextCursor: String
+  "The current offset of the results (for standard offset pagination)"
+  currentOffset: Int
+  "Whether or not there is a next page"
+  hasNextPage: Boolean
+  "Whether or not there is a previous page"
+  hasPreviousPage: Boolean
+  "The sortFields that are available for this query (for standard offset pagination only!)"
+  availableSortFields: [String]
+}
+
 
   "The progress the user has made within a section of the plan"
   type PlanSectionProgress {
@@ -198,6 +232,24 @@ export const typeDefs = gql`
     readOnly: Boolean
   }
 
+  input UpdatePlanInput {
+    "The Plan id"
+    id: Int
+    "The title of the plan"
+    title: String
+    "The status of the plan"
+    status: PlanStatus
+    "The visibility of the plan"
+    visibility: PlanVisibility
+    "The language of the plan"
+    languageId: String
+    "Whether or not the plan is featured on the public plans page"
+    featured: Boolean
+
+    "Alternate identifiers for the plan"
+    alternateIdentifiers: [String!]
+  }
+
   type AlternateIdentifier {
     "The unique identifer for the Object"
     id: Int
@@ -234,6 +286,11 @@ export const typeDefs = gql`
     registered: String
     languageId: String
     featured: String
+
+    members: String
+    funding: String
+    alternateIdentifiers: String
+    relatedWorks: String
   }
 
   "A version of the plan"
@@ -250,4 +307,103 @@ export const typeDefs = gql`
     alternateIdentifier: String
     planId: String
   }
+
+  "Input to create/replace a research Project"
+  input EntirePlanProjectFragment {
+    title: String!
+    abstractText: String
+    isTestProject: Boolean
+    startDate: String
+    endDate: String
+    researchDomainUrl: String
+  }
+
+  "Input to create/replace a Project/Plan member"
+  input EntirePlanMemberFragment {
+    projectMemberId: Int
+    givenName: String
+    surname: String
+    email: String
+    orcid: String
+    isPrimaryContact: Boolean
+    affiliation: String
+    memberRoles: [String!]
+  }
+
+  "Input to create/replace a Project/Plan funding"
+  input EntirePlanFundingFragment {
+    projectFundingId: Int
+    funder: String!
+    status: ProjectFundingStatus
+    funderOpportunityNumber: String
+    funderProjectNumber: String
+    grantId: String
+  }
+
+  "Input to create/replace a Plan answer"
+  input EntirePlanAnswerFragment {
+    json: String!
+    versionedSectionId: Int
+    versionedCustomSectionId: Int
+    versionedQuestionId: Int
+    versionedCustomQuestion: Int
+  }
+
+  "Input to create an entire Plan (and Project if applicable)"
+  input AddEntirePlanInput {
+    "The title of the plan"
+    title: String!
+    "The status of the plan"
+    status: PlanStatus!
+    "The visibility of the plan"
+    visibility: PlanVisibility!
+    "The language of the plan"
+    languageId: String!
+
+    "The research project this plan is associated with"
+    project: EntirePlanProjectFragment!
+
+    "The id of the template being used (the default template will be used if not provided)"
+    versionedTemplateId: Int
+
+    "External identifiers for the plan (for use when integrating with external systems)"
+    alternateIdentifiers: [String!]
+
+    "The project members involved with the data described in the plan"
+    members: [EntirePlanMemberFragment!]
+    "The funding sources associated with the data described in the plan"
+    funding: [EntirePlanFundingFragment!]
+    "The answers to the questions in the plan's narrative"
+    answers: [EntirePlanAnswerFragment!]
+  }
+
+  "Input to update an entire Project and Plan"
+  input UpdateEntirePlanInput {
+    "The title of the plan"
+    title: String!
+    "The id of the plan (required if no 'dmpId' is provided)"
+    id: Int
+    "The DMP id of the plan (required if no 'id' is provided)"
+    dmpId: String
+    "The status of the plan"
+    status: PlanStatus
+    "The visibility of the plan"
+    visibility: PlanVisibility
+    "The language of the plan"
+    languageId: String
+
+    "External identifiers for the plan (for use when integrating with external systems)"
+    alternateIdentifiers: [String!]
+
+    "The research project this plan is associated with"
+    project: EntirePlanProjectFragment!
+
+    "The project members involved with the data described in the plan"
+    members: [EntirePlanMemberFragment!]
+    "The funding sources associated with the data described in the plan"
+    funding: [EntirePlanFundingFragment!]
+    "The answers to the questions in the plan's narrative"
+    answers: [EntirePlanAnswerFragment!]
+  }
+
 `;

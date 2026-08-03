@@ -49,6 +49,7 @@ const mockedUser: UserModel.User = {
   isValid: jest.fn(),
   validatePassword: jest.fn(),
   hashPassword: jest.fn(),
+  setPassword: jest.fn(),
   prepForSave: jest.fn(),
   login: jest.fn(),
   register: jest.fn(),
@@ -56,6 +57,7 @@ const mockedUser: UserModel.User = {
   updatePassword: jest.fn(),
   addError: jest.fn(),
   hasErrors: jest.fn(),
+  errorsToString: jest.fn(),
 };
 
 describe('signinController', () => {

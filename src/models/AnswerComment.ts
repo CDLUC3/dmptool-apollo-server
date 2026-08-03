@@ -92,4 +92,4 @@ export class AnswerComment extends MySqlModel {
     const results = await AnswerComment.query(context, sql, [answerId.toString()], reference);
     return Array.isArray(results) && results.length > 0 ? results.map((ans) => new AnswerComment(ans)) : [];
   }
-};
+}

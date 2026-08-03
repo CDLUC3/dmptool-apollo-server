@@ -174,7 +174,7 @@ describe('removeFromProjectMember', () => {
     expect(querySpy).toHaveBeenCalledTimes(1);
     const expectedSql = 'DELETE FROM projectMemberRoles WHERE memberRoleId = ? AND projectMemberId = ?';
     const vals = [mockRole.id.toString(), projectMemberId.toString()]
-    expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, vals, 'MemberRole.removeFromProjectMember')
+    expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, vals, 'MemberRole.removeFromProjectMember');
     expect(result).toBe(true);
   });
 

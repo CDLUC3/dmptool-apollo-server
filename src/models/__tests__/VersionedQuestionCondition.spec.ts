@@ -119,7 +119,7 @@ describe('findBy Queries', () => {
     const result = await VersionedQuestionCondition.findById('testing', context, id);
     const expectedSql = 'SELECT * FROM versionedQuestionConditions WHERE id = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'testing');
     expect(result).toEqual(versionedQuestionCondition);
   });
 
@@ -214,7 +214,7 @@ describe('findByVersionedQuestionId', () => {
     const result = await VersionedQuestionCondition.findByVersionedQuestionId('testing', context, id);
     const expectedSql = 'SELECT * FROM versionedQuestionConditions WHERE versionedQuestionId = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'testing');
     expect(result[0]).toBeInstanceOf(VersionedQuestionCondition);
   });
 });

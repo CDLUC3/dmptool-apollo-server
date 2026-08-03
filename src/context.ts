@@ -1,6 +1,7 @@
 import { Logger } from 'pino';
 import { DMPHubAPI } from './datasources/dmphubAPI'
-import { MySQLConnection } from './datasources/mysql';
+import { EZIDAPI } from './datasources/EZIDAPI';
+import { MySQLConnection, TransactionClient } from './datasources/mysql';
 import { JWTAccessToken } from './services/tokenService';
 import { randomHex } from './utils/helpers';
 import { BaseContext } from "@apollo/server";
@@ -14,13 +15,16 @@ export interface MyContext extends BaseContext {
   cache: KeyvAdapter;
   // The caller's JSON Web Token
   token: JWTAccessToken;
-  // An instance of he Logger
+  // An instance of the Logger
   logger: Logger;
-  // A unique id that can be used to track all of the log output for a single request
+  // A unique id that can be used to track all the log output for a single request
   requestId: string;
+  // The active database transaction, if one is in progress
+  activeTransaction?: TransactionClient;
   // Instances of the data sources the system uses to access information
   dataSources: {
     dmphubAPIDataSource: DMPHubAPI;
+    ezidAPIDataSource: EZIDAPI;
     sqlDataSource: MySQLConnection;
   };
 }
@@ -32,8 +36,9 @@ export function buildContext(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   cache: any | null = null,
   token: JWTAccessToken | null = null,
-  sqlDataSource: MySQLConnection | null = null ,
+  sqlDataSource: MySQLConnection | null = null,
   dmphubAPIDataSource: DMPHubAPI | null = null,
+  ezidAPIDataSource: EZIDAPI | null = null,
 ): MyContext {
   if (!cache) {
     // If calling from outside the Apollo server context setup an HttpCache.
@@ -60,8 +65,8 @@ export function buildContext(
       requestId,
       dataSources: {
         dmphubAPIDataSource: dmphubAPIDataSource,
+        ezidAPIDataSource: ezidAPIDataSource,
         sqlDataSource: sqlDataSource,
-
       }
     }
   } catch(err) {

@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 // Convert a string into an Array (return the default or an empty array if it is null or undefined)
 //
 
@@ -5,6 +6,11 @@ import { formatISO9075 } from "date-fns";
 import { generalConfig } from "../config/generalConfig";
 
 export const ORCID_REGEX = /^(https?:\/\/)?(www\.|pub\.)?(sandbox\.)?(orcid\.org\/)?([0-9]{4}-[0-9]{4}-[0-9]{4}-[0-9]{3}[0-9X])$/;
+
+// Hash a token using SHA-256
+export function hashToken(token: string): string {
+  return crypto.createHash('sha256').update(`${token}${generalConfig.hashTokenSecret}`).digest('hex');
+}
 
 // Ensure that the ORCID is in the correct format (https://orcid.org/0000-0000-0000-0000)
 export function formatORCID(orcidIn: string): string {
@@ -307,3 +313,9 @@ export const resolveNamingCollision = (
 
   return `${newValue} ${nextNumber}`;
 }
+
+
+export const getFutureDate = (millisecondsInFuture: number): string => {
+  const futureDate = new Date(Date.now() + millisecondsInFuture);
+  return formatISO9075(futureDate);
+};

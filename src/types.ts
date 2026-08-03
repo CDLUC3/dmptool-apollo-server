@@ -30,6 +30,15 @@ export type Scalars = {
   URL: { input: string; output: string; }
 };
 
+export type AddAnswerInput = {
+  json: Scalars['String']['input'];
+  planId: Scalars['Int']['input'];
+  versionedCustomQuestionId?: InputMaybe<Scalars['Int']['input']>;
+  versionedCustomSectionId?: InputMaybe<Scalars['Int']['input']>;
+  versionedQuestionId?: InputMaybe<Scalars['Int']['input']>;
+  versionedSectionId?: InputMaybe<Scalars['Int']['input']>;
+};
+
 /** Input parameters for adding a custom section to a funder template */
 export type AddCustomQuestionInput = {
   /** Guidance to complete the question */
@@ -74,6 +83,30 @@ export type AddCustomSectionInput = {
   requirements?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the parent template customization */
   templateCustomizationId: Scalars['Int']['input'];
+};
+
+/** Input to create an entire Plan (and Project if applicable) */
+export type AddEntirePlanInput = {
+  /** External identifiers for the plan (for use when integrating with external systems) */
+  alternateIdentifiers?: InputMaybe<Array<Scalars['String']['input']>>;
+  /** The answers to the questions in the plan's narrative */
+  answers?: InputMaybe<Array<EntirePlanAnswerFragment>>;
+  /** The funding sources associated with the data described in the plan */
+  funding?: InputMaybe<Array<EntirePlanFundingFragment>>;
+  /** The language of the plan */
+  languageId: Scalars['String']['input'];
+  /** The project members involved with the data described in the plan */
+  members?: InputMaybe<Array<EntirePlanMemberFragment>>;
+  /** The research project this plan is associated with */
+  project: EntirePlanProjectFragment;
+  /** The status of the plan */
+  status: PlanStatus;
+  /** The title of the plan */
+  title: Scalars['String']['input'];
+  /** The id of the template being used (the default template will be used if not provided) */
+  versionedTemplateId?: InputMaybe<Scalars['Int']['input']>;
+  /** The visibility of the plan */
+  visibility: PlanVisibility;
 };
 
 /** Input for adding a new GuidanceGroup */
@@ -123,9 +156,26 @@ export type AddProjectFundingInput = {
   /** The funder's unique id/url for the award/grant (normally assigned after the grant has been awarded) */
   grantId?: InputMaybe<Scalars['String']['input']>;
   /** The project */
-  projectId: Scalars['Int']['input'];
+  projectId?: InputMaybe<Scalars['Int']['input']>;
   /** The status of the funding resquest */
   status?: InputMaybe<ProjectFundingStatus>;
+};
+
+export type AddProjectInput = {
+  /** The research project description/abstract */
+  abstractText?: InputMaybe<Scalars['String']['input']>;
+  /** The actual or anticipated end date of the project */
+  endDate?: InputMaybe<Scalars['String']['input']>;
+  /** Optional id of project */
+  id?: InputMaybe<Scalars['Int']['input']>;
+  /** Whether or not the project is a mock/test */
+  isTestProject?: InputMaybe<Scalars['Boolean']['input']>;
+  /** The id of the research domain */
+  researchDomainId?: InputMaybe<Scalars['Int']['input']>;
+  /** The actual or anticipated start date for the project */
+  startDate?: InputMaybe<Scalars['String']['input']>;
+  /** The title of the research project */
+  title: Scalars['String']['input'];
 };
 
 export type AddProjectMemberInput = {
@@ -142,7 +192,7 @@ export type AddProjectMemberInput = {
   /** The Member's ORCID */
   orcid?: InputMaybe<Scalars['String']['input']>;
   /** The research project */
-  projectId: Scalars['Int']['input'];
+  projectId?: InputMaybe<Scalars['Int']['input']>;
   /** The Member's last/sur name */
   surName?: InputMaybe<Scalars['String']['input']>;
 };
@@ -192,6 +242,8 @@ export type AddQuestionInput = {
   sampleText?: InputMaybe<Scalars['String']['input']>;
   /** The unique id of the Section that the question belongs to */
   sectionId: Scalars['Int']['input'];
+  /** The Tags associated with this question. A question might not have any tags */
+  tags?: InputMaybe<Array<TagInput>>;
   /** The unique id of the Template that the question belongs to */
   templateId: Scalars['Int']['input'];
   /** Boolean indicating whether we should use content from sampleText as the default answer */
@@ -270,8 +322,6 @@ export type AddSectionInput = {
   name: Scalars['String']['input'];
   /** Requirements that a user must consider in this section */
   requirements?: InputMaybe<Scalars['String']['input']>;
-  /** The Tags associated with this section. A section might not have any tags */
-  tags?: InputMaybe<Array<TagInput>>;
   /** The id of the template that the section belongs to */
   templateId: Scalars['Int']['input'];
 };
@@ -816,6 +866,17 @@ export type CollaboratorSearchResults = PaginatedQueryResults & {
   totalCount?: Maybe<Scalars['Int']['output']>;
 };
 
+export type ContactFormInput = {
+  /** The submitter's email address */
+  email: Scalars['String']['input'];
+  /** The message body */
+  message: Scalars['String']['input'];
+  /** The submitter's name */
+  name: Scalars['String']['input'];
+  /** The subject of the message */
+  subject: Scalars['String']['input'];
+};
+
 export type ContentMatch = {
   __typename?: 'ContentMatch';
   /** Highlighted fragments from the abstract showing relevant matched terms */
@@ -1051,6 +1112,47 @@ export type DoiMatchSource = {
   awardUrl: Scalars['String']['output'];
   /** The parent award ID, if the award has a parent */
   parentAwardId?: Maybe<Scalars['String']['output']>;
+};
+
+/** Input to create/replace a Plan answer */
+export type EntirePlanAnswerFragment = {
+  json: Scalars['String']['input'];
+  versionedCustomQuestion?: InputMaybe<Scalars['Int']['input']>;
+  versionedCustomSectionId?: InputMaybe<Scalars['Int']['input']>;
+  versionedQuestionId?: InputMaybe<Scalars['Int']['input']>;
+  versionedSectionId?: InputMaybe<Scalars['Int']['input']>;
+};
+
+/** Input to create/replace a Project/Plan funding */
+export type EntirePlanFundingFragment = {
+  funder: Scalars['String']['input'];
+  funderOpportunityNumber?: InputMaybe<Scalars['String']['input']>;
+  funderProjectNumber?: InputMaybe<Scalars['String']['input']>;
+  grantId?: InputMaybe<Scalars['String']['input']>;
+  projectFundingId?: InputMaybe<Scalars['Int']['input']>;
+  status?: InputMaybe<ProjectFundingStatus>;
+};
+
+/** Input to create/replace a Project/Plan member */
+export type EntirePlanMemberFragment = {
+  affiliation?: InputMaybe<Scalars['String']['input']>;
+  email?: InputMaybe<Scalars['String']['input']>;
+  givenName?: InputMaybe<Scalars['String']['input']>;
+  isPrimaryContact?: InputMaybe<Scalars['Boolean']['input']>;
+  memberRoles?: InputMaybe<Array<Scalars['String']['input']>>;
+  orcid?: InputMaybe<Scalars['String']['input']>;
+  projectMemberId?: InputMaybe<Scalars['Int']['input']>;
+  surname?: InputMaybe<Scalars['String']['input']>;
+};
+
+/** Input to create/replace a research Project */
+export type EntirePlanProjectFragment = {
+  abstractText?: InputMaybe<Scalars['String']['input']>;
+  endDate?: InputMaybe<Scalars['String']['input']>;
+  isTestProject?: InputMaybe<Scalars['Boolean']['input']>;
+  researchDomainUrl?: InputMaybe<Scalars['String']['input']>;
+  startDate?: InputMaybe<Scalars['String']['input']>;
+  title: Scalars['String']['input'];
 };
 
 export type ExternalFunding = {
@@ -1495,6 +1597,8 @@ export type Mutation = {
   addCustomQuestion: CustomQuestion;
   /** Add a custom section to a funder template */
   addCustomSection: CustomSection;
+  /** Create an entire plan (and project if applicable) in one shot */
+  addEntirePlan?: Maybe<Plan>;
   /** Add feedback comment for an answer within a round of feedback */
   addFeedbackComment?: Maybe<PlanFeedbackComment>;
   /** Create a new Guidance item */
@@ -1555,6 +1659,8 @@ export type Mutation = {
   archiveProject?: Maybe<Project>;
   /** Archive a Template (unpublishes any associated PublishedTemplate */
   archiveTemplate?: Maybe<Template>;
+  /** Archive the specified user and anonymize their data (Admin only) */
+  archiveUser?: Maybe<User>;
   /** Mark the feedback round as complete */
   completeFeedback?: Maybe<PlanFeedback>;
   /** Publish the template or save as a draft */
@@ -1607,6 +1713,8 @@ export type Mutation = {
   removeCustomQuestion: CustomQuestion;
   /** Remove a custom section */
   removeCustomSection: CustomSection;
+  /** Delete/tomb-stone an entire plan (and project if applicable) in one shot */
+  removeEntirePlanByDMPId?: Maybe<Scalars['Boolean']['output']>;
   /** Remove feedback comment for an answer within a round of feedback */
   removeFeedbackComment?: Maybe<PlanFeedbackComment>;
   /** Delete a Guidance item */
@@ -1661,10 +1769,16 @@ export type Mutation = {
   requirements?: Maybe<Scalars['String']['output']>;
   /** Resend an invite to a ProjectCollaborator */
   resendInviteToProjectCollaborator?: Maybe<ProjectCollaborator>;
+  /** Reset the user's password using the reset token */
+  resetPassword?: Maybe<Scalars['Boolean']['output']>;
+  /** Send a password reset email to the user */
+  sendPasswordResetEmail?: Maybe<Scalars['Boolean']['output']>;
   /** Designate the email as the current user's primary email address */
   setPrimaryUserEmail?: Maybe<Array<Maybe<UserEmail>>>;
   /** Set the user's ORCID */
   setUserOrcid?: Maybe<User>;
+  /** Submit a contact us form — sends an email to the help desk */
+  submitContactForm: Scalars['Boolean']['output'];
   /** Initialize a PLanVersion record in the DynamoDB for all Plans that do not have one */
   superSyncPlanMaDMP: Scalars['Boolean']['output'];
   /** Unpublish a GuidanceGroup (sets active flag to false on current version) */
@@ -1681,6 +1795,8 @@ export type Mutation = {
   updateCustomQuestion: CustomQuestion;
   /** Update a custom section */
   updateCustomSection: CustomSection;
+  /** Replace an entire plan (and update components of the project) in one shot */
+  updateEntirePlan?: Maybe<Plan>;
   /** Update feedback comment for an answer within a round of feedback */
   updateFeedbackComment?: Maybe<PlanFeedbackComment>;
   /** Update an existing Guidance item */
@@ -1695,6 +1811,8 @@ export type Mutation = {
   updateMetadataStandard?: Maybe<MetadataStandard>;
   /** Change the current user's password */
   updatePassword?: Maybe<User>;
+  /** Update a plan */
+  updatePlan?: Maybe<Plan>;
   /** Update multiple Plan Fundings passing in an array of projectFundingIds */
   updatePlanFunding?: Maybe<Array<Maybe<PlanFunding>>>;
   /** Chnage a Member's accessLevel on a Plan */
@@ -1737,10 +1855,14 @@ export type Mutation = {
   updateTemplate?: Maybe<Template>;
   /** Update a customization (user must be an Admin) */
   updateTemplateCustomization: TemplateCustomizationOverview;
+  /** Update the specified user's information (SuperAdmin only) */
+  updateUserInfo?: Maybe<User>;
   /** Update the current user's email notifications */
   updateUserNotifications?: Maybe<User>;
   /** Update the current user's information */
   updateUserProfile?: Maybe<User>;
+  /**  Update the specified user's role (SuperAdmin and Admin only) */
+  updateUserRole?: Maybe<User>;
   /** Upload a plan */
   uploadPlan?: Maybe<Plan>;
   /** Insert or update a related work, the work is looked up in OpenSearch and details added */
@@ -1787,6 +1909,11 @@ export type MutationAddCustomQuestionArgs = {
 
 export type MutationAddCustomSectionArgs = {
   input: AddCustomSectionInput;
+};
+
+
+export type MutationAddEntirePlanArgs = {
+  input: AddEntirePlanInput;
 };
 
 
@@ -1963,6 +2090,11 @@ export type MutationArchiveTemplateArgs = {
 };
 
 
+export type MutationArchiveUserArgs = {
+  userId: Scalars['Int']['input'];
+};
+
+
 export type MutationCompleteFeedbackArgs = {
   planFeedbackId: Scalars['Int']['input'];
   planId: Scalars['Int']['input'];
@@ -2091,6 +2223,11 @@ export type MutationRemoveCustomQuestionArgs = {
 
 export type MutationRemoveCustomSectionArgs = {
   customSectionId: Scalars['Int']['input'];
+};
+
+
+export type MutationRemoveEntirePlanByDmpIdArgs = {
+  dmpId: Scalars['String']['input'];
 };
 
 
@@ -2223,6 +2360,17 @@ export type MutationResendInviteToProjectCollaboratorArgs = {
 };
 
 
+export type MutationResetPasswordArgs = {
+  newPassword: Scalars['String']['input'];
+  token: Scalars['String']['input'];
+};
+
+
+export type MutationSendPasswordResetEmailArgs = {
+  email: Scalars['String']['input'];
+};
+
+
 export type MutationSetPrimaryUserEmailArgs = {
   email: Scalars['String']['input'];
 };
@@ -2230,6 +2378,11 @@ export type MutationSetPrimaryUserEmailArgs = {
 
 export type MutationSetUserOrcidArgs = {
   orcid: Scalars['String']['input'];
+};
+
+
+export type MutationSubmitContactFormArgs = {
+  input: ContactFormInput;
 };
 
 
@@ -2276,6 +2429,11 @@ export type MutationUpdateCustomSectionArgs = {
 };
 
 
+export type MutationUpdateEntirePlanArgs = {
+  input: UpdateEntirePlanInput;
+};
+
+
 export type MutationUpdateFeedbackCommentArgs = {
   commentText: Scalars['String']['input'];
   planFeedbackCommentId: Scalars['Int']['input'];
@@ -2319,6 +2477,11 @@ export type MutationUpdatePasswordArgs = {
   email: Scalars['String']['input'];
   newPassword: Scalars['String']['input'];
   oldPassword: Scalars['String']['input'];
+};
+
+
+export type MutationUpdatePlanArgs = {
+  input: UpdatePlanInput;
 };
 
 
@@ -2442,6 +2605,11 @@ export type MutationUpdateTemplateCustomizationArgs = {
 };
 
 
+export type MutationUpdateUserInfoArgs = {
+  input: UpdateUserInfoInput;
+};
+
+
 export type MutationUpdateUserNotificationsArgs = {
   input: UpdateUserNotificationsInput;
 };
@@ -2449,6 +2617,11 @@ export type MutationUpdateUserNotificationsArgs = {
 
 export type MutationUpdateUserProfileArgs = {
   input: UpdateUserProfileInput;
+};
+
+
+export type MutationUpdateUserRoleArgs = {
+  input: UpdateUserRoleInput;
 };
 
 
@@ -2500,6 +2673,26 @@ export type OpenSearchWorkSource = {
   name: Scalars['String']['output'];
   /** The URL for the source of the work */
   url?: Maybe<Scalars['String']['output']>;
+};
+
+export type PaginatedPlanResults = PaginatedQueryResults & {
+  __typename?: 'PaginatedPlanResults';
+  /** The sortFields that are available for this query (for standard offset pagination only!) */
+  availableSortFields?: Maybe<Array<Maybe<Scalars['String']['output']>>>;
+  /** The current offset of the results (for standard offset pagination) */
+  currentOffset?: Maybe<Scalars['Int']['output']>;
+  /** Whether or not there is a next page */
+  hasNextPage?: Maybe<Scalars['Boolean']['output']>;
+  /** Whether or not there is a previous page */
+  hasPreviousPage?: Maybe<Scalars['Boolean']['output']>;
+  /** The plans that match the search criteria */
+  items?: Maybe<Array<Maybe<PlanSearchResult>>>;
+  /** The number of items returned */
+  limit?: Maybe<Scalars['Int']['output']>;
+  /** The cursor to use for the next page of results (for infinite scroll/load more) */
+  nextCursor?: Maybe<Scalars['String']['output']>;
+  /** The total number of possible items */
+  totalCount?: Maybe<Scalars['Int']['output']>;
 };
 
 export type PaginatedQueryResults = {
@@ -2615,13 +2808,17 @@ export type PlanDownloadFormat =
 /** The error messages for the plan */
 export type PlanErrors = {
   __typename?: 'PlanErrors';
+  alternateIdentifiers?: Maybe<Scalars['String']['output']>;
   dmp_id?: Maybe<Scalars['String']['output']>;
   featured?: Maybe<Scalars['String']['output']>;
+  funding?: Maybe<Scalars['String']['output']>;
   general?: Maybe<Scalars['String']['output']>;
   languageId?: Maybe<Scalars['String']['output']>;
+  members?: Maybe<Scalars['String']['output']>;
   projectId?: Maybe<Scalars['String']['output']>;
   registered?: Maybe<Scalars['String']['output']>;
   registeredById?: Maybe<Scalars['String']['output']>;
+  relatedWorks?: Maybe<Scalars['String']['output']>;
   status?: Maybe<Scalars['String']['output']>;
   title?: Maybe<Scalars['String']['output']>;
   versionedTemplateId?: Maybe<Scalars['String']['output']>;
@@ -2858,12 +3055,16 @@ export type PlanSearchResult = {
   modified?: Maybe<Scalars['String']['output']>;
   /** The user who last modified the Object */
   modifiedBy?: Maybe<Scalars['String']['output']>;
+  /** The user who created the plan */
+  planCreator?: Maybe<User>;
   /** The timestamp for when the Plan was registered/published */
   registered?: Maybe<Scalars['String']['output']>;
   /** The person who published/registered the plan */
   registeredBy?: Maybe<Scalars['String']['output']>;
   /** The current status of the plan */
   status?: Maybe<PlanStatus>;
+  /** The name of the affiliation that owns the template the plan is based on */
+  templateOwnerAffiliationName?: Maybe<Scalars['String']['output']>;
   /** The name of the template the plan is based on */
   templateTitle?: Maybe<Scalars['String']['output']>;
   /** The title of the plan */
@@ -3175,6 +3376,8 @@ export type ProjectSearchResult = {
   modifiedById?: Maybe<Scalars['Int']['output']>;
   /** The name of the person who last modified the project */
   modifiedByName?: Maybe<Scalars['String']['output']>;
+  /** The plans in the project */
+  plans?: Maybe<Array<PlanSearchResult>>;
   /** The type of research being done */
   researchDomain?: Maybe<Scalars['String']['output']>;
   /** The estimated date the research project will begin (use YYYY-MM-DD format) */
@@ -3387,8 +3590,10 @@ export type Query = {
   planFundings?: Maybe<Array<Maybe<PlanFunding>>>;
   /** Get all of the Users that are Members for the specific Plan */
   planMembers?: Maybe<Array<Maybe<PlanMember>>>;
-  /** Get all plans for the research project */
-  plans?: Maybe<Array<PlanSearchResult>>;
+  /** Get all plans for the research project with pagination support */
+  plans?: Maybe<PaginatedPlanResults>;
+  /** Get all of the plans for a specific Project */
+  plansByProjectId?: Maybe<Array<Maybe<Plan>>>;
   /** Returns a list of the top 20 funders ranked by popularity (nbr of plans) for the past year */
   popularFunders?: Maybe<Array<Maybe<FunderPopularityResult>>>;
   /** Get a specific project */
@@ -3488,10 +3693,16 @@ export type Query = {
   topLevelResearchDomains?: Maybe<Array<Maybe<ResearchDomain>>>;
   /** Returns the specified user (Admin only) */
   user?: Maybe<User>;
+  /** Get all projects for a specified user (Admin only!) */
+  userProjects?: Maybe<ProjectSearchResults>;
   /** Returns all of the users associated with the current admin's affiliation (Super admins get everything) */
   users?: Maybe<UserSearchResults>;
+  /** Validates the password reset token and returns the user if valid */
+  validatePasswordResetToken?: Maybe<Scalars['Boolean']['output']>;
   /** Get all VersionedGuidance for a given affiliation and Tag IDs */
   versionedGuidance: Array<VersionedGuidance>;
+  /** Get a VersionedTemplate by its id */
+  versionedTemplate?: Maybe<VersionedTemplate>;
 };
 
 
@@ -3719,6 +3930,13 @@ export type QueryPlanMembersArgs = {
 
 
 export type QueryPlansArgs = {
+  paginationOptions?: InputMaybe<PaginationOptions>;
+  term?: InputMaybe<Scalars['String']['input']>;
+  userId: Scalars['Int']['input'];
+};
+
+
+export type QueryPlansByProjectIdArgs = {
   projectId: Scalars['Int']['input'];
 };
 
@@ -3964,15 +4182,35 @@ export type QueryUserArgs = {
 };
 
 
-export type QueryUsersArgs = {
+export type QueryUserProjectsArgs = {
+  filterOptions?: InputMaybe<ProjectFilterOptions>;
   paginationOptions?: InputMaybe<PaginationOptions>;
   term?: InputMaybe<Scalars['String']['input']>;
+  userId: Scalars['Int']['input'];
+};
+
+
+export type QueryUsersArgs = {
+  affiliationId?: InputMaybe<Scalars['String']['input']>;
+  paginationOptions?: InputMaybe<PaginationOptions>;
+  role?: InputMaybe<UserRole>;
+  term?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type QueryValidatePasswordResetTokenArgs = {
+  token: Scalars['String']['input'];
 };
 
 
 export type QueryVersionedGuidanceArgs = {
   affiliationId: Scalars['String']['input'];
   tagIds: Array<Scalars['Int']['input']>;
+};
+
+
+export type QueryVersionedTemplateArgs = {
+  id: Scalars['Int']['input'];
 };
 
 /** Question always belongs to a Section, which always belongs to a Template */
@@ -4012,6 +4250,8 @@ export type Question = {
   sectionId: Scalars['Int']['output'];
   /** The original question id if this question is a copy of another */
   sourceQestionId?: Maybe<Scalars['Int']['output']>;
+  /** The Tags associated with this question. A question might not have any tags */
+  tags?: Maybe<Array<Maybe<Tag>>>;
   /** The unique id of the Template that the question belongs to */
   templateId: Scalars['Int']['output'];
   /** Boolean indicating whether we should use content from sampleText as the default answer */
@@ -4968,6 +5208,11 @@ export type TypeCount = {
   typeId: Scalars['String']['output'];
 };
 
+export type UpdateAnswerInput = {
+  id: Scalars['Int']['input'];
+  json?: InputMaybe<Scalars['String']['input']>;
+};
+
 /** Input parameters for updating a custom section */
 export type UpdateCustomQuestionInput = {
   /** The id of the custom question */
@@ -5000,6 +5245,32 @@ export type UpdateCustomSectionInput = {
   name: Scalars['String']['input'];
   /** The requirements for the custom section */
   requirements?: InputMaybe<Scalars['String']['input']>;
+};
+
+/** Input to update an entire Project and Plan */
+export type UpdateEntirePlanInput = {
+  /** External identifiers for the plan (for use when integrating with external systems) */
+  alternateIdentifiers?: InputMaybe<Array<Scalars['String']['input']>>;
+  /** The answers to the questions in the plan's narrative */
+  answers?: InputMaybe<Array<EntirePlanAnswerFragment>>;
+  /** The DMP id of the plan (required if no 'id' is provided) */
+  dmpId?: InputMaybe<Scalars['String']['input']>;
+  /** The funding sources associated with the data described in the plan */
+  funding?: InputMaybe<Array<EntirePlanFundingFragment>>;
+  /** The id of the plan (required if no 'dmpId' is provided) */
+  id?: InputMaybe<Scalars['Int']['input']>;
+  /** The language of the plan */
+  languageId?: InputMaybe<Scalars['String']['input']>;
+  /** The project members involved with the data described in the plan */
+  members?: InputMaybe<Array<EntirePlanMemberFragment>>;
+  /** The research project this plan is associated with */
+  project: EntirePlanProjectFragment;
+  /** The status of the plan */
+  status?: InputMaybe<PlanStatus>;
+  /** The title of the plan */
+  title: Scalars['String']['input'];
+  /** The visibility of the plan */
+  visibility?: InputMaybe<PlanVisibility>;
 };
 
 /** Input for updating a GuidanceGroup */
@@ -5041,6 +5312,23 @@ export type UpdateMetadataStandardInput = {
   uri?: InputMaybe<Scalars['String']['input']>;
 };
 
+export type UpdatePlanInput = {
+  /** Alternate identifiers for the plan */
+  alternateIdentifiers?: InputMaybe<Array<Scalars['String']['input']>>;
+  /** Whether or not the plan is featured on the public plans page */
+  featured?: InputMaybe<Scalars['Boolean']['input']>;
+  /** The Plan id */
+  id?: InputMaybe<Scalars['Int']['input']>;
+  /** The language of the plan */
+  languageId?: InputMaybe<Scalars['String']['input']>;
+  /** The status of the plan */
+  status?: InputMaybe<PlanStatus>;
+  /** The title of the plan */
+  title?: InputMaybe<Scalars['String']['input']>;
+  /** The visibility of the plan */
+  visibility?: InputMaybe<PlanVisibility>;
+};
+
 export type UpdateProjectFundingInput = {
   /** The funder's unique id/url for the call for submissions to apply for a grant */
   funderOpportunityNumber?: InputMaybe<Scalars['String']['input']>;
@@ -5074,6 +5362,8 @@ export type UpdateProjectInput = {
 export type UpdateProjectMemberInput = {
   /** The Member's affiliation URI */
   affiliationId?: InputMaybe<Scalars['String']['input']>;
+  /** The Member's affiliation name */
+  affiliationName?: InputMaybe<Scalars['String']['input']>;
   /** The Member's email address */
   email?: InputMaybe<Scalars['String']['input']>;
   /** The Member's first/given name */
@@ -5129,6 +5419,8 @@ export type UpdateQuestionInput = {
   requirementText?: InputMaybe<Scalars['String']['input']>;
   /** Sample text to possibly provide a starting point or example to answer question */
   sampleText?: InputMaybe<Scalars['String']['input']>;
+  /** The Tags associated with this question. A question might not have any tags */
+  tags?: InputMaybe<Array<TagInput>>;
   /** Boolean indicating whether we should use content from sampleText as the default answer */
   useSampleTextAsDefault?: InputMaybe<Scalars['Boolean']['input']>;
 };
@@ -5183,8 +5475,6 @@ export type UpdateSectionInput = {
   requirements?: InputMaybe<Scalars['String']['input']>;
   /** The unique identifer for the Section */
   sectionId: Scalars['Int']['input'];
-  /** The Tags associated with this section. A section might not have any tags */
-  tags?: InputMaybe<Array<TagInput>>;
 };
 
 /** Input parameters for updating a Template Customization */
@@ -5193,6 +5483,23 @@ export type UpdateTemplateCustomizationInput = {
   status?: InputMaybe<TemplateCustomizationStatus>;
   /** The id of the published funder template */
   templateCustomizationId: Scalars['Int']['input'];
+};
+
+export type UpdateUserInfoInput = {
+  /** The id of the affiliation if the user selected one from the typeahead list */
+  affiliationId?: InputMaybe<Scalars['String']['input']>;
+  /** The user's email address */
+  email: Scalars['String']['input'];
+  /** The user's given name */
+  givenName: Scalars['String']['input'];
+  /** The user's preferred language */
+  languageId?: InputMaybe<Scalars['String']['input']>;
+  /** The name of the affiliation if the user did not select one from the typeahead list */
+  otherAffiliationName?: InputMaybe<Scalars['String']['input']>;
+  /** The user's surname */
+  surName: Scalars['String']['input'];
+  /** The user's id */
+  userId: Scalars['Int']['input'];
 };
 
 export type UpdateUserNotificationsInput = {
@@ -5219,6 +5526,13 @@ export type UpdateUserProfileInput = {
   otherAffiliationName?: InputMaybe<Scalars['String']['input']>;
   /** The user's last/family name */
   surName: Scalars['String']['input'];
+};
+
+export type UpdateUserRoleInput = {
+  /** The new role for the user */
+  role: UserRole;
+  /** The user's id */
+  userId: Scalars['Int']['input'];
 };
 
 export type UpsertRelatedWorkInput = {
@@ -5257,6 +5571,8 @@ export type User = {
   givenName?: Maybe<Scalars['String']['output']>;
   /** The unique identifier for the Object */
   id?: Maybe<Scalars['Int']['output']>;
+  /** Whether or not account is archived */
+  isArchived?: Maybe<Scalars['Boolean']['output']>;
   /** The user's preferred language */
   languageId: Scalars['String']['output'];
   /** The timestamp of the last login */
@@ -5281,6 +5597,10 @@ export type User = {
   notify_on_template_shared?: Maybe<Scalars['Boolean']['output']>;
   /** The user's ORCID */
   orcid?: Maybe<Scalars['Orcid']['output']>;
+  /** The timestamp of when the user last changed their password */
+  passwordChangedAt?: Maybe<Scalars['String']['output']>;
+  /** The plans that the user created */
+  plans?: Maybe<Array<Maybe<Plan>>>;
   /** The user's role within the DMPTool */
   role: UserRole;
   /** The user's SSO ID */
@@ -5491,7 +5811,7 @@ export type VersionedGuidance = {
   /** The user who last modified the Object */
   modifiedById?: Maybe<Scalars['Int']['output']>;
   /** The Tag ID (one of the associated tags) */
-  tagId: Scalars['Int']['output'];
+  tagId?: Maybe<Scalars['Int']['output']>;
   /** All Tags associated with this VersionedGuidance */
   tags?: Maybe<Array<Tag>>;
   /** The VersionedGuidanceGroup this belongs to */
@@ -6051,6 +6371,7 @@ export type ResolversInterfaceTypes<_RefType extends Record<string, unknown>> = 
     | ( CollaboratorSearchResults )
     | ( CustomizableTemplateSearchResults )
     | ( MetadataStandardSearchResults )
+    | ( PaginatedPlanResults )
     | ( ProjectSearchResults )
     | ( PublishedTemplateSearchResults )
     | ( RelatedWorkSearchResults )
@@ -6064,12 +6385,15 @@ export type ResolversInterfaceTypes<_RefType extends Record<string, unknown>> = 
 
 /** Mapping between all available schema types and the resolvers types */
 export type ResolversTypes = {
+  AddAnswerInput: AddAnswerInput;
   AddCustomQuestionInput: AddCustomQuestionInput;
   AddCustomSectionInput: AddCustomSectionInput;
+  AddEntirePlanInput: AddEntirePlanInput;
   AddGuidanceGroupInput: AddGuidanceGroupInput;
   AddGuidanceInput: AddGuidanceInput;
   AddMetadataStandardInput: AddMetadataStandardInput;
   AddProjectFundingInput: AddProjectFundingInput;
+  AddProjectInput: AddProjectInput;
   AddProjectMemberInput: AddProjectMemberInput;
   AddQuestionConditionInput: AddQuestionConditionInput;
   AddQuestionCustomizationInput: AddQuestionCustomizationInput;
@@ -6109,6 +6433,7 @@ export type ResolversTypes = {
   Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
   CollaboratorSearchResult: ResolverTypeWrapper<CollaboratorSearchResult>;
   CollaboratorSearchResults: ResolverTypeWrapper<CollaboratorSearchResults>;
+  ContactFormInput: ContactFormInput;
   ContentMatch: ResolverTypeWrapper<ContentMatch>;
   CustomQuestion: ResolverTypeWrapper<CustomQuestion>;
   CustomQuestionErrors: ResolverTypeWrapper<CustomQuestionErrors>;
@@ -6123,6 +6448,10 @@ export type ResolversTypes = {
   DoiMatch: ResolverTypeWrapper<DoiMatch>;
   DoiMatchSource: ResolverTypeWrapper<DoiMatchSource>;
   EmailAddress: ResolverTypeWrapper<Scalars['EmailAddress']['output']>;
+  EntirePlanAnswerFragment: EntirePlanAnswerFragment;
+  EntirePlanFundingFragment: EntirePlanFundingFragment;
+  EntirePlanMemberFragment: EntirePlanMemberFragment;
+  EntirePlanProjectFragment: EntirePlanProjectFragment;
   ExternalFunding: ResolverTypeWrapper<ExternalFunding>;
   ExternalMember: ResolverTypeWrapper<ExternalMember>;
   ExternalProject: ResolverTypeWrapper<ExternalProject>;
@@ -6159,6 +6488,7 @@ export type ResolversTypes = {
   OpenSearchWork: ResolverTypeWrapper<OpenSearchWork>;
   OpenSearchWorkSource: ResolverTypeWrapper<OpenSearchWorkSource>;
   Orcid: ResolverTypeWrapper<Scalars['Orcid']['output']>;
+  PaginatedPlanResults: ResolverTypeWrapper<PaginatedPlanResults>;
   PaginatedQueryResults: ResolverTypeWrapper<ResolversInterfaceTypes<ResolversTypes>['PaginatedQueryResults']>;
   PaginationOptions: PaginationOptions;
   PaginationType: PaginationType;
@@ -6267,11 +6597,14 @@ export type ResolversTypes = {
   TemplateVisibility: TemplateVisibility;
   TypeCount: ResolverTypeWrapper<TypeCount>;
   URL: ResolverTypeWrapper<Scalars['URL']['output']>;
+  UpdateAnswerInput: UpdateAnswerInput;
   UpdateCustomQuestionInput: UpdateCustomQuestionInput;
   UpdateCustomSectionInput: UpdateCustomSectionInput;
+  UpdateEntirePlanInput: UpdateEntirePlanInput;
   UpdateGuidanceGroupInput: UpdateGuidanceGroupInput;
   UpdateGuidanceInput: UpdateGuidanceInput;
   UpdateMetadataStandardInput: UpdateMetadataStandardInput;
+  UpdatePlanInput: UpdatePlanInput;
   UpdateProjectFundingInput: UpdateProjectFundingInput;
   UpdateProjectInput: UpdateProjectInput;
   UpdateProjectMemberInput: UpdateProjectMemberInput;
@@ -6283,8 +6616,10 @@ export type ResolversTypes = {
   UpdateSectionCustomizationInput: UpdateSectionCustomizationInput;
   UpdateSectionInput: UpdateSectionInput;
   UpdateTemplateCustomizationInput: UpdateTemplateCustomizationInput;
+  UpdateUserInfoInput: UpdateUserInfoInput;
   UpdateUserNotificationsInput: UpdateUserNotificationsInput;
   UpdateUserProfileInput: UpdateUserProfileInput;
+  UpdateUserRoleInput: UpdateUserRoleInput;
   UpsertRelatedWorkInput: UpsertRelatedWorkInput;
   User: ResolverTypeWrapper<User>;
   UserEmail: ResolverTypeWrapper<UserEmail>;
@@ -6320,12 +6655,15 @@ export type ResolversTypes = {
 
 /** Mapping between all available schema types and the resolvers parents */
 export type ResolversParentTypes = {
+  AddAnswerInput: AddAnswerInput;
   AddCustomQuestionInput: AddCustomQuestionInput;
   AddCustomSectionInput: AddCustomSectionInput;
+  AddEntirePlanInput: AddEntirePlanInput;
   AddGuidanceGroupInput: AddGuidanceGroupInput;
   AddGuidanceInput: AddGuidanceInput;
   AddMetadataStandardInput: AddMetadataStandardInput;
   AddProjectFundingInput: AddProjectFundingInput;
+  AddProjectInput: AddProjectInput;
   AddProjectMemberInput: AddProjectMemberInput;
   AddQuestionConditionInput: AddQuestionConditionInput;
   AddQuestionCustomizationInput: AddQuestionCustomizationInput;
@@ -6362,6 +6700,7 @@ export type ResolversParentTypes = {
   Boolean: Scalars['Boolean']['output'];
   CollaboratorSearchResult: CollaboratorSearchResult;
   CollaboratorSearchResults: CollaboratorSearchResults;
+  ContactFormInput: ContactFormInput;
   ContentMatch: ContentMatch;
   CustomQuestion: CustomQuestion;
   CustomQuestionErrors: CustomQuestionErrors;
@@ -6375,6 +6714,10 @@ export type ResolversParentTypes = {
   DoiMatch: DoiMatch;
   DoiMatchSource: DoiMatchSource;
   EmailAddress: Scalars['EmailAddress']['output'];
+  EntirePlanAnswerFragment: EntirePlanAnswerFragment;
+  EntirePlanFundingFragment: EntirePlanFundingFragment;
+  EntirePlanMemberFragment: EntirePlanMemberFragment;
+  EntirePlanProjectFragment: EntirePlanProjectFragment;
   ExternalFunding: ExternalFunding;
   ExternalMember: ExternalMember;
   ExternalProject: ExternalProject;
@@ -6408,6 +6751,7 @@ export type ResolversParentTypes = {
   OpenSearchWork: OpenSearchWork;
   OpenSearchWorkSource: OpenSearchWorkSource;
   Orcid: Scalars['Orcid']['output'];
+  PaginatedPlanResults: PaginatedPlanResults;
   PaginatedQueryResults: ResolversInterfaceTypes<ResolversParentTypes>['PaginatedQueryResults'];
   PaginationOptions: PaginationOptions;
   Plan: Plan;
@@ -6497,11 +6841,14 @@ export type ResolversParentTypes = {
   TemplateSearchResults: TemplateSearchResults;
   TypeCount: TypeCount;
   URL: Scalars['URL']['output'];
+  UpdateAnswerInput: UpdateAnswerInput;
   UpdateCustomQuestionInput: UpdateCustomQuestionInput;
   UpdateCustomSectionInput: UpdateCustomSectionInput;
+  UpdateEntirePlanInput: UpdateEntirePlanInput;
   UpdateGuidanceGroupInput: UpdateGuidanceGroupInput;
   UpdateGuidanceInput: UpdateGuidanceInput;
   UpdateMetadataStandardInput: UpdateMetadataStandardInput;
+  UpdatePlanInput: UpdatePlanInput;
   UpdateProjectFundingInput: UpdateProjectFundingInput;
   UpdateProjectInput: UpdateProjectInput;
   UpdateProjectMemberInput: UpdateProjectMemberInput;
@@ -6513,8 +6860,10 @@ export type ResolversParentTypes = {
   UpdateSectionCustomizationInput: UpdateSectionCustomizationInput;
   UpdateSectionInput: UpdateSectionInput;
   UpdateTemplateCustomizationInput: UpdateTemplateCustomizationInput;
+  UpdateUserInfoInput: UpdateUserInfoInput;
   UpdateUserNotificationsInput: UpdateUserNotificationsInput;
   UpdateUserProfileInput: UpdateUserProfileInput;
+  UpdateUserRoleInput: UpdateUserRoleInput;
   UpsertRelatedWorkInput: UpsertRelatedWorkInput;
   User: User;
   UserEmail: UserEmail;
@@ -7142,6 +7491,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   addAnswerComment?: Resolver<Maybe<ResolversTypes['AnswerComment']>, ParentType, ContextType, RequireFields<MutationAddAnswerCommentArgs, 'answerId' | 'commentText'>>;
   addCustomQuestion?: Resolver<ResolversTypes['CustomQuestion'], ParentType, ContextType, RequireFields<MutationAddCustomQuestionArgs, 'input'>>;
   addCustomSection?: Resolver<ResolversTypes['CustomSection'], ParentType, ContextType, RequireFields<MutationAddCustomSectionArgs, 'input'>>;
+  addEntirePlan?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType, RequireFields<MutationAddEntirePlanArgs, 'input'>>;
   addFeedbackComment?: Resolver<Maybe<ResolversTypes['PlanFeedbackComment']>, ParentType, ContextType, RequireFields<MutationAddFeedbackCommentArgs, 'answerId' | 'commentText' | 'planFeedbackId' | 'planId'>>;
   addGuidance?: Resolver<ResolversTypes['Guidance'], ParentType, ContextType, RequireFields<MutationAddGuidanceArgs, 'input'>>;
   addGuidanceGroup?: Resolver<ResolversTypes['GuidanceGroup'], ParentType, ContextType, RequireFields<MutationAddGuidanceGroupArgs, 'input'>>;
@@ -7172,6 +7522,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   archivePlan?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType, RequireFields<MutationArchivePlanArgs, 'planId'>>;
   archiveProject?: Resolver<Maybe<ResolversTypes['Project']>, ParentType, ContextType, RequireFields<MutationArchiveProjectArgs, 'projectId'>>;
   archiveTemplate?: Resolver<Maybe<ResolversTypes['Template']>, ParentType, ContextType, RequireFields<MutationArchiveTemplateArgs, 'templateId'>>;
+  archiveUser?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationArchiveUserArgs, 'userId'>>;
   completeFeedback?: Resolver<Maybe<ResolversTypes['PlanFeedback']>, ParentType, ContextType, RequireFields<MutationCompleteFeedbackArgs, 'planFeedbackId' | 'planId'>>;
   createTemplateVersion?: Resolver<Maybe<ResolversTypes['Template']>, ParentType, ContextType, RequireFields<MutationCreateTemplateVersionArgs, 'latestPublishVisibility' | 'templateId'>>;
   deactivateUser?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationDeactivateUserArgs, 'userId'>>;
@@ -7198,6 +7549,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   removeAnswerComment?: Resolver<Maybe<ResolversTypes['AnswerComment']>, ParentType, ContextType, RequireFields<MutationRemoveAnswerCommentArgs, 'answerCommentId' | 'answerId'>>;
   removeCustomQuestion?: Resolver<ResolversTypes['CustomQuestion'], ParentType, ContextType, RequireFields<MutationRemoveCustomQuestionArgs, 'customQuestionId'>>;
   removeCustomSection?: Resolver<ResolversTypes['CustomSection'], ParentType, ContextType, RequireFields<MutationRemoveCustomSectionArgs, 'customSectionId'>>;
+  removeEntirePlanByDMPId?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType, RequireFields<MutationRemoveEntirePlanByDmpIdArgs, 'dmpId'>>;
   removeFeedbackComment?: Resolver<Maybe<ResolversTypes['PlanFeedbackComment']>, ParentType, ContextType, RequireFields<MutationRemoveFeedbackCommentArgs, 'planFeedbackCommentId' | 'planId'>>;
   removeGuidance?: Resolver<ResolversTypes['Guidance'], ParentType, ContextType, RequireFields<MutationRemoveGuidanceArgs, 'guidanceId'>>;
   removeGuidanceGroup?: Resolver<ResolversTypes['GuidanceGroup'], ParentType, ContextType, RequireFields<MutationRemoveGuidanceGroupArgs, 'guidanceGroupId'>>;
@@ -7225,8 +7577,11 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   requestFeedback?: Resolver<Maybe<ResolversTypes['PlanFeedback']>, ParentType, ContextType, RequireFields<MutationRequestFeedbackArgs, 'planId'>>;
   requirements?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   resendInviteToProjectCollaborator?: Resolver<Maybe<ResolversTypes['ProjectCollaborator']>, ParentType, ContextType, RequireFields<MutationResendInviteToProjectCollaboratorArgs, 'projectCollaboratorId'>>;
+  resetPassword?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType, RequireFields<MutationResetPasswordArgs, 'newPassword' | 'token'>>;
+  sendPasswordResetEmail?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType, RequireFields<MutationSendPasswordResetEmailArgs, 'email'>>;
   setPrimaryUserEmail?: Resolver<Maybe<Array<Maybe<ResolversTypes['UserEmail']>>>, ParentType, ContextType, RequireFields<MutationSetPrimaryUserEmailArgs, 'email'>>;
   setUserOrcid?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationSetUserOrcidArgs, 'orcid'>>;
+  submitContactForm?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationSubmitContactFormArgs, 'input'>>;
   superSyncPlanMaDMP?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationSuperSyncPlanMaDmpArgs, 'planId'>>;
   unpublishGuidanceGroup?: Resolver<ResolversTypes['GuidanceGroup'], ParentType, ContextType, RequireFields<MutationUnpublishGuidanceGroupArgs, 'guidanceGroupId'>>;
   unpublishTemplateCustomization?: Resolver<ResolversTypes['TemplateCustomizationOverview'], ParentType, ContextType, RequireFields<MutationUnpublishTemplateCustomizationArgs, 'templateCustomizationId'>>;
@@ -7235,6 +7590,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   updateAnswerComment?: Resolver<Maybe<ResolversTypes['AnswerComment']>, ParentType, ContextType, RequireFields<MutationUpdateAnswerCommentArgs, 'answerCommentId' | 'answerId' | 'commentText'>>;
   updateCustomQuestion?: Resolver<ResolversTypes['CustomQuestion'], ParentType, ContextType, RequireFields<MutationUpdateCustomQuestionArgs, 'input'>>;
   updateCustomSection?: Resolver<ResolversTypes['CustomSection'], ParentType, ContextType, RequireFields<MutationUpdateCustomSectionArgs, 'input'>>;
+  updateEntirePlan?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType, RequireFields<MutationUpdateEntirePlanArgs, 'input'>>;
   updateFeedbackComment?: Resolver<Maybe<ResolversTypes['PlanFeedbackComment']>, ParentType, ContextType, RequireFields<MutationUpdateFeedbackCommentArgs, 'commentText' | 'planFeedbackCommentId' | 'planId'>>;
   updateGuidance?: Resolver<ResolversTypes['Guidance'], ParentType, ContextType, RequireFields<MutationUpdateGuidanceArgs, 'input'>>;
   updateGuidanceGroup?: Resolver<ResolversTypes['GuidanceGroup'], ParentType, ContextType, RequireFields<MutationUpdateGuidanceGroupArgs, 'input'>>;
@@ -7242,6 +7598,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   updateMemberRole?: Resolver<Maybe<ResolversTypes['MemberRole']>, ParentType, ContextType, RequireFields<MutationUpdateMemberRoleArgs, 'displayOrder' | 'id' | 'label' | 'url'>>;
   updateMetadataStandard?: Resolver<Maybe<ResolversTypes['MetadataStandard']>, ParentType, ContextType, RequireFields<MutationUpdateMetadataStandardArgs, 'input'>>;
   updatePassword?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationUpdatePasswordArgs, 'email' | 'newPassword' | 'oldPassword'>>;
+  updatePlan?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType, RequireFields<MutationUpdatePlanArgs, 'input'>>;
   updatePlanFunding?: Resolver<Maybe<Array<Maybe<ResolversTypes['PlanFunding']>>>, ParentType, ContextType, RequireFields<MutationUpdatePlanFundingArgs, 'planId' | 'projectFundingIds'>>;
   updatePlanMember?: Resolver<Maybe<ResolversTypes['PlanMember']>, ParentType, ContextType, RequireFields<MutationUpdatePlanMemberArgs, 'planId' | 'planMemberId'>>;
   updatePlanStatus?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType, RequireFields<MutationUpdatePlanStatusArgs, 'planId' | 'status'>>;
@@ -7263,8 +7620,10 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   updateTag?: Resolver<Maybe<ResolversTypes['Tag']>, ParentType, ContextType, RequireFields<MutationUpdateTagArgs, 'name' | 'tagId'>>;
   updateTemplate?: Resolver<Maybe<ResolversTypes['Template']>, ParentType, ContextType, RequireFields<MutationUpdateTemplateArgs, 'name' | 'templateId'>>;
   updateTemplateCustomization?: Resolver<ResolversTypes['TemplateCustomizationOverview'], ParentType, ContextType, RequireFields<MutationUpdateTemplateCustomizationArgs, 'input'>>;
+  updateUserInfo?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationUpdateUserInfoArgs, 'input'>>;
   updateUserNotifications?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationUpdateUserNotificationsArgs, 'input'>>;
   updateUserProfile?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationUpdateUserProfileArgs, 'input'>>;
+  updateUserRole?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationUpdateUserRoleArgs, 'input'>>;
   uploadPlan?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType, RequireFields<MutationUploadPlanArgs, 'projectId'>>;
   upsertRelatedWork?: Resolver<Maybe<ResolversTypes['RelatedWorkSearchResult']>, ParentType, ContextType, RequireFields<MutationUpsertRelatedWorkArgs, 'input'>>;
 };
@@ -7294,8 +7653,20 @@ export interface OrcidScalarConfig extends GraphQLScalarTypeConfig<ResolversType
   name: 'Orcid';
 }
 
+export type PaginatedPlanResultsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PaginatedPlanResults'] = ResolversParentTypes['PaginatedPlanResults']> = {
+  availableSortFields?: Resolver<Maybe<Array<Maybe<ResolversTypes['String']>>>, ParentType, ContextType>;
+  currentOffset?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  hasNextPage?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
+  hasPreviousPage?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
+  items?: Resolver<Maybe<Array<Maybe<ResolversTypes['PlanSearchResult']>>>, ParentType, ContextType>;
+  limit?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  nextCursor?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  totalCount?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
 export type PaginatedQueryResultsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PaginatedQueryResults'] = ResolversParentTypes['PaginatedQueryResults']> = {
-  __resolveType: TypeResolveFn<'AffiliationSearchResults' | 'CollaboratorSearchResults' | 'CustomizableTemplateSearchResults' | 'MetadataStandardSearchResults' | 'ProjectSearchResults' | 'PublishedTemplateSearchResults' | 'RelatedWorkSearchResults' | 'RepositorySearchResults' | 'ResearchDomainSearchResults' | 'TemplateSearchResults' | 'UserSearchResults' | 'VersionedSectionSearchResults', ParentType, ContextType>;
+  __resolveType: TypeResolveFn<'AffiliationSearchResults' | 'CollaboratorSearchResults' | 'CustomizableTemplateSearchResults' | 'MetadataStandardSearchResults' | 'PaginatedPlanResults' | 'ProjectSearchResults' | 'PublishedTemplateSearchResults' | 'RelatedWorkSearchResults' | 'RepositorySearchResults' | 'ResearchDomainSearchResults' | 'TemplateSearchResults' | 'UserSearchResults' | 'VersionedSectionSearchResults', ParentType, ContextType>;
 };
 
 export type PlanResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['Plan'] = ResolversParentTypes['Plan']> = {
@@ -7329,13 +7700,17 @@ export type PlanResolvers<ContextType = MyContext, ParentType extends ResolversP
 };
 
 export type PlanErrorsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PlanErrors'] = ResolversParentTypes['PlanErrors']> = {
+  alternateIdentifiers?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   dmp_id?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   featured?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  funding?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   general?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   languageId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  members?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   projectId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   registered?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   registeredById?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  relatedWorks?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   status?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   title?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   versionedTemplateId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -7468,9 +7843,11 @@ export type PlanSearchResultResolvers<ContextType = MyContext, ParentType extend
   members?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modifiedBy?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  planCreator?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType>;
   registered?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   registeredBy?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   status?: Resolver<Maybe<ResolversTypes['PlanStatus']>, ParentType, ContextType>;
+  templateOwnerAffiliationName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   templateTitle?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   title?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   versionedSections?: Resolver<Maybe<Array<ResolversTypes['PlanSectionProgress']>>, ParentType, ContextType>;
@@ -7619,6 +7996,7 @@ export type ProjectSearchResultResolvers<ContextType = MyContext, ParentType ext
   modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   modifiedByName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  plans?: Resolver<Maybe<Array<ResolversTypes['PlanSearchResult']>>, ParentType, ContextType>;
   researchDomain?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   startDate?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   title?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -7735,7 +8113,8 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   planFeedbackStatus?: Resolver<Maybe<ResolversTypes['PlanFeedbackStatus']>, ParentType, ContextType, RequireFields<QueryPlanFeedbackStatusArgs, 'planId'>>;
   planFundings?: Resolver<Maybe<Array<Maybe<ResolversTypes['PlanFunding']>>>, ParentType, ContextType, RequireFields<QueryPlanFundingsArgs, 'planId'>>;
   planMembers?: Resolver<Maybe<Array<Maybe<ResolversTypes['PlanMember']>>>, ParentType, ContextType, RequireFields<QueryPlanMembersArgs, 'planId'>>;
-  plans?: Resolver<Maybe<Array<ResolversTypes['PlanSearchResult']>>, ParentType, ContextType, RequireFields<QueryPlansArgs, 'projectId'>>;
+  plans?: Resolver<Maybe<ResolversTypes['PaginatedPlanResults']>, ParentType, ContextType, RequireFields<QueryPlansArgs, 'userId'>>;
+  plansByProjectId?: Resolver<Maybe<Array<Maybe<ResolversTypes['Plan']>>>, ParentType, ContextType, RequireFields<QueryPlansByProjectIdArgs, 'projectId'>>;
   popularFunders?: Resolver<Maybe<Array<Maybe<ResolversTypes['FunderPopularityResult']>>>, ParentType, ContextType>;
   project?: Resolver<Maybe<ResolversTypes['Project']>, ParentType, ContextType, RequireFields<QueryProjectArgs, 'projectId'>>;
   projectCollaborators?: Resolver<Maybe<Array<Maybe<ResolversTypes['ProjectCollaborator']>>>, ParentType, ContextType, RequireFields<QueryProjectCollaboratorsArgs, 'projectId'>>;
@@ -7786,8 +8165,11 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   templateVersions?: Resolver<Maybe<Array<Maybe<ResolversTypes['VersionedTemplate']>>>, ParentType, ContextType, RequireFields<QueryTemplateVersionsArgs, 'templateId'>>;
   topLevelResearchDomains?: Resolver<Maybe<Array<Maybe<ResolversTypes['ResearchDomain']>>>, ParentType, ContextType>;
   user?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<QueryUserArgs, 'userId'>>;
+  userProjects?: Resolver<Maybe<ResolversTypes['ProjectSearchResults']>, ParentType, ContextType, RequireFields<QueryUserProjectsArgs, 'userId'>>;
   users?: Resolver<Maybe<ResolversTypes['UserSearchResults']>, ParentType, ContextType, Partial<QueryUsersArgs>>;
+  validatePasswordResetToken?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType, RequireFields<QueryValidatePasswordResetTokenArgs, 'token'>>;
   versionedGuidance?: Resolver<Array<ResolversTypes['VersionedGuidance']>, ParentType, ContextType, RequireFields<QueryVersionedGuidanceArgs, 'affiliationId' | 'tagIds'>>;
+  versionedTemplate?: Resolver<Maybe<ResolversTypes['VersionedTemplate']>, ParentType, ContextType, RequireFields<QueryVersionedTemplateArgs, 'id'>>;
 };
 
 export type QuestionResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['Question'] = ResolversParentTypes['Question']> = {
@@ -7808,6 +8190,7 @@ export type QuestionResolvers<ContextType = MyContext, ParentType extends Resolv
   sampleText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   sectionId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   sourceQestionId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  tags?: Resolver<Maybe<Array<Maybe<ResolversTypes['Tag']>>>, ParentType, ContextType>;
   templateId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   useSampleTextAsDefault?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
 };
@@ -8311,6 +8694,7 @@ export type UserResolvers<ContextType = MyContext, ParentType extends ResolversP
   failed_sign_in_attempts?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   givenName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  isArchived?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
   languageId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   last_sign_in?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   last_sign_in_via?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -8323,6 +8707,8 @@ export type UserResolvers<ContextType = MyContext, ParentType extends ResolversP
   notify_on_plan_visibility_change?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
   notify_on_template_shared?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
   orcid?: Resolver<Maybe<ResolversTypes['Orcid']>, ParentType, ContextType>;
+  passwordChangedAt?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  plans?: Resolver<Maybe<Array<Maybe<ResolversTypes['Plan']>>>, ParentType, ContextType>;
   role?: Resolver<ResolversTypes['UserRole'], ParentType, ContextType>;
   ssoId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   surName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -8442,7 +8828,7 @@ export type VersionedGuidanceResolvers<ContextType = MyContext, ParentType exten
   id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  tagId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  tagId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   tags?: Resolver<Maybe<Array<ResolversTypes['Tag']>>, ParentType, ContextType>;
   versionedGuidanceGroup?: Resolver<Maybe<ResolversTypes['VersionedGuidanceGroup']>, ParentType, ContextType>;
   versionedGuidanceGroupId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
@@ -8748,6 +9134,7 @@ export type Resolvers<ContextType = MyContext> = {
   OpenSearchWork?: OpenSearchWorkResolvers<ContextType>;
   OpenSearchWorkSource?: OpenSearchWorkSourceResolvers<ContextType>;
   Orcid?: GraphQLScalarType;
+  PaginatedPlanResults?: PaginatedPlanResultsResolvers<ContextType>;
   PaginatedQueryResults?: PaginatedQueryResultsResolvers<ContextType>;
   Plan?: PlanResolvers<ContextType>;
   PlanErrors?: PlanErrorsResolvers<ContextType>;

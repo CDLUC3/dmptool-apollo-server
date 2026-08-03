@@ -358,4 +358,4 @@ export class Project extends MySqlModel {
     const results = await Project.query(context, sql, [projectFundingId?.toString()], reference);
     return Array.isArray(results) && results.length > 0 ? new Project(results[0]) : null;
   }
-};
+}

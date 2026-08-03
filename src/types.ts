@@ -242,6 +242,8 @@ export type AddQuestionInput = {
   sampleText?: InputMaybe<Scalars['String']['input']>;
   /** The unique id of the Section that the question belongs to */
   sectionId: Scalars['Int']['input'];
+  /** The Tags associated with this question. A question might not have any tags */
+  tags?: InputMaybe<Array<TagInput>>;
   /** The unique id of the Template that the question belongs to */
   templateId: Scalars['Int']['input'];
   /** Boolean indicating whether we should use content from sampleText as the default answer */
@@ -320,8 +322,6 @@ export type AddSectionInput = {
   name: Scalars['String']['input'];
   /** Requirements that a user must consider in this section */
   requirements?: InputMaybe<Scalars['String']['input']>;
-  /** The Tags associated with this section. A section might not have any tags */
-  tags?: InputMaybe<Array<TagInput>>;
   /** The id of the template that the section belongs to */
   templateId: Scalars['Int']['input'];
 };
@@ -1769,6 +1769,10 @@ export type Mutation = {
   requirements?: Maybe<Scalars['String']['output']>;
   /** Resend an invite to a ProjectCollaborator */
   resendInviteToProjectCollaborator?: Maybe<ProjectCollaborator>;
+  /** Reset the user's password using the reset token */
+  resetPassword?: Maybe<Scalars['Boolean']['output']>;
+  /** Send a password reset email to the user */
+  sendPasswordResetEmail?: Maybe<Scalars['Boolean']['output']>;
   /** Designate the email as the current user's primary email address */
   setPrimaryUserEmail?: Maybe<Array<Maybe<UserEmail>>>;
   /** Set the user's ORCID */
@@ -2353,6 +2357,17 @@ export type MutationRequestFeedbackArgs = {
 
 export type MutationResendInviteToProjectCollaboratorArgs = {
   projectCollaboratorId: Scalars['Int']['input'];
+};
+
+
+export type MutationResetPasswordArgs = {
+  newPassword: Scalars['String']['input'];
+  token: Scalars['String']['input'];
+};
+
+
+export type MutationSendPasswordResetEmailArgs = {
+  email: Scalars['String']['input'];
 };
 
 
@@ -3682,6 +3697,8 @@ export type Query = {
   userProjects?: Maybe<ProjectSearchResults>;
   /** Returns all of the users associated with the current admin's affiliation (Super admins get everything) */
   users?: Maybe<UserSearchResults>;
+  /** Validates the password reset token and returns the user if valid */
+  validatePasswordResetToken?: Maybe<Scalars['Boolean']['output']>;
   /** Get all VersionedGuidance for a given affiliation and Tag IDs */
   versionedGuidance: Array<VersionedGuidance>;
   /** Get a VersionedTemplate by its id */
@@ -4181,6 +4198,11 @@ export type QueryUsersArgs = {
 };
 
 
+export type QueryValidatePasswordResetTokenArgs = {
+  token: Scalars['String']['input'];
+};
+
+
 export type QueryVersionedGuidanceArgs = {
   affiliationId: Scalars['String']['input'];
   tagIds: Array<Scalars['Int']['input']>;
@@ -4228,6 +4250,8 @@ export type Question = {
   sectionId: Scalars['Int']['output'];
   /** The original question id if this question is a copy of another */
   sourceQestionId?: Maybe<Scalars['Int']['output']>;
+  /** The Tags associated with this question. A question might not have any tags */
+  tags?: Maybe<Array<Maybe<Tag>>>;
   /** The unique id of the Template that the question belongs to */
   templateId: Scalars['Int']['output'];
   /** Boolean indicating whether we should use content from sampleText as the default answer */
@@ -5395,6 +5419,8 @@ export type UpdateQuestionInput = {
   requirementText?: InputMaybe<Scalars['String']['input']>;
   /** Sample text to possibly provide a starting point or example to answer question */
   sampleText?: InputMaybe<Scalars['String']['input']>;
+  /** The Tags associated with this question. A question might not have any tags */
+  tags?: InputMaybe<Array<TagInput>>;
   /** Boolean indicating whether we should use content from sampleText as the default answer */
   useSampleTextAsDefault?: InputMaybe<Scalars['Boolean']['input']>;
 };
@@ -5449,8 +5475,6 @@ export type UpdateSectionInput = {
   requirements?: InputMaybe<Scalars['String']['input']>;
   /** The unique identifer for the Section */
   sectionId: Scalars['Int']['input'];
-  /** The Tags associated with this section. A section might not have any tags */
-  tags?: InputMaybe<Array<TagInput>>;
 };
 
 /** Input parameters for updating a Template Customization */
@@ -5573,6 +5597,8 @@ export type User = {
   notify_on_template_shared?: Maybe<Scalars['Boolean']['output']>;
   /** The user's ORCID */
   orcid?: Maybe<Scalars['Orcid']['output']>;
+  /** The timestamp of when the user last changed their password */
+  passwordChangedAt?: Maybe<Scalars['String']['output']>;
   /** The plans that the user created */
   plans?: Maybe<Array<Maybe<Plan>>>;
   /** The user's role within the DMPTool */
@@ -7551,6 +7577,8 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   requestFeedback?: Resolver<Maybe<ResolversTypes['PlanFeedback']>, ParentType, ContextType, RequireFields<MutationRequestFeedbackArgs, 'planId'>>;
   requirements?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   resendInviteToProjectCollaborator?: Resolver<Maybe<ResolversTypes['ProjectCollaborator']>, ParentType, ContextType, RequireFields<MutationResendInviteToProjectCollaboratorArgs, 'projectCollaboratorId'>>;
+  resetPassword?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType, RequireFields<MutationResetPasswordArgs, 'newPassword' | 'token'>>;
+  sendPasswordResetEmail?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType, RequireFields<MutationSendPasswordResetEmailArgs, 'email'>>;
   setPrimaryUserEmail?: Resolver<Maybe<Array<Maybe<ResolversTypes['UserEmail']>>>, ParentType, ContextType, RequireFields<MutationSetPrimaryUserEmailArgs, 'email'>>;
   setUserOrcid?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationSetUserOrcidArgs, 'orcid'>>;
   submitContactForm?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationSubmitContactFormArgs, 'input'>>;
@@ -8139,6 +8167,7 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   user?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<QueryUserArgs, 'userId'>>;
   userProjects?: Resolver<Maybe<ResolversTypes['ProjectSearchResults']>, ParentType, ContextType, RequireFields<QueryUserProjectsArgs, 'userId'>>;
   users?: Resolver<Maybe<ResolversTypes['UserSearchResults']>, ParentType, ContextType, Partial<QueryUsersArgs>>;
+  validatePasswordResetToken?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType, RequireFields<QueryValidatePasswordResetTokenArgs, 'token'>>;
   versionedGuidance?: Resolver<Array<ResolversTypes['VersionedGuidance']>, ParentType, ContextType, RequireFields<QueryVersionedGuidanceArgs, 'affiliationId' | 'tagIds'>>;
   versionedTemplate?: Resolver<Maybe<ResolversTypes['VersionedTemplate']>, ParentType, ContextType, RequireFields<QueryVersionedTemplateArgs, 'id'>>;
 };
@@ -8161,6 +8190,7 @@ export type QuestionResolvers<ContextType = MyContext, ParentType extends Resolv
   sampleText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   sectionId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   sourceQestionId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  tags?: Resolver<Maybe<Array<Maybe<ResolversTypes['Tag']>>>, ParentType, ContextType>;
   templateId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   useSampleTextAsDefault?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
 };
@@ -8677,6 +8707,7 @@ export type UserResolvers<ContextType = MyContext, ParentType extends ResolversP
   notify_on_plan_visibility_change?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
   notify_on_template_shared?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
   orcid?: Resolver<Maybe<ResolversTypes['Orcid']>, ParentType, ContextType>;
+  passwordChangedAt?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   plans?: Resolver<Maybe<Array<Maybe<ResolversTypes['Plan']>>>, ParentType, ContextType>;
   role?: Resolver<ResolversTypes['UserRole'], ParentType, ContextType>;
   ssoId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;

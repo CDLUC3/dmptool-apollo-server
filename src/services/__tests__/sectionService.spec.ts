@@ -11,9 +11,15 @@ import { VersionedSection } from "../../models/VersionedSection";
 import { Tag } from "../../models/Tag";
 import { getCurrentDate } from "../../utils/helpers";
 import { Question } from "../../models/Question";
+import { generateQuestionVersion } from "../questionService";
 
 // Pulling context in here so that the mysql gets mocked
 jest.mock('../../context.ts');
+
+jest.mock("../questionService", () => ({
+  ...jest.requireActual("../questionService"),
+  generateQuestionVersion: jest.fn(),
+}));
 
 let context;
 
@@ -89,7 +95,6 @@ describe('cloneSection', () => {
   let requirements;
   let guidance;
   let displayOrder;
-  let tags;
   let isDirty;
   let createdById;
 
@@ -101,11 +106,10 @@ describe('cloneSection', () => {
     requirements = casual.sentences(5);
     guidance = casual.sentences(5);
     displayOrder = casual.integer(1, 9);
-    tags = null;
     isDirty = true;
     createdById = casual.integer(1, 999);
 
-    section = new Section({ id, templateId, name, introduction, requirements, guidance, displayOrder, tags, isDirty, createdById });
+    section = new Section({ id, templateId, name, introduction, requirements, guidance, displayOrder, isDirty, createdById });
   });
 
   it('Clone retains the expected parts of the specified Section', () => {
@@ -169,6 +173,7 @@ describe('generateSectionVersion', () => {
   let mockTagFindById;
   let mockAddToVersionedSectionTags;
   let mockQuestionFindBySectionId;
+  let mockTagFindByQuestionId;
 
   beforeEach(() => {
     jest.resetAllMocks();
@@ -176,6 +181,10 @@ describe('generateSectionVersion', () => {
     // Mock the Questions
     mockQuestionFindBySectionId = jest.fn().mockResolvedValue([]);
     (Question.findBySectionId as jest.Mock) = mockQuestionFindBySectionId;
+
+    // Mock Tag.findByQuestionId (used to populate questionInstance.tags before versioning)
+    mockTagFindByQuestionId = jest.fn().mockResolvedValue([]);
+    (Tag.findByQuestionId as jest.Mock) = mockTagFindByQuestionId;
 
     const tstamp = getCurrentDate();
 
@@ -425,6 +434,34 @@ describe('generateSectionVersion', () => {
 
     expect(mockTagFindById).not.toHaveBeenCalled();
     expect(mockAddToVersionedSectionTags).not.toHaveBeenCalled();
+  });
+
+  it('fetches tags for each question and passes them to generateQuestionVersion', async () => {
+    const section = new Section(sectionStore[0]);
+    section.tags = [];
+
+    const question1 = new Question({ id: casual.integer(1, 99), sectionId: section.id });
+    mockQuestionFindBySectionId.mockResolvedValue([question1]);
+
+    const question1Tags = [new Tag({ id: 10, name: casual.word })];
+    mockTagFindByQuestionId.mockResolvedValue(question1Tags);
+
+    (VersionedSection.insert as jest.Mock) = mockInsert;
+    (VersionedSection.findById as jest.Mock) = mockFindVersionedSectionbyId;
+    (Section.update as jest.Mock) = mockUpdate;
+    (Section.findById as jest.Mock) = mockFindSectionById;
+    (generateQuestionVersion as jest.Mock).mockResolvedValue(true);
+
+    const versionedTemplateId = casual.integer(1, 999);
+    expect(await generateSectionVersion(context, section, versionedTemplateId)).toEqual(true);
+
+    expect(mockTagFindByQuestionId).toHaveBeenCalledWith('generateSectionVersion', context, question1.id);
+    expect(generateQuestionVersion).toHaveBeenCalledWith(
+      context,
+      expect.objectContaining({ id: question1.id, tags: question1Tags }),
+      versionedTemplateId,
+      expect.any(Number)
+    );
   });
 });
 

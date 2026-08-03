@@ -406,7 +406,9 @@ export class PlanSectionProgress {
    */
   static async findByPlanId(reference: string, context: MyContext, planId: number, versionedTemplateId?: number): Promise<PlanSectionProgress[]> {
     // First fetch base sections and their question counts, which we will use as the foundation to build out the full section list with custom sections
-    // and adjusted question counts
+    // and adjusted question counts.
+    // COALESCE(questionTagAgg.tags, sectionTagAgg.tags, JSON_ARRAY()) ensures that we try and use question tags first, then section tags, and 
+    // if neither exist we return an empty array for the tags field.
     const sql = `SELECT
       vs.id AS versionedSectionId,
       vs.displayOrder,
@@ -421,10 +423,26 @@ export class PlanSectionProgress {
           WHEN a.id IS NOT NULL AND ${FILLED_ANSWER_CHECK} AND vq.required = 1
           THEN vq.id
         END) AS answeredRequiredQuestions,
-      COALESCE(tagAgg.tags, JSON_ARRAY()) AS tags
+      COALESCE(questionTagAgg.tags, sectionTagAgg.tags, JSON_ARRAY()) AS tags
     FROM plans p
       JOIN versionedTemplates vt ON p.versionedTemplateId = vt.id
       JOIN versionedSections vs ON vt.id = vs.versionedTemplateId
+      LEFT JOIN (
+        SELECT
+          vq2.versionedSectionId,
+          JSON_ARRAYAGG(
+            JSON_OBJECT(
+              'id', t.id,
+              'slug', t.slug,
+              'name', t.name,
+              'description', t.description
+            )
+          ) AS tags
+        FROM versionedQuestionTags vqt
+          JOIN versionedQuestions vq2 ON vq2.id = vqt.versionedQuestionId
+          JOIN tags t ON t.id = vqt.tagId
+        GROUP BY vq2.versionedSectionId
+      ) questionTagAgg ON questionTagAgg.versionedSectionId = vs.id
       LEFT JOIN (
         SELECT
           vst.versionedSectionId,
@@ -439,13 +457,13 @@ export class PlanSectionProgress {
         FROM versionedSectionTags vst
           JOIN tags t ON t.id = vst.tagId
         GROUP BY vst.versionedSectionId
-      ) tagAgg ON tagAgg.versionedSectionId = vs.id
+      ) sectionTagAgg ON sectionTagAgg.versionedSectionId = vs.id
       LEFT JOIN versionedQuestions vq ON vs.id = vq.versionedSectionId
       LEFT JOIN answers a
         ON a.planId = p.id
         AND a.versionedQuestionId = vq.id
     WHERE p.id = ?
-    GROUP BY vs.id, vs.displayOrder, vs.name, tagAgg.tags
+    GROUP BY vs.id, vs.displayOrder, vs.name, questionTagAgg.tags, sectionTagAgg.tags
     ORDER BY vs.displayOrder;
 `
 

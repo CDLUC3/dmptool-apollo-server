@@ -4,6 +4,10 @@
 
 ### Added
 - Added versionedTemplate schema and resolver so we can fetch a versioned template by its id.
+- Added `questionTags` and `versionedQuestionTags` tables [#274]
+- Added `getUserTokenVersion` and `bumpUserTokenVersion` to `tokenService` so that we can save the `tokenVersion` in the `JWT` payload, and validate it against the current version in `isRevokedCallback` on `/graphql` requests [#133]
+- Added new `PasswordResetToken` model, `passwordReset` resolver, `passwordReset` schema, and separate `passwordResetTokens` table to store the `resetPasswordToken` and `resetPasswordExpiresAt` [#133]
+- Added `passwordChangedAt` field to the `users` table, and `User` model to record when password last changed [#133]
 - Added new helper SQL script to delete all existing research output questions and answers
 - Added new `TransactionClient` class to the `datasources/mysql.ts` file to allow for the use of MySQL transactions
 - Added a `AddAnswerInput`, `AddProjectInput`, `EntirePlanProjectFragment`, `EntirePlanMemberFragment`, `EntirePlanFundingFragment`, `EntirePlanAnswerFragment`, `AddEntirePlanInput`, `UpdateEntirePlanInput` to schema
@@ -123,6 +127,15 @@
 ### Updated
 - Switched entirePlan schema, resolvers and service to use versionedXId instead of xId (e.g. use versionedTemplates instead of Templates)
 - Updated entirePlan service to use the default MemberRole when none is provided 
+- Updated `Plan.findByPlanId` to prefer questionTags and fall back to sectionTags [#274]
+- Updated `Question` model to have `tags`, since we moved the best practice tags to the Question page [#274]
+- Updated `Tag` model with functions for adding and removing tags from questions and versioned questions [#274]
+- Updated `addQuestion` and `updateQuestion` resolvers to add any tag data to `questionTags` table, and to include `tags` chained resolver [#274]
+- Removed `tags` from `section` resolver [#274]
+- Updated `addTemplate` mutation resolver so that make sure to copy over questionTags when cloning [#274]
+- Updated `guidanceService.ts` to prefer `questionTags` and fall back to `sectionTags` if there are no `questionTags`. That way we can ease into transitioning to `questionTags` [#274]
+- Updated `questionService`'s `generateQuestionVersion` to include `questionTags`, and also made sure to add current tags in `generateSectionVersion` before calling `generateQuestionVersion` [#274]
+- Updated `emailService` with a `sendResetPasswordEmail` to send an email with the `change password link` [#133]
 - Fixed issue with JSON of default questions and answers in the local data migration file
 - Renamed old `Funding.findByProjectFundingId` to `Funding.findByPlanAndProjectFundingId`
 - Updated `sendContactUsEmail` in `emailService.ts` to not include a `bcc` [#303]
@@ -262,6 +275,7 @@
 - Removed `ioredis` package
 
 ### Fixed
+- Added missing `fast-xml-parser` back so that `re3data-os-populate.ts` can run
 - Fixed `removeProjectFunding`. There were several issues, one of which was not being able to delete a `projectFundings` record without removing it's foreign key dependency in `planFundings` first [#303]
 - Updated `immutable` to `v5.1.9` to address HIGH security vulnerability [#304]
 - Updated `brace-expansion` to `v5.0.7` and `js-yaml` to `v4.3.0` to address vulnerabilities [#310]

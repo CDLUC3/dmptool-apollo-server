@@ -36,6 +36,7 @@ import { typeDefs as versionedGuidanceTypeDefs } from './schemas/versionedGuidan
 import { typeDefs as versionedQuestionConditionTypeDefs } from './schemas/versionedQuestionCondition';
 import { typeDefs as versionedSectionTypeDefs } from './schemas/versionedSection';
 import { typeDefs as versionedTemplateTypeDefs } from './schemas/versionedTemplate';
+import { typeDefs as passwordResetTypeDefs } from './schemas/passwordReset';
 
 export const typeDefs = mergeTypeDefs([
   baseTypeDefs,
@@ -74,4 +75,5 @@ export const typeDefs = mergeTypeDefs([
   versionedQuestionConditionTypeDefs,
   versionedSectionTypeDefs,
   versionedTemplateTypeDefs,
+  passwordResetTypeDefs,
 ]);

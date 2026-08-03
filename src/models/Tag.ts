@@ -77,33 +77,33 @@ export class Tag extends MySqlModel {
     return null;
   }
 
-  // Add this Tag to a Section
-  async addToSection(context: MyContext, sectionId: number): Promise<boolean> {
-    const reference = 'Tag.addToSection';
-    const sql = 'INSERT INTO sectionTags (tagId, sectionId, createdById, modifiedById) VALUES (?, ?, ?, ?)';
+  // Add this Tag to a Question
+  async addToQuestion(context: MyContext, questionId: number): Promise<boolean> {
+    const reference = 'Tag.addToQuestion';
+    const sql = 'INSERT INTO questionTags (tagId, questionId, createdById, modifiedById) VALUES (?, ?, ?, ?)';
     const userId = context.token?.id?.toString();
-    const vals = [this.id?.toString(), sectionId?.toString(), userId, userId];
+    const vals = [this.id?.toString(), questionId?.toString(), userId, userId];
     const results = await Tag.query(context, sql, vals, reference);
 
     if (!results) {
-      const payload = { tagId: this.id, sectionId };
-      const msg = 'Unable to add the tag to the section';
+      const payload = { tagId: this.id, questionId };
+      const msg = 'Unable to add the tag to the question';
       context.logger.error(prepareObjectForLogs(payload), msg);
       return false;
     }
     return true;
   }
 
-  // Remove this Tag from a Section
-  async removeFromSection(context: MyContext, sectionId: number): Promise<boolean> {
-    const reference = 'Tag.removeFromSection';
-    const sql = 'DELETE FROM sectionTags WHERE tagId = ? AND sectionId = ?';
-    const vals = [this.id?.toString(), sectionId?.toString()];
+  // Remove this Tag from a Question
+  async removeFromQuestion(context: MyContext, questionId: number): Promise<boolean> {
+    const reference = 'Tag.removeFromQuestion';
+    const sql = 'DELETE FROM questionTags WHERE tagId = ? AND questionId = ?';
+    const vals = [this.id?.toString(), questionId?.toString()];
     const results = await Tag.query(context, sql, vals, reference);
 
     if (!results) {
-      const payload = { tagId: this.id, sectionId };
-      const msg = 'Unable to remove the tag from the section';
+      const payload = { tagId: this.id, questionId };
+      const msg = 'Unable to remove the tag from the question';
       context.logger.error(prepareObjectForLogs(payload), `${reference} - ${msg}`);
       return false;
     }
@@ -127,6 +127,23 @@ export class Tag extends MySqlModel {
     return true;
   }
 
+  // Add this Tag to a VersionedQuestionTags
+  async addToVersionedQuestionTags(context: MyContext, versionedQuestionId: number): Promise<boolean> {
+    const reference = 'Tag.addToVersionedQuestionTags';
+    const sql = 'INSERT INTO versionedQuestionTags (tagId, versionedQuestionId, createdById, modifiedById) VALUES (?, ?, ?, ?)';
+    const userId = context.token?.id?.toString();
+    const vals = [this.id?.toString(), versionedQuestionId?.toString(), userId, userId];
+    const results = await Tag.query(context, sql, vals, reference);
+
+    if (!results) {
+      const payload = { tagId: this.id, versionedQuestionId };
+      const msg = 'Unable to add the tag to the versioned question';
+      context.logger.error(prepareObjectForLogs(payload), msg);
+      return false;
+    }
+    return true;
+  }
+
   static async findAll(reference: string, context: MyContext): Promise<Tag[]> {
     const sql = 'SELECT * FROM tags';
     const results = await Tag.query(context, sql, [], reference);
@@ -139,9 +156,15 @@ export class Tag extends MySqlModel {
     return Array.isArray(result) ? result.map(item => new Tag(item)) : [];
   }
 
-  static async findByVersionedSectionId(reference: string, context: MyContext, versionedSectionId: number): Promise<Tag[]> {
-    const sql = `SELECT tags.* FROM versionedSectionTags vst JOIN tags ON vst.tagId = tags.id WHERE vst.versionedSectionId = ?;`;
-    const result = await Tag.query(context, sql, [versionedSectionId?.toString()], reference);
+  static async findByQuestionId(reference: string, context: MyContext, questionId: number): Promise<Tag[]> {
+    const sql = `SELECT tags.* FROM questionTags JOIN tags ON questionTags.tagId = tags.id WHERE questionTags.questionId = ?;`;
+    const result = await Tag.query(context, sql, [questionId?.toString()], reference);
+    return Array.isArray(result) ? result.map(item => new Tag(item)) : [];
+  }
+
+  static async findByVersionedQuestionId(reference: string, context: MyContext, questionId: number): Promise<Tag[]> {
+    const sql = `SELECT tags.* FROM versionedQuestionTags JOIN tags ON versionedQuestionTags.tagId = tags.id WHERE versionedQuestionTags.versionedQuestionId = ?;`;
+    const result = await Tag.query(context, sql, [questionId?.toString()], reference);
     return Array.isArray(result) ? result.map(item => new Tag(item)) : [];
   }
 

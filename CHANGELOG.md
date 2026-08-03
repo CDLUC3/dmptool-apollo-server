@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added versionedTemplate schema and resolver so we can fetch a versioned template by its id.
 - Added new helper SQL script to delete all existing research output questions and answers
 - Added new `TransactionClient` class to the `datasources/mysql.ts` file to allow for the use of MySQL transactions
 - Added a `AddAnswerInput`, `AddProjectInput`, `EntirePlanProjectFragment`, `EntirePlanMemberFragment`, `EntirePlanFundingFragment`, `EntirePlanAnswerFragment`, `AddEntirePlanInput`, `UpdateEntirePlanInput` to schema
@@ -120,6 +121,8 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Switched entirePlan schema, resolvers and service to use versionedXId instead of xId (e.g. use versionedTemplates instead of Templates)
+- Updated entirePlan service to use the default MemberRole when none is provided 
 - Fixed issue with JSON of default questions and answers in the local data migration file
 - Renamed old `Funding.findByProjectFundingId` to `Funding.findByPlanAndProjectFundingId`
 - Updated `sendContactUsEmail` in `emailService.ts` to not include a `bcc` [#303]

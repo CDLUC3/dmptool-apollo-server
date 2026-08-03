@@ -414,7 +414,10 @@ describe('entirePlanService', () => {
   describe('addEntirePlan', () => {
     const baseInput = {
       title: 'My Entire Plan',
-      templateId: 99,
+      status: 'DRAFT',
+      visibility: 'PRIVATE',
+      languageId: 'en-US',
+      versionedTemplateId: 99,
       project: {
         title: '  Existing Project  ',
         abstractText: '  project abstract  ',
@@ -423,9 +426,6 @@ describe('entirePlanService', () => {
         researchDomainUrl: 'https://ror.example.org/domain/202',
         isTestProject: true,
       },
-      alternateIdentifiers: [],
-      members: [],
-      funding: [],
     };
 
     const setupAddEntirePlanDefaults = () => {
@@ -446,7 +446,7 @@ describe('entirePlanService', () => {
           return this;
         });
       jest
-        .spyOn(VersionedTemplate, 'findActiveByTemplateId')
+        .spyOn(VersionedTemplate, 'findVersionedTemplateById')
         .mockResolvedValue(new VersionedTemplate({ id: 303, name: 'VT-1' }));
       jest.spyOn(AlternateIdentifier, 'findByPlanId').mockResolvedValue([]);
       jest
@@ -524,7 +524,7 @@ describe('entirePlanService', () => {
 
       const response = await addEntirePlan('test-ref', context, {
         ...baseInput,
-        templateId: undefined,
+        versionedTemplateId: undefined,
         project: {
           title: '  New Project  ',
           abstractText: '  new abstract  ',
@@ -553,7 +553,7 @@ describe('entirePlanService', () => {
     });
 
     it('throws a bad request error when the specified template cannot be found', async () => {
-      jest.spyOn(VersionedTemplate, 'findActiveByTemplateId').mockResolvedValue(null);
+      jest.spyOn(VersionedTemplate, 'findVersionedTemplateById').mockResolvedValue(null);
 
       await expect(addEntirePlan('test-ref', context, baseInput as never, plan)).rejects.toMatchObject({
         extensions: { code: BAD_REQUEST_ERROR_CODE },

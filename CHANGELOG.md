@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added versionedTemplate schema and resolver so we can fetch a versioned template by its id.
 - Added `questionTags` and `versionedQuestionTags` tables [#274]
 - Added `getUserTokenVersion` and `bumpUserTokenVersion` to `tokenService` so that we can save the `tokenVersion` in the `JWT` payload, and validate it against the current version in `isRevokedCallback` on `/graphql` requests [#133]
 - Added new `PasswordResetToken` model, `passwordReset` resolver, `passwordReset` schema, and separate `passwordResetTokens` table to store the `resetPasswordToken` and `resetPasswordExpiresAt` [#133]
@@ -124,6 +125,8 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Switched entirePlan schema, resolvers and service to use versionedXId instead of xId (e.g. use versionedTemplates instead of Templates)
+- Updated entirePlan service to use the default MemberRole when none is provided 
 - Updated `Plan.findByPlanId` to prefer questionTags and fall back to sectionTags [#274]
 - Updated `Question` model to have `tags`, since we moved the best practice tags to the Question page [#274]
 - Updated `Tag` model with functions for adding and removing tags from questions and versioned questions [#274]

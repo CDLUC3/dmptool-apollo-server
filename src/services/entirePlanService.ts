@@ -299,7 +299,13 @@ export const processMemberAssociations = async(
                 return await MemberRole.findByURL(reference, context, id);
               })
             )
-          ).filter((role): role is MemberRole => Boolean(role));
+          ).filter((role): role is MemberRole => Boolean(role)) || [];
+
+          // If there are no roles available, or the ones provided had no match then
+          // use the default role!
+          if (roles.length === 0) {
+            roles.push((await MemberRole.defaultRole(context)));
+          }
 
           // Add the roles to the new project member
           for (const role of roles) {
@@ -676,6 +682,7 @@ const processAssociatedObjectForEntirePlan = async (
 
 
   // 8th: Save the narrative answers
+
 }
 
 /**
@@ -724,19 +731,20 @@ const findOrInitializeProject = async (
  *
  * @param reference the string reference for logging
  * @param context the Apollo server context
- * @param templateId the id of the template to use
+ * @param versionedTemplateId the id of the versioned template to use
  */
 const findVersionedTemplateForEntirePlan = async (
   reference: string,
   context: MyContext,
-  templateId?: number,
+  versionedTemplateId?: number,
 ): Promise<VersionedTemplate | undefined> => {
   let versionedTemplate: VersionedTemplate | undefined;
 
-  if (templateId) {
-    versionedTemplate = await VersionedTemplate.findActiveByTemplateId(reference, context, templateId);
+
+  if (versionedTemplateId) {
+    versionedTemplate = await VersionedTemplate.findVersionedTemplateById(reference, context, versionedTemplateId);
     if (!versionedTemplate) {
-      context.logger.error({ ref: reference, templateId }, 'Unable to find the specified versioned template!');
+      context.logger.error({ ref: reference, versionedTemplateId }, 'Unable to find the specified versioned template!');
       throw BadRequestError('Unable to find the specified versioned template!');
     }
   } else {
@@ -810,7 +818,7 @@ export const addEntirePlan = async (
     const versionedTemplate: VersionedTemplate | undefined = await findVersionedTemplateForEntirePlan(
       reference,
       context,
-      input.templateId
+      input.versionedTemplateId
     );
     if (!versionedTemplate.id) {
       context.logger.fatal('Unable to find a suitable versioned template!');

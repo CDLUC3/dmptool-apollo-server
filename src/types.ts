@@ -101,10 +101,10 @@ export type AddEntirePlanInput = {
   project: EntirePlanProjectFragment;
   /** The status of the plan */
   status: PlanStatus;
-  /** The id of the template being used (the default template will be used if not provided) */
-  templateId?: InputMaybe<Scalars['Int']['input']>;
   /** The title of the plan */
   title: Scalars['String']['input'];
+  /** The id of the template being used (the default template will be used if not provided) */
+  versionedTemplateId?: InputMaybe<Scalars['Int']['input']>;
   /** The visibility of the plan */
   visibility: PlanVisibility;
 };
@@ -1117,8 +1117,10 @@ export type DoiMatchSource = {
 /** Input to create/replace a Plan answer */
 export type EntirePlanAnswerFragment = {
   json: Scalars['String']['input'];
-  questionId?: InputMaybe<Scalars['Int']['input']>;
-  sectionId?: InputMaybe<Scalars['Int']['input']>;
+  versionedCustomQuestion?: InputMaybe<Scalars['Int']['input']>;
+  versionedCustomSectionId?: InputMaybe<Scalars['Int']['input']>;
+  versionedQuestionId?: InputMaybe<Scalars['Int']['input']>;
+  versionedSectionId?: InputMaybe<Scalars['Int']['input']>;
 };
 
 /** Input to create/replace a Project/Plan funding */
@@ -3699,6 +3701,8 @@ export type Query = {
   validatePasswordResetToken?: Maybe<Scalars['Boolean']['output']>;
   /** Get all VersionedGuidance for a given affiliation and Tag IDs */
   versionedGuidance: Array<VersionedGuidance>;
+  /** Get a VersionedTemplate by its id */
+  versionedTemplate?: Maybe<VersionedTemplate>;
 };
 
 
@@ -4202,6 +4206,11 @@ export type QueryValidatePasswordResetTokenArgs = {
 export type QueryVersionedGuidanceArgs = {
   affiliationId: Scalars['String']['input'];
   tagIds: Array<Scalars['Int']['input']>;
+};
+
+
+export type QueryVersionedTemplateArgs = {
+  id: Scalars['Int']['input'];
 };
 
 /** Question always belongs to a Section, which always belongs to a Template */
@@ -8160,6 +8169,7 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   users?: Resolver<Maybe<ResolversTypes['UserSearchResults']>, ParentType, ContextType, Partial<QueryUsersArgs>>;
   validatePasswordResetToken?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType, RequireFields<QueryValidatePasswordResetTokenArgs, 'token'>>;
   versionedGuidance?: Resolver<Array<ResolversTypes['VersionedGuidance']>, ParentType, ContextType, RequireFields<QueryVersionedGuidanceArgs, 'affiliationId' | 'tagIds'>>;
+  versionedTemplate?: Resolver<Maybe<ResolversTypes['VersionedTemplate']>, ParentType, ContextType, RequireFields<QueryVersionedTemplateArgs, 'id'>>;
 };
 
 export type QuestionResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['Question'] = ResolversParentTypes['Question']> = {

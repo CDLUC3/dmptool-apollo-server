@@ -106,6 +106,7 @@
     "typescript-eslint": "^8.62.1"
   },
   "overrides": {
-    "brace-expansion": "5.0.8"
+    "brace-expansion": "5.0.9",
+    "minimatch": "10.2.6"
   }
 }

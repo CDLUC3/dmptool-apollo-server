@@ -24,12 +24,18 @@ jest.mock('../logger', () => {
 jest.mock('../config/awsConfig', () => ({
   awsConfig: {
     region: 'us-west-2',
-    sesEndpoint: 'ses@example.com',
-    sesPort: 465,
-    sesAccessKey: '12345',
-    sesAccessSecret: '98765',
-    sesBounceAddress: 'bounce@example.com',
-    sesBouncedEmailBucket: 'my-test-bucket',
+    ses: {
+      endpoint: 'ses@example.com',
+      port: 465,
+      accessKey: '12345',
+      accessSecret: '98765',
+      bounceAddress: 'bounce@example.com',
+      bouncedEmailBucket: 'my-test-bucket',
+    },
+    s3: {
+      bucket: 'test-bucket',
+      localstackPort: '4566'
+    },
     dynamo: {
       region: 'us-west-2',
       tableName: 'test-table',

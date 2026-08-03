@@ -27,12 +27,20 @@ export const awsConfig = {
   region: process.env.AWS_REGION || 'us-west-2',
 
   // Simple Email Service (SES) configuration
-  sesEndpoint: process.env.SES_ENDPOINT,
-  port: process.env.SES_PORT ?? 465,
-  sesAccessKey: process.env.SES_ACCESS_ID,
-  sesAccessSecret: process.env.SES_ACCESS_SECRET,
-  sesBounceAddress: process.env.SES_BOUNCE_EMAIL_ADDRESS,
-  sesBouncedEmailBucket: process.env.SES_BOUNCED_EMAIL_BUCKET,
+  ses: {
+    endpoint: process.env.SES_ENDPOINT,
+    port: process.env.SES_PORT ?? 465,
+    accessKey: process.env.SES_ACCESS_ID,
+    accessSecret: process.env.SES_ACCESS_SECRET,
+    bounceAddress: process.env.SES_BOUNCE_EMAIL_ADDRESS,
+    bouncedEmailBucket: process.env.SES_BOUNCED_EMAIL_BUCKET,
+  },
+
+  // S3 cloudfront/CDN bucket configuration
+  s3: {
+    bucket: process.env.S3_BUCKET || 'maDMPs',
+    localstackPort: process.env.LOCALSTACK_PORT,
+  },
 
   // SQS configuration
   dynamo: {

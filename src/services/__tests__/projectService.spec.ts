@@ -9,10 +9,12 @@ import { Project } from "../../models/Project";
 import { isAdmin, isSuperAdmin } from "../authService";
 import {
   ensureDefaultProjectContact,
-  hasPermissionOnProject, setCurrentUserAsProjectOwner
+  hasPermissionOnProject,
+  setCurrentUserAsProjectOwner,
+  isProjectReadOnlyForCurrentUser,
 } from "../projectService";
 import { ProjectCollaborator, ProjectCollaboratorAccessLevel } from "../../models/Collaborator";
-import { User } from "../../models/User";
+import { User, UserRole } from "../../models/User";
 import { ProjectMember } from "../../models/Member";
 import { MemberRole } from "../../models/MemberRole";
 import { MyContext } from "../../context";
@@ -356,5 +358,125 @@ describe('ensureDefaultProjectContact', () => {
 
     expect(await ensureDefaultProjectContact(context, project)).toBe(true);
     ProjectMember.findPrimaryContact = originalFindPrimaryContact;
+  });
+});
+
+describe('isProjectReadOnlyForCurrentUser', () => {
+  let project: Project;
+  let mockFindByUserIdAndProjectId: jest.SpyInstance;
+  let mockFindPrimaryUserByProjectId: jest.SpyInstance;
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+
+    context = await buildMockContextWithToken(logger);
+
+    project = new Project({
+      id: casual.integer(1, 999),
+      title: casual.sentence,
+    });
+
+    mockFindByUserIdAndProjectId = jest.spyOn(ProjectCollaborator, 'findByUserIdAndProjectId');
+    mockFindPrimaryUserByProjectId = jest.spyOn(ProjectCollaborator, 'findPrimaryUserByProjectId');
+  });
+
+  afterEach(() => {
+    mockFindByUserIdAndProjectId.mockRestore();
+    mockFindPrimaryUserByProjectId.mockRestore();
+  });
+
+  it('returns false (not read-only) if caller has OWN access level', async () => {
+    mockFindByUserIdAndProjectId.mockResolvedValueOnce({
+      accessLevel: ProjectCollaboratorAccessLevel.OWN,
+    });
+
+    const result = await isProjectReadOnlyForCurrentUser('test', context, project);
+
+    expect(result).toBe(false);
+    expect(mockFindByUserIdAndProjectId).toHaveBeenCalledTimes(1);
+    expect(mockFindPrimaryUserByProjectId).toHaveBeenCalledTimes(0);
+  });
+
+  it('returns false (not read-only) if caller has PRIMARY access level', async () => {
+    mockFindByUserIdAndProjectId.mockResolvedValueOnce({
+      accessLevel: ProjectCollaboratorAccessLevel.PRIMARY,
+    });
+
+    const result = await isProjectReadOnlyForCurrentUser('test', context, project);
+
+    expect(result).toBe(false);
+    expect(mockFindByUserIdAndProjectId).toHaveBeenCalledTimes(1);
+    expect(mockFindPrimaryUserByProjectId).toHaveBeenCalledTimes(0);
+  });
+
+  it('returns true (read-only) if caller has EDIT access level', async () => {
+    mockFindByUserIdAndProjectId.mockResolvedValueOnce({
+      accessLevel: ProjectCollaboratorAccessLevel.EDIT,
+    });
+
+    const result = await isProjectReadOnlyForCurrentUser('test', context, project);
+
+    expect(result).toBe(true);
+    expect(mockFindByUserIdAndProjectId).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns true (read-only) if caller is a SUPERADMIN without write access', async () => {
+    mockFindByUserIdAndProjectId.mockResolvedValueOnce({
+      accessLevel: ProjectCollaboratorAccessLevel.EDIT,
+    });
+    context.token = { ...context.token, role: UserRole.SUPERADMIN };
+
+    const result = await isProjectReadOnlyForCurrentUser('test', context, project);
+
+    expect(result).toBe(true);
+    expect(mockFindPrimaryUserByProjectId).toHaveBeenCalledTimes(0);
+  });
+
+  it('returns true (read-only) if caller is an ADMIN with same affiliation as primary collaborator', async () => {
+    const sharedAffiliationId = casual.integer(1, 999);
+    mockFindByUserIdAndProjectId.mockResolvedValueOnce({
+      accessLevel: ProjectCollaboratorAccessLevel.EDIT,
+    });
+    mockFindPrimaryUserByProjectId.mockResolvedValueOnce({
+      affiliationId: sharedAffiliationId,
+    });
+    context.token = {
+      ...context.token,
+      role: UserRole.ADMIN,
+      affiliationId: sharedAffiliationId,
+    };
+
+    const result = await isProjectReadOnlyForCurrentUser('test', context, project);
+
+    expect(result).toBe(true);
+    expect(mockFindPrimaryUserByProjectId).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns true (read-only) if caller is an ADMIN with a different affiliation than the primary collaborator', async () => {
+    mockFindByUserIdAndProjectId.mockResolvedValueOnce({
+      accessLevel: ProjectCollaboratorAccessLevel.EDIT,
+    });
+    mockFindPrimaryUserByProjectId.mockResolvedValueOnce({
+      affiliationId: casual.integer(1, 499),
+    });
+    context.token = {
+      ...context.token,
+      role: UserRole.ADMIN,
+      affiliationId: casual.integer(500, 999),
+    };
+
+    const result = await isProjectReadOnlyForCurrentUser('test', context, project);
+
+    expect(result).toBe(true);
+    expect(mockFindPrimaryUserByProjectId).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns true (read-only) if caller has no collaborator record', async () => {
+    mockFindByUserIdAndProjectId.mockResolvedValueOnce(null);
+
+    const result = await isProjectReadOnlyForCurrentUser('test', context, project);
+
+    expect(result).toBe(true);
+    expect(mockFindByUserIdAndProjectId).toHaveBeenCalledTimes(1);
   });
 });

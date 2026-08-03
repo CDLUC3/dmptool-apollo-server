@@ -580,6 +580,8 @@ export class TemplateCustomization extends MySqlModel {
   public latestPublishedDate: string;
   // Whether the customization has been modified since it was last published
   public isDirty: boolean;
+  // The name of the parent template, included for convenience when fetching a customization with its template name
+  public templateName?: string;
 
   static tableName = 'templateCustomizations';
 
@@ -595,6 +597,7 @@ export class TemplateCustomization extends MySqlModel {
     this.latestPublishedVersionId = options.latestPublishedVersionId;
     this.latestPublishedDate = options.latestPublishedDate;
     this.isDirty = options.isDirty ?? false;
+    this.templateName = options.templateName;
   }
 
   /**
@@ -761,7 +764,8 @@ export class TemplateCustomization extends MySqlModel {
           context,
           TemplateCustomization.tableName,
           this,
-          ref
+          ref,
+          ['templateName'] //skip templateName as it is not a real column in the database and is only used for convenience when fetching a customization with its template name
         );
         return await TemplateCustomization.findById(ref, context, newId);
       }
@@ -796,7 +800,7 @@ export class TemplateCustomization extends MySqlModel {
           TemplateCustomization.tableName,
           this,
           ref,
-          [],
+          ['templateName'],
           noTouch
         );
         return await TemplateCustomization.findById(ref, context, this.id);
@@ -960,5 +964,31 @@ export class TemplateCustomization extends MySqlModel {
       reference
     )
     return Array.isArray(results) ? results.map(c => new TemplateCustomization(c)) : [];
+  }
+
+  /**
+   * Find the TemplateCustomization with the name of the base template it is customizing by its id
+   * @param reference 
+   * @param context 
+   * @param templateCustomizationId 
+   * @returns 
+   */
+  static async findByIdWithTemplateName(
+    reference: string,
+    context: MyContext,
+    templateCustomizationId: number
+  ): Promise<TemplateCustomization & { name?: string } | null> {
+    const results = await TemplateCustomization.query(
+      context,
+      `SELECT tc.*, t.name AS templateName
+      FROM ${TemplateCustomization.tableName} tc
+      JOIN templates t ON tc.templateId = t.id
+      WHERE tc.id = ?`,
+      [templateCustomizationId?.toString()],
+      reference
+    );
+    return Array.isArray(results) && results.length > 0
+      ? new TemplateCustomization(results[0])
+      : null;
   }
 }

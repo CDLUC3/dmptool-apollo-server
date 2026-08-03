@@ -250,7 +250,7 @@ export const resolvers: Resolvers = {
           // Delete any Tag associations that were removed
           const removeTagErrors = [];
           for (const id of idsToBeRemoved) {
-            const tag = await Tag.findById(reference, context, id);
+            const tag = await Tag.findById(reference, context, id as number);
             if (tag) {
               const wasRemoved = tag.removeFromSection(context, updatedSection.id)
               if (!wasRemoved) {
@@ -266,7 +266,7 @@ export const resolvers: Resolvers = {
           // Add any new Tag associations
           const addTagErrors = [];
           for (const id of idsToBeSaved) {
-            const tag = await Tag.findById(reference, context, id);
+            const tag = await Tag.findById(reference, context, id as number);
             if (tag) {
               const wasAdded = tag.addToSection(context, updatedSection.id)
               if (!wasAdded) {

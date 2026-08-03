@@ -287,7 +287,7 @@ export const resolvers: Resolvers = {
           const removeErrors = [];
           // Remove records that are not in the newly supplied projectFundingIds array
           for (const id of idsToBeRemoved) {
-            const funding = await PlanFunding.findByProjectFundingId(reference, context, planId, id);
+            const funding = await PlanFunding.findByProjectFundingId(reference, context, planId, id as number);
             if (funding) {
               const wasRemoved = funding.delete(context);
               if (!wasRemoved) {
@@ -303,7 +303,7 @@ export const resolvers: Resolvers = {
           const addErrors = [];
           // Add new records for projectFundingIds that are not already in planFundings table
           for (const id of idsToBeSaved) {
-            const funding = new PlanFunding({ planId, projectFundingId: id });
+            const funding = new PlanFunding({ planId, projectFundingId: id as number });
 
             const wasAdded = funding.create(context);
             if (!wasAdded) {

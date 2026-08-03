@@ -1,6 +1,7 @@
 import { mergeTypeDefs } from '@graphql-tools/merge';
 
 import { typeDefs as baseTypeDefs } from './schemas/base';
+import { typeDefs as adminNotificationTypeDefs } from './schemas/adminNotifications';
 import { typeDefs as affiliationTypeDefs } from './schemas/affiliation';
 import { typeDefs as answerTypeDefs } from './schemas/answer';
 import { typeDefs as collaboratorTypeDefs } from './schemas/collaborator';
@@ -37,7 +38,7 @@ import { typeDefs as versionedTemplateTypeDefs } from './schemas/versionedTempla
 
 export const typeDefs = mergeTypeDefs([
   baseTypeDefs,
-
+  adminNotificationTypeDefs,
   affiliationTypeDefs,
   answerTypeDefs,
   collaboratorTypeDefs,

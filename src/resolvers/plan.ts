@@ -4,10 +4,12 @@ import { Plan, PlanSearchResult, PlanSectionProgress, PlanProgress, PlanStatus, 
 import { prepareObjectForLogs } from "../logger";
 import { AuthenticationError, ForbiddenError, InternalServerError, NotFoundError } from "../utils/graphQLErrors";
 import { Project } from "../models/Project";
-import { User, UserRole } from "../models/User";
-import { ProjectCollaborator } from "../models/Collaborator";
+import { User } from "../models/User";
 import { isAuthorized } from "../services/authService";
-import { hasPermissionOnProject } from "../services/projectService";
+import {
+  hasPermissionOnProject,
+  isProjectReadOnlyForCurrentUser
+} from "../services/projectService";
 import { PlanMember } from "../models/Member";
 import { PlanFunding } from "../models/Funding";
 import { PlanFeedback } from "../models/PlanFeedback";
@@ -21,11 +23,6 @@ import {
   saveMaDMPVersion
 } from "../services/planService";
 import { AlternateIdentifier } from "../models/AlternateIdentifier";
-
-const WRITE_ACCESS_LEVELS = new Set([
-  ProjectCollaboratorAccessLevel.OWN,
-  ProjectCollaboratorAccessLevel.PRIMARY,
-]);
 
 
 export const resolvers: Resolvers = {
@@ -69,26 +66,8 @@ export const resolvers: Resolvers = {
         }
 
         if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.COMMENT)) {
-          // If user is a collaborator on the project, then readOnly = false
-          const callerCollaborator = await ProjectCollaborator.findByUserIdAndProjectId(
-            reference, context, context.token?.id, project.id
-          );
-          if (WRITE_ACCESS_LEVELS.has(callerCollaborator?.accessLevel)) {
-            return Object.assign(plan, { readOnly: false }) as Plan & { readOnly: boolean };
-          }
-
-          // Super Admins always have readOnly access to all plans
-          if (context.token?.role === UserRole.SUPERADMIN) {
-            return Object.assign(plan, { readOnly: true }) as Plan & { readOnly: boolean };
-          }
-
-          // If the user is an ADMIN under the same org as the primary, they have readOnly access
-          const primaryCollaborator = await ProjectCollaborator.findPrimaryUserByProjectId(reference, context, project.id);
-          if ((primaryCollaborator.affiliationId === context.token?.affiliationId) && context.token?.role === UserRole.ADMIN) {
-            return Object.assign(plan, { readOnly: true }) as Plan & { readOnly: boolean };
-          }
-
-          return Object.assign(plan, { readOnly: true }) as Plan & { readOnly: boolean };
+          const readOnly = await isProjectReadOnlyForCurrentUser(reference, context, project);
+          return Object.assign(plan, { readOnly }) as Plan & { readOnly: boolean };
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();
       } catch (err) {

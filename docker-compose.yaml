@@ -76,6 +76,7 @@ services:
       - "127.0.0.1:4510-4559:4510-4559"  # external services port range
     environment:
       # LocalStack configuration: https://docs.localstack.cloud/references/configuration/
+      - LOCALSTACK_AUTH_TOKEN=${LOCALSTACK_AUTH_TOKEN- }
       - DEBUG=${DEBUG:-0}
       - SERVICES=ses,sqs,lambda,ssm,logs,events,dynamodb
     volumes:
@@ -138,13 +139,16 @@ services:
       # (we use the same OpenSearch instance in this local environment)
       - "OPENSEARCH_SERVERLESS_NODE=http://opensearch:9200"
 
+      # LocalStack Port
+      - "LOCALSTACK_PORT=4566"
+
       # DynamoDB table used to store maDMP versions
       - "DYNAMO_ENDPOINT=http://localstack:4566"
       - "DYNAMODB_TABLE_NAME=localDMPTable"
       - "MAX_ATTEMPTS=3"
 
-      # LocalStack managed SQS queue
-      - "SQS_GENERATE_MADMP_QUEUE_URL=http://localstack:4566/000000000000/generateMaDMPRecord"
+      # LocalStack managed S3 bucket
+      - "S3_BUCKET=local-s3-bucket"
     volumes:
       - ".:/app"
       # Mount the mysql certs directory so Apollo can see them

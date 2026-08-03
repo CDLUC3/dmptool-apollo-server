@@ -12,7 +12,7 @@ export async function attachApolloServer(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   cache: any,
   logger: Logger,
-  sqlDataSource: MySQLConnection ,
+  sqlDataSource: MySQLConnection,
   dmphubAPIDataSource: DMPHubAPI,
 ) {
   const context = buildContext(
@@ -34,6 +34,7 @@ export async function attachApolloServer(
         cache,
         req.auth as JWTAccessToken,
         sqlDataSource,
+        dmphubAPIDataSource
       );
     },
   });

@@ -13,7 +13,7 @@ verifyCriticalEnvVariable('JWT_REFRESH_SECRET');
 // Get the application environment code. This can differ from the NODE_ENV which bears special
 // meaning for Node applictions. For example when we deploy to the AWS development environment,
 // the NODE_ENV is `staging` but the APP_ENV is `dev`.
-const env = process.env.APP_ENV || 'dev';
+const env: string = process.env.APP_ENV || 'dev';
 
 export const generalConfig = {
   restDataSourceCacheTtl: Number.parseInt(process.env.REST_DATA_SOURCE_CACHE_TTL) || 180,

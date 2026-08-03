@@ -16,6 +16,17 @@ import { Tag } from "./Tag";
 
 export const DEFAULT_TEMPORARY_DMP_ID_PREFIX = 'temp-dmpId-';
 
+export const FILLED_ANSWER_CHECK = `
+  JSON_TYPE(a.json) = 'OBJECT'
+  AND NOT (
+    JSON_UNQUOTE(JSON_EXTRACT(a.json, '$.type')) IN ('textArea', 'text')
+    AND (
+      JSON_EXTRACT(a.json, '$.answer') IS NULL
+      OR JSON_UNQUOTE(JSON_EXTRACT(a.json, '$.answer')) = ''
+    )
+  )
+`;
+
 /**
  * Possible statuses for a plan.
  */
@@ -135,6 +146,8 @@ export class PlanSectionProgress {
   public displayOrder: number;
   public totalQuestions: number;
   public answeredQuestions: number;
+  public totalRequiredQuestions: number;
+  public answeredRequiredQuestions: number;
   public tags?: Tag[];
 
   constructor(options) {
@@ -145,6 +158,8 @@ export class PlanSectionProgress {
     this.displayOrder = options.displayOrder;
     this.totalQuestions = options.totalQuestions;
     this.answeredQuestions = options.answeredQuestions;
+    this.totalRequiredQuestions = options.totalRequiredQuestions ?? 0;
+    this.answeredRequiredQuestions = options.answeredRequiredQuestions ?? 0;
     this.tags = options.tags ?? [];
   }
 
@@ -186,14 +201,15 @@ export class PlanSectionProgress {
     reference: string,
     context: MyContext,
     templateCustomizationId: number,
-  ): Promise<{ id: number; name: string; pinnedSectionType: string; pinnedSectionId: number; totalQuestions: number }[]> {
+  ): Promise<{ id: number; name: string; pinnedSectionType: string; pinnedSectionId: number; totalQuestions: number; totalRequiredQuestions: number }[]> {
     const sql = `
     SELECT
       vcs.customSectionId AS id,
       vcs.name,
       vcs.pinnedVersionedSectionType AS pinnedSectionType,
       vcs.pinnedVersionedSectionId AS pinnedSectionId,
-      COUNT(vcq.id) AS totalQuestions
+      COUNT(vcq.id) AS totalQuestions,
+      COUNT(CASE WHEN vcq.required = 1 THEN vcq.id END) AS totalRequiredQuestions
     FROM versionedCustomSections vcs
     JOIN versionedTemplateCustomizations vtc ON vtc.id = vcs.versionedTemplateCustomizationId
     LEFT JOIN versionedCustomQuestions vcq
@@ -216,12 +232,13 @@ export class PlanSectionProgress {
     reference: string,
     context: MyContext,
     templateCustomizationId: number
-  ): Promise<{ versionedSectionId: number; extraCount: number }[]> {
+  ): Promise<{ versionedSectionId: number; extraCount: number; requiredCount: number }[]> {
     // sectionId on a BASE custom question points directly to versionedSections.id
     const sql = `
       SELECT
         cq.sectionId AS versionedSectionId,
-        COUNT(cq.id) AS extraCount
+        COUNT(cq.id) AS extraCount,
+        COUNT(CASE WHEN cq.required = 1 THEN cq.id END) AS requiredCount
       FROM customQuestions cq
       JOIN versionedSections vs ON vs.id = cq.sectionId
       WHERE cq.templateCustomizationId = ?
@@ -250,12 +267,13 @@ export class PlanSectionProgress {
     context: MyContext,
     planId: number,
     templateCustomizationId: number,
-  ): Promise<{ sectionId: number; sectionType: string; answeredCount: number }[]> {
+  ): Promise<{ sectionId: number; sectionType: string; answeredCount: number; answeredRequiredCount: number }[]> {
     const sql = `
     SELECT
       vcq.versionedSectionId  AS sectionId,
       vcq.versionedSectionType AS sectionType,
-      COUNT(DISTINCT a.versionedCustomQuestionId) AS answeredCount
+      COUNT(DISTINCT a.versionedCustomQuestionId) AS answeredCount,
+      COUNT(DISTINCT CASE WHEN vcq.required = 1 THEN a.versionedCustomQuestionId END) AS answeredRequiredCount
     FROM answers a
     JOIN versionedCustomQuestions vcq
       ON vcq.id = a.versionedCustomQuestionId
@@ -263,7 +281,7 @@ export class PlanSectionProgress {
       ON vtc.id = vcq.versionedTemplateCustomizationId
     WHERE a.planId = ?
       AND vtc.templateCustomizationId = ?
-      AND JSON_TYPE(a.json) = 'OBJECT'
+      AND ${FILLED_ANSWER_CHECK}
     GROUP BY vcq.versionedSectionId, vcq.versionedSectionType
   `;
     const rows = await Plan.query(
@@ -292,9 +310,14 @@ export class PlanSectionProgress {
       vs.name AS title,
       COUNT(DISTINCT vq.id) AS totalQuestions,
       COUNT(DISTINCT CASE
-          WHEN a.id IS NOT NULL AND JSON_TYPE(a.json) = 'OBJECT'
+          WHEN a.id IS NOT NULL AND ${FILLED_ANSWER_CHECK}
           THEN vq.id
         END) AS answeredQuestions,
+      COUNT(DISTINCT CASE WHEN vq.required = 1 THEN vq.id END) AS totalRequiredQuestions,
+      COUNT(DISTINCT CASE
+          WHEN a.id IS NOT NULL AND ${FILLED_ANSWER_CHECK} AND vq.required = 1
+          THEN vq.id
+        END) AS answeredRequiredQuestions,
       COALESCE(tagAgg.tags, JSON_ARRAY()) AS tags
     FROM plans p
       JOIN versionedTemplates vt ON p.versionedTemplateId = vt.id
@@ -360,12 +383,16 @@ export class PlanSectionProgress {
     // Build answered-count maps keyed by sectionId, split by section type ("Base" vs "Custom") since they have different sectionId spaces
     const answeredCustomByBaseSection = new Map<number, number>();
     const answeredCustomByCustomSection = new Map<number, number>();
+    const answeredRequiredCustomByBaseSection = new Map<number, number>();
+    const answeredRequiredCustomByCustomSection = new Map<number, number>();
 
     for (const row of answeredCustomTotals) {
       if (row.sectionType === 'BASE') {
         answeredCustomByBaseSection.set(row.sectionId, Number(row.answeredCount));
+        answeredRequiredCustomByBaseSection.set(row.sectionId, Number(row.answeredRequiredCount));
       } else if (row.sectionType === 'CUSTOM') {
         answeredCustomByCustomSection.set(row.sectionId, Number(row.answeredCount));
+        answeredRequiredCustomByCustomSection.set(row.sectionId, Number(row.answeredRequiredCount));
       }
     }
 
@@ -374,13 +401,22 @@ export class PlanSectionProgress {
       const extraBySection = new Map<number, number>(
         baseCustomQuestionTotals.map((r) => [r.versionedSectionId, Number(r.extraCount)])
       );
+      const extraRequiredBySection = new Map<number, number>(
+        baseCustomQuestionTotals.map((r) => [r.versionedSectionId, Number(r.requiredCount)])
+      );
       for (const section of baseSections) {
         const extra = extraBySection.get(section.versionedSectionId) ?? 0;
-        if (extra > 0) section.totalQuestions += extra;
+        if (extra > 0) {
+          section.totalQuestions += extra;
+          section.totalRequiredQuestions += extraRequiredBySection.get(section.versionedSectionId) ?? 0;
+        }
 
         // Also credit answered custom questions on this base section
         const answeredExtra = answeredCustomByBaseSection.get(section.versionedSectionId) ?? 0;
-        if (answeredExtra > 0) section.answeredQuestions += answeredExtra;
+        if (answeredExtra > 0) {
+          section.answeredQuestions += answeredExtra;
+          section.answeredRequiredQuestions += answeredRequiredCustomByBaseSection.get(section.versionedSectionId) ?? 0;
+        }
       }
     }
 
@@ -422,6 +458,8 @@ export class PlanSectionProgress {
           displayOrder: displayOrder++,
           totalQuestions: Number(cs.totalQuestions),
           answeredQuestions: answeredCustomByCustomSection.get(cs.id) ?? 0,
+          totalRequiredQuestions: Number(cs.totalRequiredQuestions),
+          answeredRequiredQuestions: answeredRequiredCustomByCustomSection.get(cs.id) ?? 0,
           tags: [],
         }));
       }

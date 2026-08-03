@@ -43,7 +43,7 @@ export async function updateMemberRoles(
   // Remove roles
   const removeErrors = [];
   for (const id of idsToBeRemoved) {
-    const role = await MemberRole.findById(reference, context, id);
+    const role = await MemberRole.findById(reference, context, id as number);
     if (role) {
       const wasRemoved = await role.removeFromPlanMember(context, memberId);
       if (!wasRemoved) {
@@ -58,7 +58,7 @@ export async function updateMemberRoles(
   // Add roles
   const addErrors = [];
   for (const id of idsToBeSaved) {
-    const role = await MemberRole.findById(reference, context, id);
+    const role = await MemberRole.findById(reference, context, id as number);
     if (role) {
       const wasAdded = await role.addToPlanMember(context, memberId);
       if (!wasAdded) {
@@ -74,7 +74,7 @@ export async function updateMemberRoles(
 
   const updatedRoles = [...currentRoleIds.filter(id => !idsToBeRemoved.includes(id)), ...idsToBeSaved];
   return {
-    updatedRoleIds: updatedRoles.length > 0 ? updatedRoles : currentRoleIds,
+    updatedRoleIds: updatedRoles.length > 0 ? updatedRoles as number[] : currentRoleIds as number[],
     errors: associationErrors,
   };
 }

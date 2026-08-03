@@ -346,7 +346,7 @@ export const resolvers: Resolvers = {
               const dom = await ResearchDomain.findById(
                 reference,
                 context,
-                id,
+                id as number,
               );
               if (dom) {
                 const wasRemoved = dom.removeFromRepository(
@@ -371,7 +371,7 @@ export const resolvers: Resolvers = {
               const dom = await ResearchDomain.findById(
                 reference,
                 context,
-                id,
+                id as number,
               );
               if (dom) {
                 const wasAdded = dom.addToRepository(context, updated.id);

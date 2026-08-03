@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import casual from "casual";
 import { ApolloServer } from "@apollo/server";
 import { typeDefs } from "../../schema";
@@ -8,6 +9,8 @@ import { VersionedTemplate } from '../../models/VersionedTemplate';
 import { logger } from "../../logger";
 import { JWTAccessToken } from "../../services/tokenService";
 import { UserRole } from "../../models/User";
+import { Affiliation } from '../../models/Affiliation';
+import { AdminNotification } from '../../models/AdminNotifications';
 import {
   TemplateCustomization,
   TemplateCustomizationMigrationStatus,
@@ -42,12 +45,10 @@ let adminToken: JWTAccessToken;
 let query: string;
 
 // Proxy call to the Apollo server test server
-async function executeQuery (
+async function executeQuery(
   query: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   variables: any,
   token: JWTAccessToken
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<any> {
   const context = buildContext(logger, token, null);
 
@@ -407,18 +408,23 @@ describe('templateCustomization resolvers', () => {
     it('should publish template customization successfully when status is DRAFT', async () => {
       const draftCustomization = {
         ...mockCustomization,
-        status: TemplateCustomizationStatus.DRAFT
+        status: TemplateCustomizationStatus.DRAFT,
+        publish: jest.fn().mockResolvedValue(mockCustomization),
       } as unknown as TemplateCustomization;
-      (getValidatedCustomization as jest.Mock) = jest.fn().mockResolvedValue(draftCustomization);
-      (mockCustomization.publish as jest.Mock).mockResolvedValue(mockCustomization);
+
+      (getValidatedCustomization as jest.Mock).mockResolvedValue(draftCustomization);
       (TemplateCustomizationOverview.generateOverview as jest.Mock).mockResolvedValue(mockCustomizationOverview);
+
+      jest.spyOn(Affiliation, 'findByURI').mockResolvedValue({ uri: affiliationId } as any);
+
+      const mockCreate = jest.fn().mockResolvedValue({ id: 1 });
+      jest.spyOn(AdminNotification.prototype, 'create').mockImplementation(mockCreate);
 
       const input = { templateCustomizationId: 1 };
       const result = await executeQuery(query, input, adminToken);
 
       expect(result.body.kind).toEqual('single');
       expect(result.body.singleResult.errors).toBeUndefined();
-      expect(result.body.singleResult.data.publishTemplateCustomization).toBeTruthy();
       expect(result.body.singleResult.data.publishTemplateCustomization.customizationId).toEqual(mockCustomizationOverview.customizationId);
       expect(draftCustomization.publish).toHaveBeenCalledWith(expect.any(Object));
     });

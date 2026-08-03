@@ -344,15 +344,25 @@ describe('findBy Queries', () => {
 
   it('findFilledAnswersByQuestionIds should call query with correct params and return the objects', async () => {
     const planId = casual.integer(1, 9999);
-    // Mock the localQuery to return an array of answers, these are the same answer repeated, but the mock simply
-    // returns what is written here if it's called. So mocking additional different answers doesn't add additional value to the test.
     localQuery.mockResolvedValueOnce([answer, answer, answer]);
     const questionIds = [casual.integer(1, 9999), casual.integer(1, 9999), casual.integer(1, 9999)];
     const result = await Answer.findFilledAnswersByQuestionIds('testing', context, planId, questionIds);
-    const expectedSql = 'SELECT * FROM answers WHERE planId = ? AND versionedQuestionId IN (?, ?, ?) AND json IS NOT NULL AND json != \'\'';
-    const vals = questionIds.map(String)
+
+    const normalizeSQL = (sql: string) => sql.replace(/\s+/g, ' ').trim();
+
+    const receivedSQL = localQuery.mock.calls[0][1];
+
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [String(planId), ...vals], 'testing')
+    expect(normalizeSQL(receivedSQL)).toContain(normalizeSQL(`SELECT * FROM answers WHERE planId = ?`));
+    expect(normalizeSQL(receivedSQL)).toContain(normalizeSQL(`AND versionedQuestionId IN (?, ?, ?)`));
+    expect(normalizeSQL(receivedSQL)).toContain(normalizeSQL(`JSON_TYPE(json) = 'OBJECT'`));
+    expect(normalizeSQL(receivedSQL)).toContain(normalizeSQL(`IN ('textArea', 'text')`));
+    expect(localQuery).toHaveBeenLastCalledWith(
+      context,
+      expect.any(String),
+      [String(planId), ...questionIds.map(String)],
+      'testing'
+    );
     expect(result).toEqual([answer, answer, answer]);
   });
 

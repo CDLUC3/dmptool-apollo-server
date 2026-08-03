@@ -18,6 +18,7 @@ import { ProjectMember } from '../models/Member';
 import {
   ensureDefaultProjectContact,
   hasPermissionOnProject,
+  isProjectReadOnlyForCurrentUser,
   setCurrentUserAsProjectOwner
 } from '../services/projectService';
 import { Affiliation } from '../models/Affiliation';
@@ -31,6 +32,7 @@ import {
   normaliseDate,
   normaliseDateTime
 } from '../utils/helpers';
+import { validateEmail } from '../utils/helpers';
 //import { parseMember } from '../services/commonStandardService';
 import {
   PaginationOptionsForCursors,
@@ -119,7 +121,8 @@ export const resolvers: Resolvers = {
           }
 
           if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.COMMENT)) {
-            return project;
+            const readOnly = await isProjectReadOnlyForCurrentUser(reference, context, project);
+            return Object.assign(project, { readOnly }) as Project & { readOnly: boolean };
           }
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();
@@ -147,13 +150,34 @@ export const resolvers: Resolvers = {
             awardYear,
             piNames,
           );
+
           return dmps.map((dmpHubAward) => {
-            const members = [];
+            const members = Array.isArray(dmpHubAward.contributor)
+              ? dmpHubAward.contributor.map(contrib => {
+                const parts = contrib.name.split(',');
+                const potentialEmail = parts[0]?.trim();
+                const isValidEmail = validateEmail(potentialEmail ?? '');
+
+                const email = isValidEmail ? potentialEmail : undefined;
+                const nameParts = isValidEmail ? parts.slice(1) : parts;
+
+                const givenName = nameParts.slice(1).join(',').trim();
+                const surName = nameParts[0]?.trim();
+
+                return {
+                  email: email?.trim(),
+                  givenName,
+                  surName,
+                  role: contrib.role || []
+                };
+              })
+              : [];
 
             return {
               title: dmpHubAward.project.title,
               abstractText: dmpHubAward.project.description,
               startDate: normaliseDate(dmpHubAward.project.start),
+              awardYear: dmpHubAward.project.start ? dmpHubAward.project.start.slice(0, 4) : null,
               endDate: normaliseDate(dmpHubAward.project.end),
               fundings: dmpHubAward.project.funding.map((fund) => ({
                 funderProjectNumber: fund.dmproadmap_project_number,
@@ -308,9 +332,30 @@ export const resolvers: Resolvers = {
               const addFundingErrors = [];
               for (const fund of input.funding) {
                 const newFunding = new ProjectFunding(fund);
-                const fundingAdded = await newFunding.create(context, projectId);
-                if (!fundingAdded) {
-                  addFundingErrors.push(`Funding(affiliationId=${newFunding.affiliationId})`);
+
+                // Check if a funding record already exists for this affiliation on the project. If so, 
+                // update it instead of creating a new one to avoid duplicates.
+                const existingFunding = await ProjectFunding.findByProjectAndAffiliation(
+                  reference,
+                  context,
+                  projectId,
+                  newFunding.affiliationId
+                );
+
+                if (existingFunding) {
+                  // Merge the new data into the existing record and update
+                  existingFunding.funderProjectNumber = newFunding.funderProjectNumber;
+                  existingFunding.grantId = newFunding.grantId;
+                  existingFunding.funderOpportunityNumber = newFunding.funderOpportunityNumber;
+                  const fundingResult = await existingFunding.update(context);
+                  if (!fundingResult || fundingResult.hasErrors()) {
+                    addFundingErrors.push(`Funding(affiliationId=${newFunding.affiliationId})`);
+                  }
+                } else {
+                  const fundingResult = await newFunding.create(context, projectId);
+                  if (!fundingResult || fundingResult.hasErrors()) {
+                    addFundingErrors.push(`Funding(affiliationId=${newFunding.affiliationId})`);
+                  }
                 }
               }
               if (addFundingErrors.length > 0) {

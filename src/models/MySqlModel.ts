@@ -621,11 +621,11 @@ export class MySqlModel {
   //     - idsOnNewRecord:      The foreign key ids we want
   // Return a list of the ids to delete, idsToBeRemoved,  and a list of ids to add idsToBeSaved
   static reconcileAssociationIds(
-    idsOnCurrentRecord: number[],
-    idsOnNewRecord?: number[]
-  ): { idsToBeRemoved: number[], idsToBeSaved: number[] | undefined } {
-    const current = new Set<number>(idsOnCurrentRecord);
-    const wanted = new Set<number>(idsOnNewRecord);
+    idsOnCurrentRecord: (number | string)[],
+    idsOnNewRecord?: (number | string)[]
+  ): { idsToBeRemoved: (number | string)[], idsToBeSaved: (number | string)[] | undefined } {
+    const current = new Set<number | string>(idsOnCurrentRecord);
+    const wanted = new Set<number | string>(idsOnNewRecord);
 
     return {
       idsToBeRemoved: idsOnCurrentRecord.filter((id) => !wanted.has(id)),

@@ -2,11 +2,16 @@ import { MyContext } from "../context";
 import { prepareObjectForLogs } from "../logger";
 import { ProjectCollaborator, ProjectCollaboratorAccessLevel } from "../models/Collaborator";
 import { Project } from "../models/Project";
-import { User } from "../models/User";
+import { User, UserRole } from "../models/User";
 import { isAdmin, isSuperAdmin } from "./authService";
 import { isNullOrUndefined } from "../utils/helpers";
 import { ProjectMember } from "../models/Member";
 import { MemberRole } from "../models/MemberRole";
+
+const WRITE_ACCESS_LEVELS = new Set([
+  ProjectCollaboratorAccessLevel.OWN,
+  ProjectCollaboratorAccessLevel.PRIMARY,
+]);
 
 // Determine whether the specified user has permission to access the Section
 export const hasPermissionOnProject = async (
@@ -69,6 +74,41 @@ export const hasPermissionOnProject = async (
   const payload = { projectId: project?.id, userId: context.token?.id };
   context.logger.error(prepareObjectForLogs(payload), `AUTH failure: ${reference}`);
   return false;
+}
+
+// Determine whether the current user should be restricted to read-only access.
+export const isProjectReadOnlyForCurrentUser = async (
+  reference: string,
+  context: MyContext,
+  project: Project,
+): Promise<boolean> => {
+  const callerCollaborator = await ProjectCollaborator.findByUserIdAndProjectId(
+    reference,
+    context,
+    context.token?.id,
+    project.id,
+  );
+
+  if (WRITE_ACCESS_LEVELS.has(callerCollaborator?.accessLevel)) {
+    return false;
+  }
+
+  if (context.token?.role === UserRole.SUPERADMIN) {
+    return true;
+  }
+
+  if (context.token?.role === UserRole.ADMIN) {
+    const primaryCollaborator = await ProjectCollaborator.findPrimaryUserByProjectId(
+      reference,
+      context,
+      project.id,
+    );
+    if (primaryCollaborator?.affiliationId === context.token?.affiliationId) {
+      return true;
+    }
+  }
+
+  return true;
 }
 
 // Set the current user as the owner of the project

@@ -1,6 +1,9 @@
 # Ignore the Dotenv file
 .env
 
+# Ignore any local packages
+*.tgz
+
 # Ignore the local data-migration log.
 data-migrations/processed.log
 

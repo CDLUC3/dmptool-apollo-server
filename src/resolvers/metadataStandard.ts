@@ -131,7 +131,7 @@ export const resolvers: Resolvers = {
             const removeErrors = [];
             // Delete any ResearchDomain associations that were removed
             for (const id of idsToBeRemoved) {
-              const dom = await ResearchDomain.findById(reference, context, id);
+              const dom = await ResearchDomain.findById(reference, context, id as number);
               if (dom) {
                 const wasRemoved = dom.removeFromMetadataStandard(context, updated.id);
                 if (!wasRemoved) {
@@ -147,7 +147,7 @@ export const resolvers: Resolvers = {
             const addErrors = [];
             // Add any new ResearchDomain associations
             for (const id of idsToBeSaved) {
-              const dom = await ResearchDomain.findById(reference, context, id);
+              const dom = await ResearchDomain.findById(reference, context, id as number);
               if (dom) {
                 const wasAdded = dom.addToMetadataStandard(context, updated.id);
                 if (!wasAdded) {

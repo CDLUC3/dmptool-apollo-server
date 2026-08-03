@@ -38,7 +38,7 @@ export const typeDefs = gql`
     "The timestamp when the Object was last modifed"
     modified: String
     "Errors associated with the Object"
-    errors: AffiliationErrors
+    errors: AnswerErrors
 
     "The question in the template the answer is for"
     versionedSection: VersionedSection
@@ -61,8 +61,8 @@ export const typeDefs = gql`
   }
 
   "A collection of errors related to the Answer"
-  type AffiliationErrors {
-    "General error messages such as affiliation already exists"
+  type AnswerErrors {
+    "General error messages such as answer already exists"
     general: String
 
     versionedSectionId: String

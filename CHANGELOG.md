@@ -3,6 +3,24 @@
 ## v1.1.0
 
 ### Added
+- Added data migration to add `displayAbbreviation` and `displayDomain` to the `affiliations` table
+- Added data migration to backfill those new DB fields
+- Added LocalStack port env variable to the docker compose file and `awsConfig` file
+- Added `deleteAffiliationLogoFile` function to `datasources/s3` and fixed some issues with LocalStack config for S3
+- Added new `displayAbbreviation` and `displayDomain` to the `Affiliation` model and schema
+- Added a lot of inline commenting to `Affiliation` model assist with updates when we switch to use OpenSearch for ROR records
+- Added an `update` function to the `AffiliationLink` model
+- Preemptively added an `update` function to the `AffiliationDepartment` model to support changes when we get around to wiring that page up
+- Added overrides for `form-data`, `js-yaml` and `protobufjs` dependencies
+- Added `adminNotifications` model, resolver and db table. [#570]
+- Added `findByIdWithTemplateName` method to `TemplateCustomization` model so that we can return the template name [#570]
+- Added the `generateLogoUploadURL` and `finalizeLogoUpload` resolvers to the `affiliation` schema.
+- Added new data migration to remove `logoURI` column from `affiliations`. The URI is now generated on the fly by the resolver.
+- Added new `src/datasource/s3.ts` file to provide the CDN URL and to generate presigned URLs for S3 objects.
+- Added `s3` properties to the `awsConfig` object
+- Added `src/datasources/s3.ts` to handle generation of presigned URLs
+- Added override for `qs` dependency
+- Added `isProjectReadOnlyForCurrentUser` in `projectService.ts` that is shared between the `plan` and `project` query resolvers,and added `readOnly` field to the `Project` schema [#244]
 - Added overrides for brace-expansion and ws
 - Added `findPrimaryUserByProjectId` method to `Collaborator` model [#225]
 - Added a new `researchDomainByURI` resolver
@@ -83,6 +101,25 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated Trivy scripts to ignore the entire `docker/` directory
+- Updated Localstack startup file to remove unused lambda function and SQS.
+- Bumped version of `@dmptool/utils`
+- Refactored `Affiliation` model to support admin changes and added `buildAbbreviation` helper function
+- Updated `MySQLModel.reconcileAssociationIds` to accept both a number and a string. This required some minor changes throughout the code to use `id as number` when calling the function.
+- Refactored the `affiliation` resolver to use the `authenticatedResolver` resolver wrapper function, support for updating org details, logo updates, logo removal, and added chained resolvers for `subHeaderLinks` and `ssoEmaiDomains`
+- Fixed a bug where the `Answer` schema was using `AffiliationErrors`
+- Added functions to the `affiliationService` to help reconcile changes to `ssoEmailDomains` and `affiliationLinks`
+- Updated version on `ws` override
+- Updated `requestFeedback`, `addTemplate` and `publishTemplateCustomization` resolvers to add a record to the `adminNotifications` table [#570]
+- Updated `awsConfig` to move SES properties underneath the `ses` property
+- Updated `uuid` and `@testcontainers/mysql` dependencies
+- Updated methods for the `PlanSectionProgress` class to return `totalRequiredQuestions` and `answeredRequiredQuestions`, and updated unit tests and `PlanSectionProgress` schema [#249]
+- Updated `dmphubAPI.ts` to check whether token is expired before each API call and updated `express.ts` to include `dmphubAPIDataSource` in the buildContext so that its available for the `searchExternalProjects` query [#352]
+- Updated `searchExternalProjects` query to include structured `members` data in the response and the award year extracted from the project startDate [#352]
+- Updated `projectImport` mutation to check if the funding record already exists. If so, then update it instead of creating a new one to avoid duplicates [#352]
+- Updated `ExternalMember` schema to include `role` [#352]
+- Updated `removeProjectCollaborator` to return error when trying to remove a `Primary` collaborator, since there always has to be one `Primary` [#228]
+- Updated dependencies flagged by dependabot and renovate.
 - Updated jest and @dmptool dependencies.
 - Updated `saveMaDMPVersion` function to include a `dmpId` argument and to properly convert the app name to a maDMP acceptable format
 - Updated `MemberRole` schema to include `isDefault` flag and added a `setDefaultMemberRole` mutation.
@@ -166,6 +203,9 @@
 - Updates to appease newer version of eslint
 
 ### Removed
+- Removed unused SQS env variable from example dotenv file
+- Removed override for `brace-expansion` dependency
+- Removed overrides for `ws` and `brace-expansion` dependencies
 - Removed overrides for fast-xml-parser, @node-oauth/oauth2-server and protobufjs
 - Removed old overrides for `"flatted`, `handlebars`, `lodash`, `path-to-regexp`, `picomatch`, and `protobufjs`
 - Removed old dependabot config

@@ -53,14 +53,14 @@ Please do not reply to this email. If you have any questions or need help, pleas
 }
 
 const transporter = nodemailer.createTransport({
-  host: awsConfig.sesEndpoint,
+  host: awsConfig.ses.endpoint,
   // Use the SES TLS port
-  port: awsConfig.port,
+  port: awsConfig.ses.port,
   // Use TLS/SSL from the start
   secure: true,
   auth: {
-    user: awsConfig.sesAccessKey,
-    pass: awsConfig.sesAccessSecret,
+    user: awsConfig.ses.accessKey,
+    pass: awsConfig.ses.accessSecret,
   },
 } as TransportOptions);
 

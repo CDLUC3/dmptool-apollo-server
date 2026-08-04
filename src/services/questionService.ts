@@ -6,7 +6,9 @@ import { Tag } from "../models/Tag";
 import { VersionedQuestion } from "../models/VersionedQuestion";
 import { NotFoundError } from "../utils/graphQLErrors";
 import { QuestionCondition } from "../models/QuestionCondition";
+import { QuestionConditionGroup } from "../models/QuestionConditionGroup";
 import { VersionedQuestionCondition } from "../models/VersionedQuestionCondition";
+import { VersionedQuestionConditionGroup } from "../models/VersionedQuestionConditionGroups";
 import { prepareObjectForLogs } from "../logger";
 import { reorderDisplayOrder } from "../utils/helpers";
 
@@ -23,6 +25,48 @@ export const hasPermissionOnQuestion = async (context: MyContext, templateId: nu
 
   // Offload permission checks to the Template
   return await hasPermissionOnTemplate(context, template);
+}
+
+// Creates a new Version/Snapshot of the specified QuestionConditionGroup (as a point in
+// time snapshot), and versions each QuestionCondition that belongs to it.
+//    - creates a new VersionedQuestionConditionGroup
+export const generateQuestionConditionGroupVersion = async (
+  context: MyContext,
+  group: QuestionConditionGroup,
+  versionedQuestionId: number,
+): Promise<boolean> => {
+  // If the group has no id then it has not yet been saved so throw an error
+  if (!group.id) {
+    throw new Error('Cannot publish unsaved QuestionConditionGroup');
+  }
+
+  // Intialize the new Version
+  const versionedGroup = new VersionedQuestionConditionGroup({
+    versionedQuestionId,
+    questionConditionGroupId: group.id,
+    triggerQuestionId: group.triggerQuestionId,
+  });
+
+  const savedGroup = await versionedGroup.create(context);
+  if (!savedGroup || savedGroup.hasErrors()) {
+    const msg = `Unable to generate a new version for questionConditionGroup: ${group.id}`;
+    context.logger.error(prepareObjectForLogs(savedGroup?.errors), msg);
+    throw new Error(msg);
+  }
+
+  const conditions = await QuestionCondition.findByGroupId('generateQuestionConditionGroupVersion', context, group.id);
+  for (const condition of conditions) {
+    const conditionInstance = new QuestionCondition({
+      ...condition
+    });
+
+    const passed = await generateQuestionConditionVersion(context, conditionInstance, savedGroup.id);
+    if (!passed) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 // Creates a new Version/Snapshot the specified Question (as a point in time snapshot)
@@ -62,33 +106,26 @@ export const generateQuestionVersion = async (
     const saved = await versionedQuestion.create(context);
 
     if (saved && !saved.hasErrors()) {
+      // Version any QuestionConditionGroups (and their QuestionConditions) as well
+      const groups = await QuestionConditionGroup.findByQuestionId('generateQuestionVersion', context, saved.questionId);
+      let allConditionsWereVersioned = true;
 
-      // Get tags associated with question so we can add it to versionedQuestionTags table
-      const addTagErrors = [];
-      if (Array.isArray(question.tags) && question.tags.length > 0) {
-        for (const item of question.tags) {
-          const tag = await Tag.findById('generateQuestionVersion', context, item.id);
+      if (groups.length > 0) {
+        for (const group of groups) {
+          const groupInstance = new QuestionConditionGroup({
+            ...group
+          });
 
-          if (!tag) {
-            addTagErrors.push(`Tag ${item.id} not found`);
-            continue; // <-- Add this line to skip calling addToVersionedQuestionTags on null
+          // generateQuestionConditionGroupVersion internally calls
+          // QuestionCondition.findByGroupId(group.id) to version that group's conditions
+          const passed = await generateQuestionConditionGroupVersion(context, groupInstance, saved.id);
+          if (!passed) {
+            allConditionsWereVersioned = false;
           }
-
-          const wasAdded = await tag.addToVersionedQuestionTags(context, saved.id);
-          if (!wasAdded) {
-            addTagErrors.push(tag.name);
-          }
-
         }
       }
-
-      if (addTagErrors.length > 0) {
-        saved.addError('tags', `Saved but we were unable to assign tags: ${addTagErrors.join(', ')}`);
-      }
-
       // Version any QuestionConditions as well
-      const questionConditions = await QuestionCondition.findByQuestionId('generateQuestionVersion', context, saved.questionId);
-      let allConditionsWereVersioned = true;
+      const questionConditions = await QuestionCondition.findByGroupId('generateQuestionVersion', context, saved.questionId);
 
       if (questionConditions.length > 0) {
         for (const condition of questionConditions) {
@@ -179,10 +216,8 @@ export const generateQuestionConditionVersion = async (
   const versionedQuestionCondition = new VersionedQuestionCondition({
     versionedQuestionId,
     questionConditionId: questionCondition.id,
-    action: questionCondition.action,
     conditionType: questionCondition.conditionType,
     conditionMatch: questionCondition.conditionMatch,
-    target: questionCondition.target,
   });
 
   const created = await versionedQuestionCondition.create(context);

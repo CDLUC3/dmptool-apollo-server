@@ -3,20 +3,22 @@ import gql from 'graphql-tag';
 export const typeDefs = gql`
 
   extend type Query {
-    "Get the QuestionConditions that belong to a specific question"
-    questionConditions(questionId: Int!): [QuestionCondition]
+    "Get the QuestionConditionGroups (and their nested conditions) that belong to a specific question"
+    questionConditionGroups(questionId: Int!): [QuestionConditionGroup]
   }
 
   extend type Mutation {
-    "Create a new QuestionCondition associated with a question"
-    addQuestionCondition(input: AddQuestionConditionInput!): QuestionCondition!
-    "Update a QuestionCondition for a specific QuestionCondition id"
-    updateQuestionCondition(input: UpdateQuestionConditionInput!): QuestionCondition
-    "Remove a QuestionCondition using a specific QuestionCondition id"
-    removeQuestionCondition(questionConditionId: Int!): QuestionCondition
+    """
+    Replace all display logic for a question in one transactional operation:
+    sets the question's action/matchType and replaces its groups/conditions
+    wholesale with the ones provided.
+    """
+    saveQuestionDisplayLogic(input: SaveQuestionDisplayLogicInput!): Question!
+    "Remove all display logic (all groups and their conditions) for a question"
+    removeQuestionDisplayLogic(questionId: Int!): Boolean!
   }
 
-  "QuestionCondition action"
+  "QuestionCondition action — now set once per Question, not per condition"
   enum QuestionConditionActionType {
     "Show the question"
     SHOW_QUESTION
@@ -24,6 +26,14 @@ export const typeDefs = gql`
     HIDE_QUESTION
     "Send email"
     SEND_EMAIL
+  }
+
+  "How multiple QuestionConditionGroups combine to determine the overall match"
+  enum QuestionConditionMatchType {
+    "Any one group matching is sufficient"
+    ANY
+    "All groups must match"
+    ALL
   }
 
   "QuestionCondition types"
@@ -34,13 +44,55 @@ export const typeDefs = gql`
     EQUAL
     "When a question does not equal a specific value"
     DOES_NOT_EQUAL
-    "When a question includes a specific value"
+    "When a question (multi-value) includes a specific value"
     INCLUDES
+    "When a question (multi-value) does not include a specific value"
+    DOES_NOT_INCLUDE
+
   }
 
   """
-  if [Question content] [condition] [conditionMatch] then [action] on [target] so
-  for example if 'Yes' EQUAL 'Yes' then 'SHOW_Question' 123
+  One "trigger question" box in the Display Logic UI: groups together the
+  conditions (option checks) that apply to a single prior question
+  (triggerQuestionId). A Question's overall display logic is the combination
+  of all its QuestionConditionGroups, joined by its matchType (ANY/ALL).
+  """
+  type QuestionConditionGroup {
+    "The unique identifer for the Object"
+    id: Int
+    "The user who created the Object"
+    createdById: Int
+    "The timestamp when the Object was created"
+    created: String
+    "The user who last modified the Object"
+    modifiedById: Int
+    "The timestamp when the Object was last modifed"
+    modified: String
+    "Errors associated with the Object"
+    errors: QuestionConditionGroupErrors
+
+    "The question id that this group's display logic applies to"
+    questionId: Int!
+    "The id of the prior question whose answer is being checked"
+    triggerQuestionId: Int!
+    "The prior question whose answer is being checked"
+    triggerQuestion: Question
+    "The individual conditions (option checks) within this group — combined with OR"
+    conditions: [QuestionCondition]
+  }
+
+  "A collection of errors related to the QuestionConditionGroup"
+  type QuestionConditionGroupErrors {
+    "General error messages such as the object already exists"
+    general: String
+
+    questionId: String
+    triggerQuestionId: String
+  }
+
+  """
+  A single condition (operator + value) within a QuestionConditionGroup,
+  e.g. "is 'Charlie'" or "is NOT 'Apples'".
   """
   type QuestionCondition {
     "The unique identifer for the Object"
@@ -56,16 +108,12 @@ export const typeDefs = gql`
     "Errors associated with the Object"
     errors: QuestionConditionErrors
 
-    "The question id that the QuestionCondition belongs to"
-    questionId: Int!
-    "The action to take on a QuestionCondition"
-    action: QuestionConditionActionType!
-    "The type of condition in which to take the action"
+    "The QuestionConditionGroup this condition belongs to"
+    groupId: Int!
+    "The type of condition/operator to evaluate"
     conditionType: QuestionConditionCondition!
-    "Relative to the condition type, it is the value to match on (e.g., HAS_ANSWER should equate to null here)"
+    "The value(s) to match on (e.g., HAS_ANSWER should equate to null here). JSON to accommodate future multi-value/range operators."
     conditionMatch: String
-    "The target of the action (e.g., an email address for SEND_EMAIL and a Question id otherwise)"
-    target: String!
   }
 
   "A collection of errors related to the QuestionCondition"
@@ -73,39 +121,37 @@ export const typeDefs = gql`
     "General error messages such as the object already exists"
     general: String
 
-    questionId: String
-    action: String
+    groupId: String
     conditionType: String
     conditionMatch: String
-    target: String
   }
 
-  "Input for adding a new QuestionCondition"
-  input AddQuestionConditionInput {
-    "The id of the question that the QuestionCondition belongs to"
+  "Input for a single condition within a group, used by saveQuestionDisplayLogic"
+  input QuestionConditionInput {
+    "The type of condition/operator to evaluate"
+    conditionType: QuestionConditionCondition!
+    "The value(s) to match on (e.g., HAS_ANSWER should equate to null here)"
+    conditionMatch: String
+  }
+
+  "Input for a single trigger-question group, used by saveQuestionDisplayLogic"
+  input QuestionConditionGroupInput {
+    "The id of the prior question whose answer is being checked"
+    triggerQuestionId: Int!
+    "The conditions (option checks) within this group — combined with OR"
+    conditions: [QuestionConditionInput!]!
+  }
+
+  "Input for replacing a question's entire display logic configuration"
+  input SaveQuestionDisplayLogicInput {
+    "The id of the question this display logic applies to"
     questionId: Int!
-    "The action to take on a QuestionCondition"
+    "Whether to show or hide the question (or send an email) when the logic matches"
     action: QuestionConditionActionType!
-    "The type of condition in which to take the action"
-    conditionType: QuestionConditionCondition!
-    "Relative to the condition type, it is the value to match on (e.g., HAS_ANSWER should equate to null here)"
-    conditionMatch: String
-    "The target of the action (e.g., an email address for SEND_EMAIL and a Question id otherwise)"
-    target: String!
-  }
-
-  "Input for updating a new QuestionCondition based on a QuestionCondition id"
-  input UpdateQuestionConditionInput {
-    "The id of the QuestionCondition that will be updated"
-    questionConditionId: Int!
-    "The action to take on a QuestionCondition"
-    action: QuestionConditionActionType!
-    "The type of condition in which to take the action"
-    conditionType: QuestionConditionCondition!
-    "Relative to the condition type, it is the value to match on (e.g., HAS_ANSWER should equate to null here)"
-    conditionMatch: String
-    "The target of the action (e.g., an email address for SEND_EMAIL and a Question id otherwise)"
-    target: String!
+    "Whether ANY or ALL of the groups must match"
+    matchType: QuestionConditionMatchType!
+    "The full set of trigger-question groups replacing any existing ones"
+    groups: [QuestionConditionGroupInput!]!
   }
 
 `

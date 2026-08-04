@@ -1,46 +1,46 @@
 import { MyContext } from "../context";
 import { MySqlModel } from "./MySqlModel";
+import {
+  QuestionConditionActionType,
+  QuestionConditionMatchType,
+  QuestionConditionCondition
+} from "../types";
 
-export enum QuestionConditionActionType {
-  SHOW_QUESTION = 'SHOW_QUESTION',
-  HIDE_QUESTION = 'HIDE_QUESTION',
-  SEND_EMAIL = 'SEND_EMAIL',
-}
+export { QuestionConditionActionType, QuestionConditionMatchType, QuestionConditionCondition };
 
-export enum QuestionConditionCondition {
-  HAS_ANSWER = 'HAS_ANSWER',
-  EQUAL = 'EQUAL',
-  DOES_NOT_EQUAL = 'DOES_NOT_EQUAL',
-  INCLUDES = 'INCLUDES',
-}
 export class QuestionCondition extends MySqlModel {
-  public questionId: number;
-  public action: QuestionConditionActionType;
   public conditionType: QuestionConditionCondition;
   public conditionMatch?: string;
-  public target: string;
+  public groupId: number;
 
   private tableName = 'questionConditions';
 
   constructor(options) {
     super(options.id, options.created, options.createdById, options.modified, options.modifiedById, options.errors);
 
-    this.questionId = options.questionId;
-    this.action = options.action ?? QuestionConditionActionType.SHOW_QUESTION;
-    this.conditionType = options.conditionType ?? QuestionConditionCondition.EQUAL;
+    this.conditionType = options.conditionType ?? "EQUAL";
     this.conditionMatch = options.conditionMatch;
-    this.target = options.target;
+    this.groupId = options.groupId;
+
   }
 
   async isValid(): Promise<boolean> {
     await super.isValid();
-
-    if (!this.questionId) this.addError('questionId', 'Question Id can\'t be blank');
-    if (!this.action) this.addError('action', 'Action can\'t be blank');
+    if (!this.groupId) this.addError('groupId', 'Group Id can\'t be blank');
     if (!this.conditionType) this.addError('conditionType', 'Condition Type can\'t be blank');
-    if (!this.target) this.addError('target', 'Target can\'t be blank');
 
     return Object.keys(this.errors).length === 0;
+  }
+
+  // Returns a plain object matching this instance, but with conditionMatch
+  // JSON-encoded for storage (the DB column is JSON-typed).
+  private toDbPayload() {
+    return {
+      ...this,
+      conditionMatch: this.conditionMatch !== undefined && this.conditionMatch !== null
+        ? JSON.stringify(this.conditionMatch)
+        : null,
+    };
   }
 
   //Create a new QuestionCondition
@@ -48,7 +48,7 @@ export class QuestionCondition extends MySqlModel {
     // First make sure the record is valid
     if (await this.isValid()) {
       // Save the record and then fetch it
-      const newId = await QuestionCondition.insert(context, this.tableName, this, 'QuestionCondition.create');
+      const newId = await QuestionCondition.insert(context, this.tableName, this.toDbPayload(), 'QuestionCondition.create');
       const created = await QuestionCondition.findById('QuestionCondition.create', context, newId);
       if (created) {
         return new QuestionCondition(created);
@@ -65,7 +65,7 @@ export class QuestionCondition extends MySqlModel {
 
     if (await this.isValid()) {
       if (id) {
-        await QuestionCondition.update(context, this.tableName, this, 'QuestionCondition.update');
+        await QuestionCondition.update(context, this.tableName, this.toDbPayload(), 'QuestionCondition.update');
         const updated = await QuestionCondition.findById('QuestionCondition.update', context, id);
         if (updated) {
           return new QuestionCondition(updated);
@@ -102,9 +102,10 @@ export class QuestionCondition extends MySqlModel {
   }
 
   // Fetch all of the QuestionConditions for the specified Question
-  static async findByQuestionId(reference: string, context: MyContext, questionId: number): Promise<QuestionCondition[]> {
-    const sql = 'SELECT * FROM questionConditions WHERE questionId = ?';
-    const results = await QuestionCondition.query(context, sql, [questionId?.toString()], reference);
+  static async findByGroupId(reference: string, context: MyContext, groupId: number): Promise<QuestionCondition[]> {
+    const sql = 'SELECT * FROM questionConditions WHERE groupId = ?';
+    const results = await QuestionCondition.query(context, sql, [groupId?.toString()], reference);
     return Array.isArray(results) ? results.map((entry) => new QuestionCondition(entry)) : [];
   }
+
 }

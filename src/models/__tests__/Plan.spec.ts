@@ -17,13 +17,13 @@ import { getCurrentDate } from "../../utils/helpers";
 import { PlanGuidance } from "../Guidance";
 import { Project } from "../Project";
 import { VersionedTemplate } from "../VersionedTemplate";
+import { PaginationType } from "../../types/general";
 
 jest.mock('../../context.ts');
 
 let context;
 
 const normalizeSQL = (sql: string) => sql.replace(/\s+/g, ' ').trim();
-
 
 beforeEach(async () => {
   jest.resetAllMocks();
@@ -48,9 +48,11 @@ describe('PlanSearchResult', () => {
     funding: casual.company_name,
     members: [casual.full_name, casual.full_name],
     createdBy: casual.full_name,
+    createdById: casual.integer(1, 99),
     created: casual.date('YYYY-MM-DD'),
     modifiedBy: casual.full_name,
     modified: casual.date('YYYY-MM-DD'),
+    templateOwnerAffiliationId: casual.company_name
   }
   beforeEach(() => {
     searchResult = new PlanSearchResult(searchResultData);
@@ -136,7 +138,7 @@ describe('PlanSearchResult.findByProjectId', () => {
 
     const result = await PlanSearchResult.findByProjectId('testing', context, projectId);
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, sql, [projectId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, sql, [projectId.toString()], 'testing');
     expect(result).toEqual([planSearchResult]);
   });
 
@@ -145,6 +147,140 @@ describe('PlanSearchResult.findByProjectId', () => {
     const projectId = casual.integer(1, 999);
     const result = await PlanSearchResult.findByProjectId('testing', context, projectId);
     expect(result).toEqual([]);
+  });
+});
+
+describe('PlanSearchResult.findByProjectIdWithPagination', () => {
+  const originalQuery = Plan.query;
+  const originalQueryWithPagination = Plan.queryWithPagination;
+
+  let localQuery: jest.Mock;
+  let localQueryWithPagination: jest.Mock;
+
+  beforeEach(() => {
+    localQuery = jest.fn();
+    localQueryWithPagination = jest.fn();
+    (Plan.query as jest.Mock) = localQuery;
+    (Plan.queryWithPagination as jest.Mock) = localQueryWithPagination;
+  });
+
+  afterEach(() => {
+    Plan.query = originalQuery;
+    Plan.queryWithPagination = originalQueryWithPagination;
+  });
+
+  const makeOptions = (overrides = {}) => ({
+    type: PaginationType.OFFSET,
+    offset: 0,
+    limit: 10,
+    sortDir: 'DESC',
+    sortField: undefined,
+    ...overrides,
+  });
+
+  const makePaginatedResult = (items: PlanSearchResult[]) => ({
+    items,
+    totalCount: items.length,
+    hasNextPage: false,
+    hasPreviousPage: false,
+    currentOffset: 0,
+  });
+
+  it('should call queryWithPagination with correct base variables', async () => {
+    const userId = casual.integer(1, 99);
+    const options = makeOptions();
+    const expected = makePaginatedResult([]);
+    localQueryWithPagination.mockResolvedValueOnce(expected);
+
+    await PlanSearchResult.findByUserIdWithPagination('testing', context, userId, options);
+
+    expect(localQueryWithPagination).toHaveBeenCalledTimes(1);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const [ctx, sql, whereFilters, _groupBy, values, _opts, ref] = localQueryWithPagination.mock.calls[0];
+
+
+    expect(ctx).toBe(context);
+    expect(ref).toBe('testing');
+    expect(whereFilters).toContain('p.createdById = ?');
+    expect(values).toContain(userId.toString());
+    expect(normalizeSQL(sql)).toContain('FROM plans p');
+    expect(normalizeSQL(sql)).toContain('LEFT JOIN versionedTemplates vt ON vt.id = p.versionedTemplateId');
+  });
+
+  it('should include search term filter when term is provided', async () => {
+    const userId = casual.integer(1, 99);
+    const options = makeOptions();
+    const term = 'reef';
+    localQueryWithPagination.mockResolvedValueOnce(makePaginatedResult([]));
+
+    await PlanSearchResult.findByUserIdWithPagination('testing', context, userId, options, term);
+
+    const [, , whereFilters, , values] = localQueryWithPagination.mock.calls[0];
+
+    expect(whereFilters.some((f: string) => f.includes('LOWER(p.title) LIKE ?'))).toBe(true);
+    expect(values).toContain(`%${term}%`);
+  });
+
+  it('should not include search term filter when term is empty', async () => {
+    const userId = casual.integer(1, 99);
+    const options = makeOptions();
+    localQueryWithPagination.mockResolvedValueOnce(makePaginatedResult([]));
+
+    await PlanSearchResult.findByUserIdWithPagination('testing', context, userId, options, '');
+
+    const [, , whereFilters] = localQueryWithPagination.mock.calls[0];
+    expect(whereFilters).toHaveLength(1); // only createdById filter
+  });
+
+  it('should use default sort field and direction when not provided', async () => {
+    const userId = casual.integer(1, 99);
+    const options = makeOptions({ sortField: undefined, sortDir: undefined });
+    localQueryWithPagination.mockResolvedValueOnce(makePaginatedResult([]));
+
+    await PlanSearchResult.findByUserIdWithPagination('testing', context, userId, options);
+
+    const [, , , , , opts] = localQueryWithPagination.mock.calls[0];
+    expect(opts.sortField).toBe('p.created');
+    expect(opts.sortDir).toBe('DESC');
+  });
+
+  it('should return paginated results', async () => {
+    const userId = casual.integer(1, 99);
+    const item = new PlanSearchResult({
+      id: casual.integer(1, 99),
+      createdById: userId,
+      createdBy: casual.full_name,
+      created: casual.date('YYYY-MM-DD'),
+      modifiedBy: casual.full_name,
+      modified: casual.date('YYYY-MM-DD'),
+      title: casual.sentence,
+      status: PlanStatus.DRAFT,
+      visibility: PlanVisibility.PRIVATE,
+      dmpId: casual.uuid,
+      templateTitle: casual.sentence,
+      templateOwnerAffiliationName: casual.company_name,
+    });
+
+    const expected = makePaginatedResult([item]);
+    localQueryWithPagination.mockResolvedValueOnce(expected);
+
+    const result = await PlanSearchResult.findByUserIdWithPagination(
+      'testing', context, userId, makeOptions()
+    );
+
+    expect(result).toEqual(expected);
+  });
+
+  it('should return empty results when no plans found', async () => {
+    const userId = casual.integer(1, 99);
+    localQueryWithPagination.mockResolvedValueOnce(makePaginatedResult([]));
+
+    const result = await PlanSearchResult.findByUserIdWithPagination(
+      'testing', context, userId, makeOptions()
+    );
+
+    expect(result.items).toHaveLength(0);
+    expect(result.totalCount).toBe(0);
   });
 });
 
@@ -969,7 +1105,7 @@ describe('findBy Queries', () => {
     const result = await Plan.findById('testing', context, planId);
     const expectedSql = 'SELECT * FROM plans WHERE id = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [planId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [planId.toString()], 'testing');
     expect(result).toEqual(plan);
   });
 
@@ -986,7 +1122,7 @@ describe('findBy Queries', () => {
     const result = await Plan.findByDMPId('testing', context, dmpId);
     const expectedSql = 'SELECT * FROM plans WHERE dmpId = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [dmpId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [dmpId.toString()], 'testing');
     expect(result).toEqual(plan);
   });
 
@@ -1003,7 +1139,7 @@ describe('findBy Queries', () => {
     const result = await Plan.findByProjectId('testing', context, projectId);
     const expectedSql = 'SELECT * FROM plans WHERE projectId = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectId.toString()], 'testing');
     expect(result).toEqual([plan]);
   });
 
@@ -1013,14 +1149,34 @@ describe('findBy Queries', () => {
     const result = await Plan.findByProjectId('testing', context, projectId);
     expect(result).toEqual([]);
   });
+
+  it('findByUserId should call query with correct params and return the default', async () => {
+    localQuery.mockResolvedValueOnce([plan]);
+    const userId = casual.integer(1, 999);
+    const result = await Plan.findByUserId('testing', context, userId);
+    const expectedSql = 'SELECT * FROM plans WHERE createdById = ?';
+    expect(localQuery).toHaveBeenCalledTimes(1);
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [userId.toString()], 'testing');
+    expect(result).toEqual([plan]);
+  });
+
+  it('findByUserId should return an empty array if it finds no default', async () => {
+    localQuery.mockResolvedValueOnce([]);
+    const userId = casual.integer(1, 999);
+    const result = await Plan.findByUserId('testing', context, userId);
+    expect(result).toEqual([]);
+  });
 });
 
 describe('publish', () => {
   let plan;
   let mockFindById;
   let updateQuery;
+  let mockRegisterIdentifier: jest.Mock;
 
-  beforeEach(() => {
+  const mockDataciteXML = '<?xml version="1.0" encoding="UTF-8"?><resource>mock</resource>';
+
+  beforeEach(async () => {
     mockFindById = jest.fn();
     (Plan.findById as jest.Mock) = mockFindById;
     updateQuery = jest.fn();
@@ -1040,15 +1196,57 @@ describe('publish', () => {
       languageId: defaultLanguageId,
       featured: casual.boolean,
     });
+
+    // Mock the EZID registerIdentifier call on the context datasource
+    context = await buildMockContextWithToken(logger);
+
+    mockRegisterIdentifier = jest.fn();
+    // Create a mock datasource with the query function
+    context.dataSources.ezidAPIDataSource = {
+      registerIdentifier: mockRegisterIdentifier
+    };
   });
 
   it('returns the newly published Plan', async () => {
     updateQuery.mockResolvedValueOnce(plan);
 
-    const result = await plan.publish(context);
+    const result = await plan.publish(context, PlanVisibility.PRIVATE, mockDataciteXML);
 
+    expect(mockRegisterIdentifier).toHaveBeenCalledTimes(1);
     expect(Object.keys(result.errors).length).toBe(0);
     expect(result).toBeInstanceOf(Plan);
+  });
+
+  it('calls EZID registerIdentifier with the correct identifier and metadata', async () => {
+    updateQuery.mockResolvedValueOnce(plan);
+
+    await plan.publish(context, PlanVisibility.PRIVATE, mockDataciteXML);
+
+    expect(mockRegisterIdentifier).toHaveBeenCalledTimes(1);
+    const [, identifier, metadata] = mockRegisterIdentifier.mock.calls[0];
+    expect(identifier).toMatch(/^doi:/);
+    expect(metadata['_profile']).toBe('datacite');
+    expect(metadata['_target']).toMatch(/^https?:\/\/.+\/dmps\//);
+    expect(metadata['datacite']).toBe(mockDataciteXML);
+  });
+
+  it('returns an error and does not update the DB if EZID registration fails', async () => {
+    mockRegisterIdentifier.mockRejectedValueOnce(new Error('EZID error'));
+
+    const result = await plan.publish(context, PlanVisibility.PRIVATE, mockDataciteXML);
+
+    expect(mockRegisterIdentifier).toHaveBeenCalledTimes(1);
+    expect(updateQuery).not.toHaveBeenCalled();
+    expect(result.errors['general']).toBeTruthy();
+  });
+
+  it('returns an error if the dmpId is a temporary placeholder', async () => {
+    plan.dmpId = `${DEFAULT_TEMPORARY_DMP_ID_PREFIX}abc123`;
+
+    const result = await plan.publish(context, PlanVisibility.PRIVATE, mockDataciteXML);
+
+    expect(mockRegisterIdentifier).not.toHaveBeenCalled();
+    expect(result.errors['dmpId']).toBeTruthy();
   });
 
   it('returns an error if the Plan is not valid', async () => {
@@ -1056,18 +1254,36 @@ describe('publish', () => {
     (plan.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
-    const result = await plan.publish(context);
+    const result = await plan.publish(context, PlanVisibility.PRIVATE, mockDataciteXML);
     expect(result instanceof Plan).toBe(true);
     expect(localValidator).toHaveBeenCalledTimes(1);
+    expect(mockRegisterIdentifier).not.toHaveBeenCalled();
   });
 
   it('returns an error if the Plan is already published', async () => {
     plan.dmpId = getMockDMPId();
     plan.registered = getCurrentDate();
     plan.registeredById = casual.integer(1, 99);
-    const result = await plan.publish(context);
+    const result = await plan.publish(context, PlanVisibility.PRIVATE, mockDataciteXML);
     expect(Object.keys(result.errors).length).toBe(1);
     expect(result.errors['general']).toBeTruthy();
+    expect(mockRegisterIdentifier).not.toHaveBeenCalled();
+  });
+
+  it('returns an error and does not call EZID if dataciteXML is not provided', async () => {
+    const result = await plan.publish(context, PlanVisibility.PRIVATE);
+
+    expect(mockRegisterIdentifier).not.toHaveBeenCalled();
+    expect(updateQuery).not.toHaveBeenCalled();
+    expect(result.errors['general']).toBeTruthy();
+  });
+
+  it('defaults visibility to PRIVATE when not provided', async () => {
+    updateQuery.mockResolvedValueOnce(plan);
+
+    await plan.publish(context, undefined, mockDataciteXML);
+
+    expect(plan.visibility).toBe(PlanVisibility.PRIVATE);
   });
 });
 

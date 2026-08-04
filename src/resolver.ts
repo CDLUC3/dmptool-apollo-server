@@ -10,6 +10,7 @@ import { resolvers as adminNotificationResolvers } from './resolvers/adminNotifi
 import { resolvers as affiliationResolvers } from './resolvers/affiliation';
 import { resolvers as answerResolvers } from './resolvers/answer';
 import { resolvers as collaboratorResolvers } from './resolvers/collaborator';
+import { resolvers as contactUsResolvers } from './resolvers/contactUs';
 import { resolvers as feedback } from './resolvers/feedback';
 import { resolvers as memberResolvers } from './resolvers/member';
 import { resolvers as memberRoleResolvers } from './resolvers/memberRole';
@@ -40,6 +41,7 @@ import { resolvers as versionedQuestionResolvers } from './resolvers/versionedQu
 import { resolvers as versionedQuestionConditionResolvers } from './resolvers/versionedQuestionCondition';
 import { resolvers as versionedSectionResolvers } from './resolvers/versionedSection';
 import { resolvers as versionedTemplateResolvers } from './resolvers/versionedTemplate';
+import { resolvers as passwordResetResolvers } from './resolvers/passwordReset';
 
 const scalarResolvers = {
   DmspId: dmspIdScalar,
@@ -54,6 +56,7 @@ export const resolvers: IResolvers = mergeResolvers([
   affiliationResolvers,
   answerResolvers,
   collaboratorResolvers,
+  contactUsResolvers,
   feedback,
   memberResolvers,
   memberRoleResolvers,
@@ -84,4 +87,5 @@ export const resolvers: IResolvers = mergeResolvers([
   versionedQuestionConditionResolvers,
   versionedSectionResolvers,
   versionedTemplateResolvers,
+  passwordResetResolvers,
 ]);

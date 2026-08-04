@@ -1,7 +1,7 @@
 import { MyContext } from "../context";
 import { isNullOrUndefined } from "../utils/helpers";
 import { MySqlModel } from "./MySqlModel";
-import {prepareObjectForLogs} from "../logger";
+import { prepareObjectForLogs } from "../logger";
 
 // A department for an affiliation
 export class AffiliationDepartment extends MySqlModel {
@@ -37,7 +37,7 @@ export class AffiliationDepartment extends MySqlModel {
       reference,
       context,
       this.affiliationId,
-      this.name,
+      this.name
     );
 
     // Then make sure it doesn't already exist
@@ -72,7 +72,9 @@ export class AffiliationDepartment extends MySqlModel {
         context,
         AffiliationDepartment.tableName,
         this,
-        reference
+        reference,
+        [],
+        false
       );
 
       if (updated) {

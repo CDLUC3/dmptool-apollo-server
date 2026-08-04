@@ -194,7 +194,7 @@ describe('VersionedTemplateCustomization', () => {
         instance,
         'VersionedTemplateCustomization.update',
         [],
-        false
+        false,
       );
       expect(result).toBe(mockFetched);
     });
@@ -220,7 +220,7 @@ describe('VersionedTemplateCustomization', () => {
         instance,
         'VersionedTemplateCustomization.update',
         [],
-        true
+        true,
       );
     });
 
@@ -277,7 +277,7 @@ describe('VersionedTemplateCustomization', () => {
         mockContext,
         expect.stringContaining('UPDATE versionedTemplateCustomizations SET active = 0'),
         ['1', '10'],
-        'test-ref'
+        'test-ref',
       );
       expect(result).toBe(true);
     });

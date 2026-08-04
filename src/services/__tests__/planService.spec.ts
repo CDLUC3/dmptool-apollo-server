@@ -13,6 +13,14 @@ import { PlanMember, ProjectMember } from "../../models/Member";
 import casual from "casual";
 import { Project } from "../../models/Project";
 import { Plan } from "../../models/Plan";
+
+// For buildDataCiteXMLForPlan
+import { buildDataCiteXMLForPlan } from '../planService';
+import { Affiliation } from '../../models/Affiliation';
+import { PlanFunding, ProjectFunding } from '../../models/Funding';
+import { AlternateIdentifier } from '../../models/AlternateIdentifier';
+import * as dataciteXMLService from '../dataciteXMLService';
+
 import {
   createDMP,
   deleteDMP, DMPExists, planToDMPCommonStandard,
@@ -24,6 +32,11 @@ import { generalConfig } from '../../config/generalConfig';
 import { DMPToolDMPType } from "@dmptool/types";
 
 jest.mock('@dmptool/utils');
+
+jest.mock('../dataciteXMLService', () => ({
+  planToDataCiteMetadata: jest.fn(),
+  buildDataCiteXML: jest.fn(),
+}));
 
 describe('planService', () => {
   let context: MyContext;
@@ -401,6 +414,255 @@ describe('saveMaDMPVersion', () => {
     const result = await saveMaDMPVersion(reference, context, planId, dmpId, true);
 
     expect(result).toBe(false);
+  });
+});
+
+describe('buildDataCiteXMLForPlan', () => {
+  let context: MyContext;
+  let plan: Plan;
+  let project: Project;
+
+  const mockPlanToDataCiteMetadata = dataciteXMLService.planToDataCiteMetadata as jest.Mock;
+  const mockBuildDataCiteXML = dataciteXMLService.buildDataCiteXML as jest.Mock;
+
+  let originalProjectFindById: typeof Project.findById;
+  let originalFindByProjectId: typeof ProjectMember.findByProjectId;
+  let originalFindByProjectMemberId: typeof MemberRole.findByProjectMemberId;
+  let originalFindByURI: typeof Affiliation.findByURI;
+  let originalPlanFundingFindByPlanId: typeof PlanFunding.findByPlanId;
+  let originalProjectFundingFindById: typeof ProjectFunding.findById;
+  let originalAltIdFindByPlanId: typeof AlternateIdentifier.findByPlanId;
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    context = await buildMockContextWithToken(logger);
+
+    project = new Project({
+      id: casual.integer(1, 999),
+      title: casual.sentence,
+      abstractText: casual.text,
+    });
+    plan = new Plan({
+      id: casual.integer(1, 999),
+      projectId: project.id,
+      title: casual.sentence,
+      languageId: 'en-US',
+    });
+
+    originalProjectFindById = Project.findById;
+    originalFindByProjectId = ProjectMember.findByProjectId;
+    originalFindByProjectMemberId = MemberRole.findByProjectMemberId;
+    originalFindByURI = Affiliation.findByURI;
+    originalPlanFundingFindByPlanId = PlanFunding.findByPlanId;
+    originalProjectFundingFindById = ProjectFunding.findById;
+    originalAltIdFindByPlanId = AlternateIdentifier.findByPlanId;
+
+    jest.spyOn(Project, 'findById').mockResolvedValue(project);
+    jest.spyOn(ProjectMember, 'findByProjectId').mockResolvedValue([]);
+    jest.spyOn(MemberRole, 'findByProjectMemberId').mockResolvedValue([]);
+    jest.spyOn(Affiliation, 'findByURI').mockResolvedValue(null);
+    jest.spyOn(PlanFunding, 'findByPlanId').mockResolvedValue([]);
+    jest.spyOn(ProjectFunding, 'findById').mockResolvedValue(null);
+    jest.spyOn(AlternateIdentifier, 'findByPlanId').mockResolvedValue([]);
+
+    mockPlanToDataCiteMetadata.mockReturnValue({ title: plan.title, creators: [{ familyName: 'Test' }] });
+    mockBuildDataCiteXML.mockReturnValue('<resource>mock-xml</resource>');
+  });
+
+  afterEach(() => {
+    Project.findById = originalProjectFindById;
+    ProjectMember.findByProjectId = originalFindByProjectId;
+    MemberRole.findByProjectMemberId = originalFindByProjectMemberId;
+    Affiliation.findByURI = originalFindByURI;
+    PlanFunding.findByPlanId = originalPlanFundingFindByPlanId;
+    ProjectFunding.findById = originalProjectFundingFindById;
+    AlternateIdentifier.findByPlanId = originalAltIdFindByPlanId;
+  });
+
+  it('returns the XML string produced by buildDataCiteXML', async () => {
+    const result = await buildDataCiteXMLForPlan(context, plan, project);
+    expect(result).toBe('<resource>mock-xml</resource>');
+  });
+
+  it('uses the provided project instead of fetching it', async () => {
+    await buildDataCiteXMLForPlan(context, plan, project);
+    expect(Project.findById).not.toHaveBeenCalled();
+  });
+
+  it('fetches the project when none is provided', async () => {
+    await buildDataCiteXMLForPlan(context, plan);
+    expect(Project.findById).toHaveBeenCalledWith(
+      'planService.buildDataCiteXMLForPlan',
+      context,
+      plan.projectId
+    );
+  });
+
+  it('passes the plan\'s languageId through to planToDataCiteMetadata', async () => {
+    await buildDataCiteXMLForPlan(context, plan, project);
+    expect(mockPlanToDataCiteMetadata).toHaveBeenCalledWith(
+      expect.objectContaining({ language: 'en-US' })
+    );
+  });
+
+  it('maps a primary-contact member with a ROR affiliation correctly', async () => {
+    const memberRole = new MemberRole({ id: casual.integer(1, 999), uri: 'credit.niso.org/contributor-roles/supervision' });
+    const projectMember = new ProjectMember({
+      id: casual.integer(1, 999),
+      projectId: project.id,
+      isPrimaryContact: true,
+      givenName: 'Ada',
+      surName: 'Lovelace',
+      orcid: '0000-0001-5727-2427',
+      affiliationId: 'https://ror.org/03efmqc40',
+    });
+
+    (ProjectMember.findByProjectId as jest.Mock).mockResolvedValue([projectMember]);
+    (MemberRole.findByProjectMemberId as jest.Mock).mockResolvedValue([memberRole]);
+    (Affiliation.findByURI as jest.Mock).mockResolvedValue({
+      name: 'Arizona State University',
+      uri: 'https://ror.org/03efmqc40',
+      provenance: 'ROR',
+    });
+
+    await buildDataCiteXMLForPlan(context, plan, project);
+
+    expect(mockPlanToDataCiteMetadata).toHaveBeenCalledWith(
+      expect.objectContaining({
+        members: [
+          expect.objectContaining({
+            isPrimaryContact: true,
+            memberRoles: [{ uri: memberRole.uri }],
+            projectMember: expect.objectContaining({
+              givenName: 'Ada',
+              surName: 'Lovelace',
+              orcid: '0000-0001-5727-2427',
+              affiliation: expect.objectContaining({
+                name: 'Arizona State University',
+                provenance: 'ROR',
+              }),
+            }),
+          }),
+        ],
+      })
+    );
+  });
+
+  it('omits affiliation when the member has no affiliationId', async () => {
+    const projectMember = new ProjectMember({
+      id: casual.integer(1, 999),
+      projectId: project.id,
+      isPrimaryContact: false,
+      givenName: 'No',
+      surName: 'Affiliation',
+      affiliationId: null,
+    });
+    (ProjectMember.findByProjectId as jest.Mock).mockResolvedValue([projectMember]);
+
+    await buildDataCiteXMLForPlan(context, plan, project);
+
+    expect(Affiliation.findByURI).not.toHaveBeenCalled();
+    expect(mockPlanToDataCiteMetadata).toHaveBeenCalledWith(
+      expect.objectContaining({
+        members: [
+          expect.objectContaining({
+            projectMember: expect.objectContaining({ affiliation: undefined }),
+          }),
+        ],
+      })
+    );
+  });
+
+  it('maps a funding reference resolved via ProjectFunding + Affiliation', async () => {
+    const planFunding = new PlanFunding({
+      id: casual.integer(1, 999),
+      planId: plan.id,
+      projectFundingId: casual.integer(1, 999),
+    });
+    const projectFunding = new ProjectFunding({
+      id: planFunding.projectFundingId,
+      affiliationId: 'https://ror.org/021nxhr62',
+      grantId: 'AWD-12345',
+    });
+
+    (PlanFunding.findByPlanId as jest.Mock).mockResolvedValue([planFunding]);
+    (ProjectFunding.findById as jest.Mock).mockResolvedValue(projectFunding);
+    (Affiliation.findByURI as jest.Mock).mockResolvedValue({
+      name: 'National Science Foundation',
+      uri: 'https://ror.org/021nxhr62',
+      provenance: 'ROR',
+      fundrefId: '100000001',
+    });
+
+    await buildDataCiteXMLForPlan(context, plan, project);
+
+    expect(mockPlanToDataCiteMetadata).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fundings: [
+          {
+            projectFunding: {
+              affiliation: expect.objectContaining({
+                name: 'National Science Foundation',
+                fundrefId: '100000001',
+              }),
+              grantId: 'AWD-12345',
+            },
+          },
+        ],
+      })
+    );
+  });
+
+  it('returns { projectFunding: undefined } when the linked ProjectFunding row is missing', async () => {
+    const planFunding = new PlanFunding({
+      id: casual.integer(1, 999),
+      planId: plan.id,
+      projectFundingId: casual.integer(1, 999),
+    });
+    (PlanFunding.findByPlanId as jest.Mock).mockResolvedValue([planFunding]);
+    (ProjectFunding.findById as jest.Mock).mockResolvedValue(null);
+
+    await buildDataCiteXMLForPlan(context, plan, project);
+
+    expect(mockPlanToDataCiteMetadata).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fundings: [{ projectFunding: undefined }],
+      })
+    );
+  });
+
+  it('maps alternate identifier records to the shape planToDataCiteMetadata expects', async () => {
+    (AlternateIdentifier.findByPlanId as jest.Mock).mockResolvedValue([
+      { alternateIdentifier: '10.1234/abcd' },
+      { alternateIdentifier: 'legacy-id-9999' },
+    ]);
+
+    await buildDataCiteXMLForPlan(context, plan, project);
+
+    expect(mockPlanToDataCiteMetadata).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alternateIdentifiers: [
+          { alternateIdentifier: '10.1234/abcd' },
+          { alternateIdentifier: 'legacy-id-9999' },
+        ],
+      })
+    );
+  });
+
+  it('propagates errors thrown by planToDataCiteMetadata (e.g. no primary contact)', async () => {
+    mockPlanToDataCiteMetadata.mockImplementation(() => {
+      throw new Error('Project has no member marked as primary contact; cannot determine a DataCite creator');
+    });
+
+    await expect(buildDataCiteXMLForPlan(context, plan, project)).rejects.toThrow(
+      'Project has no member marked as primary contact'
+    );
+  });
+
+  it('propagates errors thrown by a model call (e.g. DB failure)', async () => {
+    (ProjectMember.findByProjectId as jest.Mock).mockRejectedValue(new Error('db error'));
+
+    await expect(buildDataCiteXMLForPlan(context, plan, project)).rejects.toThrow('db error');
   });
 });
 

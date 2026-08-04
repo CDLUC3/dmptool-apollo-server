@@ -4,18 +4,29 @@ import { isNullOrUndefined } from "../utils/helpers";
 import { PlanMember, ProjectMember } from "../models/Member";
 import { Plan } from "../models/Plan";
 import { Project } from "../models/Project";
+import { PlanFunding, ProjectFunding } from "../models/Funding";
+import { Affiliation } from "../models/Affiliation";
+import { AlternateIdentifier } from "../models/AlternateIdentifier";
 import {
-  createDMP, deleteDMP,
+  createDMP,
+  deleteDMP,
   DMPExists,
   DynamoConnectionParams,
   EnvironmentEnum,
-  planToDMPCommonStandard, tombstoneDMP,
+  planToDMPCommonStandard,
+  tombstoneDMP,
   updateDMP
 } from "@dmptool/utils";
 import { getDynamoConnectionParams } from "../config/awsConfig";
 import { generalConfig } from "../config/generalConfig";
 import { DMPToolDMPType } from "@dmptool/types";
 import { getRDSConnectionParams } from "../config/mysqlConfig";
+import {
+  buildDataCiteXML,
+  DataCiteSourceAffiliation,
+  DataCiteSourceFundingAffiliation,
+  planToDataCiteMetadata
+} from "./dataciteXMLService";
 
 /**
  * Function to help update Plan member roles. It compares the current roles for
@@ -105,7 +116,7 @@ export const ensureDefaultPlanContact = async (
     const dfltMemberRoles = await MemberRole.findByProjectMemberId(
       reference,
       context,
-      dfltMember.id,
+      dfltMember.id
     );
 
     const current = await PlanMember.findPrimaryContact(reference, context, plan.id);
@@ -133,6 +144,91 @@ export const ensureDefaultPlanContact = async (
     }
   }
   return false
+}
+
+/**
+ * Gathers project members, fundings, and alternate identifiers and builds
+ * the DataCite XML document to submit to EZID at publish time.
+ *
+ * @param context The apollo context object
+ * @param plan The plan to build DataCite metadata for
+ * @param project The project that the plan belongs to
+ * @returns The DataCite XML document as a string
+ * @throws if the plan has no member marked as primary contact
+ */
+export async function buildDataCiteXMLForPlan(context: MyContext, plan: Plan, project?: Project): Promise<string> {
+  const reference = 'planService.buildDataCiteXMLForPlan';
+
+  const resolvedProject = project ?? await Project.findById(reference, context, plan.projectId);
+
+  // --- Members ---
+  // Project members
+  const projectMembers = await ProjectMember.findByProjectId(reference, context, plan.projectId);
+
+  const members = await Promise.all(projectMembers.map(async (pm) => {
+    const memberRoles = await MemberRole.findByProjectMemberId(reference, context, pm.id);
+
+    let affiliation: DataCiteSourceAffiliation | undefined;
+    if (pm.affiliationId) {
+      const aff = await Affiliation.findByURI(reference, context, pm.affiliationId);
+      if (aff) {
+        affiliation = { name: aff.name || aff.displayName, uri: aff.uri, provenance: aff.provenance };
+      }
+    }
+
+    return {
+      isPrimaryContact: pm.isPrimaryContact,
+      memberRoles: memberRoles.map((mr) => ({ uri: mr.uri })),
+      projectMember: {
+        givenName: pm.givenName,
+        surName: pm.surName,
+        orcid: pm.orcid,
+        affiliation,
+      },
+    };
+  }));
+
+  // --- Plan Fundings ---
+  const planFundings = await PlanFunding.findByPlanId(reference, context, plan.id);
+
+  const fundings = await Promise.all(planFundings.map(async (pf) => {
+    const projectFunding = await ProjectFunding.findById(reference, context, pf.projectFundingId);
+    if (!projectFunding) return { projectFunding: undefined };
+
+    let affiliation: DataCiteSourceFundingAffiliation | undefined;
+    if (projectFunding.affiliationId) {
+      const aff = await Affiliation.findByURI(reference, context, projectFunding.affiliationId);
+      if (aff) {
+        affiliation = {
+          name: aff.name || aff.displayName,
+          uri: aff.uri,
+          provenance: aff.provenance,
+          fundrefId: aff.fundrefId,
+        };
+      }
+    }
+
+    return { projectFunding: { affiliation, grantId: projectFunding.grantId } };
+  }));
+
+  // --- Alternate identifiers ---
+  const alternateIdentifierRecords = await AlternateIdentifier.findByPlanId(reference, context, plan.id);
+  const alternateIdentifiers = alternateIdentifierRecords.map((a) => ({
+    alternateIdentifier: a.alternateIdentifier,
+  }));
+
+  const dataciteInput = planToDataCiteMetadata({
+    title: plan.title,
+    abstractText: resolvedProject?.abstractText,
+    language: plan.languageId,
+    members,
+    fundings,
+    alternateIdentifiers,
+    publisher: generalConfig.applicationName,
+    publicationYear: new Date().getFullYear().toString(),
+  });
+
+  return buildDataCiteXML(dataciteInput);
 }
 
 /**
@@ -180,7 +276,7 @@ export async function saveMaDMPVersion(
   context: MyContext,
   planId: number,
   dmpId: string,
-  shouldDelete = false,
+  shouldDelete = false
 ): Promise<boolean> {
   if (isNullOrUndefined(planId)) return false;
 
@@ -211,7 +307,7 @@ export async function saveMaDMPVersion(
   if (!hasLatestMaDMP) {
     // The Plan is new, so create the first maDMP record
     if (!(await createDMP(dynamoConfig, generalConfig.domain, dmpId, maDMP))) {
-      context.logger.error({planId, dmpId, reference}, 'Unable to create initial maDMP JSON.');
+      context.logger.error({ planId, dmpId, reference }, 'Unable to create initial maDMP JSON.');
       return false;
     }
     context.logger.debug({ planId, dmpId, reference }, 'Successfully created initial maDMP JSON.');

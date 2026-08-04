@@ -81,6 +81,38 @@ describe('ProjectMember', () => {
   });
 });
 
+describe('areEqual', () => {
+  it('should return true when both members ids match', () => {
+    const memberA = new ProjectMember({ id: 1, projectId: 1 });
+    const memberB = new ProjectMember({ id: 1, projectId: 2 });
+    expect(ProjectMember.areEqual(memberA, memberB)).toBe(true);
+  });
+
+  it('should return true when both members orids match', () => {
+    const memberA = new ProjectMember({ id: 1, projectId: 1, orcid: '0000-0000-0000-0000' });
+    const memberB = new ProjectMember({ id: 2, projectId: 2, orcid: '0000-0000-0000-0000' });
+    expect(ProjectMember.areEqual(memberA, memberB)).toBe(true);
+  });
+
+  it('should return true when both members emails match', () => {
+    const memberA = new ProjectMember({ id: 1, projectId: 1, email: 'test@example.com' });
+    const memberB = new ProjectMember({ id: 2, projectId: 2, email: 'test@example.com' });
+    expect(ProjectMember.areEqual(memberA, memberB)).toBe(true);
+  });
+
+  it('should return true when both members names match', () => {
+    const memberA = new ProjectMember({ id: 1, projectId: 1, givenName: 'John', surName: 'Doe' });
+    const memberB = new ProjectMember({ id: 2, projectId: 2, givenName: 'John', surName: 'Doe' });
+    expect(ProjectMember.areEqual(memberA, memberB)).toBe(true);
+  });
+
+  it('should return false when none of id, orcid, email and name do not match', () => {
+    const memberA = new ProjectMember({ id: 1, projectId: 1, orcid: '0000-0000-0000-0000', email: 'test@example.com', givenName: 'John', surName: 'Doe' });
+    const memberB = new ProjectMember({ id: 2, projectId: 2, orcid: '1111-1111-1111-1111', email: 'test2@example.com', givenName: 'Jane', surName: 'Smith' });
+    expect(ProjectMember.areEqual(memberA, memberB)).toBe(false);
+  });
+});
+
 describe('findBy Queries', () => {
   const originalQuery = ProjectMember.query;
 
@@ -133,7 +165,7 @@ describe('findBy Queries', () => {
     const result = await ProjectMember.findByProjectId('testing', context, projectId);
     const expectedSql = 'SELECT * FROM projectMembers WHERE projectId = ? ORDER BY surName, givenName';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectId.toString()], 'testing');
     expect(result).toEqual([projectMember]);
   });
 
@@ -150,7 +182,7 @@ describe('findBy Queries', () => {
     const result = await ProjectMember.findByAffiliation('testing', context, affiliationId);
     const expectedSql = 'SELECT * FROM projectMembers WHERE affiliationId = ? ORDER BY surName, givenName';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [affiliationId], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [affiliationId], 'testing');
     expect(result).toEqual([projectMember]);
   });
 
@@ -168,7 +200,7 @@ describe('findBy Queries', () => {
     const result = await ProjectMember.findByProjectAndEmail('testing', context, projectId, email);
     const expectedSql = 'SELECT * FROM projectMembers WHERE projectId = ? AND email = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectId.toString(), email], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectId.toString(), email], 'testing');
     expect(result).toEqual(projectMember);
   });
 
@@ -187,7 +219,7 @@ describe('findBy Queries', () => {
     const result = await ProjectMember.findByProjectAndORCID('testing', context, projectId, orcid);
     const expectedSql = 'SELECT * FROM projectMembers WHERE projectId = ? AND orcid = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectId.toString(), orcid], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectId.toString(), orcid], 'testing');
     expect(result).toEqual(projectMember);
   });
 
@@ -208,7 +240,7 @@ describe('findBy Queries', () => {
     const expectedSql = 'SELECT * FROM projectMembers WHERE projectId = ? AND LOWER(givenName) = ? AND LOWER(surName) = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
     const vals = [projectId.toString(), givenName.toLowerCase(), surName.toLowerCase()];
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, vals, 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, vals, 'testing');
     expect(result).toEqual(projectMember);
   });
 
@@ -233,7 +265,7 @@ describe('findBy Queries', () => {
       'OR (email = ?) ORDER BY orcid DESC, email DESC, surName, givenName';
     expect(localQuery).toHaveBeenCalledTimes(1);
     const vals = [projectId.toString(), givenName.toLowerCase(), surName.toLowerCase(), orcid, email];
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, vals, 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, vals, 'testing');
     expect(result).toEqual(projectMember);
   });
 
@@ -482,7 +514,7 @@ describe('delete', () => {
     // Mock PlanMember.delete
     const mockPlanMemberDelete = jest.fn();
     (PlanMember.delete as jest.Mock) = mockPlanMemberDelete;
-    mockPlanMemberDelete.mockResolvedValue(true); // or whatever you want it to return
+    mockPlanMemberDelete.mockResolvedValueOnce(projectMember);
 
     const mockFindByProjectId = jest.fn();
     (ProjectMember.findByProjectId as jest.Mock) = mockFindByProjectId;
@@ -622,7 +654,7 @@ describe('findByPlanId', () => {
     const result = await PlanMember.findById('testing', context, planMemberId);
     const expectedSql = 'SELECT * FROM planMembers WHERE id = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [planMemberId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [planMemberId.toString()], 'testing');
     expect(result).toEqual(planMember);
   });
 
@@ -640,7 +672,7 @@ describe('findByPlanId', () => {
     const result = await PlanMember.findByPlanAndProjectMember('testing', context, planId, planMemberId);
     const expectedSql = 'SELECT * FROM planMembers WHERE planId = ? AND projectMemberId = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [planId.toString(), planMemberId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [planId.toString(), planMemberId.toString()], 'testing');
     expect(result).toEqual(planMember);
   });
 
@@ -658,7 +690,7 @@ describe('findByPlanId', () => {
     const result = await PlanMember.findByPlanId('testing', context, planId);
     const expectedSql = 'SELECT * FROM planMembers WHERE planId = ? ORDER BY isPrimaryContact DESC';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [planId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [planId.toString()], 'testing');
     expect(result).toEqual([planMember]);
   });
 
@@ -675,7 +707,7 @@ describe('findByPlanId', () => {
     const result = await PlanMember.findByProjectMemberId('testing', context, projectMemberId);
     const expectedSql = 'SELECT * FROM planMembers WHERE projectMemberId = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectMemberId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [projectMemberId.toString()], 'testing');
     expect(result).toEqual([planMember]);
   });
 

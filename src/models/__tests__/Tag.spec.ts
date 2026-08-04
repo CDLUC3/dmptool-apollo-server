@@ -152,7 +152,7 @@ describe('delete', () => {
   });
 });
 
-describe('addToSection', () => {
+describe('addToQuestion', () => {
   let context;
   let mockTag;
 
@@ -172,28 +172,28 @@ describe('addToSection', () => {
     jest.clearAllMocks();
   });
 
-  it('associates the Tag to the specified Section', async () => {
-    const sectionId = casual.integer(1, 999);
+  it('associates the Tag to the specified Question', async () => {
+    const questionId = casual.integer(1, 999);
     const querySpy = jest.spyOn(Tag, 'query').mockResolvedValueOnce(mockTag);
-    const result = await mockTag.addToSection(context, sectionId);
+    const result = await mockTag.addToQuestion(context, questionId);
     expect(querySpy).toHaveBeenCalledTimes(1);
-    const expectedSql = 'INSERT INTO sectionTags (tagId, sectionId, createdById, modifiedById) VALUES (?, ?, ?, ?)';
+    const expectedSql = 'INSERT INTO questionTags (tagId, questionId, createdById, modifiedById) VALUES (?, ?, ?, ?)';
     const userId = context.token.id.toString();
-    const vals = [mockTag.id.toString(), sectionId.toString(), userId, userId]
-    expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, vals, 'Tag.addToSection')
+    const vals = [mockTag.id.toString(), questionId.toString(), userId, userId]
+    expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, vals, 'Tag.addToQuestion')
     expect(result).toBe(true);
   });
 
-  it('returns null if the Tag cannot be associated with the Section', async () => {
-    const sectionId = casual.integer(1, 999);
+  it('returns null if the Tag cannot be associated with the Question', async () => {
+    const questionId = casual.integer(1, 999);
     const querySpy = jest.spyOn(Tag, 'query').mockResolvedValueOnce(null);
-    const result = await mockTag.addToSection(context, sectionId);
+    const result = await mockTag.addToQuestion(context, questionId);
     expect(querySpy).toHaveBeenCalledTimes(1);
     expect(result).toBe(false);
   });
 });
 
-describe('removeFromSection', () => {
+describe('removeFromQuestion', () => {
   let context;
   let mockTag;
 
@@ -213,21 +213,21 @@ describe('removeFromSection', () => {
     jest.clearAllMocks();
   });
 
-  it('removes the Tag association with the specified Section', async () => {
-    const sectionId = casual.integer(1, 999);
+  it('removes the Tag association with the specified Question', async () => {
+    const questionId = casual.integer(1, 999);
     const querySpy = jest.spyOn(Tag, 'query').mockResolvedValueOnce(mockTag);
-    const result = await mockTag.removeFromSection(context, sectionId);
+    const result = await mockTag.removeFromQuestion(context, questionId);
     expect(querySpy).toHaveBeenCalledTimes(1);
-    const expectedSql = 'DELETE FROM sectionTags WHERE tagId = ? AND sectionId = ?';
-    const vals = [mockTag.id.toString(), sectionId.toString()]
-    expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, vals, 'Tag.removeFromSection')
+    const expectedSql = 'DELETE FROM questionTags WHERE tagId = ? AND questionId = ?';
+    const vals = [mockTag.id.toString(), questionId.toString()]
+    expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, vals, 'Tag.removeFromQuestion')
     expect(result).toBe(true);
   });
 
-  it('returns null if the Tag cannot be removed from the Section', async () => {
-    const sectionId = casual.integer(1, 999);
+  it('returns null if the Tag cannot be removed from the Question', async () => {
+    const questionId = casual.integer(1, 999);
     const querySpy = jest.spyOn(Tag, 'query').mockResolvedValueOnce(null);
-    const result = await mockTag.removeFromSection(context, sectionId);
+    const result = await mockTag.removeFromQuestion(context, questionId);
     expect(querySpy).toHaveBeenCalledTimes(1);
     expect(result).toBe(false);
   });
@@ -261,14 +261,55 @@ describe('addToVersionedSectionTags', () => {
     const expectedSql = 'INSERT INTO versionedSectionTags (tagId, versionedSectionId, createdById, modifiedById) VALUES (?, ?, ?, ?)';
     const userId = context.token.id.toString();
     const vals = [mockTag.id.toString(), versionedSectionId.toString(), userId, userId]
-    expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, vals, 'Tag.addToVersionedSectionTags')
+    expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, vals, 'Tag.addToVersionedSectionTags');
     expect(result).toBe(true);
   });
 
-  it('returns null if the Tag cannot be associated with the Section', async () => {
-    const sectionId = casual.integer(1, 999);
+  it('returns false if the Tag cannot be associated with the Section', async () => {
+    const versionedSectionId = casual.integer(1, 999);
     const querySpy = jest.spyOn(Tag, 'query').mockResolvedValueOnce(null);
-    const result = await mockTag.addToSection(context, sectionId);
+    const result = await mockTag.addToVersionedSectionTags(context, versionedSectionId);
+    expect(querySpy).toHaveBeenCalledTimes(1);
+    expect(result).toBe(false);
+  });
+});
+
+describe('addToVersionedQuestionTags', () => {
+  let context;
+  let mockTag;
+
+  beforeEach(async () => {
+    jest.resetAllMocks();
+
+    context = await buildMockContextWithToken(logger);
+
+    mockTag = new Tag({
+      id: casual.integer(1, 99),
+      name: casual.word,
+      description: casual.sentences(3)
+    });
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('associates the Tag to the specified Question', async () => {
+    const versionedQuestionId = casual.integer(1, 999);
+    const querySpy = jest.spyOn(Tag, 'query').mockResolvedValueOnce(mockTag);
+    const result = await mockTag.addToVersionedQuestionTags(context, versionedQuestionId);
+    expect(querySpy).toHaveBeenCalledTimes(1);
+    const expectedSql = 'INSERT INTO versionedQuestionTags (tagId, versionedQuestionId, createdById, modifiedById) VALUES (?, ?, ?, ?)';
+    const userId = context.token.id.toString();
+    const vals = [mockTag.id.toString(), versionedQuestionId.toString(), userId, userId]
+    expect(querySpy).toHaveBeenLastCalledWith(context, expectedSql, vals, 'Tag.addToVersionedQuestionTags');
+    expect(result).toBe(true);
+  });
+
+  it('returns null if the Tag cannot be associated with the Question', async () => {
+    const questionId = casual.integer(1, 999);
+    const querySpy = jest.spyOn(Tag, 'query').mockResolvedValueOnce(null);
+    const result = await mockTag.addToQuestion(context, questionId);
     expect(querySpy).toHaveBeenCalledTimes(1);
     expect(result).toBe(false);
   });
@@ -306,7 +347,7 @@ describe('findAll', () => {
     const result = await Tag.findAll('Tag query', context);
     const expectedSql = 'SELECT * FROM tags';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [], 'Tag query')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [], 'Tag query');
     expect(result).toEqual([tag]);
   });
 });
@@ -345,45 +386,7 @@ describe('findBySectionId', () => {
     const result = await Tag.findBySectionId('Tag query', context, sectionId);
     const expectedSql = `SELECT tags.* FROM sectionTags JOIN tags ON sectionTags.tagId = tags.id WHERE sectionTags.sectionId = ?;`;
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [sectionId.toString()], 'Tag query')
-    expect(result).toEqual([tag]);
-  });
-});
-
-describe('findByVersionedSectionId', () => {
-  const originalQuery = Tag.query;
-
-  let localQuery;
-  let context;
-  let tag;
-
-  beforeEach(async () => {
-    jest.resetAllMocks();
-
-    localQuery = jest.fn();
-    (Tag.query as jest.Mock) = localQuery;
-
-    context = await buildMockContextWithToken(logger);
-
-    tag = new Tag({
-      id: casual.integer(1, 9),
-      name: casual.sentence,
-      description: casual.sentence,
-    })
-  });
-
-  afterEach(() => {
-    jest.clearAllMocks();
-    Tag.query = originalQuery;
-  });
-
-  it('should call query with correct params and return the tag', async () => {
-    localQuery.mockResolvedValueOnce([tag]);
-    const versionedSectionId = 1;
-    const result = await Tag.findByVersionedSectionId('Tag query', context, versionedSectionId);
-    const expectedSql = `SELECT tags.* FROM versionedSectionTags vst JOIN tags ON vst.tagId = tags.id WHERE vst.versionedSectionId = ?;`;
-    expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [versionedSectionId.toString()], 'Tag query')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [sectionId.toString()], 'Tag query');
     expect(result).toEqual([tag]);
   });
 });
@@ -419,7 +422,7 @@ describe('findById', () => {
     const result = await Tag.findById('Tag query', context, tagId);
     const expectedSql = 'SELECT * FROM tags where id = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [tagId.toString()], 'Tag query')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [tagId.toString()], 'Tag query');
     expect(result).toEqual(tag);
 
   });
@@ -456,7 +459,7 @@ describe('findBySlug', () => {
     const result = await Tag.findBySlug('Tag query', context, slug);
     const expectedSql = 'SELECT * FROM tags WHERE slug = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [slug], 'Tag query')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [slug], 'Tag query');
     expect(result).toEqual([tag]);
 
   });

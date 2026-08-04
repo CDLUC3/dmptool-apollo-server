@@ -103,4 +103,4 @@ export class PlanFeedbackComment extends MySqlModel {
     const results = await PlanFeedbackComment.query(context, sql, [answerId.toString()], reference);
     return Array.isArray(results) && results.length > 0 ? results.map((ans) => new PlanFeedbackComment(ans)) : [];
   }
-};
+}

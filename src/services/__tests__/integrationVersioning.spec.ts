@@ -125,7 +125,14 @@ describe('Integration test: Template Versioning', () => {
       const section = sectionStore.find(s => s.id === sectionId);
       return section ? section.tags : [];
     });
+
+    const mockFindTagsByQuestionId = jest.fn().mockImplementation(async (_, __, questionId) => {
+      const question = questionStore.find(q => q.id === questionId);
+      return question?.tags ?? [];
+    });
+
     const mockAddToVersionedSectionTags = jest.fn().mockImplementation(async () => true);
+    const mockAddToVersionedQuestionTags = jest.fn().mockImplementation(async () => true);
 
     // Add the entry to the appropriate store
     mockInsert = jest.fn().mockImplementation(async (context, table, obj) => {
@@ -301,6 +308,10 @@ describe('Integration test: Template Versioning', () => {
         guidanceText: casual.sentences(2),
         sampleText: casual.sentences(2),
         required: true,
+        tags: [
+          new Tag({ id: casual.integer(1, 9999), name: casual.words(3) }),
+          new Tag({ id: casual.integer(1, 9999), name: casual.words(1) }),
+        ],
         displayOrder: casual.integer(1, 9),
         isDirty: true,
         createdById: casual.integer(1, 999),
@@ -318,6 +329,10 @@ describe('Integration test: Template Versioning', () => {
         guidanceText: casual.sentences(2),
         sampleText: casual.sentences(2),
         required: true,
+        tags: [
+          new Tag({ id: casual.integer(1, 9999), name: casual.words(3) }),
+          new Tag({ id: casual.integer(1, 9999), name: casual.words(1) }),
+        ],
         displayOrder: casual.integer(1, 9),
         isDirty: true,
         createdById: casual.integer(1, 999),
@@ -335,6 +350,10 @@ describe('Integration test: Template Versioning', () => {
         guidanceText: casual.sentences(2),
         sampleText: casual.sentences(2),
         required: true,
+        tags: [
+          new Tag({ id: casual.integer(1, 9999), name: casual.words(3) }),
+          new Tag({ id: casual.integer(1, 9999), name: casual.words(1) }),
+        ],
         displayOrder: casual.integer(1, 9),
         isDirty: true,
         createdById: casual.integer(1, 999),
@@ -404,7 +423,9 @@ describe('Integration test: Template Versioning', () => {
     // Tag dataStore mocks
     (Tag.findById as jest.Mock) = mockFindTagById;
     (Tag.findBySectionId as jest.Mock) = mockFindTagsBySectionId;
+    (Tag.findByQuestionId as jest.Mock) = mockFindTagsByQuestionId;
     (Tag.prototype.addToVersionedSectionTags as unknown as jest.Mock) = mockAddToVersionedSectionTags;
+    (Tag.prototype.addToVersionedQuestionTags as unknown as jest.Mock) = mockAddToVersionedQuestionTags;
   });
 
   afterEach(() => {

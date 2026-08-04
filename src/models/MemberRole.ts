@@ -147,4 +147,4 @@ export class MemberRole extends MySqlModel {
     const results = await MemberRole.query(context, `${sql} ${whereClause}`, vals, reference);
     return Array.isArray(results) ? results.map((entry) => new MemberRole(entry)) : [];
   }
-};
+}

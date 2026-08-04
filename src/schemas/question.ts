@@ -58,6 +58,8 @@ export const typeDefs = gql`
     useSampleTextAsDefault: Boolean
     "To indicate whether the question is required to be completed"
     required: Boolean
+    "The Tags associated with this question. A question might not have any tags"
+    tags: [Tag]
 
     "The conditional logic triggered by this question"
     questionConditions: [QuestionCondition!]
@@ -111,6 +113,8 @@ export const typeDefs = gql`
     useSampleTextAsDefault: Boolean
     "To indicate whether the question is required to be completed"
     required: Boolean
+    "The Tags associated with this question. A question might not have any tags"
+    tags: [TagInput!]
   }
 
   input UpdateQuestionInput {
@@ -132,5 +136,7 @@ export const typeDefs = gql`
     useSampleTextAsDefault: Boolean
     "To indicate whether the question is required to be completed"
     required: Boolean
+    "The Tags associated with this question. A question might not have any tags"
+    tags: [TagInput!]
   }
 `

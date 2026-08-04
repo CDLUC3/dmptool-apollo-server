@@ -20,6 +20,8 @@ import {
   sendTemplateCollaborationEmail,
   sendProjectCollaboratorsCommentsAddedEmail,
   sendFeedbackCompleteEmail,
+  sendContactUsEmail,
+  sendResetPasswordEmail,
 } from "../emailService";
 import { generalConfig } from "../../config/generalConfig";
 import { emailConfig } from "../../config/emailConfig";
@@ -349,5 +351,89 @@ describe('sendEmail', () => {
         "to": email,
       });
     }
+  });
+
+  it('should send the contact us email', async () => {
+    jest.spyOn(logger, 'info');
+    const name = `${casual.first_name} ${casual.last_name}`;
+    const email = casual.email;
+    const subject = casual.sentence;
+    const message = casual.sentence;
+
+    const sent = await sendContactUsEmail(context, name, email, subject, message);
+
+    const expectedSubject = `${subjectPrefix} - ${emailSubjects.contactUs}: ${subject}`;
+    const attribution = `Sent by ${name} <${email}>`;
+    const expectedHtml = emailMessages.contactUs
+      .replace('%{message}', message)
+      .replace('%{attribution}', attribution);
+
+    expect(sent).toBe(true);
+    expect(logger.info).toHaveBeenCalledTimes(1);
+    expect(mockSendEmail).toHaveBeenCalledTimes(1);
+    expect(mockSendEmail).toHaveBeenCalledWith({
+      "bcc": "",
+      "cc": "",
+      "from": `"${generalConfig.applicationName}" <${emailConfig.doNotReplyAddress}>`,
+      "html": expectedHtml,
+      "replyTo": email,
+      "sender": emailConfig.doNotReplyAddress,
+      "subject": expectedSubject,
+      "to": emailConfig.helpDeskAddress,
+    });
+  });
+
+  it('should send the reset password email', async () => {
+    jest.spyOn(logger, 'info');
+    const emailAddress = "dmp@cdlib.org";
+    const userEmail = "jsmith@example.com";
+    const resetToken = casual.uuid;
+    const user = new User({
+      id: casual.integer(1, 99),
+      givenName: casual.first_name,
+      surName: casual.last_name,
+    });
+    jest.spyOn(User.prototype, 'getEmail').mockResolvedValue(emailAddress);
+
+    const sent = await sendResetPasswordEmail(context, user, userEmail, resetToken);
+
+    const expectedSubject = `${subjectPrefix} - Reset Your Password`;
+    const domain = generalConfig.domain;
+    const resetPasswordUrl = `${domain}/login/reset-password?token=${resetToken}`;
+    const expectedMessage = emailMessages.sendResetPassword
+      .replace('%{userEmail}', userEmail)
+      .replace('%{resetPasswordUrl}', resetPasswordUrl)
+      .replaceAll('%{helpDeskEmail}', emailConfig.helpDeskAddress)
+      .replace('%{helpUrl}', `${domain}/help`);
+
+    expect(sent).toBe(true);
+    expect(logger.info).toHaveBeenCalledTimes(1);
+    expect(mockSendEmail).toHaveBeenCalledTimes(1);
+    expect(mockSendEmail).toHaveBeenCalledWith({
+      "bcc": "",
+      "cc": "",
+      "from": `"${generalConfig.applicationName}" <${emailConfig.doNotReplyAddress}>`,
+      "html": expectedMessage,
+      "replyTo": emailConfig.helpDeskAddress,
+      "sender": emailConfig.doNotReplyAddress,
+      "subject": expectedSubject,
+      "to": userEmail,
+    });
+  });
+
+  it('should log an error and return false when the user has no email address for reset password', async () => {
+    jest.spyOn(context.logger, 'error');
+    const user = new User({
+      id: casual.integer(1, 99),
+      givenName: casual.first_name,
+      surName: casual.last_name,
+    });
+    jest.spyOn(User.prototype, 'getEmail').mockResolvedValue(null);
+
+    const sent = await sendResetPasswordEmail(context, user, undefined, casual.uuid);
+
+    expect(sent).toBe(false);
+    expect(mockSendEmail).not.toHaveBeenCalled();
+    expect(context.logger.error).toHaveBeenCalledTimes(1);
   });
 });

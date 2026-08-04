@@ -19,6 +19,14 @@ export const projectTypeDefs = gql`
       filterOptions: ProjectFilterOptions
     ): ProjectSearchResults
 
+    "Get all projects for a specified user (Admin only!)"
+    userProjects(
+      userId: Int!,
+      term: String,
+      paginationOptions: PaginationOptions,
+      filterOptions: ProjectFilterOptions
+    ): ProjectSearchResults
+
     "Get a specific project"
     project(projectId: Int!): Project
 
@@ -72,6 +80,8 @@ export const projectTypeDefs = gql`
     fundings: [ProjectSearchResultFunding!]
     "Search results errors"
     errors: ProjectErrors
+    "The plans in the project"
+    plans: [PlanSearchResult!]
   }
 
   type ProjectSearchResults implements PaginatedQueryResults {
@@ -176,6 +186,23 @@ export const projectTypeDefs = gql`
   input ProjectFilterOptions {
     "Filter results by the plan's status"
     status: PlanStatus
+  }
+
+  input AddProjectInput {
+    "Optional id of project"
+    id: Int
+    "The title of the research project"
+    title: String!
+    "The research project description/abstract"
+    abstractText: String
+    "The actual or anticipated start date for the project"
+    startDate: String
+    "The actual or anticipated end date of the project"
+    endDate: String
+    "The id of the research domain"
+    researchDomainId: Int
+    "Whether or not the project is a mock/test"
+    isTestProject: Boolean
   }
 
   input UpdateProjectInput {

@@ -4,7 +4,7 @@ import { MySqlModel } from "./MySqlModel";
 export class Guidance extends MySqlModel {
   public guidanceGroupId: number;
   public guidanceText?: string;
-  public tagId: number;
+  public tagId?: number;
 
   private static tableName = 'guidance';
 

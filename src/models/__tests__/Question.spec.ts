@@ -36,6 +36,13 @@ describe('Question', () => {
     sampleText: casual.sentences(10),
     useSampleTextAsDefault: true,
     displayOrder: casual.integer(1, 20),
+    tags: [
+      {
+        id: casual.integer(1, 9),
+        name: casual.word,
+        description: casual.sentences(3),
+      }
+    ]
   }
   beforeEach(() => {
     question = new Question(questionData);
@@ -49,6 +56,7 @@ describe('Question', () => {
     expect(question.sampleText).toEqual(questionData.sampleText);
     expect(question.useSampleTextAsDefault).toEqual(questionData.useSampleTextAsDefault);
     expect(question.displayOrder).toEqual(questionData.displayOrder);
+    expect(question.tags).toEqual(questionData.tags);
     expect(question.required).toEqual(false);
   });
 
@@ -140,6 +148,13 @@ describe('ResearchOutputTable Question', () => {
     sampleText: casual.sentences(10),
     useSampleTextAsDefault: true,
     displayOrder: casual.integer(1, 20),
+    tags: [
+      {
+        id: casual.integer(1, 9),
+        name: casual.word,
+        description: casual.sentences(3),
+      }
+    ]
   }
   beforeEach(() => {
     question = new Question(questionData);
@@ -267,7 +282,7 @@ describe('findBy Queries', () => {
     const result = await Question.findById('testing', context, questionId);
     const expectedSql = 'SELECT * FROM questions WHERE id = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [questionId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [questionId.toString()], 'testing');
     expect(result).toEqual(question);
   });
 
@@ -284,7 +299,7 @@ describe('findBy Queries', () => {
     const result = await Question.findBySectionId('testing', context, questionId);
     const expectedSql = 'SELECT * FROM questions WHERE sectionId = ? ORDER BY displayOrder ASC';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [questionId.toString()], 'testing')
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [questionId.toString()], 'testing');
     expect(result).toEqual([question]);
   });
 

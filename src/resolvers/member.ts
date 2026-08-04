@@ -13,7 +13,7 @@ import { GraphQLError } from 'graphql';
 import { Plan } from '../models/Plan';
 import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
 import { ProjectCollaboratorAccessLevel } from "../models/Collaborator";
-import { processOtherAffiliationName } from '../services/affiliationService';
+import { resolveAffiliation } from '../services/affiliationService';
 
 
 export const resolvers: Resolvers = {
@@ -100,34 +100,13 @@ export const resolvers: Resolvers = {
             throw NotFoundError();
           }
 
-          // If an affiliationId was provided, check if it exists and create it if it doesn't
-          if (input.affiliationId && input.affiliationId.length > 0) {
-            const existingAffiliation = await Affiliation.findByURI(reference, context, input.affiliationId);
-            if (!existingAffiliation && input.affiliationName) {
-              // Create the affiliation with the provided URI and name
-              const newAffiliation = new Affiliation({
-                uri: input.affiliationId,
-                name: input.affiliationName
-              });
-
-              const createdAffiliation = await newAffiliation.create(context);
-
-              if (!createdAffiliation || createdAffiliation.hasErrors()) {
-                const errorMember = new ProjectMember(input);
-                errorMember.addError('affiliation', 'Unable to create required affiliation');
-                return errorMember;
-              }
-
-              // Update the input to use the URI from the created affiliation
-              input.affiliationId = createdAffiliation.uri;
-            }
-          } else if (input.affiliationName) {
-            // If only an affiliationName was provided, then process it to generate a URI
-            const affiliation = await processOtherAffiliationName(context, input.affiliationName, context.token.id);
-            if (affiliation) {
-              input.affiliationId = String(affiliation.uri);
-            }
+          const { affiliationId, error } = await resolveAffiliation(reference, context, input, context.token.id);
+          if (error) {
+            const errorMember = new ProjectMember(input);
+            errorMember.addError('affiliation', error);
+            return errorMember;
           }
+          input.affiliationId = affiliationId;
 
           if (await hasPermissionOnProject(context, project)) {
             const newMember = new ProjectMember(input);
@@ -193,6 +172,15 @@ export const resolvers: Resolvers = {
           if (isNullOrUndefined(project)) {
             throw NotFoundError();
           }
+
+
+          const { affiliationId, error } = await resolveAffiliation(reference, context, input, context.token.id);
+          if (error) {
+            const errorMember = new ProjectMember(input);
+            errorMember.addError('affiliationId', error);
+            return errorMember;
+          }
+          input.affiliationId = affiliationId;
 
           if (await hasPermissionOnProject(context, project)) {
             const toUpdate = new ProjectMember(input);

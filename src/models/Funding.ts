@@ -171,7 +171,7 @@ export class PlanFunding extends MySqlModel {
 
     // First make sure the record is valid
     if (await this.isValid()) {
-      const current = await PlanFunding.findByProjectFundingId(reference, context, this.planId, this.projectFundingId);
+      const current = await PlanFunding.findByPlanAndProjectFundingId(reference, context, this.planId, this.projectFundingId);
 
       // Then make sure it doesn't already exist
       if (current) {
@@ -223,8 +223,8 @@ export class PlanFunding extends MySqlModel {
     return Array.isArray(results) && results.length > 0 ? new PlanFunding(results[0]) : null;
   }
 
-  // Find the plan funding for the projectFundingId
-  static async findByProjectFundingId(
+  // Find the plan funding for the given plan and projectFundingId
+  static async findByPlanAndProjectFundingId(
     reference: string,
     context: MyContext,
     planId: number,
@@ -236,10 +236,17 @@ export class PlanFunding extends MySqlModel {
     return Array.isArray(results) && results.length > 0 ? new PlanFunding(results[0]) : null;
   }
 
-  // Find all of the funding for the plan using the planId
+  // Find all the funding for the plan using the planId
   static async findByPlanId(reference: string, context: MyContext, planId: number): Promise<PlanFunding[]> {
     const sql = `SELECT * FROM ${this.tableName} WHERE planId = ?`;
     const results = await PlanFunding.query(context, sql, [planId?.toString()], reference);
+    return Array.isArray(results) ? results.map((item) => new PlanFunding(item)) : [];
+  }
+
+  // Find all the funding for the given projectFundingId
+  static async findByProjectFundingId(reference: string, context: MyContext, projectFundingId: number): Promise<PlanFunding[]> {
+    const sql = `SELECT * FROM ${this.tableName} WHERE projectFundingId = ?`;
+    const results = await PlanFunding.query(context, sql, [projectFundingId?.toString()], reference);
     return Array.isArray(results) ? results.map((item) => new PlanFunding(item)) : [];
   }
 }

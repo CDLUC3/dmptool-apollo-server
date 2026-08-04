@@ -311,4 +311,4 @@ export class ResearchDomain extends MySqlModel {
     const results = await ResearchDomain.query(context, sql, [searchTerm?.toLowerCase()?.trim()], reference);
     return Array.isArray(results) && results.length > 0 ? new ResearchDomain(results[0]) : null;
   }
-};
+}

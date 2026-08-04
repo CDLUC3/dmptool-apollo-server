@@ -1,6 +1,8 @@
 import casual from 'casual';
 import { MySqlModel } from "../MySqlModel";
-import { buildMockContextWithToken } from '../../__mocks__/context';
+import {
+  buildMockContextWithToken
+} from '../../__mocks__/context';
 import { getCurrentDate } from '../../utils/helpers';
 import { generalConfig } from '../../config/generalConfig';
 import {
@@ -8,6 +10,8 @@ import {
   PaginationOptionsForOffsets,
   PaginationType
 } from '../../types/general';
+import { MyContext } from '../../context';
+import { formatISO9075 } from 'date-fns';
 import { logger } from "../../logger";
 
 jest.mock('../../datasources/mysql', () => {
@@ -125,6 +129,43 @@ describe('MySqlModel abstract class', () => {
     expect(await model.isValid()).toBe(true);
   });
 
+  it('constructor should initialize the errors object when null is provided', () => {
+    const model = new MySqlModel(
+      null,
+      getCurrentDate(),
+      casual.integer(1, 999),
+      undefined,
+      undefined,
+      null as unknown as Record<string, string>
+    );
+
+    expect(model.errors).toEqual({});
+  });
+
+  describe('error helpers', () => {
+    it('hasErrors returns false when no errors are present and true after addError', () => {
+      const model = new MySqlModel(null, getCurrentDate(), casual.integer(1, 999));
+
+      expect(model.hasErrors()).toBe(false);
+
+      model.addError('name', 'Name is required');
+
+      expect(model.hasErrors()).toBe(true);
+      expect(model.errors.name).toEqual('Name is required');
+    });
+
+    it('errorsToString excludes __typename and empty values', () => {
+      const model = new MySqlModel(null, getCurrentDate(), casual.integer(1, 999));
+      model.errors = {
+        __typename: 'Error',
+        name: 'Name is required',
+        description: '',
+      };
+
+      expect(model.errorsToString()).toEqual('name: Name is required');
+    });
+  });
+
   describe('getPaginationLimit', () => {
     it('returns the provided limit if it is greater than or equal to 1 and less than the maximum limit', () => {
       const limit = 10;
@@ -152,6 +193,15 @@ describe('MySqlModel abstract class', () => {
     it('returns the defaultSearchLimit if the provided limit is null', () => {
       const result = MySqlModel.getPaginationLimit(null as unknown as number);
       expect(result).toEqual(generalConfig.defaultSearchLimit);
+    });
+  });
+
+  describe('getDefaultPaginationOptions', () => {
+    it('returns the configured default cursor pagination settings', () => {
+      expect(MySqlModel.getDefaultPaginationOptions()).toEqual({
+        limit: generalConfig.defaultSearchLimit,
+        cursor: null,
+      });
     });
   });
 
@@ -295,6 +345,29 @@ describe('MySqlModel abstract class', () => {
       );
       expect(result).toEqual(3);
     });
+
+    it('returns the total field when there is no GROUP BY clause', async () => {
+      const sqlStatement = 'SELECT * FROM tests';
+      const whereClause = 'WHERE field = ?';
+      const groupByClause = '';
+      const countField = 'id';
+      const values = ['value'];
+      const reference = 'Testing';
+
+      localQuery.mockResolvedValueOnce([{ total: 7 }]);
+
+      const result = await MySqlModel.getTotalCountForPagination(
+        context,
+        sqlStatement,
+        whereClause,
+        groupByClause,
+        countField,
+        values,
+        reference
+      );
+
+      expect(result).toEqual(7);
+    });
   });
 });
 
@@ -365,6 +438,16 @@ describe('preparePaginationOptions', () => {
 });
 
 describe('prepareValue', () => {
+  it('returns null for null and undefined values', () => {
+    expect(MySqlModel.prepareValue(null, String)).toBeNull();
+    expect(MySqlModel.prepareValue(undefined, String)).toBeNull();
+  });
+
+  it('returns buffers unchanged', () => {
+    const val = Buffer.from('test');
+    expect(MySqlModel.prepareValue(val, String)).toBe(val);
+  });
+
   it('can handle a string', () => {
     const val = 'test';
     expect(MySqlModel.prepareValue(val, String)).toEqual("test");
@@ -402,6 +485,15 @@ describe('prepareValue', () => {
     const nested = { test1: 'test1', test2: { subA: 2, subB: '3' }, test3: false };
     expect(MySqlModel.prepareValue(nested, Object)).toEqual('{"test1":"test1","test2":{"subA":2,"subB":"3"},"test3":false}');
   });
+
+  it('can handle json, object, and Date values', () => {
+    const val = { enabled: true };
+    const date = new Date('2026-01-02T03:04:05.000Z');
+
+    expect(MySqlModel.prepareValue(val, 'json')).toEqual('{"enabled":true}');
+    expect(MySqlModel.prepareValue(val, 'object')).toEqual('{"enabled":true}');
+    expect(MySqlModel.prepareValue(date, String)).toEqual(formatISO9075(date.toISOString()));
+  });
 });
 
 describe('propertyInfo', () => {
@@ -436,8 +528,8 @@ describe('propertyInfo', () => {
 
 describe('query function', () => {
   const originalQuery = MySqlModel.query;
-  let mockQuery;
-  let context;
+  let mockQuery: jest.Mock;
+  let context: MyContext;
 
   beforeEach(async () => {
     jest.resetAllMocks();
@@ -445,8 +537,10 @@ describe('query function', () => {
     context = await buildMockContextWithToken(logger);
 
     mockQuery = jest.fn();
-    const dataSource = context.dataSources.sqlDataSource;
-    (dataSource.query as jest.Mock) = mockQuery;
+    // Create a mock datasource with the query function
+    context.dataSources.sqlDataSource = {
+      query: mockQuery
+    } as unknown as MyContext['dataSources']['sqlDataSource'];
   });
 
   afterEach(() => {
@@ -459,7 +553,7 @@ describe('query function', () => {
     const sql = 'SELECT * FROM tests WHERE field = ?';
     const result = await MySqlModel.query(context, sql, ['1'], 'Testing');
     expect(context.logger.debug).toHaveBeenCalledTimes(1);
-    expect(context.logger.debug).toHaveBeenCalledWith({ sql, values: ["1"] }, "Testing");
+    expect(context.logger.debug).toHaveBeenCalledWith({ sql, usingTransaction: false, values: ["1"] }, "Testing");
     expect(result).toEqual(['test']);
   });
 
@@ -468,7 +562,52 @@ describe('query function', () => {
     const sql = 'SELECT * FROM tests WHERE field = ?';
     const result = await MySqlModel.query(context, sql,);
     expect(context.logger.debug).toHaveBeenCalledTimes(1);
-    expect(context.logger.debug).toHaveBeenCalledWith({ sql, values: [] }, "undefined caller");
+    expect(context.logger.debug).toHaveBeenCalledWith({ sql, usingTransaction: false, values: [] }, "undefined caller");
+    expect(result).toEqual([]);
+  });
+
+  it('query uses the active transaction connection when one is present', async () => {
+    const transactionQuery = jest.fn().mockResolvedValueOnce(['inside transaction']);
+    context.activeTransaction = {
+      connection: {
+        query: transactionQuery,
+      },
+    } as unknown as MyContext['activeTransaction'];
+
+    const sql = 'SELECT * FROM tests WHERE field = ?';
+    const result = await MySqlModel.query(context, sql, ['1234'], 'transaction query');
+
+    expect(context.logger.debug).toHaveBeenCalledTimes(1);
+    expect(context.logger.debug).toHaveBeenCalledWith(
+      { sql, usingTransaction: true, values: ['1*4'] },
+      'transaction query'
+    );
+    expect(transactionQuery).toHaveBeenCalledTimes(1);
+    expect(transactionQuery).toHaveBeenCalledWith(sql, ['1234']);
+    expect(mockQuery).not.toHaveBeenCalled();
+    expect(result).toEqual(['inside transaction']);
+  });
+
+  it('query returns an empty array when the active transaction query fails', async () => {
+    const transactionQuery = jest.fn().mockImplementation(() => {
+      throw new Error('Transaction query failed');
+    });
+    context.activeTransaction = {
+      connection: {
+        query: transactionQuery,
+      },
+    } as unknown as MyContext['activeTransaction'];
+
+    const sql = 'SELECT * FROM tests WHERE field = ?';
+    const result = await MySqlModel.query(context, sql, ['9999'], 'transaction failure');
+
+    expect(context.logger.debug).toHaveBeenCalledTimes(1);
+    expect(context.logger.error).toHaveBeenCalledTimes(1);
+    expect(context.logger.debug).toHaveBeenCalledWith(
+      { sql, usingTransaction: true, values: ['9*9'] },
+      'transaction failure'
+    );
+    expect(mockQuery).not.toHaveBeenCalled();
     expect(result).toEqual([]);
   });
 
@@ -479,7 +618,7 @@ describe('query function', () => {
     const result = await MySqlModel.query(context, sql, ['123'], 'testing failure');
     expect(context.logger.debug).toHaveBeenCalledTimes(1);
     expect(context.logger.error).toHaveBeenCalledTimes(1);
-    expect(context.logger.debug).toHaveBeenCalledWith({ sql, values: ["123"] }, "testing failure");
+    expect(context.logger.debug).toHaveBeenCalledWith({ sql, usingTransaction: false, values: ["123"] }, "testing failure");
     expect(context.logger.error).toHaveBeenCalledWith({}, "testing failure, ERROR: Testing error handler");
     expect(result).toEqual([]);
   });
@@ -495,6 +634,22 @@ describe('query function', () => {
     const msg = 'testing failure, ERROR: apolloContext and sqlStatement are required. - SELECT * FROM tests WHERE field = ?';
     expect(context.logger.error).toHaveBeenCalledWith(msg);
     expect(result).toEqual([]);
+  });
+
+  it('query logs to the console when neither a datasource nor logger is available', async () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+    const sql = 'SELECT * FROM tests WHERE field = ?';
+    const result = await MySqlModel.query({
+      ...context,
+      dataSources: null,
+      logger: null,
+    } as unknown as MyContext, sql, ['123'], 'testing failure');
+
+    expect(logSpy).toHaveBeenCalledWith(
+      'testing failure, ERROR: apolloContext and sqlStatement are required. - SELECT * FROM tests WHERE field = ?'
+    );
+    expect(result).toEqual([]);
+    logSpy.mockRestore();
   });
 });
 
@@ -565,7 +720,7 @@ describe('queryWithPagination', () => {
         cursorField: "LOWER(REPLACE(CONCAT(COALESCE(id, '')), ' ', '_'))",
       },
       reference,
-      true
+      true,
     );
     expect(result).toEqual(mockResponse);
   });
@@ -609,7 +764,7 @@ describe('queryWithPagination', () => {
         availableSortFields: []
       },
       reference,
-      true
+      true,
     );
     expect(result).toEqual(mockResponse);
   });
@@ -1125,6 +1280,15 @@ describe('exists', () => {
     const result = await MySqlModel.exists(context, 'tests', 1, 'Testing');
     expect(result).toEqual(false);
   });
+
+  it('returns false and logs the error if the query throws', async () => {
+    localQuery.mockRejectedValueOnce(new Error('Lookup failed'));
+
+    const result = await MySqlModel.exists(context, 'tests', 1, 'Testing');
+
+    expect(context.logger.error).toHaveBeenCalledTimes(1);
+    expect(result).toEqual(false);
+  });
 });
 
 describe('insert function', () => {
@@ -1177,6 +1341,38 @@ describe('insert function', () => {
     expect(localQuery).toHaveBeenCalledTimes(1);
     expect(result).toEqual(id);
   });
+
+  it('insert defaults createdById and modifiedById from the token when missing', async () => {
+    const table = casual.word;
+    const obj = new TestImplementation({
+      ...options,
+      createdById: undefined,
+    });
+    obj.modifiedById = undefined;
+    localQuery.mockResolvedValueOnce([{ insertId: 1 }]);
+
+    await MySqlModel.insert(context, table, obj, 'Testing');
+
+    expect(obj.createdById).toEqual(context.token.id);
+    expect(obj.modifiedById).toEqual(context.token.id);
+  });
+
+  it('insert defaults createdById and modifiedById from userId when there is no token', async () => {
+    const table = casual.word;
+    const obj = new TestImplementation({
+      ...options,
+      createdById: undefined,
+    }) as TestImplementation & { userId?: number };
+    obj.modifiedById = undefined;
+    obj.userId = casual.integer(1, 99);
+    context.token = null;
+    localQuery.mockResolvedValueOnce([{ insertId: 1 }]);
+
+    await MySqlModel.insert(context, table, obj, 'Testing');
+
+    expect(obj.createdById).toEqual(obj.userId);
+    expect(obj.modifiedById).toEqual(obj.userId);
+  });
 });
 
 describe('update function', () => {
@@ -1228,6 +1424,22 @@ describe('update function', () => {
     const result = await MySqlModel.update(context, table, obj, 'Testing');
     expect(localQuery).toHaveBeenCalledTimes(1);
     expect(result).toEqual(obj);
+  });
+
+  it('update returns null and logs an error when the id is missing', async () => {
+    const table = casual.word;
+    const obj = new TestImplementation({
+      ...options,
+      id: undefined,
+    });
+
+    const result = await MySqlModel.update(context, table, obj, 'Testing');
+
+    expect(localQuery).not.toHaveBeenCalled();
+    expect(context.logger.error).toHaveBeenCalledWith(
+      `Testing, ERROR: Cannot update record in ${table} because id is not set.`
+    );
+    expect(result).toBeNull();
   });
 });
 

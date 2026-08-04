@@ -6,6 +6,7 @@ import { Request } from 'express-jwt';
 import { Logger } from "pino";
 import { MySQLConnection } from "../datasources/mysql";
 import { DMPHubAPI } from "../datasources/dmphubAPI";
+import { EZIDAPI } from "../datasources/EZIDAPI";
 
 export async function attachApolloServer(
   apolloServer: ApolloServer,
@@ -14,15 +15,20 @@ export async function attachApolloServer(
   logger: Logger,
   sqlDataSource: MySQLConnection,
   dmphubAPIDataSource: DMPHubAPI,
+  ezidAPIDataSource: EZIDAPI,
 ) {
   const context = buildContext(
     logger,
     cache,
     null,
     sqlDataSource,
-    dmphubAPIDataSource
+    dmphubAPIDataSource,
+    ezidAPIDataSource
   );
   context.logger.info({}, 'Attaching Apollo server');
+
+  // Make sure we're able to establish a connection to the MySQL DB before continuing
+  await sqlDataSource.validateConnection()
 
   // expressMiddleware accepts the same arguments:
   //   an Apollo Server instance and optional configuration options
@@ -34,7 +40,8 @@ export async function attachApolloServer(
         cache,
         req.auth as JWTAccessToken,
         sqlDataSource,
-        dmphubAPIDataSource
+        dmphubAPIDataSource,
+        ezidAPIDataSource
       );
     },
   });

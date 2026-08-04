@@ -137,7 +137,8 @@ describe("CustomSection", () => {
         mockContext,
         "customSections",
         customization,
-        "CustomSection.create"
+        "CustomSection.create",
+        []
       );
       expect(result.id).toBe(1);
       expect(result.templateCustomizationId).toBe(100);

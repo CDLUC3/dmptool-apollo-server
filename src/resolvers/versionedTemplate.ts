@@ -21,6 +21,23 @@ import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
 
 export const resolvers: Resolvers = {
   Query: {
+    // Get a VersionedTemplate by its id
+    versionedTemplate: async (_, { id }, context: MyContext): Promise<VersionedTemplate> => {
+      const  reference = 'versionedTemplate resolver';
+      try {
+        if (isAuthorized(context.token)) {
+          return await VersionedTemplate.findById(reference, context, id);
+        }
+        // Unauthorized!
+        throw context?.token ? ForbiddenError() : AuthenticationError();
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    },
+
     // Get all of the versions for the specified VersionedTemplate (a.k. the Template history)
     //    - called from the Template history page
     templateVersions: async (_, { templateId }, context: MyContext): Promise<VersionedTemplate[]> => {

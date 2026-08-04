@@ -5,7 +5,7 @@ export const typeDefs = gql`
     "Returns the currently logged in user's information"
     me: User
     "Returns all of the users associated with the current admin's affiliation (Super admins get everything)"
-    users(term: String, paginationOptions: PaginationOptions): UserSearchResults
+    users(term: String, role: UserRole, affiliationId: String, paginationOptions: PaginationOptions): UserSearchResults
     "Returns the specified user (Admin only)"
     user(userId: Int!): User
   }
@@ -13,6 +13,10 @@ export const typeDefs = gql`
   extend type Mutation {
     "Update the current user's information"
     updateUserProfile(input: UpdateUserProfileInput!): User
+    "Update the specified user's information (SuperAdmin only)"
+    updateUserInfo(input: UpdateUserInfoInput!): User
+    " Update the specified user's role (SuperAdmin and Admin only)"
+    updateUserRole(input: UpdateUserRoleInput!): User
     "Update the current user's email notifications"
     updateUserNotifications(input: UpdateUserNotificationsInput!): User
     "Set the user's ORCID"
@@ -34,6 +38,8 @@ export const typeDefs = gql`
     deactivateUser(userId: Int!): User
     "Reactivate the specified user Account (Admin only)"
     activateUser(userId: Int!): User
+    "Archive the specified user and anonymize their data (Admin only)"
+    archiveUser(userId: Int!): User
     "Merge the 2 user accounts (Admin only)"
     mergeUsers(userIdToBeMerged: Int!, userIdToKeep: Int!): User
   }
@@ -74,6 +80,8 @@ export const typeDefs = gql`
     role: UserRole!
     "The user's organizational affiliation"
     affiliation: Affiliation
+    "The plans that the user created"
+    plans: [Plan]
     "Whether the user has accepted the terms and conditions of having an account"
     acceptedTerms: Boolean
     "The user's ORCID"
@@ -98,6 +106,8 @@ export const typeDefs = gql`
     locked: Boolean
     "Whether or not account is active"
     active: Boolean
+    "Whether or not account is archived"
+    isArchived: Boolean
 
     "The timestamp of the last login"
     last_sign_in: String
@@ -110,6 +120,8 @@ export const typeDefs = gql`
     emails: [UserEmail]
     "The user's primary email address"
     email: String
+    "The timestamp of when the user last changed their password"
+    passwordChangedAt: String
   }
 
   type UserSearchResults implements PaginatedQueryResults {
@@ -195,6 +207,30 @@ export const typeDefs = gql`
     otherAffiliationName: String
     "The user's preferred language"
     languageId: String
+  }
+
+  input UpdateUserInfoInput {
+    "The user's id"
+    userId: Int!
+    "The user's email address"
+    email: String!
+    "The user's given name"
+    givenName: String!
+    "The user's surname"
+    surName: String!
+    "The id of the affiliation if the user selected one from the typeahead list"
+    affiliationId: String
+    "The name of the affiliation if the user did not select one from the typeahead list"
+    otherAffiliationName: String
+    "The user's preferred language"
+    languageId: String
+  }
+
+  input UpdateUserRoleInput {
+    "The user's id"
+    userId: Int!
+    "The new role for the user"
+    role: UserRole!
   }
 
   input UpdateUserNotificationsInput {

@@ -1,6 +1,6 @@
 import casual from "casual";
 import { buildMockContextWithToken } from "../../__mocks__/context";
-import { QuestionCondition, QuestionConditionActionType, QuestionConditionCondition } from "../QuestionCondition";
+import { QuestionCondition } from "../QuestionCondition";
 import { getRandomEnumValue } from "../../__tests__/helpers";
 import { logger } from "../../logger";
 
@@ -10,20 +10,18 @@ describe('QuestionCondition', () => {
   let questionCondition;
 
   const questionConditionData = {
-    questionId: casual.integer(1, 999),
-    conditionMatch: casual.words(3),
-    target: casual.word,
-  }
+    conditionType: "EQUAL",
+    conditionMatch: "Apples",
+    groupId: 1
+  };
   beforeEach(() => {
     questionCondition = new QuestionCondition(questionConditionData);
   });
 
   it('should initialize options as expected', () => {
-    expect(questionCondition.questionId).toEqual(questionConditionData.questionId);
-    expect(questionCondition.action).toEqual(QuestionConditionActionType.SHOW_QUESTION);
-    expect(questionCondition.conditionType).toEqual(QuestionConditionCondition.EQUAL);
+    expect(questionCondition.conditionType).toEqual("EQUAL");
     expect(questionCondition.conditionMatch).toEqual(questionConditionData.conditionMatch);
-    expect(questionCondition.target).toEqual(questionConditionData.target);
+    expect(questionCondition.groupId).toEqual(questionConditionData.groupId);
   });
 
   it('should return true when calling isValid with a name field', async () => {
@@ -47,13 +45,10 @@ describe('findBy Queries', () => {
     context = await buildMockContextWithToken(logger);
 
     questionCondition = new QuestionCondition({
-      id: casual.integer(1, 9),
-      questionId: casual.integer(1, 999),
-      action: getRandomEnumValue(QuestionConditionActionType),
-      conditionType: getRandomEnumValue(QuestionConditionCondition),
+      conditionType: "EQUAL",
       conditionMatch: casual.words(5),
-      target: casual.integer(1, 9999).toString(),
-    })
+      groupId: casual.integer(1, 9999),
+    });
   });
 
   afterEach(() => {
@@ -78,20 +73,20 @@ describe('findBy Queries', () => {
     expect(result).toEqual(null);
   });
 
-  it('findByQuestionId should call query with correct params and return the default', async () => {
+  it('findByGroupId should call query with correct params and return the default', async () => {
     localQuery.mockResolvedValueOnce([questionCondition]);
-    const questionId = casual.integer(1, 999);
-    const result = await QuestionCondition.findByQuestionId('testing', context, questionId);
-    const expectedSql = 'SELECT * FROM questionConditions WHERE questionId = ?';
+    const groupId = casual.integer(1, 999);
+    const result = await QuestionCondition.findByGroupId('testing', context, groupId);
+    const expectedSql = 'SELECT * FROM questionConditions WHERE groupId = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [questionId.toString()], 'testing');
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [groupId.toString()], 'testing');
     expect(result).toEqual([questionCondition]);
   });
 
-  it('findByQuestionId should return null if it finds no default', async () => {
+  it('findByGroupId should return an empty array if it finds no records', async () => {
     localQuery.mockResolvedValueOnce([]);
-    const questionId = casual.integer(1, 999);
-    const result = await QuestionCondition.findByQuestionId('testing', context, questionId);
+    const groupId = casual.integer(1, 999);
+    const result = await QuestionCondition.findByGroupId('testing', context, groupId);
     expect(result).toEqual([]);
   });
 });
@@ -114,12 +109,10 @@ describe('create', () => {
     context = await buildMockContextWithToken(logger);
 
     questionCondition = new QuestionCondition({
-      questionId: casual.integer(1, 999),
-      action: getRandomEnumValue(QuestionConditionActionType),
-      conditionType: getRandomEnumValue(QuestionConditionCondition),
+      conditionType: "EQUAL",
       conditionMatch: casual.words(5),
-      target: casual.integer(1, 9999).toString(),
-    })
+      groupId: casual.integer(1, 9999),
+    });
   });
 
   afterEach(() => {
@@ -140,27 +133,15 @@ describe('create', () => {
   });
 
   it('returns the QuestionCondition with an error if questionId is undefined', async () => {
-    questionCondition.questionId = undefined;
+    questionCondition.groupId = undefined;
     const response = await questionCondition.create(context);
-    expect(response.errors['questionId']).toBe('Question Id can\'t be blank');
-  });
-
-  it('returns the QuestionCondition with an error if action is undefined', async () => {
-    questionCondition.action = undefined;
-    const response = await questionCondition.create(context);
-    expect(response.errors['action']).toBe('Action can\'t be blank');
+    expect(response.errors['groupId']).toBe('Group Id can\'t be blank');
   });
 
   it('returns the QuestionCondition with an error if conditionType is undefined', async () => {
     questionCondition.conditionType = undefined;
     const response = await questionCondition.create(context);
     expect(response.errors['conditionType']).toBe('Condition Type can\'t be blank');
-  });
-
-  it('returns the QuestionCondition with an error if target is undefined', async () => {
-    questionCondition.target = undefined;
-    const response = await questionCondition.create(context);
-    expect(response.errors['target']).toBe('Target can\'t be blank');
   });
 
   it('returns the newly added QuestionCondition', async () => {
@@ -197,19 +178,17 @@ describe('update', () => {
 
     questionCondition = new QuestionCondition({
       id: casual.integer(1, 9),
-      questionId: casual.integer(1, 999),
-      action: getRandomEnumValue(QuestionConditionActionType),
-      conditionType: getRandomEnumValue(QuestionConditionCondition),
+      conditionType: "EQUAL",
       conditionMatch: casual.words(5),
-      target: casual.integer(1, 9999).toString(),
-    })
+      groupId: casual.integer(1, 9999),
+    });
   });
 
   it('returns the QuestionCondition with errors if it is not valid', async () => {
-    questionCondition.questionId = null;
+    questionCondition.groupId = null;
 
     const result = await questionCondition.update(context);
-    expect(result.errors['questionId']).toEqual('Question Id can\'t be blank');
+    expect(result.errors['groupId']).toEqual('Group Id can\'t be blank');
     expect(updateQuery).toHaveBeenCalledTimes(0);
     expect(findByIdQuery).toHaveBeenCalledTimes(0);
   });
@@ -249,13 +228,11 @@ describe('delete', () => {
 
     questionCondition = new QuestionCondition({
       id: casual.integer(1, 9),
-      questionId: casual.integer(1, 999),
-      action: getRandomEnumValue(QuestionConditionActionType),
-      conditionType: getRandomEnumValue(QuestionConditionCondition),
+      conditionType: "EQUAL",
       conditionMatch: casual.words(5),
-      target: casual.integer(1, 9999).toString(),
-    })
-  })
+      groupId: casual.integer(1, 9999),
+    });
+  });
 
   it('returns null if the QuestionCondition has no id', async () => {
     questionCondition.id = null;

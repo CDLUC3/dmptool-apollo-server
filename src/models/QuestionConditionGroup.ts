@@ -3,7 +3,8 @@ import { MySqlModel } from "./MySqlModel";
 
 // One row per trigger-question "box" in the Display Logic UI. Groups
 // together the conditions (option checks) that apply to a single
-// prior question. Belongs to a QuestionDisplayLogic; owns QuestionConditions.
+// prior options question. 
+// Belongs to a QuestionDisplayLogic; owns QuestionConditions.
 export class QuestionConditionGroup extends MySqlModel {
   public questionId: number;
   public triggerQuestionId: number;

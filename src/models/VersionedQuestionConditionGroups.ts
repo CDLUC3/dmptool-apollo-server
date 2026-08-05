@@ -2,8 +2,8 @@ import { MyContext } from "../context";
 import { MySqlModel } from "./MySqlModel";
 
 // Point-in-time snapshot of a QuestionConditionGroup, taken when a Question
-// is versioned/published. Belongs to a VersionedQuestion; owns
-// VersionedQuestionConditions.
+// is versioned/published. 
+// Belongs to a VersionedQuestion; owns VersionedQuestionConditions.
 //
 // questionConditionGroupId is kept as a plain (non-FK) reference back to the
 // live QuestionConditionGroup for traceability only — it is NOT cascaded,

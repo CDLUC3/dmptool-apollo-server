@@ -106,6 +106,25 @@ export const generateQuestionVersion = async (
     const saved = await versionedQuestion.create(context);
 
     if (saved && !saved.hasErrors()) {
+      // Get tags associated with the question so we can add them to the versionedQuestionTags table
+      const addTagErrors = [];
+      if (Array.isArray(question.tags) && question.tags.length > 0) {
+        for (const item of question.tags) {
+          const tag = await Tag.findById('generateQuestionVersion', context, item.id);
+          if (!tag) {
+            addTagErrors.push(`Tag ${item.id} not found`);
+            continue;
+          }
+          const wasAdded = await tag.addToVersionedQuestionTags(context, saved.id);
+          if (!wasAdded) {
+            addTagErrors.push(tag.name);
+          }
+        }
+      }
+      if (addTagErrors.length > 0) {
+        saved.addError('tags', `Saved but we were unable to assign tags: ${addTagErrors.join(', ')}`);
+      }
+
       // Version any QuestionConditionGroups (and their QuestionConditions) as well
       const groups = await QuestionConditionGroup.findByQuestionId('generateQuestionVersion', context, saved.questionId);
       let allConditionsWereVersioned = true;
@@ -116,26 +135,9 @@ export const generateQuestionVersion = async (
             ...group
           });
 
-          // generateQuestionConditionGroupVersion internally calls
-          // QuestionCondition.findByGroupId(group.id) to version that group's conditions
+          // generateQuestionConditionGroupVersion internally versions the group's QuestionConditions
           const passed = await generateQuestionConditionGroupVersion(context, groupInstance, saved.id);
           if (!passed) {
-            allConditionsWereVersioned = false;
-          }
-        }
-      }
-      // Version any QuestionConditions as well
-      const questionConditions = await QuestionCondition.findByGroupId('generateQuestionVersion', context, saved.questionId);
-
-      if (questionConditions.length > 0) {
-        for (const condition of questionConditions) {
-          const questionConditionInstance = new QuestionCondition({
-            ...condition
-          });
-
-          const passed = await generateQuestionConditionVersion(context, questionConditionInstance, saved.id);
-          if (!passed) {
-            // If one of the conditions failed to version
             allConditionsWereVersioned = false;
           }
         }
@@ -202,19 +204,21 @@ export const cloneQuestion = (
 
 // Creates a new Version/Snapshot the specified QuestionCondition (as a point in time snapshot)
 //    - creates a new VersionedQuestionCondition
+// Creates a new Version/Snapshot the specified QuestionCondition (as a point in time snapshot)
+//    - creates a new VersionedQuestionCondition
 export const generateQuestionConditionVersion = async (
   context: MyContext,
   questionCondition: QuestionCondition,
-  versionedQuestionId: number,
+  versionedQuestionConditionGroupId: number,
 ): Promise<boolean> => {
-  // If the section has no id then it has not yet been saved so throw an error
+  // If the condition has no id then it has not yet been saved so throw an error
   if (!questionCondition.id) {
     throw new Error('Cannot publish unsaved QuestionCondition');
   }
 
   // Intialize the new Version
   const versionedQuestionCondition = new VersionedQuestionCondition({
-    versionedQuestionId,
+    versionedQuestionConditionGroupId,
     questionConditionId: questionCondition.id,
     conditionType: questionCondition.conditionType,
     conditionMatch: questionCondition.conditionMatch,
@@ -225,7 +229,6 @@ export const generateQuestionConditionVersion = async (
     return true;
   }
 
-  // There were errors on the object so report them
   const msg = `Unable to generate a new version for questionCondition: ${questionCondition.id}`;
   context.logger.error(prepareObjectForLogs(created.errors), msg);
   throw new Error(msg);

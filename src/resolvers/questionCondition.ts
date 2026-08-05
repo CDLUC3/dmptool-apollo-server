@@ -46,13 +46,6 @@ export const resolvers: Resolvers = {
           throw context?.token ? ForbiddenError() : AuthenticationError();
         }
 
-        // NOTE: wrap this whole block in your actual transaction helper —
-        // e.g. context.dataSources.sqlDataSource.transaction(async (trx) => { ... })
-        // Shown here without one since MySqlModel's transaction API isn't
-        // visible to me; the sequence below MUST be atomic in production so a
-        // partial failure can't leave a question with wiped groups and no
-        // replacement, or mismatched action/matchType vs. groups.
-
         question.displayLogicAction = action;
         question.displayLogicMatchType = matchType;
         const updatedQuestion = await question.update(context);
@@ -67,7 +60,6 @@ export const resolvers: Resolvers = {
           await toDelete.delete(context);
         }
 
-        console.log("***Groups to create: ", groups);
         // Recreate groups + conditions from the incoming payload
         for (const groupInput of groups) {
 
@@ -84,7 +76,6 @@ export const resolvers: Resolvers = {
             return updatedQuestion;
           }
 
-          console.log("***Group Input conditions: ", groupInput.conditions);
           for (const conditionInput of groupInput.conditions) {
             const condition = new QuestionCondition({
               groupId: createdGroup.id,
@@ -92,9 +83,7 @@ export const resolvers: Resolvers = {
               conditionMatch: conditionInput.conditionMatch,
             });
 
-            console.log("***Condition before create - groupId:", createdGroup.id, "condition:", condition);
             const createdCondition = await condition.create(context);
-            console.log("***Created condition result:", createdCondition, "hasErrors:", createdCondition.hasErrors(), "errors:", createdCondition.errors);
 
             if (createdCondition.hasErrors()) {
               updatedQuestion.addError('general', 'Unable to save one or more display logic conditions');
@@ -114,35 +103,41 @@ export const resolvers: Resolvers = {
 
     // Remove all display logic for a question: delete its groups (cascades
     // to conditions) and reset action/matchType to their column defaults.
+    // Wrapped with a transaction to ensure that either all groups are deleted or none are.
     removeQuestionDisplayLogic: async (_, { questionId }, context: MyContext): Promise<boolean> => {
       const reference = 'removeQuestionDisplayLogic resolver';
       try {
-        const question = await Question.findById(reference, context, questionId);
-        if (!question) {
-          throw NotFoundError('Question not found');
-        }
-
-        if (!isAdmin(context.token) || !(await hasPermissionOnQuestion(context, question.templateId))) {
-          throw context?.token ? ForbiddenError() : AuthenticationError();
-        }
-
-        const existingGroups = await QuestionConditionGroup.findByQuestionId(reference, context, questionId);
-        for (const existing of existingGroups) {
-          const toDelete = new QuestionConditionGroup({ ...existing });
-          const deleted = await toDelete.delete(context);
-          if (!deleted) {
-            return false;
+        return await context.dataSources.sqlDataSource.withTransaction(context, async (): Promise<boolean> => {
+          const question = await Question.findById(reference, context, questionId);
+          if (!question) {
+            throw NotFoundError('Question not found');
           }
-        }
 
-        // Reset to defaults now that no groups remain
-        question.displayLogicAction = 'SHOW_QUESTION';
-        question.displayLogicMatchType = 'ANY';
-        const updated = await question.update(context);
-        return !updated.hasErrors();
+          if (!isAdmin(context.token) || !(await hasPermissionOnQuestion(context, question.templateId))) {
+            throw context?.token ? ForbiddenError() : AuthenticationError();
+          }
+
+          const existingGroups = await QuestionConditionGroup.findByQuestionId(reference, context, questionId);
+          for (const existing of existingGroups) {
+            const toDelete = new QuestionConditionGroup({ ...existing });
+            const deleted = await toDelete.delete(context);
+            if (!deleted) {
+              throw InternalServerError();
+            }
+          }
+
+          // Reset to defaults now that no groups remain
+          question.displayLogicAction = 'SHOW_QUESTION';
+          question.displayLogicMatchType = 'ANY';
+          const updated = await question.update(context);
+          if (updated.hasErrors()) {
+            throw InternalServerError();
+          }
+
+          return true;
+        });
       } catch (err) {
         if (err instanceof GraphQLError) throw err;
-
         context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
         throw InternalServerError();
       }

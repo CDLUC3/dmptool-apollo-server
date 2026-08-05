@@ -286,7 +286,9 @@ export class MySqlModel {
 
         let resp: unknown;
         if (activeTransaction) {
-          resp = await activeTransaction.connection.query(sql, vals);
+          // Transaction queries return a [rows, fields] tuple, so normalize it to rows before returning
+          const transactionResponse = await activeTransaction.connection.query(sql, vals);
+          resp = Array.isArray(transactionResponse) ? transactionResponse[0] : transactionResponse;
         } else {
           resp = await dataSources.sqlDataSource.query(apolloContext, sql, vals);
         }

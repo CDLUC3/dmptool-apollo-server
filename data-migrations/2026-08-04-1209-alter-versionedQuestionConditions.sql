@@ -1,3 +1,5 @@
+-- Remove the versionedQuestionId, action, and target columns from versionedQuestionConditions, and 
+-- add a versionedQuestionConditionGroupId column that references versionedQuestionConditionGroups.
 ALTER TABLE versionedQuestionConditions
   DROP FOREIGN KEY versionedquestionconditions_ibfk_4,
   DROP FOREIGN KEY versionedquestionconditions_ibfk_3,

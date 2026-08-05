@@ -1,3 +1,4 @@
+-- Create a new table for versioned question condition groups
 CREATE TABLE versionedQuestionConditionGroups (
   id int unsigned NOT NULL AUTO_INCREMENT,
   versionedQuestionId int unsigned NOT NULL,

@@ -28,6 +28,7 @@ export class QuestionCondition extends MySqlModel {
     await super.isValid();
     if (!this.groupId) this.addError('groupId', 'Group Id can\'t be blank');
     if (!this.conditionType) this.addError('conditionType', 'Condition Type can\'t be blank');
+    if (!this.conditionMatch) this.addError('conditionMatch', 'Condition Match can\'t be blank');
 
     return Object.keys(this.errors).length === 0;
   }

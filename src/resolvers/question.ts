@@ -11,7 +11,6 @@ import {
   InternalServerError,
   NotFoundError
 } from "../utils/graphQLErrors";
-import { QuestionCondition } from "../models/QuestionCondition";
 import { Tag } from "../models/Tag";
 import { prepareObjectForLogs } from "../logger";
 import { isAdmin, isAuthorized } from "../services/authService";

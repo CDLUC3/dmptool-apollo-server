@@ -204,8 +204,6 @@ export const cloneQuestion = (
 
 // Creates a new Version/Snapshot the specified QuestionCondition (as a point in time snapshot)
 //    - creates a new VersionedQuestionCondition
-// Creates a new Version/Snapshot the specified QuestionCondition (as a point in time snapshot)
-//    - creates a new VersionedQuestionCondition
 export const generateQuestionConditionVersion = async (
   context: MyContext,
   questionCondition: QuestionCondition,

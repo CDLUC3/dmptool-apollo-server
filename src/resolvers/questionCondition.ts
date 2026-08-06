@@ -1,7 +1,14 @@
 import { Resolvers } from "../types";
 import { MyContext } from "../context";
 import { QuestionCondition } from "../models/QuestionCondition";
-import { NotFoundError, ForbiddenError, AuthenticationError, InternalServerError } from "../utils/graphQLErrors";
+import {
+  NotFoundError,
+  ForbiddenError,
+  AuthenticationError,
+  InternalServerError,
+  BadRequestError,
+  BAD_REQUEST_ERROR_CODE,
+} from "../utils/graphQLErrors";
 import { isAdmin } from "../services/authService";
 import { hasPermissionOnQuestion } from "../services/questionService";
 import { QuestionConditionGroup } from "../models/QuestionConditionGroup";
@@ -36,67 +43,76 @@ export const resolvers: Resolvers = {
       groups } }, context: MyContext): Promise<Question> => {
 
       const reference = 'saveQuestionDisplayLogic resolver';
+
+      const question = await Question.findById(reference, context, questionId);
+      if (!question) {
+        throw NotFoundError('Question not found');
+      }
+
+      if (!isAdmin(context.token) || !(await hasPermissionOnQuestion(context, question.templateId))) {
+        throw context?.token ? ForbiddenError() : AuthenticationError();
+      }
+
+      let updatedQuestion: Question = question;
+
       try {
-        const question = await Question.findById(reference, context, questionId);
-        if (!question) {
-          throw NotFoundError('Question not found');
-        }
-
-        if (!isAdmin(context.token) || !(await hasPermissionOnQuestion(context, question.templateId))) {
-          throw context?.token ? ForbiddenError() : AuthenticationError();
-        }
-
-        question.displayLogicAction = action;
-        question.displayLogicMatchType = matchType;
-        const updatedQuestion = await question.update(context);
-        if (updatedQuestion.hasErrors()) {
-          return updatedQuestion;
-        }
-
-        // Wipe existing groups — cascades to their conditions via FK
-        const existingGroups = await QuestionConditionGroup.findByQuestionId(reference, context, questionId);
-        for (const existing of existingGroups) {
-          const toDelete = new QuestionConditionGroup({ ...existing });
-          await toDelete.delete(context);
-        }
-
-        // Recreate groups + conditions from the incoming payload
-        for (const groupInput of groups) {
-
-          const group = new QuestionConditionGroup({
-            questionId,
-            triggerQuestionId: groupInput.triggerQuestionId,
-          });
-          const createdGroup = await group.create(context);
-
-          if (createdGroup.hasErrors()) {
-            // Bail out — see transaction note above; without a real
-            // transaction this can leave a partially-saved set of groups.
-            updatedQuestion.addError('general', 'Unable to save one or more display logic groups');
-            return updatedQuestion;
+        return await context.dataSources.sqlDataSource.withTransaction(context, async (): Promise<Question> => {
+          question.displayLogicAction = action;
+          question.displayLogicMatchType = matchType;
+          updatedQuestion = await question.update(context);
+          if (updatedQuestion.hasErrors()) {
+            throw BadRequestError();
           }
 
-          for (const conditionInput of groupInput.conditions) {
-            const condition = new QuestionCondition({
-              groupId: createdGroup.id,
-              conditionType: conditionInput.conditionType,
-              conditionMatch: conditionInput.conditionMatch,
+          const existingGroups = await QuestionConditionGroup.findByQuestionId(reference, context, questionId);
+          for (const existing of existingGroups) {
+            const toDelete = new QuestionConditionGroup({ ...existing });
+            await toDelete.delete(context);
+          }
+
+          // Recreate the groups and their conditions from the input
+          for (const groupInput of groups) {
+            const group = new QuestionConditionGroup({
+              questionId,
+              triggerQuestionId: groupInput.triggerQuestionId,
             });
+            const createdGroup = await group.create(context);
 
-            const createdCondition = await condition.create(context);
+            if (createdGroup.hasErrors()) {
+              updatedQuestion.addError('general', 'Unable to save one or more display logic groups');
+              throw BadRequestError();
+            }
 
-            if (createdCondition.hasErrors()) {
-              updatedQuestion.addError('general', 'Unable to save one or more display logic conditions');
-              return updatedQuestion;
+            for (const conditionInput of groupInput.conditions) {
+              const condition = new QuestionCondition({
+                groupId: createdGroup.id,
+                conditionType: conditionInput.conditionType,
+                conditionMatch: conditionInput.conditionMatch,
+              });
+
+              const createdCondition = await condition.create(context);
+
+              if (createdCondition.hasErrors()) {
+                updatedQuestion.addError('general', 'Unable to save one or more display logic conditions');
+                throw BadRequestError();
+              }
             }
           }
+
+          return await Question.findById(reference, context, questionId);
+        });
+      } catch (error) {
+        if (error instanceof GraphQLError) {
+          if (error.extensions?.code === BAD_REQUEST_ERROR_CODE) {
+            if (updatedQuestion.hasErrors() && !updatedQuestion.errors['general']) {
+              updatedQuestion.addError('general', 'Unable to process your request.');
+            }
+            return updatedQuestion;
+          }
+          throw error;
         }
 
-        return await Question.findById(reference, context, questionId);
-      } catch (err) {
-        if (err instanceof GraphQLError) throw err;
-
-        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        context.logger.error(prepareObjectForLogs(error), `Failure in ${reference}`);
         throw InternalServerError();
       }
     },

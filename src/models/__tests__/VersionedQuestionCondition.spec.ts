@@ -1,7 +1,5 @@
 import casual from "casual";
 import { buildMockContextWithToken } from "../../__mocks__/context";
-import { QuestionConditionCondition } from "../QuestionCondition";
-import { getRandomEnumValue } from "../../__tests__/helpers";
 import { VersionedQuestionCondition } from "../VersionedQuestionCondition";
 import { logger } from "../../logger";
 

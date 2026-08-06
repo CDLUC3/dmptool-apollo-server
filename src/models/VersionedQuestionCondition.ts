@@ -15,9 +15,7 @@ export class VersionedQuestionCondition extends MySqlModel {
     this.versionedQuestionConditionGroupId = options.versionedQuestionConditionGroupId;
     this.questionConditionId = options.questionConditionId;
     this.conditionType = options.conditionType;
-    this.conditionMatch = options.conditionMatch !== undefined && options.conditionMatch !== null
-      ? JSON.stringify(options.conditionMatch)
-      : options.conditionMatch;
+    this.conditionMatch = options.conditionMatch;
   }
 
   // Validation to be used prior to saving the record

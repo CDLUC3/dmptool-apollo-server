@@ -15,12 +15,11 @@ import { hasPermissionOnTemplate } from "../templateService";
 import { NotFoundError } from "../../utils/graphQLErrors";
 import { Question } from "../../models/Question";
 import { VersionedQuestion } from "../../models/VersionedQuestion";
-import { QuestionCondition, QuestionConditionCondition } from "../../models/QuestionCondition";
+import { QuestionCondition } from "../../models/QuestionCondition";
 import { QuestionConditionGroup } from "../../models/QuestionConditionGroup";
 import { VersionedQuestionCondition } from "../../models/VersionedQuestionCondition";
 import { VersionedQuestionConditionGroup } from "../../models/VersionedQuestionConditionGroups";
 import { Tag } from "../../models/Tag";
-import { getRandomEnumValue } from "../../__tests__/helpers";
 import { getCurrentDate } from "../../utils/helpers";
 import { CURRENT_SCHEMA_VERSION } from "@dmptool/types";
 import { MyContext } from "../../context";
@@ -815,7 +814,7 @@ describe('generateQuestionConditionVersion', () => {
     expect(newVersion.versionedQuestionConditionGroupId).toEqual(versionedQuestionConditionGroupId);
     expect(newVersion.questionConditionId).toEqual(questionCondition.id);
     expect(newVersion.conditionType).toEqual(questionCondition.conditionType);
-    expect(newVersion.conditionMatch).toEqual(JSON.stringify(questionCondition.conditionMatch));
+    expect(newVersion.conditionMatch).toEqual(questionCondition.conditionMatch);
   });
 });
 

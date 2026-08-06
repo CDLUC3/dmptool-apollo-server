@@ -135,7 +135,7 @@ describe('create', () => {
     QuestionConditionGroup.insert = originalInsert;
   });
 
-  it('returns the QuestionConditionGroup without calling insert if it is not valid', async () => {
+  it('should return the QuestionConditionGroup without calling insert if it is not valid', async () => {
     const localValidator = jest.fn();
     (questionConditionGroup.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
@@ -146,19 +146,19 @@ describe('create', () => {
     expect(insertQuery).toHaveBeenCalledTimes(0);
   });
 
-  it('returns the QuestionConditionGroup with an error if questionId is undefined', async () => {
+  it('should return the QuestionConditionGroup with an error if questionId is undefined', async () => {
     questionConditionGroup.questionId = undefined;
     const response = await questionConditionGroup.create(context);
     expect(response.errors['questionId']).toBe('Question Id can\'t be blank');
   });
 
-  it('returns the QuestionConditionGroup with an error if triggerQuestionId is undefined', async () => {
+  it('should return the QuestionConditionGroup with an error if triggerQuestionId is undefined', async () => {
     questionConditionGroup.triggerQuestionId = undefined;
     const response = await questionConditionGroup.create(context);
     expect(response.errors['triggerQuestionId']).toBe('Trigger Question Id can\'t be blank');
   });
 
-  it('returns the newly added QuestionConditionGroup', async () => {
+  it('should return the newly added QuestionConditionGroup', async () => {
     const mockFindById = jest.fn();
     (QuestionConditionGroup.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(questionConditionGroup);
@@ -186,7 +186,7 @@ describe('update', () => {
     })
   });
 
-  it('returns the QuestionConditionGroup with errors if it is not valid', async () => {
+  it('should return the QuestionConditionGroup with errors if it is not valid', async () => {
     const localValidator = jest.fn();
     (questionConditionGroup.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
@@ -197,7 +197,7 @@ describe('update', () => {
     expect(updateQuery).toHaveBeenCalledTimes(0);
   });
 
-  it('returns an error if the QuestionConditionGroup has no id', async () => {
+  it('should return an error if the QuestionConditionGroup has no id', async () => {
     const localValidator = jest.fn();
     (questionConditionGroup.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
@@ -208,7 +208,7 @@ describe('update', () => {
     expect(result.errors['general']).toBeTruthy();
   });
 
-  it('returns the updated QuestionConditionGroup', async () => {
+  it('should return the updated QuestionConditionGroup', async () => {
     const localValidator = jest.fn();
     (questionConditionGroup.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
@@ -238,12 +238,12 @@ describe('delete', () => {
     })
   })
 
-  it('returns null if the QuestionConditionGroup has no id', async () => {
+  it('should return null if the QuestionConditionGroup has no id', async () => {
     questionConditionGroup.id = null;
     expect(await questionConditionGroup.delete(context)).toBe(null);
   });
 
-  it('returns null if it was not able to delete the record', async () => {
+  it('should return null if it was not able to delete the record', async () => {
     const mockFindById = jest.fn();
     (QuestionConditionGroup.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(questionConditionGroup);
@@ -255,7 +255,7 @@ describe('delete', () => {
     expect(await questionConditionGroup.delete(context)).toBe(null);
   });
 
-  it('returns the QuestionConditionGroup if it was able to delete the record', async () => {
+  it('should return the QuestionConditionGroup if it was able to delete the record', async () => {
     const mockFindById = jest.fn();
     (QuestionConditionGroup.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(questionConditionGroup);

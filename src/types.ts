@@ -4251,7 +4251,7 @@ export type Question = {
  */
 export type QuestionCondition = {
   __typename?: 'QuestionCondition';
-  /** The value(s) to match on (e.g., HAS_ANSWER should equate to null here). JSON to accommodate future multi-value/range operators. */
+  /** The value(s) to match on */
   conditionMatch?: Maybe<Scalars['String']['output']>;
   /** The type of condition/operator to evaluate */
   conditionType: QuestionConditionCondition;
@@ -4288,8 +4288,6 @@ export type QuestionConditionCondition =
   | 'DOES_NOT_INCLUDE'
   /** When a question equals a specific value */
   | 'EQUAL'
-  /** When a question has an answer */
-  | 'HAS_ANSWER'
   /** When a question (multi-value) includes a specific value */
   | 'INCLUDES';
 
@@ -4352,7 +4350,7 @@ export type QuestionConditionGroupInput = {
 
 /** Input for a single condition within a group, used by saveQuestionDisplayLogic */
 export type QuestionConditionInput = {
-  /** The value(s) to match on (e.g., HAS_ANSWER should equate to null here) */
+  /** The value(s) to match on */
   conditionMatch?: InputMaybe<Scalars['String']['input']>;
   /** The type of condition/operator to evaluate */
   conditionType: QuestionConditionCondition;
@@ -5931,6 +5929,10 @@ export type VersionedQuestion = {
   customizationId?: Maybe<Scalars['Int']['output']>;
   customizationOwnerAffiliation?: Maybe<Affiliation>;
   customizationSampleText?: Maybe<Scalars['String']['output']>;
+  /** Whether to show or hide the question (or send an email) when its display logic conditions match */
+  displayLogicAction?: Maybe<QuestionConditionActionType>;
+  /** Whether ANY or ALL of the question's condition groups must match */
+  displayLogicMatchType?: Maybe<QuestionConditionMatchType>;
   /** The display order of the VersionedQuestion */
   displayOrder?: Maybe<Scalars['Int']['output']>;
   /** Errors associated with the Object */
@@ -5973,7 +5975,7 @@ export type VersionedQuestion = {
  */
 export type VersionedQuestionCondition = {
   __typename?: 'VersionedQuestionCondition';
-  /** The value(s) that were matched on at publish time (e.g., HAS_ANSWER should equate to null here), JSON-encoded as a string */
+  /** The value(s) that were matched on at publish time */
   conditionMatch?: Maybe<Scalars['String']['output']>;
   /** The type of condition/operator that was evaluated at publish time */
   conditionType: VersionedQuestionConditionCondition;
@@ -5989,8 +5991,6 @@ export type VersionedQuestionCondition = {
   modified?: Maybe<Scalars['String']['output']>;
   /** The user who last modified the Object */
   modifiedById?: Maybe<Scalars['Int']['output']>;
-  /** Id of the original (live) QuestionCondition this was snapshotted from */
-  questionConditionId: Scalars['Int']['output'];
   /** The VersionedQuestionConditionGroup this condition belongs to */
   versionedQuestionConditionGroupId: Scalars['Int']['output'];
 };
@@ -6003,8 +6003,6 @@ export type VersionedQuestionConditionCondition =
   | 'DOES_NOT_INCLUDE'
   /** When a question equals a specific value */
   | 'EQUAL'
-  /** When a question has an answer */
-  | 'HAS_ANSWER'
   /** When a question (multi-value) includes a specific value */
   | 'INCLUDES';
 
@@ -6015,7 +6013,6 @@ export type VersionedQuestionConditionErrors = {
   conditionType?: Maybe<Scalars['String']['output']>;
   /** General error messages such as the object already exists */
   general?: Maybe<Scalars['String']['output']>;
-  questionConditionId?: Maybe<Scalars['String']['output']>;
   versionedQuestionConditionGroupId?: Maybe<Scalars['String']['output']>;
 };
 
@@ -6041,8 +6038,6 @@ export type VersionedQuestionConditionGroup = {
   modified?: Maybe<Scalars['String']['output']>;
   /** The user who last modified the Object */
   modifiedById?: Maybe<Scalars['Int']['output']>;
-  /** Id of the original (live) QuestionConditionGroup this was snapshotted from */
-  questionConditionGroupId: Scalars['Int']['output'];
   /** The prior question whose answer was being checked at publish time */
   triggerQuestion?: Maybe<Question>;
   /** The id of the prior question whose answer was being checked at publish time */
@@ -6056,7 +6051,6 @@ export type VersionedQuestionConditionGroupErrors = {
   __typename?: 'VersionedQuestionConditionGroupErrors';
   /** General error messages such as the object already exists */
   general?: Maybe<Scalars['String']['output']>;
-  questionConditionGroupId?: Maybe<Scalars['String']['output']>;
   triggerQuestionId?: Maybe<Scalars['String']['output']>;
   versionedQuestionId?: Maybe<Scalars['String']['output']>;
 };
@@ -8977,6 +8971,8 @@ export type VersionedQuestionResolvers<ContextType = MyContext, ParentType exten
   customizationId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   customizationOwnerAffiliation?: Resolver<Maybe<ResolversTypes['Affiliation']>, ParentType, ContextType>;
   customizationSampleText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  displayLogicAction?: Resolver<Maybe<ResolversTypes['QuestionConditionActionType']>, ParentType, ContextType>;
+  displayLogicMatchType?: Resolver<Maybe<ResolversTypes['QuestionConditionMatchType']>, ParentType, ContextType>;
   displayOrder?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   errors?: Resolver<Maybe<ResolversTypes['VersionedQuestionErrors']>, ParentType, ContextType>;
   guidanceText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -9005,7 +9001,6 @@ export type VersionedQuestionConditionResolvers<ContextType = MyContext, ParentT
   id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  questionConditionId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   versionedQuestionConditionGroupId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
 };
 
@@ -9013,7 +9008,6 @@ export type VersionedQuestionConditionErrorsResolvers<ContextType = MyContext, P
   conditionMatch?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   conditionType?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   general?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  questionConditionId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   versionedQuestionConditionGroupId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 };
 
@@ -9025,7 +9019,6 @@ export type VersionedQuestionConditionGroupResolvers<ContextType = MyContext, Pa
   id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  questionConditionGroupId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   triggerQuestion?: Resolver<Maybe<ResolversTypes['Question']>, ParentType, ContextType>;
   triggerQuestionId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   versionedQuestionId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
@@ -9033,7 +9026,6 @@ export type VersionedQuestionConditionGroupResolvers<ContextType = MyContext, Pa
 
 export type VersionedQuestionConditionGroupErrorsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['VersionedQuestionConditionGroupErrors'] = ResolversParentTypes['VersionedQuestionConditionGroupErrors']> = {
   general?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  questionConditionGroupId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   triggerQuestionId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   versionedQuestionId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 };

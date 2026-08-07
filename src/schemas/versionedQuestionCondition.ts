@@ -8,8 +8,6 @@ export const typeDefs = gql`
 
   "VersionedQuestionCondition types"
   enum VersionedQuestionConditionCondition {
-    "When a question has an answer"
-    HAS_ANSWER
     "When a question equals a specific value"
     EQUAL
     "When a question does not equal a specific value"
@@ -43,8 +41,6 @@ export const typeDefs = gql`
 
     "The versionedQuestion id that this group's display logic applied to"
     versionedQuestionId: Int!
-    "Id of the original (live) QuestionConditionGroup this was snapshotted from"
-    questionConditionGroupId: Int!
     "The id of the prior question whose answer was being checked at publish time"
     triggerQuestionId: Int!
     "The prior question whose answer was being checked at publish time"
@@ -59,7 +55,6 @@ export const typeDefs = gql`
     general: String
 
     versionedQuestionId: String
-    questionConditionGroupId: String
     triggerQuestionId: String
   }
 
@@ -83,11 +78,9 @@ export const typeDefs = gql`
 
     "The VersionedQuestionConditionGroup this condition belongs to"
     versionedQuestionConditionGroupId: Int!
-    "Id of the original (live) QuestionCondition this was snapshotted from"
-    questionConditionId: Int!
     "The type of condition/operator that was evaluated at publish time"
     conditionType: VersionedQuestionConditionCondition!
-    "The value(s) that were matched on at publish time (e.g., HAS_ANSWER should equate to null here), JSON-encoded as a string"
+    "The value(s) that were matched on at publish time"
     conditionMatch: String
   }
 
@@ -97,7 +90,6 @@ export const typeDefs = gql`
     general: String
 
     versionedQuestionConditionGroupId: String
-    questionConditionId: String
     conditionType: String
     conditionMatch: String
   }

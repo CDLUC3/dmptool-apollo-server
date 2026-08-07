@@ -43,7 +43,6 @@ export const generateQuestionConditionGroupVersion = async (
   // Intialize the new Version
   const versionedGroup = new VersionedQuestionConditionGroup({
     versionedQuestionId,
-    questionConditionGroupId: group.id,
     triggerQuestionId: group.triggerQuestionId,
   });
 
@@ -96,6 +95,8 @@ export const generateQuestionVersion = async (
     useSampleTextAsDefault: question.useSampleTextAsDefault,
     displayOrder: question.displayOrder,
     required: question.required,
+    displayLogicAction: question.displayLogicAction,
+    displayLogicMatchType: question.displayLogicMatchType,
     createdById: question.createdById,
     created: question.created,
     modifiedById: question.modifiedById,
@@ -217,7 +218,6 @@ export const generateQuestionConditionVersion = async (
   // Intialize the new Version
   const versionedQuestionCondition = new VersionedQuestionCondition({
     versionedQuestionConditionGroupId,
-    questionConditionId: questionCondition.id,
     conditionType: questionCondition.conditionType,
     conditionMatch: questionCondition.conditionMatch,
   });

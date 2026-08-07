@@ -33,23 +33,12 @@ export class QuestionCondition extends MySqlModel {
     return Object.keys(this.errors).length === 0;
   }
 
-  // Returns a plain object matching this instance, but with conditionMatch
-  // JSON-encoded for storage (the DB column is JSON-typed).
-  private toDbPayload() {
-    return {
-      ...this,
-      conditionMatch: this.conditionMatch !== undefined && this.conditionMatch !== null
-        ? JSON.stringify(this.conditionMatch)
-        : null,
-    };
-  }
-
   //Create a new QuestionCondition
   async create(context: MyContext): Promise<QuestionCondition> {
     // First make sure the record is valid
     if (await this.isValid()) {
       // Save the record and then fetch it
-      const newId = await QuestionCondition.insert(context, this.tableName, this.toDbPayload(), 'QuestionCondition.create');
+      const newId = await QuestionCondition.insert(context, this.tableName, this, 'QuestionCondition.create');
       const created = await QuestionCondition.findById('QuestionCondition.create', context, newId);
       if (created) {
         return new QuestionCondition(created);
@@ -66,7 +55,7 @@ export class QuestionCondition extends MySqlModel {
 
     if (await this.isValid()) {
       if (id) {
-        await QuestionCondition.update(context, this.tableName, this.toDbPayload(), 'QuestionCondition.update');
+        await QuestionCondition.update(context, this.tableName, this, 'QuestionCondition.update');
         const updated = await QuestionCondition.findById('QuestionCondition.update', context, id);
         if (updated) {
           return new QuestionCondition(updated);

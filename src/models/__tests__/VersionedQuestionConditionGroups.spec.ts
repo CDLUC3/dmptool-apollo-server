@@ -22,7 +22,6 @@ describe('VersionedQuestionConditionGroup', () => {
 
   const versionedQuestionConditionGroupData = {
     versionedQuestionId: casual.integer(1, 9999),
-    questionConditionGroupId: casual.integer(1, 999),
     triggerQuestionId: casual.integer(1, 999),
   };
 
@@ -32,7 +31,6 @@ describe('VersionedQuestionConditionGroup', () => {
 
   it('should initialize options as expected', () => {
     expect(versionedQuestionConditionGroup.versionedQuestionId).toEqual(versionedQuestionConditionGroupData.versionedQuestionId);
-    expect(versionedQuestionConditionGroup.questionConditionGroupId).toEqual(versionedQuestionConditionGroupData.questionConditionGroupId);
     expect(versionedQuestionConditionGroup.triggerQuestionId).toEqual(versionedQuestionConditionGroupData.triggerQuestionId);
   });
 
@@ -45,13 +43,6 @@ describe('VersionedQuestionConditionGroup', () => {
     expect(await versionedQuestionConditionGroup.isValid()).toBe(false);
     expect(Object.keys(versionedQuestionConditionGroup.errors).length).toBe(1);
     expect(versionedQuestionConditionGroup.errors['versionedQuestionId'].includes('Versioned Question Id')).toBe(true);
-  });
-
-  it('isValid returns false if the questionConditionGroupId is null', async () => {
-    versionedQuestionConditionGroup.questionConditionGroupId = null;
-    expect(await versionedQuestionConditionGroup.isValid()).toBe(false);
-    expect(Object.keys(versionedQuestionConditionGroup.errors).length).toBe(1);
-    expect(versionedQuestionConditionGroup.errors['questionConditionGroupId'].includes('Question Condition Group Id')).toBe(true);
   });
 
   it('isValid returns false if the triggerQuestionId is null', async () => {
@@ -80,7 +71,6 @@ describe('findBy Queries', () => {
     versionedQuestionConditionGroup = new VersionedQuestionConditionGroup({
       id: casual.integer(1, 9),
       versionedQuestionId: casual.integer(1, 999),
-      questionConditionGroupId: casual.integer(1, 999),
       triggerQuestionId: casual.integer(1, 999),
     });
   });
@@ -135,7 +125,6 @@ describe('create', () => {
 
     versionedQuestionConditionGroup = new VersionedQuestionConditionGroup({
       versionedQuestionId: casual.integer(1, 999),
-      questionConditionGroupId: casual.integer(1, 999),
       triggerQuestionId: casual.integer(1, 999),
     });
   });

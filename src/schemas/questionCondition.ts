@@ -4,8 +4,6 @@ export const typeDefs = gql`
 
   "QuestionCondition types"
   enum QuestionConditionCondition {
-    "When a question has an answer"
-    HAS_ANSWER
     "When a question equals a specific value"
     EQUAL
     "When a question does not equal a specific value"
@@ -38,7 +36,7 @@ export const typeDefs = gql`
     groupId: Int!
     "The type of condition/operator to evaluate"
     conditionType: QuestionConditionCondition!
-    "The value(s) to match on (e.g., HAS_ANSWER should equate to null here). JSON to accommodate future multi-value/range operators."
+    "The value(s) to match on"
     conditionMatch: String
   }
 
@@ -56,7 +54,7 @@ export const typeDefs = gql`
   input QuestionConditionInput {
     "The type of condition/operator to evaluate"
     conditionType: QuestionConditionCondition!
-    "The value(s) to match on (e.g., HAS_ANSWER should equate to null here)"
+    "The value(s) to match on"
     conditionMatch: String
   }
 

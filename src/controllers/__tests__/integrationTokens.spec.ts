@@ -28,8 +28,8 @@ function processResponseCookies(headers) {
   const cookies = {};
 
   if (headers && headers['set-cookie']?.length > 0) {
-    for (const cookie of headers['set-cookie']) {
-      // for (let i = 0; i < headers['set-cookie'].length; i++) {
+    for(const cookie of headers['set-cookie']) {
+    // for (let i = 0; i < headers['set-cookie'].length; i++) {
       const parts = cookie.split('=');
       cookies[parts[0]] = parts[1]
     }
@@ -121,7 +121,7 @@ beforeAll(async () => {
   app.use('/', setupRouter(logger, mockCache.adapter, null, null));
 });
 
-beforeEach(async () => {
+beforeEach(async() => {
   jest.clearAllMocks();
 
   context = await buildMockContextWithToken(logger, mockUser(), mockCache.adapter);
@@ -159,7 +159,7 @@ describe('CSRF', () => {
 
     expect(resp.statusCode).toEqual(403);
     expect(resp.headers['x-csrf-token']).toBeFalsy();
-    expect(resp.body).toEqual({ error: 'Invalid CSRF token' });
+    expect(resp.body).toEqual({ error: 'Invalid CSRF token'});
   });
 
   it('POST /test-protected should fail if the CSRF token is invalid', async () => {
@@ -170,7 +170,7 @@ describe('CSRF', () => {
 
     expect(resp.statusCode).toEqual(403);
     expect(resp.headers['x-csrf-token']).toBeFalsy();
-    expect(resp.body).toEqual({ error: 'Invalid CSRF token' });
+    expect(resp.body).toEqual({ error: 'Invalid CSRF token'});
   });
 });
 
@@ -211,7 +211,7 @@ describe('Sign up', () => {
     expect(resp.body).toEqual({ success: true, message: 'ok' });
 
     // Make sure the cache contains the refresh tokens
-    const cachedToken = Object.keys(mockCache.getStore()).find((key) => {
+    const cachedToken = Object.keys(  mockCache.getStore()).find((key) => {
       return key.includes(`{dmspr}:`)
     });
     expect(cachedToken).toBeTruthy();
@@ -292,7 +292,7 @@ describe('Sign in', () => {
     expect(resp.body).toEqual({ success: true, message: 'ok' });
 
     // Make sure the cache contains the refresh tokens
-    const cachedToken = Object.keys(mockCache.getStore()).find((key) => {
+    const cachedToken = Object.keys(  mockCache.getStore()).find((key) => {
       return key.includes(`{dmspr}:`)
     });
     expect(cachedToken).toBeTruthy();
@@ -378,11 +378,11 @@ describe('Sign out', () => {
     expect(signoutResp.body).toEqual({});
 
     // Make sure the cache contains the refresh tokens
-    const cachedRefresh = Object.keys(mockCache.getStore()).find((key) => {
+    const cachedRefresh = Object.keys(  mockCache.getStore()).find((key) => {
       return key.includes(`{dmspr}:`)
     });
     expect(cachedRefresh).toBeFalsy();
-    const cachedToken = Object.keys(mockCache.getStore()).find((key) => {
+    const cachedToken = Object.keys(  mockCache.getStore()).find((key) => {
       return key.includes(`{dmspbl}:`)
     });
     expect(cachedToken).toBeTruthy();
@@ -458,7 +458,7 @@ describe('Sign out', () => {
 
     // Get the JTI from the token so we can add it to the blacklist
     const jwt = verifyAccessToken(context, accessToken);
-    mockCache.adapter.set(`{dmspbl}:${jwt.jti}`, 'testing revocation', {});
+      mockCache.adapter.set(`{dmspbl}:${jwt.jti}`, 'testing revocation', {});
 
     // Try a signout
     const signoutResp = await request(app)
@@ -531,7 +531,7 @@ describe('token refresh', () => {
     const hashedToken = createHash('sha256')
       .update(`${refreshToken}${generalConfig.hashTokenSecret}`)
       .digest('hex');
-    expect(await mockCache.adapter.get(`{dmspr}:${jwt.jti}`)).toEqual(hashedToken);
+    expect(await   mockCache.adapter.get(`{dmspr}:${jwt.jti}`)).toEqual(hashedToken);
 
     const errMock = jest.fn().mockImplementation(() => { throw new Error('testing') });
     (UserModel.User.findById as jest.Mock) = errMock;
@@ -618,7 +618,7 @@ describe('token refresh', () => {
     const hashedToken = createHash('sha256')
       .update(`${refreshToken}${generalConfig.hashTokenSecret}`)
       .digest('hex');
-    expect(await mockCache.adapter.get(`{dmspr}:${jwt.jti}`)).toEqual(hashedToken);
+    expect(await   mockCache.adapter.get(`{dmspr}:${jwt.jti}`)).toEqual(hashedToken);
 
     (UserModel.User.findById as jest.Mock).mockResolvedValueOnce(registeredUser);
 
@@ -764,7 +764,7 @@ describe('protected endpoint access', () => {
 
     // Get the JTI from the token so we can add it to the blacklist
     const jwt = verifyAccessToken(context, accessToken);
-    mockCache.adapter.set(`{dmspbl}:${jwt.jti}`, 'testing revocation', {});
+      mockCache.adapter.set(`{dmspbl}:${jwt.jti}`, 'testing revocation', {});
 
     const protectedResp = await request(app)
       .post('/test-protected')

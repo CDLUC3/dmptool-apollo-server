@@ -514,7 +514,7 @@ describe('generateQuestionVersion', () => {
       return new VersionedQuestionConditionGroup({
         id: casual.integer(1, 999),
         versionedQuestionId: this.versionedQuestionId,
-        questionConditionGroupId: this.questionConditionGroupId,
+
         triggerQuestionId: this.triggerQuestionId,
       });
     });
@@ -550,9 +550,8 @@ describe('generateQuestionVersion', () => {
 
     mockFindGroupsByQuestionId.mockResolvedValueOnce([group]);
 
-    // Simulate the VersionedQuestionConditionGroup failing to save
     const mockCreateVersionedGroup = jest.fn().mockImplementation(() => {
-      const failed = new VersionedQuestionConditionGroup({ questionConditionGroupId: group.id });
+      const failed = new VersionedQuestionConditionGroup({ versionedQuestionId: casual.integer(1, 999) });
       failed.errors = { general: 'Test failure' };
       return failed;
     });
@@ -607,7 +606,7 @@ describe('generateQuestionConditionGroupVersion', () => {
 
   it('does not version if the VersionedQuestionConditionGroup could not be created', async () => {
     mockCreateVersionedGroup = jest.fn().mockImplementation(() => {
-      const failed = new VersionedQuestionConditionGroup({ questionConditionGroupId: group.id });
+      const failed = new VersionedQuestionConditionGroup({ versionedQuestionId: casual.integer(1, 999) });
       failed.errors = { general: 'Test failure' };
       return failed;
     });
@@ -627,7 +626,6 @@ describe('generateQuestionConditionGroupVersion', () => {
       return new VersionedQuestionConditionGroup({
         id: savedGroupId,
         versionedQuestionId: this.versionedQuestionId,
-        questionConditionGroupId: this.questionConditionGroupId,
         triggerQuestionId: this.triggerQuestionId,
       });
     });
@@ -646,7 +644,6 @@ describe('generateQuestionConditionGroupVersion', () => {
       return new VersionedQuestionConditionGroup({
         id: savedGroupId,
         versionedQuestionId: this.versionedQuestionId,
-        questionConditionGroupId: this.questionConditionGroupId,
         triggerQuestionId: this.triggerQuestionId,
       });
     });
@@ -664,7 +661,6 @@ describe('generateQuestionConditionGroupVersion', () => {
       return new VersionedQuestionCondition({
         id: casual.integer(1, 9999),
         versionedQuestionConditionGroupId: this.versionedQuestionConditionGroupId,
-        questionConditionId: this.questionConditionId,
         conditionType: this.conditionType,
         conditionMatch: this.conditionMatch,
       });
@@ -778,7 +774,7 @@ describe('generateQuestionConditionVersion', () => {
 
   it('does not version if the VersionedQuestionCondition could not be created', async () => {
     const questionCondition = questionConditionStore[0];
-    const versioned = new VersionedQuestionCondition({ questionConditionId: questionCondition.id });
+    const versioned = new VersionedQuestionCondition({ versionedQuestionConditionGroupId: casual.integer(1, 999) });
     versioned.errors = { general: 'Test failure' };
 
     (VersionedQuestionCondition.insert as jest.Mock) = mockInsert;
@@ -813,12 +809,8 @@ describe('generateQuestionConditionVersion', () => {
     expect(newVersion.createdById).toEqual(context.token.id);
     expect(newVersion.modifiedById).toEqual(context.token.id);
     expect(newVersion.versionedQuestionConditionGroupId).toEqual(versionedQuestionConditionGroupId);
-    expect(newVersion.questionConditionId).toEqual(questionCondition.id);
     expect(newVersion.conditionType).toEqual(questionCondition.conditionType);
-    // toDbPayload() JSON-encodes conditionMatch before it's written to the
-    // store — the raw store entry reflects the DB's storage representation,
-    // not the in-memory plain-string form.
-    expect(newVersion.conditionMatch).toEqual(JSON.stringify(questionCondition.conditionMatch));
+    expect(newVersion.conditionMatch).toEqual(questionCondition.conditionMatch);
   });
 });
 

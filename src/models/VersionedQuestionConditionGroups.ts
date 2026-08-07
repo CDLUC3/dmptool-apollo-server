@@ -1,21 +1,9 @@
 import { MyContext } from "../context";
 import { MySqlModel } from "./MySqlModel";
 
-// Point-in-time snapshot of a QuestionConditionGroup, taken when a Question
-// is versioned/published. 
-// Belongs to a VersionedQuestion; owns VersionedQuestionConditions.
-//
-// questionConditionGroupId is kept as a plain (non-FK) reference back to the
-// live QuestionConditionGroup for traceability only — it is NOT cascaded,
-// since the live group may later be deleted/replaced by a subsequent
-// saveQuestionDisplayLogic call without invalidating this historical snapshot.
-//
-// Write-once/append-only, matching VersionedQuestionCondition — no
-// update/delete methods, since a version snapshot should never be mutated
-// after creation.
+  // Point-in-time snapshot of a QuestionConditionGroup; write-once.
 export class VersionedQuestionConditionGroup extends MySqlModel {
   public versionedQuestionId: number;
-  public questionConditionGroupId: number;
   public triggerQuestionId: number;
 
   private tableName = 'versionedQuestionConditionGroups';
@@ -24,7 +12,6 @@ export class VersionedQuestionConditionGroup extends MySqlModel {
     super(options.id, options.created, options.createdById, options.modified, options.modifiedById, options.errors);
 
     this.versionedQuestionId = options.versionedQuestionId;
-    this.questionConditionGroupId = options.questionConditionGroupId;
     this.triggerQuestionId = options.triggerQuestionId;
   }
 
@@ -32,7 +19,6 @@ export class VersionedQuestionConditionGroup extends MySqlModel {
     await super.isValid();
 
     if (!this.versionedQuestionId) this.addError('versionedQuestionId', 'Versioned Question Id can\'t be blank');
-    if (!this.questionConditionGroupId) this.addError('questionConditionGroupId', 'Question Condition Group Id can\'t be blank');
     if (!this.triggerQuestionId) this.addError('triggerQuestionId', 'Trigger Question Id can\'t be blank');
 
     return Object.keys(this.errors).length === 0;

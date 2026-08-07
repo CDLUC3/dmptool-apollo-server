@@ -6,6 +6,5 @@ ALTER TABLE questionConditions
   DROP COLUMN action,
   DROP COLUMN target,
   ADD COLUMN groupId int unsigned NOT NULL AFTER id,
-  MODIFY conditionMatch json DEFAULT NULL,
   ADD CONSTRAINT questionconditions_groupid_fk
     FOREIGN KEY (groupId) REFERENCES questionConditionGroups (id) ON DELETE CASCADE;

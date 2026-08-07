@@ -22,7 +22,6 @@ describe('QuestionCondition', () => {
 
   const versionedQuestionConditionData = {
     versionedQuestionConditionGroupId: casual.integer(1, 9999),
-    questionConditionId: casual.integer(1, 999),
     conditionType: "EQUAL",
     conditionMatch: casual.words(3),
   }
@@ -32,7 +31,6 @@ describe('QuestionCondition', () => {
 
   it('should initialize options as expected', () => {
     expect(versionedQuestionCondition.versionedQuestionConditionGroupId).toEqual(versionedQuestionConditionData.versionedQuestionConditionGroupId);
-    expect(versionedQuestionCondition.questionConditionId).toEqual(versionedQuestionConditionData.questionConditionId);
     expect(versionedQuestionCondition.conditionType).toEqual(versionedQuestionConditionData.conditionType);
     expect(versionedQuestionCondition.conditionMatch).toEqual(versionedQuestionConditionData.conditionMatch);
   });
@@ -46,13 +44,6 @@ describe('QuestionCondition', () => {
     expect(await versionedQuestionCondition.isValid()).toBe(false);
     expect(Object.keys(versionedQuestionCondition.errors).length).toBe(1);
     expect(versionedQuestionCondition.errors['versionedQuestionConditionGroupId'].includes('Versioned Question Condition Group')).toBe(true);
-  });
-
-  it('isValid returns false if the questionConditionId is null', async () => {
-    versionedQuestionCondition.questionConditionId = null;
-    expect(await versionedQuestionCondition.isValid()).toBe(false);
-    expect(Object.keys(versionedQuestionCondition.errors).length).toBe(1);
-    expect(versionedQuestionCondition.errors['questionConditionId'].includes('Question Condition')).toBe(true);
   });
 
   it('isValid returns false if the conditionType is null', async () => {
@@ -81,7 +72,6 @@ describe('findBy Queries', () => {
     versionedQuestionCondition = new VersionedQuestionCondition({
       id: casual.integer(1, 9),
       versionedQuestionConditionGroupId: casual.integer(1, 999),
-      questionConditionId: casual.integer(1, 999),
       conditionType: "EQUAL",
       conditionMatch: casual.words(5),
     })
@@ -120,7 +110,6 @@ describe('create', () => {
 
     versionedQuestionCondition = new VersionedQuestionCondition({
       versionedQuestionConditionGroupId: casual.integer(1, 999),
-      questionConditionId: casual.integer(1, 99),
       conditionType: "EQUAL",
       conditionMatch: casual.words(3),
     })
@@ -172,7 +161,6 @@ describe('findByVersionedQuestionConditionGroupId', () => {
 
     versionedQuestionCondition = new VersionedQuestionCondition({
       versionedQuestionConditionGroupId: casual.integer(1, 999),
-      questionConditionId: casual.integer(1, 99),
       conditionType: "EQUAL",
       conditionMatch: casual.words(3),
     })

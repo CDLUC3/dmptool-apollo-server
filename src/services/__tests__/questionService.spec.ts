@@ -708,8 +708,9 @@ describe('generateQuestionConditionVersion', () => {
     });
 
     // Fetch an item from the versionedQuestionConditionStore
-    mockFindVersionedQuestionConditionById = jest.fn().mockImplementation((_, __, id) => {
-      return versionedQuestionConditionStore.find((entry) => { return entry.id === id });
+    mockFindVersionedQuestionConditionById = jest.fn().mockImplementation(async (_, __, id) => {
+      const entry = versionedQuestionConditionStore.find((e) => { return e.id === id });
+      return entry ? new VersionedQuestionCondition(entry) : null;
     });
 
     // Add the entry to the appropriate store
@@ -814,7 +815,10 @@ describe('generateQuestionConditionVersion', () => {
     expect(newVersion.versionedQuestionConditionGroupId).toEqual(versionedQuestionConditionGroupId);
     expect(newVersion.questionConditionId).toEqual(questionCondition.id);
     expect(newVersion.conditionType).toEqual(questionCondition.conditionType);
-    expect(newVersion.conditionMatch).toEqual(questionCondition.conditionMatch);
+    // toDbPayload() JSON-encodes conditionMatch before it's written to the
+    // store — the raw store entry reflects the DB's storage representation,
+    // not the in-memory plain-string form.
+    expect(newVersion.conditionMatch).toEqual(JSON.stringify(questionCondition.conditionMatch));
   });
 });
 

@@ -13,6 +13,7 @@ import { isAdmin } from "../services/authService";
 import { hasPermissionOnQuestion } from "../services/questionService";
 import { QuestionConditionGroup } from "../models/QuestionConditionGroup";
 import { Question } from "../models/Question";
+import { Template } from "../models/Template";
 import { prepareObjectForLogs } from "../logger";
 import { GraphQLError } from "graphql";
 import { normaliseDateTime } from "../utils/helpers";
@@ -59,6 +60,7 @@ export const resolvers: Resolvers = {
         return await context.dataSources.sqlDataSource.withTransaction(context, async (): Promise<Question> => {
           question.displayLogicAction = action;
           question.displayLogicMatchType = matchType;
+          question.isDirty = true;
           updatedQuestion = await question.update(context);
           if (updatedQuestion.hasErrors()) {
             throw BadRequestError();
@@ -99,6 +101,7 @@ export const resolvers: Resolvers = {
             }
           }
 
+          await Template.markTemplateAsDirty(reference, context, question.templateId);
           return await Question.findById(reference, context, questionId);
         });
       } catch (error) {
@@ -145,11 +148,13 @@ export const resolvers: Resolvers = {
           // Reset to defaults now that no groups remain
           question.displayLogicAction = 'SHOW_QUESTION';
           question.displayLogicMatchType = 'ANY';
+          question.isDirty = true;
           const updated = await question.update(context);
           if (updated.hasErrors()) {
             throw InternalServerError();
           }
 
+          await Template.markTemplateAsDirty(reference, context, question.templateId);
           return true;
         });
       } catch (err) {

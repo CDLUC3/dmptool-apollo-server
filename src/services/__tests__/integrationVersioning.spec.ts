@@ -130,7 +130,8 @@ describe('Integration test: Template Versioning', () => {
 
     // Fetch an item from the versionedQuestionConditionStore
     mockFindVersionedQuestionConditionById = jest.fn().mockImplementation(async (_, __, id) => {
-      return versionedQuestionConditionStore.find((entry) => { return entry.id === id });
+      const entry = versionedQuestionConditionStore.find((e) => { return e.id === id });
+      return entry ? new VersionedQuestionCondition(entry) : null;
     });
 
     // Fetch an item from the versionedQuestionConditionGroupStore

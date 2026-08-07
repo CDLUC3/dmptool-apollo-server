@@ -21,9 +21,7 @@ import { normaliseDateTime } from "../utils/helpers";
 
 export const resolvers: Resolvers = {
   Query: {
-    // Return the full display-logic tree (groups + their conditions) for the
-    // specified question. Returns an empty array if no display logic is
-    // configured — the client treats that as "no logic configured yet".
+    // Return the QuestionConditionGroups (and their nested conditions via chained resolvers) for the specified question
     questionConditionGroups: async (_, { questionId }, context: MyContext): Promise<QuestionConditionGroup[]> => {
       try {
         return await QuestionConditionGroup.findByQuestionId('questionConditionGroups resolver', context, questionId);

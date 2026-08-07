@@ -1,7 +1,7 @@
 import { MyContext } from "../context";
 import { MySqlModel } from "./MySqlModel";
 
-  // Point-in-time snapshot of a QuestionConditionGroup; write-once.
+  // Point-in-time snapshot of a QuestionConditionGroup;
 export class VersionedQuestionConditionGroup extends MySqlModel {
   public versionedQuestionId: number;
   public triggerQuestionId: number;

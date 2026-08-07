@@ -10,7 +10,7 @@ import { normaliseDateTime } from "../utils/helpers";
 
 export const resolvers: Resolvers = {
   Query: {
-    // return all forcibly published condition groups (and their nested
+    // return all published condition groups (and their nested
     // conditions) for the specified versioned question
     publishedConditionGroupsForQuestion: async (_, { versionedQuestionId }, context: MyContext): Promise<VersionedQuestionConditionGroup[]> => {
       const reference = 'publishedConditionGroupsForQuestion resolver';

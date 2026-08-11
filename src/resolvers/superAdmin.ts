@@ -1,3 +1,4 @@
+import { GraphQLError } from "graphql";
 import { Resolvers } from "../types";
 import { MyContext } from "../context";
 import { ForbiddenError, NotFoundError, InternalServerError } from "../utils/graphQLErrors";
@@ -27,6 +28,8 @@ export const resolvers: Resolvers = {
 
         return false;
       } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
         context.logger.error(prepareObjectForLogs(err), `${reference} error initializing maDMP record`);
         throw InternalServerError();
       }

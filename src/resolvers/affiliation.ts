@@ -469,6 +469,8 @@ export const resolvers: Resolvers = {
 
         return publishedOnly;
       } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
         context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
         throw InternalServerError();
       }

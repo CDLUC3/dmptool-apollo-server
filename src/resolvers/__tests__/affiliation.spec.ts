@@ -818,6 +818,18 @@ describe('affiliation resolver', () => {
       `;
     });
 
+    it('should return an UNAUTHENTICATED error when there is no token', async () => {
+      const uri = casual.url;
+      const mockAffiliation = buildMockAffiliation({ uri });
+
+      (Affiliation.findByURI as jest.Mock).mockResolvedValue(mockAffiliation);
+
+      const result = await executeQuery(query, { uri }, null);
+
+      expect(result.body.singleResult.errors).toBeDefined();
+      expect(result.body.singleResult.errors[0].extensions.code).toBe('UNAUTHENTICATED');
+    });
+
     it('should return all guidance groups for a superAdmin', async () => {
       const uri = casual.url;
       const mockAffiliation = buildMockAffiliation({ uri });

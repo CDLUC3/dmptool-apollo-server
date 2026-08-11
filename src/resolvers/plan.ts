@@ -10,7 +10,7 @@ import {
 } from "../models/Plan";
 import { Project } from "../models/Project";
 import { User, UserRole } from "../models/User";
-import { PlanMember } from "../models/Member";
+import { PlanMember, ProjectMember } from "../models/Member";
 import { PlanFunding } from "../models/Funding";
 import { PlanFeedback } from "../models/PlanFeedback";
 import { Affiliation } from "../models/Affiliation";
@@ -44,6 +44,8 @@ import { prepareObjectForLogs } from "../logger";
 import {
   buildDataCiteXMLForPlan,
   ensureDefaultPlanContact,
+  extractPlanOutputs,
+  getPlanVersions,
   saveMaDMPVersion
 } from "../services/planService";
 import {
@@ -61,7 +63,8 @@ import {
   removeEntirePlan,
   replaceEntirePlan
 } from "../services/entirePlanService";
-import {toErrorMessage} from "@dmptool/utils";
+import { toErrorMessage } from "@dmptool/utils";
+import { MemberRole } from "../models/MemberRole";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -181,6 +184,24 @@ export const resolvers: Resolvers = {
       }
     },
 
+    // Find a Publically visible Plan by its DMP id
+    publicPlanByDMPId: async (_, { dmpId }, context: MyContext): Promise<Plan> => {
+      const reference = 'publicPlanByDMPId resolver';
+      try {
+        const plan = await Plan.findByDMPId(reference, context, dmpId);
+
+        // Treat "not found" and "not public" identically - don't leak existence of private plans
+        if (isNullOrUndefined(plan) || plan.visibility !== PlanVisibility.PUBLIC) {
+          throw NotFoundError(`Plan with DMP id, ${dmpId}, not found`);
+        }
+
+        return plan;
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    },
     // Lookup a Plan by its alternate identifier
     planByAlternateIdentifier: async (_, { alternateIdentifier }, context: MyContext): Promise<Plan> => {
       const reference = 'planByAlternateIdentifier resolver';
@@ -809,8 +830,16 @@ export const resolvers: Resolvers = {
       }
       return [];
     },
+    outputs: async (parent: Plan, _, context: MyContext) => {
+      const answers = await Answer.findByPlanId('Chained Plan.outputs', context, parent.id);
+      return extractPlanOutputs(answers);
+    },
     registered: (parent: Plan) => {
       return normaliseDateTime(parent.registered);
+    },
+    versions: async (parent: Plan, _, context: MyContext) => {
+      if (!parent?.dmpId) return [];
+      return await getPlanVersions('Chained Plan.versions', context, parent.dmpId);
     },
     created: (parent: Plan) => {
       return normaliseDateTime(parent.created);
@@ -855,6 +884,20 @@ export const resolvers: Resolvers = {
       }
       return null;
     }
-  }
+  },
+  PlanMember: {
+    projectMember: async (parent: PlanMember, _, context: MyContext): Promise<ProjectMember> => {
+      if (parent?.projectMemberId) {
+        return await ProjectMember.findById('planMember.projectMember resolver', context, parent.projectMemberId);
+      }
+      return null;
+    },
+    memberRoles: async (parent: PlanMember, _, context: MyContext): Promise<MemberRole[]> => {
+      if (parent?.id) {
+        return await MemberRole.findByPlanMemberId('planMember.memberRoles resolver', context, parent.id);
+      }
+      return [];
+    },
+  },
 
 }

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { MyContext } from "../context";
 import { MemberRole } from "../models/MemberRole";
 import { isNullOrUndefined } from "../utils/helpers";
@@ -7,6 +8,7 @@ import { Project } from "../models/Project";
 import { PlanFunding, ProjectFunding } from "../models/Funding";
 import { Affiliation } from "../models/Affiliation";
 import { AlternateIdentifier } from "../models/AlternateIdentifier";
+import { Answer } from "../models/Answer";
 import {
   createDMP,
   deleteDMP,
@@ -15,7 +17,8 @@ import {
   EnvironmentEnum,
   planToDMPCommonStandard,
   tombstoneDMP,
-  updateDMP
+  updateDMP,
+  getDMPVersions
 } from "@dmptool/utils";
 import { getDynamoConnectionParams } from "../config/awsConfig";
 import { generalConfig } from "../config/generalConfig";
@@ -27,6 +30,8 @@ import {
   DataCiteSourceFundingAffiliation,
   planToDataCiteMetadata
 } from "./dataciteXMLService";
+import { PlanOutput } from "../types";
+
 
 /**
  * Function to help update Plan member roles. It compares the current roles for
@@ -343,4 +348,85 @@ export async function saveMaDMPVersion(
   }
 
   return true;
+}
+
+/**
+ * Fetches the version timestamps from DynamoDB for the specified DMP ID, and
+ * builds the public-facing URL for each version.
+ *
+ * @param reference A value to help identify the caller to help with logging
+ * @param context The apollo context object
+ * @param dmpId The DMP id of the plan to fetch versions for
+ * @returns an array of { timestamp, url } for each past version
+ */
+export async function getPlanVersions(
+  reference: string,
+  context: MyContext,
+  dmpId: string
+): Promise<{ timestamp: string, url: string }[]> {
+  if (isNullOrUndefined(dmpId)) return [];
+
+  const dynamoConfig: DynamoConnectionParams = getDynamoConnectionParams(context.logger);
+
+  try {
+    const versions = await getDMPVersions(dynamoConfig, dmpId);
+
+    return versions
+      .map((v) => ({
+        timestamp: v.modified,
+        url: `https://${generalConfig.domain}/dmps/${dmpId.replace('https://', '')}?version=${encodeURIComponent(v.modified)}`,
+      }));
+  } catch (err) {
+    context.logger.error({ dmpId, reference, err }, 'Unable to fetch DMP versions.');
+    return [];
+  }
+}
+
+interface PlanOutputColumn {
+  commonStandardId: string;
+  answer: unknown;
+}
+
+/**
+ * Extracts the research outputs from the answers and returns them in a structured format.
+ * @param answers 
+ * @returns 
+ */
+export function extractPlanOutputs(answers: Answer[]): PlanOutput[] {
+  const outputs: PlanOutput[] = [];
+
+  for (const answer of answers) {
+    let parsed: any;
+    try {
+      parsed = typeof answer.json === 'string' ? JSON.parse(answer.json) : answer.json;
+    } catch {
+      continue; // skip malformed/non-JSON answers
+    }
+
+    if (parsed?.type !== 'researchOutputTable' || !Array.isArray(parsed.answer)) continue;
+
+    for (const row of parsed.answer) {
+      const columns: PlanOutputColumn[] = row.columns ?? [];
+      const byId = (id: string) => columns.find((c) => c.commonStandardId === id)?.answer;
+
+      const byteSizeAns = byId('byte_size') as { value?: number; context?: string } | undefined;
+      const hostAns = (byId('host') as any[]) ?? [];
+      const metaAns = (byId('metadata') as any[]) ?? [];
+      const licenseAns = (byId('license_ref') as any[]) ?? [];
+
+      outputs.push({
+        title: (byId('title') as string) ?? '',
+        description: byId('description') as string,
+        type: byId('type') as string,
+        issued: byId('issued') as string,
+        byteSize: byteSizeAns?.value,
+        byteSizeUnit: byteSizeAns?.context,
+        hosts: hostAns.map((h) => ({ name: h.repositoryName, url: h.repositoryId })),
+        metadataStandards: metaAns.map((m) => ({ name: m.metadataStandardName, uri: m.metadataStandardId })),
+        licenses: licenseAns.map((l) => ({ name: l.licenseName, uri: l.licenseId })),
+      });
+    }
+  }
+
+  return outputs;
 }

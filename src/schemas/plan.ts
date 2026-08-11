@@ -11,6 +11,8 @@ export const typeDefs = gql`
     plan(planId: Int!): Plan
     "Lookup a plan by its DMP id"
     planByDMPId(dmpId: String!): Plan
+    "Get a public plan by its DMP id"
+    publicPlanByDMPId(dmpId: String!): Plan
     "Lookup a plan by an alternate identifier"
     planByAlternateIdentifier(alternateIdentifier: String!): Plan
   }
@@ -230,8 +232,48 @@ export const typeDefs = gql`
 
     "Indicates that the plan is not editable by the user (i.e. readOnly = true means the user cannot edit the plan)"
     readOnly: Boolean
+
+    "The outputs associated with the plan"
+    outputs: [PlanOutput!]
   }
 
+  "A research output declared for a Plan (derived from a researchOutputTable question answer)"
+  type PlanOutput {
+    "The title of the research output"
+    title: String
+    "A description of the research output"
+    description: String
+    "The type of research output (e.g. dataset, software, image)"
+    type: String
+    "The anticipated release date for the research output"
+    issued: String
+    "The anticipated size of the research output"
+    byteSize: Int
+    "The unit of the anticipated unit type of the research output size"
+    byteSizeUnit: String
+    "Repositories where the output is intended to be deposited"
+    hosts: [PlanOutputHost!]
+    "Metadata standards intended to be used for the output"
+    metadataStandards: [PlanOutputMetadataStandard!]
+    "License(s) intended to be applied to the output"
+    licenses: [PlanOutputLicense!]
+  }
+
+  type PlanOutputHost {
+    name: String
+    url: String
+  }
+
+  type PlanOutputMetadataStandard {
+    name: String
+    uri: String
+  }
+
+  type PlanOutputLicense {
+    name: String
+    uri: String
+  }
+    
   input UpdatePlanInput {
     "The Plan id"
     id: Int

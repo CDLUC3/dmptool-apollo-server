@@ -135,6 +135,8 @@ export const resolvers: Resolvers = {
         // Unauthenticated
         throw AuthenticationError();
       } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
         context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
         throw InternalServerError();
       }
@@ -296,6 +298,8 @@ export const resolvers: Resolvers = {
         // Unauthenticated
         throw AuthenticationError();
       } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
         context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
         throw InternalServerError();
       }
@@ -322,6 +326,8 @@ export const resolvers: Resolvers = {
         // Unauthenticated
         throw AuthenticationError();
       } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
         context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
         throw InternalServerError();
       }
@@ -347,6 +353,8 @@ export const resolvers: Resolvers = {
         // Unauthenticated
         throw AuthenticationError();
       } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
         context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
         throw InternalServerError();
       }
@@ -377,6 +385,8 @@ export const resolvers: Resolvers = {
         // Unauthenticated
         throw AuthenticationError();
       } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
         context.logger.error(prepareObjectForLogs(err), `Failure in ${ref}`);
         throw InternalServerError();
       }
@@ -430,6 +440,8 @@ export const resolvers: Resolvers = {
         // Unauthenticated
         throw AuthenticationError();
       } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
         context.logger.error(prepareObjectForLogs(err), `Failure in ${ref}`);
         throw InternalServerError();
       }
@@ -455,6 +467,8 @@ export const resolvers: Resolvers = {
         // Unauthenticated
         throw AuthenticationError();
       } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
         context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
         throw InternalServerError();
       }
@@ -488,6 +502,8 @@ export const resolvers: Resolvers = {
         // Unauthorized!
         throw context?.token ? ForbiddenError() : AuthenticationError();
       } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
         context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
         throw InternalServerError();
       }
@@ -520,6 +536,8 @@ export const resolvers: Resolvers = {
         // Unauthorized!
         throw context?.token ? ForbiddenError() : AuthenticationError();
       } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
         context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
         throw InternalServerError();
       }
@@ -578,6 +596,8 @@ export const resolvers: Resolvers = {
         // Unauthorized!
         throw context?.token ? ForbiddenError() : AuthenticationError();
       } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
         context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
         throw InternalServerError();
       }

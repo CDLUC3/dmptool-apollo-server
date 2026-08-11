@@ -277,6 +277,7 @@
 - Removed `ioredis` package
 
 ### Fixed
+- Re-throw `GraphQLError` from the `catch` blocks in the `user`, `affiliation` and `superAdmin` resolvers so that `UNAUTHENTICATED`, `FORBIDDEN` and `NOT_FOUND` reach the client instead of being masked as `INTERNAL_SERVER` [#283]
 - Added missing `fast-xml-parser` back so that `re3data-os-populate.ts` can run
 - Fixed `removeProjectFunding`. There were several issues, one of which was not being able to delete a `projectFundings` record without removing it's foreign key dependency in `planFundings` first [#303]
 - Updated `immutable` to `v5.1.9` to address HIGH security vulnerability [#304]

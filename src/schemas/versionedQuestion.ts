@@ -49,6 +49,11 @@ export const typeDefs = gql`
     useSampleTextAsDefault: Boolean
     "To indicate whether the question is required to be completed"
     required: Boolean
+    
+    "Whether to show or hide the question (or send an email) when its display logic conditions match"
+    displayLogicAction: QuestionConditionActionType
+    "Whether ANY or ALL of the question's condition groups must match"
+    displayLogicMatchType: QuestionConditionMatchType
 
     "For question customization info"
     customizationId: Int

@@ -3,6 +3,8 @@
 ## v1.1.0
 
 ### Added
+- Added `questionConditionGroups` and `versionedQuestionConditionGroups` tables via data migration scripts [#508]
+- Added new models `QuestionConditionGroup` and `QuestionConditionGroups` models for question display logic [#508]
 - Added override for `minimatch`
 - Added versionedTemplate schema and resolver so we can fetch a versioned template by its id.
 - Added `questionTags` and `versionedQuestionTags` tables [#274]
@@ -126,6 +128,12 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `versionedQuestion` resolver to use `findByVersionedQuestionConditionGroupId` in place of `findByVersionedQuestionId` [#508]
+- Updated `publishedConditionGroupsForQuestion` in `versionedQuestionCondition` resolver and added `conditions` chained resolver [#508]
+- Updated `question`, `questionCondition` and `versionedQuestionCondition` schemas [#508]
+- Updated `Question` model to include `displayLogicAction` and `displayLogicMatchType`. Updated `QuestionCondition` model to only include `conditionType`, `conditionMatch` and `groupId`, and replaced `findByQuestionId` with `findByGroupId`. Updated `VersionedQuestionCondition` model to use `versionedQuestionConditionGroupId instead of `versionedQuestionId` [#508]
+- Altered `questions`, `questionConditions`, `versionedQuestions` and `versionedQuestionConditions` tables via data migration scripts [#508]
+- Updated `questionService.ts` with `generateQuestionConditionGroupVersion` [#508]
 - Updated override for `brace-expansion`
 - Switched entirePlan schema, resolvers and service to use versionedXId instead of xId (e.g. use versionedTemplates instead of Templates)
 - Updated entirePlan service to use the default MemberRole when none is provided 
@@ -277,6 +285,7 @@
 - Removed `ioredis` package
 
 ### Fixed
+- Fixed an issue in `MySqlModel` where the `query` function was returning a tuple with fields along with the response [#508]
 - Added missing `fast-xml-parser` back so that `re3data-os-populate.ts` can run
 - Fixed `removeProjectFunding`. There were several issues, one of which was not being able to delete a `projectFundings` record without removing it's foreign key dependency in `planFundings` first [#303]
 - Updated `immutable` to `v5.1.9` to address HIGH security vulnerability [#304]

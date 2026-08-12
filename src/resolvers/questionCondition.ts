@@ -1,10 +1,19 @@
 import { Resolvers } from "../types";
 import { MyContext } from "../context";
 import { QuestionCondition } from "../models/QuestionCondition";
-import { NotFoundError, ForbiddenError, AuthenticationError, InternalServerError } from "../utils/graphQLErrors";
+import {
+  NotFoundError,
+  ForbiddenError,
+  AuthenticationError,
+  InternalServerError,
+  BadRequestError,
+  BAD_REQUEST_ERROR_CODE,
+} from "../utils/graphQLErrors";
 import { isAdmin } from "../services/authService";
 import { hasPermissionOnQuestion } from "../services/questionService";
+import { QuestionConditionGroup } from "../models/QuestionConditionGroup";
 import { Question } from "../models/Question";
+import { Template } from "../models/Template";
 import { prepareObjectForLogs } from "../logger";
 import { GraphQLError } from "graphql";
 import { normaliseDateTime } from "../utils/helpers";
@@ -12,131 +21,160 @@ import { normaliseDateTime } from "../utils/helpers";
 
 export const resolvers: Resolvers = {
   Query: {
-    // return all of the question conditions for the specified question
-    questionConditions: async (_, { questionId }, context: MyContext): Promise<QuestionCondition[]> => {
+    // Return the QuestionConditionGroups (and their nested conditions via chained resolvers) for the specified question
+    questionConditionGroups: async (_, { questionId }, context: MyContext): Promise<QuestionConditionGroup[]> => {
       try {
-        return await QuestionCondition.findByQuestionId('questionConditions resolver', context, questionId);
+        return await QuestionConditionGroup.findByQuestionId('questionConditionGroups resolver', context, questionId);
       } catch (err) {
-        context.logger.error(prepareObjectForLogs(err), `Failure in questionConditions resolver`);
+        context.logger.error(prepareObjectForLogs(err), `Failure in questionConditionGroups resolver`);
         throw InternalServerError();
       }
     },
   },
   Mutation: {
-    // add a new question condition
-    addQuestionCondition: async (_, { input: {
+    // Replace all display logic for a question in one transactional operation:
+    // update the question's action/matchType, wipe its existing groups
+    // (cascades to their conditions), then bulk-insert the new set.
+    saveQuestionDisplayLogic: async (_, { input: {
       questionId,
       action,
-      conditionType,
-      conditionMatch,
-      target } }, context: MyContext): Promise<QuestionCondition> => {
+      matchType,
+      groups } }, context: MyContext): Promise<Question> => {
 
-      const reference = 'addQuestionCondition resolver';
-      try {
-        // If the user is an admin and has permission on the question
-        if (isAdmin(context.token) && await hasPermissionOnQuestion(context, questionId)) {
-          const condition = new QuestionCondition({ questionId, action, conditionType, conditionMatch, target });
-          const created = await condition.create(context);
+      const reference = 'saveQuestionDisplayLogic resolver';
 
-          if (created?.id) {
-            return created;
-          }
-
-          // A null was returned so add a generic error and return it
-          if (!condition.errors['general']) {
-            condition.addError('general', 'Unable to create Question Condition');
-          }
-          return condition;
-        }
-        throw context?.token ? ForbiddenError() : AuthenticationError();
-      } catch (err) {
-        if (err instanceof GraphQLError) throw err;
-
-        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
-        throw InternalServerError();
+      const question = await Question.findById(reference, context, questionId);
+      if (!question) {
+        throw NotFoundError('Question not found');
       }
-    },
 
-    // update an existing question condition
-    updateQuestionCondition: async (_, { input: {
-      questionConditionId,
-      action,
-      conditionType,
-      conditionMatch,
-      target } }, context: MyContext): Promise<QuestionCondition> => {
+      if (!isAdmin(context.token) || !(await hasPermissionOnQuestion(context, question.templateId))) {
+        throw context?.token ? ForbiddenError() : AuthenticationError();
+      }
 
-      const reference = 'updateQuestionCondition resolver';
+      let updatedQuestion: Question = question;
+
       try {
-        if (isAdmin(context.token)) {
-          // Get QuestionCondition based on provided questionConditionId
-          const questionConditionData = await QuestionCondition.findById(reference, context, questionConditionId);
-
-          // Throw Not Found error if QuestionConditionData is not found
-          if (!questionConditionData) {
-            throw NotFoundError('QuestionCondition not found');
+        return await context.dataSources.sqlDataSource.withTransaction(context, async (): Promise<Question> => {
+          question.displayLogicAction = action;
+          question.displayLogicMatchType = matchType;
+          question.isDirty = true;
+          updatedQuestion = await question.update(context);
+          if (updatedQuestion.hasErrors()) {
+            throw BadRequestError();
           }
 
-          const question = await Question.findById(reference, context, questionConditionData.questionId);
-          // If the user has permission on the Question
-          if (await hasPermissionOnQuestion(context, question.templateId)) {
-            const questionCondition = new QuestionCondition({
-              id: questionConditionId,
-              questionId: questionConditionData.questionId,
-              action: action || questionConditionData.action,
-              createdById: questionConditionData.createdById,
-              condition: conditionType || questionConditionData.conditionType,
-              conditionMatch: conditionMatch || questionConditionData.conditionMatch,
-              target: target || questionConditionData.target
+          const existingGroups = await QuestionConditionGroup.findByQuestionId(reference, context, questionId);
+          for (const existing of existingGroups) {
+            const toDelete = new QuestionConditionGroup({ ...existing });
+            await toDelete.delete(context);
+          }
+
+          // Recreate the groups and their conditions from the input
+          for (const groupInput of groups) {
+            const group = new QuestionConditionGroup({
+              questionId,
+              triggerQuestionId: groupInput.triggerQuestionId,
             });
+            const createdGroup = await group.create(context);
 
-            return await questionCondition.update(context);
+            if (createdGroup.hasErrors()) {
+              updatedQuestion.addError('general', 'Unable to save one or more display logic groups');
+              throw BadRequestError();
+            }
+
+            for (const conditionInput of groupInput.conditions) {
+              const condition = new QuestionCondition({
+                groupId: createdGroup.id,
+                conditionType: conditionInput.conditionType,
+                conditionMatch: conditionInput.conditionMatch,
+              });
+
+              const createdCondition = await condition.create(context);
+
+              if (createdCondition.hasErrors()) {
+                updatedQuestion.addError('general', 'Unable to save one or more display logic conditions');
+                throw BadRequestError();
+              }
+            }
           }
-        }
-        throw context?.token ? ForbiddenError() : AuthenticationError();
-      } catch (err) {
-        if (err instanceof GraphQLError) throw err;
 
-        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+          await Template.markTemplateAsDirty(reference, context, question.templateId);
+          return await Question.findById(reference, context, questionId);
+        });
+      } catch (error) {
+        if (error instanceof GraphQLError) {
+          if (error.extensions?.code === BAD_REQUEST_ERROR_CODE) {
+            if (updatedQuestion.hasErrors() && !updatedQuestion.errors['general']) {
+              updatedQuestion.addError('general', 'Unable to process your request.');
+            }
+            return updatedQuestion;
+          }
+          throw error;
+        }
+
+        context.logger.error(prepareObjectForLogs(error), `Failure in ${reference}`);
         throw InternalServerError();
       }
     },
 
-    // remove a question condition
-    removeQuestionCondition: async (_, { questionConditionId }, context: MyContext): Promise<QuestionCondition> => {
-      const reference = 'removeQuestionCondition resolver';
+    // Remove all display logic for a question: delete its groups (cascades
+    // to conditions) and reset action/matchType to their column defaults.
+    // Wrapped with a transaction to ensure that either all groups are deleted or none are.
+    removeQuestionDisplayLogic: async (_, { questionId }, context: MyContext): Promise<boolean> => {
+      const reference = 'removeQuestionDisplayLogic resolver';
       try {
-        if (isAdmin(context.token)) {
-          // Retrieve existing questionCondition
-          const questionConditionData = await QuestionCondition.findById(reference, context, questionConditionId);
-
-          // Throw Not Found error if QuestionConditionData is not found
-          if (!questionConditionData) {
-            throw NotFoundError('QuestionCondition not found');
+        return await context.dataSources.sqlDataSource.withTransaction(context, async (): Promise<boolean> => {
+          const question = await Question.findById(reference, context, questionId);
+          if (!question) {
+            throw NotFoundError('Question not found');
           }
 
-          const question = await Question.findById(reference, context, questionConditionId);
-          // If the user has permission on the Question
-          if (await hasPermissionOnQuestion(context, question.templateId)) {
-            //Need to create a new instance of QuestionCondition so that it recognizes the 'delete' function of that instance
-            const questionCondition = new QuestionCondition({ ...questionConditionData, id: questionConditionId });
-            return await questionCondition.delete(context);
+          if (!isAdmin(context.token) || !(await hasPermissionOnQuestion(context, question.templateId))) {
+            throw context?.token ? ForbiddenError() : AuthenticationError();
           }
-        }
-        throw context?.token ? ForbiddenError() : AuthenticationError();
+
+          const existingGroups = await QuestionConditionGroup.findByQuestionId(reference, context, questionId);
+          for (const existing of existingGroups) {
+            const toDelete = new QuestionConditionGroup({ ...existing });
+            const deleted = await toDelete.delete(context);
+            if (!deleted) {
+              throw InternalServerError();
+            }
+          }
+
+          // Reset to defaults now that no groups remain
+          question.displayLogicAction = 'SHOW_QUESTION';
+          question.displayLogicMatchType = 'ANY';
+          question.isDirty = true;
+          const updated = await question.update(context);
+          if (updated.hasErrors()) {
+            throw InternalServerError();
+          }
+
+          await Template.markTemplateAsDirty(reference, context, question.templateId);
+          return true;
+        });
       } catch (err) {
         if (err instanceof GraphQLError) throw err;
-
         context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
         throw InternalServerError();
       }
     },
   },
-  QuestionCondition: {
-    created: (parent: QuestionCondition) => {
-      return normaliseDateTime(parent.created);
+  QuestionConditionGroup: {
+    triggerQuestion: async (parent: QuestionConditionGroup, _, context: MyContext) => {
+      return await Question.findById('QuestionConditionGroup.triggerQuestion resolver', context, parent.triggerQuestionId);
     },
-    modified: (parent: QuestionCondition) => {
-      return normaliseDateTime(parent.modified);
-    }
+    conditions: async (parent: QuestionConditionGroup, _, context: MyContext) => {
+      return await QuestionCondition.findByGroupId('QuestionConditionGroup.conditions resolver', context, parent.id);
+    },
+    created: (parent: QuestionConditionGroup) => normaliseDateTime(parent.created),
+    modified: (parent: QuestionConditionGroup) => normaliseDateTime(parent.modified),
+  },
+  QuestionCondition: {
+    created: (parent: QuestionCondition) => normaliseDateTime(parent.created),
+    modified: (parent: QuestionCondition) => normaliseDateTime(parent.modified),
   }
+
 };

@@ -197,20 +197,6 @@ export type AddProjectMemberInput = {
   surName?: InputMaybe<Scalars['String']['input']>;
 };
 
-/** Input for adding a new QuestionCondition */
-export type AddQuestionConditionInput = {
-  /** The action to take on a QuestionCondition */
-  action: QuestionConditionActionType;
-  /** Relative to the condition type, it is the value to match on (e.g., HAS_ANSWER should equate to null here) */
-  conditionMatch?: InputMaybe<Scalars['String']['input']>;
-  /** The type of condition in which to take the action */
-  conditionType: QuestionConditionCondition;
-  /** The id of the question that the QuestionCondition belongs to */
-  questionId: Scalars['Int']['input'];
-  /** The target of the action (e.g., an email address for SEND_EMAIL and a Question id otherwise) */
-  target: Scalars['String']['input'];
-};
-
 /** Input parameters for adding custom guidance and sample text to a funder question */
 export type AddQuestionCustomizationInput = {
   /** The custom guidance for the question */
@@ -1629,8 +1615,6 @@ export type Mutation = {
   addProjectMember?: Maybe<ProjectMember>;
   /** Create a new Question */
   addQuestion: Question;
-  /** Create a new QuestionCondition associated with a question */
-  addQuestionCondition: QuestionCondition;
   /** Add custom guidance and sample answer to a funder question */
   addQuestionCustomization: QuestionCustomization;
   /** Add a related work manually, by specifying all work details */
@@ -1741,10 +1725,10 @@ export type Mutation = {
   removeProjectMember?: Maybe<ProjectMember>;
   /** Delete a Question */
   removeQuestion?: Maybe<Question>;
-  /** Remove a QuestionCondition using a specific QuestionCondition id */
-  removeQuestionCondition?: Maybe<QuestionCondition>;
   /** Remove custom guidance and sample answer from a funder question */
   removeQuestionCustomization: QuestionCustomization;
+  /** Remove all display logic (all groups and their conditions) for a question */
+  removeQuestionDisplayLogic: Scalars['Boolean']['output'];
   /** Delete a Repository */
   removeRepository?: Maybe<CustomRepository>;
   /** Delete the research output type */
@@ -1771,6 +1755,12 @@ export type Mutation = {
   resendInviteToProjectCollaborator?: Maybe<ProjectCollaborator>;
   /** Reset the user's password using the reset token */
   resetPassword?: Maybe<Scalars['Boolean']['output']>;
+  /**
+   * Replace all display logic for a question in one transactional operation:
+   * sets the question's action/matchType and replaces its groups/conditions
+   * wholesale with the ones provided.
+   */
+  saveQuestionDisplayLogic: Question;
   /** Send a password reset email to the user */
   sendPasswordResetEmail?: Maybe<Scalars['Boolean']['output']>;
   /** Designate the email as the current user's primary email address */
@@ -1831,8 +1821,6 @@ export type Mutation = {
   updateProjectMember?: Maybe<ProjectMember>;
   /** Update a Question */
   updateQuestion: Question;
-  /** Update a QuestionCondition for a specific QuestionCondition id */
-  updateQuestionCondition?: Maybe<QuestionCondition>;
   /** Update custom guidance and sample answer for a funder question */
   updateQuestionCustomization: QuestionCustomization;
   /** Change the question's display order */
@@ -2006,11 +1994,6 @@ export type MutationAddProjectMemberArgs = {
 
 export type MutationAddQuestionArgs = {
   input: AddQuestionInput;
-};
-
-
-export type MutationAddQuestionConditionArgs = {
-  input: AddQuestionConditionInput;
 };
 
 
@@ -2298,13 +2281,13 @@ export type MutationRemoveQuestionArgs = {
 };
 
 
-export type MutationRemoveQuestionConditionArgs = {
-  questionConditionId: Scalars['Int']['input'];
+export type MutationRemoveQuestionCustomizationArgs = {
+  questionCustomizationId: Scalars['Int']['input'];
 };
 
 
-export type MutationRemoveQuestionCustomizationArgs = {
-  questionCustomizationId: Scalars['Int']['input'];
+export type MutationRemoveQuestionDisplayLogicArgs = {
+  questionId: Scalars['Int']['input'];
 };
 
 
@@ -2363,6 +2346,11 @@ export type MutationResendInviteToProjectCollaboratorArgs = {
 export type MutationResetPasswordArgs = {
   newPassword: Scalars['String']['input'];
   token: Scalars['String']['input'];
+};
+
+
+export type MutationSaveQuestionDisplayLogicArgs = {
+  input: SaveQuestionDisplayLogicInput;
 };
 
 
@@ -2534,11 +2522,6 @@ export type MutationUpdateProjectMemberArgs = {
 
 export type MutationUpdateQuestionArgs = {
   input: UpdateQuestionInput;
-};
-
-
-export type MutationUpdateQuestionConditionArgs = {
-  input: UpdateQuestionConditionInput;
 };
 
 
@@ -3608,8 +3591,8 @@ export type Query = {
   projectMember?: Maybe<ProjectMember>;
   /** Get all of the Users that a Members to the research project */
   projectMembers?: Maybe<Array<Maybe<ProjectMember>>>;
-  /** Search for VersionedQuestions that belong to Section specified by sectionId */
-  publishedConditionsForQuestion?: Maybe<Array<Maybe<VersionedQuestionCondition>>>;
+  /** Get the published VersionedQuestionConditionGroups (and their nested conditions) for the specified versioned question */
+  publishedConditionGroupsForQuestion?: Maybe<Array<Maybe<VersionedQuestionConditionGroup>>>;
   /** Get a specific published custom question based on versionedCustomQuestionId */
   publishedCustomQuestion?: Maybe<VersionedCustomQuestion>;
   /** Fetch all published custom questions for the specified versioned section */
@@ -3630,8 +3613,8 @@ export type Query = {
   publishedTemplatesMetaData?: Maybe<PublishedTemplateMetaDataResults>;
   /** Get the specific Question based on questionId */
   question?: Maybe<Question>;
-  /** Get the QuestionConditions that belong to a specific question */
-  questionConditions?: Maybe<Array<Maybe<QuestionCondition>>>;
+  /** Get the QuestionConditionGroups (and their nested conditions) that belong to a specific question */
+  questionConditionGroups?: Maybe<Array<Maybe<QuestionConditionGroup>>>;
   /** Get the custom guidance and sample text the affiliation has added to a funder question question (user must be an Admin) */
   questionCustomization?: Maybe<QuestionCustomization>;
   /** Get the custom guidance and sample text the affiliation has added to a funder question question (user must be an Admin) */
@@ -3971,7 +3954,7 @@ export type QueryProjectMembersArgs = {
 };
 
 
-export type QueryPublishedConditionsForQuestionArgs = {
+export type QueryPublishedConditionGroupsForQuestionArgs = {
   versionedQuestionId: Scalars['Int']['input'];
 };
 
@@ -4032,7 +4015,7 @@ export type QueryQuestionArgs = {
 };
 
 
-export type QueryQuestionConditionsArgs = {
+export type QueryQuestionConditionGroupsArgs = {
   questionId: Scalars['Int']['input'];
 };
 
@@ -4216,10 +4199,16 @@ export type QueryVersionedTemplateArgs = {
 /** Question always belongs to a Section, which always belongs to a Template */
 export type Question = {
   __typename?: 'Question';
+  /** The conditional logic triggered by this question */
+  conditionGroups?: Maybe<Array<Maybe<QuestionConditionGroup>>>;
   /** The timestamp when the Object was created */
   created?: Maybe<Scalars['String']['output']>;
   /** The user who created the Object */
   createdById?: Maybe<Scalars['Int']['output']>;
+  /** Whether to show or hide the question (or send an email) when its display logic conditions match */
+  displayLogicAction?: Maybe<QuestionConditionActionType>;
+  /** Whether ANY or ALL of the question's condition groups must match */
+  displayLogicMatchType?: Maybe<QuestionConditionMatchType>;
   /** The display order of the question */
   displayOrder?: Maybe<Scalars['Int']['output']>;
   /** Errors associated with the Object */
@@ -4236,8 +4225,6 @@ export type Question = {
   modified?: Maybe<Scalars['String']['output']>;
   /** The user who last modified the Object */
   modifiedById?: Maybe<Scalars['Int']['output']>;
-  /** The conditional logic triggered by this question */
-  questionConditions?: Maybe<Array<QuestionCondition>>;
   /** This will be used as a sort of title for the Question */
   questionText?: Maybe<Scalars['String']['output']>;
   /** To indicate whether the question is required to be completed */
@@ -4259,16 +4246,14 @@ export type Question = {
 };
 
 /**
- * if [Question content] [condition] [conditionMatch] then [action] on [target] so
- * for example if 'Yes' EQUAL 'Yes' then 'SHOW_Question' 123
+ * A single condition (operator + value) within a QuestionConditionGroup,
+ * e.g. "is 'Charlie'" or "is NOT 'Apples'".
  */
 export type QuestionCondition = {
   __typename?: 'QuestionCondition';
-  /** The action to take on a QuestionCondition */
-  action: QuestionConditionActionType;
-  /** Relative to the condition type, it is the value to match on (e.g., HAS_ANSWER should equate to null here) */
+  /** The value(s) to match on */
   conditionMatch?: Maybe<Scalars['String']['output']>;
-  /** The type of condition in which to take the action */
+  /** The type of condition/operator to evaluate */
   conditionType: QuestionConditionCondition;
   /** The timestamp when the Object was created */
   created?: Maybe<Scalars['String']['output']>;
@@ -4276,19 +4261,17 @@ export type QuestionCondition = {
   createdById?: Maybe<Scalars['Int']['output']>;
   /** Errors associated with the Object */
   errors?: Maybe<QuestionConditionErrors>;
+  /** The QuestionConditionGroup this condition belongs to */
+  groupId: Scalars['Int']['output'];
   /** The unique identifer for the Object */
   id?: Maybe<Scalars['Int']['output']>;
   /** The timestamp when the Object was last modifed */
   modified?: Maybe<Scalars['String']['output']>;
   /** The user who last modified the Object */
   modifiedById?: Maybe<Scalars['Int']['output']>;
-  /** The question id that the QuestionCondition belongs to */
-  questionId: Scalars['Int']['output'];
-  /** The target of the action (e.g., an email address for SEND_EMAIL and a Question id otherwise) */
-  target: Scalars['String']['output'];
 };
 
-/** QuestionCondition action */
+/** QuestionCondition action — now set once per Question, not per condition */
 export type QuestionConditionActionType =
   /** Hide the question */
   | 'HIDE_QUESTION'
@@ -4301,24 +4284,84 @@ export type QuestionConditionActionType =
 export type QuestionConditionCondition =
   /** When a question does not equal a specific value */
   | 'DOES_NOT_EQUAL'
+  /** When a question (multi-value) does not include a specific value */
+  | 'DOES_NOT_INCLUDE'
   /** When a question equals a specific value */
   | 'EQUAL'
-  /** When a question has an answer */
-  | 'HAS_ANSWER'
-  /** When a question includes a specific value */
+  /** When a question (multi-value) includes a specific value */
   | 'INCLUDES';
 
 /** A collection of errors related to the QuestionCondition */
 export type QuestionConditionErrors = {
   __typename?: 'QuestionConditionErrors';
-  action?: Maybe<Scalars['String']['output']>;
   conditionMatch?: Maybe<Scalars['String']['output']>;
   conditionType?: Maybe<Scalars['String']['output']>;
   /** General error messages such as the object already exists */
   general?: Maybe<Scalars['String']['output']>;
-  questionId?: Maybe<Scalars['String']['output']>;
-  target?: Maybe<Scalars['String']['output']>;
+  groupId?: Maybe<Scalars['String']['output']>;
 };
+
+/**
+ * One "trigger question" box in the Display Logic UI: groups together the
+ * conditions (option checks) that apply to a single prior question
+ * (triggerQuestionId). A Question's overall display logic is the combination
+ * of all its QuestionConditionGroups, joined by its matchType (ANY/ALL).
+ */
+export type QuestionConditionGroup = {
+  __typename?: 'QuestionConditionGroup';
+  /** The individual conditions (option checks) within this group — combined with OR */
+  conditions?: Maybe<Array<Maybe<QuestionCondition>>>;
+  /** The timestamp when the Object was created */
+  created?: Maybe<Scalars['String']['output']>;
+  /** The user who created the Object */
+  createdById?: Maybe<Scalars['Int']['output']>;
+  /** Errors associated with the Object */
+  errors?: Maybe<QuestionConditionGroupErrors>;
+  /** The unique identifer for the Object */
+  id?: Maybe<Scalars['Int']['output']>;
+  /** The timestamp when the Object was last modifed */
+  modified?: Maybe<Scalars['String']['output']>;
+  /** The user who last modified the Object */
+  modifiedById?: Maybe<Scalars['Int']['output']>;
+  /** The question id that this group's display logic applies to */
+  questionId: Scalars['Int']['output'];
+  /** The prior question whose answer is being checked */
+  triggerQuestion?: Maybe<Question>;
+  /** The id of the prior question whose answer is being checked */
+  triggerQuestionId: Scalars['Int']['output'];
+};
+
+/** A collection of errors related to the QuestionConditionGroup */
+export type QuestionConditionGroupErrors = {
+  __typename?: 'QuestionConditionGroupErrors';
+  /** General error messages such as the object already exists */
+  general?: Maybe<Scalars['String']['output']>;
+  questionId?: Maybe<Scalars['String']['output']>;
+  triggerQuestionId?: Maybe<Scalars['String']['output']>;
+};
+
+/** Input for a single trigger-question group, used by saveQuestionDisplayLogic */
+export type QuestionConditionGroupInput = {
+  /** The conditions (option checks) within this group — combined with OR */
+  conditions: Array<QuestionConditionInput>;
+  /** The id of the prior question whose answer is being checked */
+  triggerQuestionId: Scalars['Int']['input'];
+};
+
+/** Input for a single condition within a group, used by saveQuestionDisplayLogic */
+export type QuestionConditionInput = {
+  /** The value(s) to match on */
+  conditionMatch?: InputMaybe<Scalars['String']['input']>;
+  /** The type of condition/operator to evaluate */
+  conditionType: QuestionConditionCondition;
+};
+
+/** How multiple QuestionConditionGroups combine to determine the overall match */
+export type QuestionConditionMatchType =
+  /** All groups must match */
+  | 'ALL'
+  /** Any one group matching is sufficient */
+  | 'ANY';
 
 /** Customization of a funder question */
 export type QuestionCustomization = {
@@ -4783,6 +4826,18 @@ export type ResearchOutputTypeErrors = {
   general?: Maybe<Scalars['String']['output']>;
   name?: Maybe<Scalars['String']['output']>;
   value?: Maybe<Scalars['String']['output']>;
+};
+
+/** Input for replacing a question's entire display logic configuration */
+export type SaveQuestionDisplayLogicInput = {
+  /** Whether to show or hide the question (or send an email) when the logic matches */
+  action: QuestionConditionActionType;
+  /** The full set of trigger-question groups replacing any existing ones */
+  groups: Array<QuestionConditionGroupInput>;
+  /** Whether ANY or ALL of the groups must match */
+  matchType: QuestionConditionMatchType;
+  /** The id of the question this display logic applies to */
+  questionId: Scalars['Int']['input'];
 };
 
 /** A Section that contains a list of questions in a template */
@@ -5378,20 +5433,6 @@ export type UpdateProjectMemberInput = {
   surName?: InputMaybe<Scalars['String']['input']>;
 };
 
-/** Input for updating a new QuestionCondition based on a QuestionCondition id */
-export type UpdateQuestionConditionInput = {
-  /** The action to take on a QuestionCondition */
-  action: QuestionConditionActionType;
-  /** Relative to the condition type, it is the value to match on (e.g., HAS_ANSWER should equate to null here) */
-  conditionMatch?: InputMaybe<Scalars['String']['input']>;
-  /** The type of condition in which to take the action */
-  conditionType: QuestionConditionCondition;
-  /** The id of the QuestionCondition that will be updated */
-  questionConditionId: Scalars['Int']['input'];
-  /** The target of the action (e.g., an email address for SEND_EMAIL and a Question id otherwise) */
-  target: Scalars['String']['input'];
-};
-
 /** Input parameters for updating custom guidance and sample text to a funder question */
 export type UpdateQuestionCustomizationInput = {
   /** The custom guidance for the question */
@@ -5888,6 +5929,10 @@ export type VersionedQuestion = {
   customizationId?: Maybe<Scalars['Int']['output']>;
   customizationOwnerAffiliation?: Maybe<Affiliation>;
   customizationSampleText?: Maybe<Scalars['String']['output']>;
+  /** Whether to show or hide the question (or send an email) when its display logic conditions match */
+  displayLogicAction?: Maybe<QuestionConditionActionType>;
+  /** Whether ANY or ALL of the question's condition groups must match */
+  displayLogicMatchType?: Maybe<QuestionConditionMatchType>;
   /** The display order of the VersionedQuestion */
   displayOrder?: Maybe<Scalars['Int']['output']>;
   /** Errors associated with the Object */
@@ -5924,13 +5969,15 @@ export type VersionedQuestion = {
   versionedTemplateId: Scalars['Int']['output'];
 };
 
+/**
+ * Point-in-time snapshot of a single condition (operator + value) within a
+ * VersionedQuestionConditionGroup, taken when a Question is versioned/published.
+ */
 export type VersionedQuestionCondition = {
   __typename?: 'VersionedQuestionCondition';
-  /** The action to take on a QuestionCondition */
-  action: VersionedQuestionConditionActionType;
-  /** Relative to the condition type, it is the value to match on (e.g., HAS_ANSWER should equate to null here) */
+  /** The value(s) that were matched on at publish time */
   conditionMatch?: Maybe<Scalars['String']['output']>;
-  /** The type of condition in which to take the action */
+  /** The type of condition/operator that was evaluated at publish time */
   conditionType: VersionedQuestionConditionCondition;
   /** The timestamp when the Object was created */
   created?: Maybe<Scalars['String']['output']>;
@@ -5944,44 +5991,67 @@ export type VersionedQuestionCondition = {
   modified?: Maybe<Scalars['String']['output']>;
   /** The user who last modified the Object */
   modifiedById?: Maybe<Scalars['Int']['output']>;
-  /** Id of the original QuestionCondition */
-  questionConditionId: Scalars['Int']['output'];
-  /** The target of the action (e.g., an email address for SEND_EMAIL and a Question id otherwise) */
-  target: Scalars['String']['output'];
-  /** The versionedQuestion id that the QuestionCondition belongs to */
-  versionedQuestionId: Scalars['Int']['output'];
+  /** The VersionedQuestionConditionGroup this condition belongs to */
+  versionedQuestionConditionGroupId: Scalars['Int']['output'];
 };
-
-/** VersionedQuestionCondition action */
-export type VersionedQuestionConditionActionType =
-  /** Hide the question */
-  | 'HIDE_QUESTION'
-  /** Send email */
-  | 'SEND_EMAIL'
-  /** Show the question */
-  | 'SHOW_QUESTION';
 
 /** VersionedQuestionCondition types */
 export type VersionedQuestionConditionCondition =
   /** When a question does not equal a specific value */
   | 'DOES_NOT_EQUAL'
+  /** When a question (multi-value) does not include a specific value */
+  | 'DOES_NOT_INCLUDE'
   /** When a question equals a specific value */
   | 'EQUAL'
-  /** When a question has an answer */
-  | 'HAS_ANSWER'
-  /** When a question includes a specific value */
+  /** When a question (multi-value) includes a specific value */
   | 'INCLUDES';
 
 /** A collection of errors related to the VersionedQuestionCondition */
 export type VersionedQuestionConditionErrors = {
   __typename?: 'VersionedQuestionConditionErrors';
-  action?: Maybe<Scalars['String']['output']>;
   conditionMatch?: Maybe<Scalars['String']['output']>;
   conditionType?: Maybe<Scalars['String']['output']>;
   /** General error messages such as the object already exists */
   general?: Maybe<Scalars['String']['output']>;
-  questionConditionId?: Maybe<Scalars['String']['output']>;
-  target?: Maybe<Scalars['String']['output']>;
+  versionedQuestionConditionGroupId?: Maybe<Scalars['String']['output']>;
+};
+
+/**
+ * Point-in-time snapshot of a QuestionConditionGroup, taken when a Question
+ * is versioned/published. Mirrors the live QuestionConditionGroup's shape:
+ * one "trigger question" box, containing the individual conditions that
+ * applied to it at publish time.
+ */
+export type VersionedQuestionConditionGroup = {
+  __typename?: 'VersionedQuestionConditionGroup';
+  /** The individual conditions (option checks) within this group at publish time — combined with OR */
+  conditions?: Maybe<Array<Maybe<VersionedQuestionCondition>>>;
+  /** The timestamp when the Object was created */
+  created?: Maybe<Scalars['String']['output']>;
+  /** The user who created the Object */
+  createdById?: Maybe<Scalars['Int']['output']>;
+  /** Errors associated with the Object */
+  errors?: Maybe<VersionedQuestionConditionGroupErrors>;
+  /** The unique identifer for the Object */
+  id?: Maybe<Scalars['Int']['output']>;
+  /** The timestamp when the Object was last modifed */
+  modified?: Maybe<Scalars['String']['output']>;
+  /** The user who last modified the Object */
+  modifiedById?: Maybe<Scalars['Int']['output']>;
+  /** The prior question whose answer was being checked at publish time */
+  triggerQuestion?: Maybe<Question>;
+  /** The id of the prior question whose answer was being checked at publish time */
+  triggerQuestionId: Scalars['Int']['output'];
+  /** The versionedQuestion id that this group's display logic applied to */
+  versionedQuestionId: Scalars['Int']['output'];
+};
+
+/** A collection of errors related to the VersionedQuestionConditionGroup */
+export type VersionedQuestionConditionGroupErrors = {
+  __typename?: 'VersionedQuestionConditionGroupErrors';
+  /** General error messages such as the object already exists */
+  general?: Maybe<Scalars['String']['output']>;
+  triggerQuestionId?: Maybe<Scalars['String']['output']>;
   versionedQuestionId?: Maybe<Scalars['String']['output']>;
 };
 
@@ -6395,7 +6465,6 @@ export type ResolversTypes = {
   AddProjectFundingInput: AddProjectFundingInput;
   AddProjectInput: AddProjectInput;
   AddProjectMemberInput: AddProjectMemberInput;
-  AddQuestionConditionInput: AddQuestionConditionInput;
   AddQuestionCustomizationInput: AddQuestionCustomizationInput;
   AddQuestionInput: AddQuestionInput;
   AddRelatedWorkManualInput: AddRelatedWorkManualInput;
@@ -6539,6 +6608,11 @@ export type ResolversTypes = {
   QuestionConditionActionType: QuestionConditionActionType;
   QuestionConditionCondition: QuestionConditionCondition;
   QuestionConditionErrors: ResolverTypeWrapper<QuestionConditionErrors>;
+  QuestionConditionGroup: ResolverTypeWrapper<QuestionConditionGroup>;
+  QuestionConditionGroupErrors: ResolverTypeWrapper<QuestionConditionGroupErrors>;
+  QuestionConditionGroupInput: QuestionConditionGroupInput;
+  QuestionConditionInput: QuestionConditionInput;
+  QuestionConditionMatchType: QuestionConditionMatchType;
   QuestionCustomization: ResolverTypeWrapper<QuestionCustomization>;
   QuestionCustomizationErrors: ResolverTypeWrapper<QuestionCustomizationErrors>;
   QuestionCustomizationOverview: ResolverTypeWrapper<QuestionCustomizationOverview>;
@@ -6572,6 +6646,7 @@ export type ResolversTypes = {
   ResearchOutputType: ResolverTypeWrapper<ResearchOutputType>;
   ResearchOutputTypeErrors: ResolverTypeWrapper<ResearchOutputTypeErrors>;
   Ror: ResolverTypeWrapper<Scalars['Ror']['output']>;
+  SaveQuestionDisplayLogicInput: SaveQuestionDisplayLogicInput;
   Section: ResolverTypeWrapper<Section>;
   SectionCustomization: ResolverTypeWrapper<SectionCustomization>;
   SectionCustomizationErrors: ResolverTypeWrapper<SectionCustomizationErrors>;
@@ -6608,7 +6683,6 @@ export type ResolversTypes = {
   UpdateProjectFundingInput: UpdateProjectFundingInput;
   UpdateProjectInput: UpdateProjectInput;
   UpdateProjectMemberInput: UpdateProjectMemberInput;
-  UpdateQuestionConditionInput: UpdateQuestionConditionInput;
   UpdateQuestionCustomizationInput: UpdateQuestionCustomizationInput;
   UpdateQuestionInput: UpdateQuestionInput;
   UpdateRelatedWorkStatusInput: UpdateRelatedWorkStatusInput;
@@ -6637,9 +6711,10 @@ export type ResolversTypes = {
   VersionedGuidanceGroupErrors: ResolverTypeWrapper<VersionedGuidanceGroupErrors>;
   VersionedQuestion: ResolverTypeWrapper<VersionedQuestion>;
   VersionedQuestionCondition: ResolverTypeWrapper<VersionedQuestionCondition>;
-  VersionedQuestionConditionActionType: VersionedQuestionConditionActionType;
   VersionedQuestionConditionCondition: VersionedQuestionConditionCondition;
   VersionedQuestionConditionErrors: ResolverTypeWrapper<VersionedQuestionConditionErrors>;
+  VersionedQuestionConditionGroup: ResolverTypeWrapper<VersionedQuestionConditionGroup>;
+  VersionedQuestionConditionGroupErrors: ResolverTypeWrapper<VersionedQuestionConditionGroupErrors>;
   VersionedQuestionErrors: ResolverTypeWrapper<VersionedQuestionErrors>;
   VersionedSection: ResolverTypeWrapper<VersionedSection>;
   VersionedSectionErrors: ResolverTypeWrapper<VersionedSectionErrors>;
@@ -6665,7 +6740,6 @@ export type ResolversParentTypes = {
   AddProjectFundingInput: AddProjectFundingInput;
   AddProjectInput: AddProjectInput;
   AddProjectMemberInput: AddProjectMemberInput;
-  AddQuestionConditionInput: AddQuestionConditionInput;
   AddQuestionCustomizationInput: AddQuestionCustomizationInput;
   AddQuestionInput: AddQuestionInput;
   AddRelatedWorkManualInput: AddRelatedWorkManualInput;
@@ -6793,6 +6867,10 @@ export type ResolversParentTypes = {
   Question: Question;
   QuestionCondition: QuestionCondition;
   QuestionConditionErrors: QuestionConditionErrors;
+  QuestionConditionGroup: QuestionConditionGroup;
+  QuestionConditionGroupErrors: QuestionConditionGroupErrors;
+  QuestionConditionGroupInput: QuestionConditionGroupInput;
+  QuestionConditionInput: QuestionConditionInput;
   QuestionCustomization: QuestionCustomization;
   QuestionCustomizationErrors: QuestionCustomizationErrors;
   QuestionCustomizationOverview: QuestionCustomizationOverview;
@@ -6821,6 +6899,7 @@ export type ResolversParentTypes = {
   ResearchOutputType: ResearchOutputType;
   ResearchOutputTypeErrors: ResearchOutputTypeErrors;
   Ror: Scalars['Ror']['output'];
+  SaveQuestionDisplayLogicInput: SaveQuestionDisplayLogicInput;
   Section: Section;
   SectionCustomization: SectionCustomization;
   SectionCustomizationErrors: SectionCustomizationErrors;
@@ -6852,7 +6931,6 @@ export type ResolversParentTypes = {
   UpdateProjectFundingInput: UpdateProjectFundingInput;
   UpdateProjectInput: UpdateProjectInput;
   UpdateProjectMemberInput: UpdateProjectMemberInput;
-  UpdateQuestionConditionInput: UpdateQuestionConditionInput;
   UpdateQuestionCustomizationInput: UpdateQuestionCustomizationInput;
   UpdateQuestionInput: UpdateQuestionInput;
   UpdateRelatedWorkStatusInput: UpdateRelatedWorkStatusInput;
@@ -6881,6 +6959,8 @@ export type ResolversParentTypes = {
   VersionedQuestion: VersionedQuestion;
   VersionedQuestionCondition: VersionedQuestionCondition;
   VersionedQuestionConditionErrors: VersionedQuestionConditionErrors;
+  VersionedQuestionConditionGroup: VersionedQuestionConditionGroup;
+  VersionedQuestionConditionGroupErrors: VersionedQuestionConditionGroupErrors;
   VersionedQuestionErrors: VersionedQuestionErrors;
   VersionedSection: VersionedSection;
   VersionedSectionErrors: VersionedSectionErrors;
@@ -7507,7 +7587,6 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   addProjectFunding?: Resolver<Maybe<ResolversTypes['ProjectFunding']>, ParentType, ContextType, RequireFields<MutationAddProjectFundingArgs, 'input'>>;
   addProjectMember?: Resolver<Maybe<ResolversTypes['ProjectMember']>, ParentType, ContextType, RequireFields<MutationAddProjectMemberArgs, 'input'>>;
   addQuestion?: Resolver<ResolversTypes['Question'], ParentType, ContextType, RequireFields<MutationAddQuestionArgs, 'input'>>;
-  addQuestionCondition?: Resolver<ResolversTypes['QuestionCondition'], ParentType, ContextType, RequireFields<MutationAddQuestionConditionArgs, 'input'>>;
   addQuestionCustomization?: Resolver<ResolversTypes['QuestionCustomization'], ParentType, ContextType, RequireFields<MutationAddQuestionCustomizationArgs, 'input'>>;
   addRelatedWorkManual?: Resolver<Maybe<ResolversTypes['RelatedWorkSearchResult']>, ParentType, ContextType, RequireFields<MutationAddRelatedWorkManualArgs, 'input'>>;
   addRepository?: Resolver<Maybe<ResolversTypes['CustomRepository']>, ParentType, ContextType, Partial<MutationAddRepositoryArgs>>;
@@ -7563,8 +7642,8 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   removeProjectFunding?: Resolver<Maybe<ResolversTypes['ProjectFunding']>, ParentType, ContextType, RequireFields<MutationRemoveProjectFundingArgs, 'projectFundingId'>>;
   removeProjectMember?: Resolver<Maybe<ResolversTypes['ProjectMember']>, ParentType, ContextType, RequireFields<MutationRemoveProjectMemberArgs, 'projectMemberId'>>;
   removeQuestion?: Resolver<Maybe<ResolversTypes['Question']>, ParentType, ContextType, RequireFields<MutationRemoveQuestionArgs, 'questionId'>>;
-  removeQuestionCondition?: Resolver<Maybe<ResolversTypes['QuestionCondition']>, ParentType, ContextType, RequireFields<MutationRemoveQuestionConditionArgs, 'questionConditionId'>>;
   removeQuestionCustomization?: Resolver<ResolversTypes['QuestionCustomization'], ParentType, ContextType, RequireFields<MutationRemoveQuestionCustomizationArgs, 'questionCustomizationId'>>;
+  removeQuestionDisplayLogic?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationRemoveQuestionDisplayLogicArgs, 'questionId'>>;
   removeRepository?: Resolver<Maybe<ResolversTypes['CustomRepository']>, ParentType, ContextType, RequireFields<MutationRemoveRepositoryArgs, 'repositoryId'>>;
   removeResearchOutputType?: Resolver<Maybe<ResolversTypes['ResearchOutputType']>, ParentType, ContextType, RequireFields<MutationRemoveResearchOutputTypeArgs, 'id'>>;
   removeSection?: Resolver<ResolversTypes['Section'], ParentType, ContextType, RequireFields<MutationRemoveSectionArgs, 'sectionId'>>;
@@ -7578,6 +7657,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   requirements?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   resendInviteToProjectCollaborator?: Resolver<Maybe<ResolversTypes['ProjectCollaborator']>, ParentType, ContextType, RequireFields<MutationResendInviteToProjectCollaboratorArgs, 'projectCollaboratorId'>>;
   resetPassword?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType, RequireFields<MutationResetPasswordArgs, 'newPassword' | 'token'>>;
+  saveQuestionDisplayLogic?: Resolver<ResolversTypes['Question'], ParentType, ContextType, RequireFields<MutationSaveQuestionDisplayLogicArgs, 'input'>>;
   sendPasswordResetEmail?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType, RequireFields<MutationSendPasswordResetEmailArgs, 'email'>>;
   setPrimaryUserEmail?: Resolver<Maybe<Array<Maybe<ResolversTypes['UserEmail']>>>, ParentType, ContextType, RequireFields<MutationSetPrimaryUserEmailArgs, 'email'>>;
   setUserOrcid?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationSetUserOrcidArgs, 'orcid'>>;
@@ -7608,7 +7688,6 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   updateProjectFunding?: Resolver<Maybe<ResolversTypes['ProjectFunding']>, ParentType, ContextType, RequireFields<MutationUpdateProjectFundingArgs, 'input'>>;
   updateProjectMember?: Resolver<Maybe<ResolversTypes['ProjectMember']>, ParentType, ContextType, RequireFields<MutationUpdateProjectMemberArgs, 'input'>>;
   updateQuestion?: Resolver<ResolversTypes['Question'], ParentType, ContextType, RequireFields<MutationUpdateQuestionArgs, 'input'>>;
-  updateQuestionCondition?: Resolver<Maybe<ResolversTypes['QuestionCondition']>, ParentType, ContextType, RequireFields<MutationUpdateQuestionConditionArgs, 'input'>>;
   updateQuestionCustomization?: Resolver<ResolversTypes['QuestionCustomization'], ParentType, ContextType, RequireFields<MutationUpdateQuestionCustomizationArgs, 'input'>>;
   updateQuestionDisplayOrder?: Resolver<ResolversTypes['ReorderQuestionsResult'], ParentType, ContextType, RequireFields<MutationUpdateQuestionDisplayOrderArgs, 'newDisplayOrder' | 'questionId'>>;
   updateRelatedWorkStatus?: Resolver<Maybe<ResolversTypes['RelatedWorkSearchResult']>, ParentType, ContextType, RequireFields<MutationUpdateRelatedWorkStatusArgs, 'input'>>;
@@ -8122,7 +8201,7 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   projectFundings?: Resolver<Maybe<Array<Maybe<ResolversTypes['ProjectFunding']>>>, ParentType, ContextType, RequireFields<QueryProjectFundingsArgs, 'projectId'>>;
   projectMember?: Resolver<Maybe<ResolversTypes['ProjectMember']>, ParentType, ContextType, RequireFields<QueryProjectMemberArgs, 'projectMemberId'>>;
   projectMembers?: Resolver<Maybe<Array<Maybe<ResolversTypes['ProjectMember']>>>, ParentType, ContextType, RequireFields<QueryProjectMembersArgs, 'projectId'>>;
-  publishedConditionsForQuestion?: Resolver<Maybe<Array<Maybe<ResolversTypes['VersionedQuestionCondition']>>>, ParentType, ContextType, RequireFields<QueryPublishedConditionsForQuestionArgs, 'versionedQuestionId'>>;
+  publishedConditionGroupsForQuestion?: Resolver<Maybe<Array<Maybe<ResolversTypes['VersionedQuestionConditionGroup']>>>, ParentType, ContextType, RequireFields<QueryPublishedConditionGroupsForQuestionArgs, 'versionedQuestionId'>>;
   publishedCustomQuestion?: Resolver<Maybe<ResolversTypes['VersionedCustomQuestion']>, ParentType, ContextType, RequireFields<QueryPublishedCustomQuestionArgs, 'versionedCustomQuestionId'>>;
   publishedCustomQuestions?: Resolver<Maybe<Array<Maybe<ResolversTypes['PublishedQuestion']>>>, ParentType, ContextType, RequireFields<QueryPublishedCustomQuestionsArgs, 'planId' | 'versionedCustomSectionId'>>;
   publishedCustomSection?: Resolver<Maybe<ResolversTypes['VersionedCustomSection']>, ParentType, ContextType, RequireFields<QueryPublishedCustomSectionArgs, 'customSectionId' | 'planId'>>;
@@ -8133,7 +8212,7 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   publishedTemplates?: Resolver<Maybe<ResolversTypes['PublishedTemplateSearchResults']>, ParentType, ContextType, Partial<QueryPublishedTemplatesArgs>>;
   publishedTemplatesMetaData?: Resolver<Maybe<ResolversTypes['PublishedTemplateMetaDataResults']>, ParentType, ContextType, Partial<QueryPublishedTemplatesMetaDataArgs>>;
   question?: Resolver<Maybe<ResolversTypes['Question']>, ParentType, ContextType, RequireFields<QueryQuestionArgs, 'questionId'>>;
-  questionConditions?: Resolver<Maybe<Array<Maybe<ResolversTypes['QuestionCondition']>>>, ParentType, ContextType, RequireFields<QueryQuestionConditionsArgs, 'questionId'>>;
+  questionConditionGroups?: Resolver<Maybe<Array<Maybe<ResolversTypes['QuestionConditionGroup']>>>, ParentType, ContextType, RequireFields<QueryQuestionConditionGroupsArgs, 'questionId'>>;
   questionCustomization?: Resolver<Maybe<ResolversTypes['QuestionCustomization']>, ParentType, ContextType, RequireFields<QueryQuestionCustomizationArgs, 'questionCustomizationId'>>;
   questionCustomizationByVersionedQuestion?: Resolver<Maybe<ResolversTypes['QuestionCustomization']>, ParentType, ContextType, RequireFields<QueryQuestionCustomizationByVersionedQuestionArgs, 'templateCustomizationId' | 'versionedQuestionId'>>;
   questions?: Resolver<Maybe<Array<Maybe<ResolversTypes['Question']>>>, ParentType, ContextType, RequireFields<QueryQuestionsArgs, 'sectionId'>>;
@@ -8173,8 +8252,11 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
 };
 
 export type QuestionResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['Question'] = ResolversParentTypes['Question']> = {
+  conditionGroups?: Resolver<Maybe<Array<Maybe<ResolversTypes['QuestionConditionGroup']>>>, ParentType, ContextType>;
   created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   createdById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  displayLogicAction?: Resolver<Maybe<ResolversTypes['QuestionConditionActionType']>, ParentType, ContextType>;
+  displayLogicMatchType?: Resolver<Maybe<ResolversTypes['QuestionConditionMatchType']>, ParentType, ContextType>;
   displayOrder?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   errors?: Resolver<Maybe<ResolversTypes['QuestionErrors']>, ParentType, ContextType>;
   guidanceText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -8183,7 +8265,6 @@ export type QuestionResolvers<ContextType = MyContext, ParentType extends Resolv
   json?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  questionConditions?: Resolver<Maybe<Array<ResolversTypes['QuestionCondition']>>, ParentType, ContextType>;
   questionText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   required?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
   requirementText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -8196,26 +8277,41 @@ export type QuestionResolvers<ContextType = MyContext, ParentType extends Resolv
 };
 
 export type QuestionConditionResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['QuestionCondition'] = ResolversParentTypes['QuestionCondition']> = {
-  action?: Resolver<ResolversTypes['QuestionConditionActionType'], ParentType, ContextType>;
   conditionMatch?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   conditionType?: Resolver<ResolversTypes['QuestionConditionCondition'], ParentType, ContextType>;
   created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   createdById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   errors?: Resolver<Maybe<ResolversTypes['QuestionConditionErrors']>, ParentType, ContextType>;
+  groupId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+};
+
+export type QuestionConditionErrorsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['QuestionConditionErrors'] = ResolversParentTypes['QuestionConditionErrors']> = {
+  conditionMatch?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  conditionType?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  general?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  groupId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+};
+
+export type QuestionConditionGroupResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['QuestionConditionGroup'] = ResolversParentTypes['QuestionConditionGroup']> = {
+  conditions?: Resolver<Maybe<Array<Maybe<ResolversTypes['QuestionCondition']>>>, ParentType, ContextType>;
+  created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  createdById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  errors?: Resolver<Maybe<ResolversTypes['QuestionConditionGroupErrors']>, ParentType, ContextType>;
   id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   questionId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  target?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  triggerQuestion?: Resolver<Maybe<ResolversTypes['Question']>, ParentType, ContextType>;
+  triggerQuestionId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
 };
 
-export type QuestionConditionErrorsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['QuestionConditionErrors'] = ResolversParentTypes['QuestionConditionErrors']> = {
-  action?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  conditionMatch?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  conditionType?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+export type QuestionConditionGroupErrorsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['QuestionConditionGroupErrors'] = ResolversParentTypes['QuestionConditionGroupErrors']> = {
   general?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   questionId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  target?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  triggerQuestionId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 };
 
 export type QuestionCustomizationResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['QuestionCustomization'] = ResolversParentTypes['QuestionCustomization']> = {
@@ -8875,6 +8971,8 @@ export type VersionedQuestionResolvers<ContextType = MyContext, ParentType exten
   customizationId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   customizationOwnerAffiliation?: Resolver<Maybe<ResolversTypes['Affiliation']>, ParentType, ContextType>;
   customizationSampleText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  displayLogicAction?: Resolver<Maybe<ResolversTypes['QuestionConditionActionType']>, ParentType, ContextType>;
+  displayLogicMatchType?: Resolver<Maybe<ResolversTypes['QuestionConditionMatchType']>, ParentType, ContextType>;
   displayOrder?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   errors?: Resolver<Maybe<ResolversTypes['VersionedQuestionErrors']>, ParentType, ContextType>;
   guidanceText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -8895,7 +8993,6 @@ export type VersionedQuestionResolvers<ContextType = MyContext, ParentType exten
 };
 
 export type VersionedQuestionConditionResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['VersionedQuestionCondition'] = ResolversParentTypes['VersionedQuestionCondition']> = {
-  action?: Resolver<ResolversTypes['VersionedQuestionConditionActionType'], ParentType, ContextType>;
   conditionMatch?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   conditionType?: Resolver<ResolversTypes['VersionedQuestionConditionCondition'], ParentType, ContextType>;
   created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -8904,18 +9001,32 @@ export type VersionedQuestionConditionResolvers<ContextType = MyContext, ParentT
   id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  questionConditionId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  target?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  versionedQuestionId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  versionedQuestionConditionGroupId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
 };
 
 export type VersionedQuestionConditionErrorsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['VersionedQuestionConditionErrors'] = ResolversParentTypes['VersionedQuestionConditionErrors']> = {
-  action?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   conditionMatch?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   conditionType?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   general?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  questionConditionId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  target?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  versionedQuestionConditionGroupId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+};
+
+export type VersionedQuestionConditionGroupResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['VersionedQuestionConditionGroup'] = ResolversParentTypes['VersionedQuestionConditionGroup']> = {
+  conditions?: Resolver<Maybe<Array<Maybe<ResolversTypes['VersionedQuestionCondition']>>>, ParentType, ContextType>;
+  created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  createdById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  errors?: Resolver<Maybe<ResolversTypes['VersionedQuestionConditionGroupErrors']>, ParentType, ContextType>;
+  id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  triggerQuestion?: Resolver<Maybe<ResolversTypes['Question']>, ParentType, ContextType>;
+  triggerQuestionId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  versionedQuestionId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+};
+
+export type VersionedQuestionConditionGroupErrorsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['VersionedQuestionConditionGroupErrors'] = ResolversParentTypes['VersionedQuestionConditionGroupErrors']> = {
+  general?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  triggerQuestionId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   versionedQuestionId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 };
 
@@ -9173,6 +9284,8 @@ export type Resolvers<ContextType = MyContext> = {
   Question?: QuestionResolvers<ContextType>;
   QuestionCondition?: QuestionConditionResolvers<ContextType>;
   QuestionConditionErrors?: QuestionConditionErrorsResolvers<ContextType>;
+  QuestionConditionGroup?: QuestionConditionGroupResolvers<ContextType>;
+  QuestionConditionGroupErrors?: QuestionConditionGroupErrorsResolvers<ContextType>;
   QuestionCustomization?: QuestionCustomizationResolvers<ContextType>;
   QuestionCustomizationErrors?: QuestionCustomizationErrorsResolvers<ContextType>;
   QuestionCustomizationOverview?: QuestionCustomizationOverviewResolvers<ContextType>;
@@ -9231,6 +9344,8 @@ export type Resolvers<ContextType = MyContext> = {
   VersionedQuestion?: VersionedQuestionResolvers<ContextType>;
   VersionedQuestionCondition?: VersionedQuestionConditionResolvers<ContextType>;
   VersionedQuestionConditionErrors?: VersionedQuestionConditionErrorsResolvers<ContextType>;
+  VersionedQuestionConditionGroup?: VersionedQuestionConditionGroupResolvers<ContextType>;
+  VersionedQuestionConditionGroupErrors?: VersionedQuestionConditionGroupErrorsResolvers<ContextType>;
   VersionedQuestionErrors?: VersionedQuestionErrorsResolvers<ContextType>;
   VersionedSection?: VersionedSectionResolvers<ContextType>;
   VersionedSectionErrors?: VersionedSectionErrorsResolvers<ContextType>;

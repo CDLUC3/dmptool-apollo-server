@@ -3591,6 +3591,8 @@ export type Query = {
   projectMember?: Maybe<ProjectMember>;
   /** Get all of the Users that a Members to the research project */
   projectMembers?: Maybe<Array<Maybe<ProjectMember>>>;
+  /** Get a public plan by its DMP id */
+  publicPlanByDMPId?: Maybe<Plan>;
   /** Get the published VersionedQuestionConditionGroups (and their nested conditions) for the specified versioned question */
   publishedConditionGroupsForQuestion?: Maybe<Array<Maybe<VersionedQuestionConditionGroup>>>;
   /** Get a specific published custom question based on versionedCustomQuestionId */
@@ -3951,6 +3953,11 @@ export type QueryProjectMemberArgs = {
 
 export type QueryProjectMembersArgs = {
   projectId: Scalars['Int']['input'];
+};
+
+
+export type QueryPublicPlanByDmpIdArgs = {
+  dmpId: Scalars['String']['input'];
 };
 
 
@@ -8201,6 +8208,7 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   projectFundings?: Resolver<Maybe<Array<Maybe<ResolversTypes['ProjectFunding']>>>, ParentType, ContextType, RequireFields<QueryProjectFundingsArgs, 'projectId'>>;
   projectMember?: Resolver<Maybe<ResolversTypes['ProjectMember']>, ParentType, ContextType, RequireFields<QueryProjectMemberArgs, 'projectMemberId'>>;
   projectMembers?: Resolver<Maybe<Array<Maybe<ResolversTypes['ProjectMember']>>>, ParentType, ContextType, RequireFields<QueryProjectMembersArgs, 'projectId'>>;
+  publicPlanByDMPId?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType, RequireFields<QueryPublicPlanByDmpIdArgs, 'dmpId'>>;
   publishedConditionGroupsForQuestion?: Resolver<Maybe<Array<Maybe<ResolversTypes['VersionedQuestionConditionGroup']>>>, ParentType, ContextType, RequireFields<QueryPublishedConditionGroupsForQuestionArgs, 'versionedQuestionId'>>;
   publishedCustomQuestion?: Resolver<Maybe<ResolversTypes['VersionedCustomQuestion']>, ParentType, ContextType, RequireFields<QueryPublishedCustomQuestionArgs, 'versionedCustomQuestionId'>>;
   publishedCustomQuestions?: Resolver<Maybe<Array<Maybe<ResolversTypes['PublishedQuestion']>>>, ParentType, ContextType, RequireFields<QueryPublishedCustomQuestionsArgs, 'planId' | 'versionedCustomSectionId'>>;

@@ -3,6 +3,8 @@
 ## v1.1.0
 
 ### Added
+- Added `publicPlanbyDMPId` resolver, to query only plans that are registered for the landing page [#293]
+- Added `getPlanVersions` for the `publicPlanByDMPId` resolver [#293]
 - Added `questionConditionGroups` and `versionedQuestionConditionGroups` tables via data migration scripts [#508]
 - Added new models `QuestionConditionGroup` and `QuestionConditionGroups` models for question display logic [#508]
 - Added override for `minimatch`
@@ -303,6 +305,7 @@
 - Fixed issue with templates not cloning with sections and questions by updating the `addTemplate` mutation to clone from non-versioned template, section and question [#1006]
 
 ### Chore
+- Fixed vulnerability issue with `js-yaml` [#293]
 - Added override for `brace-expansion` to `v5.0.8` [#314]
 - Addressed security vulnerability in `nodemailer` and `undici` packages, and added debugging to troubleshoot request feedback failure [#285]
 - Updated `nodemailer` to `v9.0.1` and `undici` to `v7.28.0` [#240]

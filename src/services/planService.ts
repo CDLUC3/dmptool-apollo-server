@@ -15,7 +15,8 @@ import {
   EnvironmentEnum,
   planToDMPCommonStandard,
   tombstoneDMP,
-  updateDMP
+  updateDMP,
+  getDMPVersions
 } from "@dmptool/utils";
 import { getDynamoConnectionParams } from "../config/awsConfig";
 import { generalConfig } from "../config/generalConfig";
@@ -27,6 +28,7 @@ import {
   DataCiteSourceFundingAffiliation,
   planToDataCiteMetadata
 } from "./dataciteXMLService";
+
 
 /**
  * Function to help update Plan member roles. It compares the current roles for
@@ -343,4 +345,36 @@ export async function saveMaDMPVersion(
   }
 
   return true;
+}
+
+/**
+ * Fetches the version timestamps from DynamoDB for the specified DMP ID, and
+ * builds the public-facing URL for each version.
+ *
+ * @param reference A value to help identify the caller to help with logging
+ * @param context The apollo context object
+ * @param dmpId The DMP id of the plan to fetch versions for
+ * @returns an array of { timestamp, url } for each past version
+ */
+export async function getPlanVersions(
+  reference: string,
+  context: MyContext,
+  dmpId: string
+): Promise<{ timestamp: string, url: string }[]> {
+  if (isNullOrUndefined(dmpId)) return [];
+
+  const dynamoConfig: DynamoConnectionParams = getDynamoConnectionParams(context.logger);
+
+  try {
+    const versions = await getDMPVersions(dynamoConfig, dmpId);
+
+    return versions
+      .map((v) => ({
+        timestamp: v.modified,
+        url: `https://${generalConfig.domain}/dmps/${dmpId.replace('https://', '')}?version=${encodeURIComponent(v.modified)}`,
+      }));
+  } catch (err) {
+    context.logger.error({ dmpId, reference, err }, 'Unable to fetch DMP versions.');
+    return [];
+  }
 }

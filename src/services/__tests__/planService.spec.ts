@@ -5,7 +5,8 @@ import {
 import {
   ensureDefaultPlanContact,
   updateMemberRoles,
-  saveMaDMPVersion
+  saveMaDMPVersion,
+  getPlanVersions,
 } from '../planService';
 import { MemberRole } from '../../models/MemberRole';
 import { logger } from '../../logger';
@@ -25,7 +26,8 @@ import {
   createDMP,
   deleteDMP, DMPExists, planToDMPCommonStandard,
   tombstoneDMP,
-  updateDMP
+  updateDMP,
+  getDMPVersions
 } from '@dmptool/utils';
 import { getDynamoConnectionParams } from '../../config/awsConfig';
 import { generalConfig } from '../../config/generalConfig';
@@ -666,4 +668,61 @@ describe('buildDataCiteXMLForPlan', () => {
   });
 });
 
+describe('getPlanVersions', () => {
+  let context: MyContext;
+  const reference = 'test-reference';
+  const dmpId = 'https://doi.org/11.2222/3A4B5c';
+  const mockGetDMPVersions = getDMPVersions as jest.MockedFunction<typeof getDMPVersions>;
+
+  beforeEach(async () => {
+    context = await buildMockContextWithToken(logger);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should return an empty array when dmpId is null or undefined', async () => {
+    expect(await getPlanVersions(reference, context, null)).toEqual([]);
+    expect(await getPlanVersions(reference, context, undefined)).toEqual([]);
+    expect(mockGetDMPVersions).not.toHaveBeenCalled();
+  });
+
+  it('should return an empty array when no versions are found', async () => {
+    mockGetDMPVersions.mockResolvedValue([]);
+
+    const result = await getPlanVersions(reference, context, dmpId);
+
+    expect(result).toEqual([]);
+    expect(mockGetDMPVersions).toHaveBeenCalledWith(getDynamoConnectionParams(context.logger), dmpId);
+  });
+
+  it('should map each version to a timestamp and public-facing URL', async () => {
+    mockGetDMPVersions.mockResolvedValue([
+      { dmpId, modified: '2026-08-01T14:32:00Z' },
+      { dmpId, modified: '2026-06-15T09:10:00Z' },
+    ]);
+
+    const result = await getPlanVersions(reference, context, dmpId);
+
+    expect(result).toEqual([
+      {
+        timestamp: '2026-08-01T14:32:00Z',
+        url: `https://${generalConfig.domain}/dmps/${dmpId.replace('https://', '')}?version=${encodeURIComponent('2026-08-01T14:32:00Z')}`,
+      },
+      {
+        timestamp: '2026-06-15T09:10:00Z',
+        url: `https://${generalConfig.domain}/dmps/${dmpId.replace('https://', '')}?version=${encodeURIComponent('2026-06-15T09:10:00Z')}`,
+      },
+    ]);
+  });
+
+  it('should return an empty array and logs an error if getDMPVersions throws', async () => {
+    mockGetDMPVersions.mockRejectedValue(new Error('dynamo error'));
+
+    const result = await getPlanVersions(reference, context, dmpId);
+
+    expect(result).toEqual([]);
+  });
+});
 

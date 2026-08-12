@@ -44,7 +44,6 @@ import { prepareObjectForLogs } from "../logger";
 import {
   buildDataCiteXMLForPlan,
   ensureDefaultPlanContact,
-  extractPlanOutputs,
   getPlanVersions,
   saveMaDMPVersion
 } from "../services/planService";
@@ -184,14 +183,14 @@ export const resolvers: Resolvers = {
       }
     },
 
-    // Find a Publically visible Plan by its DMP id
+    // Find a published plan by its DMP id (publicly accessible so not checking permissions)
     publicPlanByDMPId: async (_, { dmpId }, context: MyContext): Promise<Plan> => {
       const reference = 'publicPlanByDMPId resolver';
       try {
         const plan = await Plan.findByDMPId(reference, context, dmpId);
 
-        // Treat "not found" and "not public" identically - don't leak existence of private plans
-        if (isNullOrUndefined(plan) || plan.visibility !== PlanVisibility.PUBLIC) {
+        // Treat "not found" and "not registered" identically - don't leak existence of private plans
+        if (isNullOrUndefined(plan) || plan.registered === null) {
           throw NotFoundError(`Plan with DMP id, ${dmpId}, not found`);
         }
 
@@ -829,10 +828,6 @@ export const resolvers: Resolvers = {
         return await AlternateIdentifier.findByPlanId('plan alternateIdentifiers chained resolver', context, parent.id);
       }
       return [];
-    },
-    outputs: async (parent: Plan, _, context: MyContext) => {
-      const answers = await Answer.findByPlanId('Chained Plan.outputs', context, parent.id);
-      return extractPlanOutputs(answers);
     },
     registered: (parent: Plan) => {
       return normaliseDateTime(parent.registered);

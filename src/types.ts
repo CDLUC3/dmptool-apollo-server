@@ -2771,8 +2771,6 @@ export type Plan = {
   modified?: Maybe<Scalars['String']['output']>;
   /** The user who last modified the Object */
   modifiedById?: Maybe<Scalars['Int']['output']>;
-  /** The outputs associated with the plan */
-  outputs?: Maybe<Array<PlanOutput>>;
   /** The user who created the plan */
   planCreator?: Maybe<User>;
   /** The progress the user has made within the plan */
@@ -3027,47 +3025,6 @@ export type PlanMemberErrors = {
   projectId?: Maybe<Scalars['String']['output']>;
   /** The project Member */
   projectMemberId?: Maybe<Scalars['String']['output']>;
-};
-
-/** A research output declared for a Plan (derived from a researchOutputTable question answer) */
-export type PlanOutput = {
-  __typename?: 'PlanOutput';
-  /** The anticipated size of the research output */
-  byteSize?: Maybe<Scalars['Int']['output']>;
-  /** The unit of the anticipated unit type of the research output size */
-  byteSizeUnit?: Maybe<Scalars['String']['output']>;
-  /** A description of the research output */
-  description?: Maybe<Scalars['String']['output']>;
-  /** Repositories where the output is intended to be deposited */
-  hosts?: Maybe<Array<PlanOutputHost>>;
-  /** The anticipated release date for the research output */
-  issued?: Maybe<Scalars['String']['output']>;
-  /** License(s) intended to be applied to the output */
-  licenses?: Maybe<Array<PlanOutputLicense>>;
-  /** Metadata standards intended to be used for the output */
-  metadataStandards?: Maybe<Array<PlanOutputMetadataStandard>>;
-  /** The title of the research output */
-  title?: Maybe<Scalars['String']['output']>;
-  /** The type of research output (e.g. dataset, software, image) */
-  type?: Maybe<Scalars['String']['output']>;
-};
-
-export type PlanOutputHost = {
-  __typename?: 'PlanOutputHost';
-  name?: Maybe<Scalars['String']['output']>;
-  url?: Maybe<Scalars['String']['output']>;
-};
-
-export type PlanOutputLicense = {
-  __typename?: 'PlanOutputLicense';
-  name?: Maybe<Scalars['String']['output']>;
-  uri?: Maybe<Scalars['String']['output']>;
-};
-
-export type PlanOutputMetadataStandard = {
-  __typename?: 'PlanOutputMetadataStandard';
-  name?: Maybe<Scalars['String']['output']>;
-  uri?: Maybe<Scalars['String']['output']>;
 };
 
 export type PlanProgress = {
@@ -6557,10 +6514,6 @@ export type ResolversTypes = {
   PlanGuidanceErrors: ResolverTypeWrapper<PlanGuidanceErrors>;
   PlanMember: ResolverTypeWrapper<PlanMember>;
   PlanMemberErrors: ResolverTypeWrapper<PlanMemberErrors>;
-  PlanOutput: ResolverTypeWrapper<PlanOutput>;
-  PlanOutputHost: ResolverTypeWrapper<PlanOutputHost>;
-  PlanOutputLicense: ResolverTypeWrapper<PlanOutputLicense>;
-  PlanOutputMetadataStandard: ResolverTypeWrapper<PlanOutputMetadataStandard>;
   PlanProgress: ResolverTypeWrapper<PlanProgress>;
   PlanSearchResult: ResolverTypeWrapper<PlanSearchResult>;
   PlanSectionProgress: ResolverTypeWrapper<PlanSectionProgress>;
@@ -6821,10 +6774,6 @@ export type ResolversParentTypes = {
   PlanGuidanceErrors: PlanGuidanceErrors;
   PlanMember: PlanMember;
   PlanMemberErrors: PlanMemberErrors;
-  PlanOutput: PlanOutput;
-  PlanOutputHost: PlanOutputHost;
-  PlanOutputLicense: PlanOutputLicense;
-  PlanOutputMetadataStandard: PlanOutputMetadataStandard;
   PlanProgress: PlanProgress;
   PlanSearchResult: PlanSearchResult;
   PlanSectionProgress: PlanSectionProgress;
@@ -7743,7 +7692,6 @@ export type PlanResolvers<ContextType = MyContext, ParentType extends ResolversP
   members?: Resolver<Maybe<Array<ResolversTypes['PlanMember']>>, ParentType, ContextType>;
   modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  outputs?: Resolver<Maybe<Array<ResolversTypes['PlanOutput']>>, ParentType, ContextType>;
   planCreator?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType>;
   progress?: Resolver<Maybe<ResolversTypes['PlanProgress']>, ParentType, ContextType>;
   project?: Resolver<Maybe<ResolversTypes['Project']>, ParentType, ContextType>;
@@ -7885,33 +7833,6 @@ export type PlanMemberErrorsResolvers<ContextType = MyContext, ParentType extend
   primaryContact?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   projectId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   projectMemberId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-};
-
-export type PlanOutputResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PlanOutput'] = ResolversParentTypes['PlanOutput']> = {
-  byteSize?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  byteSizeUnit?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  description?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  hosts?: Resolver<Maybe<Array<ResolversTypes['PlanOutputHost']>>, ParentType, ContextType>;
-  issued?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  licenses?: Resolver<Maybe<Array<ResolversTypes['PlanOutputLicense']>>, ParentType, ContextType>;
-  metadataStandards?: Resolver<Maybe<Array<ResolversTypes['PlanOutputMetadataStandard']>>, ParentType, ContextType>;
-  title?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  type?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-};
-
-export type PlanOutputHostResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PlanOutputHost'] = ResolversParentTypes['PlanOutputHost']> = {
-  name?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  url?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-};
-
-export type PlanOutputLicenseResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PlanOutputLicense'] = ResolversParentTypes['PlanOutputLicense']> = {
-  name?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  uri?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-};
-
-export type PlanOutputMetadataStandardResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PlanOutputMetadataStandard'] = ResolversParentTypes['PlanOutputMetadataStandard']> = {
-  name?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  uri?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 };
 
 export type PlanProgressResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PlanProgress'] = ResolversParentTypes['PlanProgress']> = {
@@ -9236,10 +9157,6 @@ export type Resolvers<ContextType = MyContext> = {
   PlanGuidanceErrors?: PlanGuidanceErrorsResolvers<ContextType>;
   PlanMember?: PlanMemberResolvers<ContextType>;
   PlanMemberErrors?: PlanMemberErrorsResolvers<ContextType>;
-  PlanOutput?: PlanOutputResolvers<ContextType>;
-  PlanOutputHost?: PlanOutputHostResolvers<ContextType>;
-  PlanOutputLicense?: PlanOutputLicenseResolvers<ContextType>;
-  PlanOutputMetadataStandard?: PlanOutputMetadataStandardResolvers<ContextType>;
   PlanProgress?: PlanProgressResolvers<ContextType>;
   PlanSearchResult?: PlanSearchResultResolvers<ContextType>;
   PlanSectionProgress?: PlanSectionProgressResolvers<ContextType>;

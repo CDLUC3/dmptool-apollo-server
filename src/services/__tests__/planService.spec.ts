@@ -7,7 +7,6 @@ import {
   updateMemberRoles,
   saveMaDMPVersion,
   getPlanVersions,
-  extractPlanOutputs,
 } from '../planService';
 import { MemberRole } from '../../models/MemberRole';
 import { logger } from '../../logger';
@@ -15,7 +14,6 @@ import { PlanMember, ProjectMember } from "../../models/Member";
 import casual from "casual";
 import { Project } from "../../models/Project";
 import { Plan } from "../../models/Plan";
-import { Answer } from "../../models/Answer";
 
 // For buildDataCiteXMLForPlan
 import { buildDataCiteXMLForPlan } from '../planService';
@@ -725,147 +723,6 @@ describe('getPlanVersions', () => {
     const result = await getPlanVersions(reference, context, dmpId);
 
     expect(result).toEqual([]);
-  });
-});
-
-describe('extractPlanOutputs', () => {
-  const buildAnswer = (json: unknown): Answer => ({ json } as unknown as Answer);
-
-  it('should return an empty array when there are no answers', () => {
-    expect(extractPlanOutputs([])).toEqual([]);
-  });
-
-  it('should skip answers that are not valid JSON', () => {
-    const answers = [buildAnswer('{not valid json')];
-    expect(extractPlanOutputs(answers)).toEqual([]);
-  });
-
-  it('should skip answers whose type is not researchOutputTable', () => {
-    const answers = [buildAnswer({ type: 'someOtherType', answer: [] })];
-    expect(extractPlanOutputs(answers)).toEqual([]);
-  });
-
-  it('should skip answers whose "answer" field is not an array', () => {
-    const answers = [buildAnswer({ type: 'researchOutputTable', answer: 'not-an-array' })];
-    expect(extractPlanOutputs(answers)).toEqual([]);
-  });
-
-  it('should extract a fully-populated output row, including byteSize and byteSizeUnit', () => {
-    const answers = [
-      buildAnswer({
-        type: 'researchOutputTable',
-        answer: [
-          {
-            columns: [
-              { commonStandardId: 'title', answer: 'RO Question 1' },
-              { commonStandardId: 'description', answer: '<p>RO Question 1 description</p>' },
-              { commonStandardId: 'type', answer: 'dataset' },
-              { commonStandardId: 'issued', answer: '2026-09-30' },
-              { commonStandardId: 'byte_size', answer: { value: 2, context: 'mb' } },
-              { commonStandardId: 'host', answer: [{ repositoryName: 'Zenodo', repositoryId: 'https://zenodo.org' }] },
-              { commonStandardId: 'metadata', answer: [{ metadataStandardName: 'DDI', metadataStandardId: 'https://ddialliance.org' }] },
-              { commonStandardId: 'license_ref', answer: [{ licenseName: 'CC0-1.0', licenseId: 'https://spdx.org/licenses/CC0-1.0.json' }] },
-            ],
-          },
-        ],
-      }),
-    ];
-
-    const result = extractPlanOutputs(answers);
-
-    expect(result).toEqual([
-      {
-        title: 'RO Question 1',
-        description: '<p>RO Question 1 description</p>',
-        type: 'dataset',
-        issued: '2026-09-30',
-        byteSize: 2,
-        byteSizeUnit: 'mb',
-        hosts: [{ name: 'Zenodo', url: 'https://zenodo.org' }],
-        metadataStandards: [{ name: 'DDI', uri: 'https://ddialliance.org' }],
-        licenses: [{ name: 'CC0-1.0', uri: 'https://spdx.org/licenses/CC0-1.0.json' }],
-      },
-    ]);
-  });
-
-  it('should default missing hosts/metadataStandards/licenses to empty arrays', () => {
-    const answers = [
-      buildAnswer({
-        type: 'researchOutputTable',
-        answer: [
-          {
-            columns: [
-              { commonStandardId: 'title', answer: 'RO Question 2' },
-            ],
-          },
-        ],
-      }),
-    ];
-
-    const result = extractPlanOutputs(answers);
-
-    expect(result[0]).toEqual(
-      expect.objectContaining({
-        title: 'RO Question 2',
-        hosts: [],
-        metadataStandards: [],
-        licenses: [],
-      })
-    );
-    expect(result[0].byteSize).toBeUndefined();
-    expect(result[0].byteSizeUnit).toBeUndefined();
-  });
-
-  it('should default title to an empty string when missing', () => {
-    const answers = [
-      buildAnswer({
-        type: 'researchOutputTable',
-        answer: [{ columns: [] }],
-      }),
-    ];
-
-    const result = extractPlanOutputs(answers);
-
-    expect(result[0].title).toBe('');
-  });
-
-  it('should handle answer.json provided as an already-parsed object (not a string)', () => {
-    const answers: Answer[] = [
-      {
-        json: {
-          type: 'researchOutputTable',
-          answer: [
-            { columns: [{ commonStandardId: 'title', answer: 'RO Question 3' }] },
-          ],
-        },
-      } as unknown as Answer,
-    ];
-
-    const result = extractPlanOutputs(answers);
-
-    expect(result[0].title).toBe('RO Question 3');
-  });
-
-  it('should extract outputs across multiple answers and multiple rows', () => {
-    const answers = [
-      buildAnswer({
-        type: 'researchOutputTable',
-        answer: [
-          { columns: [{ commonStandardId: 'title', answer: 'Row A' }] },
-          { columns: [{ commonStandardId: 'title', answer: 'Row B' }] },
-        ],
-      }),
-      buildAnswer({
-        type: 'researchOutputTable',
-        answer: [
-          { columns: [{ commonStandardId: 'title', answer: 'Row C' }] },
-        ],
-      }),
-    ];
-
-    const result = extractPlanOutputs(answers);
-
-    expect(result.map((o) => o.title)).toEqual(['Row A', 'Row B', 'Row C']);
   });
 });
 

@@ -567,7 +567,10 @@ describe('query function', () => {
   });
 
   it('query uses the active transaction connection when one is present', async () => {
-    const transactionQuery = jest.fn().mockResolvedValueOnce(['inside transaction']);
+    const transactionQuery = jest.fn().mockResolvedValueOnce([
+      ['inside transaction'],
+      [{ name: 'field' }],
+    ]);
     context.activeTransaction = {
       connection: {
         query: transactionQuery,

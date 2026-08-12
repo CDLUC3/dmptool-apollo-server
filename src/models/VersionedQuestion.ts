@@ -1,6 +1,7 @@
 import { QuestionSchemaMap } from "@dmptool/types";
 import { MyContext } from "../context";
 import { MySqlModel } from "./MySqlModel";
+import { QuestionConditionActionType, QuestionConditionMatchType } from "./QuestionCondition";
 import { isNullOrUndefined, removeNullAndUndefinedFromJSON } from "../utils/helpers";
 
 export class VersionedQuestion extends MySqlModel {
@@ -15,6 +16,8 @@ export class VersionedQuestion extends MySqlModel {
   public useSampleTextAsDefault?: boolean;
   public required: boolean;
   public displayOrder: number;
+  public displayLogicAction: QuestionConditionActionType;
+  public displayLogicMatchType: QuestionConditionMatchType;
 
   private tableName = 'versionedQuestions';
 
@@ -37,6 +40,8 @@ export class VersionedQuestion extends MySqlModel {
     this.required = options.required ?? false;
     this.useSampleTextAsDefault = options.useSampleTextAsDefault ?? false;
     this.displayOrder = options.displayOrder;
+    this.displayLogicAction = options.displayLogicAction ?? "SHOW_QUESTION";
+    this.displayLogicMatchType = options.displayLogicMatchType ?? "ANY";
   }
 
   // Validation to be used prior to saving the record

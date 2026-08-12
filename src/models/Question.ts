@@ -1,6 +1,7 @@
 import { QuestionSchemaMap } from "@dmptool/types";
 import { MyContext } from "../context";
 import { MySqlModel } from "./MySqlModel";
+import { QuestionConditionActionType, QuestionConditionMatchType } from "./QuestionCondition";
 import { Tag } from "./Tag";
 import { isNullOrUndefined, removeNullAndUndefinedFromJSON } from "../utils/helpers";
 
@@ -18,6 +19,8 @@ export class Question extends MySqlModel {
   public displayOrder: number;
   public tags: Tag[];
   public isDirty: boolean;
+  public displayLogicAction: QuestionConditionActionType;
+  public displayLogicMatchType: QuestionConditionMatchType;
 
   private tableName = 'questions';
 
@@ -43,6 +46,8 @@ export class Question extends MySqlModel {
     this.displayOrder = options.displayOrder;
     this.tags = options.tags;
     this.isDirty = options.isDirty ?? false;
+    this.displayLogicAction = options.displayLogicAction ?? "SHOW_QUESTION";
+    this.displayLogicMatchType = options.displayLogicMatchType ?? "ANY";
   }
 
   // Validation to be used prior to saving the record

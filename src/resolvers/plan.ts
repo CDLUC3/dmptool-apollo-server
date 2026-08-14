@@ -44,7 +44,8 @@ import { prepareObjectForLogs } from "../logger";
 import {
   buildDataCiteXMLForPlan,
   ensureDefaultPlanContact,
-  saveMaDMPVersion
+  handleAsyncDeletes,
+  handleAsyncUpdates
 } from "../services/planService";
 import {
   hasPermissionOnProject,
@@ -61,7 +62,7 @@ import {
   removeEntirePlan,
   replaceEntirePlan
 } from "../services/entirePlanService";
-import {toErrorMessage} from "@dmptool/utils";
+import { toErrorMessage } from "@dmptool/utils";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -244,8 +245,12 @@ export const resolvers: Resolvers = {
                 created.addError('general', 'Unable to set the default contact');
               }
 
-              // Generate the initial maDMP version of the record
-              await saveMaDMPVersion(reference, context, created.id, created.dmpId);
+              // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+              // asynchronously so we don't block the Apollo thread
+              handleAsyncUpdates(reference, context, created)
+                .catch(err => {
+                  context.logger.error({ planId: created.id, err }, 'Add Plan post processing failed');
+                });
             }
 
             return created;
@@ -280,8 +285,12 @@ export const resolvers: Resolvers = {
               const deleted = await plan.delete(context);
 
               if (deleted) {
-                // Delete the maDMP versions of the record
-                await saveMaDMPVersion(reference, context, deleted.id, deleted.dmpId, true);
+                // Handle OpenSearch index removal and removal of maDMP JSON versions
+                // in Dynamo asynchronously so we don't block the Apollo thread
+                handleAsyncDeletes(reference, context, deleted)
+                  .catch(err => {
+                    context.logger.error({ planId: deleted.id, err }, 'Archive Plan post processing failed');
+                  });
               }
             } else {
               return plan;
@@ -369,8 +378,12 @@ export const resolvers: Resolvers = {
                   const published = await plan.publish(context, visibility as PlanVisibility, dataciteXML);
 
                   if (published && !published.hasErrors()) {
-                    // Update the maDMP version of the record
-                    await saveMaDMPVersion(reference, context, plan.id, plan.dmpId);
+                    // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+                    // asynchronously so we don't block the Apollo thread
+                    handleAsyncUpdates(reference, context, published)
+                      .catch(err => {
+                        context.logger.error({ planId: published.id, err }, 'Publish Plan post processing failed');
+                      });
                   }
                   return published;
                 }
@@ -408,8 +421,12 @@ export const resolvers: Resolvers = {
             const updated = await plan.update(context);
 
             if (updated && !updated.hasErrors()) {
-              // Update the maDMP version of the record
-              await saveMaDMPVersion(reference, context, updated.id, updated.dmpId);
+              // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+              // asynchronously so we don't block the Apollo thread
+              handleAsyncUpdates(reference, context, updated)
+                .catch(err => {
+                  context.logger.error({ planId: updated.id, err }, 'Update Plan post processing failed');
+                });
             }
             return updated;
           }
@@ -438,8 +455,12 @@ export const resolvers: Resolvers = {
             const updated = await plan.update(context);
 
             if (updated && !updated.hasErrors()) {
-              // Update the maDMP version of the record
-              await saveMaDMPVersion(reference, context, updated.id, updated.dmpId);
+              // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+              // asynchronously so we don't block the Apollo thread
+              handleAsyncUpdates(reference, context, updated)
+                .catch(err => {
+                  context.logger.error({ planId: updated.id, err }, 'Update Plan Status post processing failed');
+                });
             }
             return updated;
           }
@@ -467,8 +488,12 @@ export const resolvers: Resolvers = {
             const updated = await plan.update(context);
 
             if (updated && !updated.hasErrors()) {
-              // Update the maDMP version of the record
-              await saveMaDMPVersion(reference, context, updated.id, updated.dmpId);
+              // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+              // asynchronously so we don't block the Apollo thread
+              handleAsyncUpdates(reference, context, updated)
+                .catch(err => {
+                  context.logger.error({ planId: updated.id, err }, 'Update Plan Title post processing failed');
+                });
             }
             return updated;
           }
@@ -498,8 +523,12 @@ export const resolvers: Resolvers = {
 
             const created: AlternateIdentifier = await identifier.create(context);
             if (created && !created.hasErrors()) {
-              // Update the maDMP version of the record
-              await saveMaDMPVersion(reference, context, planId, plan.dmpId);
+              // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+              // asynchronously so we don't block the Apollo thread
+              handleAsyncUpdates(reference, context, plan)
+                .catch(err => {
+                  context.logger.error({ planId: plan.id, err }, 'Add Alternate Id post processing failed');
+                });
             }
             return plan;
           }
@@ -538,8 +567,12 @@ export const resolvers: Resolvers = {
 
             const deleted = await identifier.delete(context);
             if (deleted && !deleted.hasErrors()) {
-              // Update the maDMP version of the record
-              await saveMaDMPVersion(reference, context, planId, plan.dmpId);
+              // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+              // asynchronously so we don't block the Apollo thread
+              handleAsyncUpdates(reference, context, plan)
+                .catch(err => {
+                  context.logger.error({ planId: plan.id, err }, 'Remove Alternate id post processing failed');
+                });
             }
             return plan;
           }
@@ -592,7 +625,15 @@ export const resolvers: Resolvers = {
 
           // Add the Plan within a database transaction
           return await context.dataSources.sqlDataSource.withTransaction(context, async (): Promise<Plan> => {
-            return await addEntirePlan(ref, context, input, plan);
+            const created: Plan = await addEntirePlan(ref, context, input, plan);
+            if (created && !created.hasErrors()) {
+              // If successful, add the OpenSearch index in the background
+              handleAsyncUpdates(ref, context, created)
+                .catch(err => {
+                  context.logger.error({ planId: created.id, err }, 'AddEntirePlan post processing failed');
+                });
+            }
+            return created;
           });
         } catch (error) {
           if (error instanceof GraphQLError) {
@@ -654,7 +695,15 @@ export const resolvers: Resolvers = {
           try {
             // Add the Plan within a database transaction
             return await context.dataSources.sqlDataSource.withTransaction(context, async (): Promise<Plan> => {
-              return await replaceEntirePlan(ref, context, project, plan, input);
+              const replaced: Plan = await replaceEntirePlan(ref, context, project, plan, input);
+              if (replaced && !replaced.hasErrors()) {
+                // If successful, update the OpenSearch index in the background
+                handleAsyncUpdates(ref, context, replaced)
+                  .catch(err => {
+                    context.logger.error({ planId: replaced.id, err }, 'UpdateEntirePlan post processing failed');
+                  });
+              }
+              return replaced;
             });
           } catch (error) {
             if (error instanceof GraphQLError) {
@@ -719,7 +768,15 @@ export const resolvers: Resolvers = {
           try {
             // Add the Plan within a database transaction
             const removed: Plan | undefined = await context.dataSources.sqlDataSource.withTransaction(context, async (): Promise<Plan> => {
-              return await removeEntirePlan(ref, context, project, plan);
+              const oldPlan: Plan = await removeEntirePlan(ref, context, project, plan);
+              if (oldPlan && !oldPlan.hasErrors()) {
+                // If successful, remove the OpenSearch index
+                await handleAsyncDeletes(ref, context, oldPlan)
+                  .catch(err => {
+                    context.logger.error({ planId: plan.id, err }, 'RemoveEntirePlan post processing failed');
+                  });
+              }
+              return oldPlan
             });
             return removed && !removed.hasErrors();
           } catch (err) {

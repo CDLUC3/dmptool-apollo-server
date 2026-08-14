@@ -126,6 +126,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated openSearchService to support a DMP index
 - Updated override for `brace-expansion`
 - Switched entirePlan schema, resolvers and service to use versionedXId instead of xId (e.g. use versionedTemplates instead of Templates)
 - Updated entirePlan service to use the default MemberRole when none is provided 

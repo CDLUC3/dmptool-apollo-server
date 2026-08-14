@@ -1,6 +1,15 @@
 import casual from 'casual';
 import { buildMockContextWithToken } from '../../__mocks__/context';
-import { RelatedWork, RelatedWorkSearchResult, Work, WorkVersion, parseDOI } from '../RelatedWork';
+import {
+  RelatedWork,
+  RelatedWorkSearchResult,
+  Work,
+  WorkVersion,
+  parseDOI,
+  AcceptedWork,
+  RelatedWorkStatus,
+  WorkType
+} from '../RelatedWork';
 import { logger } from '../../logger';
 import { Plan } from '../Plan';
 import {
@@ -10,7 +19,18 @@ import {
   getMockWork,
   getMockWorkVersion,
 } from '../__mocks__/RelatedWork';
-import { RelatedWorkStatsResults } from '../../types';
+import {
+  Author,
+  Award,
+  Funder,
+  Institution,
+  RelatedWorkStatsResults
+} from '../../types';
+import {
+  getMockORCID,
+  getMockROR,
+  getRandomEnumValue
+} from "../../__tests__/helpers";
 
 jest.mock('../../context.ts');
 
@@ -24,6 +44,105 @@ beforeEach(async () => {
 
 afterEach(() => {
   jest.clearAllMocks();
+});
+
+describe('AcceptedWork', () => {
+  let localQuery: jest.Mock;
+  let work: AcceptedWork;
+
+  const authorNameParts: string[] = ["Jane", "Mildred", "Doe"];
+
+  const authorData: Author = {
+    firstInitial: authorNameParts[0][0],
+    full: authorNameParts.join(' '),
+    givenName: authorNameParts[0],
+    middleInitials: authorNameParts[1][0],
+    middleNames: authorNameParts[1],
+    orcid: getMockORCID(),
+    surname: authorNameParts[2],
+  }
+
+  const institutionData: Institution = {
+    name: casual.company_name,
+    ror: getMockROR(),
+  };
+
+  const funderData: Funder = {
+    name: casual.company_name,
+    ror: getMockROR(),
+  }
+
+  const awardData: Award = {
+    awardId: casual.url
+  }
+
+  const workData = {
+    id: casual.integer(1, 999),
+    created: casual.date('YYYY-MM-DD'),
+    createdById: casual.integer(1, 999),
+    modified: casual.date('YYYY-MM-DD'),
+    modifiedById: casual.integer(1, 999),
+    errors: {},
+
+    planId: casual.integer(1, 999),
+    doi: casual.url,
+    workId: casual.integer(1, 999),
+    workType: getRandomEnumValue(WorkType),
+    publicationDate: casual.date('YYYY-MM-DD'),
+    title: casual.title,
+    abstractText: casual.sentence,
+    authors: [authorData],
+    institutions: [institutionData],
+    funders: [funderData],
+    awards: [awardData],
+    publicationVenue: casual.word,
+    sourceName: casual.word,
+    sourceUrl: casual.url,
+  };
+
+  beforeEach(async () => {
+    localQuery = jest.fn();
+    (AcceptedWork.query as jest.Mock) = localQuery;
+
+    work = new AcceptedWork(workData);
+  });
+
+  it('should initialize options as expected', () => {
+    expect(work.doi).toEqual(workData.doi);
+    expect(work.planId).toEqual(workData.planId);
+    expect(work.workId).toEqual(workData.workId);
+    expect(work.workType).toEqual(workData.workType);
+    expect(work.publicationDate).toEqual(workData.publicationDate);
+    expect(work.title).toEqual(workData.title);
+    expect(work.abstractText).toEqual(workData.abstractText);
+    expect(work.authors).toEqual(workData.authors);
+    expect(work.institutions).toEqual(workData.institutions);
+    expect(work.funders).toEqual(workData.funders);
+    expect(work.awards).toEqual(workData.awards);
+    expect(work.publicationVenue).toEqual(workData.publicationVenue);
+    expect(work.sourceName).toEqual(workData.sourceName);
+    expect(work.sourceUrl).toEqual(workData.sourceUrl);
+  });
+
+  it('findByPlanId should return the accepted works', async () => {
+    localQuery.mockResolvedValueOnce([work]);
+    const result = await AcceptedWork.findByPlanId('testing', context, work.planId);
+    const expectedSql = `SELECT rw.planId, w.doi, wv.*
+                 FROM relatedWorks rw
+                   INNER JOIN workVersions wv ON rw.workVersionId = wv.id
+                   INNER JOIN works w ON wv.workId = w.id
+                 WHERE rw.status = ? AND rw.planId = ?`;
+    const expectedVals: string[] = [RelatedWorkStatus.ACCEPTED, work.planId.toString()];
+    expect(localQuery).toHaveBeenCalledTimes(1);
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, expectedVals, 'testing');
+    expect(result).toEqual([work]);
+  });
+
+  it('findByPlanId should return empty array if it finds no works', async () => {
+    localQuery.mockResolvedValueOnce([]);
+    const result = await AcceptedWork.findByPlanId('testing', context, work.planId);
+    expect(result).toEqual([]);
+  });
 });
 
 describe('Work', () => {

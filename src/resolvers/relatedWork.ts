@@ -1,7 +1,7 @@
-import {prepareObjectForLogs} from '../logger';
-import {OpenSearchWork, RelatedWorkStatsResults, Resolvers} from '../types';
-import {MyContext} from '../context';
-import {isAuthorized} from '../services/authService';
+import { prepareObjectForLogs } from '../logger';
+import { OpenSearchWork, RelatedWorkStatsResults, Resolvers } from '../types';
+import { MyContext } from '../context';
+import { isAuthorized } from '../services/authService';
 import {
   AuthenticationError,
   ForbiddenError,
@@ -15,18 +15,19 @@ import {
   Work,
   WorkVersion
 } from '../models/RelatedWork';
-import {GraphQLError} from 'graphql';
-import {Project} from '../models/Project';
-import {hasPermissionOnProject} from '../services/projectService';
-import {Plan} from '../models/Plan';
-import {isNullOrUndefined, normaliseDateTime} from '../utils/helpers';
+import { GraphQLError } from 'graphql';
+import { Project } from '../models/Project';
+import { hasPermissionOnProject } from '../services/projectService';
+import { Plan } from '../models/Plan';
+import { isNullOrUndefined, normaliseDateTime } from '../utils/helpers';
 import {
   PaginationOptionsForCursors,
   PaginationOptionsForOffsets,
   PaginationType
 } from '../types/general';
-import {openSearchFindWorkByIdentifier} from "../services/openSearchService";
-import {generalConfig} from "../config/generalConfig";
+import { openSearchFindWorkByIdentifier } from "../services/openSearchService";
+import { generalConfig } from "../config/generalConfig";
+import { handleAsyncUpdates } from "../services/planService";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -346,6 +347,15 @@ export const resolvers: Resolvers = {
                 relatedWorkId = relatedWork.id
               }
 
+              if (relatedWork && !relatedWork.hasErrors()) {
+                // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+                // asynchronously so we don't block the Apollo thread
+                handleAsyncUpdates(reference, context, plan, project)
+                  .catch(err => {
+                    context.logger.error({ planId: plan.id, err }, 'Upsert Related Work post processing failed');
+                  });
+              }
+
               // Fetch and return RelatedWorkSearchResult
               return await RelatedWorkSearchResult.findById(reference, context, relatedWorkId);
             }
@@ -406,6 +416,15 @@ export const resolvers: Resolvers = {
                 throw InternalServerError('Unable to create related work');
               }
 
+              if (relatedWork && !relatedWork.hasErrors()) {
+                // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+                // asynchronously so we don't block the Apollo thread
+                handleAsyncUpdates(reference, context, plan, project)
+                  .catch(err => {
+                    context.logger.error({ planId: plan.id, err }, 'Add Related Work post processing failed');
+                  });
+              }
+
               // Fetch and return RelatedWorkSearchResult
               return await RelatedWorkSearchResult.findById(reference, context, relatedWork.id);
             }
@@ -439,6 +458,15 @@ export const resolvers: Resolvers = {
           if (project && (await hasPermissionOnProject(context, project))) {
             let toUpdate = new RelatedWork({ ...relatedWork, ...input });
             toUpdate = await toUpdate.update(context);
+
+            if (toUpdate && !toUpdate.hasErrors()) {
+              // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+              // asynchronously so we don't block the Apollo thread
+              handleAsyncUpdates(reference, context, plan, project)
+                .catch(err => {
+                  context.logger.error({ planId: plan.id, err }, 'Update Related Work post processing failed');
+                });
+            }
 
             // Fetch and return RelatedWorkSearchResult
             return await RelatedWorkSearchResult.findById(reference, context, toUpdate.id);

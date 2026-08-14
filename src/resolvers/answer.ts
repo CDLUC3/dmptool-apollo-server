@@ -24,8 +24,7 @@ import { PlanFeedbackComment } from "../models/PlanFeedbackComment";
 import { normaliseDateTime } from "../utils/helpers";
 import { hasPermissionOnProject } from "../services/projectService";
 import { Project } from "../models/Project";
-import { saveMaDMPVersion } from "../services/planService";
-
+import { handleAsyncUpdates } from "../services/planService";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -123,8 +122,12 @@ export const resolvers: Resolvers = {
             const answer = new Answer({ planId, versionedSectionId, versionedQuestionId, versionedCustomSectionId, versionedCustomQuestionId, json });
             const newAnswer = await answer.create(context);
             if (newAnswer && !newAnswer.hasErrors()) {
-              // Update the maDMP version of the Plan
-              await saveMaDMPVersion(reference, context, plan.id, plan.dmpId);
+              // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+              // asynchronously so we don't block the Apollo thread
+              handleAsyncUpdates(reference, context, plan, project)
+                .catch(err => {
+                  context.logger.error({ planId: plan.id, err }, 'Add Answer post processing failed');
+                });
             }
             return newAnswer;
           }
@@ -157,8 +160,12 @@ export const resolvers: Resolvers = {
             const updatedAnswer = await answer.update(context);
 
             if (updatedAnswer && !updatedAnswer.hasErrors()) {
-              // Update the maDMP version of the Plan
-              await saveMaDMPVersion(reference, context, plan.id, plan.dmpId);
+              // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+              // asynchronously so we don't block the Apollo thread
+              handleAsyncUpdates(reference, context, plan, project)
+                .catch(err => {
+                  context.logger.error({ planId: plan.id, err }, 'Update Answer post processing failed');
+                });
             }
 
             return updatedAnswer;

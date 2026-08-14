@@ -27,6 +27,7 @@ import {
   DataCiteSourceFundingAffiliation,
   planToDataCiteMetadata
 } from "./dataciteXMLService";
+import {removeIndex, updateIndex} from "./indexDMPService";
 
 /**
  * Function to help update Plan member roles. It compares the current roles for
@@ -229,6 +230,46 @@ export async function buildDataCiteXMLForPlan(context: MyContext, plan: Plan, pr
   });
 
   return buildDataCiteXML(dataciteInput);
+}
+
+/**
+ * Handle truly asynchronous activity that should occur after a Plan is created/updated
+ *
+ * @param reference the string reference for logging
+ * @param context the Apollo server context
+ * @param plan the Plan
+ * @param project optional Project if already preloaded
+ */
+export const handleAsyncUpdates = async (
+  reference: string,
+  context: MyContext,
+  plan: Plan,
+  project?: Project,
+): Promise<void> => {
+  // Update the OpenSearch index
+  await updateIndex(reference, context, plan, project);
+
+  // Update the maDMP record in Dynamo
+  await saveMaDMPVersion(reference, context, plan.id, plan.dmpId);
+}
+
+/**
+ * Handle truly asynchronous activity that should occur after a Plan is deleted/archived
+ *
+ * @param reference the string reference for logging
+ * @param context the Apollo server context
+ * @param plan the Plan
+ */
+export const handleAsyncDeletes = async (
+  reference: string,
+  context: MyContext,
+  plan: Plan
+): Promise<void> => {
+  // Remove the OpenSearch index
+  await removeIndex(context, plan);
+
+  // Remove the maDMP records from Dynamo
+  await saveMaDMPVersion(reference, context, plan.id, plan.dmpId, true);
 }
 
 /**

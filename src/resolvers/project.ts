@@ -27,20 +27,18 @@ import { ResearchDomain } from '../models/ResearchDomain';
 import { MemberRole } from '../models/MemberRole';
 import { GraphQLError } from 'graphql';
 import { Plan, PlanSearchResult } from '../models/Plan';
-//import { addVersion } from '../models/PlanVersion';
 import {
   isNullOrUndefined,
   normaliseDate,
   normaliseDateTime
 } from '../utils/helpers';
 import { validateEmail } from '../utils/helpers';
-//import { parseMember } from '../services/commonStandardService';
 import {
   PaginationOptionsForCursors,
   PaginationOptionsForOffsets,
   PaginationType,
 } from '../types/general';
-import { saveMaDMPVersion } from "../services/planService";
+import { handleAsyncDeletes, handleAsyncUpdates } from "../services/planService";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -296,8 +294,12 @@ export const resolvers: Resolvers = {
             // Update each plan's version snapshot if the project was updated
             const plans = await Plan.findByProjectId(reference, context, project.id);
             for (const plan of plans) {
-              // Update the maDMP version of the Plan
-              await saveMaDMPVersion(reference, context, plan.id, plan.dmpId);
+              // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+              // asynchronously so we don't block the Apollo thread
+              handleAsyncUpdates(reference, context, plan, updated)
+                .catch(err => {
+                  context.logger.error({ planId: plan.id, err }, 'Update Project post processing failed');
+                });
             }
           }
 
@@ -333,8 +335,12 @@ export const resolvers: Resolvers = {
             const deleted = await plan.delete(context);
 
             if (deleted && !deleted.hasErrors()) {
-              // Delete the maDMP versions of the Plan
-              await saveMaDMPVersion(reference, context, deleted.id, deleted.dmpId, true);
+              // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+              // asynchronously so we don't block the Apollo thread
+              handleAsyncDeletes(reference, context, deleted)
+                .catch(err => {
+                  context.logger.error({ planId: deleted.id, err }, 'Delete Project post processing failed');
+                });
             }
           }
 

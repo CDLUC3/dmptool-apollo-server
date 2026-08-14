@@ -5,7 +5,7 @@ import { isSuperAdmin } from "../services/authService";
 import { prepareObjectForLogs } from "../logger";
 import { isNullOrUndefined } from "../utils/helpers";
 import { Plan } from "../models/Plan";
-import { saveMaDMPVersion } from "../services/planService";
+import { handleAsyncUpdates } from "../services/planService";
 
 export const resolvers: Resolvers = {
   Mutation: {
@@ -20,12 +20,14 @@ export const resolvers: Resolvers = {
 
         if (isNullOrUndefined(plan)) throw NotFoundError();
 
-        // Synchronize the Plan with its latest maDMP version in the DynamoDB table
-        if (await saveMaDMPVersion(reference, context, plan.id, plan.dmpId)) {
-          return true;
-        }
+        // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+        // asynchronously so we don't block the Apollo thread
+        handleAsyncUpdates(reference, context, plan)
+          .catch(err => {
+            context.logger.error({ planId, err }, 'Plan post processing failed');
+          });
 
-        return false;
+        return true;
       } catch (err) {
         context.logger.error(prepareObjectForLogs(err), `${reference} error initializing maDMP record`);
         throw InternalServerError();

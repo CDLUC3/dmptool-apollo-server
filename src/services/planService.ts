@@ -2,7 +2,7 @@ import { MyContext } from "../context";
 import { MemberRole } from "../models/MemberRole";
 import { isNullOrUndefined } from "../utils/helpers";
 import { PlanMember, ProjectMember } from "../models/Member";
-import { Plan } from "../models/Plan";
+import { Plan, PlanVisibility } from "../models/Plan";
 import { Project } from "../models/Project";
 import { PlanFunding, ProjectFunding } from "../models/Funding";
 import { Affiliation } from "../models/Affiliation";
@@ -16,7 +16,8 @@ import {
   planToDMPCommonStandard,
   tombstoneDMP,
   updateDMP,
-  getDMPVersions
+  getDMPVersions,
+  getDMPs
 } from "@dmptool/utils";
 import { getDynamoConnectionParams } from "../config/awsConfig";
 import { generalConfig } from "../config/generalConfig";
@@ -28,6 +29,7 @@ import {
   DataCiteSourceFundingAffiliation,
   planToDataCiteMetadata
 } from "./dataciteXMLService";
+import { PlanVersionSnapshot } from "../types";
 
 
 /**
@@ -354,27 +356,162 @@ export async function saveMaDMPVersion(
  * @param reference A value to help identify the caller to help with logging
  * @param context The apollo context object
  * @param dmpId The DMP id of the plan to fetch versions for
- * @returns an array of { timestamp, url } for each past version
+ * @returns an array of { modified, dmpId } for each past version
  */
 export async function getPlanVersions(
   reference: string,
   context: MyContext,
   dmpId: string
-): Promise<{ timestamp: string, url: string }[]> {
+): Promise<{ modified: string, dmpId: string }[]> {
   if (isNullOrUndefined(dmpId)) return [];
 
   const dynamoConfig: DynamoConnectionParams = getDynamoConnectionParams(context.logger);
-
   try {
-    const versions = await getDMPVersions(dynamoConfig, dmpId);
+    return await getDMPVersions(dynamoConfig, dmpId);
 
-    return versions
-      .map((v) => ({
-        timestamp: v.modified,
-        url: `https://${generalConfig.domain}/dmps/${dmpId.replace('https://', '')}?version=${encodeURIComponent(v.modified)}`,
-      }));
   } catch (err) {
     context.logger.error({ dmpId, reference, err }, 'Unable to fetch DMP versions.');
     return [];
   }
 }
+
+/**
+ * Fetches the complete maDMP snapshot for a specific version of a DMP and maps
+ * it into the client-facing PlanVersionSnapshot shape.
+ *
+ * @param reference A value to help identify the caller to help with logging
+ * @param context The apollo context object
+ * @param dmpId The DMP id of the plan to fetch
+ * @param version The specific version timestamp to fetch
+ * @returns The mapped PlanVersionSnapshot, or null if the version could not be found
+ */
+export async function getPlanVersionSnapshot(
+  reference: string,
+  context: MyContext,
+  dmpId: string,
+  version: string,
+): Promise<PlanVersionSnapshot | null> {
+  if (isNullOrUndefined(dmpId) || isNullOrUndefined(version)) return null;
+
+  const dynamoConfig: DynamoConnectionParams = getDynamoConnectionParams(context.logger);
+
+  try {
+    const results = await getDMPs(dynamoConfig, generalConfig.domain, dmpId, version);
+
+    if (!results || results.length === 0) {
+      return null;
+    }
+
+    return await mapDMPToolDMPToSnapshot(results[0], version, context);
+  } catch (err) {
+    context.logger.error({ dmpId, version, reference, err }, 'Unable to fetch DMP version snapshot.');
+    return null;
+  }
+}
+
+export async function mapDMPToolDMPToSnapshot(
+  result: DMPToolDMPType,
+  version: string,
+  context: MyContext
+): Promise<PlanVersionSnapshot> {
+
+  console.log("***Result from DynamoDB: ", JSON.stringify(result, null, 2));
+  const dmp = result.dmp;
+  const project = dmp.project?.[0];
+
+  const dmpId = dmp.dmp_id?.identifier; // already a full https://doi.org/... URL
+
+  // Flatten narrative answers into the same {id, json} shape as live `answers`
+  const answers = (dmp.narrative?.template?.section ?? []).flatMap((section) =>
+    (section.question ?? [])
+      .filter((q) => q.answer)
+      .map((q) => ({
+        id: q.answer!.id,
+        questionText: q.text,
+        json: JSON.stringify(q.answer!.json),
+      }))
+  );
+
+  // Contact's email lets us flag which contributor is the primary contact
+  const contactEmail = dmp.contact?.mbox;
+
+  // Fetch every known role once, then match against contributor role URIs in memory.
+  const allMemberRoles = await MemberRole.all('mapDMPToolDMPToSnapshot.memberRoles', context);
+  const roleByUri = new Map(allMemberRoles.map((r) => [r.uri, r]));
+
+  const members = (dmp.contributor ?? []).map((c) => ({
+    name: c.name,
+    orcid: c.contributor_id?.find((id) => id.type === 'orcid')?.identifier,
+    affiliationName: c.affiliation?.[0]?.name,
+    isPrimaryContact: contactEmail
+      ? c.contributor_id?.some((id) => id.identifier === contactEmail) ?? false
+      : false,
+    memberRoles: (c.role ?? []).map((uri) => {
+      const matched = roleByUri.get(uri);
+      return matched
+        ? { id: matched.id, label: matched.label, uri: matched.uri }
+        : { id: undefined, label: uri, uri }; // fallback if a role URI isn't found in the table
+    }),
+  }));
+
+  return {
+    isHistoricalVersion: true,
+    versionTimestamp: version,
+
+    title: dmp.title,
+    dmpId,
+    created: dmp.created,
+    modified: dmp.modified,
+    registered: dmp.registered,
+    visibility: dmp.privacy === 'public' ? PlanVisibility.PUBLIC : PlanVisibility.PRIVATE,
+
+    versionedTemplate: dmp.narrative?.template
+      ? {
+        id: dmp.narrative.template.id,
+        title: dmp.narrative.template.title,
+        version: dmp.narrative.template.version,
+      }
+      : undefined,
+
+    project: project
+      ? {
+        title: project.title,
+        abstractText: project.description,
+        startDate: project.start,
+        endDate: project.end,
+        researchDomain: dmp.research_domain
+          ? { name: dmp.research_domain.name }
+          : undefined,
+      }
+      : undefined,
+    members: members,
+    fundings: (project.funding ?? []).map((f) => {
+      const funderIdentifier = f.funder_id?.identifier;
+      const opportunity = dmp.funding_opportunity?.find(
+        (fo) => fo.funder_id?.identifier === funderIdentifier
+      );
+      const fundingProject = dmp.funding_project?.find(
+        (fp) => fp.funder_id?.identifier === funderIdentifier
+      );
+
+      return {
+        funderName: f.name,
+        funderUri: funderIdentifier,
+        status: f.funding_status,
+        grantId: f.grant_id?.identifier,
+        funderOpportunityNumber: opportunity?.opportunity_identifier?.identifier,
+        funderProjectNumber: fundingProject?.project_identifier?.identifier,
+      };
+    }),
+
+    answers,
+
+    versions: (dmp.version ?? []).map((v) => ({
+      timestamp: v.version,
+      url: v.access_url,
+    })),
+
+    relatedWorkIdentifiers: (dmp.related_identifier ?? []).map((r) => r.identifier),
+  };
+}
+

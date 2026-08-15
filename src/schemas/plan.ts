@@ -13,6 +13,8 @@ export const typeDefs = gql`
     planByDMPId(dmpId: String!): Plan
     "Get a public plan by its DMP id"
     publicPlanByDMPId(dmpId: String!): Plan
+    "Get data for one versioned plan"
+    publicPlanVersionByDMPId(dmpId: String!, version: String!): PlanVersionSnapshot
     "Lookup a plan by an alternate identifier"
     planByAlternateIdentifier(alternateIdentifier: String!): Plan
   }
@@ -46,6 +48,81 @@ export const typeDefs = gql`
     removeEntirePlanByDMPId(dmpId: String!): Boolean
   }
 
+  type PlanVersionSnapshot {
+  isHistoricalVersion: Boolean!
+  versionTimestamp: String!
+
+  title: String
+  dmpId: String
+  created: String
+  modified: String
+  registered: String
+  visibility: PlanVisibility
+
+  versionedTemplate: PlanVersionSnapshotTemplate
+
+  project: PlanVersionSnapshotProject
+  members: [PlanVersionSnapshotMember!]
+  fundings: [PlanVersionSnapshotFunding!]
+  answers: [PlanVersionSnapshotAnswer!]
+  versions: [PlanVersionSnapshotVersion!]
+
+  "Bare related-work identifiers only — full citation metadata isn't preserved in archived snapshots"
+  relatedWorkIdentifiers: [String!]
+}
+
+type PlanVersionSnapshotTemplate {
+  id: Int
+  title: String
+  version: String
+}
+
+type PlanVersionSnapshotVersion {
+  timestamp: String
+  url: String
+}
+
+type PlanVersionSnapshotProject {
+  title: String
+  abstractText: String
+  startDate: String
+  endDate: String
+  researchDomain: PlanVersionSnapshotResearchDomain
+}
+
+type PlanVersionSnapshotResearchDomain {
+  name: String
+}
+
+type PlanVersionSnapshotFunding {
+  funderName: String
+  funderUri: String
+  status: String
+  grantId: String
+  funderOpportunityNumber: String
+  funderProjectNumber: String
+}
+
+type PlanVersionSnapshotMemberRole {
+  id: Int
+  label: String
+  uri: String
+}
+
+type PlanVersionSnapshotMember {
+  name: String
+  orcid: String
+  affiliationName: String
+  isPrimaryContact: Boolean
+  memberRoles: [PlanVersionSnapshotMemberRole!]
+}
+
+type PlanVersionSnapshotAnswer {
+  id: Int
+  questionText: String
+  json: String
+}
+    
   type PlanSearchResult{
     "The unique identifer for the Object"
     id: Int
@@ -176,6 +253,8 @@ export const typeDefs = gql`
     createdById: Int
     "The user who created the plan"
     planCreator: User
+    "The affiliation that owns the plan"
+    owner: Affiliation
     "The timestamp when the Object was created"
     created: String
     "The user who last modified the Object"
@@ -232,6 +311,9 @@ export const typeDefs = gql`
 
     "Indicates that the plan is not editable by the user (i.e. readOnly = true means the user cannot edit the plan)"
     readOnly: Boolean
+
+    "Other works related to this plan's project (e.g. publications, datasets)"
+    relatedWorks: [RelatedWorkSearchResult!]
   }
     
   input UpdatePlanInput {
@@ -298,9 +380,9 @@ export const typeDefs = gql`
   "A version of the plan"
   type PlanVersion {
     "The timestamp of the version, equates to the plan's modified date"
-    timestamp: String
-    "The DMPHub URL for the version"
-    url: String
+    modified: String
+    "The DMP ID for the version"
+    dmpId: String
   }
 
   "Errors associated with the AlternateIdentifier"

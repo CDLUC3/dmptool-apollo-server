@@ -42,7 +42,9 @@ describe('Question', () => {
         name: casual.word,
         description: casual.sentences(3),
       }
-    ]
+    ],
+    displayLogicAction: "SHOW_QUESTION",
+    displayLogicMatchType: "ANY"
   }
   beforeEach(() => {
     question = new Question(questionData);
@@ -154,7 +156,9 @@ describe('ResearchOutputTable Question', () => {
         name: casual.word,
         description: casual.sentences(3),
       }
-    ]
+    ],
+    displayLogicAction: "SHOW_QUESTION",
+    displayLogicMatchType: "ANY"
   }
   beforeEach(() => {
     question = new Question(questionData);

@@ -20,6 +20,7 @@ import { typeDefs as guidanceGroupTypeDefs } from './schemas/guidanceGroup';
 import { typeDefs as questionTypeDefs } from './schemas/question';
 import { typeDefs as questionCustomizationTypeDefs } from './schemas/questionCustomization';
 import { typeDefs as questionConditionTypeDefs } from './schemas/questionCondition';
+import { typeDefs as questionConditionGroupTypeDefs } from './schemas/questionConditionGroup';
 import { typeDefs as relatedWorkTypeDefs } from './schemas/relatedWork';
 import { typeDefs as repositoryTypeDefs } from './schemas/repository';
 import { typeDefs as researchDomainTypeDefs } from './schemas/researchDomain';
@@ -58,6 +59,7 @@ export const typeDefs = mergeTypeDefs([
   projectTypeDefs,
   questionTypeDefs,
   questionConditionTypeDefs,
+  questionConditionGroupTypeDefs,
   questionCustomizationTypeDefs,
   relatedWorkTypeDefs,
   repositoryTypeDefs,

@@ -12,8 +12,10 @@ import { Tag } from "../../models/Tag";
 import { VersionedSection } from "../../models/VersionedSection";
 import { MySqlModel } from "../../models/MySqlModel";
 import { VersionedQuestion } from "../../models/VersionedQuestion";
-import { QuestionCondition, QuestionConditionActionType, QuestionConditionCondition } from "../../models/QuestionCondition";
+import { QuestionCondition } from "../../models/QuestionCondition";
+import { QuestionConditionGroup } from "../../models/QuestionConditionGroup";
 import { VersionedQuestionCondition } from "../../models/VersionedQuestionCondition";
+import { VersionedQuestionConditionGroup } from "../../models/VersionedQuestionConditionGroups";
 import { CURRENT_SCHEMA_VERSION } from "@dmptool/types";
 
 // Pulling context in here so that the mysql gets mocked
@@ -30,6 +32,8 @@ let mockFindQuestions;
 let mockFindQuestionById;
 let mockFindQuestionConditions;
 let mockFindQuestionConditionById;
+let mockFindQuestionConditionGroupsByQuestionId;
+let mockFindQuestionConditionGroupById;
 let mockFindVersionedTemplatebyId;
 let mockFindVersionedSectionbyId;
 let mockFindVersionedQuestionById;
@@ -39,10 +43,12 @@ let templateStore;
 let sectionStore;
 let questionStore;
 let questionConditionStore;
+let questionConditionGroupStore;
 let versionedTemplateStore;
 let versionedSectionStore;
 let versionedQuestionStore;
 let versionedQuestionConditionStore;
+let versionedQuestionConditionGroupStore;
 let tagStore; // <-- add tag store
 
 // Update an entry in one of the stores
@@ -87,14 +93,24 @@ describe('Integration test: Template Versioning', () => {
       return questionStore.find((entry) => { return entry.id === id });
     });
 
-    // Find all of the questionConditions for the question
+    // Find all of the questionConditions for the group
     mockFindQuestionConditions = jest.fn().mockImplementation(async (_, __, id) => {
-      return questionConditionStore.filter((entry) => { return entry.questionId === id; });
+      return questionConditionStore.filter((entry) => { return entry.groupId === id; });
     });
 
     // Fetch an item from the questionConditionStore
     mockFindQuestionConditionById = jest.fn().mockImplementation(async (_, __, id) => {
       return questionConditionStore.find((entry) => { return entry.id === id });
+    });
+
+    // Find all of the QuestionConditionGroups for a question
+    mockFindQuestionConditionGroupsByQuestionId = jest.fn().mockImplementation(async (_, __, questionId) => {
+      return questionConditionGroupStore.filter((entry) => { return entry.questionId === questionId; });
+    });
+
+    // Fetch an item from the questionConditionGroupStore
+    mockFindQuestionConditionGroupById = jest.fn().mockImplementation(async (_, __, id) => {
+      return questionConditionGroupStore.find((entry) => { return entry.id === id });
     });
 
     // Fetch an item from the versionedTemplateStore
@@ -114,7 +130,13 @@ describe('Integration test: Template Versioning', () => {
 
     // Fetch an item from the versionedQuestionConditionStore
     mockFindVersionedQuestionConditionById = jest.fn().mockImplementation(async (_, __, id) => {
-      return versionedQuestionConditionStore.find((entry) => { return entry.id === id });
+      const entry = versionedQuestionConditionStore.find((e) => { return e.id === id });
+      return entry ? new VersionedQuestionCondition(entry) : null;
+    });
+
+    // Fetch an item from the versionedQuestionConditionGroupStore
+    const mockFindVersionedQuestionConditionGroupById = jest.fn().mockImplementation(async (_, __, id) => {
+      return versionedQuestionConditionGroupStore.find((entry) => { return entry.id === id });
     });
 
     // Tag mocks (needed after templateService started querying tags)
@@ -161,6 +183,10 @@ describe('Integration test: Template Versioning', () => {
           questionConditionStore.push(obj);
           break;
         }
+        case 'questionConditionGroups': {
+          questionConditionGroupStore.push(obj);
+          break;
+        }
 
         case 'versionedTemplates': {
           versionedTemplateStore.push(obj);
@@ -176,6 +202,10 @@ describe('Integration test: Template Versioning', () => {
         }
         case 'versionedQuestionConditions': {
           versionedQuestionConditionStore.push(obj);
+          break;
+        }
+        case 'versionedQuestionConditionGroups': {
+          versionedQuestionConditionGroupStore.push(obj);
           break;
         }
       }
@@ -207,6 +237,10 @@ describe('Integration test: Template Versioning', () => {
         }
         case 'questionConditions': {
           updateStore(questionConditionStore, 'questionConditionStore', obj);
+          break;
+        }
+        case 'questionConditionGroups': {
+          updateStore(questionConditionGroupStore, 'questionConditionGroupStore', obj);
           break;
         }
 
@@ -364,27 +398,37 @@ describe('Integration test: Template Versioning', () => {
     ];
     versionedQuestionStore = [];
 
-    // Add 2 conditions to one of the questions in section 2
-    questionConditionStore = [
-      new QuestionCondition({
+    // Add 1 QuestionConditionGroup for question[1] in section 2
+    questionConditionGroupStore = [
+      new QuestionConditionGroup({
         id: casual.integer(1, 49),
         questionId: questionStore[1].id,
-        action: getRandomEnumValue(QuestionConditionActionType),
-        conditionType: getRandomEnumValue(QuestionConditionCondition),
+        triggerQuestionId: questionStore[0].id,
+        createdById: casual.integer(1, 999),
+        created: tstamp,
+        modifiedById: casual.integer(1, 999),
+        modified: tstamp,
+      }),
+    ];
+    versionedQuestionConditionGroupStore = [];
+
+    // Add 2 conditions to the group above
+    questionConditionStore = [
+      new QuestionCondition({
+        id: casual.integer(50, 99),
+        groupId: questionConditionGroupStore[0].id,
+        conditionType: "EQUAL",
         conditionMatch: casual.words(2),
-        target: casual.words(3),
         createdById: casual.integer(1, 999),
         created: tstamp,
         modifiedById: casual.integer(1, 999),
         modified: tstamp,
       }),
       new QuestionCondition({
-        id: casual.integer(50, 99),
-        questionId: questionStore[1].id,
-        action: getRandomEnumValue(QuestionConditionActionType),
-        conditionType: getRandomEnumValue(QuestionConditionCondition),
+        id: casual.integer(100, 149),
+        groupId: questionConditionGroupStore[0].id,
+        conditionType: "EQUAL",
         conditionMatch: casual.words(2),
-        target: casual.words(3),
         createdById: casual.integer(1, 999),
         created: tstamp,
         modifiedById: casual.integer(1, 999),
@@ -414,11 +458,17 @@ describe('Integration test: Template Versioning', () => {
     (Question.findById as jest.Mock) = mockFindQuestionById;
 
     // QuestionCondition dataStore mocks
-    (QuestionCondition.findByQuestionId as jest.Mock) = mockFindQuestionConditions;
+    (QuestionCondition.findByGroupId as jest.Mock) = mockFindQuestionConditions;
     (VersionedQuestionCondition.insert as jest.Mock) = mockInsert;
     (VersionedQuestionCondition.findById as jest.Mock) = mockFindVersionedQuestionConditionById;
     (QuestionCondition.update as jest.Mock) = mockUpdate;
     (QuestionCondition.findById as jest.Mock) = mockFindQuestionConditionById;
+
+    // QuestionConditionGroup dataStore mocks
+    (QuestionConditionGroup.findByQuestionId as jest.Mock) = mockFindQuestionConditionGroupsByQuestionId;
+    (QuestionConditionGroup.findById as jest.Mock) = mockFindQuestionConditionGroupById;
+    (VersionedQuestionConditionGroup.insert as jest.Mock) = mockInsert;
+    (VersionedQuestionConditionGroup.findById as jest.Mock) = mockFindVersionedQuestionConditionGroupById;
 
     // Tag dataStore mocks
     (Tag.findById as jest.Mock) = mockFindTagById;
@@ -449,8 +499,10 @@ describe('Integration test: Template Versioning', () => {
     expect(versionedSectionStore[0].versionedTemplateId).toEqual(versionedTemplateStore[0].id);
     expect(versionedQuestionStore.length).toBe(3);
     expect(versionedQuestionStore[0].versionedSectionId).toEqual(versionedSectionStore[0].id);
+    expect(versionedQuestionConditionGroupStore.length).toBe(1);
+    expect(versionedQuestionConditionGroupStore[0].versionedQuestionId).toEqual(versionedQuestionStore[1].id);
     expect(versionedQuestionConditionStore.length).toBe(2);
-    expect(versionedQuestionConditionStore[0].versionedQuestionId).toEqual(versionedQuestionStore[1].id);
+    expect(versionedQuestionConditionStore[0].versionedQuestionConditionGroupId).toEqual(versionedQuestionConditionGroupStore[0].id);
   });
 
   it('can version a Template multiple times', async () => {
@@ -481,7 +533,9 @@ describe('Integration test: Template Versioning', () => {
     expect(versionedSectionStore[3].versionedTemplateId).toEqual(versionedTemplateStore[1].id);
     expect(versionedQuestionStore.length).toBe(6);
     expect(versionedQuestionStore[5].versionedSectionId).toEqual(versionedSectionStore[3].id);
+    expect(versionedQuestionConditionGroupStore.length).toBe(2);
+    expect(versionedQuestionConditionGroupStore[1].versionedQuestionId).toEqual(versionedQuestionStore[4].id);
     expect(versionedQuestionConditionStore.length).toBe(3);
-    expect(versionedQuestionConditionStore[2].versionedQuestionId).toEqual(versionedQuestionStore[4].id);
+    expect(versionedQuestionConditionStore[2].versionedQuestionConditionGroupId).toEqual(versionedQuestionConditionGroupStore[1].id);
   });
 });

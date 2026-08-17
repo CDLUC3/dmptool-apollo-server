@@ -3,6 +3,10 @@
 ## v1.1.0
 
 ### Added
+- Added `publicPlanbyDMPId` resolver, to query only plans that are registered for the landing page [#293]
+- Added `getPlanVersions` for the `publicPlanByDMPId` resolver [#293]
+- Added `questionConditionGroups` and `versionedQuestionConditionGroups` tables via data migration scripts [#508]
+- Added new models `QuestionConditionGroup` and `QuestionConditionGroups` models for question display logic [#508]
 - Added override for `minimatch`
 - Added versionedTemplate schema and resolver so we can fetch a versioned template by its id.
 - Added `questionTags` and `versionedQuestionTags` tables [#274]
@@ -127,6 +131,12 @@
 
 ### Updated
 - Updated openSearchService to support a DMP index
+- Updated `versionedQuestion` resolver to use `findByVersionedQuestionConditionGroupId` in place of `findByVersionedQuestionId` [#508]
+- Updated `publishedConditionGroupsForQuestion` in `versionedQuestionCondition` resolver and added `conditions` chained resolver [#508]
+- Updated `question`, `questionCondition` and `versionedQuestionCondition` schemas [#508]
+- Updated `Question` model to include `displayLogicAction` and `displayLogicMatchType`. Updated `QuestionCondition` model to only include `conditionType`, `conditionMatch` and `groupId`, and replaced `findByQuestionId` with `findByGroupId`. Updated `VersionedQuestionCondition` model to use `versionedQuestionConditionGroupId instead of `versionedQuestionId` [#508]
+- Altered `questions`, `questionConditions`, `versionedQuestions` and `versionedQuestionConditions` tables via data migration scripts [#508]
+- Updated `questionService.ts` with `generateQuestionConditionGroupVersion` [#508]
 - Updated override for `brace-expansion`
 - Switched entirePlan schema, resolvers and service to use versionedXId instead of xId (e.g. use versionedTemplates instead of Templates)
 - Updated entirePlan service to use the default MemberRole when none is provided 
@@ -278,6 +288,7 @@
 - Removed `ioredis` package
 
 ### Fixed
+- Fixed an issue in `MySqlModel` where the `query` function was returning a tuple with fields along with the response [#508]
 - Added missing `fast-xml-parser` back so that `re3data-os-populate.ts` can run
 - Fixed `removeProjectFunding`. There were several issues, one of which was not being able to delete a `projectFundings` record without removing it's foreign key dependency in `planFundings` first [#303]
 - Updated `immutable` to `v5.1.9` to address HIGH security vulnerability [#304]
@@ -295,6 +306,7 @@
 - Fixed issue with templates not cloning with sections and questions by updating the `addTemplate` mutation to clone from non-versioned template, section and question [#1006]
 
 ### Chore
+- Fixed vulnerability issue with `js-yaml` [#293]
 - Added override for `brace-expansion` to `v5.0.8` [#314]
 - Addressed security vulnerability in `nodemailer` and `undici` packages, and added debugging to troubleshoot request feedback failure [#285]
 - Updated `nodemailer` to `v9.0.1` and `undici` to `v7.28.0` [#240]

@@ -11,6 +11,8 @@ export const typeDefs = gql`
     plan(planId: Int!): Plan
     "Lookup a plan by its DMP id"
     planByDMPId(dmpId: String!): Plan
+    "Get a public plan by its DMP id"
+    publicPlanByDMPId(dmpId: String!): Plan
     "Lookup a plan by an alternate identifier"
     planByAlternateIdentifier(alternateIdentifier: String!): Plan
   }
@@ -231,7 +233,7 @@ export const typeDefs = gql`
     "Indicates that the plan is not editable by the user (i.e. readOnly = true means the user cannot edit the plan)"
     readOnly: Boolean
   }
-
+    
   input UpdatePlanInput {
     "The Plan id"
     id: Int

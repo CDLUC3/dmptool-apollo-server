@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# Check if DISABLE_LOCALSTACK is set to 1
+if [ "${DISABLE_LOCALSTACK:-0}" = "1" ]; then
+  echo "DISABLE_LOCALSTACK is set to 1. Skipping LocalStack resource initialization."
+  exit 0
+fi
+
 # Force LocalStack to use us-west-2
 export AWS_DEFAULT_REGION="us-west-2"
 

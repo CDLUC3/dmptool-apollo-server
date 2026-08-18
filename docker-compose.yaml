@@ -81,6 +81,7 @@ services:
       - DEBUG=${DEBUG:-0}
       - SERVICES=ses,sqs,lambda,ssm,logs,events,dynamodb,opensearch
       - OPENSEARCH_PERFORMANCE_ANALYZER_ENABLED=false
+      - DISABLE_LOCALSTACK=0
     volumes:
       - "./docker/localstack:/var/lib/localstack"
       - "/var/run/docker.sock:/var/run/docker.sock"
@@ -89,7 +90,7 @@ services:
       - "./lambdas:/etc/lambda-code"
     healthcheck:
       # Check both gateway readiness AND ready.d script completion
-      test: [ "CMD", "bash", "-c", "curl -f http://localhost:4566/_localstack/health | grep -q '\"s3\": \"running\"'" ]
+      test: [ "CMD", "bash", "-c", "[ \"$${DISABLE_LOCALSTACK:-0}\" = \"1\" ] || curl -f http://localhost:4566/_localstack/health | grep -q '\"s3\": \"running\"'" ]
       interval: 5s
       timeout: 5s
       retries: 30

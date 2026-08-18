@@ -318,9 +318,3 @@ export const getFutureDate = (millisecondsInFuture: number): string => {
   const futureDate = new Date(Date.now() + millisecondsInFuture);
   return formatISO9075(futureDate);
 };
-
-export const snakeToCamel = (str: string): string => {
-  return str.toLowerCase().replace(/_([a-z0-9])/g, (_, match) => {
-    return match.toUpperCase()
-  });
-}

@@ -28,7 +28,7 @@ import {
   DataCiteSourceFundingAffiliation,
   planToDataCiteMetadata
 } from "./dataciteXMLService";
-import {removeIndex, updateIndex} from "./indexDMPService";
+import { removeIndexItem, updateIndexItem } from "./indexDMPService";
 
 
 /**
@@ -249,7 +249,7 @@ export const handleAsyncUpdates = async (
   project?: Project,
 ): Promise<void> => {
   // Update the OpenSearch index
-  await updateIndex(reference, context, plan, project);
+  await updateIndexItem(reference, context, plan, project);
 
   // Update the maDMP record in Dynamo
   await saveMaDMPVersion(reference, context, plan.id, plan.dmpId);
@@ -268,7 +268,7 @@ export const handleAsyncDeletes = async (
   plan: Plan
 ): Promise<void> => {
   // Remove the OpenSearch index
-  await removeIndex(context, plan);
+  await removeIndexItem(reference, context, plan);
 
   // Remove the maDMP records from Dynamo
   await saveMaDMPVersion(reference, context, plan.id, plan.dmpId, true);

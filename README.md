@@ -449,34 +449,33 @@ To run the Trivy security scans: `npm run trivy-all`
 
 ### LocalStack
 
-We are using LocalStack to emulate AWS services within the docker compose environment. It creates a DyanmoDB Table, SQS Queue and Lambda Functions.
+We are using LocalStack to emulate AWS services within the docker compose environment. It creates a DyanmoDB Table, OpenSearch domain for our search functionality, an S3 bucket to simulate our CDN bucket and SSM parameters to store secrets.
 
 See the Prerequisites and Getting Started sections for more details on installing LocalStack and the awslocal CLIs.
-
-The DynamoDB table is used to store maDMP Plan version records. That data is managed by a Lambda function triggered by SQS messages.
 
 **Note:** These resources are NOT persisted between docker compose runs. We would need a "pro" account with LocalStack for that. Fortunately, it is ok for these resources to be deleted each run. The Apollo server does not interact directly with the DynamoDB table and does not yet need to access historical copies of a Plan. Localstack allows us though to see and debug SQS messages sent to the queue that should trigger Lambda functions as well as watch the Lambda function logs to ensure that they are behaving as expected.
 
 The LocalStack configuration can be found in the `docker-compose.yml` file. It uses a `./localstack-setup/init-aws.sh` script to build the resources using `awslocal` CLI commands. 
 
-The code for the Lambda functions (in ZIP format) can be found in the `./lambdas` folder.
-Both the init script and lambda ZIP files are mounted into the docker container at runtime.
+To see the health check status for all services visit http://localhost:4566/_localstack/health
 
-**Note:** You can skip setting up the Lambda Function and the Apollo application will still run normally. You will however see errors in the logs like `localstack     | 2026-02-02T19:04:33.720  INFO --- [et.reactor-0] localstack.request.aws     : AWS sqs.SendMessage => 400 (QueueDoesNotExist)`. These errors can be ignored.
+To list the available indices: http://aoss.[REGION].opensearch.localhost.localstack.cloud:4566/*
 
-You can now clone the [dmptool-infrastructure repo](https://github.com/CDLUC3/dmptool-infrastructure) to your machine and then navigate to the `src/lambda/function/generateMaDMPRecord` directory and run `npm install && npm run build` which will compile the function code and generate a ZIP artifact. That ZIP artifact can then be placed into the `./lambdas` folder of this project.
+To get a count of the number of Plans that are in the index: http://aoss.[REGION].opensearch.localhost.localstack.cloud:4566/dmp/_count
 
-Once the ZIP file is in place, LocalStack will generate the DynamoDB table, an SQS Queue, the generateMaDMPRecord Lambda function, and an event source map that will ensure that messages sent to the SQS Queue get picked up and processed by the Lambda function.
+To fetch the first 10 Plans form the index: http://aoss.[REGION].opensearch.localhost.localstack.cloud:4566/_search?size=10
 
-You will see logging from the LocalStack container about the messages intermixed with the regular Apollo logs.
+To fetch a specific Plan from the index: http://aoss.[REGION].opensearch.localhost.localstack.cloud:4566/_search?size=10&q=dmp_id%3A%22[DMPID]%22)
 
-Note that as the Lambda Function changes over time you will need to replace the ZIP file in the `./lambdas` directory with the latest.
+Note that the query should be URL encoded. For example, `dmp_id:"11.22222/3A4B5C6d"` becomes `dmp_id%3A%2211.22222%2F3A4B5C6d%22`
 
-**Loging:**
-The docker compose output will show calls to LocalStack managed resources with HTTP response code (e.g. `sqs.send-message 200`.
+**Logging:**
+The docker compose output will show calls to LocalStack managed resources with HTTP response code (e.g. `sqs.send-message 200`).
 
-To view or watch the actual logs output by the Lambda function you can run: `awslocal logs tail /aws/lambda/generateMaDMPRecord --follow`. This taps into the CloudWatch Logs emulator that LocalStack uses. 
+To view or watch the actual logs output by the Lambda function you can run: `awslocal logs tail /aws/lambda/lambdaName --follow`. This taps into the CloudWatch Logs emulator that LocalStack uses. 
 Note that if the Lambda has not run yet, the log group will not exist, so you will see an error like `An error occurred (ResourceNotFoundException) when calling the FilterLogEvents operation: The specified log group does not exist.`. Wait until you see Lambda activity in the docker compose output and try again.
+
+### DynamoDB
 
 **Verifying the maDMP records:**
 You can query the DynamoDB Table for a Plan's maDMP records. To do that, you should first find the Plan's `dmpId` value. 

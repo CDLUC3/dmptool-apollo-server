@@ -19,9 +19,10 @@ import {
   ResearchOutputTableAnswerType,
   ResearchOutputTableRowAnswerType
 } from "@dmptool/types";
-import {MyContext} from "../context";
+import { MyContext } from "../context";
 
 export const INDEX_NAME = "dmp";
+export const DEFAULT_MAX_RESULTS = 100;
 
 /**
  * OpenSearch Index Definition
@@ -151,7 +152,7 @@ interface ReconciledFragments {
   datasets: ReconciledFragment<DatasetDocumentFragment>;
 }
 
-interface IndexDocumentInterface {
+interface PlanIndexDocumentInterface {
   dmp_id: string;
   project_id: number;
   plan_id: number;
@@ -515,9 +516,13 @@ const convertDataset = (
 /**
  * Aggregate all Member and Funding information into the format needed for the index
  *
- * @param project the research project
- * @param plan the plan
- * @returns the member, institution and funding information
+ * @param affiliations the affiliations and funders as a Map
+ * @param projectMembers the members associated with the Project
+ * @param projectFunding the funding associated with the Project
+ * @param planAnswers the Plan's answers
+ * @param planMembers the subset of Project members associated with the Plan
+ * @param planFunding the subset of Project funding associated with the Plan
+ * @returns the member, institution and funding info
  */
 const reconcileAssociatedObjects = (
   affiliations: Map<string, Affiliation>,
@@ -617,6 +622,73 @@ const reconcileAssociatedObjects = (
 };
 
 /**
+ * Fetch a specific DMP from the Plans index
+ *
+ * @param reference the string reference for logging
+ * @param context the Apollo context
+ * @param dmpId the DMP id of the Plan
+ * @returns the index record or undefined if not found
+ */
+export const getIndexItem = async (
+  reference: string,
+  context: MyContext,
+  dmpId: string,
+): Promise<PlanIndexDocumentInterface | undefined> => {
+  const openSearch: OpenSearch = context.dataSources.openSearchServerlessDataSource;
+
+  context.logger.debug({ reference, index: INDEX_NAME, dmpId }, "Fetching Plan from index");
+  const response = await openSearch.getIndexItem<PlanIndexDocumentInterface>(
+    INDEX_NAME,
+    stripIdentifierBaseURL(dmpId)
+  );
+
+  if (!response) {
+    throw new Error(`Failed to fetch index item for DMP ID: ${dmpId}`);
+  }
+
+  return response;
+};
+
+/**
+ * Search for Plans within the index
+ *
+ * @param reference the string reference for logging
+ * @param context the Apollo context
+ * @param query the OpenSearch query
+ * @param sort the OpenSearch sort (defaults to an empty array)
+ * @param maxResults the total number of results to return (defaults to 100)
+ * @returns the index record or undefined if not found
+ */
+export const searchIndex = async (
+  reference: string,
+  context: MyContext,
+  query: Record<string, unknown>,
+  sort: Record<string, unknown>[] = [],
+  maxResults: number = DEFAULT_MAX_RESULTS,
+): Promise<PlanIndexDocumentInterface[]> => {
+  const openSearch: OpenSearch = context.dataSources.openSearchServerlessDataSource;
+
+  context.logger.debug(
+    { reference, INDEX_NAME, query, sort, maxResults },
+    'Serching Plan index'
+  );
+  const response = await openSearch.search<PlanIndexDocumentInterface>(
+    INDEX_NAME,
+    {
+      size: maxResults,
+      query,
+      sort
+    }
+  );
+
+  if (!response) {
+    throw new Error(`Failed to search index for query: ${JSON.stringify(query)}`);
+  }
+
+  return response.total > 0 ? response.items : [];
+};
+
+/**
  * Update the OpenSearch index with the latest information from the project and plan
  *
  * @param reference the string reference for logging
@@ -624,7 +696,7 @@ const reconcileAssociatedObjects = (
  * @param plan the plan
  * @param project the research project (will be fetched if not provided)
  */
-export const updateIndex = async (
+export const updateIndexItem = async (
   reference: string,
   context: MyContext,
   plan: Plan,
@@ -674,7 +746,7 @@ export const updateIndex = async (
     }
   }
 
-  const item: IndexDocumentInterface = {
+  const item: PlanIndexDocumentInterface = {
     dmp_id: dmpId,
     project_id: project.id,
     plan_id: plan.id,
@@ -689,8 +761,8 @@ export const updateIndex = async (
     registered: validateDate(plan.registered) ? new Date(plan.registered).toISOString() : undefined,
 
     visibility: plan.visibility || PlanVisibility.PRIVATE.toLowerCase(),
-    is_test: project.isTestProject ?? false,
-    featured: plan.featured ?? false,
+    is_test: !!project.isTestProject,
+    featured: !!plan.featured,
 
     alternate_identifier_ids: associatedObjects.alternateIdentifiers,
     contributor_ids: members.ids,
@@ -716,21 +788,26 @@ export const updateIndex = async (
     institutions_display: institutions.displayObjects,
   };
 
-  // Fire off the OpenSearch update and log an error if it failed
+  // Fire off the OpenSearch update
+  context.logger.debug({ reference, index: INDEX_NAME, item }, "Indexing Plan");
   await openSearch.updateIndexItem(INDEX_NAME, PropertyDefinition, dmpId, item);
 };
 
 /**
  * Remove the OpenSearch index for the plan
  *
+ * @param reference the reference for logging
  * @param context the Apollo server context
  * @param plan the plan
  */
-export const removeIndex = async (
+export const removeIndexItem = async (
+  reference: string,
   context: MyContext,
   plan: Plan
 ): Promise<void> => {
   const dmpId: string = stripIdentifierBaseURL(plan.dmpId).trim();
   const openSearch: OpenSearch = context.dataSources.openSearchServerlessDataSource;
+
+  context.logger.debug({ reference, INDEX_NAME, dmpId }, 'Removing Plan from index');
   await openSearch.removeIndexItem(INDEX_NAME, dmpId);
 }

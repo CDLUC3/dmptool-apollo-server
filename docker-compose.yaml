@@ -37,6 +37,7 @@ services:
     volumes:
       - "./docker/redis:/var/lib/redis"
 
+  # OpenSearch stand-alone Domain used for related works matching
   opensearch:
     image: "opensearchproject/opensearch:1.3.20"
     container_name: opensearch
@@ -78,13 +79,46 @@ services:
       # LocalStack configuration: https://docs.localstack.cloud/references/configuration/
       - LOCALSTACK_AUTH_TOKEN=${LOCALSTACK_AUTH_TOKEN- }
       - DEBUG=${DEBUG:-0}
-      - SERVICES=ses,sqs,lambda,ssm,logs,events,dynamodb
+      - SERVICES=ses,sqs,lambda,ssm,logs,events,dynamodb,opensearch
+      - OPENSEARCH_PERFORMANCE_ANALYZER_ENABLED=false
     volumes:
       - "./docker/localstack:/var/lib/localstack"
       - "/var/run/docker.sock:/var/run/docker.sock"
       # Load local Lambda code and init-aws.sh startup scripts
       - "./localstack-setup:/etc/localstack/init/ready.d"
       - "./lambdas:/etc/lambda-code"
+    healthcheck:
+      # Check both gateway readiness AND ready.d script completion
+      test: [ "CMD", "bash", "-c", "curl -f http://localhost:4566/_localstack/health | grep -q '\"s3\": \"running\"'" ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 15s
+
+  # OpenSearch Dashboard attached to the OpenSearch domain managed by LocalStack
+  # to support our search indices (DMPs, re3data, etc.)
+  opensearch-dashboards:
+    depends_on:
+      localstack:
+        condition: service_healthy
+    image: opensearchproject/opensearch-dashboards:latest
+    container_name: aoss-dashboards
+    ports:
+      - "5601:5601"
+    environment:
+      # Route directly to the localstack service over the shared network
+      - 'OPENSEARCH_HOSTS=["http://aoss.us-west-2.opensearch.localhost.localstack.cloud:4566"]'
+      - 'DISABLE_SECURITY_DASHBOARDS_PLUGIN=true'
+      # Prevents Dashboards from failing fast if the connection drops momentarily
+      - 'OPENSEARCH_REQUESTSTARTUPTIMEOUT=120000'
+      - 'OPENSEARCH_MULTI_CLUSTER=1'
+      - 'OPENSEARCH_ENDPOINT_STRATEGY=domain'
+      - 'OPENSEARCH_CUSTOM_BACKEND=default'
+    networks:
+      - dmptool-network
+    dns:
+      # Points container DNS resolution to LocalStack's internal DNS engine
+      - 10.0.2.20 # Standard LocalStack network gateway, or use container IP
 
   # The Apollo server (GraphQL)
   apollo:
@@ -137,7 +171,7 @@ services:
 
       # OpenSearch Serverless used for all other search functionality
       # (we use the same OpenSearch instance in this local environment)
-      - "OPENSEARCH_SERVERLESS_NODE=http://opensearch:9200"
+      - "OPENSEARCH_SERVERLESS_NODE=http://localstack:4566"
 
       # LocalStack Port
       - "LOCALSTACK_PORT=4566"

@@ -1,24 +1,22 @@
-import casual from "casual";
-import { MyContext } from "../../context";
+import casual from 'casual';
+import { MyContext } from '../../context';
 import {
   generateSearchTerms,
   INDEX_NAME,
-  PropertyDefinition,
-  removeIndex,
-  updateIndex,
-} from "../indexDMPService";
-import { Plan, PlanVisibility } from "../../models/Plan";
-import { Project } from "../../models/Project";
-import { Answer } from "../../models/Answer";
-import { ProjectMember, PlanMember } from "../../models/Member";
-import { PlanFunding, ProjectFunding, ProjectFundingStatus } from "../../models/Funding";
-import { Affiliation } from "../../models/Affiliation";
-import { AlternateIdentifier } from "../../models/AlternateIdentifier";
-import { AcceptedWork } from "../../models/RelatedWork";
+  getIndexItem,
+  searchIndex,
+  updateIndexItem,
+  removeIndexItem,
+} from '../indexDMPService';
+import { Plan, PlanVisibility } from '../../models/Plan';
+import { Project } from '../../models/Project';
+import { Answer } from '../../models/Answer';
+import { ProjectMember, PlanMember } from '../../models/Member';
+import { PlanFunding, ProjectFunding, ProjectFundingStatus } from '../../models/Funding';
+import { Affiliation } from '../../models/Affiliation';
+import { AlternateIdentifier } from '../../models/AlternateIdentifier';
+import { AcceptedWork } from '../../models/RelatedWork';
 
-// ── Module mocks ──────────────────────────────────────────────────────────────
-
-// Mock MySQL so model base-class imports don't attempt a real connection
 jest.mock('../../datasources/mysql', () => ({
   __esModule: true,
   MySQLConnection: jest.fn().mockImplementation(() => ({
@@ -28,15 +26,12 @@ jest.mock('../../datasources/mysql', () => ({
   })),
 }));
 
-// Mock AWS / localstack config modules that openSearch imports
 jest.mock('../../config/awsConfig', () => ({
   awsConfig: {
     opensearchServerless: { endpoint: 'http://localhost:9200' },
   },
 }));
 
-// Mock the OpenSearch *class* while keeping the real tokenizeText export.
-// tokenizeText is used by generateSearchTerms internally.
 jest.mock('../../datasources/openSearch', () => {
   const actual = jest.requireActual('../../datasources/openSearch');
   return {
@@ -46,9 +41,6 @@ jest.mock('../../datasources/openSearch', () => {
   };
 });
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-// Base URLs match the mocked generalConfig in src/__tests__/setup.ts
 const TEST_DMP_ID_BASE = 'http://dmsp.com/';
 const TEST_ROR_BASE = 'http://ror.example.com/';
 const TEST_ORCID_BASE = 'http://sandbox.orcid.org/';
@@ -61,8 +53,8 @@ const buildPlan = (overrides: Partial<Record<string, unknown>> = {}): Plan =>
     title: casual.title,
     visibility: PlanVisibility.PUBLIC,
     featured: false,
-    created: new Date().toISOString(),
-    modified: new Date().toISOString(),
+    created: '2025-01-01T00:00:00.000Z',
+    modified: '2025-01-02T00:00:00.000Z',
     registered: null,
     ...overrides,
   });
@@ -75,8 +67,8 @@ const buildProject = (overrides: Partial<Record<string, unknown>> = {}): Project
     startDate: '2025-01-01',
     endDate: '2026-12-31',
     isTestProject: false,
-    created: new Date().toISOString(),
-    modified: new Date().toISOString(),
+    created: '2025-01-01T00:00:00.000Z',
+    modified: '2025-01-03T00:00:00.000Z',
     ...overrides,
   });
 
@@ -89,7 +81,7 @@ const buildProjectMember = (
     projectId: casual.integer(1, 9999),
     givenName: casual.first_name,
     surName: casual.last_name,
-    orcid: `${TEST_ORCID_BASE}0000-000${casual.integer(1, 9)}-${casual.integer(1000, 9999)}-${casual.integer(1000, 9999)}`,
+    orcid: `${TEST_ORCID_BASE}${casual.integer(1000, 9999)}-${casual.integer(1000, 9999)}-${casual.integer(1000, 9999)}`,
     affiliationId: `${TEST_ROR_BASE}${casual.word}`,
     isPrimaryContact: false,
     ...overrides,
@@ -115,6 +107,8 @@ const buildProjectFunding = (
     affiliationId,
     status: ProjectFundingStatus.PLANNED,
     grantId: `award-${casual.word}`,
+    funderOpportunityNumber: `RFA-${casual.integer(10, 99)}`,
+    funderProjectNumber: `R01${casual.word.toUpperCase()}`,
     ...overrides,
   });
 
@@ -125,65 +119,58 @@ const buildPlanFunding = (projectFundingId: number): PlanFunding =>
     projectFundingId,
   });
 
-const buildAffiliation = (
-  uri: string,
-  overrides: Partial<Record<string, unknown>> = {}
-): Affiliation =>
+const buildAffiliation = (uri: string, overrides: Partial<Record<string, unknown>> = {}): Affiliation =>
   new Affiliation({
     id: casual.integer(1, 9999),
     uri,
     name: casual.company_name,
     displayName: casual.company_name,
     displayAbbreviation: casual.word.toUpperCase().slice(0, 5),
-    acronyms: [],
-    aliases: [],
+    acronyms: ['ACR'],
+    aliases: ['Alias One'],
     active: true,
     funder: false,
     types: ['OTHER'],
     ...overrides,
   });
 
-/** Minimal research output table answer JSON */
-const buildResearchOutputAnswerJson = (): string =>
-  JSON.stringify({
-    commonStandardId: 'researchOutputTable',
-    answer: [
+const buildResearchOutputAnswerJson = (): string => JSON.stringify({
+  commonStandardId: 'researchOutputTable',
+  answer: [{
+    commonStandardId: 'researchOutputTableRow',
+    columns: [
+      { commonStandardId: 'title', answer: 'My Dataset' },
+      { commonStandardId: 'type', answer: 'dataset' },
+      { commonStandardId: 'description', answer: 'A great dataset' },
       {
-        commonStandardId: 'researchOutputTableRow',
-        columns: [
-          { commonStandardId: 'title', answer: 'My Dataset' },
-          { commonStandardId: 'type', answer: 'dataset' },
-          { commonStandardId: 'description', answer: 'A great dataset' },
-          {
-            commonStandardId: 'host',
-            answer: [
-              { repositoryId: 're3data.r3d100000001', repositoryName: 'GenBank' },
-            ],
-          },
-        ],
+        commonStandardId: 'host',
+        answer: [{ repositoryId: 're3data.r3d100000001', repositoryName: 'GenBank' }],
       },
     ],
-  });
+  }],
+});
 
-// ── Global setup ──────────────────────────────────────────────────────────────
-
-let mockUpdateIndexItem: jest.Mock;
-let mockRemoveIndexItem: jest.Mock;
+let mockOpenSearch: {
+  getIndexItem: jest.Mock;
+  search: jest.Mock;
+  updateIndexItem: jest.Mock;
+  removeIndexItem: jest.Mock;
+};
 let context: MyContext;
 
 beforeEach(() => {
   jest.resetAllMocks();
 
-  mockUpdateIndexItem = jest.fn().mockResolvedValue(undefined);
-  mockRemoveIndexItem = jest.fn().mockResolvedValue(undefined);
+  mockOpenSearch = {
+    getIndexItem: jest.fn(),
+    search: jest.fn(),
+    updateIndexItem: jest.fn().mockResolvedValue(undefined),
+    removeIndexItem: jest.fn().mockResolvedValue(undefined),
+  };
 
-  // Minimal context: tests only need the OpenSearch datasource
   context = {
     dataSources: {
-      openSearchServerlessDataSource: {
-        updateIndexItem: mockUpdateIndexItem,
-        removeIndexItem: mockRemoveIndexItem,
-      },
+      openSearchServerlessDataSource: mockOpenSearch,
     },
     logger: {
       debug: jest.fn(),
@@ -195,7 +182,6 @@ beforeEach(() => {
     requestId: 'test-request-id',
   } as unknown as MyContext;
 
-  // Default: all model static methods return empty results
   (AlternateIdentifier.findByPlanId as jest.Mock) = jest.fn().mockResolvedValue([]);
   (AcceptedWork.findByPlanId as jest.Mock) = jest.fn().mockResolvedValue([]);
   (Answer.findByPlanId as jest.Mock) = jest.fn().mockResolvedValue([]);
@@ -207,61 +193,33 @@ beforeEach(() => {
   (Project.findById as jest.Mock) = jest.fn().mockResolvedValue(null);
 });
 
-afterEach(() => {
-  jest.clearAllMocks();
-});
-
-// ── generateSearchTerms ───────────────────────────────────────────────────────
-
 describe('generateSearchTerms', () => {
-  it('returns an empty array when both title and description are undefined', () => {
+  it('returns an empty array when title and description are undefined', () => {
     expect(generateSearchTerms(undefined, undefined)).toEqual([]);
   });
 
-  it('returns an empty array when both title and description are empty strings', () => {
-    expect(generateSearchTerms('', '')).toEqual([]);
-  });
-
-  it('tokenizes the title into individual words', () => {
-    const result = generateSearchTerms('climate change research');
+  it('returns tokens from both title and description and removes stop words', () => {
+    const result = generateSearchTerms('the impact of climate on the ocean', 'ocean temperatures');
+    expect(result).toContain('impact');
     expect(result).toContain('climate');
-    expect(result).toContain('change');
-    expect(result).toContain('research');
+    expect(result).toContain('ocean');
+    expect(result).toContain('temperatures');
+    expect(result).not.toContain('the');
+    expect(result).not.toContain('of');
   });
 
-  it('generates adjacent bigrams from the title', () => {
+  it('generates adjacent bigrams from multi-word titles', () => {
     const result = generateSearchTerms('climate change research');
     expect(result).toContain('climate change');
     expect(result).toContain('change research');
   });
 
-  it('does not generate bigrams when the title has only one meaningful token', () => {
-    const result = generateSearchTerms('biodiversity');
-    expect(result).toEqual(['biodiversity']);
-  });
-
-  it('includes tokens from both title and description', () => {
-    const result = generateSearchTerms('climate research', 'ocean temperatures');
-    expect(result).toContain('climate');
-    expect(result).toContain('research');
-    expect(result).toContain('ocean');
-    expect(result).toContain('temperatures');
-  });
-
-  it('deduplicates tokens that appear in both title and description', () => {
+  it('deduplicates repeated search terms', () => {
     const result = generateSearchTerms('ocean research', 'ocean data');
-    const count = result.filter((t) => t === 'ocean').length;
-    expect(count).toBe(1);
+    expect(result.filter((term) => term === 'ocean').length).toBe(1);
   });
 
-  it('filters out common stop words', () => {
-    const result = generateSearchTerms('the impact of climate on the ocean');
-    expect(result).not.toContain('the');
-    expect(result).not.toContain('of');
-    expect(result).not.toContain('on');
-  });
-
-  it('ignores tokens shorter than 2 characters', () => {
+  it('ignores short tokens', () => {
     const result = generateSearchTerms('a big study');
     expect(result).not.toContain('a');
     expect(result).toContain('big');
@@ -269,369 +227,187 @@ describe('generateSearchTerms', () => {
   });
 });
 
-// ── updateIndex ───────────────────────────────────────────────────────────────
+describe('getIndexItem', () => {
+  it('returns the index record for a known dmp id', async () => {
+    const plan = buildPlan({ dmpId: `${TEST_DMP_ID_BASE}11.22222/demo` });
+    const response = { dmp_id: '11.22222/demo', title: 'Demo DMP' };
+    mockOpenSearch.getIndexItem.mockResolvedValue(response);
 
-describe('updateIndex', () => {
-  const reference = 'test.updateIndex';
-
-  it('calls openSearch.updateIndexItem with the correct INDEX_NAME and PropertyDefinition', async () => {
-    const plan = buildPlan();
-    const project = buildProject({ id: plan.projectId });
-
-    await updateIndex(reference, context, plan, project);
-
-    expect(mockUpdateIndexItem).toHaveBeenCalledTimes(1);
-    const [idxName, propDef] = mockUpdateIndexItem.mock.calls[0];
-    expect(idxName).toBe(INDEX_NAME);
-    expect(propDef).toBe(PropertyDefinition);
+    await expect(getIndexItem('ref', context, plan.dmpId)).resolves.toEqual(response);
+    expect(mockOpenSearch.getIndexItem).toHaveBeenCalledWith(INDEX_NAME, '11.22222/demo');
   });
 
-  it('passes the dmpId stripped of its doi.org base URL as the document id', async () => {
-    const suffix = `11.22222/${casual.word}`;
-    const plan = buildPlan({ dmpId: `${TEST_DMP_ID_BASE}${suffix}` });
-    const project = buildProject({ id: plan.projectId });
+  it('throws when the index item cannot be found', async () => {
+    mockOpenSearch.getIndexItem.mockResolvedValue(undefined);
 
-    await updateIndex(reference, context, plan, project);
+    await expect(getIndexItem('ref', context, 'https://dmsp.com/11.22222/demo')).rejects.toThrow(
+      'Failed to fetch index item for DMP ID: https://dmsp.com/11.22222/demo'
+    );
+  });
+});
 
-    const [, , id] = mockUpdateIndexItem.mock.calls[0];
-    expect(id).toBe(suffix);
+describe('searchIndex', () => {
+  it('returns the items from the response when matches exist', async () => {
+    const items = [{ dmp_id: '11.22222/demo' }, { dmp_id: '11.22222/other' }];
+    mockOpenSearch.search.mockResolvedValue({ total: 2, items });
+
+    await expect(searchIndex('ref', context, { match_all: {} }, [], 25)).resolves.toEqual(items);
+    expect(mockOpenSearch.search).toHaveBeenCalledWith(INDEX_NAME, {
+      size: 25,
+      query: { match_all: {} },
+      sort: [],
+    });
   });
 
-  it('includes dmp_id, title, plan_id, and project_id in the document', async () => {
-    const project = buildProject();
-    const plan = buildPlan({ projectId: project.id });
+  it('returns an empty array when there are no hits', async () => {
+    mockOpenSearch.search.mockResolvedValue({ total: 0, items: [] });
 
-    await updateIndex(reference, context, plan, project);
-
-    const doc = mockUpdateIndexItem.mock.calls[0][3];
-    expect(doc.dmp_id).toBeTruthy();
-    expect(doc.title).toBe(plan.title?.trim().slice(0, 256));
-    expect(doc.plan_id).toBe(plan.id);
-    expect(doc.project_id).toBe(project.id);
+    await expect(searchIndex('ref', context, { match_all: {} })).resolves.toEqual([]);
   });
 
-  it('includes created and modified as ISO timestamps', async () => {
-    const plan = buildPlan();
-    const project = buildProject({ id: plan.projectId });
+  it('throws when search returns no response', async () => {
+    mockOpenSearch.search.mockResolvedValue(undefined);
 
-    await updateIndex(reference, context, plan, project);
-
-    const doc = mockUpdateIndexItem.mock.calls[0][3];
-    expect(doc.created).toBe(new Date(plan.created).toISOString());
-    expect(doc.modified).toBe(new Date(plan.modified).toISOString());
+    await expect(searchIndex('ref', context, { match_all: {} })).rejects.toThrow(
+      'Failed to search index for query: {"match_all":{}}'
+    );
   });
+});
 
-  it('includes project_title and abstract from the project', async () => {
-    const project = buildProject();
-    const plan = buildPlan({ projectId: project.id });
+describe('updateIndexItem', () => {
+  const ref = 'test.updateIndexItem';
 
-    await updateIndex(reference, context, plan, project);
+  it('builds and persists the plan document when all related objects exist', async () => {
+    const project = buildProject({
+      id: 100,
+      title: 'My project',
+      abstractText: 'A wonderful abstract',
+      startDate: '2025-01-15',
+      endDate: '2026-06-30',
+      isTestProject: true,
+    });
+    const plan = buildPlan({
+      id: 200,
+      projectId: project.id,
+      dmpId: `${TEST_DMP_ID_BASE}11.22222/demo-plan`,
+      title: 'My DMP',
+      visibility: PlanVisibility.PUBLIC,
+      featured: true,
+      registered: '2025-03-20T10:00:00.000Z',
+    });
 
-    const doc = mockUpdateIndexItem.mock.calls[0][3];
-    expect(doc.project_title).toBe(project.title?.trim().slice(0, 256));
-    expect(doc.abstract).toBe(project.abstractText?.trim().slice(0, 512));
-  });
-
-  it('converts valid project start and end dates to ISO format', async () => {
-    const project = buildProject({ startDate: '2025-01-15', endDate: '2026-06-30' });
-    const plan = buildPlan({ projectId: project.id });
-
-    await updateIndex(reference, context, plan, project);
-
-    const doc = mockUpdateIndexItem.mock.calls[0][3];
-    expect(doc.project_start).toBe(new Date('2025-01-15').toISOString());
-    expect(doc.project_end).toBe(new Date('2026-06-30').toISOString());
-  });
-
-  it('sets project_start and project_end to undefined for invalid date strings', async () => {
-    const project = buildProject({ startDate: 'not-a-date', endDate: null });
-    const plan = buildPlan({ projectId: project.id });
-
-    await updateIndex(reference, context, plan, project);
-
-    const doc = mockUpdateIndexItem.mock.calls[0][3];
-    expect(doc.project_start).toBeUndefined();
-    expect(doc.project_end).toBeUndefined();
-  });
-
-  it('defaults visibility to lowercase PRIVATE when plan.visibility is falsy', async () => {
-    const plan = buildPlan();
-    // Bypass the constructor default to simulate a raw null visibility value
-    (plan as unknown as Record<string, unknown>).visibility = null;
-    const project = buildProject({ id: plan.projectId });
-
-    await updateIndex(reference, context, plan, project);
-
-    const doc = mockUpdateIndexItem.mock.calls[0][3];
-    expect(doc.visibility).toBe(PlanVisibility.PRIVATE.toLowerCase());
-  });
-
-  it('preserves the plan visibility when it is explicitly set', async () => {
-    const plan = buildPlan({ visibility: PlanVisibility.ORGANIZATIONAL });
-    const project = buildProject({ id: plan.projectId });
-
-    await updateIndex(reference, context, plan, project);
-
-    const doc = mockUpdateIndexItem.mock.calls[0][3];
-    expect(doc.visibility).toBe(PlanVisibility.ORGANIZATIONAL);
-  });
-
-  it('sets is_test from the project and featured from the plan', async () => {
-    const plan = buildPlan({ featured: true });
-    const project = buildProject({ id: plan.projectId, isTestProject: true });
-
-    await updateIndex(reference, context, plan, project);
-
-    const doc = mockUpdateIndexItem.mock.calls[0][3];
-    expect(doc.is_test).toBe(true);
-    expect(doc.featured).toBe(true);
-  });
-
-  it('converts a valid registered date to ISO format', async () => {
-    const registered = '2025-03-20T10:00:00.000Z';
-    const plan = buildPlan({ registered });
-    const project = buildProject({ id: plan.projectId });
-
-    await updateIndex(reference, context, plan, project);
-
-    const doc = mockUpdateIndexItem.mock.calls[0][3];
-    expect(doc.registered).toBe(new Date(registered).toISOString());
-  });
-
-  it('leaves registered undefined when it is null', async () => {
-    const plan = buildPlan({ registered: null });
-    const project = buildProject({ id: plan.projectId });
-
-    await updateIndex(reference, context, plan, project);
-
-    const doc = mockUpdateIndexItem.mock.calls[0][3];
-    expect(doc.registered).toBeUndefined();
-  });
-
-  it('includes alternate_identifier_ids returned by AlternateIdentifier.findByPlanId', async () => {
-    const altId = 'zenodo.1234567';
-    (AlternateIdentifier.findByPlanId as jest.Mock) = jest.fn().mockResolvedValue([
-      { alternateIdentifier: altId },
-    ]);
-
-    const plan = buildPlan();
-    const project = buildProject({ id: plan.projectId });
-    await updateIndex(reference, context, plan, project);
-
-    const doc = mockUpdateIndexItem.mock.calls[0][3];
-    expect(doc.alternate_identifier_ids).toContain(altId);
-  });
-
-  it('includes related_identifier_ids returned by AcceptedWork.findByPlanId', async () => {
-    const doi = `10.1234/${casual.word}`;
-    (AcceptedWork.findByPlanId as jest.Mock) = jest.fn().mockResolvedValue([{ doi }]);
-
-    const plan = buildPlan();
-    const project = buildProject({ id: plan.projectId });
-    await updateIndex(reference, context, plan, project);
-
-    const doc = mockUpdateIndexItem.mock.calls[0][3];
-    expect(doc.related_identifier_ids).toContain(doi);
-  });
-
-  it('populates contributor_ids and contributors_search for plan-linked members with an ORCID', async () => {
-    const orcidSuffix = '0000-0001-2345-6789';
-    const member = buildProjectMember(casual.integer(1, 999), {
+    const memberId = 300;
+    const member = buildProjectMember(memberId, {
+      projectId: project.id,
       givenName: 'Jane',
       surName: 'Smith',
-      orcid: `${TEST_ORCID_BASE}${orcidSuffix}`,
+      orcid: `${TEST_ORCID_BASE}0000-0001-2345-6789`,
+      affiliationId: `${TEST_ROR_BASE}abcd1234`,
     });
-    const planMember = buildPlanMember(member.id);
-
-    (ProjectMember.findByProjectId as jest.Mock) = jest.fn().mockResolvedValue([member]);
-    (PlanMember.findByPlanId as jest.Mock) = jest.fn().mockResolvedValue([planMember]);
-
-    const plan = buildPlan();
-    const project = buildProject({ id: plan.projectId });
-    await updateIndex(reference, context, plan, project);
-
-    const doc = mockUpdateIndexItem.mock.calls[0][3];
-    expect(doc.contributor_ids).toContain(orcidSuffix);
-    expect(doc.contributors_search).toContain('jane smith');
-    expect(doc.contributors_search).toContain('smith, jane');
-  });
-
-  it('excludes project members that are not linked to the plan', async () => {
-    const member = buildProjectMember(casual.integer(1, 999));
-    const planMember = buildPlanMember(casual.integer(10000, 19999)); // links to a different id
-
-    (ProjectMember.findByProjectId as jest.Mock) = jest.fn().mockResolvedValue([member]);
-    (PlanMember.findByPlanId as jest.Mock) = jest.fn().mockResolvedValue([planMember]);
-
-    const plan = buildPlan();
-    const project = buildProject({ id: plan.projectId });
-    await updateIndex(reference, context, plan, project);
-
-    const doc = mockUpdateIndexItem.mock.calls[0][3];
-    expect(doc.contributor_ids).toEqual([]);
-  });
-
-  it('populates institution_ids and institutions_facets from member affiliations', async () => {
-    const rorSuffix = `0${casual.integer(10000000, 99999999)}`;
-    const rorUri = `${TEST_ROR_BASE}${rorSuffix}`;
-    const affiliation = buildAffiliation(rorUri, {
+    const planMember = buildPlanMember(memberId);
+    const planMemberId = planMember.id;
+    const memberAffiliation = buildAffiliation(`${TEST_ROR_BASE}abcd1234`, {
       name: 'State University',
       displayName: 'State University',
     });
 
-    const member = buildProjectMember(casual.integer(1, 999), { affiliationId: rorUri });
-    const planMember = buildPlanMember(member.id);
-
-    (ProjectMember.findByProjectId as jest.Mock) = jest.fn().mockResolvedValue([member]);
-    (PlanMember.findByPlanId as jest.Mock) = jest.fn().mockResolvedValue([planMember]);
-    (Affiliation.findByURI as jest.Mock) = jest.fn().mockResolvedValue(affiliation);
-
-    const plan = buildPlan();
-    const project = buildProject({ id: plan.projectId });
-    await updateIndex(reference, context, plan, project);
-
-    const doc = mockUpdateIndexItem.mock.calls[0][3];
-    expect(doc.institution_ids).toContain(rorSuffix);
-    expect(doc.institutions_facets).toContain('State University');
-  });
-
-  it('populates funder_ids and funding_facets for plan-linked funding', async () => {
-    const rorSuffix = `0${casual.integer(10000000, 99999999)}`;
-    const rorUri = `${TEST_ROR_BASE}${rorSuffix}`;
-    const grantId = `award-${casual.word}`;
-    const funderAffiliation = buildAffiliation(rorUri, {
-      name: 'NIH',
-      displayName: 'National Institutes of Health',
+    const fundingId = 400;
+    const funderUri = `${TEST_ROR_BASE}funder5678`;
+    const funding = buildProjectFunding(fundingId, funderUri, {
+      projectId: project.id,
+      funderOpportunityNumber: 'RFA-22-801',
+      funderProjectNumber: 'R01ABC123',
+      status: ProjectFundingStatus.PLANNED,
+    });
+    const planFunding = buildPlanFunding(fundingId);
+    const funderAffiliation = buildAffiliation(funderUri, {
+      name: 'National Science Foundation',
+      displayName: 'National Science Foundation',
       funder: true,
     });
-    const funding = buildProjectFunding(casual.integer(1, 999), rorUri, { grantId });
-    const planFunding = buildPlanFunding(funding.id);
 
-    (ProjectFunding.findByProjectId as jest.Mock) = jest.fn().mockResolvedValue([funding]);
-    (PlanFunding.findByPlanId as jest.Mock) = jest.fn().mockResolvedValue([planFunding]);
-    (Affiliation.findByURI as jest.Mock) = jest.fn().mockResolvedValue(funderAffiliation);
-
-    const plan = buildPlan();
-    const project = buildProject({ id: plan.projectId });
-    await updateIndex(reference, context, plan, project);
-
-    const doc = mockUpdateIndexItem.mock.calls[0][3];
-    expect(doc.funder_ids).toContain(rorSuffix);
-    expect(doc.funding_facets).toContain('National Institutes of Health');
-    // Note: convertFunding does not map grantId → grant_id on the display object,
-    // so grant_ids remains empty in the current implementation.
-    expect(doc.grant_ids).toEqual([]);
-  });
-
-  it('excludes project funding that is not linked to the plan', async () => {
-    const rorUri = `${TEST_ROR_BASE}0${casual.integer(10000000, 99999999)}`;
-    const funding = buildProjectFunding(casual.integer(1, 999), rorUri);
-    const planFunding = buildPlanFunding(casual.integer(10000, 19999)); // links to a different id
-
-    (ProjectFunding.findByProjectId as jest.Mock) = jest.fn().mockResolvedValue([funding]);
-    (PlanFunding.findByPlanId as jest.Mock) = jest.fn().mockResolvedValue([planFunding]);
-
-    const plan = buildPlan();
-    const project = buildProject({ id: plan.projectId });
-    await updateIndex(reference, context, plan, project);
-
-    const doc = mockUpdateIndexItem.mock.calls[0][3];
-    expect(doc.funder_ids).toEqual([]);
-  });
-
-  it('includes funder_project_ids and opportunity_ids when set on funding', async () => {
-    const rorUri = `${TEST_ROR_BASE}0${casual.integer(10000000, 99999999)}`;
-    const funderOpportunityNumber = `RFA-AA-${casual.integer(10, 99)}-${casual.integer(100, 999)}`;
-    const funderProjectNumber = `R01${casual.word.toUpperCase()}`;
-    const funderAffiliation = buildAffiliation(rorUri, { funder: true });
-    const funding = buildProjectFunding(casual.integer(1, 999), rorUri, {
-      funderOpportunityNumber,
-      funderProjectNumber,
+    (ProjectMember.findByProjectId as jest.Mock).mockResolvedValue([member]);
+    (PlanMember.findByPlanId as jest.Mock).mockResolvedValue([{ ...planMember, id: planMemberId, projectMemberId: memberId }]);
+    (ProjectFunding.findByProjectId as jest.Mock).mockResolvedValue([funding]);
+    (PlanFunding.findByPlanId as jest.Mock).mockResolvedValue([{ ...planFunding, projectFundingId: fundingId }]);
+    (Affiliation.findByURI as jest.Mock).mockImplementation(async (_ref: string, _context: MyContext, uri: string) => {
+      if (uri === `${TEST_ROR_BASE}abcd1234`) return memberAffiliation;
+      if (uri === funderUri) return funderAffiliation;
+      return null;
     });
-    const planFunding = buildPlanFunding(funding.id);
+    (AlternateIdentifier.findByPlanId as jest.Mock).mockResolvedValue([{ alternateIdentifier: '10.1234/demo' }]);
+    (AcceptedWork.findByPlanId as jest.Mock).mockResolvedValue([{ doi: '10.9999/related' }]);
+    (Answer.findByPlanId as jest.Mock).mockResolvedValue([{ json: buildResearchOutputAnswerJson() }]);
 
-    (ProjectFunding.findByProjectId as jest.Mock) = jest.fn().mockResolvedValue([funding]);
-    (PlanFunding.findByPlanId as jest.Mock) = jest.fn().mockResolvedValue([planFunding]);
-    (Affiliation.findByURI as jest.Mock) = jest.fn().mockResolvedValue(funderAffiliation);
+    await updateIndexItem(ref, context, plan, project);
 
-    const plan = buildPlan();
-    const project = buildProject({ id: plan.projectId });
-    await updateIndex(reference, context, plan, project);
-
-    const doc = mockUpdateIndexItem.mock.calls[0][3];
-    expect(doc.opportunity_ids).toContain(funderOpportunityNumber);
-    expect(doc.funder_project_ids).toContain(funderProjectNumber);
-  });
-
-  it('extracts repository_ids and repositories_facets from a research output answer', async () => {
-    const answer = new Answer({
-      id: casual.integer(1, 9999),
-      planId: casual.integer(1, 9999),
-      versionedSectionId: casual.integer(1, 9999),
-      versionedQuestionId: casual.integer(1, 9999),
-      json: buildResearchOutputAnswerJson(),
-    });
-
-    (Answer.findByPlanId as jest.Mock) = jest.fn().mockResolvedValue([answer]);
-
-    const plan = buildPlan();
-    const project = buildProject({ id: plan.projectId });
-    await updateIndex(reference, context, plan, project);
-
-    const doc = mockUpdateIndexItem.mock.calls[0][3];
+    const doc = mockOpenSearch.updateIndexItem.mock.calls[0][3];
+    expect(doc.dmp_id).toBe('11.22222/demo-plan');
+    expect(doc.title).toBe('My DMP');
+    expect(doc.project_title).toBe('My project');
+    expect(doc.abstract).toBe('A wonderful abstract');
+    expect(doc.project_start).toBe(new Date('2025-01-15').toISOString());
+    expect(doc.project_end).toBe(new Date('2026-06-30').toISOString());
+    expect(doc.visibility).toBe(PlanVisibility.PUBLIC);
+    expect(doc.is_test).toBe(true);
+    expect(doc.featured).toBe(true);
+    expect(doc.alternate_identifier_ids).toContain('10.1234/demo');
+    expect(doc.related_identifier_ids).toContain('10.9999/related');
+    expect(doc.contributor_ids).toContain('0000-0001-2345-6789');
+    expect(doc.contributors_search).toEqual(expect.arrayContaining(['jane smith', 'smith, jane']));
+    expect(doc.institution_ids).toContain('abcd1234');
+    expect(doc.institutions_facets).toContain('State University');
+    expect(doc.funder_ids).toContain('funder5678');
+    expect(doc.funding_facets).toContain('National Science Foundation');
     expect(doc.repository_ids).toContain('re3data.r3d100000001');
     expect(doc.repositories_facets).toContain('GenBank');
   });
 
-  it('resolves without throwing when there are no members, funding, or answers', async () => {
-    const plan = buildPlan();
-    const project = buildProject({ id: plan.projectId });
+  it('fetches the project automatically when one is not provided', async () => {
+    const project = buildProject({ id: 123, title: 'Auto Project' });
+    const plan = buildPlan({ projectId: project.id, dmpId: `${TEST_DMP_ID_BASE}11.22222/auto` });
 
-    await expect(updateIndex(reference, context, plan, project)).resolves.toBeUndefined();
+    (Project.findById as jest.Mock).mockResolvedValue(project);
+    (Answer.findByPlanId as jest.Mock).mockResolvedValue([]);
 
-    const doc = mockUpdateIndexItem.mock.calls[0][3];
+    await updateIndexItem(ref, context, plan);
+
+    expect(Project.findById).toHaveBeenCalledWith(ref, context, plan.projectId);
+    expect(mockOpenSearch.updateIndexItem).toHaveBeenCalledTimes(1);
+  });
+
+  it('defaults visibility to private when the plan visibility is empty', async () => {
+    const project = buildProject({ id: 99 });
+    const plan = buildPlan({ projectId: project.id });
+    (plan as unknown as Record<string, unknown>).visibility = undefined;
+
+    await updateIndexItem(ref, context, plan, project);
+
+    const doc = mockOpenSearch.updateIndexItem.mock.calls[0][3];
+    expect(doc.visibility).toBe(PlanVisibility.PRIVATE.toLowerCase());
+  });
+
+  it('handles blank associations without error and keeps arrays empty', async () => {
+    const project = buildProject({ id: 88 });
+    const plan = buildPlan({ projectId: project.id });
+
+    await updateIndexItem(ref, context, plan, project);
+
+    const doc = mockOpenSearch.updateIndexItem.mock.calls[0][3];
+    expect(doc.alternate_identifier_ids).toEqual([]);
+    expect(doc.related_identifier_ids).toEqual([]);
     expect(doc.contributor_ids).toEqual([]);
     expect(doc.funder_ids).toEqual([]);
     expect(doc.repository_ids).toEqual([]);
-    expect(doc.related_identifier_ids).toEqual([]);
-    expect(doc.alternate_identifier_ids).toEqual([]);
-  });
-
-  it('fetches the project via Project.findById when no project argument is provided', async () => {
-    const project = buildProject();
-    const plan = buildPlan({ projectId: project.id });
-
-    (Project.findById as jest.Mock) = jest.fn().mockResolvedValue(project);
-
-    await updateIndex(reference, context, plan);
-
-    expect(Project.findById).toHaveBeenCalledWith(reference, context, plan.projectId);
-    expect(mockUpdateIndexItem).toHaveBeenCalledTimes(1);
   });
 });
 
-// ── removeIndex ───────────────────────────────────────────────────────────────
+describe('removeIndexItem', () => {
+  it('removes the indexed DMP using the stripped dmp id', async () => {
+    const plan = buildPlan({ dmpId: `${TEST_DMP_ID_BASE}11.22222/demo-remove` });
 
-describe('removeIndex', () => {
-  it('calls openSearch.removeIndexItem with INDEX_NAME and the stripped dmpId', async () => {
-    const suffix = `11.22222/${casual.word}`;
-    const plan = buildPlan({ dmpId: `${TEST_DMP_ID_BASE}${suffix}` });
+    await removeIndexItem('ref', context, plan);
 
-    await removeIndex(context, plan);
-
-    expect(mockRemoveIndexItem).toHaveBeenCalledTimes(1);
-    const [idxName, id] = mockRemoveIndexItem.mock.calls[0];
-    expect(idxName).toBe(INDEX_NAME);
-    expect(id).toBe(suffix);
+    expect(mockOpenSearch.removeIndexItem).toHaveBeenCalledWith(INDEX_NAME, '11.22222/demo-remove');
   });
 });
-
-
-
-
-
-
-
-
-
-

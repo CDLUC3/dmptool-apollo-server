@@ -5,11 +5,13 @@ import {
   Property
 } from "@opensearch-project/opensearch/api/_types/_common.mapping";
 import {
-  Delete_Response,
-  Search_Response,
-  Update_Response
+  Get_Response,
+  Indices_Get_Response,
+  Indices_Get_ResponseBody,
+  Search_Response
 } from "@opensearch-project/opensearch/api";
 import { Hit } from "@opensearch-project/opensearch/api/_types/_core.search";
+import { awsConfig } from "../config/awsConfig";
 
 export interface OpenSearchServerlessConfig {
   node: string;
@@ -28,6 +30,17 @@ export interface OpenSearchConfig {
 }
 
 export function createOpenSearchServerlessClient(config: OpenSearchServerlessConfig): Client {
+  if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
+    return new Client({
+      node: config.node,
+      headers: {
+        host: `${config.node
+          .replace('http://', `aoss.${awsConfig.region}.opensearch.localhost.`)
+          .replace(':', '.cloud:')}`
+      }
+    });
+  }
+
   return new Client({
     ...AwsSigv4Signer({
       region: 'us-west-2',
@@ -165,193 +178,6 @@ const snakeizeKeys = <T>(obj: T): DeepSnakeCase<T> => {
 }
 
 /**
- * The index names we currently support
- */
-// export const REPOSITORY_IDX = 're3data';
-
-/**
- * The structure of the Repositories index
- */
-/*const REPOSITORY_IDX_PROPERTY_DEFINITION: Record<string, Property> = {
-  id: { type: 'keyword' },
-  name: { type: 'text', fields: { keyword: { type: 'keyword' } } },
-  subjects: { type: 'keyword' },
-  uri: { type: 'keyword' },
-  repositoryTypes: { type: 'keyword' },
-  created: { type: 'date' },
-  modified: { type: 'date' },
-  synDate: { type: 'date' },
-};
-*/
-/**
- * Generic index item
- */
-/*
-interface IndexItemInterface {
-  _id: string;
-  created: string;
-  modified: string;
-}
-*/
-/**
- * The shape of a repository record within the index
- */
-/*
-interface RepositoryIndexItemInterface extends IndexItemInterface {
-  repository_id: string;
-  name: string;
-  description?: string;
-}
-
-export interface DmpFundingDocumentFragment {
-  name: string;
-  funding_status: string;
-  id?: string;
-  acronym?: string;
-  aliases: string[];
-  grant_id?: string;
-  funding_project_id?: string;
-  opportunity_id?: string;
-}
-
-export interface DmpRepositoryDocumentFragment {
-  id?: string;
-  name: string;
-  url?: string;
-}
-
-export interface DmpInstitutionDocumentFragment {
-  id?: string;
-  name: string;
-  acronym?: string;
-}
-
-export interface DmpContributorDocumentFragment {
-  orcid?: string;
-  affiliation_name?: string;
-  affiliation_id?: string;
-  given_name?: string;
-  surname?: string;
-  middle_initials?: number;
-  full_name?: string;
-}
-*/
-/*
-export interface DmpSearchDocument {
-  dmp_id: string;
-  title: string;
-  project_title?: string;
-  visibility: string;
-  project_start?: string;
-  project_end?: string;
-  output_formats?: string[];           // We don't support this yet, but here to support RDA API spec
-
-  // Timestamps & Sorting
-  created: string;
-  modified: string;
-  registered?: string;
-
-  // Identifier arrays
-  contact_ids?: string[];
-  contributor_ids?: string[];
-  institution_ids?: string[];
-  funder_ids?: string[];
-  grant_ids?: string[];
-  opportunity_ids?: string[];
-  funder_project_ids?: string[];
-  dataset_ids?: string[];              // We don't support this yet, but here to support RDA API spec
-  repository_ids?: string[];
-  metadata_standard_ids?: string[];
-  license_ids?: string[];
-  alternate_identifier_ids?: string[];
-  related_identifier_ids?: string[];
-
-  // Faceting support: Fields containing the official/primary terms for faceting.
-  //                   For example: ["National Institutes of Health"]
-  funding_facets: string[];
-  institutions_facets?: string[];
-  repositories_facets: string[];
-  language: string;
-  status: string;
-  is_test: boolean;
-  featured: boolean;
-  research_domain: string;
-  funding_status?: string[];
-  personal_data?: string[];
-  sensitive_data?: string[];
-  data_access?: string[];
-
-  // Search support: Fields containing all variations to support user entered
-  //                 search terms. For example: ["USGS", "US Geological Survey",
-  //                                             "United States Geological Survey"]
-  titles: string[];
-  abstract?: string;
-  tags?: string[];
-  funding_search: string[];
-  contributors_search: string[];
-  institutions_search: string[];
-  repositories_search: string[];
-
-  // Objects containing information about a subject area to support UI display
-  contributors_display?: DmpContributorDocumentFragment[];
-  funding_display: DmpFundingDocumentFragment[];
-  institutions_display?: DmpInstitutionDocumentFragment[];
-  repositories_display?: DmpRepositoryDocumentFragment[];
-}
- */
-
-/**
- * The Shape of a DMP record within the index
- */
-/*
-export interface DmpIndexItemInterface extends IndexItemInterface {
-  dmp_id: string;
-  project_id: number;
-  plan_id: number;
-  versioned_template_id: number
-
-  registered?: string;
-
-  title: string[];
-  abstract?: string;
-  project_start?: string;
-  project_end?: string;
-  research_domain?: string;
-  visibility?: string;
-  status?: string;
-  isTest: boolean;
-  featured: boolean;
-  tags?: string[];
-
-  institutions?: string[];
-  institution_ids?: string[];
-  contributors?: {
-    full_name: string;
-    given_name?: string;
-    surname?: string;
-    first_initial?: string;
-    middle_initials?: string;
-  };
-  contributor_ids?: string[];
-  funders?: string[];
-  funder_ids?: string[];
-  repositories?: string[];
-  repository_ids?: string[];
-  published_outputs?: string[];
-  published_output_ids?: string[];
-
-  funding?: {
-    funder: string;
-    funder_id?: string;
-    status: string;
-    grant_ids?: string[];
-    opportunity_ids?: string[];
-    project_ids?: string[];
-  }[]
-}
-*/
-
-/**
  * The shape of an index item returned by a search
  */
 export interface IndexSearchItemInterface {
@@ -362,9 +188,9 @@ export interface IndexSearchItemInterface {
 /**
  * The shape of an index search response
  */
-export interface IndexSearchResponseInterface {
+export interface IndexSearchResponseInterface<T> {
   total: number;
-  items: IndexSearchItemInterface[];
+  items: T[];
 }
 
 /**
@@ -401,15 +227,12 @@ export class OpenSearch {
     indexPrefix?: string
   ): Promise<string[]> {
     try {
-      const res = await this.client.indices.get({ index: `${indexPrefix}*` });
-      const body = (res && ((res as unknown) as { body?: unknown }).body) ?? res;
-      if (!Array.isArray(body)) return [];
-      return (body as unknown[])
-        .map(row => {
-          const r = row as Record<string, unknown>;
-          return (r.index as string) ?? (r['i'] as string) ?? Object.values(r)[2];
-        })
-        .filter(Boolean) as string[];
+      const res: Indices_Get_Response = await this.client.indices.get({ index: indexPrefix ? `${indexPrefix}*` : '*' });
+      const body: Indices_Get_ResponseBody | undefined = res?.body;
+
+      return Object.keys(body).filter((key: string): boolean => {
+        return !key.startsWith('top_queries-') && !key.startsWith('.');
+      });
     } catch (err) {
       console.warn('No existing indices found or error listing indices:', err);
       return [];
@@ -450,6 +273,44 @@ export class OpenSearch {
   }
 
   /**
+   * Fetch a specific item from the index
+   *
+   * @param indexName the name of the index
+   * @param id the id of the item/record
+   * @returns the id and the item or undefined if it was not found
+   */
+  async getIndexItem<T = Record<string, unknown>>(
+    indexName: string,
+    id: string
+  ): Promise<T | undefined> {
+    // If the index doesn't exist throw an error because we won't ever find anything
+    if (!(await this.listIndices(indexName))) {
+      throw new OpenSearchError('GetItem: No index found!');
+    }
+
+    try {
+      const response: Get_Response = await this.client.get({
+        index: indexName,
+        id,
+      });
+
+      return response ? response.body?._source as T : undefined;
+    } catch (error) {
+      // OpenSearch client attaches the HTTP status code to error.meta.statusCode or error.statusCode
+      const statusCode: number = error?.meta?.statusCode || error?.statusCode;
+
+      if (statusCode === 404) {
+        return undefined;
+      }
+
+      // Re-throw or handle non-404 errors (500s, network failures, etc.)
+      throw new OpenSearchError(
+        `GetItem: Failed to retrieve item "${id}" from ${indexName}. ${error.message}`
+      );
+    }
+  }
+
+  /**
    * Add/update an item on the specified index
    *
    * @param indexName the name of the index
@@ -468,17 +329,23 @@ export class OpenSearch {
       throw new OpenSearchError('UpdateItem: No index found!');
     }
 
-    const response: Update_Response = await this.client.update({
-      index: indexName,
-      id,
-      body: {
-        doc: snakeizeKeys(item),
-      }
-    });
+    try {
+      await this.client.index({
+        index: indexName,
+        id,
+        body: {
+          ...snakeizeKeys(item),
+        }
+      });
+    } catch (error) {
+      const statusCode: number = error?.meta?.statusCode || error?.statusCode;
 
-    if (!response || response.statusCode < 200 || response.statusCode >= 300) {
+      if (statusCode === 404) {
+        return;
+      }
+
       throw new OpenSearchError(
-        `UpdateItem: Failed to update item "${id}" in ${indexName}. Status code: ${response.statusCode}`
+        `UpdateItem: Failed to update item "${id}" in ${indexName}. ${error.message}`
       );
     }
   }
@@ -495,14 +362,24 @@ export class OpenSearch {
   ): Promise<void> {
     // If no index exists we don't care since there's nothing to remove
     if ((await this.listIndices(indexName))) {
-      const response: Delete_Response = await this.client.delete({
-        index: indexName,
-        id: itemId
-      });
+      try {
+        await this.client.delete({
+          index: indexName,
+          id: itemId
+        });
 
-      if (!response || response.statusCode < 200 || response.statusCode >= 300) {
+      } catch (error) {
+        // OpenSearch client attaches the HTTP status code to error.meta.statusCode or error.statusCode
+        const statusCode: number = error?.meta?.statusCode || error?.statusCode;
+
+        if (statusCode === 404) {
+          // Item not found, nothing to remove
+          return;
+        }
+
+        // Re-throw or handle non-404 errors (500s, network failures, etc.)
         throw new OpenSearchError(
-          `OpenSearch: Failed to remove item "${itemId}" from ${indexName}. Status code: ${response.statusCode}`
+          `OpenSearch: Failed to remove item "${itemId}" from ${indexName}. ${error.message}`
         );
       }
     }
@@ -514,38 +391,53 @@ export class OpenSearch {
    * @param indexName the name of the index
    * @param body the search request
    */
-  async search(
+  async search<T = Record<string, unknown>>(
     indexName: string,
     body: Record<string, unknown>
-  ): Promise<IndexSearchResponseInterface> {
+  ): Promise<IndexSearchResponseInterface<T>> {
     // If the index doesn't exist throw an error because we won't ever find anything
     if (!(await this.listIndices(indexName))) {
       throw new OpenSearchError('Search: No index found!');
     }
 
-    const response: Search_Response = await this.client.search({
-      index: indexName,
-      body,
-    });
+    try {
+      const response: Search_Response = await this.client.search({
+        index: indexName,
+        body,
+      });
 
-    if (!response.body || !response.body.hits || !response.body.hits.total) {
+      if (!response.body || !response.body.hits || !response.body.hits.total) {
+        return {
+          total: 0,
+          items: []
+        };
+      }
+
+      const total: number = typeof response.body.hits.total === 'number'
+        ? response.body.hits.total
+        : (response.body.hits.total as { value: number }).value;
+
+      const items: IndexSearchItemInterface[] = response.body.hits.hits.map((hit: Hit): IndexSearchItemInterface => {
+        return {_id: hit._id, fields: camelizeKeys(hit.fields)};
+      }) || [];
+
       return {
-        total: 0,
-        items: []
+        total: total || 0,
+        items: items as T[]
       };
+    } catch (error) {
+      // OpenSearch client attaches the HTTP status code to error.meta.statusCode or error.statusCode
+      const statusCode: number = error?.meta?.statusCode || error?.statusCode;
+
+      if (statusCode === 404) {
+        // Item not found, nothing to remove
+        return;
+      }
+
+      // Re-throw or handle non-404 errors (500s, network failures, etc.)
+      throw new OpenSearchError(
+        `OpenSearch: Failed to search within ${indexName}. ${error.message}`
+      );
     }
-
-    const total: number = typeof response.body.hits.total === 'number'
-      ? response.body.hits.total
-      : (response.body.hits.total as { value: number }).value;
-
-    const items: IndexSearchItemInterface[] = response.body.hits.hits.map((hit: Hit): IndexSearchItemInterface => {
-      return {_id: hit._id, fields: camelizeKeys(hit.fields)};
-    }) || [];
-
-    return {
-      total: total || 0,
-      items
-    };
   }
 }

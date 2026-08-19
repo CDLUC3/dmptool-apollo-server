@@ -2,7 +2,7 @@ import { GraphQLError } from "graphql";
 import { toErrorMessage } from "@dmptool/utils";
 import { MyContext } from "../context";
 import { prepareObjectForLogs } from "../logger";
-import { ensureDefaultPlanContact } from "./planService";
+import {ensureDefaultPlanContact } from "./planService";
 import { ensureDefaultProjectContact, setCurrentUserAsProjectOwner } from "./projectService";
 import { AlternateIdentifier } from "../models/AlternateIdentifier";
 import { defaultLanguageId } from "../models/Language";
@@ -237,8 +237,8 @@ export const processMemberAssociations = async(
     {
       // Define all the fetch functions that will give us the information we need
       // to determine whether an association should be added, updated or removed
-      fetchPlanObjs: (id: number): Promise<PlanMember[]> => {
-        return PlanMember.findByPlanId(reference, context, id);
+      fetchPlanObjs: async (id: number): Promise<PlanMember[]> => {
+        return await PlanMember.findByPlanId(reference, context, id);
       },
       fetchProjectObjs: (id: number): Promise<ProjectMember[]> => {
         return ProjectMember.findByProjectId(reference, context, id);
@@ -288,6 +288,7 @@ export const processMemberAssociations = async(
           orcid: pMemberIn.orcid,
           email: pMemberIn.email,
         }).create(context, project.id);
+
         if (!newProjMember || newProjMember.hasErrors()) {
           errors.push(`Unable to add new project member: ${logName}`);
           return;
@@ -322,16 +323,17 @@ export const processMemberAssociations = async(
             projectMemberId: newProjMember.id,
             planId: plan.id,
             isPrimaryContact: newProjMember.isPrimaryContact,
+            memberRoleIds: roles.map((role: MemberRole): number => role.id)
           });
-          await newPlanMember.create(context);
-          if (newPlanMember.hasErrors()) {
+          const created: PlanMember = await newPlanMember.create(context);
+          if (created.hasErrors()) {
             errors.push(`Unable to add new plan member: ${logName}`);
 
           } else {
             // Add the roles to the new plan member
             for (const role of roles) {
               if (role) {
-                const addedRole: boolean = await role.addToPlanMember(context, newPlanMember.id);
+                const addedRole: boolean = await role.addToPlanMember(context, created.id);
                 if (!addedRole) {
                   errors.push(`Unable to add new role ${role.label} to plan member: ${logName}`);
                 }
@@ -379,6 +381,7 @@ export const processMemberAssociations = async(
 
         const cPlanObj = currentPlanObj as PlanMember;
         const cProjObj = currentProjectObj as ProjectMember;
+
         const incomingRoles: MemberRole[] = (
           await Promise.all(
             (inObj.memberRoles || []).map(async (id: string): Promise<MemberRole> => {
@@ -717,8 +720,8 @@ const findOrInitializeProject = async (
     project = new Project({});
   }
 
-  project.title = input.title.trim();
-  project.abstractText = input.abstractText.trim();
+  project.title = input.title?.trim();
+  project.abstractText = input.abstractText?.trim();
   project.startDate = input.startDate;
   project.endDate = input.endDate;
   project.researchDomainId = researchDomain?.id;
@@ -828,7 +831,7 @@ export const addEntirePlan = async (
     context.logger.debug(prepareObjectForLogs(logBase), 'Found versioned template.');
 
     // 2nd: find or initialize the project
-    const project: Project | undefined = await findOrInitializeProject(reference, context, input.project);
+    let project: Project | undefined = await findOrInitializeProject(reference, context, input.project);
     if (!project) {
       context.logger.fatal(logBase, 'Unable to find or initialize a Project!');
       throw InternalServerError();
@@ -836,14 +839,15 @@ export const addEntirePlan = async (
 
     // 3rd: Save the project
     if (project.id) {
-      await project.update(context, false);
+      project = await project.update(context, false);
     } else {
-      await project.create(context);
+      project = await project.create(context);
     }
     if (project.hasErrors()) {
       plan.addError('projectId', project.errorsToString());
       throw BadRequestError();
     }
+
     logBase.projectId = project.id;
     context.logger.debug(prepareObjectForLogs(logBase), 'Updated or created project.');
     // Make sure the current user is added as the owner of the project and is also
@@ -860,7 +864,7 @@ export const addEntirePlan = async (
       visibility: input.visibility || PlanVisibility.PRIVATE,
       languageId: input.languageId || defaultLanguageId
     });
-    await plan.create(context);
+    plan = await plan.create(context);
     if (plan.hasErrors() || !plan.id) {
       context.logger.fatal(logBase, 'Unable to create the plan!')
       throw BadRequestError();
@@ -879,8 +883,10 @@ export const addEntirePlan = async (
       plan,
       input
     );
+
     // If we had any errors with the associated objects, throw a Bad Request
     if (plan.hasErrors()) {
+      context.logger.warn({ ...logBase, errors: plan.errorsToString() }, 'Unable to add entire plan');
       throw BadRequestError();
     }
 

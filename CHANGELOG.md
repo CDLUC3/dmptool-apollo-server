@@ -130,6 +130,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `projectFunding` query to return `readOnly` [#246]
 - Updated `versionedQuestion` resolver to use `findByVersionedQuestionConditionGroupId` in place of `findByVersionedQuestionId` [#508]
 - Updated `publishedConditionGroupsForQuestion` in `versionedQuestionCondition` resolver and added `conditions` chained resolver [#508]
 - Updated `question`, `questionCondition` and `versionedQuestionCondition` schemas [#508]

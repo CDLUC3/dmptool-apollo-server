@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added missing call to generate the maDMP JSON after successful creation or update of the Plan.
 - Added `publicPlanbyDMPId` resolver, to query only plans that are registered for the landing page [#293]
 - Added `getPlanVersions` for the `publicPlanByDMPId` resolver [#293]
 - Added `questionConditionGroups` and `versionedQuestionConditionGroups` tables via data migration scripts [#508]
@@ -130,6 +131,9 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Bumped `@dmptool/utils` to 2.1.7
+- Fixed bug with SQL query in `ProjectMember.findByProjectAndNameOrORCIDOrEmail`
+- Fixed some minor issues in the `entirePlanService`
 - Updated `versionedQuestion` resolver to use `findByVersionedQuestionConditionGroupId` in place of `findByVersionedQuestionId` [#508]
 - Updated `publishedConditionGroupsForQuestion` in `versionedQuestionCondition` resolver and added `conditions` chained resolver [#508]
 - Updated `question`, `questionCondition` and `versionedQuestionCondition` schemas [#508]

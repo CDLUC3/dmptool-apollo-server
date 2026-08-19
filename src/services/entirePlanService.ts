@@ -237,8 +237,8 @@ export const processMemberAssociations = async(
     {
       // Define all the fetch functions that will give us the information we need
       // to determine whether an association should be added, updated or removed
-      fetchPlanObjs: async (id: number): Promise<PlanMember[]> => {
-        return await PlanMember.findByPlanId(reference, context, id);
+      fetchPlanObjs: (id: number): Promise<PlanMember[]> => {
+        return PlanMember.findByPlanId(reference, context, id);
       },
       fetchProjectObjs: (id: number): Promise<ProjectMember[]> => {
         return ProjectMember.findByProjectId(reference, context, id);

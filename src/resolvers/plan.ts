@@ -680,9 +680,14 @@ export const resolvers: Resolvers = {
         if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.EDIT)) {
           try {
             // Add the Plan within a database transaction
-            return await context.dataSources.sqlDataSource.withTransaction(context, async (): Promise<Plan> => {
+            const updatedPlan: Plan | undefined = await context.dataSources.sqlDataSource.withTransaction(context, async (): Promise<Plan> => {
               return await replaceEntirePlan(ref, context, project, plan, input);
             });
+
+            if (updatedPlan) {
+              // Push the maDMP info into Dynamo
+              await saveMaDMPVersion(ref, context, updatedPlan.id, updatedPlan.dmpId);
+            }
           } catch (error) {
             if (error instanceof GraphQLError) {
               if (error.extensions?.code === 'BAD_REQUEST') {

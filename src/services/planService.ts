@@ -29,6 +29,7 @@ import {
   DataCiteSourceFundingAffiliation,
   planToDataCiteMetadata
 } from "./dataciteXMLService";
+import { removeIndexItem, updateIndexItem } from "./indexDMPService";
 import { PlanVersionSnapshot } from "../types";
 
 
@@ -236,6 +237,60 @@ export async function buildDataCiteXMLForPlan(context: MyContext, plan: Plan, pr
 }
 
 /**
+ * Handle truly asynchronous activity that should occur after a Plan is created/updated
+ * so we don't block the Apollo thread
+ *
+ * @param reference the string reference for logging
+ * @param context the Apollo server context
+ * @param plan the Plan
+ * @param project optional Project if already preloaded
+ */
+export const handleAsyncUpdates = async (
+  reference: string,
+  context: MyContext,
+  plan: Plan,
+  project?: Project,
+): Promise<void> => {
+  // Update the OpenSearch index
+  updateIndexItem(reference, context, plan, project)
+    .catch(err => {
+      context.logger.fatal({ planId: plan.id, err }, 'Index item in OpenSearch failed!');
+    });
+
+  // Update the maDMP record in Dynamo
+  saveMaDMPVersion(reference, context, plan.id, plan.dmpId)
+    .catch(err => {
+      context.logger.fatal({ planId: plan.id, err }, 'save maDMP JSON failed!');
+    });
+}
+
+/**
+ * Handle truly asynchronous activity that should occur after a Plan is deleted/archived
+ * so we don't block the Apollo thread
+ *
+ * @param reference the string reference for logging
+ * @param context the Apollo server context
+ * @param plan the Plan
+ */
+export const handleAsyncDeletes = async (
+  reference: string,
+  context: MyContext,
+  plan: Plan
+): Promise<void> => {
+  // Remove the OpenSearch index
+  removeIndexItem(reference, context, plan)
+    .catch(err => {
+      context.logger.fatal({ planId: plan.id, err }, 'Remove OpenSearch index item failed!');
+    });
+
+  // Remove the maDMP records from Dynamo
+  saveMaDMPVersion(reference, context, plan.id, plan.dmpId, true)
+    .catch(err => {
+      context.logger.fatal({ planId: plan.id, err }, 'Remove/Tomb-stone maDMP json failed!');
+    });
+}
+
+/**
  * Plan versioning management:
  *
  * Plan versions are also known as maDMP snapshots in this system.
@@ -362,12 +417,20 @@ export async function getPlanVersions(
   reference: string,
   context: MyContext,
   dmpId: string
-): Promise<{ modified: string, dmpId: string }[]> {
+): Promise<{ modified: string, dmpId: string, timestamp: string, url: string }[]> {
   if (isNullOrUndefined(dmpId)) return [];
 
   const dynamoConfig: DynamoConnectionParams = getDynamoConnectionParams(context.logger);
   try {
-    return await getDMPVersions(dynamoConfig, dmpId);
+    const versions = await getDMPVersions(dynamoConfig, dmpId);
+
+    // Map each version to include timestamp and public-facing URL
+    return versions.map((v) => ({
+      dmpId: v.dmpId,
+      modified: v.modified,
+      timestamp: v.modified,
+      url: `https://${generalConfig.domain}/dmps/${v.dmpId.replace(/^https?:\/\//, '')}?version=${encodeURIComponent(v.modified)}`
+    }));
 
   } catch (err) {
     context.logger.error({ dmpId, reference, err }, 'Unable to fetch DMP versions.');
@@ -426,9 +489,9 @@ export async function mapDMPToolDMPToSnapshot(
     (section.question ?? [])
       .filter((q) => q.answer)
       .map((q) => ({
-        id: q.answer!.id,
+        id: q.answer?.id,
         questionText: q.text,
-        json: JSON.stringify(q.answer!.json),
+        json: JSON.stringify(q.answer?.json),
       }))
   );
 

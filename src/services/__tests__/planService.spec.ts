@@ -707,12 +707,17 @@ describe('getPlanVersions', () => {
 
     expect(result).toEqual([
       {
-        timestamp: '2026-08-01T14:32:00Z',
-        url: `https://${generalConfig.domain}/dmps/${dmpId.replace('https://', '')}?version=${encodeURIComponent('2026-08-01T14:32:00Z')}`,
+        timestamp: "2026-08-01T14:32:00Z",
+        url: "https://localhost:3000/dmps/doi.org/11.2222/3A4B5c?version=2026-08-01T14%3A32%3A00Z",
+        dmpId: "https://doi.org/11.2222/3A4B5c",
+        modified: "2026-08-01T14:32:00Z",
+
       },
       {
         timestamp: '2026-06-15T09:10:00Z',
-        url: `https://${generalConfig.domain}/dmps/${dmpId.replace('https://', '')}?version=${encodeURIComponent('2026-06-15T09:10:00Z')}`,
+        url: "https://localhost:3000/dmps/doi.org/11.2222/3A4B5c?version=2026-06-15T09%3A10%3A00Z",
+        dmpId: "https://doi.org/11.2222/3A4B5c",
+        modified: "2026-06-15T09:10:00Z"
       },
     ]);
   });

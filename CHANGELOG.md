@@ -10,6 +10,7 @@
 - Added new `AcceptedWork` model that includes the DOI and information necessary to display a related work that has been accepted for a project.
 - Added new `indexDMPService` to handle indexing of Plans in OpenSearch
 - Added new `handleAsyncUpdates` function to the `planService` that allows us to truly run DynamoDB and OpenSearch updates asynchronously.
+- Added missing call to generate the maDMP JSON after successful creation or update of the Plan.
 - Added `publicPlanbyDMPId` resolver, to query only plans that are registered for the landing page [#293]
 - Added `getPlanVersions` for the `publicPlanByDMPId` resolver [#293]
 - Added `questionConditionGroups` and `versionedQuestionConditionGroups` tables via data migration scripts [#508]
@@ -141,6 +142,9 @@
 - Updated docker-compose.yaml to install OpenSearch for use with our search indices
 - Updated docker-compose.yaml to include a health check so we can wait to start Apollo server after LocalStack is ready
 - Updated README with updated info about LocalStack and interacting with the OpenSearch instance
+- Bumped `@dmptool/utils` to 2.1.7
+- Fixed bug with SQL query in `ProjectMember.findByProjectAndNameOrORCIDOrEmail`
+- Fixed some minor issues in the `entirePlanService`
 - Updated `versionedQuestion` resolver to use `findByVersionedQuestionConditionGroupId` in place of `findByVersionedQuestionId` [#508]
 - Updated `publishedConditionGroupsForQuestion` in `versionedQuestionCondition` resolver and added `conditions` chained resolver [#508]
 - Updated `question`, `questionCondition` and `versionedQuestionCondition` schemas [#508]

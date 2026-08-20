@@ -606,7 +606,7 @@ export const resolvers: Resolvers = {
               context,
               input.alternateIdentifiers
             );
-            if ((await Plan.findById(ref, context, altId.planId))) {
+            if (altId) {
               throw BadUserInputError('A plan with the specified alternate identifier(s) already exists.');
             }
           }

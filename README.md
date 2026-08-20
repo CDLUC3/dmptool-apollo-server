@@ -453,7 +453,7 @@ We are using LocalStack to emulate AWS services within the docker compose enviro
 
 To disable LocalStack and startup the application without it. You can set the `DISABLE_LOCALSTACK` environment variable to `1` in the `docker-compose.yaml` file.
 
-See the Prerequisites and Getting Started sections for more details on installing LocalStack and the awslocal CLIs.
+See the [Prerequisites](#prerequisites) in the Getting Started section for more details on installing LocalStack and the awslocal CLIs.
 
 **Note:** These resources are NOT persisted between docker compose runs. We would need a "pro" account with LocalStack for that. Fortunately, it is ok for these resources to be deleted each run. The Apollo server does not interact directly with the DynamoDB table and does not yet need to access historical copies of a Plan. Localstack allows us though to see and debug SQS messages sent to the queue that should trigger Lambda functions as well as watch the Lambda function logs to ensure that they are behaving as expected.
 

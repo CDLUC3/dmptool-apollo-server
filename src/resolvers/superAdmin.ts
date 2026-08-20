@@ -21,11 +21,7 @@ export const resolvers: Resolvers = {
         if (isNullOrUndefined(plan)) throw NotFoundError();
 
         // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
-        // asynchronously so we don't block the Apollo thread
-        handleAsyncUpdates(reference, context, plan)
-          .catch(err => {
-            context.logger.error({ planId, err }, 'Plan post processing failed');
-          });
+        await handleAsyncUpdates(reference, context, plan);
 
         return true;
       } catch (err) {

@@ -243,11 +243,7 @@ export const resolvers: Resolvers = {
                 const plans = await Plan.findByProjectId(reference, context, member.projectId);
                 for (const plan of plans) {
                   // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
-                  // asynchronously so we don't block the Apollo thread
-                  handleAsyncUpdates(reference, context, plan, project)
-                    .catch(err => {
-                      context.logger.error({ planId: plan.id, err }, 'Update Project Member post processing failed');
-                    });
+                  await handleAsyncUpdates(reference, context, plan, project);
                 }
               }
 
@@ -290,11 +286,7 @@ export const resolvers: Resolvers = {
               const plans = await Plan.findByProjectId(reference, context, member.projectId);
               for (const plan of plans) {
                 // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
-                // asynchronously so we don't block the Apollo thread
-                handleAsyncUpdates(reference, context, plan, project)
-                  .catch(err => {
-                    context.logger.error({ planId: plan.id, err }, 'Remove Project Member post processing failed');
-                  });
+                await handleAsyncUpdates(reference, context, plan, project);
               }
             }
             return removed;
@@ -369,10 +361,7 @@ export const resolvers: Resolvers = {
             // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
             // asynchronously so we don't block the Apollo thread
             if (created && !created.hasErrors()) {
-              handleAsyncUpdates(reference, context, plan, project)
-                .catch(err => {
-                  context.logger.error({ planId: plan.id, err }, 'Add Plan Member post processing failed');
-                });
+              await handleAsyncUpdates(reference, context, plan, project);
             }
 
             return created;
@@ -456,11 +445,7 @@ export const resolvers: Resolvers = {
               const plan = await Plan.findById(reference, context, planId);
               if (member && !member.hasErrors()) {
                 // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
-                // asynchronously so we don't block the Apollo thread
-                handleAsyncUpdates(reference, context, plan, project)
-                  .catch(err => {
-                    context.logger.error({ planId: plan.id, err }, 'Update Plan Member post processing failed');
-                  });
+                await handleAsyncUpdates(reference, context, plan, project);
               }
             }
 
@@ -498,11 +483,7 @@ export const resolvers: Resolvers = {
               const plan = await Plan.findById(reference, context, member.planId);
               if (plan) {
                 // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
-                // asynchronously so we don't block the Apollo thread
-                handleAsyncUpdates(reference, context, plan, project)
-                  .catch(err => {
-                    context.logger.error({ planId: plan.id, err }, 'Remove Plan Member post processing failed');
-                  });
+                await handleAsyncUpdates(reference, context, plan, project);
               }
             }
             return removed;

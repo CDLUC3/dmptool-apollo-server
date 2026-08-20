@@ -404,6 +404,7 @@ describe('OpenSearch class', () => {
 
     it('falls back to an empty list when the index metadata is malformed', async () => {
       mockClientInstance.indices.get.mockResolvedValueOnce({ statusCode: 200 });
+      jest.spyOn(console, 'warn').mockImplementation();
 
       const os = new OpenSearch(serverlessConfig);
       await expect(os.findOrInitializeIndex(INDEX_NAME, PROPERTY_DEF)).resolves.toBe(INDEX_NAME);
@@ -514,7 +515,7 @@ describe('OpenSearch class', () => {
     it('throws when listIndices resolves to a falsy value', async () => {
       const os = new OpenSearch(serverlessConfig);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (os as any).listIndices = jest.fn().mockResolvedValue(undefined);
+      (os as any).listIndices = jest.fn().mockResolvedValue([]);
 
       await expect(os.search(INDEX_NAME, QUERY)).rejects.toThrow('Search: No index found!');
     });
@@ -553,12 +554,12 @@ describe('OpenSearch class', () => {
       ]);
     });
 
-    it('returns undefined for a 404 during search', async () => {
+    it('returns an empty array for a 404 during search', async () => {
       mockClientInstance.indices.get.mockResolvedValueOnce({ body: { [INDEX_NAME]: {} }, statusCode: 200 });
       mockClientInstance.search.mockRejectedValueOnce({ meta: { statusCode: 404 }, message: 'not found' });
 
       const os = new OpenSearch(serverlessConfig);
-      await expect(os.search(INDEX_NAME, QUERY)).resolves.toBeUndefined();
+      await expect(os.search(INDEX_NAME, QUERY)).resolves.toEqual({ total: 0, items: [] });
     });
 
     it('throws OpenSearchError on generic search failures', async () => {

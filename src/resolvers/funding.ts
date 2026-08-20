@@ -141,11 +141,7 @@ export const resolvers: Resolvers = {
               const plans = await Plan.findByProjectId(reference, context, funding.projectId);
               for (const plan of plans) {
                 // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
-                // asynchronously so we don't block the Apollo thread
-                handleAsyncUpdates(reference, context, plan, project)
-                  .catch(err => {
-                    context.logger.error({ planId: plan.id, err }, 'Update Project Funding post processing failed');
-                  });
+                await handleAsyncUpdates(reference, context, plan, project);
               }
             }
             return updated;
@@ -197,11 +193,7 @@ export const resolvers: Resolvers = {
             if (removed && !removed.hasErrors()) {
               for (const plan of plans) {
                 // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
-                // asynchronously so we don't block the Apollo thread
-                handleAsyncUpdates(reference, context, plan, project)
-                  .catch(err => {
-                    context.logger.error({ planId: plan.id, err }, 'Remove Project Funding post processing failed');
-                  });
+                await handleAsyncUpdates(reference, context, plan, project);
               }
             }
             return removed;
@@ -266,11 +258,7 @@ export const resolvers: Resolvers = {
             }
 
             // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
-            // asynchronously so we don't block the Apollo thread
-            handleAsyncUpdates(reference, context, plan, project)
-              .catch(err => {
-                context.logger.error({ planId: plan.id, err }, 'Add Plan Funding post processing failed');
-              });
+            await handleAsyncUpdates(reference, context, plan, project);
 
             // We want to return the Plan and attach one set of errors for any failed fundings
             return returnedPlan;
@@ -351,11 +339,7 @@ export const resolvers: Resolvers = {
           }
 
           // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
-          // asynchronously so we don't block the Apollo thread
-          handleAsyncUpdates(reference, context, plan, project)
-            .catch(err => {
-              context.logger.error({ planId: plan.id, err }, 'Update Plan Funding post processing failed');
-            });
+          await handleAsyncUpdates(reference, context, plan, project);
 
           return await PlanFunding.findByPlanId(reference, context, plan.id);
         }
@@ -385,11 +369,7 @@ export const resolvers: Resolvers = {
 
             if (deletedFunding && !deletedFunding.hasErrors()) {
               // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
-              // asynchronously so we don't block the Apollo thread
-              handleAsyncUpdates(reference, context, plan, project)
-                .catch(err => {
-                  context.logger.error({ planId: plan.id, err }, 'Remove Plan Funding post processing failed');
-                });
+              await handleAsyncUpdates(reference, context, plan, project);
             }
 
             return deletedFunding;

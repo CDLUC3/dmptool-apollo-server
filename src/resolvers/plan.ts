@@ -266,11 +266,7 @@ export const resolvers: Resolvers = {
               }
 
               // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
-              // asynchronously so we don't block the Apollo thread
-              handleAsyncUpdates(reference, context, created)
-                .catch(err => {
-                  context.logger.error({ planId: created.id, err }, 'Add Plan post processing failed');
-                });
+              await handleAsyncUpdates(reference, context, created);
             }
 
             return created;
@@ -306,11 +302,7 @@ export const resolvers: Resolvers = {
 
               if (deleted) {
                 // Handle OpenSearch index removal and removal of maDMP JSON versions
-                // in Dynamo asynchronously so we don't block the Apollo thread
-                handleAsyncDeletes(reference, context, deleted)
-                  .catch(err => {
-                    context.logger.error({ planId: deleted.id, err }, 'Archive Plan post processing failed');
-                  });
+                await handleAsyncDeletes(reference, context, deleted);
               }
             } else {
               return plan;
@@ -399,11 +391,7 @@ export const resolvers: Resolvers = {
 
                   if (published && !published.hasErrors()) {
                     // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
-                    // asynchronously so we don't block the Apollo thread
-                    handleAsyncUpdates(reference, context, published)
-                      .catch(err => {
-                        context.logger.error({ planId: published.id, err }, 'Publish Plan post processing failed');
-                      });
+                    await handleAsyncUpdates(reference, context, published);
                   }
                   return published;
                 }
@@ -442,11 +430,7 @@ export const resolvers: Resolvers = {
 
             if (updated && !updated.hasErrors()) {
               // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
-              // asynchronously so we don't block the Apollo thread
-              handleAsyncUpdates(reference, context, updated)
-                .catch(err => {
-                  context.logger.error({ planId: updated.id, err }, 'Update Plan post processing failed');
-                });
+              await handleAsyncUpdates(reference, context, updated);
             }
             return updated;
           }
@@ -476,11 +460,7 @@ export const resolvers: Resolvers = {
 
             if (updated && !updated.hasErrors()) {
               // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
-              // asynchronously so we don't block the Apollo thread
-              handleAsyncUpdates(reference, context, updated)
-                .catch(err => {
-                  context.logger.error({ planId: updated.id, err }, 'Update Plan Status post processing failed');
-                });
+              await handleAsyncUpdates(reference, context, updated);
             }
             return updated;
           }
@@ -509,11 +489,7 @@ export const resolvers: Resolvers = {
 
             if (updated && !updated.hasErrors()) {
               // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
-              // asynchronously so we don't block the Apollo thread
-              handleAsyncUpdates(reference, context, updated)
-                .catch(err => {
-                  context.logger.error({ planId: updated.id, err }, 'Update Plan Title post processing failed');
-                });
+              await handleAsyncUpdates(reference, context, updated);
             }
             return updated;
           }
@@ -544,11 +520,7 @@ export const resolvers: Resolvers = {
             const created: AlternateIdentifier = await identifier.create(context);
             if (created && !created.hasErrors()) {
               // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
-              // asynchronously so we don't block the Apollo thread
-              handleAsyncUpdates(reference, context, plan)
-                .catch(err => {
-                  context.logger.error({ planId: plan.id, err }, 'Add Alternate Id post processing failed');
-                });
+              await handleAsyncUpdates(reference, context, plan);
             }
             return plan;
           }
@@ -588,11 +560,7 @@ export const resolvers: Resolvers = {
             const deleted = await identifier.delete(context);
             if (deleted && !deleted.hasErrors()) {
               // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
-              // asynchronously so we don't block the Apollo thread
-              handleAsyncUpdates(reference, context, plan)
-                .catch(err => {
-                  context.logger.error({ planId: plan.id, err }, 'Remove Alternate id post processing failed');
-                });
+              await handleAsyncUpdates(reference, context, plan);
             }
             return plan;
           }
@@ -648,10 +616,7 @@ export const resolvers: Resolvers = {
             const created: Plan = await addEntirePlan(ref, context, input, plan);
             if (created && !created.hasErrors()) {
               // If successful, add the OpenSearch index in the background
-              handleAsyncUpdates(ref, context, created)
-                .catch(err => {
-                  context.logger.error({ planId: created.id, err }, 'AddEntirePlan post processing failed');
-                });
+              await handleAsyncUpdates(ref, context, created);
             }
             return created;
           });
@@ -718,10 +683,7 @@ export const resolvers: Resolvers = {
               const replaced: Plan = await replaceEntirePlan(ref, context, project, plan, input);
               if (replaced && !replaced.hasErrors()) {
                 // If successful, update the OpenSearch index in the background
-                handleAsyncUpdates(ref, context, replaced)
-                  .catch(err => {
-                    context.logger.error({ planId: replaced.id, err }, 'UpdateEntirePlan post processing failed');
-                  });
+                await handleAsyncUpdates(ref, context, replaced);
               }
               return replaced;
             });
@@ -791,10 +753,7 @@ export const resolvers: Resolvers = {
               const oldPlan: Plan = await removeEntirePlan(ref, context, project, plan);
               if (oldPlan && !oldPlan.hasErrors()) {
                 // If successful, remove the OpenSearch index
-                await handleAsyncDeletes(ref, context, oldPlan)
-                  .catch(err => {
-                    context.logger.error({ planId: plan.id, err }, 'RemoveEntirePlan post processing failed');
-                  });
+                await handleAsyncDeletes(ref, context, oldPlan);
               }
               return oldPlan
             });

@@ -349,11 +349,7 @@ export const resolvers: Resolvers = {
 
               if (relatedWork && !relatedWork.hasErrors()) {
                 // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
-                // asynchronously so we don't block the Apollo thread
-                handleAsyncUpdates(reference, context, plan, project)
-                  .catch(err => {
-                    context.logger.error({ planId: plan.id, err }, 'Upsert Related Work post processing failed');
-                  });
+                await handleAsyncUpdates(reference, context, plan, project);
               }
 
               // Fetch and return RelatedWorkSearchResult
@@ -418,11 +414,7 @@ export const resolvers: Resolvers = {
 
               if (relatedWork && !relatedWork.hasErrors()) {
                 // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
-                // asynchronously so we don't block the Apollo thread
-                handleAsyncUpdates(reference, context, plan, project)
-                  .catch(err => {
-                    context.logger.error({ planId: plan.id, err }, 'Add Related Work post processing failed');
-                  });
+                await handleAsyncUpdates(reference, context, plan, project);
               }
 
               // Fetch and return RelatedWorkSearchResult
@@ -461,11 +453,7 @@ export const resolvers: Resolvers = {
 
             if (toUpdate && !toUpdate.hasErrors()) {
               // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
-              // asynchronously so we don't block the Apollo thread
-              handleAsyncUpdates(reference, context, plan, project)
-                .catch(err => {
-                  context.logger.error({ planId: plan.id, err }, 'Update Related Work post processing failed');
-                });
+              await handleAsyncUpdates(reference, context, plan, project);
             }
 
             // Fetch and return RelatedWorkSearchResult

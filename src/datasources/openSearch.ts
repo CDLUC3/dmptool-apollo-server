@@ -269,6 +269,7 @@ export class OpenSearch {
         }
       }
     });
+    this.indices.push(indexName);
     return indexName;
   }
 
@@ -284,7 +285,7 @@ export class OpenSearch {
     id: string
   ): Promise<T | undefined> {
     // If the index doesn't exist throw an error because we won't ever find anything
-    if (!(await this.listIndices(indexName))) {
+    if ((await this.listIndices(indexName))?.length === 0) {
       throw new OpenSearchError('GetItem: No index found!');
     }
 
@@ -361,7 +362,7 @@ export class OpenSearch {
     itemId: string
   ): Promise<void> {
     // If no index exists we don't care since there's nothing to remove
-    if ((await this.listIndices(indexName))) {
+    if ((await this.listIndices(indexName))?.length > 0) {
       try {
         await this.client.delete({
           index: indexName,
@@ -396,7 +397,7 @@ export class OpenSearch {
     body: Record<string, unknown>
   ): Promise<IndexSearchResponseInterface<T>> {
     // If the index doesn't exist throw an error because we won't ever find anything
-    if (!(await this.listIndices(indexName))) {
+    if ((await this.listIndices(indexName))?.length === 0) {
       throw new OpenSearchError('Search: No index found!');
     }
 
@@ -431,7 +432,7 @@ export class OpenSearch {
 
       if (statusCode === 404) {
         // Item not found, nothing to remove
-        return;
+        return { total: 0, items: [] };
       }
 
       // Re-throw or handle non-404 errors (500s, network failures, etc.)

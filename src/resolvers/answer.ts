@@ -123,11 +123,7 @@ export const resolvers: Resolvers = {
             const newAnswer = await answer.create(context);
             if (newAnswer && !newAnswer.hasErrors()) {
               // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
-              // asynchronously so we don't block the Apollo thread
-              handleAsyncUpdates(reference, context, plan, project)
-                .catch(err => {
-                  context.logger.error({ planId: plan.id, err }, 'Add Answer post processing failed');
-                });
+              await handleAsyncUpdates(reference, context, plan, project);
             }
             return newAnswer;
           }
@@ -161,11 +157,7 @@ export const resolvers: Resolvers = {
 
             if (updatedAnswer && !updatedAnswer.hasErrors()) {
               // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
-              // asynchronously so we don't block the Apollo thread
-              handleAsyncUpdates(reference, context, plan, project)
-                .catch(err => {
-                  context.logger.error({ planId: plan.id, err }, 'Update Answer post processing failed');
-                });
+              await handleAsyncUpdates(reference, context, plan, project);
             }
 
             return updatedAnswer;

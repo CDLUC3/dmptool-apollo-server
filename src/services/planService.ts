@@ -236,6 +236,7 @@ export async function buildDataCiteXMLForPlan(context: MyContext, plan: Plan, pr
 
 /**
  * Handle truly asynchronous activity that should occur after a Plan is created/updated
+ * so we don't block the Apollo thread
  *
  * @param reference the string reference for logging
  * @param context the Apollo server context
@@ -249,14 +250,21 @@ export const handleAsyncUpdates = async (
   project?: Project,
 ): Promise<void> => {
   // Update the OpenSearch index
-  await updateIndexItem(reference, context, plan, project);
+  updateIndexItem(reference, context, plan, project)
+    .catch(err => {
+      context.logger.fatal({ planId: plan.id, err }, 'Index item in OpenSearch failed!');
+    });
 
   // Update the maDMP record in Dynamo
-  await saveMaDMPVersion(reference, context, plan.id, plan.dmpId);
+  saveMaDMPVersion(reference, context, plan.id, plan.dmpId)
+    .catch(err => {
+      context.logger.fatal({ planId: plan.id, err }, 'save maDMP JSON failed!');
+    });
 }
 
 /**
  * Handle truly asynchronous activity that should occur after a Plan is deleted/archived
+ * so we don't block the Apollo thread
  *
  * @param reference the string reference for logging
  * @param context the Apollo server context
@@ -268,10 +276,16 @@ export const handleAsyncDeletes = async (
   plan: Plan
 ): Promise<void> => {
   // Remove the OpenSearch index
-  await removeIndexItem(reference, context, plan);
+  removeIndexItem(reference, context, plan)
+    .catch(err => {
+      context.logger.fatal({ planId: plan.id, err }, 'Remove OpenSearch index item failed!');
+    });
 
   // Remove the maDMP records from Dynamo
-  await saveMaDMPVersion(reference, context, plan.id, plan.dmpId, true);
+  saveMaDMPVersion(reference, context, plan.id, plan.dmpId, true)
+    .catch(err => {
+      context.logger.fatal({ planId: plan.id, err }, 'Remove/Tomb-stone maDMP json failed!');
+    });
 }
 
 /**

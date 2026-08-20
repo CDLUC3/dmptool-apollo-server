@@ -745,6 +745,56 @@ export class RelatedWorkSearchResult extends MySqlModel {
   }
 }
 
+// A RelatedWork that has been accepted for a Plan
+export class AcceptedWork extends MySqlModel {
+  public planId: number;
+  public doi: string;
+  public workId: number;
+  public hash: Buffer;
+  public workType: WorkType;
+  public publicationDate: string;
+  public title: string;
+  public abstractText: string;
+  public authors: Author[];
+  public institutions: Institution[];
+  public funders: Funder[];
+  public awards: Award[];
+  public publicationVenue: string;
+  public sourceName: string;
+  public sourceUrl: string;
+
+  constructor(options) {
+    super(options.id, options.created, options.createdById, options.modified, options.modifiedById, options.errors);
+
+    this.planId = options.planId;
+    this.doi = options.doi;
+    this.workId = options.workId;
+    this.hash = options.hash;
+    this.workType = options.workType;
+    this.publicationDate = options.publicationDate;
+    this.title = options.title;
+    this.abstractText = options.abstractText;
+    this.authors = options.authors;
+    this.institutions = options.institutions;
+    this.funders = options.funders;
+    this.awards = options.awards;
+    this.publicationVenue = options.publicationVenue;
+    this.sourceName = options.sourceName;
+    this.sourceUrl = options.sourceUrl;
+  }
+
+  static async findByPlanId(reference: string, context: MyContext, planId: number): Promise<AcceptedWork[]> {
+    const sql = `SELECT rw.planId, w.doi, wv.*
+                 FROM relatedWorks rw
+                   INNER JOIN workVersions wv ON rw.workVersionId = wv.id
+                   INNER JOIN works w ON wv.workId = w.id
+                 WHERE rw.status = ? AND rw.planId = ?`;
+    const vals: string[] = [RelatedWorkStatus.ACCEPTED, planId.toString()];
+    const result = await AcceptedWork.query(context, sql, vals, reference);
+    return Array.isArray(result) && result.length > 0 ? result.map((work): AcceptedWork => new AcceptedWork(work)) : [];
+  }
+}
+
 export enum WorkType {
   ARTICLE = 'ARTICLE',
   AUDIO_VISUAL = 'AUDIO_VISUAL',

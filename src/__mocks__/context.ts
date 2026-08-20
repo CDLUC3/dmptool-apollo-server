@@ -27,6 +27,20 @@ jest.mock('../datasources/EZIDAPI', () => {
   };
 });
 
+jest.mock('../datasources/openSearch', () => {
+  return {
+    __esModule: true,
+    OpenSearch: jest.fn().mockImplementation(() => ({
+      listIndices: jest.fn(),
+      findOrInitializeIndex: jest.fn(),
+      updateIndexItem: jest.fn(),
+      removeIndexItem: jest.fn(),
+      search: jest.fn(),
+
+    }))
+  }
+});
+
 jest.mock('../datasources/dmphubAPI', () => {
   return {
     __esModule: true,
@@ -64,8 +78,10 @@ import { MyContext } from "../context";
 import { DMPHubAPI } from "../datasources/dmphubAPI";
 import { EZIDAPI } from "../datasources/EZIDAPI";
 import { MySQLConnection } from "../datasources/mysql";
+import { OpenSearch } from "../datasources/openSearch";
 import { User, UserRole } from "../models/User";
 import { defaultLanguageId } from "../models/Language";
+import {awsConfig} from "../config/awsConfig";
 
 // Mock Cache for testing, just has a local storage hash
 let mockCacheStore: Record<string, string> = {};
@@ -173,6 +189,7 @@ interface MockDataSources {
   dmphubAPIDataSource: DMPHubAPI;
   ezidAPIDataSource: EZIDAPI;
   sqlDataSource: jest.Mocked<MySQLConnection>;
+  openSearchServerlessDataSource: OpenSearch;
 }
 let cachedDataSources: MockDataSources | null = null;
 export const getMockDataSources = () => {
@@ -181,6 +198,7 @@ export const getMockDataSources = () => {
       dmphubAPIDataSource: new DMPHubAPI({ cache: null, token: null}),
       ezidAPIDataSource: new EZIDAPI({ cache: null }),
       sqlDataSource: getMockedMysqlInstance(),
+      openSearchServerlessDataSource: new OpenSearch(awsConfig.opensearchServerless),
     };
   }
   return cachedDataSources;

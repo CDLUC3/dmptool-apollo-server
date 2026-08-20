@@ -920,6 +920,11 @@ export const replaceEntirePlan = async (
   plan: Plan,
   input: UpdateEntirePlanInput,
 ): Promise<Plan> => {
+
+console.log('PROJECT', project);
+console.log('PLAN', plan);
+console.log('INPUT', input);
+
   const logBase: LogBase = {
     ref: reference,
     title: input.title,

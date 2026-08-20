@@ -233,7 +233,7 @@ export const typeDefs = gql`
     "Indicates that the plan is not editable by the user (i.e. readOnly = true means the user cannot edit the plan)"
     readOnly: Boolean
   }
-    
+
   input UpdatePlanInput {
     "The Plan id"
     id: Int

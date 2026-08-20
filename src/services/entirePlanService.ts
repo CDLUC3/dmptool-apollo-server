@@ -831,66 +831,67 @@ export const addEntirePlan = async (
     context.logger.debug(prepareObjectForLogs(logBase), 'Found versioned template.');
 
     // 2nd: find or initialize the project
-    let project: Project | undefined = await findOrInitializeProject(reference, context, input.project);
+    const project: Project | undefined = await findOrInitializeProject(reference, context, input.project);
     if (!project) {
       context.logger.fatal(logBase, 'Unable to find or initialize a Project!');
       throw InternalServerError();
     }
 
     // 3rd: Save the project
+    let savedProject: Project;
     if (project.id) {
-      project = await project.update(context, false);
+      savedProject = await project.update(context, false);
     } else {
-      project = await project.create(context);
+      savedProject = await project.create(context);
     }
-    if (project.hasErrors()) {
-      plan.addError('projectId', project.errorsToString());
+    if (savedProject.hasErrors()) {
+      plan.addError('projectId', savedProject.errorsToString());
       throw BadRequestError();
     }
 
-    logBase.projectId = project.id;
+    logBase.projectId = savedProject.id;
     context.logger.debug(prepareObjectForLogs(logBase), 'Updated or created project.');
     // Make sure the current user is added as the owner of the project and is also
     // the primary contact
-    await setCurrentUserAsProjectOwner(context, project.id);
-    await ensureDefaultProjectContact(context, project);
+    await setCurrentUserAsProjectOwner(context, savedProject.id);
+    await ensureDefaultProjectContact(context, savedProject);
 
     // 4th: Create the plan
     plan = new Plan({
-      projectId: project.id,
+      projectId: savedProject.id,
       versionedTemplateId: versionedTemplate.id,
       title: input.title,
       status: input.status || PlanStatus.DRAFT,
       visibility: input.visibility || PlanVisibility.PRIVATE,
       languageId: input.languageId || defaultLanguageId
     });
-    plan = await plan.create(context);
-    if (plan.hasErrors() || !plan.id) {
+    const savedPlan: Plan = await plan.create(context);
+    if (savedPlan.hasErrors() || !savedPlan.id) {
       context.logger.fatal(logBase, 'Unable to create the plan!')
       throw BadRequestError();
     }
-    logBase.planId = plan.id;
-    logBase.dmpId = plan.dmpId;
+    logBase.planId = savedPlan.id;
+    logBase.dmpId = savedPlan.dmpId;
     context.logger.debug(prepareObjectForLogs(logBase), 'Created plan.');
     // Make sure the plan has a primary contact
-    await ensureDefaultPlanContact(context, plan, project);
+    await ensureDefaultPlanContact(context, savedPlan, savedProject);
 
     // 5th: process all the associated objects
     await processAssociatedObjectForEntirePlan(
       reference,
       context,
-      project,
-      plan,
+      savedProject,
+      savedPlan,
       input
     );
 
     // If we had any errors with the associated objects, throw a Bad Request
-    if (plan.hasErrors()) {
-      context.logger.warn({ ...logBase, errors: plan.errorsToString() }, 'Unable to add entire plan');
+    if (savedPlan.hasErrors()) {
+      context.logger.warn({ ...logBase, errors: savedPlan.errorsToString() }, 'Unable to add entire plan');
       throw BadRequestError();
     }
 
-    return plan;
+    return savedPlan;
 
   } catch (error) {
     // Pass the error off to our helper function. If it's a Bad Request error it will

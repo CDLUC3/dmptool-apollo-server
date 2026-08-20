@@ -138,6 +138,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `projectFunding` query to return `readOnly` [#246]
 - Updated resolvers to use the new `handleAsyncUpdates` function instead of calling `saveMaDMPRecord` directly
 - Updated docker-compose.yaml to install OpenSearch for use with our search indices
 - Updated docker-compose.yaml to include a health check so we can wait to start Apollo server after LocalStack is ready

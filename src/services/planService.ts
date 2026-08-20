@@ -28,6 +28,7 @@ import {
   DataCiteSourceFundingAffiliation,
   planToDataCiteMetadata
 } from "./dataciteXMLService";
+import { removeIndexItem, updateIndexItem } from "./indexDMPService";
 
 
 /**
@@ -231,6 +232,60 @@ export async function buildDataCiteXMLForPlan(context: MyContext, plan: Plan, pr
   });
 
   return buildDataCiteXML(dataciteInput);
+}
+
+/**
+ * Handle truly asynchronous activity that should occur after a Plan is created/updated
+ * so we don't block the Apollo thread
+ *
+ * @param reference the string reference for logging
+ * @param context the Apollo server context
+ * @param plan the Plan
+ * @param project optional Project if already preloaded
+ */
+export const handleAsyncUpdates = async (
+  reference: string,
+  context: MyContext,
+  plan: Plan,
+  project?: Project,
+): Promise<void> => {
+  // Update the OpenSearch index
+  updateIndexItem(reference, context, plan, project)
+    .catch(err => {
+      context.logger.fatal({ planId: plan.id, err }, 'Index item in OpenSearch failed!');
+    });
+
+  // Update the maDMP record in Dynamo
+  saveMaDMPVersion(reference, context, plan.id, plan.dmpId)
+    .catch(err => {
+      context.logger.fatal({ planId: plan.id, err }, 'save maDMP JSON failed!');
+    });
+}
+
+/**
+ * Handle truly asynchronous activity that should occur after a Plan is deleted/archived
+ * so we don't block the Apollo thread
+ *
+ * @param reference the string reference for logging
+ * @param context the Apollo server context
+ * @param plan the Plan
+ */
+export const handleAsyncDeletes = async (
+  reference: string,
+  context: MyContext,
+  plan: Plan
+): Promise<void> => {
+  // Remove the OpenSearch index
+  removeIndexItem(reference, context, plan)
+    .catch(err => {
+      context.logger.fatal({ planId: plan.id, err }, 'Remove OpenSearch index item failed!');
+    });
+
+  // Remove the maDMP records from Dynamo
+  saveMaDMPVersion(reference, context, plan.id, plan.dmpId, true)
+    .catch(err => {
+      context.logger.fatal({ planId: plan.id, err }, 'Remove/Tomb-stone maDMP json failed!');
+    });
 }
 
 /**

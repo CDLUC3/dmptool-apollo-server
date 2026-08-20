@@ -37,6 +37,7 @@ services:
     volumes:
       - "./docker/redis:/var/lib/redis"
 
+  # OpenSearch stand-alone Domain used for related works matching
   opensearch:
     image: "opensearchproject/opensearch:1.3.20"
     container_name: opensearch
@@ -78,13 +79,22 @@ services:
       # LocalStack configuration: https://docs.localstack.cloud/references/configuration/
       - LOCALSTACK_AUTH_TOKEN=${LOCALSTACK_AUTH_TOKEN- }
       - DEBUG=${DEBUG:-0}
-      - SERVICES=ses,sqs,lambda,ssm,logs,events,dynamodb
+      - SERVICES=ses,sqs,lambda,ssm,logs,events,dynamodb,opensearch
+      - OPENSEARCH_PERFORMANCE_ANALYZER_ENABLED=false
+      - DISABLE_LOCALSTACK=0
     volumes:
       - "./docker/localstack:/var/lib/localstack"
       - "/var/run/docker.sock:/var/run/docker.sock"
       # Load local Lambda code and init-aws.sh startup scripts
       - "./localstack-setup:/etc/localstack/init/ready.d"
       - "./lambdas:/etc/lambda-code"
+    healthcheck:
+      # Check both gateway readiness AND ready.d script completion
+      test: [ "CMD", "bash", "-c", "[ \"$${DISABLE_LOCALSTACK:-0}\" = \"1\" ] || curl -f http://localhost:4566/_localstack/health | grep -q '\"s3\": \"running\"'" ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 15s
 
   # The Apollo server (GraphQL)
   apollo:
@@ -137,7 +147,7 @@ services:
 
       # OpenSearch Serverless used for all other search functionality
       # (we use the same OpenSearch instance in this local environment)
-      - "OPENSEARCH_SERVERLESS_NODE=http://opensearch:9200"
+      - "OPENSEARCH_SERVERLESS_NODE=http://localstack:4566"
 
       # LocalStack Port
       - "LOCALSTACK_PORT=4566"

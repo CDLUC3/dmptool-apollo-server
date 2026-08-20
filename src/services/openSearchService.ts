@@ -506,4 +506,3 @@ export const openSearchFindRe3DataSubjects = (context: MyContext, includeCount: 
 
 export const openSearchFindRe3DataRepositoryTypes = (context: MyContext, includeCount: boolean, maxResults: number) =>
   openSearchService.findRe3DataRepositoryTypes(context, includeCount, maxResults);
-

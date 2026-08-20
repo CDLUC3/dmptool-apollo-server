@@ -314,7 +314,6 @@ export const resolveNamingCollision = (
   return `${newValue} ${nextNumber}`;
 }
 
-
 export const getFutureDate = (millisecondsInFuture: number): string => {
   const futureDate = new Date(Date.now() + millisecondsInFuture);
   return formatISO9075(futureDate);

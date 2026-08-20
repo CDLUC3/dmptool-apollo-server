@@ -7,6 +7,7 @@ import { Logger } from "pino";
 import { MySQLConnection } from "../datasources/mysql";
 import { DMPHubAPI } from "../datasources/dmphubAPI";
 import { EZIDAPI } from "../datasources/EZIDAPI";
+import { OpenSearch } from "../datasources/openSearch";
 
 export async function attachApolloServer(
   apolloServer: ApolloServer,
@@ -16,6 +17,7 @@ export async function attachApolloServer(
   sqlDataSource: MySQLConnection,
   dmphubAPIDataSource: DMPHubAPI,
   ezidAPIDataSource: EZIDAPI,
+  openSearchServerlessDataSource: OpenSearch
 ) {
   const context = buildContext(
     logger,
@@ -23,7 +25,8 @@ export async function attachApolloServer(
     null,
     sqlDataSource,
     dmphubAPIDataSource,
-    ezidAPIDataSource
+    ezidAPIDataSource,
+    openSearchServerlessDataSource,
   );
   context.logger.info({}, 'Attaching Apollo server');
 
@@ -41,7 +44,8 @@ export async function attachApolloServer(
         req.auth as JWTAccessToken,
         sqlDataSource,
         dmphubAPIDataSource,
-        ezidAPIDataSource
+        ezidAPIDataSource,
+        openSearchServerlessDataSource
       );
     },
   });

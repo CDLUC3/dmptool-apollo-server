@@ -11,7 +11,7 @@ import { GraphQLError } from 'graphql';
 import { Plan } from '../models/Plan';
 import { ProjectCollaboratorAccessLevel } from "../models/Collaborator";
 import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
-import { saveMaDMPVersion } from "../services/planService";
+import { handleAsyncUpdates } from "../services/planService";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -140,8 +140,8 @@ export const resolvers: Resolvers = {
             if (updated && !updated.hasErrors()) {
               const plans = await Plan.findByProjectId(reference, context, funding.projectId);
               for (const plan of plans) {
-                // Update the maDMP version of the Plan
-                await saveMaDMPVersion(reference, context, plan.id, plan.dmpId);
+                // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+                await handleAsyncUpdates(reference, context, plan, project);
               }
             }
             return updated;
@@ -192,8 +192,8 @@ export const resolvers: Resolvers = {
             console.log("***Removed funding", removed);
             if (removed && !removed.hasErrors()) {
               for (const plan of plans) {
-                // Update the maDMP version of the Plan now that the funding is actually gone
-                await saveMaDMPVersion(reference, context, plan.id, plan.dmpId);
+                // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+                await handleAsyncUpdates(reference, context, plan, project);
               }
             }
             return removed;
@@ -257,8 +257,8 @@ export const resolvers: Resolvers = {
               returnedPlan.addError('general', failed);
             }
 
-            // Update the maDMP version of the Plan
-            await saveMaDMPVersion(reference, context, returnedPlan.id, returnedPlan.dmpId);
+            // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+            await handleAsyncUpdates(reference, context, plan, project);
 
             // We want to return the Plan and attach one set of errors for any failed fundings
             return returnedPlan;
@@ -338,8 +338,8 @@ export const resolvers: Resolvers = {
             context.logger.warn(`Plan funding update had issues: ${associationErrors.join(', ')}`);
           }
 
-          // Update the maDMP version of the Plan
-          await saveMaDMPVersion(reference, context, plan.id, plan.dmpId);
+          // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+          await handleAsyncUpdates(reference, context, plan, project);
 
           return await PlanFunding.findByPlanId(reference, context, plan.id);
         }
@@ -368,8 +368,8 @@ export const resolvers: Resolvers = {
             const deletedFunding = await funding.delete(context);
 
             if (deletedFunding && !deletedFunding.hasErrors()) {
-              // Update the maDMP version of the Plan
-              await saveMaDMPVersion(reference, context, plan.id, plan.dmpId);
+              // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+              await handleAsyncUpdates(reference, context, plan, project);
             }
 
             return deletedFunding;

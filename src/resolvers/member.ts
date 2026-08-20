@@ -8,7 +8,7 @@ import { MyContext } from '../context';
 import { isAuthorized } from '../services/authService';
 import { AuthenticationError, ForbiddenError, InternalServerError, NotFoundError } from '../utils/graphQLErrors';
 import { hasPermissionOnProject } from '../services/projectService';
-import { saveMaDMPVersion, updateMemberRoles } from '../services/planService';
+import { handleAsyncUpdates, updateMemberRoles } from '../services/planService';
 import { GraphQLError } from 'graphql';
 import { Plan } from '../models/Plan';
 import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
@@ -242,8 +242,8 @@ export const resolvers: Resolvers = {
               if (!updated.hasErrors()) {
                 const plans = await Plan.findByProjectId(reference, context, member.projectId);
                 for (const plan of plans) {
-                  // Update the maDMP version of the Plan
-                  await saveMaDMPVersion(reference, context, plan.id, plan.dmpId);
+                  // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+                  await handleAsyncUpdates(reference, context, plan, project);
                 }
               }
 
@@ -285,8 +285,8 @@ export const resolvers: Resolvers = {
             if (removed && !removed.hasErrors()) {
               const plans = await Plan.findByProjectId(reference, context, member.projectId);
               for (const plan of plans) {
-                // Update the maDMP version of the Plan
-                await saveMaDMPVersion(reference, context, plan.id, plan.dmpId);
+                // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+                await handleAsyncUpdates(reference, context, plan, project);
               }
             }
             return removed;
@@ -358,8 +358,11 @@ export const resolvers: Resolvers = {
               }
             }
 
-            // Update the maDMP version of the Plan
-            await saveMaDMPVersion(reference, context, plan.id, plan.dmpId);
+            // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+            // asynchronously so we don't block the Apollo thread
+            if (created && !created.hasErrors()) {
+              await handleAsyncUpdates(reference, context, plan, project);
+            }
 
             return created;
           }
@@ -440,14 +443,9 @@ export const resolvers: Resolvers = {
               }
 
               const plan = await Plan.findById(reference, context, planId);
-              if (plan) {
-                /*
-                // Version all of the plans (if any) and sync with the DMPHub
-                const planVersion = await updateVersion(context, plan, reference);
-                if (!planVersion || planVersion.hasErrors()) {
-                  member.addError("general", "Unable to version the plan");
-                }
-                 */
+              if (member && !member.hasErrors()) {
+                // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+                await handleAsyncUpdates(reference, context, plan, project);
               }
             }
 
@@ -484,8 +482,8 @@ export const resolvers: Resolvers = {
             if (removed && !removed.hasErrors()) {
               const plan = await Plan.findById(reference, context, member.planId);
               if (plan) {
-                // Update the maDMP version of the Plan
-                await saveMaDMPVersion(reference, context, plan.id, plan.dmpId);
+                // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+                await handleAsyncUpdates(reference, context, plan, project);
               }
             }
             return removed;

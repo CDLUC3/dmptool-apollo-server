@@ -8,7 +8,9 @@ import {
   parseDOI,
   AcceptedWork,
   RelatedWorkStatus,
-  WorkType
+  WorkType,
+  RelatedWorkSourceType,
+  RelationType
 } from '../RelatedWork';
 import { logger } from '../../logger';
 import { Plan } from '../Plan';
@@ -27,6 +29,7 @@ import {
   RelatedWorkStatsResults
 } from '../../types';
 import {
+  getMockDOI,
   getMockORCID,
   getMockROR,
   getRandomEnumValue
@@ -48,7 +51,7 @@ afterEach(() => {
 
 describe('AcceptedWork', () => {
   let localQuery: jest.Mock;
-  let work: AcceptedWork;
+  let acceptedWork: AcceptedWork;
 
   const authorNameParts: string[] = ["Jane", "Mildred", "Doe"];
 
@@ -85,9 +88,13 @@ describe('AcceptedWork', () => {
     errors: {},
 
     planId: casual.integer(1, 999),
-    doi: casual.url,
+    doi: getMockDOI(),
     workId: casual.integer(1, 999),
+    workVersionId: casual.integer(1, 999),
     workType: getRandomEnumValue(WorkType),
+    relationType: getRandomEnumValue(RelationType),
+    sourceType: getRandomEnumValue(RelatedWorkSourceType),
+
     publicationDate: casual.date('YYYY-MM-DD'),
     title: casual.title,
     abstractText: casual.sentence,
@@ -104,43 +111,79 @@ describe('AcceptedWork', () => {
     localQuery = jest.fn();
     (AcceptedWork.query as jest.Mock) = localQuery;
 
-    work = new AcceptedWork(workData);
+    acceptedWork = new AcceptedWork(workData);
   });
 
   it('should initialize options as expected', () => {
-    expect(work.doi).toEqual(workData.doi);
-    expect(work.planId).toEqual(workData.planId);
-    expect(work.workId).toEqual(workData.workId);
-    expect(work.workType).toEqual(workData.workType);
-    expect(work.publicationDate).toEqual(workData.publicationDate);
-    expect(work.title).toEqual(workData.title);
-    expect(work.abstractText).toEqual(workData.abstractText);
-    expect(work.authors).toEqual(workData.authors);
-    expect(work.institutions).toEqual(workData.institutions);
-    expect(work.funders).toEqual(workData.funders);
-    expect(work.awards).toEqual(workData.awards);
-    expect(work.publicationVenue).toEqual(workData.publicationVenue);
-    expect(work.sourceName).toEqual(workData.sourceName);
-    expect(work.sourceUrl).toEqual(workData.sourceUrl);
+    expect(acceptedWork.doi).toEqual(workData.doi);
+    expect(acceptedWork.planId).toEqual(workData.planId);
+    expect(acceptedWork.workId).toEqual(workData.workId);
+    expect(acceptedWork.workVersionId).toEqual(workData.workVersionId);
+    expect(acceptedWork.workType).toEqual(workData.workType);
+    expect(acceptedWork.relationType).toEqual(workData.relationType);
+    expect(acceptedWork.sourceType).toEqual(workData.sourceType);
+
+    expect(acceptedWork.publicationDate).toEqual(workData.publicationDate);
+    expect(acceptedWork.title).toEqual(workData.title);
+    expect(acceptedWork.abstractText).toEqual(workData.abstractText);
+    expect(acceptedWork.authors).toEqual(workData.authors);
+    expect(acceptedWork.institutions).toEqual(workData.institutions);
+    expect(acceptedWork.funders).toEqual(workData.funders);
+    expect(acceptedWork.awards).toEqual(workData.awards);
+    expect(acceptedWork.publicationVenue).toEqual(workData.publicationVenue);
+    expect(acceptedWork.sourceName).toEqual(workData.sourceName);
+    expect(acceptedWork.sourceUrl).toEqual(workData.sourceUrl);
+  });
+
+  it('findByPlanIdAndDoi should return the accepted work', async () => {
+    localQuery.mockResolvedValueOnce([acceptedWork]);
+    const result: AcceptedWork | null = await AcceptedWork.findByPlanIdAndDoi(
+      'testing',
+      context,
+      acceptedWork.planId,
+      acceptedWork.doi
+    );
+    const expectedSql = `SELECT rw.planId, w.doi, w.id AS workId, wv.id AS workVersionId,
+                   rw.id AS relatedWorkId, rw.relationType, wv.*
+                 FROM relatedWorks rw
+                   INNER JOIN workVersions wv ON rw.workVersionId = wv.id
+                   INNER JOIN works w ON wv.workId = w.id
+                 WHERE rw.status = ? AND rw.planId = ? AND w.doi = ?`;
+    const expectedVals: string[] = [RelatedWorkStatus.ACCEPTED, acceptedWork.planId.toString(), acceptedWork.doi];
+    expect(localQuery).toHaveBeenCalledTimes(1);
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, expectedVals, 'testing');
+    expect(result).toEqual(acceptedWork);
+  });
+
+  it('findByPlanIdAndDoi should return null if it is not found', async () => {
+    localQuery.mockResolvedValueOnce([]);
+    const result: AcceptedWork | null = await AcceptedWork.findByPlanIdAndDoi(
+      'testing',
+      context,
+      acceptedWork.planId,
+      acceptedWork.doi
+    );
+    expect(result).toEqual(null);
   });
 
   it('findByPlanId should return the accepted works', async () => {
-    localQuery.mockResolvedValueOnce([work]);
-    const result = await AcceptedWork.findByPlanId('testing', context, work.planId);
-    const expectedSql = `SELECT rw.planId, w.doi, wv.*
+    localQuery.mockResolvedValueOnce([acceptedWork]);
+    const result = await AcceptedWork.findByPlanId('testing', context, acceptedWork.planId);
+    const expectedSql = `SELECT rw.planId, w.doi, w.id AS workId, wv.id AS workVersionId,
+                   rw.id AS relatedWorkId, rw.relationType, wv.*
                  FROM relatedWorks rw
                    INNER JOIN workVersions wv ON rw.workVersionId = wv.id
                    INNER JOIN works w ON wv.workId = w.id
                  WHERE rw.status = ? AND rw.planId = ?`;
-    const expectedVals: string[] = [RelatedWorkStatus.ACCEPTED, work.planId.toString()];
+    const expectedVals: string[] = [RelatedWorkStatus.ACCEPTED, acceptedWork.planId.toString()];
     expect(localQuery).toHaveBeenCalledTimes(1);
     expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, expectedVals, 'testing');
-    expect(result).toEqual([work]);
+    expect(result).toEqual([acceptedWork]);
   });
 
   it('findByPlanId should return empty array if it finds no works', async () => {
     localQuery.mockResolvedValueOnce([]);
-    const result = await AcceptedWork.findByPlanId('testing', context, work.planId);
+    const result = await AcceptedWork.findByPlanId('testing', context, acceptedWork.planId);
     expect(result).toEqual([]);
   });
 });
@@ -646,6 +689,7 @@ describe('RelatedWork', () => {
   it('should initialize options as expected', () => {
     expect(relatedWork.planId).toEqual(relatedWorkData.planId);
     expect(relatedWork.workVersionId).toEqual(relatedWorkData.workVersionId);
+    expect(relatedWork.relationType).toEqual(RelationType.REFERENCES);
     expect(relatedWork.sourceType).toEqual(relatedWorkData.sourceType);
     expect(relatedWork.score).toEqual(relatedWorkData.score);
     expect(relatedWork.scoreMax).toEqual(relatedWorkData.scoreMax);

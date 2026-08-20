@@ -187,7 +187,6 @@ export class WorkVersion extends MySqlModel {
     // First make sure the record is valid
     if (await this.isValid()) {
       const current = await WorkVersion.findByDoiAndHash(reference, context, doi, this.hash);
-
       // Then make sure it doesn't already exist
       if (current) {
         this.addError('general', 'Work version already exists');
@@ -241,6 +240,7 @@ export class WorkVersion extends MySqlModel {
     return Array.isArray(results) && results.length > 0 ? new WorkVersion(results[0]) : null;
   }
 
+  // Fetch the WorkVersion by its DOI and unique hash
   static async findByDoiAndHash(
     reference: string,
     context: MyContext,
@@ -251,11 +251,19 @@ export class WorkVersion extends MySqlModel {
     const results = await WorkVersion.query(context, sql, [hash, doi?.toString()], reference);
     return Array.isArray(results) && results.length > 0 ? new WorkVersion(results[0]) : null;
   }
+
+  // Fetch the latest WorkVersion for a DOI
+  static async findLatestByDoi(reference: string, context: MyContext, doi: string) : Promise<WorkVersion> {
+    const sql = `SELECT wv.* FROM workVersions wv LEFT JOIN works w ON wv.workId = w.id WHERE w.doi = ? ORDER BY wv.created DESC LIMIT 1`;
+    const results = await WorkVersion.query(context, sql, [doi?.toString()], reference);
+    return Array.isArray(results) && results.length > 0 ? new WorkVersion(results[0]) : null;
+  }
 }
 
 export class RelatedWork extends MySqlModel {
   public planId: number;
   public workVersionId: number;
+  public relationType: RelationType;
   public sourceType: RelatedWorkSourceType;
   public score: number;
   public scoreMax: number;
@@ -274,6 +282,7 @@ export class RelatedWork extends MySqlModel {
 
     this.planId = options.planId;
     this.workVersionId = options.workVersionId;
+    this.relationType = options.relationType || RelationType.REFERENCES;
     this.sourceType = options.sourceType;
     this.score = options.score;
     this.scoreMax = options.scoreMax;
@@ -750,18 +759,22 @@ export class AcceptedWork extends MySqlModel {
   public planId: number;
   public doi: string;
   public workId: number;
-  public hash: Buffer;
+  public workVersionId: number;
+  public relatedWorkId: number;
   public workType: WorkType;
-  public publicationDate: string;
-  public title: string;
-  public abstractText: string;
-  public authors: Author[];
-  public institutions: Institution[];
-  public funders: Funder[];
-  public awards: Award[];
-  public publicationVenue: string;
-  public sourceName: string;
-  public sourceUrl: string;
+  public relationType: RelationType;
+  public sourceType: RelatedWorkSourceType;
+
+  public publicationDate?: string;
+  public title?: string;
+  public abstractText?: string;
+  public authors?: Author[];
+  public institutions?: Institution[];
+  public funders?: Funder[];
+  public awards?: Award[];
+  public publicationVenue?: string;
+  public sourceName?: string;
+  public sourceUrl?: string;
 
   constructor(options) {
     super(options.id, options.created, options.createdById, options.modified, options.modifiedById, options.errors);
@@ -769,8 +782,12 @@ export class AcceptedWork extends MySqlModel {
     this.planId = options.planId;
     this.doi = options.doi;
     this.workId = options.workId;
-    this.hash = options.hash;
-    this.workType = options.workType;
+    this.workVersionId = options.workVersionId;
+    this.relatedWorkId = options.relatedWorkId;
+    this.workType = options.workType || WorkType.TEXT;
+    this.relationType = options.relationType || RelationType.REFERENCES;
+    this.sourceType = options.sourceType || RelatedWorkSourceType.USER_ADDED;
+
     this.publicationDate = options.publicationDate;
     this.title = options.title;
     this.abstractText = options.abstractText;
@@ -783,8 +800,23 @@ export class AcceptedWork extends MySqlModel {
     this.sourceUrl = options.sourceUrl;
   }
 
+  // Find a specific AcceptedWork by Plan and DOI
+  static async findByPlanIdAndDoi(reference: string, context: MyContext, planId: number, doi: string): Promise<AcceptedWork> {
+    const sql = `SELECT rw.planId, w.doi, w.id AS workId, wv.id AS workVersionId,
+                   rw.id AS relatedWorkId, rw.relationType, wv.*
+                 FROM relatedWorks rw
+                   INNER JOIN workVersions wv ON rw.workVersionId = wv.id
+                   INNER JOIN works w ON wv.workId = w.id
+                 WHERE rw.status = ? AND rw.planId = ? AND w.doi = ?`;
+    const vals: string[] = [RelatedWorkStatus.ACCEPTED, planId.toString(), doi];
+    const result = await AcceptedWork.query(context, sql, vals, reference);
+    return Array.isArray(result) && result.length > 0 ? new AcceptedWork(result[0]) : null;
+  }
+
+  // Find all the AcceptedWorks for a Plan
   static async findByPlanId(reference: string, context: MyContext, planId: number): Promise<AcceptedWork[]> {
-    const sql = `SELECT rw.planId, w.doi, wv.*
+    const sql = `SELECT rw.planId, w.doi, w.id AS workId, wv.id AS workVersionId,
+                   rw.id AS relatedWorkId, rw.relationType, wv.*
                  FROM relatedWorks rw
                    INNER JOIN workVersions wv ON rw.workVersionId = wv.id
                    INNER JOIN works w ON wv.workId = w.id
@@ -829,6 +861,45 @@ export enum WorkType {
   SUPPLEMENTARY_MATERIALS = 'SUPPLEMENTARY_MATERIALS',
   TEXT = 'TEXT',
   WORKFLOW = 'WORKFLOW',
+}
+
+export enum RelationType {
+  IS_CITED_BY = 'IS_CITED_BY',
+  CITES = 'CITES',
+  IS_SUPPLEMENT_TO = 'IS_SUPPLEMENT_TO',
+  IS_SUPPLEMENTED_BY = 'IS_SUPPLEMENTED_BY',
+  IS_CONTINUED_BY = 'IS_CONTINUED_BY',
+  CONTINUES = 'CONTINUES',
+  DESCRIBES = 'DESCRIBES',
+  IS_DESCRIBED_BY = 'IS_DESCRIBED_BY',
+  HAS_METADATA = 'HAS_METADATA',
+  IS_METADATA_FOR = 'IS_METADATA_FOR',
+  HAS_VERSION = 'HAS_VERSION',
+  IS_VERSION_OF = 'IS_VERSION_OF',
+  IS_NEW_VERSION_OF = 'IS_NEW_VERSION_OF',
+  IS_PREVIOUS_VERSION_OF = 'IS_PREVIOUS_VERSION_OF',
+  IS_PART_OF = 'IS_PART_OF',
+  HAS_PART = 'HAS_PART',
+  IS_PUBLISHED_IN = 'IS_PUBLISHED_IN',
+  IS_REFERENCED_BY = 'IS_REFERENCED_BY',
+  REFERENCES = 'REFERENCES',
+  IS_DOCUMENTED_BY = 'IS_DOCUMENTED_BY',
+  DOCUMENTS = 'DOCUMENTS',
+  IS_COMPILED_BY = 'IS_COMPILED_BY',
+  COMPILES = 'COMPILES',
+  IS_VARIANT_FORM_OF = 'IS_VARIANT_FORM_OF',
+  IS_ORIGINAL_FORM_OF = 'IS_ORIGINAL_FORM_OF',
+  IS_IDENTICAL_TO = 'IS_IDENTICAL_TO',
+  IS_REVIEWED_BY = 'IS_REVIEWED_BY',
+  REVIEWS = 'REVIEWS',
+  IS_DERIVED_FROM = 'IS_DERIVED_FROM',
+  IS_SOURCE_OF = 'IS_SOURCE_OF',
+  IS_REQUIRED_BY = 'IS_REQUIRED_BY',
+  REQUIRES = 'REQUIRES',
+  OBSOLETES = 'OBSOLETES',
+  IS_OBSOLETED_BY = 'IS_OBSOLETED_BY',
+  IS_COLLECTED_BY = 'IS_COLLECTED_BY',
+  COLLECTS = 'COLLECTS',
 }
 
 export enum RelatedWorkStatus {

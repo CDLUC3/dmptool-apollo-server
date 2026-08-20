@@ -50,6 +50,7 @@ services:
       - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m" # Set min and max JVM heap sizes
       - "DISABLE_INSTALL_DEMO_CONFIG=true" # Prevents execution of bundled demo script which installs demo certificates and security configurations to OpenSearch
       - "DISABLE_SECURITY_PLUGIN=true"
+    command: ["opensearch", "-Elogger.level=WARN"]
     volumes:
       - "./docker/opensearch:/usr/share/opensearch/data"
     ports:
@@ -80,7 +81,8 @@ services:
       - LOCALSTACK_AUTH_TOKEN=${LOCALSTACK_AUTH_TOKEN- }
       - DEBUG=${DEBUG:-0}
       - SERVICES=ses,sqs,lambda,ssm,logs,events,dynamodb,opensearch
-      - OPENSEARCH_PERFORMANCE_ANALYZER_ENABLED=false
+      - "OPENSEARCH_PERFORMANCE_ANALYZER_ENABLED=false"
+      - LS_LOG=WARN
       - DISABLE_LOCALSTACK=0
     volumes:
       - "./docker/localstack:/var/lib/localstack"

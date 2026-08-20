@@ -230,6 +230,9 @@ export const typeDefs = gql`
     "Alternate identifiers for the plan"
     alternateIdentifiers: [AlternateIdentifier!]
 
+    "Related works that have been accepted/verified as associated with the plan"
+    acceptedWorks: [AcceptedWork!]
+
     "Indicates that the plan is not editable by the user (i.e. readOnly = true means the user cannot edit the plan)"
     readOnly: Boolean
   }
@@ -292,7 +295,7 @@ export const typeDefs = gql`
     members: String
     funding: String
     alternateIdentifiers: String
-    relatedWorks: String
+    acceptedWorks: String
   }
 
   "A version of the plan"
@@ -351,6 +354,13 @@ export const typeDefs = gql`
     versionedCustomQuestion: Int
   }
 
+  "Input to create/replace an Accepted Work"
+  input EntirePlanAcceptedWorkFragment {
+    doi: String!
+    workType: WorkType!
+    relationType: RelationType!
+  }
+
   "Input to create an entire Plan (and Project if applicable)"
   input AddEntirePlanInput {
     "The title of the plan"
@@ -377,6 +387,9 @@ export const typeDefs = gql`
     funding: [EntirePlanFundingFragment!]
     "The answers to the questions in the plan's narrative"
     answers: [EntirePlanAnswerFragment!]
+
+    "Related Works associated with the plan"
+    acceptedWorks: [EntirePlanAcceptedWorkFragment!]
   }
 
   "Input to update an entire Project and Plan"
@@ -406,6 +419,9 @@ export const typeDefs = gql`
     funding: [EntirePlanFundingFragment!]
     "The answers to the questions in the plan's narrative"
     answers: [EntirePlanAnswerFragment!]
+
+    "Related Works associated with the plan"
+    acceptedWorks: [EntirePlanAcceptedWorkFragment!]
   }
 
 `;

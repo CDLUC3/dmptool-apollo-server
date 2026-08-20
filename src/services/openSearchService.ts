@@ -5,7 +5,9 @@ import { awsConfig } from '../config/awsConfig';
 import { prepareObjectForLogs } from '../logger';
 import {
   createOpenSearchClient,
-  createOpenSearchServerlessClient, OpenSearchConfig, OpenSearchServerlessConfig
+  createOpenSearchServerlessClient,
+  OpenSearchConfig,
+  OpenSearchServerlessConfig
 } from "../datasources/openSearch";
 import {
   OpenSearchRe3DataRecord,

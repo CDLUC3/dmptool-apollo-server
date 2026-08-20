@@ -39,6 +39,11 @@ jest.mock('../planService', () => ({
   ensureDefaultPlanContact: jest.fn().mockResolvedValue(true),
 }));
 
+
+jest.mock('../openSearchService', () => ({
+  openSearchFindWorkByIdentifier: jest.fn().mockResolvedValue([]),
+}));
+
 describe('entirePlanService', () => {
   let context;
   let project: Project;

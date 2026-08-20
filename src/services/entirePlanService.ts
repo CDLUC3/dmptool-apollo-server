@@ -17,10 +17,15 @@ import { PlanFunding, ProjectFunding, ProjectFundingStatus } from "../models/Fun
 import {
   AddEntirePlanInput,
   EntirePlanFundingFragment,
-  EntirePlanMemberFragment, EntirePlanProjectFragment,
-  UpdateEntirePlanInput
+  EntirePlanMemberFragment,
+  EntirePlanProjectFragment,
+  EntirePlanAcceptedWorkFragment,
+  UpdateEntirePlanInput, OpenSearchWork, AddRelatedWorkManualInput
 } from "../types";
 import { BadRequestError, InternalServerError } from "../utils/graphQLErrors";
+import { AcceptedWork } from "../models/RelatedWork";
+import { openSearchFindWorkByIdentifier } from "./openSearchService";
+import { addAcceptedWork, removeAcceptedWork } from "./relatedWorkService";
 
 interface LogBase {
   ref: string;
@@ -629,6 +634,96 @@ const processAlternateIdentifiers = async (
 }
 
 /**
+ * Add/Update Accepted Works and Remove any that are no longer present
+ *
+ * @param ref the string reference for logging
+ * @param context the Apollo server context
+ * @param plan the Plan
+ * @param acceptedWorks the array of accepted works
+ * @returns a string of errors if there were any or undefined
+ */
+const processAcceptedWorks = async (
+  ref: string,
+  context: MyContext,
+  plan: Plan,
+  acceptedWorks: EntirePlanAcceptedWorkFragment[]
+): Promise<string | undefined> => {
+  if (!acceptedWorks || acceptedWorks.length === 0) return undefined;
+
+  const errs: string[] = [];
+  const currentEntries: AcceptedWork[] = await AcceptedWork.findByPlanId(
+    ref,
+    context,
+    plan.id
+  );
+
+  const currentIds: string[] = currentEntries.map((entry: AcceptedWork) => {
+    return entry.doi;
+  }).filter(Boolean);
+
+  const idsIn: string[] = acceptedWorks.map((entry: EntirePlanAcceptedWorkFragment) => {
+    return entry.doi;
+  });
+
+  const { idsToBeRemoved, idsToBeSaved } = Plan.reconcileAssociationIds(currentIds, idsIn);
+
+console.log('HUH?')
+console.log(idsToBeRemoved, idsToBeSaved);
+
+  // Add any new ones
+  for (const id of idsToBeSaved) {
+    const toSave: EntirePlanAcceptedWorkFragment = acceptedWorks.find((work: EntirePlanAcceptedWorkFragment): boolean => {
+      return work.doi === id.toString();
+    });
+
+    // Attempt to find the DOI in the dmp works OpenSearch index
+    const openSearchWorks: OpenSearchWork[] =  await openSearchFindWorkByIdentifier(
+      ref,
+      context,
+      id.toString(),
+      1,
+    );
+    // If we didn't find it, initialize a new one
+    const relatedWork: OpenSearchWork = openSearchWorks.length > 0
+      ? openSearchWorks[0]
+      : {
+          workType: toSave.workType,
+          doi: toSave.doi,
+          hash: '',
+          authors: [],
+          awards: [],
+          institutions: [],
+          funders: [],
+          source: { name: 'API' }
+       };
+
+    const newId: AcceptedWork = await addAcceptedWork(
+      ref,
+      context,
+      plan,
+      { ...relatedWork, sourceName: 'API', sourceUrl: toSave.doi } as AddRelatedWorkManualInput
+    );
+    if (newId.hasErrors()) {
+      errs.push(`Unable to add accepted work ${id}`);
+    }
+  }
+
+  // Delete any that are no longer there
+  for (const id of idsToBeRemoved) {
+    const idToRemove: AcceptedWork = await removeAcceptedWork(
+      ref,
+      context,
+      plan,
+      id.toString()
+    );
+    if (idToRemove.hasErrors()) {
+      errs.push(`Unable to delete accepted work ${id}`);
+    }
+  }
+  return errs.join(', ');
+}
+
+/**
  * Process all objects associated with the Entire Plan functions
  *
  * @param reference the string reference for logging
@@ -681,11 +776,16 @@ const processAssociatedObjectForEntirePlan = async (
     plan.addError('funding', fundingErrors);
   }
 
-  // 7th: Save any related works
-
-
-  // 8th: Save the narrative answers
-
+  // 4th: Save any related works
+  const workErrors: string = await processAcceptedWorks(
+    reference,
+    context,
+    plan,
+    input.acceptedWorks || []
+  );
+  if (workErrors) {
+    plan.addError('acceptedWorks', workErrors);
+  }
 }
 
 /**

@@ -605,15 +605,22 @@ export const resolvers: Resolvers = {
               context,
               input.alternateIdentifiers
             );
-            if ((await Plan.findById(ref, context, altId.planId))) {
+            if (altId) {
               throw BadUserInputError('A plan with the specified alternate identifier(s) already exists.');
             }
           }
 
           // Add the Plan within a database transaction
-          return await context.dataSources.sqlDataSource.withTransaction(context, async (): Promise<Plan> => {
+          const newPlan: Plan | undefined = await context.dataSources.sqlDataSource.withTransaction(context, async (): Promise<Plan> => {
             return await addEntirePlan(ref, context, input, plan);
           });
+
+          if (newPlan) {
+            // Push the maDMP info into Dynamo
+            await saveMaDMPVersion(ref, context, newPlan.id, newPlan.dmpId);
+          }
+
+          return newPlan;
         } catch (error) {
           if (error instanceof GraphQLError) {
             if (error.extensions?.code === 'BAD_REQUEST') {
@@ -673,9 +680,14 @@ export const resolvers: Resolvers = {
         if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.EDIT)) {
           try {
             // Add the Plan within a database transaction
-            return await context.dataSources.sqlDataSource.withTransaction(context, async (): Promise<Plan> => {
+            const updatedPlan: Plan | undefined = await context.dataSources.sqlDataSource.withTransaction(context, async (): Promise<Plan> => {
               return await replaceEntirePlan(ref, context, project, plan, input);
             });
+
+            if (updatedPlan) {
+              // Push the maDMP info into Dynamo
+              await saveMaDMPVersion(ref, context, updatedPlan.id, updatedPlan.dmpId);
+            }
           } catch (error) {
             if (error instanceof GraphQLError) {
               if (error.extensions?.code === 'BAD_REQUEST') {

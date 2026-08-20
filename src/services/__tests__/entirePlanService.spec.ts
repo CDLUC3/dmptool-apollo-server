@@ -152,6 +152,7 @@ describe('entirePlanService', () => {
       setupAssociationDefaults();
       const roleOne = makeRole(1, 'One');
       const roleTwo = makeRole(2, 'Two');
+      jest.spyOn(ProjectMember, 'findPrimaryContact').mockResolvedValue(null);
       jest
         .spyOn(MemberRole, 'findByURL')
         .mockResolvedValueOnce(roleOne)

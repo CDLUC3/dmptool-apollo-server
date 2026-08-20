@@ -407,7 +407,7 @@ export class PlanSectionProgress {
   static async findByPlanId(reference: string, context: MyContext, planId: number, versionedTemplateId?: number): Promise<PlanSectionProgress[]> {
     // First fetch base sections and their question counts, which we will use as the foundation to build out the full section list with custom sections
     // and adjusted question counts.
-    // COALESCE(questionTagAgg.tags, sectionTagAgg.tags, JSON_ARRAY()) ensures that we try and use question tags first, then section tags, and 
+    // COALESCE(questionTagAgg.tags, sectionTagAgg.tags, JSON_ARRAY()) ensures that we try and use question tags first, then section tags, and
     // if neither exist we return an empty array for the tags field.
     const sql = `SELECT
       vs.id AS versionedSectionId,

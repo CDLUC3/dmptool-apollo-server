@@ -40,6 +40,9 @@ import {
   UpdateEntirePlanInput
 } from "../types";
 import { prepareObjectForLogs } from "../logger";
+import { toErrorMessage } from "@dmptool/utils";
+import { MemberRole } from "../models/MemberRole";
+import { AcceptedWork } from "../models/RelatedWork";
 // Services
 import {
   buildDataCiteXMLForPlan,
@@ -63,8 +66,6 @@ import {
   removeEntirePlan,
   replaceEntirePlan
 } from "../services/entirePlanService";
-import { toErrorMessage } from "@dmptool/utils";
-import { MemberRole } from "../models/MemberRole";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -842,6 +843,12 @@ export const resolvers: Resolvers = {
     alternateIdentifiers: async (parent: Plan, _, context: MyContext): Promise<AlternateIdentifier[]> => {
       if (parent?.id) {
         return await AlternateIdentifier.findByPlanId('plan alternateIdentifiers chained resolver', context, parent.id);
+      }
+      return [];
+    },
+    acceptedWorks: async (parent: Plan, _, context: MyContext): Promise<AcceptedWork[]> => {
+      if (parent?.id) {
+        return await AcceptedWork.findByPlanId('plan acceptedWorks chained resolver', context, parent.id);
       }
       return [];
     },

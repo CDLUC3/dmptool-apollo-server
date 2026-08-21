@@ -184,22 +184,22 @@ export const typeDefs = gql`
   "Represents a Related Work that has been accepted/verified as an association to a Plan"
   type AcceptedWork {
     "The Work Version id"
-    id: Int!
+    id: Int
     "The Digital Object Identifier (DOI) of the work"
-    doi: String!
+    doi: String
     "The timestamp when the Object was created"
-    created: String!
+    created: String
     "The user who created the Object. Null if the work was automatically found"
     createdById: Int
     "The timestamp when the Object was last modified"
-    modified: String!
+    modified: String
     "The user who last modified the Object"
     modifiedById: Int
 
     "The id of the Plan the work is associated with"
-    planId: Int!
+    planId: Int
     "The id of the underlying Related Work"
-    relatedWorkId: Int!
+    relatedWorkId: Int
 
     "The type of the work"
     workType: WorkType
@@ -222,7 +222,7 @@ export const typeDefs = gql`
     "The venue where the work was published, e.g. IEEE Transactions on Software Engineering, Zenodo etc"
     publicationVenue: String
     "The name of the source where the work was found"
-    sourceName: String!
+    sourceName: String
     "The URL for the source of the work"
     sourceUrl: String
   }

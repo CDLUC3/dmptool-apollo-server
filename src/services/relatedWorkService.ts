@@ -50,7 +50,6 @@ export const addAcceptedWork = async (
   if (!workVersion) {
     workVersion = new WorkVersion({
       ...input,
-      planId: plan.id,
       workId: work.id,
       hash: Buffer.from(osHash, 'hex')
     });
@@ -63,7 +62,7 @@ export const addAcceptedWork = async (
   // Create related work
   if (!acceptedWork.hasErrors()) {
     let relatedWork = new RelatedWork({
-      planId: input.planId,
+      planId: plan.id,
       workVersionId: workVersion.id,
       status: 'ACCEPTED',
       score: 1.0,

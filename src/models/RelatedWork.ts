@@ -41,8 +41,8 @@ export class Work extends MySqlModel {
   }
 
   prepForSave(): void {
-    // Only store the DOI identifier not full URL
-    this.doi = parseDOI(this.doi);
+    // Only store the DOI identifier not full URL if it's a DOI
+    this.doi = this.doi?.toLowerCase()?.includes('doi') ? parseDOI(this.doi) : this.doi?.trim();
   }
 
   async create(context: MyContext): Promise<Work> {

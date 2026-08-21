@@ -2,7 +2,7 @@ import { GraphQLError } from "graphql";
 import { toErrorMessage } from "@dmptool/utils";
 import { MyContext } from "../context";
 import { prepareObjectForLogs } from "../logger";
-import {ensureDefaultPlanContact } from "./planService";
+import {ensureDefaultPlanContact, updateMemberRoles} from "./planService";
 import { ensureDefaultProjectContact, setCurrentUserAsProjectOwner } from "./projectService";
 import { AlternateIdentifier } from "../models/AlternateIdentifier";
 import { defaultLanguageId } from "../models/Language";
@@ -73,7 +73,7 @@ interface ReconciliationHandlerContext {
   currentPlanObj: PlanAssociationType;
   isShared: boolean;
   logName: string;
-  errors: string[];
+  errors: Set<string>;
 }
 
 interface AssociationReconcilerConfig {
@@ -115,9 +115,9 @@ const reconcileAssociations = (
   );
 
   const reconciled: ReconciledAssociation<AssociationInputType, ProjectAssociationType>[] = incomingObjs.map((obj: ProjectAssociationType) => {
-    const shouldBeSaved = obj.id ? idsToBeSaved.includes(obj.id) : false;
+    const shouldBeAdded = obj.id ? !idsToBeSaved.includes(obj.id) : true;
     return {
-      action: shouldBeSaved ? 'update' : 'add',
+      action: shouldBeAdded ? 'add' : 'update',
       input: inputsMapByProjectObj.get(obj),
       existingProjectObj: obj,
       id: obj.id,
@@ -149,7 +149,7 @@ const processAssociations  = async (
   config: AssociationReconcilerConfig
 ): Promise<string | undefined> => {
   const { reference, context, project, plan } = processingContext;
-  const errors: string[] = [];
+  const errors = new Set<string>();
 
   const [currentPlanObjs, currentProjectObjs] = await Promise.all([
     config.fetchPlanObjs(plan.id),
@@ -175,6 +175,7 @@ const processAssociations  = async (
   for (const item of items) {
     const input: AssociationInputType = item.input;
     const currentProjectObj: ProjectAssociationType = item.existingProjectObj || (item.existingProjectObj as ProjectAssociationType);
+
     const currentPlanObj: PlanAssociationType = currentPlanObjs.find(
       (m: PlanAssociationType): boolean => config.getPlanObjProjectObjId(m) === item.id
     );
@@ -210,7 +211,7 @@ const processAssociations  = async (
     }
   }
 
-  return errors.length ? errors.join(', ') : undefined;
+  return errors.size ? Array.from(errors).join(', ') : undefined;
 }
 
 /**
@@ -249,7 +250,7 @@ export const processMemberAssociations = async(
         return ProjectMember.findByProjectId(reference, context, id);
       },
       findOrCreateProjectObj: async (m: EntirePlanMemberFragment): Promise<ProjectMember> => {
-        const member: ProjectMember = m.projectMemberId
+        let member: ProjectMember = m.projectMemberId
           ? await ProjectMember.findById(reference, context, m.projectMemberId)
           : await ProjectMember.findByProjectAndNameOrORCIDOrEmail(
             reference,
@@ -260,7 +261,15 @@ export const processMemberAssociations = async(
             m.orcid,
             m.email
           );
-        return member || new ProjectMember(m);
+        if (!member) member = new ProjectMember(m);
+
+        // The MemberRoles are not loaded with the MemberRole, so we need to load them here
+        // if the member already exists, otherwise we will just use the default role
+        member.memberRoles = member.id
+          ? await MemberRole.findByProjectMemberId(reference, context, member.id)
+          : [await MemberRole.defaultRole(context)];
+
+        return member;
       },
       getPlanObjProjectObjId: (pm: PlanMember): number => pm.projectMemberId,
       isUsedByOtherPlans: async (id: number): Promise<boolean> => {
@@ -283,7 +292,6 @@ export const processMemberAssociations = async(
         errors
       }: ReconciliationHandlerContext): Promise<void> => {
         const pMemberIn = input as EntirePlanMemberFragment;
-
         // Add the project member first
         const newProjMember: ProjectMember = await new ProjectMember({
           projectId: project.id,
@@ -295,7 +303,7 @@ export const processMemberAssociations = async(
         }).create(context, project.id);
 
         if (!newProjMember || newProjMember.hasErrors()) {
-          errors.push(`Unable to add new project member: ${logName}`);
+          errors.add(`Unable to add new project member: ${logName}`);
           return;
 
         } else {
@@ -318,7 +326,7 @@ export const processMemberAssociations = async(
             if (role) {
               const addedRole: boolean = await role.addToProjectMember(context, newProjMember.id);
               if (!addedRole) {
-                errors.push(`Unable to add new role ${role.label} to project member: ${logName}`);
+                errors.add(`Unable to add new role ${role.label} to project member: ${logName}`);
               }
             }
           }
@@ -332,7 +340,7 @@ export const processMemberAssociations = async(
           });
           const created: PlanMember = await newPlanMember.create(context);
           if (created.hasErrors()) {
-            errors.push(`Unable to add new plan member: ${logName}`);
+            errors.add(`Unable to add new plan member: ${logName}`);
 
           } else {
             // Add the roles to the new plan member
@@ -340,7 +348,7 @@ export const processMemberAssociations = async(
               if (role) {
                 const addedRole: boolean = await role.addToPlanMember(context, created.id);
                 if (!addedRole) {
-                  errors.push(`Unable to add new role ${role.label} to plan member: ${logName}`);
+                  errors.add(`Unable to add new role ${role.label} to plan member: ${logName}`);
                 }
               }
             }
@@ -360,14 +368,14 @@ export const processMemberAssociations = async(
         const cPlanObj = currentPlanObj as PlanMember;
         const removedPlan: PlanMember = await cPlanObj.delete(context);
         if (removedPlan.hasErrors()) {
-          errors.push(`Unable to delete plan member ${logName}`);
+          errors.add(`Unable to delete plan member ${logName}`);
 
         } else {
           // Remove the project member if it is NOT shared with other plans
           if (!isShared) {
             const cProjObj = currentProjectObj as ProjectMember;
             const removedProj: ProjectMember = await cProjObj.delete(context);
-            if (removedProj.hasErrors()) errors.push(`Unable to delete project member ${logName}`);
+            if (removedProj.hasErrors()) errors.add(`Unable to delete project member ${logName}`);
           }
         }
       },
@@ -384,7 +392,23 @@ export const processMemberAssociations = async(
       }: ReconciliationHandlerContext) => {
         const inObj = input as EntirePlanMemberFragment;
 
-        const cPlanObj = currentPlanObj as PlanMember;
+        // It's possible for the ProjectMember to exist, but the PlanMember does not
+        const cPlanObj: PlanMember = currentPlanObj
+          ? currentPlanObj as PlanMember
+          : new PlanMember({
+              planId: plan.id,
+              projectMemberId: currentProjectObj?.id,
+              memberRoleIds: []
+            });
+
+        // The PlanMembers do not load with their MemberRoles, so we need to load them here
+        const planMemberRoles: MemberRole[] = await MemberRole.findByPlanMemberId(
+          reference,
+          context,
+          cPlanObj.id
+        );
+        cPlanObj.memberRoleIds = planMemberRoles.map((role: MemberRole): number => role.id);
+
         const cProjObj = currentProjectObj as ProjectMember;
 
         const incomingRoles: MemberRole[] = (
@@ -406,14 +430,22 @@ export const processMemberAssociations = async(
           if (!projRoleIds.includes(role.id)) {
             const addedToProj: boolean = await role.addToProjectMember(context, cProjObj.id);
             if (!addedToProj) {
-              errors.push(`Unable to add role ${role.label} to project member ${logName}`);
+              errors.add(`Unable to add role ${role.label} to project member ${logName}`);
             }
           }
 
-          // Add the role to the plan member
-          const wasAdded = await role.addToPlanMember(context, cPlanObj.id);
-          if (!wasAdded) {
-            errors.push(`Unable to add role ${role.label} to plan member ${logName}`);
+          // Consolidate the MemberRoles for the PlanMember
+          const { errors: roleUpdateErrors } = await updateMemberRoles(
+            reference,
+            context,
+            cPlanObj.id,
+            cPlanObj.memberRoleIds,
+            incomingRoleIds
+          );
+          if (Array.isArray(roleUpdateErrors) && roleUpdateErrors.length > 0) {
+            for (const roleUpdateError of roleUpdateErrors) {
+              errors.add(roleUpdateError);
+            }
           }
         }
 
@@ -424,7 +456,7 @@ export const processMemberAssociations = async(
         cProjObj.orcid = inObj.orcid;
         cProjObj.email = inObj.email;
         const updProj: ProjectMember = await cProjObj.update(context, true);
-        if (updProj.hasErrors()) errors.push(`Unable to update project member ${logName}`);
+        if (updProj.hasErrors()) errors.add(`Unable to update project member ${logName}`);
 
         // If the project member is NOT shared with other plans, remove any roles
         // that are no longer there
@@ -433,7 +465,7 @@ export const processMemberAssociations = async(
             if (!incomingRoleIds.includes(role.id)) {
               const wasRemoved: boolean = await role.removeFromProjectMember(context, cProjObj.id);
               if (!wasRemoved) {
-                errors.push(`Unable to remove role ${role.label} from project member ${logName}`);
+                errors.add(`Unable to remove role ${role.label} from project member ${logName}`);
               }
             }
           }
@@ -521,7 +553,7 @@ export const processFundingAssociations = async(
           grantId: pFundingIn?.grantId,
         }).create(context, project.id);
         if (!newProjFunding || newProjFunding.hasErrors()) {
-          errors.push(`Unable to add new project funding: ${logName}`);
+          errors.add(`Unable to add new project funding: ${logName}`);
           return;
         }
 
@@ -531,7 +563,7 @@ export const processFundingAssociations = async(
           planId: plan.id,
         });
         await newPlanFunding.create(context);
-        if (newPlanFunding.hasErrors()) errors.push(`Unable to add new plan funding for: ${logName}`);
+        if (newPlanFunding.hasErrors()) errors.add(`Unable to add new plan funding for: ${logName}`);
       },
 
       handleRemove: async ({
@@ -545,13 +577,13 @@ export const processFundingAssociations = async(
         // Remove the plan funding
         const cPlanObj = currentPlanObj as PlanFunding;
         const removedPlan: PlanFunding = await cPlanObj.delete(context);
-        if (removedPlan.hasErrors()) errors.push(`Unable to delete plan funding for: ${logName}`);
+        if (removedPlan.hasErrors()) errors.add(`Unable to delete plan funding for: ${logName}`);
 
         // Only remove the project funding if it isn't being used by another plan
         if (!isShared) {
           const cProjObj = currentProjectObj as ProjectFunding;
           const removedProj: ProjectFunding = await cProjObj.delete(context);
-          if (removedProj.hasErrors()) errors.push(`Unable to delete project funding for: ${logName}`);
+          if (removedProj.hasErrors()) errors.add(`Unable to delete project funding for: ${logName}`);
         }
       },
 
@@ -575,7 +607,7 @@ export const processFundingAssociations = async(
         cProjObj.funderProjectNumber = inObj.funderProjectNumber;
         cProjObj.grantId = inObj.grantId;
         const updProj: ProjectFunding = await cProjObj.update(context, true);
-        if (updProj.hasErrors()) errors.push(`Unable to update project funding for: ${logName}`);
+        if (updProj.hasErrors()) errors.add(`Unable to update project funding for: ${logName}`);
       }
     }
   );
@@ -667,9 +699,6 @@ const processAcceptedWorks = async (
 
   const { idsToBeRemoved, idsToBeSaved } = Plan.reconcileAssociationIds(currentIds, idsIn);
 
-console.log('HUH?')
-console.log(idsToBeRemoved, idsToBeSaved);
-
   // Add any new ones
   for (const id of idsToBeSaved) {
     const toSave: EntirePlanAcceptedWorkFragment = acceptedWorks.find((work: EntirePlanAcceptedWorkFragment): boolean => {
@@ -677,12 +706,10 @@ console.log(idsToBeRemoved, idsToBeSaved);
     });
 
     // Attempt to find the DOI in the dmp works OpenSearch index
-    const openSearchWorks: OpenSearchWork[] =  await openSearchFindWorkByIdentifier(
-      ref,
-      context,
-      id.toString(),
-      1,
-    );
+    const openSearchWorks: OpenSearchWork[] = id.toString().includes('doi')
+      ? await openSearchFindWorkByIdentifier(ref, context, id.toString(), 1)
+      : [];
+
     // If we didn't find it, initialize a new one
     const relatedWork: OpenSearchWork = openSearchWorks.length > 0
       ? openSearchWorks[0]
@@ -703,6 +730,7 @@ console.log(idsToBeRemoved, idsToBeSaved);
       plan,
       { ...relatedWork, sourceName: 'API', sourceUrl: toSave.doi } as AddRelatedWorkManualInput
     );
+
     if (newId.hasErrors()) {
       errs.push(`Unable to add accepted work ${id}`);
     }
@@ -924,8 +952,8 @@ export const addEntirePlan = async (
       input.versionedTemplateId
     );
     if (!versionedTemplate.id) {
-      context.logger.fatal('Unable to find a suitable versioned template!');
-      throw InternalServerError();
+      context.logger.fatal(prepareObjectForLogs(logBase), 'No Versioned Template available!');
+      throw InternalServerError('Unable to find a suitable versioned template!');
     }
     logBase.versionedTemplateId = versionedTemplate.id;
     context.logger.debug(prepareObjectForLogs(logBase), 'Found versioned template.');
@@ -933,8 +961,8 @@ export const addEntirePlan = async (
     // 2nd: find or initialize the project
     const project: Project | undefined = await findOrInitializeProject(reference, context, input.project);
     if (!project) {
-      context.logger.fatal(logBase, 'Unable to find or initialize a Project!');
-      throw InternalServerError();
+      context.logger.fatal(prepareObjectForLogs(logBase), 'Could not create Project!');
+      throw InternalServerError('Unable to find or initialize a Project!');
     }
 
     // 3rd: Save the project
@@ -945,8 +973,11 @@ export const addEntirePlan = async (
       savedProject = await project.create(context);
     }
     if (savedProject.hasErrors()) {
-      plan.addError('projectId', savedProject.errorsToString());
-      throw BadRequestError();
+      context.logger.warn(
+        prepareObjectForLogs({ ...logBase, errors: savedProject.errors }),
+        'Project creation errors'
+      );
+      throw BadRequestError(savedProject.errorsToString());
     }
 
     logBase.projectId = savedProject.id;
@@ -967,8 +998,11 @@ export const addEntirePlan = async (
     });
     const savedPlan: Plan = await plan.create(context);
     if (savedPlan.hasErrors() || !savedPlan.id) {
-      context.logger.fatal(logBase, 'Unable to create the plan!')
-      throw BadRequestError();
+      context.logger.warn(
+        prepareObjectForLogs({ ...logBase, errors: savedPlan.errors }),
+        'Plan creation errors'
+      );
+      throw BadRequestError(savedPlan.errorsToString());
     }
     logBase.planId = savedPlan.id;
     logBase.dmpId = savedPlan.dmpId;
@@ -987,8 +1021,11 @@ export const addEntirePlan = async (
 
     // If we had any errors with the associated objects, throw a Bad Request
     if (savedPlan.hasErrors()) {
-      context.logger.warn({ ...logBase, errors: savedPlan.errorsToString() }, 'Unable to add entire plan');
-      throw BadRequestError();
+      context.logger.warn(
+        prepareObjectForLogs({ ...logBase, errors: savedPlan.errors }),
+        'Unable to add entire plan'
+      );
+      throw BadRequestError(savedPlan.errorsToString());
     }
 
     return savedPlan;
@@ -1020,11 +1057,6 @@ export const replaceEntirePlan = async (
   plan: Plan,
   input: UpdateEntirePlanInput,
 ): Promise<Plan> => {
-
-console.log('PROJECT', project);
-console.log('PLAN', plan);
-console.log('INPUT', input);
-
   const logBase: LogBase = {
     ref: reference,
     title: input.title,
@@ -1081,7 +1113,7 @@ console.log('INPUT', input);
     );
     // If we had any errors with the associated objects, throw a Bad Request
     if (plan.hasErrors()) {
-      throw BadRequestError();
+      throw BadRequestError(plan.errorsToString());
     }
 
     return plan;
@@ -1135,7 +1167,7 @@ export const removeEntirePlan = async (
           prepareObjectForLogs({...logBase, errors: plan.errors}),
           'Unable to archive published plan.'
         );
-        throw BadRequestError();
+        throw BadRequestError(plan.errorsToString());
       }
 
       // TODO: Need to work through what else needs to be done. For example:
@@ -1151,7 +1183,7 @@ export const removeEntirePlan = async (
           prepareObjectForLogs({...logBase, errors: plan.errors}),
           'Unable to delete plan'
         );
-        throw BadRequestError();
+        throw BadRequestError(plan.errorsToString());
       }
 
       // 2nd: Remove the Project if it is not associated with other Plans
@@ -1162,7 +1194,7 @@ export const removeEntirePlan = async (
             prepareObjectForLogs({...logBase, errors: project.errors}),
             'Unable to delete project'
           );
-          throw BadRequestError();
+          throw BadRequestError(project.errorsToString());
         }
       }
     }

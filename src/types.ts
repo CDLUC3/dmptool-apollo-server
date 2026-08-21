@@ -61,14 +61,16 @@ export type AcceptedWork = {
   publicationDate?: Maybe<Scalars['String']['output']>;
   /** The venue where the work was published, e.g. IEEE Transactions on Software Engineering, Zenodo etc */
   publicationVenue?: Maybe<Scalars['String']['output']>;
+  /** The id of the underlying Related Work */
+  relatedWorkId: Scalars['Int']['output'];
+  /** The type of relationship the work has to the Plan (e.g. the plan references the work) */
+  relationType?: Maybe<RelationType>;
   /** The name of the source where the work was found */
   sourceName: Scalars['String']['output'];
   /** The URL for the source of the work */
   sourceUrl?: Maybe<Scalars['String']['output']>;
   /** The title of the work */
   title?: Maybe<Scalars['String']['output']>;
-  /** The id of the underlying Work */
-  workId: Scalars['Int']['output'];
   /** The type of the work */
   workType?: Maybe<WorkType>;
 };
@@ -7096,10 +7098,11 @@ export type AcceptedWorkResolvers<ContextType = MyContext, ParentType extends Re
   planId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   publicationDate?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   publicationVenue?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  relatedWorkId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  relationType?: Resolver<Maybe<ResolversTypes['RelationType']>, ParentType, ContextType>;
   sourceName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   sourceUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   title?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  workId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   workType?: Resolver<Maybe<ResolversTypes['WorkType']>, ParentType, ContextType>;
 };
 

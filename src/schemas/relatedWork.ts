@@ -198,11 +198,13 @@ export const typeDefs = gql`
 
     "The id of the Plan the work is associated with"
     planId: Int!
-    "The id of the underlying Work"
-    workId: Int!
+    "The id of the underlying Related Work"
+    relatedWorkId: Int!
 
     "The type of the work"
     workType: WorkType
+    "The type of relationship the work has to the Plan (e.g. the plan references the work)"
+    relationType: RelationType
     "The date that the work was published YYYY-MM-DD"
     publicationDate: String
     "The title of the work"

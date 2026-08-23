@@ -59,6 +59,8 @@ export const typeDefs = gql`
   registered: String
   visibility: PlanVisibility
 
+  owner: PlanVersionSnapshotOwner
+
   versionedTemplate: PlanVersionSnapshotTemplate
 
   project: PlanVersionSnapshotProject
@@ -66,9 +68,18 @@ export const typeDefs = gql`
   fundings: [PlanVersionSnapshotFunding!]
   answers: [PlanVersionSnapshotAnswer!]
   versions: [PlanVersionSnapshotVersion!]
+  relatedWorks: [RelatedWorkSearchResult!]
 
   "Bare related-work identifiers only — full citation metadata isn't preserved in archived snapshots"
   relatedWorkIdentifiers: [String!]
+}
+
+type PlanVersionSnapshotOwner {
+  id: Int
+  name: String
+  displayName: String
+  uri: String
+  homepage: String
 }
 
 type PlanVersionSnapshotTemplate {

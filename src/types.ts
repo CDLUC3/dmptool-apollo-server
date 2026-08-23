@@ -3116,10 +3116,12 @@ export type PlanVersionSnapshot = {
   isHistoricalVersion: Scalars['Boolean']['output'];
   members?: Maybe<Array<PlanVersionSnapshotMember>>;
   modified?: Maybe<Scalars['String']['output']>;
+  owner?: Maybe<PlanVersionSnapshotOwner>;
   project?: Maybe<PlanVersionSnapshotProject>;
   registered?: Maybe<Scalars['String']['output']>;
   /** Bare related-work identifiers only — full citation metadata isn't preserved in archived snapshots */
   relatedWorkIdentifiers?: Maybe<Array<Scalars['String']['output']>>;
+  relatedWorks?: Maybe<Array<RelatedWorkSearchResult>>;
   title?: Maybe<Scalars['String']['output']>;
   versionTimestamp: Scalars['String']['output'];
   versionedTemplate?: Maybe<PlanVersionSnapshotTemplate>;
@@ -3157,6 +3159,15 @@ export type PlanVersionSnapshotMemberRole = {
   __typename?: 'PlanVersionSnapshotMemberRole';
   id?: Maybe<Scalars['Int']['output']>;
   label?: Maybe<Scalars['String']['output']>;
+  uri?: Maybe<Scalars['String']['output']>;
+};
+
+export type PlanVersionSnapshotOwner = {
+  __typename?: 'PlanVersionSnapshotOwner';
+  displayName?: Maybe<Scalars['String']['output']>;
+  homepage?: Maybe<Scalars['String']['output']>;
+  id?: Maybe<Scalars['Int']['output']>;
+  name?: Maybe<Scalars['String']['output']>;
   uri?: Maybe<Scalars['String']['output']>;
 };
 
@@ -5522,6 +5533,8 @@ export type UpdateProjectMemberInput = {
   email?: InputMaybe<Scalars['String']['input']>;
   /** The Member's first/given name */
   givenName?: InputMaybe<Scalars['String']['input']>;
+  /** Whether or not the Member the primary contact for the Plan */
+  isPrimaryContact?: InputMaybe<Scalars['Boolean']['input']>;
   /** The roles the Member has on the research project */
   memberRoleIds?: InputMaybe<Array<Scalars['Int']['input']>>;
   /** The Member's ORCID */
@@ -6685,6 +6698,7 @@ export type ResolversTypes = {
   PlanVersionSnapshotFunding: ResolverTypeWrapper<PlanVersionSnapshotFunding>;
   PlanVersionSnapshotMember: ResolverTypeWrapper<PlanVersionSnapshotMember>;
   PlanVersionSnapshotMemberRole: ResolverTypeWrapper<PlanVersionSnapshotMemberRole>;
+  PlanVersionSnapshotOwner: ResolverTypeWrapper<PlanVersionSnapshotOwner>;
   PlanVersionSnapshotProject: ResolverTypeWrapper<PlanVersionSnapshotProject>;
   PlanVersionSnapshotResearchDomain: ResolverTypeWrapper<PlanVersionSnapshotResearchDomain>;
   PlanVersionSnapshotTemplate: ResolverTypeWrapper<PlanVersionSnapshotTemplate>;
@@ -6958,6 +6972,7 @@ export type ResolversParentTypes = {
   PlanVersionSnapshotFunding: PlanVersionSnapshotFunding;
   PlanVersionSnapshotMember: PlanVersionSnapshotMember;
   PlanVersionSnapshotMemberRole: PlanVersionSnapshotMemberRole;
+  PlanVersionSnapshotOwner: PlanVersionSnapshotOwner;
   PlanVersionSnapshotProject: PlanVersionSnapshotProject;
   PlanVersionSnapshotResearchDomain: PlanVersionSnapshotResearchDomain;
   PlanVersionSnapshotTemplate: PlanVersionSnapshotTemplate;
@@ -8079,9 +8094,11 @@ export type PlanVersionSnapshotResolvers<ContextType = MyContext, ParentType ext
   isHistoricalVersion?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   members?: Resolver<Maybe<Array<ResolversTypes['PlanVersionSnapshotMember']>>, ParentType, ContextType>;
   modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  owner?: Resolver<Maybe<ResolversTypes['PlanVersionSnapshotOwner']>, ParentType, ContextType>;
   project?: Resolver<Maybe<ResolversTypes['PlanVersionSnapshotProject']>, ParentType, ContextType>;
   registered?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   relatedWorkIdentifiers?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
+  relatedWorks?: Resolver<Maybe<Array<ResolversTypes['RelatedWorkSearchResult']>>, ParentType, ContextType>;
   title?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   versionTimestamp?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   versionedTemplate?: Resolver<Maybe<ResolversTypes['PlanVersionSnapshotTemplate']>, ParentType, ContextType>;
@@ -8115,6 +8132,14 @@ export type PlanVersionSnapshotMemberResolvers<ContextType = MyContext, ParentTy
 export type PlanVersionSnapshotMemberRoleResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PlanVersionSnapshotMemberRole'] = ResolversParentTypes['PlanVersionSnapshotMemberRole']> = {
   id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   label?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  uri?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+};
+
+export type PlanVersionSnapshotOwnerResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PlanVersionSnapshotOwner'] = ResolversParentTypes['PlanVersionSnapshotOwner']> = {
+  displayName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  homepage?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  name?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   uri?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 };
 
@@ -9460,6 +9485,7 @@ export type Resolvers<ContextType = MyContext> = {
   PlanVersionSnapshotFunding?: PlanVersionSnapshotFundingResolvers<ContextType>;
   PlanVersionSnapshotMember?: PlanVersionSnapshotMemberResolvers<ContextType>;
   PlanVersionSnapshotMemberRole?: PlanVersionSnapshotMemberRoleResolvers<ContextType>;
+  PlanVersionSnapshotOwner?: PlanVersionSnapshotOwnerResolvers<ContextType>;
   PlanVersionSnapshotProject?: PlanVersionSnapshotProjectResolvers<ContextType>;
   PlanVersionSnapshotResearchDomain?: PlanVersionSnapshotResearchDomainResolvers<ContextType>;
   PlanVersionSnapshotTemplate?: PlanVersionSnapshotTemplateResolvers<ContextType>;

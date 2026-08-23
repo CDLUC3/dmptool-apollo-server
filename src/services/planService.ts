@@ -33,6 +33,7 @@ import {
 } from "./dataciteXMLService";
 import { removeIndexItem, updateIndexItem } from "./indexDMPService";
 import { PlanVersionSnapshot } from "../types";
+import { ProjectFundingStatus } from "../models/Funding";
 
 
 /**
@@ -426,11 +427,13 @@ export async function getPlanVersions(
   try {
     const versions: DMPVersionType[] = await getDMPVersions(dynamoConfig, dmpId);
 
-    // Get the current latest version to filter it out
+    // Fetch the current latest snapshot's modified timestamp so it can be
+    // excluded below. "VERSION#latest" isn't a queryable timestamped snapshot —
+    // including it would produce a version-picker link that 404s when clicked.
     const latest = await getDMPs(dynamoConfig, generalConfig.domain, dmpId, 'latest');
     const latestModified = latest[0]?.dmp?.modified;
 
-    // Filter out the current VERSION#latest - only return timestamped snapshots
+    // Only return genuinely historical, timestamp-queryable versions.
     const historicalVersions = versions.filter(v => v.modified !== latestModified);
 
     return historicalVersions.map((v) => ({
@@ -485,6 +488,18 @@ export async function getPlanVersionSnapshot(
   }
 }
 
+function mapFundingStatus(status?: string | null): ProjectFundingStatus {
+  switch (status?.toLowerCase()) {
+    case 'granted':
+      return ProjectFundingStatus.GRANTED;
+    case 'denied':
+      return ProjectFundingStatus.DENIED;
+    case 'planned':
+    default:
+      return ProjectFundingStatus.PLANNED;
+  }
+}
+
 export async function mapDMPToolDMPToSnapshot(
   result: DMPToolDMPType,
   version: string,
@@ -512,89 +527,113 @@ export async function mapDMPToolDMPToSnapshot(
   const allMemberRoles = await MemberRole.all('mapDMPToolDMPToSnapshot.memberRoles', context);
   const roleByUri = new Map(allMemberRoles.map((r) => [r.uri, r]));
 
-  // Map contributors and look up isPrimaryContact from database
-  const members = [];
+  // Get the organization from the plan owner (affiliation) — this is computed
+  // synchronously so we can kick off the affiliation lookup in parallel below.
+  const ownerAffiliation = dmp.contributor?.find(c => c.name === dmp.contact?.name)?.affiliation?.[0];
+  const affiliationURI = ownerAffiliation?.affiliation_id?.identifier;
 
-  for (const c of (dmp.contributor ?? [])) {
-    let isPrimaryContact = false;
+  // Run the independent async lookups concurrently instead of sequentially:
+  // - members: maps contributors and looks up isPrimaryContact per-contributor
+  // - affiliation: resolves the owner's affiliation record
+  // - acceptedWorks: fetches related works for this plan
+  const [members, affiliation, acceptedWorks] = await Promise.all([
+    Promise.all(
+      (dmp.contributor ?? []).map(async (c) => {
+        let isPrimaryContact = false;
 
-    // If we have a projectId, query the database for the actual isPrimaryContact value
-    if (projectId && c.contributor_id) {
-      // Try to find by email first (most reliable)
-      if (c.contact_mbox || c.mbox) {
-        const email = c.contact_mbox || c.mbox;
-        const dbMember = await ProjectMember.findByProjectAndEmail(
-          'mapDMPToolDMPToSnapshot.isPrimaryContact',
-          context,
-          projectId,
-          email
-        );
+        // If we have a projectId, query the database for the actual isPrimaryContact value
+        if (projectId && c.contributor_id) {
+          // Try to find by email first (most reliable)
+          if (c.contact_mbox || c.mbox) {
+            const email = c.contact_mbox || c.mbox;
+            const dbMember = await ProjectMember.findByProjectAndEmail(
+              'mapDMPToolDMPToSnapshot.isPrimaryContact',
+              context,
+              projectId,
+              email
+            );
 
-        if (dbMember) {
-          isPrimaryContact = dbMember.isPrimaryContact;
+            if (dbMember) {
+              isPrimaryContact = dbMember.isPrimaryContact;
+            }
+          } else if (c.name) {
+            // Fallback to name if no email (extract given/sur name)
+            const nameParts = c.name.split(' ');
+            const givenName = nameParts[0];
+            const surName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+
+            const dbMember = await ProjectMember.findByProjectAndName(
+              'mapDMPToolDMPToSnapshot.isPrimaryContact',
+              context,
+              projectId,
+              givenName,
+              surName
+            );
+            if (dbMember) {
+              isPrimaryContact = dbMember.isPrimaryContact;
+            }
+          }
         }
-      } else if (c.name) {
-        // Fallback to name if no email (extract given/sur name)
-        const nameParts = c.name.split(' ');
-        const givenName = nameParts[0];
-        const surName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
 
-        const dbMember = await ProjectMember.findByProjectAndName(
-          'mapDMPToolDMPToSnapshot.isPrimaryContact',
-          context,
-          projectId,
-          givenName,
-          surName
-        );
-        if (dbMember) {
-          isPrimaryContact = dbMember.isPrimaryContact;
-        }
+        return {
+          name: c.name,
+          orcid: c.contributor_id?.find((id) => id.type === 'orcid')?.identifier,
+          affiliationName: c.affiliation?.[0]?.name,
+          isPrimaryContact,
+          memberRoles: (c.role ?? []).map((uri) => {
+            const matched = roleByUri.get(uri);
+            return matched
+              ? { id: matched.id, label: matched.label, uri: matched.uri }
+              : { id: undefined, label: uri, uri };
+          }),
+        };
+      })
+    ),
+    affiliationURI
+      ? Affiliation.findByURI('mapDMPToolDMPToSnapshot.ownerAffiliation', context, affiliationURI)
+      : Promise.resolve(undefined),
+    planId
+      ? AcceptedWork.findByPlanId('mapDMPToolDMPToSnapshot.relatedWorks', context, planId)
+      : Promise.resolve([]),
+  ]);
+
+  // Map the accepted works into the snapshot's relatedWorks shape
+  const relatedWorks: PlanVersionSnapshot['relatedWorks'] = acceptedWorks.map((work) => ({
+    id: work.id,
+    workVersion: {
+      title: work.title,
+      publicationDate: work.publicationDate,
+      workType: work.workType,
+      publicationVenue: work.publicationVenue,
+      sourceName: work.sourceName,
+      sourceUrl: work.sourceUrl,
+      authors: work.authors,
+      work: {
+        doi: work.doi,
       }
     }
+  }));
 
-    members.push({
-      name: c.name,
-      orcid: c.contributor_id?.find((id) => id.type === 'orcid')?.identifier,
-      affiliationName: c.affiliation?.[0]?.name,
-      isPrimaryContact,
-      memberRoles: (c.role ?? []).map((uri) => {
-        const matched = roleByUri.get(uri);
-        return matched
-          ? { id: matched.id, label: matched.label, uri: matched.uri }
-          : { id: undefined, label: uri, uri };
-      }),
-    });
+  // Determine the actual current "latest" snapshot's modified timestamp,
+  // so we can exclude it from the historical versions list — VERSION#latest
+  // is not queryable by its own timestamp, only by the literal string 'latest'.
+  let latestModified: string | undefined;
+  if (version === 'latest') {
+    latestModified = dmp.modified;
+  } else {
+    const dynamoConfig = getDynamoConnectionParams(context.logger);
+    const latest = await getDMPs(dynamoConfig, generalConfig.domain, dmpId, 'latest');
+    latestModified = latest[0]?.dmp?.modified;
   }
 
+  const historicalVersions = (dmp.version ?? []).filter(
+    (v) => v.version !== latestModified
+  );
 
-  // Get the organization from the plan owner (affiliation)
-  const ownerAffiliation = dmp.contributor?.find(c => c.name === dmp.contact?.name)?.affiliation?.[0];
-  const affiliationURI = ownerAffiliation.affiliation_id?.identifier;
-  const affiliation = await Affiliation.findByURI('mapDMPToolDMPToSnapshot.ownerAffiliation', context, affiliationURI);
-
-  // Get the related works
-  let relatedWorks = [];
-  if (dmpId) {
-    const acceptedWorks = await AcceptedWork.findByPlanId('mapDMPToolDMPToSnapshot.relatedWorks', context, planId);
-    relatedWorks = acceptedWorks.map((work) => ({
-      id: work.id,
-      workVersion: {
-        title: work.title,
-        publicationDate: work.publicationDate,
-        workType: work.workType,
-        publicationVenue: work.publicationVenue,
-        sourceName: work.sourceName,
-        sourceUrl: work.sourceUrl,
-        authors: work.authors,
-        work: {
-          doi: work.doi,
-        }
-      }
-    }));
-  }
   return {
     isHistoricalVersion: true,
     versionTimestamp: version,
+    latestVersionTimestamp: latestModified,
 
     title: dmp.title,
     dmpId,
@@ -631,7 +670,7 @@ export async function mapDMPToolDMPToSnapshot(
       }
       : undefined,
     members: members,
-    fundings: (project.funding ?? []).map((f) => {
+    fundings: (project?.funding ?? []).map((f) => {
       const funderIdentifier = f.funder_id?.identifier;
       const opportunity = dmp.funding_opportunity?.find(
         (fo) => fo.funder_id?.identifier === funderIdentifier
@@ -643,7 +682,7 @@ export async function mapDMPToolDMPToSnapshot(
       return {
         funderName: f.name,
         funderUri: funderIdentifier,
-        status: f.funding_status,
+        status: mapFundingStatus(f.funding_status),  // normalize here
         grantId: f.grant_id?.identifier,
         funderOpportunityNumber: opportunity?.opportunity_identifier?.identifier,
         funderProjectNumber: fundingProject?.project_identifier?.identifier,
@@ -652,7 +691,7 @@ export async function mapDMPToolDMPToSnapshot(
 
     answers,
 
-    versions: (dmp.version ?? []).map((v) => ({
+    versions: historicalVersions.map((v) => ({
       timestamp: v.version,
       url: v.access_url,
     })),

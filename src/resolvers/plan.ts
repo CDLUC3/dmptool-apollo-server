@@ -191,25 +191,7 @@ export const resolvers: Resolvers = {
       }
     },
 
-    // Find a published plan by its DMP id (publicly accessible so not checking permissions)
-    publicPlanByDMPId: async (_, { dmpId }, context: MyContext): Promise<Plan> => {
-      const reference = 'publicPlanByDMPId resolver';
-      try {
-        const plan = await Plan.findByDMPId(reference, context, dmpId);
-
-        // Treat "not found" and "not registered" identically - don't leak existence of private plans
-        if (isNullOrUndefined(plan) || plan.registered === null) {
-          throw NotFoundError(`Plan with DMP id, ${dmpId}, not found`);
-        }
-
-        return plan;
-      } catch (err) {
-        if (err instanceof GraphQLError) throw err;
-        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
-        throw InternalServerError();
-      }
-    },
-    // in Query resolvers, alongside publicPlanByDMPId
+    // Find a published plan by its DMP id and version (publicly accessible so not checking permissions)
     publicPlanVersionByDMPId: async (_, { dmpId, version }, context: MyContext): Promise<PlanVersionSnapshot> => {
       const reference = 'publicPlanVersionByDMPId resolver';
       try {

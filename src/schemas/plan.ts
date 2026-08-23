@@ -11,9 +11,7 @@ export const typeDefs = gql`
     plan(planId: Int!): Plan
     "Lookup a plan by its DMP id"
     planByDMPId(dmpId: String!): Plan
-    "Get a public plan by its DMP id"
-    publicPlanByDMPId(dmpId: String!): Plan
-    "Get data for one versioned plan"
+    "Get data for a specific version of a plan"
     publicPlanVersionByDMPId(dmpId: String!, version: String!): PlanVersionSnapshot
     "Lookup a plan by an alternate identifier"
     planByAlternateIdentifier(alternateIdentifier: String!): Plan
@@ -51,6 +49,7 @@ export const typeDefs = gql`
   type PlanVersionSnapshot {
   isHistoricalVersion: Boolean!
   versionTimestamp: String!
+  latestVersionTimestamp: String!
 
   title: String
   dmpId: String
@@ -68,7 +67,7 @@ export const typeDefs = gql`
   fundings: [PlanVersionSnapshotFunding!]
   answers: [PlanVersionSnapshotAnswer!]
   versions: [PlanVersionSnapshotVersion!]
-  relatedWorks: [RelatedWorkSearchResult!]
+  relatedWorks: [PlanVersionSnapshotRelatedWork!]
 
   "Bare related-work identifiers only — full citation metadata isn't preserved in archived snapshots"
   relatedWorkIdentifiers: [String!]
@@ -108,7 +107,7 @@ type PlanVersionSnapshotResearchDomain {
 type PlanVersionSnapshotFunding {
   funderName: String
   funderUri: String
-  status: String
+  status: ProjectFundingStatus
   grantId: String
   funderOpportunityNumber: String
   funderProjectNumber: String
@@ -127,6 +126,44 @@ type PlanVersionSnapshotMember {
   isPrimaryContact: Boolean
   memberRoles: [PlanVersionSnapshotMemberRole!]
 }
+
+type PlanVersionSnapshotRelatedWork {
+  "The unique identifier for the Object"
+  id: Int
+  "The version of the work"
+  workVersion: PlanVersionSnapshotWorkVersion!
+}
+
+"""
+A lighter-weight view of a WorkVersion for use within a plan version snapshot —
+ only the fields needed for citation display, since full work-version metadata
+ (hash, institutions, funders, awards, timestamps) isn't preserved in archived snapshots.
+"""
+type PlanVersionSnapshotWorkVersion {
+  "The type of the work"
+  workType: WorkType!
+  "The date that the work was published YYYY-MM-DD"
+  publicationDate: String
+  "The title of the work"
+  title: String
+  "The authors of the work"
+  authors: [Author!]!
+  "The venue where the work was published, e.g. IEEE Transactions on Software Engineering, Zenodo etc"
+  publicationVenue: String
+  "The name of the source where the work was found"
+  sourceName: String!
+  "The URL for the source of the work"
+  sourceUrl: String
+  "The work"
+  work: PlanVersionSnapshotWork!
+}
+
+"A lighter-weight view of a Work for use within a plan version snapshot."
+type PlanVersionSnapshotWork {
+  "The Digital Object Identifier (DOI) of the work"
+  doi: String!
+}
+
 
 type PlanVersionSnapshotAnswer {
   id: Int

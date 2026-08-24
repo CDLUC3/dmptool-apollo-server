@@ -144,6 +144,7 @@
 - Updated getPlanVersions in `planService` to exclude the `VERSION#latest` used for the dropdown list.[#339]
 - Updated `getPlanVersionSnapshot to fetch the planId and projectId to pass to `mapDMPToolDMPToSnapshot`[#339]
 - Updated `maDMPToolDMPToSnapshot` to get `isPrimaryContact` from correct place, and added `owner` and `relatedWorks` to the response[#339]
+- Updated `projectFunding` query to return `readOnly` [#246]
 - Updated resolvers to use the new `handleAsyncUpdates` function instead of calling `saveMaDMPRecord` directly
 - Updated docker-compose.yaml to install OpenSearch for use with our search indices
 - Updated docker-compose.yaml to include a health check so we can wait to start Apollo server after LocalStack is ready

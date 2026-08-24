@@ -6,7 +6,7 @@ import { PlanFunding, ProjectFunding } from "../models/Funding";
 import { MyContext } from '../context';
 import { isAuthorized } from '../services/authService';
 import { AuthenticationError, ForbiddenError, InternalServerError, NotFoundError } from '../utils/graphQLErrors';
-import { hasPermissionOnProject } from '../services/projectService';
+import { hasPermissionOnProject, isProjectReadOnlyForCurrentUser } from '../services/projectService';
 import { GraphQLError } from 'graphql';
 import { Plan } from '../models/Plan';
 import { ProjectCollaboratorAccessLevel } from "../models/Collaborator";
@@ -389,7 +389,12 @@ export const resolvers: Resolvers = {
   ProjectFunding: {
     project: async (parent: ProjectFunding, _, context: MyContext): Promise<Project> => {
       if (parent?.projectId) {
-        return await Project.findById('Chained ProjectFunding.project', context, parent.projectId);
+        const project = await Project.findById('Chained ProjectFunding.project', context, parent.projectId);
+        if (project) {
+          const readOnly = await isProjectReadOnlyForCurrentUser('Chained ProjectFunding.project', context, project);
+          return Object.assign(project, { readOnly }) as Project & { readOnly: boolean };
+        }
+        return null;
       }
       return null;
     },

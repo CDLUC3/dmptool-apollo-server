@@ -20,12 +20,15 @@ import {
   EntirePlanMemberFragment,
   EntirePlanProjectFragment,
   EntirePlanAcceptedWorkFragment,
-  UpdateEntirePlanInput, OpenSearchWork, AddRelatedWorkManualInput
+  UpdateEntirePlanInput,
+  OpenSearchWork,
+  AddRelatedWorkManualInput
 } from "../types";
 import { BadRequestError, InternalServerError } from "../utils/graphQLErrors";
 import { AcceptedWork } from "../models/RelatedWork";
 import { openSearchFindWorkByIdentifier } from "./openSearchService";
 import { addAcceptedWork, removeAcceptedWork } from "./relatedWorkService";
+import {generalConfig} from "../config/generalConfig";
 
 interface LogBase {
   ref: string;
@@ -108,16 +111,13 @@ const reconcileAssociations = (
   incomingObjs: ProjectAssociationType[],
   inputsMapByProjectObj: Map<ProjectAssociationType, AssociationInputType>
 ): ReconciledAssociation<AssociationInputType, ProjectAssociationType>[] => {
-  // First figure out which associated objects should be removed and which ones saved
-  const { idsToBeRemoved, idsToBeSaved } = Plan.reconcileAssociationIds(
-    currentProjectObjs.map((m: ProjectAssociationType): number => m.id),
-    incomingObjs.map((m: ProjectAssociationType): number => m.id)
-  );
+  const currentIds: number[] = currentProjectObjs.map((m: ProjectAssociationType): number => m.id);
+  const idsToBeSaved: number[] = incomingObjs.filter(Boolean).map((m: ProjectAssociationType): number => m.id);
+  const idsToBeRemoved: number[] = currentIds.filter((id: number): boolean => !idsToBeSaved.includes(id));
 
   const reconciled: ReconciledAssociation<AssociationInputType, ProjectAssociationType>[] = incomingObjs.map((obj: ProjectAssociationType) => {
-    const shouldBeAdded = obj.id ? !idsToBeSaved.includes(obj.id) : true;
     return {
-      action: shouldBeAdded ? 'add' : 'update',
+      action: !obj.id ? 'add' : 'update',
       input: inputsMapByProjectObj.get(obj),
       existingProjectObj: obj,
       id: obj.id,
@@ -303,6 +303,10 @@ export const processMemberAssociations = async(
         }).create(context, project.id);
 
         if (!newProjMember || newProjMember.hasErrors()) {
+          context.logger.error(
+            { errors: newProjMember.errors, projectMember: newProjMember },
+            `Failed to add new project member: ${logName}`
+          );
           errors.add(`Unable to add new project member: ${logName}`);
           return;
 
@@ -326,6 +330,10 @@ export const processMemberAssociations = async(
             if (role) {
               const addedRole: boolean = await role.addToProjectMember(context, newProjMember.id);
               if (!addedRole) {
+                context.logger.error(
+                  { errors: role.errors, memberRole: role },
+                  `Failed to add new role ${role.label} to project member: ${logName}`
+                );
                 errors.add(`Unable to add new role ${role.label} to project member: ${logName}`);
               }
             }
@@ -340,6 +348,10 @@ export const processMemberAssociations = async(
           });
           const created: PlanMember = await newPlanMember.create(context);
           if (created.hasErrors()) {
+            context.logger.error(
+              { errors: created.errors, planMember: created },
+              `Failed to add new plan member: ${logName}`
+            );
             errors.add(`Unable to add new plan member: ${logName}`);
 
           } else {
@@ -348,6 +360,10 @@ export const processMemberAssociations = async(
               if (role) {
                 const addedRole: boolean = await role.addToPlanMember(context, created.id);
                 if (!addedRole) {
+                  context.logger.error(
+                    { errors: role.errors, memberRole: role },
+                    `Failed to add new role ${role.label} to plan member: ${logName}`
+                  );
                   errors.add(`Unable to add new role ${role.label} to plan member: ${logName}`);
                 }
               }
@@ -368,6 +384,10 @@ export const processMemberAssociations = async(
         const cPlanObj = currentPlanObj as PlanMember;
         const removedPlan: PlanMember = await cPlanObj.delete(context);
         if (removedPlan.hasErrors()) {
+          context.logger.error(
+            { errors: removedPlan.errors, planMember: removedPlan },
+          `Failed to delete plan member: ${logName}`
+          );
           errors.add(`Unable to delete plan member ${logName}`);
 
         } else {
@@ -375,7 +395,13 @@ export const processMemberAssociations = async(
           if (!isShared) {
             const cProjObj = currentProjectObj as ProjectMember;
             const removedProj: ProjectMember = await cProjObj.delete(context);
-            if (removedProj.hasErrors()) errors.add(`Unable to delete project member ${logName}`);
+            if (removedProj.hasErrors()) {
+              context.logger.error(
+                { errors: removedProj.errors, projectMember: removedProj },
+                `Failed to delete project member: ${logName}`
+              );
+              errors.add(`Unable to delete project member ${logName}`);
+            }
           }
         }
       },
@@ -430,6 +456,10 @@ export const processMemberAssociations = async(
           if (!projRoleIds.includes(role.id)) {
             const addedToProj: boolean = await role.addToProjectMember(context, cProjObj.id);
             if (!addedToProj) {
+              context.logger.error(
+                { errors: role.errors, memberRole: role },
+                `Failed to add member role to project member: ${logName}`
+              );
               errors.add(`Unable to add role ${role.label} to project member ${logName}`);
             }
           }
@@ -456,7 +486,13 @@ export const processMemberAssociations = async(
         cProjObj.orcid = inObj.orcid;
         cProjObj.email = inObj.email;
         const updProj: ProjectMember = await cProjObj.update(context, true);
-        if (updProj.hasErrors()) errors.add(`Unable to update project member ${logName}`);
+        if (updProj.hasErrors()) {
+          context.logger.error(
+            { errors: updProj.errors, projectMember: updProj },
+            `Failed to update project member: ${logName}`
+          );
+          errors.add(`Unable to update project member ${logName}`);
+        }
 
         // If the project member is NOT shared with other plans, remove any roles
         // that are no longer there
@@ -552,7 +588,12 @@ export const processFundingAssociations = async(
           funderProjectNumber: pFundingIn?.funderProjectNumber,
           grantId: pFundingIn?.grantId,
         }).create(context, project.id);
+
         if (!newProjFunding || newProjFunding.hasErrors()) {
+          context.logger.error(
+            { errors: newProjFunding.errors, projectFunding: newProjFunding },
+            `Failed to add new project funding: ${logName}`
+          );
           errors.add(`Unable to add new project funding: ${logName}`);
           return;
         }
@@ -563,7 +604,13 @@ export const processFundingAssociations = async(
           planId: plan.id,
         });
         await newPlanFunding.create(context);
-        if (newPlanFunding.hasErrors()) errors.add(`Unable to add new plan funding for: ${logName}`);
+        if (newPlanFunding.hasErrors()) {
+          context.logger.error(
+            { errors: newPlanFunding.errors, planFunding: newPlanFunding },
+            `Failed to add new plan funding: ${logName}`
+          );
+          errors.add(`Unable to add new plan funding for: ${logName}`);
+        }
       },
 
       handleRemove: async ({
@@ -577,13 +624,25 @@ export const processFundingAssociations = async(
         // Remove the plan funding
         const cPlanObj = currentPlanObj as PlanFunding;
         const removedPlan: PlanFunding = await cPlanObj.delete(context);
-        if (removedPlan.hasErrors()) errors.add(`Unable to delete plan funding for: ${logName}`);
+        if (removedPlan.hasErrors()) {
+          context.logger.error(
+            { errors: removedPlan.errors, planFunding: removedPlan },
+            `Failed to delete plan funding: ${logName}`
+          );
+          errors.add(`Unable to delete plan funding for: ${logName}`);
+        }
 
         // Only remove the project funding if it isn't being used by another plan
         if (!isShared) {
           const cProjObj = currentProjectObj as ProjectFunding;
           const removedProj: ProjectFunding = await cProjObj.delete(context);
-          if (removedProj.hasErrors()) errors.add(`Unable to delete project funding for: ${logName}`);
+          if (removedProj.hasErrors()) {
+            context.logger.error(
+              { errors: removedProj.errors, projectFunding: removedProj },
+              `Failed to delete project funding: ${logName}`
+            );
+            errors.add(`Unable to delete project funding for: ${logName}`);
+          }
         }
       },
 
@@ -607,7 +666,13 @@ export const processFundingAssociations = async(
         cProjObj.funderProjectNumber = inObj.funderProjectNumber;
         cProjObj.grantId = inObj.grantId;
         const updProj: ProjectFunding = await cProjObj.update(context, true);
-        if (updProj.hasErrors()) errors.add(`Unable to update project funding for: ${logName}`);
+        if (updProj.hasErrors()) {
+          context.logger.error(
+            { errors: updProj.errors, projectFunding: updProj },
+            `Failed to update project funding: ${logName}`
+          );
+          errors.add(`Unable to update project funding for: ${logName}`);
+        }
       }
     }
   );
@@ -639,13 +704,18 @@ const processAlternateIdentifiers = async (
     return entry.alternateIdentifier
   }).filter(Boolean);
 
-  const { idsToBeRemoved, idsToBeSaved } = Plan.reconcileAssociationIds(currentIds, alternateIdentifiers);
+  const idsToBeRemoved: string[] = currentIds.filter((id: string): boolean => !alternateIdentifiers.includes(id));
+  const idsToBeSaved: string[] = alternateIdentifiers.filter((id: string): boolean => !currentIds.includes(id));
 
   // Add any new ones
   for (const id of idsToBeSaved) {
     const newId = new AlternateIdentifier({ alternateIdentifier: id, planId: plan.id });
     await newId.create(context);
     if (newId.hasErrors()) {
+      context.logger.error(
+        { errors: newId.errors, alternateIdentifier: newId },
+        `Failed to add new alternate identifier: ${id}`
+      );
       errs.push(`Unable to add alternate identifier ${id}`);
     }
   }
@@ -658,6 +728,10 @@ const processAlternateIdentifiers = async (
     if (idToRemove) {
       await idToRemove.delete(context);
       if (idToRemove.hasErrors()) {
+        context.logger.error(
+          { errors: idToRemove.errors, alternateIdentifier: idToRemove },
+          `Failed to delete alternate identifier: ${id}`
+        );
         errs.push(`Unable to delete alternate identifier ${id}`);
       }
     }
@@ -689,26 +763,37 @@ const processAcceptedWorks = async (
     plan.id
   );
 
-  const currentIds: string[] = currentEntries.map((entry: AcceptedWork) => {
+  const currentIds: string[] = currentEntries.map((entry: AcceptedWork): string => {
     return entry.doi;
   }).filter(Boolean);
 
-  const idsIn: string[] = acceptedWorks.map((entry: EntirePlanAcceptedWorkFragment) => {
-    return entry.doi;
+  const idsIn: string[] = acceptedWorks.map((entry: EntirePlanAcceptedWorkFragment): string => {
+    return entry.doi.replace(generalConfig.dmpIdBaseURL, '');
   });
 
-  const { idsToBeRemoved, idsToBeSaved } = Plan.reconcileAssociationIds(currentIds, idsIn);
+  const idsToBeRemoved: string[] = currentIds.filter((id: string): boolean => !idsIn.includes(id));
+  const idsToAdd: string[] = idsIn.filter((id: string): boolean => !currentIds.includes(id));
 
   // Add any new ones
-  for (const id of idsToBeSaved) {
+  for (const id of idsToAdd) {
     const toSave: EntirePlanAcceptedWorkFragment = acceptedWorks.find((work: EntirePlanAcceptedWorkFragment): boolean => {
-      return work.doi === id.toString();
+      return work.doi.replace(generalConfig.dmpIdBaseURL, '') === id.toString();
     });
 
     // Attempt to find the DOI in the dmp works OpenSearch index
-    const openSearchWorks: OpenSearchWork[] = id.toString().includes('doi')
-      ? await openSearchFindWorkByIdentifier(ref, context, id.toString(), 1)
-      : [];
+    let openSearchWorks: OpenSearchWork[] = [];
+    if (id.toString().includes('doi')) {
+      try {
+        openSearchWorks = await openSearchFindWorkByIdentifier(ref, context, id.toString(), 1);
+      } catch (e) {
+        // If the index is not available or another OpenSearch error occurs, log it
+        // but allow the process to continue.
+        context.logger.error(
+          { ref, id, error: toErrorMessage(e) },
+          'Unable to find work in OpenSearch. Continuing...'
+        );
+      }
+    }
 
     // If we didn't find it, initialize a new one
     const relatedWork: OpenSearchWork = openSearchWorks.length > 0
@@ -730,8 +815,11 @@ const processAcceptedWorks = async (
       plan,
       { ...relatedWork, sourceName: 'API', sourceUrl: toSave.doi } as AddRelatedWorkManualInput
     );
-
     if (newId.hasErrors()) {
+      context.logger.error(
+        { errors: newId.errors, acceptedWork: newId },
+        `Failed to add new accepted work: ${id}`
+      );
       errs.push(`Unable to add accepted work ${id}`);
     }
   }
@@ -745,6 +833,10 @@ const processAcceptedWorks = async (
       id.toString()
     );
     if (idToRemove.hasErrors()) {
+      context.logger.error(
+        { errors: idToRemove.errors, acceptedWork: idToRemove },
+        `Failed to delete accepted work: ${id}`
+      );
       errs.push(`Unable to delete accepted work ${id}`);
     }
   }
@@ -943,7 +1035,6 @@ export const addEntirePlan = async (
   plan: Plan,
 ): Promise<Plan> => {
   const logBase: LogBase = { ref: reference, title: input.title };
-
   try {
     // 1st: Determine what versioned template we should use
     const versionedTemplate: VersionedTemplate | undefined = await findVersionedTemplateForEntirePlan(

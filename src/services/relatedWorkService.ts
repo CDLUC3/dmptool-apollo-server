@@ -1,5 +1,6 @@
+import { createHash } from 'crypto';
 import {
-  AcceptedWork,
+  AcceptedWork, isDOI, parseDOI,
   RelatedWork,
   RelationType,
   Work,
@@ -10,6 +11,26 @@ import { AddRelatedWorkManualInput } from "../types";
 import { Plan } from "../models/Plan";
 import { isNullOrUndefined } from "@dmptool/utils";
 import { NotFoundError } from "../utils/graphQLErrors";
+
+/**
+ * Generate a unique hash for the work version or return the existing hash if it exists
+ *
+ * @param workVersion the work version
+ * @returns a unique hash for the work version
+ */
+const getWorkVersionHash = (workVersion: WorkVersion): string => {
+  if (!workVersion) return '';
+  if (workVersion.hash) return workVersion.hash.toString();
+
+  const workVersionDetails: string = JSON.stringify({
+    workId: workVersion.workId,
+    workType: workVersion.workType,
+    sourceName: workVersion.sourceName,
+    sourceUrl: workVersion.sourceUrl,
+  });
+
+  return createHash('md5').update(workVersionDetails).digest('hex');
+}
 
 /**
  * Adds a related work that was manually added by the user through the UI or was
@@ -28,9 +49,10 @@ export const addAcceptedWork = async (
   input: AddRelatedWorkManualInput
 ): Promise<AcceptedWork> => {
   const acceptedWork: AcceptedWork = new AcceptedWork(input);
+  const parsedDOI: string = isDOI(input.doi) ? parseDOI(input.doi) : input.doi;
 
   // Fetch or create work
-  let work: Work = await Work.findByDoi(reference, context, input.doi);
+  let work: Work = await Work.findByDoi(reference, context, parsedDOI);
   if (!work) {
     work = new Work({ doi: input.doi });
     work = await work.create(context);
@@ -40,11 +62,13 @@ export const addAcceptedWork = async (
   }
 
   // Fetch or create work version
-  const osHash: string = input.hash ? input.hash.toString() : "";
-  let workVersion = await WorkVersion.findByDoiAndHash(
+  const osHash: string = input.hash
+    ? input.hash.toString()
+    : getWorkVersionHash(new WorkVersion({ ...input, workId: work.id }));
+  let workVersion: WorkVersion = await WorkVersion.findByDoiAndHash(
     reference,
     context,
-    input.doi,
+    parsedDOI,
     Buffer.from(osHash, 'hex')
   );
   if (!workVersion) {
@@ -71,7 +95,7 @@ export const addAcceptedWork = async (
     });
     relatedWork = await relatedWork.create(context);
     if (relatedWork && !relatedWork.hasErrors()) {
-      return await AcceptedWork.findByPlanIdAndDoi(reference, context, plan.id, input.doi);
+      return  await AcceptedWork.findByPlanIdAndDoi(reference, context, plan.id, parsedDOI);
     }
     acceptedWork.addError('general', 'Unable to create related work');
   }

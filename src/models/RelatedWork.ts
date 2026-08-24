@@ -22,6 +22,11 @@ import {
 import { prepareObjectForLogs } from '../logger';
 import { Plan } from './Plan';
 
+export const isDOI = (value: string): boolean => {
+  return value?.toLowerCase()?.includes('doi:')
+    || value?.toLowerCase()?.includes('doi.org');
+}
+
 export class Work extends MySqlModel {
   public doi: string;
 
@@ -42,7 +47,7 @@ export class Work extends MySqlModel {
 
   prepForSave(): void {
     // Only store the DOI identifier not full URL if it's a DOI
-    this.doi = this.doi?.toLowerCase()?.includes('doi') ? parseDOI(this.doi) : this.doi?.trim();
+    this.doi = isDOI(this.doi) ? parseDOI(this.doi) : this.doi?.trim();
   }
 
   async create(context: MyContext): Promise<Work> {
@@ -808,7 +813,8 @@ export class AcceptedWork extends MySqlModel {
                    INNER JOIN workVersions wv ON rw.workVersionId = wv.id
                    INNER JOIN works w ON wv.workId = w.id
                  WHERE rw.status = ? AND rw.planId = ? AND w.doi = ?`;
-    const vals: string[] = [RelatedWorkStatus.ACCEPTED, planId.toString(), doi];
+    const parsedDoi: string = isDOI(doi) ? parseDOI(doi) : doi;
+    const vals: string[] = [RelatedWorkStatus.ACCEPTED, planId.toString(), parsedDoi];
     const result = await AcceptedWork.query(context, sql, vals, reference);
     return Array.isArray(result) && result.length > 0 ? new AcceptedWork(result[0]) : null;
   }

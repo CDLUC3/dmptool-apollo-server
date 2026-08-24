@@ -3,6 +3,9 @@
 ## v1.1.0
 
 ### Added
+- Add missing `relationType` column to the `relatedWorks` table
+- Added cascading delete logic to the `relatedWorks` table so that those entries are dropped when a plan is deleted.
+- Added chained resolver to `Plan` to return `acceptedWorks`
 - Added an OpenSearch domain to the LocalStack init script
 - Added an OpenSearchServerlessClient to the Apollo context object
 - Added new `OpenSearch` class to the openSearch data source file 
@@ -138,6 +141,11 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated docker compose so that LocalStack log level is now `WARN`.
+- Bumped versions of `@dmptool` packages to their latest versions
+- Updated `RelatedWork` model so that it does not always try to strip off the protocol and domain from the related work identifier. The DMP works matching deals with DOIs, but we are allowing users to manually add related works via the UI as well as through the REST API and sometimes the entries are URLs or other unique identetifiers that are NOT DOIs. These changes continue to strip off the `https://doi.org` if it is a DOI (for backward compatibility with the dmp works project) but otherwise preserve the entire value
+- Fixed issues with `entirePlanService` that was causing updates to fail.
+- Moved logic from the `relatedWork` resolver into the `relatedWorkService` and renamed to `addAcceptedWork` so that adding a new work manually through the UI or via the `entirePlan` resolvers use the same logic.
 - Updated updateAnswer resolver to update `plan.modified` to reflect that something had changed (for versioning) [#339]
 - Added `isPrimaryContact` to UpdateProjectMemberInput because the `isPrimaryContact` field value was being overwritten to false when the input didn’t include it [#339]
 - Added `owner` and `relatedWorks` to `PlanVersionSnapshot` schema [#339]

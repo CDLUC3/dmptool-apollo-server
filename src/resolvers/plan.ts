@@ -41,6 +41,9 @@ import {
   PlanVersionSnapshot
 } from "../types";
 import { prepareObjectForLogs } from "../logger";
+import { toErrorMessage } from "@dmptool/utils";
+import { MemberRole } from "../models/MemberRole";
+import { AcceptedWork } from "../models/RelatedWork";
 // Services
 import {
   buildDataCiteXMLForPlan,
@@ -65,8 +68,6 @@ import {
   removeEntirePlan,
   replaceEntirePlan
 } from "../services/entirePlanService";
-import { toErrorMessage } from "@dmptool/utils";
-import { MemberRole } from "../models/MemberRole";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -596,7 +597,7 @@ export const resolvers: Resolvers = {
         { input }: { input: AddEntirePlanInput },
         context: MyContext
       ): Promise<Plan> => {
-        const ref = 'createEntirePlan';
+        const ref = 'addEntirePlan';
         const plan: Plan = new Plan({});
 
         try {
@@ -624,9 +625,10 @@ export const resolvers: Resolvers = {
         } catch (error) {
           if (error instanceof GraphQLError) {
             if (error.extensions?.code === 'BAD_REQUEST') {
-              if (plan.hasErrors() && !plan.errors['general']) {
-                plan.addError('general', 'Unable to process your request.');
-              }
+              plan.addError(
+                'general',
+                `Unable to process your request. ${error.message}`
+              );
               // Return the plan with its populated validation errors
               return plan;
             } else {
@@ -691,9 +693,10 @@ export const resolvers: Resolvers = {
           } catch (error) {
             if (error instanceof GraphQLError) {
               if (error.extensions?.code === 'BAD_REQUEST') {
-                if (plan.hasErrors() && !plan.errors['general']) {
-                  plan.addError('general', 'Unable to process your request.');
-                }
+                plan.addError(
+                  'general',
+                  `Unable to process your request. ${error.message}`
+                );
                 // Return the plan with its populated validation errors
                 return plan;
               } else {
@@ -873,6 +876,12 @@ export const resolvers: Resolvers = {
     alternateIdentifiers: async (parent: Plan, _, context: MyContext): Promise<AlternateIdentifier[]> => {
       if (parent?.id) {
         return await AlternateIdentifier.findByPlanId('plan alternateIdentifiers chained resolver', context, parent.id);
+      }
+      return [];
+    },
+    acceptedWorks: async (parent: Plan, _, context: MyContext): Promise<AcceptedWork[]> => {
+      if (parent?.id) {
+        return await AcceptedWork.findByPlanId('plan acceptedWorks chained resolver', context, parent.id);
       }
       return [];
     },

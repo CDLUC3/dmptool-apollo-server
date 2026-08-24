@@ -9,6 +9,7 @@ interface RelatedWork {
   planId: number;
   workDoi: string;
   hash: Buffer;
+  relationType: string;
   sourceType: string;
   score: number;
   status: string;
@@ -299,6 +300,7 @@ const workVersion2: WorkVersion = {
 function makeRelatedWork(overrides: Partial<RelatedWork> & { planId: number; workDoi: string; hash: Buffer }): RelatedWork {
   return {
     sourceType: 'SYSTEM_MATCHED',
+    relationType: 'REFERENCES',
     score: 1.0,
     status: 'PENDING',
     scoreMax: 1.0,
@@ -356,6 +358,7 @@ describe('Related Works Tables', () => {
         id: expect.any(Number),
         planId: expect.any(Number),
         workVersionId: expect.any(Number),
+        relationType: 'REFERENCES',
         sourceType: 'SYSTEM_MATCHED',
         score: 1,
         scoreMax: 1.0,
@@ -374,6 +377,7 @@ describe('Related Works Tables', () => {
         id: expect.any(Number),
         planId: expect.any(Number),
         workVersionId: expect.any(Number),
+        relationType: 'REFERENCES',
         sourceType: 'SYSTEM_MATCHED',
         score: expect.closeTo(0.8, 5),
         scoreMax: 1.0,
@@ -481,12 +485,14 @@ describe('Related Works Tables', () => {
     expect(relatedWorksRows).toHaveLength(2);
     expect(relatedWorksRows).toMatchObject([
       {
+        relationType: 'REFERENCES',
         sourceType: 'SYSTEM_MATCHED',
         score: 1,
         scoreMax: 1.0,
         status: 'PENDING',
       },
       {
+        relationType: 'REFERENCES',
         sourceType: 'SYSTEM_MATCHED',
         score: expect.closeTo(0.9, 5),
         scoreMax: 1.0,

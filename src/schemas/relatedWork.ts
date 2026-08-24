@@ -181,6 +181,52 @@ export const typeDefs = gql`
     modifiedById: Int
   }
 
+  "Represents a Related Work that has been accepted/verified as an association to a Plan"
+  type AcceptedWork {
+    "The Work Version id"
+    id: Int
+    "The Digital Object Identifier (DOI) of the work"
+    doi: String
+    "The timestamp when the Object was created"
+    created: String
+    "The user who created the Object. Null if the work was automatically found"
+    createdById: Int
+    "The timestamp when the Object was last modified"
+    modified: String
+    "The user who last modified the Object"
+    modifiedById: Int
+
+    "The id of the Plan the work is associated with"
+    planId: Int
+    "The id of the underlying Related Work"
+    relatedWorkId: Int
+
+    "The type of the work"
+    workType: WorkType
+    "The type of relationship the work has to the Plan (e.g. the plan references the work)"
+    relationType: RelationType
+    "The date that the work was published YYYY-MM-DD"
+    publicationDate: String
+    "The title of the work"
+    title: String
+    "The abstract of the work"
+    abstractText: String
+    "The authors of the work"
+    authors: [Author!]
+    "The unique institutions of the authors of the work"
+    institutions: [Institution!]
+    "The funders of the work"
+    funders: [Funder!]
+    "Awards that funded the work"
+    awards: [Award!]
+    "The venue where the work was published, e.g. IEEE Transactions on Software Engineering, Zenodo etc"
+    publicationVenue: String
+    "The name of the source where the work was found"
+    sourceName: String
+    "The URL for the source of the work"
+    sourceUrl: String
+  }
+
   "An award that funded a work"
   type Award {
     "The Award ID"
@@ -309,6 +355,45 @@ export const typeDefs = gql`
     WORKFLOW
   }
 
+  enum RelationType {
+    IS_CITED_BY
+    CITES
+    IS_SUPPLEMENT_TO
+    IS_SUPPLEMENTED_BY
+    IS_CONTINUED_BY
+    CONTINUES
+    DESCRIBES
+    IS_DESCRIBED_BY
+    HAS_METADATA
+    IS_METADATA_FOR
+    HAS_VERSION
+    IS_VERSION_OF
+    IS_NEW_VERSION_OF
+    IS_PREVIOUS_VERSION_OF
+    IS_PART_OF
+    HAS_PART
+    IS_PUBLISHED_IN
+    IS_REFERENCED_BY
+    REFERENCES
+    IS_DOCUMENTED_BY
+    DOCUMENTS
+    IS_COMPILED_BY
+    COMPILES
+    IS_VARIANT_FORM_OF
+    IS_ORIGINAL_FORM_OF
+    IS_IDENTICAL_TO
+    IS_REVIEWED_BY
+    REVIEWS
+    IS_DERIVED_FROM
+    IS_SOURCE_OF
+    IS_REQUIRED_BY
+    REQUIRES
+    OBSOLETES
+    IS_OBSOLETED_BY
+    IS_COLLECTED_BY
+    COLLECTS
+  }
+
   "The confidence of the related work match"
   enum RelatedWorkConfidence {
     "High confidence"
@@ -350,6 +435,8 @@ export const typeDefs = gql`
     hash: MD5!
     "The type of the work"
     workType: WorkType!
+    "How the work is associated with the DMP (e.g. the work cites the DMP)"
+    relationType: RelationType
     "The date that the work was published YYYY-MM-DD"
     publicationDate: String
     "The title of the work"

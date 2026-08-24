@@ -37,6 +37,12 @@ jest.mock('../projectService', () => ({
 
 jest.mock('../planService', () => ({
   ensureDefaultPlanContact: jest.fn().mockResolvedValue(true),
+  updateMemberRoles: jest.fn().mockResolvedValue({ updatedRoleIds: [], errors: [] }),
+}));
+
+
+jest.mock('../openSearchService', () => ({
+  openSearchFindWorkByIdentifier: jest.fn().mockResolvedValue([]),
 }));
 
 describe('entirePlanService', () => {
@@ -68,14 +74,22 @@ describe('entirePlanService', () => {
     jest.spyOn(PlanMember, 'findByProjectMemberId').mockResolvedValue([]);
 
     jest.spyOn(PlanFunding, 'findByPlanId').mockResolvedValue([]);
-    jest.spyOn(MemberRole, 'findById').mockResolvedValue(null);
-    jest.spyOn(MemberRole, 'findByURL').mockResolvedValue(null);
     jest.spyOn(ProjectFunding, 'findByProjectId').mockResolvedValue([]);
     jest.spyOn(ProjectFunding, 'findById').mockResolvedValue(null);
     jest
       .spyOn(ProjectFunding, 'findByProjectAndAffiliation')
       .mockResolvedValue(null);
     jest.spyOn(PlanFunding, 'findByProjectFundingId').mockResolvedValue([]);
+
+    const defaultRole = new MemberRole({
+      id: 999,
+      label: 'Default Role',
+      url: 'http://example.com/role/default' }
+    );
+    jest.spyOn(MemberRole, 'defaultRole').mockResolvedValue(defaultRole);
+    jest.spyOn(MemberRole, 'findByURL').mockResolvedValue(null);
+    jest.spyOn(MemberRole, 'findByProjectMemberId').mockResolvedValue([]);
+    jest.spyOn(MemberRole, 'findByPlanMemberId').mockResolvedValue([]);
 
     jest.spyOn(Plan, 'reconcileAssociationIds').mockReturnValue({
       idsToBeRemoved: [],
@@ -152,6 +166,11 @@ describe('entirePlanService', () => {
       setupAssociationDefaults();
       const roleOne = makeRole(1, 'One');
       const roleTwo = makeRole(2, 'Two');
+
+      jest.spyOn(roleOne,'addToProjectMember').mockResolvedValue(true);
+      jest.spyOn(roleOne,'addToPlanMember').mockResolvedValue(true);
+      jest.spyOn(roleTwo,'addToProjectMember').mockResolvedValue(true);
+      jest.spyOn(roleTwo,'addToPlanMember').mockResolvedValue(true);
       jest.spyOn(ProjectMember, 'findPrimaryContact').mockResolvedValue(null);
       jest
         .spyOn(MemberRole, 'findByURL')
@@ -284,10 +303,11 @@ describe('entirePlanService', () => {
         }],
       );
 
-      expect(errors).toContain('Unable to add role NewRole to project member');
-      expect(errors).toContain('Unable to add role NewRole to plan member');
-      expect(errors).toContain('Unable to update project member');
-      expect(errors).toContain('Unable to remove role Legacy from project member');
+      const expectedErr = [
+        'Unable to add role NewRole to project member Member New',
+        'Unable to update project member Member New'
+      ].join(', ');
+      expect(errors).toEqual(expectedErr);
     });
   });
 
@@ -408,7 +428,7 @@ describe('entirePlanService', () => {
         }],
       );
 
-      expect(errors).toContain('Unable to update project funding');
+      expect(errors).toEqual('Unable to update project funding for: http://example.com/funder/1');
     });
   });
 

@@ -30,6 +30,51 @@ export type Scalars = {
   URL: { input: string; output: string; }
 };
 
+/** Represents a Related Work that has been accepted/verified as an association to a Plan */
+export type AcceptedWork = {
+  __typename?: 'AcceptedWork';
+  /** The abstract of the work */
+  abstractText?: Maybe<Scalars['String']['output']>;
+  /** The authors of the work */
+  authors?: Maybe<Array<Author>>;
+  /** Awards that funded the work */
+  awards?: Maybe<Array<Award>>;
+  /** The timestamp when the Object was created */
+  created?: Maybe<Scalars['String']['output']>;
+  /** The user who created the Object. Null if the work was automatically found */
+  createdById?: Maybe<Scalars['Int']['output']>;
+  /** The Digital Object Identifier (DOI) of the work */
+  doi?: Maybe<Scalars['String']['output']>;
+  /** The funders of the work */
+  funders?: Maybe<Array<Funder>>;
+  /** The Work Version id */
+  id?: Maybe<Scalars['Int']['output']>;
+  /** The unique institutions of the authors of the work */
+  institutions?: Maybe<Array<Institution>>;
+  /** The timestamp when the Object was last modified */
+  modified?: Maybe<Scalars['String']['output']>;
+  /** The user who last modified the Object */
+  modifiedById?: Maybe<Scalars['Int']['output']>;
+  /** The id of the Plan the work is associated with */
+  planId?: Maybe<Scalars['Int']['output']>;
+  /** The date that the work was published YYYY-MM-DD */
+  publicationDate?: Maybe<Scalars['String']['output']>;
+  /** The venue where the work was published, e.g. IEEE Transactions on Software Engineering, Zenodo etc */
+  publicationVenue?: Maybe<Scalars['String']['output']>;
+  /** The id of the underlying Related Work */
+  relatedWorkId?: Maybe<Scalars['Int']['output']>;
+  /** The type of relationship the work has to the Plan (e.g. the plan references the work) */
+  relationType?: Maybe<RelationType>;
+  /** The name of the source where the work was found */
+  sourceName?: Maybe<Scalars['String']['output']>;
+  /** The URL for the source of the work */
+  sourceUrl?: Maybe<Scalars['String']['output']>;
+  /** The title of the work */
+  title?: Maybe<Scalars['String']['output']>;
+  /** The type of the work */
+  workType?: Maybe<WorkType>;
+};
+
 export type AddAnswerInput = {
   json: Scalars['String']['input'];
   planId: Scalars['Int']['input'];
@@ -87,6 +132,8 @@ export type AddCustomSectionInput = {
 
 /** Input to create an entire Plan (and Project if applicable) */
 export type AddEntirePlanInput = {
+  /** Related Works associated with the plan */
+  acceptedWorks?: InputMaybe<Array<EntirePlanAcceptedWorkFragment>>;
   /** External identifiers for the plan (for use when integrating with external systems) */
   alternateIdentifiers?: InputMaybe<Array<Scalars['String']['input']>>;
   /** The answers to the questions in the plan's narrative */
@@ -257,6 +304,8 @@ export type AddRelatedWorkManualInput = {
   publicationDate?: InputMaybe<Scalars['String']['input']>;
   /** The venue where the work was published, e.g. IEEE Transactions on Software Engineering, Zenodo etc */
   publicationVenue?: InputMaybe<Scalars['String']['input']>;
+  /** How the work is associated with the DMP (e.g. the work cites the DMP) */
+  relationType?: InputMaybe<RelationType>;
   /** The name of the source where the work was found */
   sourceName: Scalars['String']['input'];
   /** The URL for the source of the work */
@@ -1098,6 +1147,13 @@ export type DoiMatchSource = {
   awardUrl: Scalars['String']['output'];
   /** The parent award ID, if the award has a parent */
   parentAwardId?: Maybe<Scalars['String']['output']>;
+};
+
+/** Input to create/replace an Accepted Work */
+export type EntirePlanAcceptedWorkFragment = {
+  doi: Scalars['String']['input'];
+  relationType: RelationType;
+  workType: WorkType;
 };
 
 /** Input to create/replace a Plan answer */
@@ -2724,6 +2780,8 @@ export type PaginationType =
 /** A Data Managament Plan (DMP) */
 export type Plan = {
   __typename?: 'Plan';
+  /** Related works that have been accepted/verified as associated with the plan */
+  acceptedWorks?: Maybe<Array<AcceptedWork>>;
   /** Alternate identifiers for the plan */
   alternateIdentifiers?: Maybe<Array<AlternateIdentifier>>;
   /** Answers associated with the plan */
@@ -2795,6 +2853,7 @@ export type PlanDownloadFormat =
 /** The error messages for the plan */
 export type PlanErrors = {
   __typename?: 'PlanErrors';
+  acceptedWorks?: Maybe<Scalars['String']['output']>;
   alternateIdentifiers?: Maybe<Scalars['String']['output']>;
   dmp_id?: Maybe<Scalars['String']['output']>;
   featured?: Maybe<Scalars['String']['output']>;
@@ -2805,7 +2864,6 @@ export type PlanErrors = {
   projectId?: Maybe<Scalars['String']['output']>;
   registered?: Maybe<Scalars['String']['output']>;
   registeredById?: Maybe<Scalars['String']['output']>;
-  relatedWorks?: Maybe<Scalars['String']['output']>;
   status?: Maybe<Scalars['String']['output']>;
   title?: Maybe<Scalars['String']['output']>;
   versionedTemplateId?: Maybe<Scalars['String']['output']>;
@@ -4805,6 +4863,44 @@ export type RelatedWorksIdentifierType =
   | 'PLAN_ID'
   | 'PROJECT_ID';
 
+export type RelationType =
+  | 'CITES'
+  | 'COLLECTS'
+  | 'COMPILES'
+  | 'CONTINUES'
+  | 'DESCRIBES'
+  | 'DOCUMENTS'
+  | 'HAS_METADATA'
+  | 'HAS_PART'
+  | 'HAS_VERSION'
+  | 'IS_CITED_BY'
+  | 'IS_COLLECTED_BY'
+  | 'IS_COMPILED_BY'
+  | 'IS_CONTINUED_BY'
+  | 'IS_DERIVED_FROM'
+  | 'IS_DESCRIBED_BY'
+  | 'IS_DOCUMENTED_BY'
+  | 'IS_IDENTICAL_TO'
+  | 'IS_METADATA_FOR'
+  | 'IS_NEW_VERSION_OF'
+  | 'IS_OBSOLETED_BY'
+  | 'IS_ORIGINAL_FORM_OF'
+  | 'IS_PART_OF'
+  | 'IS_PREVIOUS_VERSION_OF'
+  | 'IS_PUBLISHED_IN'
+  | 'IS_REFERENCED_BY'
+  | 'IS_REQUIRED_BY'
+  | 'IS_REVIEWED_BY'
+  | 'IS_SOURCE_OF'
+  | 'IS_SUPPLEMENTED_BY'
+  | 'IS_SUPPLEMENT_TO'
+  | 'IS_VARIANT_FORM_OF'
+  | 'IS_VERSION_OF'
+  | 'OBSOLETES'
+  | 'REFERENCES'
+  | 'REQUIRES'
+  | 'REVIEWS';
+
 /** The results of reordering the questions */
 export type ReorderQuestionsResult = {
   __typename?: 'ReorderQuestionsResult';
@@ -5448,6 +5544,8 @@ export type UpdateCustomSectionInput = {
 
 /** Input to update an entire Project and Plan */
 export type UpdateEntirePlanInput = {
+  /** Related Works associated with the plan */
+  acceptedWorks?: InputMaybe<Array<EntirePlanAcceptedWorkFragment>>;
   /** External identifiers for the plan (for use when integrating with external systems) */
   alternateIdentifiers?: InputMaybe<Array<Scalars['String']['input']>>;
   /** The answers to the questions in the plan's narrative */
@@ -6601,6 +6699,7 @@ export type ResolversInterfaceTypes<_RefType extends Record<string, unknown>> = 
 
 /** Mapping between all available schema types and the resolvers types */
 export type ResolversTypes = {
+  AcceptedWork: ResolverTypeWrapper<AcceptedWork>;
   AddAnswerInput: AddAnswerInput;
   AddCustomQuestionInput: AddCustomQuestionInput;
   AddCustomSectionInput: AddCustomSectionInput;
@@ -6663,6 +6762,7 @@ export type ResolversTypes = {
   DoiMatch: ResolverTypeWrapper<DoiMatch>;
   DoiMatchSource: ResolverTypeWrapper<DoiMatchSource>;
   EmailAddress: ResolverTypeWrapper<Scalars['EmailAddress']['output']>;
+  EntirePlanAcceptedWorkFragment: EntirePlanAcceptedWorkFragment;
   EntirePlanAnswerFragment: EntirePlanAnswerFragment;
   EntirePlanFundingFragment: EntirePlanFundingFragment;
   EntirePlanMemberFragment: EntirePlanMemberFragment;
@@ -6791,6 +6891,7 @@ export type ResolversTypes = {
   RelatedWorkStatus: RelatedWorkStatus;
   RelatedWorksFilterOptions: RelatedWorksFilterOptions;
   RelatedWorksIdentifierType: RelatedWorksIdentifierType;
+  RelationType: RelationType;
   ReorderQuestionsResult: ResolverTypeWrapper<ReorderQuestionsResult>;
   ReorderSectionsResult: ResolverTypeWrapper<ReorderSectionsResult>;
   Repository: ResolverTypeWrapper<ResolversUnionTypes<ResolversTypes>['Repository']>;
@@ -6889,6 +6990,7 @@ export type ResolversTypes = {
 
 /** Mapping between all available schema types and the resolvers parents */
 export type ResolversParentTypes = {
+  AcceptedWork: AcceptedWork;
   AddAnswerInput: AddAnswerInput;
   AddCustomQuestionInput: AddCustomQuestionInput;
   AddCustomSectionInput: AddCustomSectionInput;
@@ -6947,6 +7049,7 @@ export type ResolversParentTypes = {
   DoiMatch: DoiMatch;
   DoiMatchSource: DoiMatchSource;
   EmailAddress: Scalars['EmailAddress']['output'];
+  EntirePlanAcceptedWorkFragment: EntirePlanAcceptedWorkFragment;
   EntirePlanAnswerFragment: EntirePlanAnswerFragment;
   EntirePlanFundingFragment: EntirePlanFundingFragment;
   EntirePlanMemberFragment: EntirePlanMemberFragment;
@@ -7143,6 +7246,29 @@ export type ResolversParentTypes = {
   VersionedTemplateSearchResult: VersionedTemplateSearchResult;
   Work: Work;
   WorkVersion: WorkVersion;
+};
+
+export type AcceptedWorkResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['AcceptedWork'] = ResolversParentTypes['AcceptedWork']> = {
+  abstractText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  authors?: Resolver<Maybe<Array<ResolversTypes['Author']>>, ParentType, ContextType>;
+  awards?: Resolver<Maybe<Array<ResolversTypes['Award']>>, ParentType, ContextType>;
+  created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  createdById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  doi?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  funders?: Resolver<Maybe<Array<ResolversTypes['Funder']>>, ParentType, ContextType>;
+  id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  institutions?: Resolver<Maybe<Array<ResolversTypes['Institution']>>, ParentType, ContextType>;
+  modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  planId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  publicationDate?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  publicationVenue?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  relatedWorkId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  relationType?: Resolver<Maybe<ResolversTypes['RelationType']>, ParentType, ContextType>;
+  sourceName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  sourceUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  title?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  workType?: Resolver<Maybe<ResolversTypes['WorkType']>, ParentType, ContextType>;
 };
 
 export type AdminNotificationErrorsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['AdminNotificationErrors'] = ResolversParentTypes['AdminNotificationErrors']> = {
@@ -7921,6 +8047,7 @@ export type PaginatedQueryResultsResolvers<ContextType = MyContext, ParentType e
 };
 
 export type PlanResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['Plan'] = ResolversParentTypes['Plan']> = {
+  acceptedWorks?: Resolver<Maybe<Array<ResolversTypes['AcceptedWork']>>, ParentType, ContextType>;
   alternateIdentifiers?: Resolver<Maybe<Array<ResolversTypes['AlternateIdentifier']>>, ParentType, ContextType>;
   answers?: Resolver<Maybe<Array<ResolversTypes['Answer']>>, ParentType, ContextType>;
   created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -7953,6 +8080,7 @@ export type PlanResolvers<ContextType = MyContext, ParentType extends ResolversP
 };
 
 export type PlanErrorsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PlanErrors'] = ResolversParentTypes['PlanErrors']> = {
+  acceptedWorks?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   alternateIdentifiers?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   dmp_id?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   featured?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -7963,7 +8091,6 @@ export type PlanErrorsResolvers<ContextType = MyContext, ParentType extends Reso
   projectId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   registered?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   registeredById?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  relatedWorks?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   status?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   title?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   versionedTemplateId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -9461,6 +9588,7 @@ export type WorkVersionResolvers<ContextType = MyContext, ParentType extends Res
 };
 
 export type Resolvers<ContextType = MyContext> = {
+  AcceptedWork?: AcceptedWorkResolvers<ContextType>;
   AdminNotificationErrors?: AdminNotificationErrorsResolvers<ContextType>;
   AdminNotificationMetadata?: AdminNotificationMetadataResolvers<ContextType>;
   AdminNotificationResults?: AdminNotificationResultsResolvers<ContextType>;

@@ -156,6 +156,10 @@ export const resolvers: Resolvers = {
             const updatedAnswer = await answer.update(context);
 
             if (updatedAnswer && !updatedAnswer.hasErrors()) {
+              // Update the plan's modified timestamp to reflect that something changed
+              plan.modified = new Date().toISOString();
+              await plan.update(context);
+
               // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
               await handleAsyncUpdates(reference, context, plan, project);
             }

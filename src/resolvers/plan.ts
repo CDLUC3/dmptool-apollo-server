@@ -16,7 +16,7 @@ import { PlanFeedback } from "../models/PlanFeedback";
 import { Affiliation } from "../models/Affiliation";
 import { VersionedTemplate } from "../models/VersionedTemplate";
 import { Answer } from "../models/Answer";
-import { ProjectCollaboratorAccessLevel } from "../models/Collaborator";
+import { ProjectCollaborator, ProjectCollaboratorAccessLevel } from "../models/Collaborator";
 import { AlternateIdentifier } from "../models/AlternateIdentifier";
 import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
 import {
@@ -37,7 +37,8 @@ import {
   PaginatedPlanResults,
   PlanFeedbackStatus,
   Resolvers,
-  UpdateEntirePlanInput
+  UpdateEntirePlanInput,
+  PlanVersionSnapshot
 } from "../types";
 import { prepareObjectForLogs } from "../logger";
 // Services
@@ -47,6 +48,7 @@ import {
   handleAsyncDeletes,
   handleAsyncUpdates,
   getPlanVersions,
+  getPlanVersionSnapshot,
 } from "../services/planService";
 import {
   hasPermissionOnProject,
@@ -184,18 +186,17 @@ export const resolvers: Resolvers = {
       }
     },
 
-    // Find a published plan by its DMP id (publicly accessible so not checking permissions)
-    publicPlanByDMPId: async (_, { dmpId }, context: MyContext): Promise<Plan> => {
-      const reference = 'publicPlanByDMPId resolver';
+    // Find a published plan by its DMP id and version (publicly accessible so not checking permissions)
+    publicPlanVersionByDMPId: async (_, { dmpId, version }, context: MyContext): Promise<PlanVersionSnapshot> => {
+      const reference = 'publicPlanVersionByDMPId resolver';
       try {
-        const plan = await Plan.findByDMPId(reference, context, dmpId);
+        const snapshot = await getPlanVersionSnapshot(reference, context, dmpId, version);
 
-        // Treat "not found" and "not registered" identically - don't leak existence of private plans
-        if (isNullOrUndefined(plan) || plan.registered === null) {
-          throw NotFoundError(`Plan with DMP id, ${dmpId}, not found`);
+        if (!snapshot) {
+          throw NotFoundError(`Version ${version} of DMP ${dmpId} not found`);
         }
 
-        return plan;
+        return snapshot;
       } catch (err) {
         if (err instanceof GraphQLError) throw err;
         context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
@@ -779,6 +780,36 @@ export const resolvers: Resolvers = {
       }
       return null;
     },
+    owner: async (parent: Plan, _, context: MyContext): Promise<Affiliation> => {
+      if (!parent?.id) return null;
+      const reference = 'Chained Plan.owner';
+
+      // First, try to get the project owner (collaborator with OWN access level)
+      const projectOwner = await ProjectCollaborator.findOwnerByProjectId(
+        reference,
+        context,
+        parent.projectId
+      );
+
+      if (projectOwner?.userId) {
+        const user = await User.findById(reference, context, projectOwner.userId);
+        if (user?.affiliationId) {
+          const affiliation = await Affiliation.findByURI(reference, context, user.affiliationId);
+          if (affiliation) return affiliation;
+        }
+      }
+
+      // Fall back to the plan creator's affiliation
+      if (parent?.createdById) {
+        const user = await User.findById(reference, context, parent.createdById);
+        if (user?.affiliationId) {
+          return await Affiliation.findByURI(reference, context, user.affiliationId);
+        }
+      }
+
+      return null;
+    },
+
     // The project the plan is associated with
     project: async (parent: Plan, _, context: MyContext): Promise<Project> => {
       if (parent?.projectId) {

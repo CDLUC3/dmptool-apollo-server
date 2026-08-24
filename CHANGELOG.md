@@ -138,6 +138,12 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated updateAnswer resolver to update `plan.modified` to reflect that something had changed (for versioning) [#339]
+- Added `isPrimaryContact` to UpdateProjectMemberInput because the `isPrimaryContact` field value was being overwritten to false when the input didn’t include it [#339]
+- Added `owner` and `relatedWorks` to `PlanVersionSnapshot` schema [#339]
+- Updated getPlanVersions in `planService` to exclude the `VERSION#latest` used for the dropdown list.[#339]
+- Updated `getPlanVersionSnapshot to fetch the planId and projectId to pass to `mapDMPToolDMPToSnapshot`[#339]
+- Updated `maDMPToolDMPToSnapshot` to get `isPrimaryContact` from correct place, and added `owner` and `relatedWorks` to the response[#339]
 - Updated `projectFunding` query to return `readOnly` [#246]
 - Updated resolvers to use the new `handleAsyncUpdates` function instead of calling `saveMaDMPRecord` directly
 - Updated docker-compose.yaml to install OpenSearch for use with our search indices

@@ -600,4 +600,23 @@ export class ProjectCollaborator extends Collaborator {
     if (!Array.isArray(results) || results.length === 0) return null;
     return Object.assign(new ProjectCollaborator(results[0]), { affiliationId: results[0].affiliationId ?? null }) as ProjectCollaboratorWithUser;
   }
+
+  // Get owner user for project
+  static async findOwnerByProjectId(
+    reference: string,
+    context: MyContext,
+    projectId: number,
+  ): Promise<ProjectCollaboratorWithUser | null> {
+    const sql = `SELECT  pc.id AS collaboratorId, pc.projectId, pc.email, pc.accessLevel, pc.created AS collaboratorCreated,
+    u.id AS userId, u.affiliationId, u.active
+    FROM projectCollaborators pc
+    INNER JOIN users u ON pc.userId = u.id
+    WHERE pc.projectId = ?
+    AND pc.accessLevel = "OWN"
+    `;
+    const vals = [projectId?.toString()];
+    const results = await ProjectCollaborator.query(context, sql, vals, reference);
+    if (!Array.isArray(results) || results.length === 0) return null;
+    return Object.assign(new ProjectCollaborator(results[0]), { affiliationId: results[0].affiliationId ?? null }) as ProjectCollaboratorWithUser;
+  }
 }

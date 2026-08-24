@@ -16,12 +16,8 @@ import { PlanFeedback } from "../models/PlanFeedback";
 import { Affiliation } from "../models/Affiliation";
 import { VersionedTemplate } from "../models/VersionedTemplate";
 import { Answer } from "../models/Answer";
-import { ProjectCollaboratorAccessLevel } from "../models/Collaborator";
+import { ProjectCollaborator, ProjectCollaboratorAccessLevel } from "../models/Collaborator";
 import { AlternateIdentifier } from "../models/AlternateIdentifier";
-import {
-  RelatedWorkSearchResult,
-  RelatedWorkStatus
-} from "../models/RelatedWork";
 import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
 import {
   AuthenticationError,
@@ -42,7 +38,6 @@ import {
   PlanFeedbackStatus,
   Resolvers,
   UpdateEntirePlanInput,
-  RelatedWorksFilterOptions,
   PlanVersionSnapshot
 } from "../types";
 import { prepareObjectForLogs } from "../logger";
@@ -789,12 +784,17 @@ export const resolvers: Resolvers = {
       if (!parent?.id) return null;
       const reference = 'Chained Plan.owner';
 
-      // Get Affiliation info for the plan's primary contact, if one exists
-      const primaryContactMember = await PlanMember.findPrimaryContact(reference, context, parent.id);
-      if (primaryContactMember?.projectMemberId) {
-        const projectMember = await ProjectMember.findById(reference, context, primaryContactMember.projectMemberId);
-        if (projectMember?.affiliationId) {
-          const affiliation = await Affiliation.findByURI(reference, context, projectMember.affiliationId);
+      // First, try to get the project owner (collaborator with OWN access level)
+      const projectOwner = await ProjectCollaborator.findOwnerByProjectId(
+        reference,
+        context,
+        parent.projectId
+      );
+
+      if (projectOwner?.userId) {
+        const user = await User.findById(reference, context, projectOwner.userId);
+        if (user?.affiliationId) {
+          const affiliation = await Affiliation.findByURI(reference, context, user.affiliationId);
           if (affiliation) return affiliation;
         }
       }
@@ -882,41 +882,6 @@ export const resolvers: Resolvers = {
     versions: async (parent: Plan, _, context: MyContext) => {
       if (!parent?.dmpId) return [];
       return await getPlanVersions('Chained Plan.versions', context, parent.dmpId);
-    },
-    // Other works related to this plan's project
-    relatedWorks: async (
-      parent: Plan,
-      _: Record<string, never>,
-      context: MyContext,
-    ): Promise<RelatedWorkSearchResult[]> => {
-      if (!parent?.id || !parent?.projectId) {
-        return [];
-      }
-
-      const isPubliclyVisible = parent.visibility === 'PUBLIC' && !!parent.registered;
-
-      let effectiveFilters: RelatedWorksFilterOptions = {};
-
-      if (isPubliclyVisible) {
-        // Public visitors only ever see curated/accepted related works.
-        effectiveFilters = { status: 'ACCEPTED' as RelatedWorkStatus };
-      } else {
-        if (!isAuthorized(context.token)) return [];
-
-        const project = await Project.findById('plan.relatedWorks resolver', context, parent.projectId);
-        if (!project || !(await hasPermissionOnProject(context, project))) return [];
-      }
-
-      const result = await RelatedWorkSearchResult.search(
-        'plan.relatedWorks resolver',
-        context,
-        parent.projectId,
-        parent.id,
-        undefined,
-        effectiveFilters,
-      );
-
-      return result.items;
     },
     created: (parent: Plan) => {
       return normaliseDateTime(parent.created);

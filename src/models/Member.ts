@@ -118,6 +118,7 @@ export class ProjectMember extends MySqlModel {
           reference,
           ['memberRoles']
         );
+
         const response = await ProjectMember.findById(reference, context, newId);
         return response;
       }
@@ -265,7 +266,7 @@ export class ProjectMember extends MySqlModel {
     email: string
   ): Promise<ProjectMember> {
     let sql = `SELECT * FROM ${ProjectMember.tableName}`;
-    sql += ' WHERE projectId = ? AND (LOWER(givenName) = ? AND LOWER(surName) = ?) OR (orcid = ?) OR (email = ?)';
+    sql += ' WHERE projectId = ? AND ((LOWER(givenName) = ? AND LOWER(surName) = ?) OR (orcid = ?) OR (email = ?))';
     sql += ' ORDER BY orcid DESC, email DESC, surName, givenName';
     const vals = [projectId?.toString(), givenName?.trim()?.toLowerCase(), surName?.trim()?.toLowerCase(), orcid, email];
     const results = await ProjectMember.query(context, sql, vals, reference);
@@ -332,6 +333,7 @@ export class PlanMember extends MySqlModel {
           reference,
           ['memberRoleIds']
         );
+
         const response = await PlanMember.findById(reference, context, newId);
         return response;
       }

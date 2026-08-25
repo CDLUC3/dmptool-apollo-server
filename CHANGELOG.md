@@ -3,6 +3,21 @@
 ## v1.1.0
 
 ### Added
+- Add missing `relationType` column to the `relatedWorks` table
+- Added cascading delete logic to the `relatedWorks` table so that those entries are dropped when a plan is deleted.
+- Added chained resolver to `Plan` to return `acceptedWorks`
+- Added an OpenSearch domain to the LocalStack init script
+- Added an OpenSearchServerlessClient to the Apollo context object
+- Added new `OpenSearch` class to the openSearch data source file 
+- Added new `tokenizeText` `camelizeKeys` and `snakeizeKeys` helper functions to the openSearch data source file
+- Added new `AcceptedWork` model that includes the DOI and information necessary to display a related work that has been accepted for a project.
+- Added new `indexDMPService` to handle indexing of Plans in OpenSearch
+- Added new `handleAsyncUpdates` function to the `planService` that allows us to truly run DynamoDB and OpenSearch updates asynchronously.
+- Added missing call to generate the maDMP JSON after successful creation or update of the Plan.
+- Added `publicPlanbyDMPId` resolver, to query only plans that are registered for the landing page [#293]
+- Added `getPlanVersions` for the `publicPlanByDMPId` resolver [#293]
+- Added `questionConditionGroups` and `versionedQuestionConditionGroups` tables via data migration scripts [#508]
+- Added new models `QuestionConditionGroup` and `QuestionConditionGroups` models for question display logic [#508]
 - Added override for `minimatch`
 - Added versionedTemplate schema and resolver so we can fetch a versioned template by its id.
 - Added `questionTags` and `versionedQuestionTags` tables [#274]
@@ -126,6 +141,31 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated docker compose so that LocalStack log level is now `WARN`.
+- Bumped versions of `@dmptool` packages to their latest versions
+- Updated `RelatedWork` model so that it does not always try to strip off the protocol and domain from the related work identifier. The DMP works matching deals with DOIs, but we are allowing users to manually add related works via the UI as well as through the REST API and sometimes the entries are URLs or other unique identetifiers that are NOT DOIs. These changes continue to strip off the `https://doi.org` if it is a DOI (for backward compatibility with the dmp works project) but otherwise preserve the entire value
+- Fixed issues with `entirePlanService` that was causing updates to fail.
+- Moved logic from the `relatedWork` resolver into the `relatedWorkService` and renamed to `addAcceptedWork` so that adding a new work manually through the UI or via the `entirePlan` resolvers use the same logic.
+- Updated updateAnswer resolver to update `plan.modified` to reflect that something had changed (for versioning) [#339]
+- Added `isPrimaryContact` to UpdateProjectMemberInput because the `isPrimaryContact` field value was being overwritten to false when the input didn’t include it [#339]
+- Added `owner` and `relatedWorks` to `PlanVersionSnapshot` schema [#339]
+- Updated getPlanVersions in `planService` to exclude the `VERSION#latest` used for the dropdown list.[#339]
+- Updated `getPlanVersionSnapshot to fetch the planId and projectId to pass to `mapDMPToolDMPToSnapshot`[#339]
+- Updated `maDMPToolDMPToSnapshot` to get `isPrimaryContact` from correct place, and added `owner` and `relatedWorks` to the response[#339]
+- Updated `projectFunding` query to return `readOnly` [#246]
+- Updated resolvers to use the new `handleAsyncUpdates` function instead of calling `saveMaDMPRecord` directly
+- Updated docker-compose.yaml to install OpenSearch for use with our search indices
+- Updated docker-compose.yaml to include a health check so we can wait to start Apollo server after LocalStack is ready
+- Updated README with updated info about LocalStack and interacting with the OpenSearch instance
+- Bumped `@dmptool/utils` to 2.1.7
+- Fixed bug with SQL query in `ProjectMember.findByProjectAndNameOrORCIDOrEmail`
+- Fixed some minor issues in the `entirePlanService`
+- Updated `versionedQuestion` resolver to use `findByVersionedQuestionConditionGroupId` in place of `findByVersionedQuestionId` [#508]
+- Updated `publishedConditionGroupsForQuestion` in `versionedQuestionCondition` resolver and added `conditions` chained resolver [#508]
+- Updated `question`, `questionCondition` and `versionedQuestionCondition` schemas [#508]
+- Updated `Question` model to include `displayLogicAction` and `displayLogicMatchType`. Updated `QuestionCondition` model to only include `conditionType`, `conditionMatch` and `groupId`, and replaced `findByQuestionId` with `findByGroupId`. Updated `VersionedQuestionCondition` model to use `versionedQuestionConditionGroupId instead of `versionedQuestionId` [#508]
+- Altered `questions`, `questionConditions`, `versionedQuestions` and `versionedQuestionConditions` tables via data migration scripts [#508]
+- Updated `questionService.ts` with `generateQuestionConditionGroupVersion` [#508]
 - Updated override for `brace-expansion`
 - Switched entirePlan schema, resolvers and service to use versionedXId instead of xId (e.g. use versionedTemplates instead of Templates)
 - Updated entirePlan service to use the default MemberRole when none is provided 
@@ -277,6 +317,7 @@
 - Removed `ioredis` package
 
 ### Fixed
+- Fixed an issue in `MySqlModel` where the `query` function was returning a tuple with fields along with the response [#508]
 - Added missing `fast-xml-parser` back so that `re3data-os-populate.ts` can run
 - Fixed `removeProjectFunding`. There were several issues, one of which was not being able to delete a `projectFundings` record without removing it's foreign key dependency in `planFundings` first [#303]
 - Updated `immutable` to `v5.1.9` to address HIGH security vulnerability [#304]
@@ -294,6 +335,7 @@
 - Fixed issue with templates not cloning with sections and questions by updating the `addTemplate` mutation to clone from non-versioned template, section and question [#1006]
 
 ### Chore
+- Fixed vulnerability issue with `js-yaml` [#293]
 - Added override for `brace-expansion` to `v5.0.8` [#314]
 - Addressed security vulnerability in `nodemailer` and `undici` packages, and added debugging to troubleshoot request feedback failure [#285]
 - Updated `nodemailer` to `v9.0.1` and `undici` to `v7.28.0` [#240]

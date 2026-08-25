@@ -6,12 +6,12 @@ import { PlanFunding, ProjectFunding } from "../models/Funding";
 import { MyContext } from '../context';
 import { isAuthorized } from '../services/authService';
 import { AuthenticationError, ForbiddenError, InternalServerError, NotFoundError } from '../utils/graphQLErrors';
-import { hasPermissionOnProject } from '../services/projectService';
+import { hasPermissionOnProject, isProjectReadOnlyForCurrentUser } from '../services/projectService';
 import { GraphQLError } from 'graphql';
 import { Plan } from '../models/Plan';
 import { ProjectCollaboratorAccessLevel } from "../models/Collaborator";
 import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
-import { saveMaDMPVersion } from "../services/planService";
+import { handleAsyncUpdates } from "../services/planService";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -140,8 +140,8 @@ export const resolvers: Resolvers = {
             if (updated && !updated.hasErrors()) {
               const plans = await Plan.findByProjectId(reference, context, funding.projectId);
               for (const plan of plans) {
-                // Update the maDMP version of the Plan
-                await saveMaDMPVersion(reference, context, plan.id, plan.dmpId);
+                // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+                await handleAsyncUpdates(reference, context, plan, project);
               }
             }
             return updated;
@@ -192,8 +192,8 @@ export const resolvers: Resolvers = {
             console.log("***Removed funding", removed);
             if (removed && !removed.hasErrors()) {
               for (const plan of plans) {
-                // Update the maDMP version of the Plan now that the funding is actually gone
-                await saveMaDMPVersion(reference, context, plan.id, plan.dmpId);
+                // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+                await handleAsyncUpdates(reference, context, plan, project);
               }
             }
             return removed;
@@ -257,8 +257,8 @@ export const resolvers: Resolvers = {
               returnedPlan.addError('general', failed);
             }
 
-            // Update the maDMP version of the Plan
-            await saveMaDMPVersion(reference, context, returnedPlan.id, returnedPlan.dmpId);
+            // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+            await handleAsyncUpdates(reference, context, plan, project);
 
             // We want to return the Plan and attach one set of errors for any failed fundings
             return returnedPlan;
@@ -338,8 +338,8 @@ export const resolvers: Resolvers = {
             context.logger.warn(`Plan funding update had issues: ${associationErrors.join(', ')}`);
           }
 
-          // Update the maDMP version of the Plan
-          await saveMaDMPVersion(reference, context, plan.id, plan.dmpId);
+          // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+          await handleAsyncUpdates(reference, context, plan, project);
 
           return await PlanFunding.findByPlanId(reference, context, plan.id);
         }
@@ -368,8 +368,8 @@ export const resolvers: Resolvers = {
             const deletedFunding = await funding.delete(context);
 
             if (deletedFunding && !deletedFunding.hasErrors()) {
-              // Update the maDMP version of the Plan
-              await saveMaDMPVersion(reference, context, plan.id, plan.dmpId);
+              // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+              await handleAsyncUpdates(reference, context, plan, project);
             }
 
             return deletedFunding;
@@ -389,7 +389,12 @@ export const resolvers: Resolvers = {
   ProjectFunding: {
     project: async (parent: ProjectFunding, _, context: MyContext): Promise<Project> => {
       if (parent?.projectId) {
-        return await Project.findById('Chained ProjectFunding.project', context, parent.projectId);
+        const project = await Project.findById('Chained ProjectFunding.project', context, parent.projectId);
+        if (project) {
+          const readOnly = await isProjectReadOnlyForCurrentUser('Chained ProjectFunding.project', context, project);
+          return Object.assign(project, { readOnly }) as Project & { readOnly: boolean };
+        }
+        return null;
       }
       return null;
     },

@@ -113,7 +113,7 @@ describe('versionedQuestion resolvers', () => {
       };
 
       (VersionedQuestion.findById as jest.Mock).mockResolvedValue(mockQuestion);
-      (VersionedQuestionCondition.findByVersionedQuestionId as jest.Mock).mockResolvedValue([]);
+      (VersionedQuestionCondition.findByVersionedQuestionConditionGroupId as jest.Mock).mockResolvedValue([]);
       (VersionedQuestionCustomization.findActiveByTemplateAffiliationAndQuestion as jest.Mock).mockResolvedValue(null);
 
       const result = await executeQuery(query, { versionedQuestionId: 1 }, researcherToken);
@@ -152,7 +152,7 @@ describe('versionedQuestion resolvers', () => {
       };
 
       (VersionedQuestion.findById as jest.Mock).mockResolvedValue(mockQuestion);
-      (VersionedQuestionCondition.findByVersionedQuestionId as jest.Mock).mockResolvedValue([]);
+      (VersionedQuestionCondition.findByVersionedQuestionConditionGroupId as jest.Mock).mockResolvedValue([]);
       (VersionedQuestionCustomization.findActiveByTemplateAffiliationAndQuestion as jest.Mock).mockResolvedValue(mockCustomization);
 
       const custQuery = `
@@ -190,7 +190,7 @@ describe('versionedQuestion resolvers', () => {
       };
 
       (VersionedQuestion.findById as jest.Mock).mockResolvedValue(mockQuestion);
-      (VersionedQuestionCondition.findByVersionedQuestionId as jest.Mock).mockResolvedValue([]);
+      (VersionedQuestionCondition.findByVersionedQuestionConditionGroupId as jest.Mock).mockResolvedValue([]);
       (VersionedQuestionCustomization.findActiveByTemplateAffiliationAndQuestion as jest.Mock).mockResolvedValue(null);
 
       const custQuery = `
@@ -244,7 +244,7 @@ describe('versionedQuestion resolvers', () => {
       ];
 
       (VersionedQuestion.findById as jest.Mock).mockResolvedValue(mockQuestion);
-      (VersionedQuestionCondition.findByVersionedQuestionId as jest.Mock).mockResolvedValue(mockConditions);
+      (VersionedQuestionCondition.findByVersionedQuestionConditionGroupId as jest.Mock).mockResolvedValue(mockConditions);
       (VersionedQuestionCustomization.findActiveByTemplateAffiliationAndQuestion as jest.Mock).mockResolvedValue(null);
 
       const result = await executeQuery(query, { versionedQuestionId: 1 }, researcherToken);
@@ -252,7 +252,7 @@ describe('versionedQuestion resolvers', () => {
       expect(result.body.singleResult.errors).toBeUndefined();
       expect(result.body.singleResult.data.publishedQuestion.versionedQuestionConditions).toHaveLength(2);
       expect(result.body.singleResult.data.publishedQuestion.versionedQuestionConditions[0].id).toEqual(11);
-      expect(VersionedQuestionCondition.findByVersionedQuestionId).toHaveBeenCalledWith(
+      expect(VersionedQuestionCondition.findByVersionedQuestionConditionGroupId).toHaveBeenCalledWith(
         'Chained VersionedQuestion.versionedQuestionConditions',
         expect.any(Object),
         1
@@ -271,7 +271,7 @@ describe('versionedQuestion resolvers', () => {
       const mockAffiliation = { uri: 'https://ror.org/abc', name: 'Test University', displayName: 'Test University' };
 
       (VersionedQuestion.findById as jest.Mock).mockResolvedValue(mockQuestion);
-      (VersionedQuestionCondition.findByVersionedQuestionId as jest.Mock).mockResolvedValue([]);
+      (VersionedQuestionCondition.findByVersionedQuestionConditionGroupId as jest.Mock).mockResolvedValue([]);
       (VersionedQuestionCustomization.findActiveByTemplateAffiliationAndQuestion as jest.Mock).mockResolvedValue(null);
       jest.spyOn(VersionedTemplate, 'findById').mockResolvedValue(mockTemplate as unknown as VersionedTemplate);
       jest.spyOn(Affiliation, 'findByURI').mockResolvedValue(mockAffiliation as unknown as Affiliation);
@@ -311,7 +311,7 @@ describe('versionedQuestion resolvers', () => {
       const mockAffiliation = { uri: affiliationId, name: 'Org University', displayName: 'Org University' };
 
       (VersionedQuestion.findById as jest.Mock).mockResolvedValue(mockQuestion);
-      (VersionedQuestionCondition.findByVersionedQuestionId as jest.Mock).mockResolvedValue([]);
+      (VersionedQuestionCondition.findByVersionedQuestionConditionGroupId as jest.Mock).mockResolvedValue([]);
       (VersionedQuestionCustomization.findActiveByTemplateAffiliationAndQuestion as jest.Mock).mockResolvedValue(mockCustomization);
       jest.spyOn(Affiliation, 'findByURI').mockResolvedValue(mockAffiliation as unknown as Affiliation);
 
@@ -348,7 +348,7 @@ describe('versionedQuestion resolvers', () => {
       };
 
       (VersionedQuestion.findById as jest.Mock).mockResolvedValue(mockQuestion);
-      (VersionedQuestionCondition.findByVersionedQuestionId as jest.Mock).mockResolvedValue([]);
+      (VersionedQuestionCondition.findByVersionedQuestionConditionGroupId as jest.Mock).mockResolvedValue([]);
       (VersionedQuestionCustomization.findActiveByTemplateAffiliationAndQuestion as jest.Mock).mockResolvedValue(null);
 
       const custOwnerQuery = `

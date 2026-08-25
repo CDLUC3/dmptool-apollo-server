@@ -2,16 +2,24 @@ import casual from "casual";
 import { Template } from "../../models/Template";
 import { buildMockContextWithToken } from "../../__mocks__/context";
 import { logger } from "../../logger";
-import { cloneQuestion, generateQuestionConditionVersion, generateQuestionVersion, hasPermissionOnQuestion, updateDisplayOrders } from "../questionService";
+import {
+  cloneQuestion,
+  generateQuestionConditionGroupVersion,
+  generateQuestionConditionVersion,
+  generateQuestionVersion,
+  hasPermissionOnQuestion,
+  updateDisplayOrders
+} from "../questionService";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { hasPermissionOnTemplate } from "../templateService";
 import { NotFoundError } from "../../utils/graphQLErrors";
 import { Question } from "../../models/Question";
 import { VersionedQuestion } from "../../models/VersionedQuestion";
-import { QuestionCondition, QuestionConditionActionType, QuestionConditionCondition } from "../../models/QuestionCondition";
+import { QuestionCondition } from "../../models/QuestionCondition";
+import { QuestionConditionGroup } from "../../models/QuestionConditionGroup";
 import { VersionedQuestionCondition } from "../../models/VersionedQuestionCondition";
+import { VersionedQuestionConditionGroup } from "../../models/VersionedQuestionConditionGroups";
 import { Tag } from "../../models/Tag";
-import { getRandomEnumValue } from "../../__tests__/helpers";
 import { getCurrentDate } from "../../utils/helpers";
 import { CURRENT_SCHEMA_VERSION } from "@dmptool/types";
 import { MyContext } from "../../context";
@@ -179,19 +187,35 @@ describe('cloneQuestion', () => {
 });
 
 describe('generateQuestionVersion', () => {
+  const originalGroupCreate = VersionedQuestionConditionGroup.prototype.create;
+
   let questionStore;
   let versionedQuestionStore;
   let mockInsert;
   let mockUpdate;
   let mockFindQuestionById;
   let mockFindVersionedQuestionById;
+  let mockFindGroupsByQuestionId;
   let mockFindTagById;
   let mockAddToVersionedQuestionTags;
 
+  afterEach(() => {
+    VersionedQuestionConditionGroup.prototype.create = originalGroupCreate;
+  });
+
   beforeEach(() => {
-    // Mock the QuestionConditions
-    const mockQuestionConditionFindByQuestionId = jest.fn().mockResolvedValue([]);
-    (QuestionCondition.findByQuestionId as jest.Mock) = mockQuestionConditionFindByQuestionId;
+    // By default there are no QuestionConditionGroups for the question. Individual
+    // tests override this to exercise the group-versioning branch.
+    mockFindGroupsByQuestionId = jest.fn().mockResolvedValue([]);
+    (QuestionConditionGroup.findByQuestionId as jest.Mock) = mockFindGroupsByQuestionId;
+
+    mockAddToVersionedQuestionTags = jest.fn().mockResolvedValue(true);
+    (Tag.prototype.addToVersionedQuestionTags as jest.Mock) = mockAddToVersionedQuestionTags;
+
+    mockFindTagById = jest.fn().mockImplementation((_, __, id) => {
+      return new Tag({ id, name: `tag-${id}`, description: casual.sentence });
+    });
+    (Tag.findById as jest.Mock) = mockFindTagById;
 
     const tstamp = getCurrentDate();
 
@@ -301,14 +325,6 @@ describe('generateQuestionVersion', () => {
       }
       return obj;
     });
-
-    mockAddToVersionedQuestionTags = jest.fn().mockResolvedValue(true);
-    (Tag.prototype.addToVersionedQuestionTags as jest.Mock) = mockAddToVersionedQuestionTags;
-
-    mockFindTagById = jest.fn().mockImplementation((_, __, id) => {
-      return new Tag({ id, name: `tag-${id}`, description: casual.sentence });
-    });
-
   });
 
   it('does not allow an unsaved question to be versioned', async () => {
@@ -324,7 +340,6 @@ describe('generateQuestionVersion', () => {
     const versioned = new VersionedQuestion({ questionId: question.id });
     versioned.errors = { general: 'Test failure' };
 
-    // (context.dataSources.sqlDataSource.query as jest.Mock).mockResolvedValueOnce(null);
     (VersionedQuestion.insert as jest.Mock) = mockInsert;
     const mockFindByFailure = jest.fn().mockImplementation(() => { return versioned; });
     (VersionedQuestion.findById as jest.Mock) = mockFindByFailure;
@@ -352,7 +367,7 @@ describe('generateQuestionVersion', () => {
     }).rejects.toThrow(Error(err));
   });
 
-  it('versions the Question', async () => {
+  it('versions the Question when it has no QuestionConditionGroups', async () => {
     const question = new Question(questionStore[0]);
 
     (VersionedQuestion.insert as jest.Mock) = mockInsert;
@@ -368,6 +383,7 @@ describe('generateQuestionVersion', () => {
 
     // Verify that the Version was created as expected
     const newVersion = versionedQuestionStore[0];
+    expect(mockFindGroupsByQuestionId).toHaveBeenCalledWith('generateQuestionVersion', context, newVersion.questionId);
     expect(mockInsert).toHaveBeenCalled();
     expect(newVersion.id).toBeTruthy();
     expect(newVersion.created).toBeTruthy();
@@ -392,6 +408,7 @@ describe('generateQuestionVersion', () => {
     expect(updated.modified).toEqual(question.modified);
     expect(updated.isDirty).toEqual(false);
   });
+
   it('versions the Question and assigns its tags', async () => {
     const tag1 = { id: casual.integer(1, 99), name: casual.word };
     const tag2 = { id: casual.integer(1, 99), name: casual.word };
@@ -401,7 +418,6 @@ describe('generateQuestionVersion', () => {
     (VersionedQuestion.findById as jest.Mock) = mockFindVersionedQuestionById;
     (Question.update as jest.Mock) = mockUpdate;
     (Question.findById as jest.Mock) = mockFindQuestionById;
-    (Tag.findById as jest.Mock) = mockFindTagById;
 
     const versionedTemplateId = casual.integer(1, 999);
     const versionedSectionId = casual.integer(1, 999);
@@ -419,16 +435,15 @@ describe('generateQuestionVersion', () => {
     expect(newVersion.errors?.tags).toBeUndefined();
   });
 
-  it('adds a tags error when a tag fails to be assigned', async () => {
-    const tagName = `tag-10`;
-    const question = new Question({ ...questionStore[0], tags: [{ id: 10, name: tagName }] });
+  it('adds a tags error when a tag cannot be found', async () => {
+    const missingTagId = 10;
+    const question = new Question({ ...questionStore[0], tags: [{ id: missingTagId, name: 'ghost-tag' }] });
 
     (VersionedQuestion.insert as jest.Mock) = mockInsert;
     (VersionedQuestion.findById as jest.Mock) = mockFindVersionedQuestionById;
     (Question.update as jest.Mock) = mockUpdate;
     (Question.findById as jest.Mock) = mockFindQuestionById;
-    (Tag.findById as jest.Mock) = mockFindTagById; // now returns id + matching name
-    (Tag.prototype.addToVersionedQuestionTags as jest.Mock) = jest.fn().mockResolvedValue(false);
+    (Tag.findById as jest.Mock) = jest.fn().mockResolvedValue(null);
 
     const versionedTemplateId = casual.integer(1, 999);
     const versionedSectionId = casual.integer(1, 999);
@@ -438,7 +453,8 @@ describe('generateQuestionVersion', () => {
     ).toEqual(true);
 
     const newVersion = versionedQuestionStore[0];
-    expect(newVersion.errors.tags).toContain("Saved but we were unable to assign tags: tag-10");
+    expect(mockAddToVersionedQuestionTags).not.toHaveBeenCalled();
+    expect(newVersion.errors.tags).toContain(`Tag ${missingTagId} not found`);
   });
 
   it('adds a tags error when a tag fails to be assigned', async () => {
@@ -470,7 +486,6 @@ describe('generateQuestionVersion', () => {
     (VersionedQuestion.findById as jest.Mock) = mockFindVersionedQuestionById;
     (Question.update as jest.Mock) = mockUpdate;
     (Question.findById as jest.Mock) = mockFindQuestionById;
-    (Tag.findById as jest.Mock) = mockFindTagById;
 
     const versionedTemplateId = casual.integer(1, 999);
     const versionedSectionId = casual.integer(1, 999);
@@ -480,6 +495,180 @@ describe('generateQuestionVersion', () => {
     ).toEqual(true);
 
     expect(mockFindTagById).not.toHaveBeenCalled();
+  });
+
+  it('versions the Question and its QuestionConditionGroups', async () => {
+    const question = new Question(questionStore[0]);
+    const group = new QuestionConditionGroup({
+      id: casual.integer(1, 99),
+      questionId: question.id,
+      triggerQuestionId: casual.integer(1, 99),
+    });
+
+    mockFindGroupsByQuestionId.mockResolvedValueOnce([group]);
+
+    const mockFindConditionsByGroupId = jest.fn().mockResolvedValue([]);
+    (QuestionCondition.findByGroupId as jest.Mock) = mockFindConditionsByGroupId;
+
+    const mockCreateVersionedGroup = jest.fn().mockImplementation(function () {
+      return new VersionedQuestionConditionGroup({
+        id: casual.integer(1, 999),
+        versionedQuestionId: this.versionedQuestionId,
+
+        triggerQuestionId: this.triggerQuestionId,
+      });
+    });
+    (VersionedQuestionConditionGroup.prototype.create as jest.Mock) = mockCreateVersionedGroup;
+
+    (VersionedQuestion.insert as jest.Mock) = mockInsert;
+    (VersionedQuestion.findById as jest.Mock) = mockFindVersionedQuestionById;
+    (Question.update as jest.Mock) = mockUpdate;
+    (Question.findById as jest.Mock) = mockFindQuestionById;
+
+    const versionedTemplateId = casual.integer(1, 999);
+    const versionedSectionId = casual.integer(1, 999);
+    expect(
+      await generateQuestionVersion(context, question, versionedTemplateId, versionedSectionId)
+    ).toEqual(true);
+
+    const newVersion = versionedQuestionStore[0];
+    expect(mockCreateVersionedGroup).toHaveBeenCalledTimes(1);
+    expect(mockFindConditionsByGroupId).toHaveBeenCalledWith('generateQuestionConditionGroupVersion', context, group.id);
+    // The question was still marked clean since group versioning succeeded
+    const updated = questionStore.find((entry) => { return entry.id === question.id; });
+    expect(updated.isDirty).toEqual(false);
+    expect(newVersion.errors).toEqual({});
+  });
+
+  it('does not mark the Question clean if a QuestionConditionGroup fails to version', async () => {
+    const question = new Question(questionStore[0]);
+    const group = new QuestionConditionGroup({
+      id: casual.integer(1, 99),
+      questionId: question.id,
+      triggerQuestionId: casual.integer(1, 99),
+    });
+
+    mockFindGroupsByQuestionId.mockResolvedValueOnce([group]);
+
+    const mockCreateVersionedGroup = jest.fn().mockImplementation(() => {
+      const failed = new VersionedQuestionConditionGroup({ versionedQuestionId: casual.integer(1, 999) });
+      failed.errors = { general: 'Test failure' };
+      return failed;
+    });
+    (VersionedQuestionConditionGroup.prototype.create as jest.Mock) = mockCreateVersionedGroup;
+
+    (VersionedQuestion.insert as jest.Mock) = mockInsert;
+    (VersionedQuestion.findById as jest.Mock) = mockFindVersionedQuestionById;
+    (Question.update as jest.Mock) = mockUpdate;
+    (Question.findById as jest.Mock) = mockFindQuestionById;
+
+    const err = `Unable to generate a new version for questionConditionGroup: ${group.id}`;
+    await expect(
+      generateQuestionVersion(context, question, casual.integer(1, 999), casual.integer(1, 999))
+    ).rejects.toThrow(Error(err));
+
+    // The Question should not have been marked as clean since versioning failed
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+});
+
+describe('generateQuestionConditionGroupVersion', () => {
+  const originalGroupCreate = VersionedQuestionConditionGroup.prototype.create;
+  const originalConditionCreate = VersionedQuestionCondition.prototype.create;
+
+  let mockCreateVersionedGroup;
+  let mockFindConditionsByGroupId;
+  let group;
+
+  beforeEach(() => {
+    group = new QuestionConditionGroup({
+      id: casual.integer(1, 99),
+      questionId: casual.integer(1, 999),
+      triggerQuestionId: casual.integer(1, 999),
+    });
+
+    mockFindConditionsByGroupId = jest.fn().mockResolvedValue([]);
+    (QuestionCondition.findByGroupId as jest.Mock) = mockFindConditionsByGroupId;
+  });
+
+  afterEach(() => {
+    VersionedQuestionConditionGroup.prototype.create = originalGroupCreate;
+    VersionedQuestionCondition.prototype.create = originalConditionCreate;
+  });
+
+  it('does not allow an unsaved QuestionConditionGroup to be versioned', async () => {
+    const unsavedGroup = new QuestionConditionGroup({ questionId: casual.integer(1, 9) });
+
+    expect(async () => {
+      await generateQuestionConditionGroupVersion(context, unsavedGroup, casual.integer(1, 999));
+    }).rejects.toThrow(Error('Cannot publish unsaved QuestionConditionGroup'));
+  });
+
+  it('does not version if the VersionedQuestionConditionGroup could not be created', async () => {
+    mockCreateVersionedGroup = jest.fn().mockImplementation(() => {
+      const failed = new VersionedQuestionConditionGroup({ versionedQuestionId: casual.integer(1, 999) });
+      failed.errors = { general: 'Test failure' };
+      return failed;
+    });
+    (VersionedQuestionConditionGroup.prototype.create as jest.Mock) = mockCreateVersionedGroup;
+
+    const err = `Unable to generate a new version for questionConditionGroup: ${group.id}`;
+    expect(async () => {
+      await generateQuestionConditionGroupVersion(context, group, casual.integer(1, 999));
+    }).rejects.toThrow(Error(err));
+  });
+
+  it('versions the QuestionConditionGroup when it has no QuestionConditions', async () => {
+    const versionedQuestionId = casual.integer(1, 999);
+    const savedGroupId = casual.integer(1, 9999);
+
+    mockCreateVersionedGroup = jest.fn().mockImplementation(function () {
+      return new VersionedQuestionConditionGroup({
+        id: savedGroupId,
+        versionedQuestionId: this.versionedQuestionId,
+        triggerQuestionId: this.triggerQuestionId,
+      });
+    });
+    (VersionedQuestionConditionGroup.prototype.create as jest.Mock) = mockCreateVersionedGroup;
+
+    expect(await generateQuestionConditionGroupVersion(context, group, versionedQuestionId)).toEqual(true);
+    expect(mockCreateVersionedGroup).toHaveBeenCalledTimes(1);
+    expect(mockFindConditionsByGroupId).toHaveBeenCalledWith('generateQuestionConditionGroupVersion', context, group.id);
+  });
+
+  it('versions each QuestionCondition that belongs to the group', async () => {
+    const versionedQuestionId = casual.integer(1, 999);
+    const savedGroupId = casual.integer(1, 9999);
+
+    mockCreateVersionedGroup = jest.fn().mockImplementation(function () {
+      return new VersionedQuestionConditionGroup({
+        id: savedGroupId,
+        versionedQuestionId: this.versionedQuestionId,
+        triggerQuestionId: this.triggerQuestionId,
+      });
+    });
+    (VersionedQuestionConditionGroup.prototype.create as jest.Mock) = mockCreateVersionedGroup;
+
+    const condition = new QuestionCondition({
+      id: casual.integer(1, 99),
+      groupId: group.id,
+      conditionType: "EQUALS",
+      conditionMatch: casual.words(2),
+    });
+    mockFindConditionsByGroupId.mockResolvedValueOnce([condition]);
+
+    const mockCreateVersionedCondition = jest.fn().mockImplementation(function () {
+      return new VersionedQuestionCondition({
+        id: casual.integer(1, 9999),
+        versionedQuestionConditionGroupId: this.versionedQuestionConditionGroupId,
+        conditionType: this.conditionType,
+        conditionMatch: this.conditionMatch,
+      });
+    });
+    (VersionedQuestionCondition.prototype.create as jest.Mock) = mockCreateVersionedCondition;
+
+    expect(await generateQuestionConditionGroupVersion(context, group, versionedQuestionId)).toEqual(true);
+    expect(mockCreateVersionedCondition).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -498,11 +687,9 @@ describe('generateQuestionConditionVersion', () => {
     questionConditionStore = [
       new QuestionCondition({
         id: casual.integer(1, 99),
-        questionId: casual.integer(1, 99),
-        action: getRandomEnumValue(QuestionConditionActionType),
-        conditionType: getRandomEnumValue(QuestionConditionCondition),
+        groupId: casual.integer(1, 99),
+        conditionType: "EQUALS",
         conditionMatch: casual.words(2),
-        target: casual.words(3),
         createdById: casual.integer(1, 999),
         created: tstamp,
         modifiedById: casual.integer(1, 999),
@@ -517,8 +704,9 @@ describe('generateQuestionConditionVersion', () => {
     });
 
     // Fetch an item from the versionedQuestionConditionStore
-    mockFindVersionedQuestionConditionById = jest.fn().mockImplementation((_, __, id) => {
-      return versionedQuestionConditionStore.find((entry) => { return entry.id === id });
+    mockFindVersionedQuestionConditionById = jest.fn().mockImplementation(async (_, __, id) => {
+      const entry = versionedQuestionConditionStore.find((e) => { return e.id === id });
+      return entry ? new VersionedQuestionCondition(entry) : null;
     });
 
     // Add the entry to the appropriate store
@@ -577,7 +765,7 @@ describe('generateQuestionConditionVersion', () => {
   });
 
   it('does not allow an unsaved QuestionCondition to be versioned', async () => {
-    const questionCondition = new QuestionCondition({ questionId: casual.integer(1, 9) });
+    const questionCondition = new QuestionCondition({ groupId: casual.integer(1, 9) });
 
     expect(async () => {
       await generateQuestionConditionVersion(context, questionCondition, casual.integer(1, 999));
@@ -586,13 +774,8 @@ describe('generateQuestionConditionVersion', () => {
 
   it('does not version if the VersionedQuestionCondition could not be created', async () => {
     const questionCondition = questionConditionStore[0];
-    const versioned = new VersionedQuestionCondition({ questionId: questionCondition.id });
+    const versioned = new VersionedQuestionCondition({ versionedQuestionConditionGroupId: casual.integer(1, 999) });
     versioned.errors = { general: 'Test failure' };
-
-    // const mockQuery = jest.fn().mockResolvedValueOnce(null);
-    // context.dataSources.sqlDataSource = {
-    //   query: mockQuery
-    // };
 
     (VersionedQuestionCondition.insert as jest.Mock) = mockInsert;
     const mockFindByFailure = jest.fn().mockImplementation(() => { return versioned; });
@@ -612,9 +795,9 @@ describe('generateQuestionConditionVersion', () => {
     (QuestionCondition.update as jest.Mock) = mockUpdate;
     (QuestionCondition.findById as jest.Mock) = mockFindQuestionConditionById;
 
-    const versionedQuestionId = casual.integer(1, 999);
+    const versionedQuestionConditionGroupId = casual.integer(1, 999);
     expect(
-      await generateQuestionConditionVersion(context, questionCondition, versionedQuestionId)
+      await generateQuestionConditionVersion(context, questionCondition, versionedQuestionConditionGroupId)
     ).toEqual(true);
 
     // Verify that the Version was created as expected
@@ -625,11 +808,9 @@ describe('generateQuestionConditionVersion', () => {
     expect(newVersion.modified).toBeTruthy();
     expect(newVersion.createdById).toEqual(context.token.id);
     expect(newVersion.modifiedById).toEqual(context.token.id);
-    expect(newVersion.versionedQuestionId).toEqual(versionedQuestionId);
-    expect(newVersion.action).toEqual(questionCondition.action);
+    expect(newVersion.versionedQuestionConditionGroupId).toEqual(versionedQuestionConditionGroupId);
     expect(newVersion.conditionType).toEqual(questionCondition.conditionType);
     expect(newVersion.conditionMatch).toEqual(questionCondition.conditionMatch);
-    expect(newVersion.target).toEqual(questionCondition.target);
   });
 });
 

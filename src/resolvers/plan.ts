@@ -10,13 +10,13 @@ import {
 } from "../models/Plan";
 import { Project } from "../models/Project";
 import { User, UserRole } from "../models/User";
-import { PlanMember } from "../models/Member";
+import { PlanMember, ProjectMember } from "../models/Member";
 import { PlanFunding } from "../models/Funding";
 import { PlanFeedback } from "../models/PlanFeedback";
 import { Affiliation } from "../models/Affiliation";
 import { VersionedTemplate } from "../models/VersionedTemplate";
 import { Answer } from "../models/Answer";
-import { ProjectCollaboratorAccessLevel } from "../models/Collaborator";
+import { ProjectCollaborator, ProjectCollaboratorAccessLevel } from "../models/Collaborator";
 import { AlternateIdentifier } from "../models/AlternateIdentifier";
 import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
 import {
@@ -37,14 +37,21 @@ import {
   PaginatedPlanResults,
   PlanFeedbackStatus,
   Resolvers,
-  UpdateEntirePlanInput
+  UpdateEntirePlanInput,
+  PlanVersionSnapshot
 } from "../types";
 import { prepareObjectForLogs } from "../logger";
+import { toErrorMessage } from "@dmptool/utils";
+import { MemberRole } from "../models/MemberRole";
+import { AcceptedWork } from "../models/RelatedWork";
 // Services
 import {
   buildDataCiteXMLForPlan,
   ensureDefaultPlanContact,
-  saveMaDMPVersion
+  handleAsyncDeletes,
+  handleAsyncUpdates,
+  getPlanVersions,
+  getPlanVersionSnapshot,
 } from "../services/planService";
 import {
   hasPermissionOnProject,
@@ -61,7 +68,6 @@ import {
   removeEntirePlan,
   replaceEntirePlan
 } from "../services/entirePlanService";
-import {toErrorMessage} from "@dmptool/utils";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -181,6 +187,23 @@ export const resolvers: Resolvers = {
       }
     },
 
+    // Find a published plan by its DMP id and version (publicly accessible so not checking permissions)
+    publicPlanVersionByDMPId: async (_, { dmpId, version }, context: MyContext): Promise<PlanVersionSnapshot> => {
+      const reference = 'publicPlanVersionByDMPId resolver';
+      try {
+        const snapshot = await getPlanVersionSnapshot(reference, context, dmpId, version);
+
+        if (!snapshot) {
+          throw NotFoundError(`Version ${version} of DMP ${dmpId} not found`);
+        }
+
+        return snapshot;
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    },
     // Lookup a Plan by its alternate identifier
     planByAlternateIdentifier: async (_, { alternateIdentifier }, context: MyContext): Promise<Plan> => {
       const reference = 'planByAlternateIdentifier resolver';
@@ -244,8 +267,8 @@ export const resolvers: Resolvers = {
                 created.addError('general', 'Unable to set the default contact');
               }
 
-              // Generate the initial maDMP version of the record
-              await saveMaDMPVersion(reference, context, created.id, created.dmpId);
+              // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+              await handleAsyncUpdates(reference, context, created);
             }
 
             return created;
@@ -280,8 +303,8 @@ export const resolvers: Resolvers = {
               const deleted = await plan.delete(context);
 
               if (deleted) {
-                // Delete the maDMP versions of the record
-                await saveMaDMPVersion(reference, context, deleted.id, deleted.dmpId, true);
+                // Handle OpenSearch index removal and removal of maDMP JSON versions
+                await handleAsyncDeletes(reference, context, deleted);
               }
             } else {
               return plan;
@@ -369,8 +392,8 @@ export const resolvers: Resolvers = {
                   const published = await plan.publish(context, visibility as PlanVisibility, dataciteXML);
 
                   if (published && !published.hasErrors()) {
-                    // Update the maDMP version of the record
-                    await saveMaDMPVersion(reference, context, plan.id, plan.dmpId);
+                    // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+                    await handleAsyncUpdates(reference, context, published);
                   }
                   return published;
                 }
@@ -408,8 +431,8 @@ export const resolvers: Resolvers = {
             const updated = await plan.update(context);
 
             if (updated && !updated.hasErrors()) {
-              // Update the maDMP version of the record
-              await saveMaDMPVersion(reference, context, updated.id, updated.dmpId);
+              // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+              await handleAsyncUpdates(reference, context, updated);
             }
             return updated;
           }
@@ -438,8 +461,8 @@ export const resolvers: Resolvers = {
             const updated = await plan.update(context);
 
             if (updated && !updated.hasErrors()) {
-              // Update the maDMP version of the record
-              await saveMaDMPVersion(reference, context, updated.id, updated.dmpId);
+              // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+              await handleAsyncUpdates(reference, context, updated);
             }
             return updated;
           }
@@ -467,8 +490,8 @@ export const resolvers: Resolvers = {
             const updated = await plan.update(context);
 
             if (updated && !updated.hasErrors()) {
-              // Update the maDMP version of the record
-              await saveMaDMPVersion(reference, context, updated.id, updated.dmpId);
+              // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+              await handleAsyncUpdates(reference, context, updated);
             }
             return updated;
           }
@@ -498,8 +521,8 @@ export const resolvers: Resolvers = {
 
             const created: AlternateIdentifier = await identifier.create(context);
             if (created && !created.hasErrors()) {
-              // Update the maDMP version of the record
-              await saveMaDMPVersion(reference, context, planId, plan.dmpId);
+              // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+              await handleAsyncUpdates(reference, context, plan);
             }
             return plan;
           }
@@ -538,8 +561,8 @@ export const resolvers: Resolvers = {
 
             const deleted = await identifier.delete(context);
             if (deleted && !deleted.hasErrors()) {
-              // Update the maDMP version of the record
-              await saveMaDMPVersion(reference, context, planId, plan.dmpId);
+              // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+              await handleAsyncUpdates(reference, context, plan);
             }
             return plan;
           }
@@ -574,7 +597,7 @@ export const resolvers: Resolvers = {
         { input }: { input: AddEntirePlanInput },
         context: MyContext
       ): Promise<Plan> => {
-        const ref = 'createEntirePlan';
+        const ref = 'addEntirePlan';
         const plan: Plan = new Plan({});
 
         try {
@@ -585,21 +608,27 @@ export const resolvers: Resolvers = {
               context,
               input.alternateIdentifiers
             );
-            if ((await Plan.findById(ref, context, altId.planId))) {
+            if (altId) {
               throw BadUserInputError('A plan with the specified alternate identifier(s) already exists.');
             }
           }
 
           // Add the Plan within a database transaction
           return await context.dataSources.sqlDataSource.withTransaction(context, async (): Promise<Plan> => {
-            return await addEntirePlan(ref, context, input, plan);
+            const created: Plan = await addEntirePlan(ref, context, input, plan);
+            if (created && !created.hasErrors()) {
+              // If successful, add the OpenSearch index in the background
+              await handleAsyncUpdates(ref, context, created);
+            }
+            return created;
           });
         } catch (error) {
           if (error instanceof GraphQLError) {
             if (error.extensions?.code === 'BAD_REQUEST') {
-              if (plan.hasErrors() && !plan.errors['general']) {
-                plan.addError('general', 'Unable to process your request.');
-              }
+              plan.addError(
+                'general',
+                `Unable to process your request. ${error.message}`
+              );
               // Return the plan with its populated validation errors
               return plan;
             } else {
@@ -654,14 +683,20 @@ export const resolvers: Resolvers = {
           try {
             // Add the Plan within a database transaction
             return await context.dataSources.sqlDataSource.withTransaction(context, async (): Promise<Plan> => {
-              return await replaceEntirePlan(ref, context, project, plan, input);
+              const replaced: Plan = await replaceEntirePlan(ref, context, project, plan, input);
+              if (replaced && !replaced.hasErrors()) {
+                // If successful, update the OpenSearch index in the background
+                await handleAsyncUpdates(ref, context, replaced);
+              }
+              return replaced;
             });
           } catch (error) {
             if (error instanceof GraphQLError) {
               if (error.extensions?.code === 'BAD_REQUEST') {
-                if (plan.hasErrors() && !plan.errors['general']) {
-                  plan.addError('general', 'Unable to process your request.');
-                }
+                plan.addError(
+                  'general',
+                  `Unable to process your request. ${error.message}`
+                );
                 // Return the plan with its populated validation errors
                 return plan;
               } else {
@@ -719,7 +754,12 @@ export const resolvers: Resolvers = {
           try {
             // Add the Plan within a database transaction
             const removed: Plan | undefined = await context.dataSources.sqlDataSource.withTransaction(context, async (): Promise<Plan> => {
-              return await removeEntirePlan(ref, context, project, plan);
+              const oldPlan: Plan = await removeEntirePlan(ref, context, project, plan);
+              if (oldPlan && !oldPlan.hasErrors()) {
+                // If successful, remove the OpenSearch index
+                await handleAsyncDeletes(ref, context, oldPlan);
+              }
+              return oldPlan
             });
             return removed && !removed.hasErrors();
           } catch (err) {
@@ -743,6 +783,36 @@ export const resolvers: Resolvers = {
       }
       return null;
     },
+    owner: async (parent: Plan, _, context: MyContext): Promise<Affiliation> => {
+      if (!parent?.id) return null;
+      const reference = 'Chained Plan.owner';
+
+      // First, try to get the project owner (collaborator with OWN access level)
+      const projectOwner = await ProjectCollaborator.findOwnerByProjectId(
+        reference,
+        context,
+        parent.projectId
+      );
+
+      if (projectOwner?.userId) {
+        const user = await User.findById(reference, context, projectOwner.userId);
+        if (user?.affiliationId) {
+          const affiliation = await Affiliation.findByURI(reference, context, user.affiliationId);
+          if (affiliation) return affiliation;
+        }
+      }
+
+      // Fall back to the plan creator's affiliation
+      if (parent?.createdById) {
+        const user = await User.findById(reference, context, parent.createdById);
+        if (user?.affiliationId) {
+          return await Affiliation.findByURI(reference, context, user.affiliationId);
+        }
+      }
+
+      return null;
+    },
+
     // The project the plan is associated with
     project: async (parent: Plan, _, context: MyContext): Promise<Project> => {
       if (parent?.projectId) {
@@ -809,8 +879,18 @@ export const resolvers: Resolvers = {
       }
       return [];
     },
+    acceptedWorks: async (parent: Plan, _, context: MyContext): Promise<AcceptedWork[]> => {
+      if (parent?.id) {
+        return await AcceptedWork.findByPlanId('plan acceptedWorks chained resolver', context, parent.id);
+      }
+      return [];
+    },
     registered: (parent: Plan) => {
       return normaliseDateTime(parent.registered);
+    },
+    versions: async (parent: Plan, _, context: MyContext) => {
+      if (!parent?.dmpId) return [];
+      return await getPlanVersions('Chained Plan.versions', context, parent.dmpId);
     },
     created: (parent: Plan) => {
       return normaliseDateTime(parent.created);
@@ -855,6 +935,20 @@ export const resolvers: Resolvers = {
       }
       return null;
     }
-  }
+  },
+  PlanMember: {
+    projectMember: async (parent: PlanMember, _, context: MyContext): Promise<ProjectMember> => {
+      if (parent?.projectMemberId) {
+        return await ProjectMember.findById('planMember.projectMember resolver', context, parent.projectMemberId);
+      }
+      return null;
+    },
+    memberRoles: async (parent: PlanMember, _, context: MyContext): Promise<MemberRole[]> => {
+      if (parent?.id) {
+        return await MemberRole.findByPlanMemberId('planMember.memberRoles resolver', context, parent.id);
+      }
+      return [];
+    },
+  },
 
 }

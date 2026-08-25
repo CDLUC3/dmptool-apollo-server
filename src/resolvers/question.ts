@@ -2,9 +2,15 @@ import { ReorderQuestionsResult, Resolvers } from "../types";
 import { MyContext } from "../context";
 import { Question } from "../models/Question";
 import { Template } from "../models/Template";
+import { QuestionConditionGroup } from "../models/QuestionConditionGroup";
 import { updateDisplayOrders } from "../services/questionService";
-import { AuthenticationError, BadRequestError, ForbiddenError, InternalServerError, NotFoundError } from "../utils/graphQLErrors";
-import { QuestionCondition } from "../models/QuestionCondition";
+import {
+  AuthenticationError,
+  BadRequestError,
+  ForbiddenError,
+  InternalServerError,
+  NotFoundError
+} from "../utils/graphQLErrors";
 import { Tag } from "../models/Tag";
 import { prepareObjectForLogs } from "../logger";
 import { isAdmin, isAuthorized } from "../services/authService";
@@ -331,9 +337,9 @@ export const resolvers: Resolvers = {
     tags: async (parent: Question, _, context: MyContext): Promise<Tag[]> => {
       return await Tag.findByQuestionId('Chained Question.tags', context, parent.id);
     },
-    questionConditions: async (parent: Question, _, context: MyContext): Promise<QuestionCondition[]> => {
-      return await QuestionCondition.findByQuestionId(
-        'Chained Question.questionConditions',
+    conditionGroups: async (parent: Question, _, context: MyContext): Promise<QuestionConditionGroup[]> => {
+      return await QuestionConditionGroup.findByQuestionId(
+        'Chained Question.conditionGroups',
         context,
         parent.id
       );

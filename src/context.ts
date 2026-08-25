@@ -1,6 +1,7 @@
 import { Logger } from 'pino';
 import { DMPHubAPI } from './datasources/dmphubAPI'
 import { EZIDAPI } from './datasources/EZIDAPI';
+import { OpenSearch } from "./datasources/openSearch";
 import { MySQLConnection, TransactionClient } from './datasources/mysql';
 import { JWTAccessToken } from './services/tokenService';
 import { randomHex } from './utils/helpers';
@@ -26,6 +27,7 @@ export interface MyContext extends BaseContext {
     dmphubAPIDataSource: DMPHubAPI;
     ezidAPIDataSource: EZIDAPI;
     sqlDataSource: MySQLConnection;
+    openSearchServerlessDataSource: OpenSearch | null;
   };
 }
 
@@ -39,6 +41,7 @@ export function buildContext(
   sqlDataSource: MySQLConnection | null = null,
   dmphubAPIDataSource: DMPHubAPI | null = null,
   ezidAPIDataSource: EZIDAPI | null = null,
+  openSearchServerlessDataSource: OpenSearch | null = null
 ): MyContext {
   if (!cache) {
     // If calling from outside the Apollo server context setup an HttpCache.
@@ -67,6 +70,7 @@ export function buildContext(
         dmphubAPIDataSource: dmphubAPIDataSource,
         ezidAPIDataSource: ezidAPIDataSource,
         sqlDataSource: sqlDataSource,
+        openSearchServerlessDataSource: openSearchServerlessDataSource,
       }
     }
   } catch(err) {

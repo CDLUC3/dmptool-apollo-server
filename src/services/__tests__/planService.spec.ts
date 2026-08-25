@@ -5,7 +5,8 @@ import {
 import {
   ensureDefaultPlanContact,
   updateMemberRoles,
-  saveMaDMPVersion
+  saveMaDMPVersion,
+  getPlanVersions,
 } from '../planService';
 import { MemberRole } from '../../models/MemberRole';
 import { logger } from '../../logger';
@@ -25,7 +26,9 @@ import {
   createDMP,
   deleteDMP, DMPExists, planToDMPCommonStandard,
   tombstoneDMP,
-  updateDMP
+  updateDMP,
+  getDMPVersions,
+  getDMPs,
 } from '@dmptool/utils';
 import { getDynamoConnectionParams } from '../../config/awsConfig';
 import { generalConfig } from '../../config/generalConfig';
@@ -666,4 +669,112 @@ describe('buildDataCiteXMLForPlan', () => {
   });
 });
 
+describe('getPlanVersions', () => {
+  let context: MyContext;
+  const reference = 'test-reference';
+  const dmpId = 'https://doi.org/11.2222/3A4B5c';
+  const mockGetDMPVersions = getDMPVersions as jest.MockedFunction<typeof getDMPVersions>;
+  const mockGetDMPs = getDMPs as jest.MockedFunction<typeof getDMPs>;
+
+  beforeEach(async () => {
+    context = await buildMockContextWithToken(logger);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should return an empty array when dmpId is null or undefined', async () => {
+    expect(await getPlanVersions(reference, context, null)).toEqual([]);
+    expect(await getPlanVersions(reference, context, undefined)).toEqual([]);
+    expect(mockGetDMPVersions).not.toHaveBeenCalled();
+  });
+
+  it('should return an empty array when no versions are found', async () => {
+    mockGetDMPVersions.mockResolvedValue([]);
+    /*eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    mockGetDMPs.mockResolvedValue([{ dmp: { modified: '2026-08-01T14:32:00Z' } }] as any);
+
+    const result = await getPlanVersions(reference, context, dmpId);
+
+    expect(result).toEqual([]);
+    expect(mockGetDMPVersions).toHaveBeenCalledWith(getDynamoConnectionParams(context.logger), dmpId);
+  });
+
+  it('should fetch the latest version to filter it out', async () => {
+    mockGetDMPVersions.mockResolvedValue([]);
+    /*eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    mockGetDMPs.mockResolvedValue([{ dmp: { modified: '2026-08-01T14:32:00Z' } }] as any);
+
+    await getPlanVersions(reference, context, dmpId);
+
+    expect(mockGetDMPs).toHaveBeenCalledWith(
+      getDynamoConnectionParams(context.logger),
+      generalConfig.domain,
+      dmpId,
+      'latest'
+    );
+  });
+
+  it('should filter out the version matching the latest modified timestamp', async () => {
+    const latestModified = '2026-08-01T14:32:00Z';
+    mockGetDMPVersions.mockResolvedValue([
+      { dmpId, modified: latestModified },  // This should be filtered out (matches latest)
+      { dmpId, modified: '2026-06-15T09:10:00Z' },
+    ]);
+    /*eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    mockGetDMPs.mockResolvedValue([{ dmp: { modified: latestModified } }] as any);
+
+    const result = await getPlanVersions(reference, context, dmpId);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].modified).toBe('2026-06-15T09:10:00Z');
+  });
+
+  it('should map each historical version to a timestamp and public-facing URL using generalConfig.domain', async () => {
+    const latestModified = '2026-09-01T00:00:00Z';
+    mockGetDMPVersions.mockResolvedValue([
+      { dmpId, modified: '2026-08-01T14:32:00Z' },
+      { dmpId, modified: '2026-06-15T09:10:00Z' },
+    ]);
+    /*eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    mockGetDMPs.mockResolvedValue([{ dmp: { modified: latestModified } }] as any);
+
+    const result = await getPlanVersions(reference, context, dmpId);
+
+    expect(result).toEqual([
+      {
+        timestamp: '2026-08-01T14:32:00Z',
+        url: `https://${generalConfig.domain}/dmps/doi.org/11.2222/3A4B5c?version=2026-08-01T14%3A32%3A00Z`,
+        dmpId: 'https://doi.org/11.2222/3A4B5c',
+        modified: '2026-08-01T14:32:00Z',
+      },
+      {
+        timestamp: '2026-06-15T09:10:00Z',
+        url: `https://${generalConfig.domain}/dmps/doi.org/11.2222/3A4B5c?version=2026-06-15T09%3A10%3A00Z`,
+        dmpId: 'https://doi.org/11.2222/3A4B5c',
+        modified: '2026-06-15T09:10:00Z',
+      },
+    ]);
+  });
+
+  it('should return an empty array and log an error if getDMPVersions throws', async () => {
+    mockGetDMPVersions.mockRejectedValue(new Error('dynamo error'));
+
+    const result = await getPlanVersions(reference, context, dmpId);
+
+    expect(result).toEqual([]);
+  });
+
+  it('should return an empty array and log an error if getDMPs throws', async () => {
+    mockGetDMPVersions.mockResolvedValue([
+      { dmpId, modified: '2026-08-01T14:32:00Z' },
+    ]);
+    mockGetDMPs.mockRejectedValue(new Error('dynamo error'));
+
+    const result = await getPlanVersions(reference, context, dmpId);
+
+    expect(result).toEqual([]);
+  });
+});
 

@@ -148,6 +148,8 @@ export const typeDefs = gql`
     orcid: String
     "The Member's email address"
     email: String
+    "Whether or not the Member the primary contact for the Plan"
+    isPrimaryContact: Boolean
     "The roles the Member has on the research project"
     memberRoleIds: [Int!]
   }

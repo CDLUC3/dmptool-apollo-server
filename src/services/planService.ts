@@ -2,11 +2,12 @@ import { MyContext } from "../context";
 import { MemberRole } from "../models/MemberRole";
 import { isNullOrUndefined } from "../utils/helpers";
 import { PlanMember, ProjectMember } from "../models/Member";
-import { Plan } from "../models/Plan";
+import { Plan, PlanVisibility } from "../models/Plan";
 import { Project } from "../models/Project";
 import { PlanFunding, ProjectFunding } from "../models/Funding";
 import { Affiliation } from "../models/Affiliation";
 import { AlternateIdentifier } from "../models/AlternateIdentifier";
+import { AcceptedWork } from "../models/RelatedWork";
 import {
   createDMP,
   deleteDMP,
@@ -15,7 +16,10 @@ import {
   EnvironmentEnum,
   planToDMPCommonStandard,
   tombstoneDMP,
-  updateDMP
+  updateDMP,
+  getDMPVersions,
+  getDMPs,
+  DMPVersionType,
 } from "@dmptool/utils";
 import { getDynamoConnectionParams } from "../config/awsConfig";
 import { generalConfig } from "../config/generalConfig";
@@ -27,6 +31,10 @@ import {
   DataCiteSourceFundingAffiliation,
   planToDataCiteMetadata
 } from "./dataciteXMLService";
+import { removeIndexItem, updateIndexItem } from "./indexDMPService";
+import { PlanVersionSnapshot } from "../types";
+import { ProjectFundingStatus } from "../models/Funding";
+
 
 /**
  * Function to help update Plan member roles. It compares the current roles for
@@ -232,6 +240,60 @@ export async function buildDataCiteXMLForPlan(context: MyContext, plan: Plan, pr
 }
 
 /**
+ * Handle truly asynchronous activity that should occur after a Plan is created/updated
+ * so we don't block the Apollo thread
+ *
+ * @param reference the string reference for logging
+ * @param context the Apollo server context
+ * @param plan the Plan
+ * @param project optional Project if already preloaded
+ */
+export const handleAsyncUpdates = async (
+  reference: string,
+  context: MyContext,
+  plan: Plan,
+  project?: Project,
+): Promise<void> => {
+  // Update the OpenSearch index
+  updateIndexItem(reference, context, plan, project)
+    .catch(err => {
+      context.logger.fatal({ planId: plan.id, err }, 'Index item in OpenSearch failed!');
+    });
+
+  // Update the maDMP record in Dynamo
+  saveMaDMPVersion(reference, context, plan.id, plan.dmpId)
+    .catch(err => {
+      context.logger.fatal({ planId: plan.id, err }, 'save maDMP JSON failed!');
+    });
+}
+
+/**
+ * Handle truly asynchronous activity that should occur after a Plan is deleted/archived
+ * so we don't block the Apollo thread
+ *
+ * @param reference the string reference for logging
+ * @param context the Apollo server context
+ * @param plan the Plan
+ */
+export const handleAsyncDeletes = async (
+  reference: string,
+  context: MyContext,
+  plan: Plan
+): Promise<void> => {
+  // Remove the OpenSearch index
+  removeIndexItem(reference, context, plan)
+    .catch(err => {
+      context.logger.fatal({ planId: plan.id, err }, 'Remove OpenSearch index item failed!');
+    });
+
+  // Remove the maDMP records from Dynamo
+  saveMaDMPVersion(reference, context, plan.id, plan.dmpId, true)
+    .catch(err => {
+      context.logger.fatal({ planId: plan.id, err }, 'Remove/Tomb-stone maDMP json failed!');
+    });
+}
+
+/**
  * Plan versioning management:
  *
  * Plan versions are also known as maDMP snapshots in this system.
@@ -344,3 +406,297 @@ export async function saveMaDMPVersion(
 
   return true;
 }
+
+/**
+ * Fetches the version timestamps from DynamoDB for the specified DMP ID, and
+ * builds the public-facing URL for each version.
+ *
+ * @param reference A value to help identify the caller to help with logging
+ * @param context The apollo context object
+ * @param dmpId The DMP id of the plan to fetch versions for
+ * @returns an array of { modified, dmpId } for each past version
+ */
+export async function getPlanVersions(
+  reference: string,
+  context: MyContext,
+  dmpId: string
+): Promise<{ modified: string, dmpId: string, timestamp: string, url: string }[]> {
+  if (isNullOrUndefined(dmpId)) return [];
+
+  const dynamoConfig: DynamoConnectionParams = getDynamoConnectionParams(context.logger);
+  try {
+    const versions: DMPVersionType[] = await getDMPVersions(dynamoConfig, dmpId);
+
+    // Fetch the current latest snapshot's modified timestamp so it can be
+    // excluded below. "VERSION#latest" isn't a queryable timestamped snapshot —
+    // including it would produce a version-picker link that 404s when clicked.
+    const latest = await getDMPs(dynamoConfig, generalConfig.domain, dmpId, 'latest');
+    const latestModified = latest[0]?.dmp?.modified;
+
+    // Only return genuinely historical, timestamp-queryable versions.
+    const historicalVersions = versions.filter(v => v.modified !== latestModified);
+
+    return historicalVersions.map((v) => ({
+      dmpId: v.dmpId,
+      modified: v.modified,
+      timestamp: v.modified,
+      url: `https://${generalConfig.domain}/dmps/${v.dmpId.replace(/^https?:\/\//, '')}?version=${encodeURIComponent(v.modified)}`
+    }));
+
+  } catch (err) {
+    context.logger.error({ dmpId, reference, err }, 'Unable to fetch DMP versions.');
+    return [];
+  }
+}
+
+/**
+ * Fetches the complete maDMP snapshot for a specific version of a DMP and maps
+ * it into the client-facing PlanVersionSnapshot shape.
+ *
+ * @param reference A value to help identify the caller to help with logging
+ * @param context The apollo context object
+ * @param dmpId The DMP id of the plan to fetch
+ * @param version The specific version timestamp to fetch
+ * @returns The mapped PlanVersionSnapshot, or null if the version could not be found
+ */
+export async function getPlanVersionSnapshot(
+  reference: string,
+  context: MyContext,
+  dmpId: string,
+  version: string,
+): Promise<PlanVersionSnapshot | null> {
+  if (isNullOrUndefined(dmpId) || isNullOrUndefined(version)) return null;
+
+  const dynamoConfig: DynamoConnectionParams = getDynamoConnectionParams(context.logger);
+
+  try {
+    const results = await getDMPs(dynamoConfig, generalConfig.domain, dmpId, version);
+
+    if (!results || results.length === 0) {
+      return null;
+    }
+
+    // Fetch the planId from the database by dmpId
+    const plan = await Plan.findByDMPId(reference, context, dmpId);
+    const planId = plan?.id;
+    const projectId = plan?.projectId;
+
+    return await mapDMPToolDMPToSnapshot(results[0], version, context, planId, projectId);
+  } catch (err) {
+    context.logger.error({ dmpId, version, reference, err }, 'Unable to fetch DMP version snapshot.');
+    return null;
+  }
+}
+
+function mapFundingStatus(status?: string | null): ProjectFundingStatus {
+  switch (status?.toLowerCase()) {
+    case 'granted':
+      return ProjectFundingStatus.GRANTED;
+    case 'denied':
+      return ProjectFundingStatus.DENIED;
+    case 'planned':
+    default:
+      return ProjectFundingStatus.PLANNED;
+  }
+}
+
+export async function mapDMPToolDMPToSnapshot(
+  result: DMPToolDMPType,
+  version: string,
+  context: MyContext,
+  planId: number,
+  projectId?: number
+): Promise<PlanVersionSnapshot> {
+
+  const dmp = result.dmp;
+  const project = dmp.project?.[0];
+  const dmpId = dmp.dmp_id?.identifier; // already a full https://doi.org/... URL
+
+  // Flatten narrative answers into the same {id, json} shape as live `answers`
+  const answers = (dmp.narrative?.template?.section ?? []).flatMap((section) =>
+    (section.question ?? [])
+      .filter((q) => q.answer)
+      .map((q) => ({
+        id: q.answer?.id,
+        questionText: q.text,
+        json: JSON.stringify(q.answer?.json),
+      }))
+  );
+
+  // Fetch every known role once, then match against contributor role URIs in memory.
+  const allMemberRoles = await MemberRole.all('mapDMPToolDMPToSnapshot.memberRoles', context);
+  const roleByUri = new Map(allMemberRoles.map((r) => [r.uri, r]));
+
+  // Get the organization from the plan owner (affiliation) — this is computed
+  // synchronously so we can kick off the affiliation lookup in parallel below.
+  const ownerAffiliation = dmp.contributor?.find(c => c.name === dmp.contact?.name)?.affiliation?.[0];
+  const affiliationURI = ownerAffiliation?.affiliation_id?.identifier;
+
+  // Run the independent async lookups concurrently instead of sequentially:
+  // - members: maps contributors and looks up isPrimaryContact per-contributor
+  // - affiliation: resolves the owner's affiliation record
+  // - acceptedWorks: fetches related works for this plan
+  const [members, affiliation, acceptedWorks] = await Promise.all([
+    Promise.all(
+      (dmp.contributor ?? []).map(async (c) => {
+        let isPrimaryContact = false;
+
+        // If we have a projectId, query the database for the actual isPrimaryContact value
+        if (projectId && c.contributor_id) {
+          // Try to find by email first (most reliable)
+          if (c.contact_mbox || c.mbox) {
+            const email = c.contact_mbox || c.mbox;
+            const dbMember = await ProjectMember.findByProjectAndEmail(
+              'mapDMPToolDMPToSnapshot.isPrimaryContact',
+              context,
+              projectId,
+              email
+            );
+
+            if (dbMember) {
+              isPrimaryContact = dbMember.isPrimaryContact;
+            }
+          } else if (c.name) {
+            // Fallback to name if no email (extract given/sur name)
+            const nameParts = c.name.split(' ');
+            const givenName = nameParts[0];
+            const surName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+
+            const dbMember = await ProjectMember.findByProjectAndName(
+              'mapDMPToolDMPToSnapshot.isPrimaryContact',
+              context,
+              projectId,
+              givenName,
+              surName
+            );
+            if (dbMember) {
+              isPrimaryContact = dbMember.isPrimaryContact;
+            }
+          }
+        }
+
+        return {
+          name: c.name,
+          orcid: c.contributor_id?.find((id) => id.type === 'orcid')?.identifier,
+          affiliationName: c.affiliation?.[0]?.name,
+          isPrimaryContact,
+          memberRoles: (c.role ?? []).map((uri) => {
+            const matched = roleByUri.get(uri);
+            return matched
+              ? { id: matched.id, label: matched.label, uri: matched.uri }
+              : { id: undefined, label: uri, uri };
+          }),
+        };
+      })
+    ),
+    affiliationURI
+      ? Affiliation.findByURI('mapDMPToolDMPToSnapshot.ownerAffiliation', context, affiliationURI)
+      : Promise.resolve(undefined),
+    planId
+      ? AcceptedWork.findByPlanId('mapDMPToolDMPToSnapshot.relatedWorks', context, planId)
+      : Promise.resolve([]),
+  ]);
+
+  // Map the accepted works into the snapshot's relatedWorks shape
+  const relatedWorks: PlanVersionSnapshot['relatedWorks'] = acceptedWorks.map((work) => ({
+    id: work.id,
+    workVersion: {
+      title: work.title,
+      publicationDate: work.publicationDate,
+      workType: work.workType,
+      publicationVenue: work.publicationVenue,
+      sourceName: work.sourceName,
+      sourceUrl: work.sourceUrl,
+      authors: work.authors,
+      work: {
+        doi: work.doi,
+      }
+    }
+  }));
+
+  // Determine the actual current "latest" snapshot's modified timestamp,
+  // so we can exclude it from the historical versions list — VERSION#latest
+  // is not queryable by its own timestamp, only by the literal string 'latest'.
+  let latestModified: string | undefined;
+  if (version === 'latest') {
+    latestModified = dmp.modified;
+  } else {
+    const dynamoConfig = getDynamoConnectionParams(context.logger);
+    const latest = await getDMPs(dynamoConfig, generalConfig.domain, dmpId, 'latest');
+    latestModified = latest[0]?.dmp?.modified;
+  }
+
+  const historicalVersions = (dmp.version ?? []).filter(
+    (v) => v.version !== latestModified
+  );
+
+  return {
+    isHistoricalVersion: true,
+    versionTimestamp: version,
+    latestVersionTimestamp: latestModified,
+
+    title: dmp.title,
+    dmpId,
+    created: dmp.created,
+    modified: dmp.modified,
+    registered: dmp.registered,
+    visibility: dmp.privacy === 'public' ? PlanVisibility.PUBLIC : PlanVisibility.PRIVATE,
+
+    owner: ownerAffiliation ? {
+      id: affiliation?.id,
+      name: affiliation?.name || affiliation?.displayName || ownerAffiliation.name,
+      displayName: affiliation?.displayName || ownerAffiliation.name,
+      uri: affiliation?.uri || ownerAffiliation?.affiliation_id?.identifier,
+      homepage: affiliation?.homepage
+    } : undefined,
+
+    versionedTemplate: dmp.narrative?.template
+      ? {
+        id: dmp.narrative.template.id,
+        title: dmp.narrative.template.title,
+        version: dmp.narrative.template.version,
+      }
+      : undefined,
+
+    project: project
+      ? {
+        title: project.title,
+        abstractText: project.description,
+        startDate: project.start,
+        endDate: project.end,
+        researchDomain: dmp.research_domain
+          ? { name: dmp.research_domain.name }
+          : undefined,
+      }
+      : undefined,
+    members: members,
+    fundings: (project?.funding ?? []).map((f) => {
+      const funderIdentifier = f.funder_id?.identifier;
+      const opportunity = dmp.funding_opportunity?.find(
+        (fo) => fo.funder_id?.identifier === funderIdentifier
+      );
+      const fundingProject = dmp.funding_project?.find(
+        (fp) => fp.funder_id?.identifier === funderIdentifier
+      );
+
+      return {
+        funderName: f.name,
+        funderUri: funderIdentifier,
+        status: mapFundingStatus(f.funding_status),  // normalize here
+        grantId: f.grant_id?.identifier,
+        funderOpportunityNumber: opportunity?.opportunity_identifier?.identifier,
+        funderProjectNumber: fundingProject?.project_identifier?.identifier,
+      };
+    }),
+
+    answers,
+
+    versions: historicalVersions.map((v) => ({
+      timestamp: v.version,
+      url: v.access_url,
+    })),
+    relatedWorks,
+    relatedWorkIdentifiers: (dmp.related_identifier ?? []).map((r) => r.identifier),
+  };
+}
+

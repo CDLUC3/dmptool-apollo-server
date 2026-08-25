@@ -1,7 +1,11 @@
-import {prepareObjectForLogs} from '../logger';
-import {OpenSearchWork, RelatedWorkStatsResults, Resolvers} from '../types';
-import {MyContext} from '../context';
-import {isAuthorized} from '../services/authService';
+import { prepareObjectForLogs } from '../logger';
+import {
+  OpenSearchWork,
+  RelatedWorkStatsResults,
+  Resolvers
+} from '../types';
+import { MyContext } from '../context';
+import { isAuthorized } from '../services/authService';
 import {
   AuthenticationError,
   ForbiddenError,
@@ -15,18 +19,21 @@ import {
   Work,
   WorkVersion
 } from '../models/RelatedWork';
-import {GraphQLError} from 'graphql';
-import {Project} from '../models/Project';
-import {hasPermissionOnProject} from '../services/projectService';
-import {Plan} from '../models/Plan';
-import {isNullOrUndefined, normaliseDateTime} from '../utils/helpers';
+import { GraphQLError } from 'graphql';
+import { Project } from '../models/Project';
+import { AcceptedWork } from "../models/RelatedWork";
+import { hasPermissionOnProject } from '../services/projectService';
+import { Plan } from '../models/Plan';
+import { isNullOrUndefined, normaliseDateTime } from '../utils/helpers';
 import {
   PaginationOptionsForCursors,
   PaginationOptionsForOffsets,
   PaginationType
 } from '../types/general';
-import {openSearchFindWorkByIdentifier} from "../services/openSearchService";
-import {generalConfig} from "../config/generalConfig";
+import { openSearchFindWorkByIdentifier } from "../services/openSearchService";
+import { generalConfig } from "../config/generalConfig";
+import { handleAsyncUpdates } from "../services/planService";
+import { addAcceptedWork } from "../services/relatedWorkService";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -346,6 +353,11 @@ export const resolvers: Resolvers = {
                 relatedWorkId = relatedWork.id
               }
 
+              if (relatedWork && !relatedWork.hasErrors()) {
+                // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+                await handleAsyncUpdates(reference, context, plan, project);
+              }
+
               // Fetch and return RelatedWorkSearchResult
               return await RelatedWorkSearchResult.findById(reference, context, relatedWorkId);
             }
@@ -366,48 +378,27 @@ export const resolvers: Resolvers = {
       try {
         if (isAuthorized(context.token)) {
           // Check if user has permission to modify project
-          const plan = await Plan.findById(reference, context, input.planId);
+          const plan: Plan = await Plan.findById(reference, context, input.planId);
           if (plan) {
-            const project = await Project.findById(reference, context, plan.projectId);
+            const project: Project = await Project.findById(reference, context, plan.projectId);
             if (project && (await hasPermissionOnProject(context, project))) {
-              // Fetch or create work
-              let work = await Work.findByDoi(reference, context, input.doi);
-              if (!work) {
-                work = new Work({ doi: input.doi });
-                work = await work.create(context);
-              }
-
-              // Fetch or create work version
-              const osHash: string = input.hash ? input.hash.toString() : "";
-              let workVersion = await WorkVersion.findByDoiAndHash(reference, context, input.doi, Buffer.from(osHash, 'hex'));
-              if (!workVersion) {
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                const { planId, doi, ...options } = input;
-                workVersion = new WorkVersion({ ...options, hash: Buffer.from(osHash, 'hex') });
-                workVersion.workId = work.id;
-                workVersion = await workVersion.create(context, work.doi);
-              }
-              if (isNullOrUndefined(workVersion) || workVersion.hasErrors())
-              {
-                throw InternalServerError('Unable to create or find workVersion');
-              }
-
-              // Create related work
-              let relatedWork = new RelatedWork({
-                planId: input.planId,
-                workVersionId: workVersion.id,
-                status: 'ACCEPTED',
-                score: 1.0,
-                scoreMax: 1.0,
-                sourceType: 'USER_ADDED',
+              return await context.dataSources.sqlDataSource.withTransaction(context, async (): Promise<RelatedWorkSearchResult> => {
+                const acceptedWork: AcceptedWork = await addAcceptedWork(
+                  reference,
+                  context,
+                  plan,
+                  input
+                );
+                if (acceptedWork && !acceptedWork.hasErrors()) {
+                  // If successful, update the OpenSearch index in the background
+                  await handleAsyncUpdates(reference, context, plan, project);
+                }
+                return await RelatedWorkSearchResult.findById(
+                  reference,
+                  context,
+                  acceptedWork.relatedWorkId
+                );
               });
-              relatedWork = await relatedWork.create(context);
-              if (isNullOrUndefined(relatedWork.id)) {
-                throw InternalServerError('Unable to create related work');
-              }
-
-              // Fetch and return RelatedWorkSearchResult
-              return await RelatedWorkSearchResult.findById(reference, context, relatedWork.id);
             }
           }
         }
@@ -439,6 +430,11 @@ export const resolvers: Resolvers = {
           if (project && (await hasPermissionOnProject(context, project))) {
             let toUpdate = new RelatedWork({ ...relatedWork, ...input });
             toUpdate = await toUpdate.update(context);
+
+            if (toUpdate && !toUpdate.hasErrors()) {
+              // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+              await handleAsyncUpdates(reference, context, plan, project);
+            }
 
             // Fetch and return RelatedWorkSearchResult
             return await RelatedWorkSearchResult.findById(reference, context, toUpdate.id);

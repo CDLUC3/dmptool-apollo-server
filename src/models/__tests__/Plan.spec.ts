@@ -1,7 +1,8 @@
 import casual from "casual";
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { logger } from "../../logger";
-import { getMockDMPId, getRandomEnumValue } from "../../__tests__/helpers";
+import { buildMockContextWithToken } from "../../__mocks__/context.js";
+
+import { logger } from "../../logger.js";
+import { getMockDMPId, getRandomEnumValue } from "../../__tests__/helpers.js";
 import {
   DEFAULT_TEMPORARY_DMP_ID_PREFIX,
   Plan,
@@ -12,14 +13,14 @@ import {
   PlanVisibility
 } from "../Plan";
 import { defaultLanguageId } from "../Language";
-import { generalConfig } from "../../config/generalConfig";
-import { getCurrentDate } from "../../utils/helpers";
+import { generalConfig } from "../../config/generalConfig.js";
+import { getCurrentDate } from "../../utils/helpers.js";
 import { PlanGuidance } from "../Guidance";
 import { Project } from "../Project";
 import { VersionedTemplate } from "../VersionedTemplate";
 import { PaginationType } from "../../types/general";
 
-jest.mock('../../context.ts');
+jest.mock('../../context.js');
 
 let context;
 

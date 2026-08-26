@@ -1,15 +1,15 @@
-import { Resolvers } from "../types";
-import { MyContext } from "../context";
-import { GuidanceGroup } from "../models/GuidanceGroup";
-import { Guidance } from "../models/Guidance";
-import { VersionedGuidanceGroup } from "../models/VersionedGuidanceGroup";
-import { User } from "../models/User";
-import { hasPermissionOnGuidanceGroup, publishGuidanceGroup, unpublishGuidanceGroup, markGuidanceGroupAsDirty } from "../services/guidanceService";
-import { ForbiddenError, NotFoundError, AuthenticationError, InternalServerError } from "../utils/graphQLErrors";
-import { isAdmin, isSuperAdmin } from "../services/authService";
-import { prepareObjectForLogs } from "../logger";
+import { Resolvers } from "../types.js";
+import { MyContext } from "../context.js";
+import { GuidanceGroup } from "../models/GuidanceGroup.js";
+import { Guidance } from "../models/Guidance.js";
+import { VersionedGuidanceGroup } from "../models/VersionedGuidanceGroup.js";
+import { User } from "../models/User.js";
+import { hasPermissionOnGuidanceGroup, publishGuidanceGroup, unpublishGuidanceGroup, markGuidanceGroupAsDirty } from "../services/guidanceService.js";
+import { ForbiddenError, NotFoundError, AuthenticationError, InternalServerError } from "../utils/graphQLErrors.js";
+import { isAdmin, isSuperAdmin } from "../services/authService.js";
+import { prepareObjectForLogs } from "../logger.js";
 import { GraphQLError } from "graphql";
-import { normaliseDateTime } from "../utils/helpers";
+import { normaliseDateTime } from "../utils/helpers.js";
 
 // Add a small helper to avoid `any` casts when checking published state
 export const hasPublishedFlag = (obj: unknown): boolean => {

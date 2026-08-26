@@ -2,7 +2,7 @@ import { Cache } from '../cache';
 import Keyv from 'keyv';
 import KeyvRedis from '@keyv/redis';
 import { KeyvAdapter } from '@apollo/utils.keyvadapter';
-import { logger } from "../../logger";
+import { logger } from "../../logger.js";
 
 jest.mock('keyv');
 jest.mock('@keyv/redis');

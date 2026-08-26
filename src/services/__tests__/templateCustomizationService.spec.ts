@@ -1,19 +1,20 @@
-import { MyContext } from "../../context";
+import { MyContext } from "../../context.js";
 import {
   TemplateCustomization,
   TemplateCustomizationMigrationStatus,
-} from "../../models/TemplateCustomization";
+} from "../../models/TemplateCustomization.js";
 import {
   handleFunderTemplateRepublication,
   handleFunderTemplateArchive,
   markTemplateCustomizationAsDirty,
   getValidatedCustomization
-} from "../templateCustomizationService";
-import { ForbiddenError, NotFoundError } from "../../utils/graphQLErrors";
-import { User, UserRole } from "../../models/User";
+} from "../templateCustomizationService.js";
+import { ForbiddenError, NotFoundError } from "../../utils/graphQLErrors.js";
+import { User, UserRole } from "../../models/User.js";
 import casual from "casual";
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { logger } from "../../logger";
+import { buildMockContextWithToken } from "../../__mocks__/context.js";
+
+import { logger } from "../../logger.js";
 
 jest.mock("../../models/TemplateCustomization");
 jest.mock("../templateCustomizationService", () => ({
@@ -287,7 +288,7 @@ describe("templateCustomizationService", () => {
         templateCustomizationId
       );
       expect(mockContext.logger.error).toHaveBeenCalledWith(
-        {templateCustomizationId},
+        { templateCustomizationId },
         `Unable to update TemplateCustomization timestamp`
       );
     });
@@ -311,7 +312,7 @@ describe("templateCustomizationService", () => {
         templateCustomizationId
       );
       expect(mockContext.logger.error).toHaveBeenCalledWith(
-        {templateCustomizationId},
+        { templateCustomizationId },
         `Unable to update TemplateCustomization timestamp`
       );
       expect(mockAddError).toHaveBeenCalledWith(

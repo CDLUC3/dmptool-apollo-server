@@ -1,13 +1,13 @@
 import { DMPHubAPI, Authorizer } from '../dmphubAPI';
 import { RESTDataSource } from '@apollo/datasource-rest';
 import { JWTAccessToken } from '../../services/tokenService';
-import { buildContext, buildMockContextWithToken } from '../../__mocks__/context';
+import { buildContext, buildMockContextWithToken } from '../../__mocks__/context.js';
 import { DMPHubConfig } from '../../config/dmpHubConfig';
 import casual from 'casual';
 import { KeyvAdapter } from "@apollo/utils.keyvadapter";
-import { logger } from "../../logger";
+import { logger } from "../../logger.js";
 
-jest.mock('../../context.ts');
+jest.mock('../../context.js');
 
 let mockError;
 

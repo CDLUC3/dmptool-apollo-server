@@ -1,11 +1,11 @@
-import { Resolvers } from "../types";
-import { MyContext } from "../context";
-import { ForbiddenError, NotFoundError, InternalServerError } from "../utils/graphQLErrors";
-import { isSuperAdmin } from "../services/authService";
-import { prepareObjectForLogs } from "../logger";
-import { isNullOrUndefined } from "../utils/helpers";
-import { Plan } from "../models/Plan";
-import { handleAsyncUpdates } from "../services/planService";
+import { Resolvers } from "../types.js";
+import { MyContext } from "../context.js";
+import { ForbiddenError, NotFoundError, InternalServerError } from "../utils/graphQLErrors.js";
+import { isSuperAdmin } from "../services/authService.js";
+import { prepareObjectForLogs } from "../logger.js";
+import { isNullOrUndefined } from "../utils/helpers.js";
+import { Plan } from "../models/Plan.js";
+import { handleAsyncUpdates } from "../services/planService.js";
 
 export const resolvers: Resolvers = {
   Mutation: {

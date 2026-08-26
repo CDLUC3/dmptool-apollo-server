@@ -2,7 +2,7 @@ import {
   VersionedTemplateCustomization
 } from '../VersionedTemplateCustomization';
 import { MySqlModel } from '../MySqlModel';
-import { MyContext } from '../../context';
+import { MyContext } from '../../context.js';
 
 describe('VersionedTemplateCustomization', () => {
   let mockContext: MyContext;

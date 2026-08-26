@@ -1,14 +1,15 @@
 import casual from "casual";
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { logger } from "../../logger";
-import { User, UserRole } from "../../models/User";
-import { anonymizeUser, generateRandomPassword, mergeUsers } from "../userService";
-import { getCurrentDate } from "../../utils/helpers";
-import { UserEmail } from "../../models/UserEmail";
-import { TemplateCollaborator } from "../../models/Collaborator";
+import { buildMockContextWithToken } from "../../__mocks__/context.js";
+
+import { logger } from "../../logger.js";
+import { User, UserRole } from "../../models/User.js";
+import { anonymizeUser, generateRandomPassword, mergeUsers } from "../userService.js";
+import { getCurrentDate } from "../../utils/helpers.js";
+import { UserEmail } from "../../models/UserEmail.js";
+import { TemplateCollaborator } from "../../models/Collaborator.js";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { sendEmailConfirmationNotification } from "../emailService";
-import { defaultLanguageId } from "../../models/Language";
+import { sendEmailConfirmationNotification } from "../emailService.js";
+import { defaultLanguageId } from "../../models/Language.js";
 
 let affiliationId;
 let adminUser;
@@ -74,7 +75,7 @@ beforeEach(async () => {
 
   mockFindEmailByUserIdAndEmail = jest.fn().mockImplementation((_, __, userId, email) => {
     return userEmailStore.filter((entry) => {
-      return entry.email === email  && entry.userId === userId;
+      return entry.email === email && entry.userId === userId;
     });
   });
   (UserEmail.findByUserIdAndEmail as jest.Mock) = mockFindEmailByUserIdAndEmail;
@@ -107,7 +108,7 @@ beforeEach(async () => {
     obj.modifed = getCurrentDate();
     obj.modifiedById = context.token.id;
 
-    switch(table) {
+    switch (table) {
       case 'users': {
         const existing = userStore.find((entry) => { return entry.id === obj.id });
         if (!existing) {
@@ -141,7 +142,7 @@ beforeEach(async () => {
 
   // Override the MySQLModel delete function
   mockDelete = jest.fn().mockImplementation((_, table, objId) => {
-    switch(table) {
+    switch (table) {
       case 'userEmails': {
         const obj = userEmailStore.find((e) => { return e.id === objId });
         userEmailStore.splice(userEmailStore.indexOf(obj), 1);

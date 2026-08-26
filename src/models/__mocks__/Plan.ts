@@ -11,11 +11,11 @@ import {
   getMockTableStore,
   updateEntryInMockTable
 } from "./MockStore";
-import { getCurrentDate } from "../../utils/helpers";
-import { getMockDMPId, getRandomEnumValue } from "../../__tests__/helpers";
+import { getCurrentDate } from "../../utils/helpers.js";
+import { getMockDMPId, getRandomEnumValue } from "../../__tests__/helpers.js";
 import { Plan, PlanSearchResult, PlanStatus, PlanVisibility } from "../Plan";
 import { supportedLanguages } from "../Language";
-import { MyContext } from "../../context";
+import { MyContext } from "../../context.js";
 
 export const getPlanStore = () => {
   return getMockTableStore('plans');

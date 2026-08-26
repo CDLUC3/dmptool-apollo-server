@@ -1,7 +1,7 @@
-import { MyContext } from "../../context";
-import { PinnedSectionTypeEnum } from "../CustomSection";
+import { MyContext } from "../../context.js";
+import { PinnedSectionTypeEnum } from "../CustomSection.js";
 import { VersionedCustomSection } from "../VersionedCustomSection";
-import { MySqlModel } from "../MySqlModel";
+import { MySqlModel } from "../MySqlModel.js";
 
 jest.mock("../MySqlModel", () => ({
   ...jest.requireActual("../MySqlModel"),
@@ -382,7 +382,7 @@ describe("VersionedCustomSection", () => {
         {
           id: 1,
           versionedTemplateCustomizationId: 100,
-        customSectionId: 200,
+          customSectionId: 200,
           pinnedVersionedSectionType: PinnedSectionTypeEnum.CUSTOM,
           pinnedVersionedSectionId: 300,
         },

@@ -1,44 +1,44 @@
-import { prepareObjectForLogs } from '../logger';
-import { ExternalProject, ProjectSearchResults, Resolvers } from "../types";
-import { Project, ProjectSearchResult } from "../models/Project";
+import { prepareObjectForLogs } from '../logger.js';
+import { ExternalProject, ProjectSearchResults, Resolvers } from "../types.js";
+import { Project, ProjectSearchResult } from "../models/Project.js";
 import {
   ProjectCollaborator,
   ProjectCollaboratorAccessLevel
-} from '../models/Collaborator';
-import { MyContext } from '../context';
-import { authenticatedResolver, isAdmin, isAuthorized, isSuperAdmin } from '../services/authService';
+} from '../models/Collaborator.js';
+import { MyContext } from '../context.js';
+import { authenticatedResolver, isAdmin, isAuthorized, isSuperAdmin } from '../services/authService.js';
 import {
   AuthenticationError,
   ForbiddenError,
   InternalServerError,
   NotFoundError
-} from '../utils/graphQLErrors';
-import { ProjectFunding } from '../models/Funding';
-import { ProjectMember } from '../models/Member';
-import { User, UserRole } from "../models/User";
+} from '../utils/graphQLErrors.js';
+import { ProjectFunding } from '../models/Funding.js';
+import { ProjectMember } from '../models/Member.js';
+import { User, UserRole } from "../models/User.js";
 import {
   ensureDefaultProjectContact,
   hasPermissionOnProject,
   isProjectReadOnlyForCurrentUser,
   setCurrentUserAsProjectOwner
-} from '../services/projectService';
-import { Affiliation } from '../models/Affiliation';
-import { ResearchDomain } from '../models/ResearchDomain';
-import { MemberRole } from '../models/MemberRole';
+} from '../services/projectService.js';
+import { Affiliation } from '../models/Affiliation.js';
+import { ResearchDomain } from '../models/ResearchDomain.js';
+import { MemberRole } from '../models/MemberRole.js';
 import { GraphQLError } from 'graphql';
-import { Plan, PlanSearchResult } from '../models/Plan';
+import { Plan, PlanSearchResult } from '../models/Plan.js';
 import {
   isNullOrUndefined,
   normaliseDate,
   normaliseDateTime
-} from '../utils/helpers';
-import { validateEmail } from '../utils/helpers';
+} from '../utils/helpers.js';
+import { validateEmail } from '../utils/helpers.js';
 import {
   PaginationOptionsForCursors,
   PaginationOptionsForOffsets,
   PaginationType,
-} from '../types/general';
-import { handleAsyncDeletes, handleAsyncUpdates } from "../services/planService";
+} from '../types/general.js';
+import { handleAsyncDeletes, handleAsyncUpdates } from "../services/planService.js";
 
 export const resolvers: Resolvers = {
   Query: {

@@ -21,8 +21,8 @@ import {
   // GraphQLExperimentalFormattedSubsequentIncrementalExecutionResult,
   GraphQLRequestListener,
 } from '@apollo/server';
-import { logger } from "../../logger";
-import { loggerPlugin } from '../logger';
+import { logger } from "../../logger.js";
+import { loggerPlugin } from '../logger.js';
 
 const mockIntrospectionRequestContext = {
   request: { operationName: 'IntrospectionQuery' }
@@ -88,11 +88,11 @@ describe('loggerPlugin', () => {
   });
 
   describe('requestDidStart', () => {
-    test('skips introspection queries', async() => {
+    test('skips introspection queries', async () => {
       expect(await mockLogger.requestDidStart(mockIntrospectionRequestContext)).toEqual({});
     });
 
-    test('skips healthcheck queries', async() => {
+    test('skips healthcheck queries', async () => {
       expect(await mockLogger.requestDidStart(mockHealthCheckRequestContext)).toEqual({});
     });
 

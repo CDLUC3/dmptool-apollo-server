@@ -9,23 +9,24 @@ jest.mock('../../services/authService', () => ({
 }));
 
 import { ApolloServer } from "@apollo/server";
-import { typeDefs } from "../../schema";
-import { resolvers } from '../../resolver';
+import { typeDefs } from "../../schema.js";
+import { resolvers } from '../../resolver.js';
 
-import { logger } from "../../logger";
-import { JWTAccessToken } from "../../services/tokenService";
-import { QuestionCustomization } from '../../models/QuestionCustomization';
-import { CustomQuestion, PinnedQuestionTypeEnum } from '../../models/CustomQuestion';
-import { VersionedQuestion } from '../../models/VersionedQuestion';
-import { PinnedSectionTypeEnum } from '../../models/CustomSection';
-import { User, UserRole } from "../../models/User";
+import { logger } from "../../logger.js";
+import { JWTAccessToken } from "../../services/tokenService.js";
+import { QuestionCustomization } from '../../models/QuestionCustomization.js';
+import { CustomQuestion, PinnedQuestionTypeEnum } from '../../models/CustomQuestion.js';
+import { VersionedQuestion } from '../../models/VersionedQuestion.js';
+import { PinnedSectionTypeEnum } from '../../models/CustomSection.js';
+import { User, UserRole } from "../../models/User.js";
 import {
   getValidatedCustomization,
   markTemplateCustomizationAsDirty
-} from '../../services/templateCustomizationService';
-import { buildContext, mockToken } from "../../__mocks__/context";
+} from '../../services/templateCustomizationService.js';
+import { buildContext, mockToken } from "../../__mocks__/context.js";
 
-jest.mock('../../context.ts');
+
+jest.mock('../../context.js');
 jest.mock('../../datasources/cache');
 
 jest.mock('../../models/QuestionCustomization');

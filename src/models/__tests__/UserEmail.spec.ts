@@ -1,11 +1,12 @@
 import casual from "casual";
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { logger } from "../../logger";
-import { User } from "../User";
-import { UserEmail } from "../UserEmail";
-import { TemplateCollaborator } from "../Collaborator";
+import { buildMockContextWithToken } from "../../__mocks__/context.js";
+
+import { logger } from "../../logger.js";
+import { User } from "../User.js";
+import { UserEmail } from "../UserEmail.js";
+import { TemplateCollaborator } from "../Collaborator.js";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { sendEmailConfirmationNotification } from "../../services/emailService";
+import { sendEmailConfirmationNotification } from "../../services/emailService.js";
 
 let context;
 let mockUser;

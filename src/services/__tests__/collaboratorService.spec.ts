@@ -1,10 +1,10 @@
 import { GraphQLError } from 'graphql';
-import { MyContext } from '../../context';
-import { buildMockContextWithToken } from '../../__mocks__/context';
-import { validateProjectCollaboratorAccessChange, demoteExistingPrimaryCollaborator } from '../collaboratorService';
-import { ProjectCollaborator, ProjectCollaboratorAccessLevel } from '../../models/Collaborator';
-import { isSuperAdmin } from '../authService';
-import { logger } from '../../logger';
+import { MyContext } from '../../context.js';
+import { buildMockContextWithToken } from '../../__mocks__/context.js';
+import { validateProjectCollaboratorAccessChange, demoteExistingPrimaryCollaborator } from '../collaboratorService.js';
+import { ProjectCollaborator, ProjectCollaboratorAccessLevel } from '../../models/Collaborator.js';
+import { isSuperAdmin } from '../authService.js';
+import { logger } from '../../logger.js';
 import casual from 'casual';
 
 jest.mock('../../models/Collaborator', () => ({

@@ -1,12 +1,12 @@
-import { MyContext } from "../context";
-import { prepareObjectForLogs } from "../logger";
-import { ProjectCollaborator, ProjectCollaboratorAccessLevel } from "../models/Collaborator";
-import { Project } from "../models/Project";
-import { User, UserRole } from "../models/User";
-import { isAdmin, isSuperAdmin } from "./authService";
-import { isNullOrUndefined } from "../utils/helpers";
-import { ProjectMember } from "../models/Member";
-import { MemberRole } from "../models/MemberRole";
+import { MyContext } from "../context.js";
+import { prepareObjectForLogs } from "../logger.js";
+import { ProjectCollaborator, ProjectCollaboratorAccessLevel } from "../models/Collaborator.js";
+import { Project } from "../models/Project.js";
+import { User, UserRole } from "../models/User.js";
+import { isAdmin, isSuperAdmin } from "./authService.js";
+import { isNullOrUndefined } from "../utils/helpers.js";
+import { ProjectMember } from "../models/Member.js";
+import { MemberRole } from "../models/MemberRole.js";
 
 const WRITE_ACCESS_LEVELS = new Set([
   ProjectCollaboratorAccessLevel.OWN,

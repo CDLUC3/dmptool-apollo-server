@@ -1,9 +1,9 @@
-import { MyContext } from "../context";
-import { prepareObjectForLogs } from "../logger";
-import { PaginatedQueryResults, PaginationOptions, PaginationOptionsForCursors, PaginationOptionsForOffsets, PaginationType } from "../types/general";
-import { isNullOrUndefined, randomHex, validateURL } from "../utils/helpers";
-import { MySqlModel } from "./MySqlModel";
-import { ResearchDomain } from "./ResearchDomain";
+import { MyContext } from "../context.js";
+import { prepareObjectForLogs } from "../logger.js";
+import { PaginatedQueryResults, PaginationOptions, PaginationOptionsForCursors, PaginationOptionsForOffsets, PaginationType } from "../types/general.js";
+import { isNullOrUndefined, randomHex, validateURL } from "../utils/helpers.js";
+import { MySqlModel } from "./MySqlModel.js";
+import { ResearchDomain } from "./ResearchDomain.js";
 
 export const DEFAULT_DMPTOOL_REPOSITORY_URL = 'https://dmptool.org/repositories/';;
 

@@ -1,12 +1,13 @@
 import casual from "casual";
-import { buildMockContextWithToken } from "../../__mocks__/context";
+import { buildMockContextWithToken } from "../../__mocks__/context.js";
+
 import { Answer } from "../Answer";
-import { logger } from "../../logger";
+import { logger } from "../../logger.js";
 import { CURRENT_SCHEMA_VERSION, DefaultResearchOutputTableAnswer } from "@dmptool/types";
 import { Question } from "../Question";
-import { removeNullAndUndefinedFromJSON } from "../../utils/helpers";
+import { removeNullAndUndefinedFromJSON } from "../../utils/helpers.js";
 
-jest.mock('../../context.ts');
+jest.mock('../../context.js');
 
 let context;
 

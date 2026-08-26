@@ -1,23 +1,24 @@
 import casual from "casual";
-import { logger } from "../../logger";
-import { buildMockContextWithToken, mockUser } from "../../__mocks__/context";
-import { Project } from "../../models/Project";
+import { logger } from "../../logger.js";
+import { buildMockContextWithToken, mockUser } from "../../__mocks__/context.js";
+
+import { Project } from "../../models/Project.js";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { isAdmin, isSuperAdmin } from "../authService";
+import { isAdmin, isSuperAdmin } from "../authService.js";
 import {
   ensureDefaultProjectContact,
   hasPermissionOnProject,
   setCurrentUserAsProjectOwner,
   isProjectReadOnlyForCurrentUser,
-} from "../projectService";
-import { ProjectCollaborator, ProjectCollaboratorAccessLevel } from "../../models/Collaborator";
-import { User, UserRole } from "../../models/User";
-import { ProjectMember } from "../../models/Member";
-import { MemberRole } from "../../models/MemberRole";
-import { MyContext } from "../../context";
+} from "../projectService.js";
+import { ProjectCollaborator, ProjectCollaboratorAccessLevel } from "../../models/Collaborator.js";
+import { User, UserRole } from "../../models/User.js";
+import { ProjectMember } from "../../models/Member.js";
+import { MemberRole } from "../../models/MemberRole.js";
+import { MyContext } from "../../context.js";
 
 // Pulling context in here so that the mysql gets mocked
-jest.mock('../../context.ts');
+jest.mock('../../context.js');
 jest.mock('../emailService');
 jest.mock('../planService.ts', () => {
   return {

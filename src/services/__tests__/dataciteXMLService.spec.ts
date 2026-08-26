@@ -3,7 +3,7 @@ import {
   planToDataCiteMetadata,
   resolveAffiliationIdentifier,
   DataCiteMetadataInput,
-} from '../dataciteXMLService';
+} from '../dataciteXMLService.js';
 
 describe('resolveAffiliationIdentifier', () => {
   it('returns a ROR identifier when provenance is ROR', () => {

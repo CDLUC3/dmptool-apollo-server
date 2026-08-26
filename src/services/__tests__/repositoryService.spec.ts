@@ -1,8 +1,8 @@
-import { RepositoryService } from '../repositoryService';
-import { Repository } from '../../models/Repository';
-import * as openSearchService from '../openSearchService';
-import { MyContext } from '../../context';
-import { PaginatedQueryResults, PaginationType, PaginationOptionsForCursors } from '../../types/general';
+import { RepositoryService } from '../repositoryService.js';
+import { Repository } from '../../models/Repository.js';
+import * as openSearchService from '../openSearchService.js';
+import { MyContext } from '../../context.js';
+import { PaginatedQueryResults, PaginationType, PaginationOptionsForCursors } from '../../types/general.js';
 import { GraphQLError } from 'graphql';
 
 jest.mock('../../models/Repository');

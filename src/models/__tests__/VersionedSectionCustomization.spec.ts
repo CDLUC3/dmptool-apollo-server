@@ -1,6 +1,6 @@
-import { MyContext } from "../../context";
+import { MyContext } from "../../context.js";
 import { VersionedSectionCustomization } from "../VersionedSectionCustomization";
-import { MySqlModel } from "../MySqlModel";
+import { MySqlModel } from "../MySqlModel.js";
 
 jest.mock("../MySqlModel", () => ({
   ...jest.requireActual("../MySqlModel"),

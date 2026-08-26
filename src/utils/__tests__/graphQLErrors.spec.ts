@@ -15,7 +15,7 @@ import {
   NotFoundError,
   BadRequestError,
   InternalServerError,
-} from '../graphQLErrors';
+} from '../graphQLErrors.js';
 import casual from 'casual';
 
 describe('Authentication error', () => {

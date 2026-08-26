@@ -4,19 +4,19 @@ import {
   ProjectCollaborator,
   ProjectCollaboratorAccessLevel,
   TemplateCollaborator
-} from "../Collaborator";
+} from "../Collaborator.js";
 import { Template } from '../Template';
 import { User } from '../User';
-import { buildMockContextWithToken } from '../../__mocks__/context';
+import { buildMockContextWithToken } from '../../__mocks__/context.js';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { sendProjectCollaborationEmail, sendTemplateCollaborationEmail } from '../../services/emailService';
 import { Project } from '../Project';
-import { logger } from "../../logger";
+import { logger } from "../../logger.js";
 import { Affiliation } from "../Affiliation";
-import { UserEmail } from "../UserEmail";
+import { UserEmail } from "../UserEmail.js";
 
 jest.mock('../../logger.ts');
-jest.mock('../../context.ts');
+jest.mock('../../context.js');
 
 let context;
 

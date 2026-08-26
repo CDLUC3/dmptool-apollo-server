@@ -1,5 +1,5 @@
 import casual from 'casual';
-import { MyContext } from '../../context';
+import { MyContext } from '../../context.js';
 import {
   generateSearchTerms,
   INDEX_NAME,
@@ -7,15 +7,15 @@ import {
   searchIndex,
   updateIndexItem,
   removeIndexItem,
-} from '../indexDMPService';
-import { Plan, PlanVisibility } from '../../models/Plan';
-import { Project } from '../../models/Project';
-import { Answer } from '../../models/Answer';
-import { ProjectMember, PlanMember } from '../../models/Member';
-import { PlanFunding, ProjectFunding, ProjectFundingStatus } from '../../models/Funding';
-import { Affiliation } from '../../models/Affiliation';
-import { AlternateIdentifier } from '../../models/AlternateIdentifier';
-import { AcceptedWork } from '../../models/RelatedWork';
+} from '../indexDMPService.js';
+import { Plan, PlanVisibility } from '../../models/Plan.js';
+import { Project } from '../../models/Project.js';
+import { Answer } from '../../models/Answer.js';
+import { ProjectMember, PlanMember } from '../../models/Member.js';
+import { PlanFunding, ProjectFunding, ProjectFundingStatus } from '../../models/Funding.js';
+import { Affiliation } from '../../models/Affiliation.js';
+import { AlternateIdentifier } from '../../models/AlternateIdentifier.js';
+import { AcceptedWork } from '../../models/RelatedWork.js';
 
 jest.mock('../../datasources/mysql', () => ({
   __esModule: true,

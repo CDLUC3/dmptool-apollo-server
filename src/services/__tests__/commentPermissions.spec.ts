@@ -1,8 +1,8 @@
-import { canDeleteComment } from '../commentPermissions';
+import { canDeleteComment } from '../commentPermissions.js';
 import {
   ProjectCollaborator,
   ProjectCollaboratorAccessLevel,
-} from '../../models/Collaborator';
+} from '../../models/Collaborator.js';
 
 describe('canDeleteComment', () => {
   it('returns true when the user is the comment creator', () => {

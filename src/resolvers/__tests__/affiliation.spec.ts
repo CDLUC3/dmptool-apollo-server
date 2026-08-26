@@ -7,19 +7,19 @@ jest.mock('../../services/authService', () => ({
 }));
 
 import { ApolloServer } from "@apollo/server";
-import { typeDefs } from "../../schema";
-import { resolvers } from '../../resolver';
+import { typeDefs } from "../../schema.js";
+import { resolvers } from '../../resolver.js';
 
-import { logger } from "../../logger";
-import { JWTAccessToken } from "../../services/tokenService";
+import { logger } from "../../logger.js";
+import { JWTAccessToken } from "../../services/tokenService.js";
 import {
   Affiliation,
   AffiliationProvenance,
   AffiliationSearch,
   PopularFunder,
-} from '../../models/Affiliation';
-import { GuidanceGroup } from '../../models/GuidanceGroup';
-import { getAffiliationsWithGuidanceForTemplate } from '../../services/guidanceService';
+} from '../../models/Affiliation.js';
+import { GuidanceGroup } from '../../models/GuidanceGroup.js';
+import { getAffiliationsWithGuidanceForTemplate } from '../../services/guidanceService.js';
 import {
   getPresignedURLForAffiliationLogo,
   deleteAffiliationLogoFile,
@@ -29,11 +29,12 @@ import {
   reconcileAffiliationEmailDomains,
   reconcileAffiliationLinks,
 } from '../../services/affiliationService';
-import { UserRole } from "../../models/User";
-import { buildContext, mockToken } from "../../__mocks__/context";
-import {mockRor} from "../../mocks/affiliation";
+import { UserRole } from "../../models/User.js";
+import { buildContext, mockToken } from "../../__mocks__/context.js";
 
-jest.mock('../../context.ts');
+import { mockRor } from "../../mocks/affiliation";
+
+jest.mock('../../context.js');
 jest.mock('../../datasources/cache');
 
 // Manual mock: keep AffiliationProvenance enum real, mock everything else

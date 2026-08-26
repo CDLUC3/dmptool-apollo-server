@@ -1,6 +1,6 @@
 import pino, { Logger } from 'pino';
 import { ecsFormat } from '@elastic/ecs-pino-format';
-import { isNullOrUndefined } from "./utils/helpers";
+import { isNullOrUndefined } from "./utils/helpers.js";
 
 /*
  * Logger using Pino and the Elastic Common Schema format to facilitate

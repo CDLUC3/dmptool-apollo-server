@@ -1,7 +1,7 @@
 import casual from 'casual';
 import { AlternateIdentifier } from '../AlternateIdentifier';
-import { buildMockContextWithToken } from '../../__mocks__/context';
-import { logger } from "../../logger";
+import { buildMockContextWithToken } from '../../__mocks__/context.js';
+import { logger } from "../../logger.js";
 
 describe('AlternateIdentifier', () => {
   it('constructor should initialize as expected', () => {

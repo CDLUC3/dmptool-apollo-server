@@ -1,7 +1,8 @@
 import casual from "casual";
-import { Template } from "../../models/Template";
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { logger } from "../../logger";
+import { Template } from "../../models/Template.js";
+import { buildMockContextWithToken } from "../../__mocks__/context.js";
+
+import { logger } from "../../logger.js";
 import {
   cloneQuestion,
   generateQuestionConditionGroupVersion,
@@ -9,23 +10,23 @@ import {
   generateQuestionVersion,
   hasPermissionOnQuestion,
   updateDisplayOrders
-} from "../questionService";
+} from "../questionService.js";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { hasPermissionOnTemplate } from "../templateService";
-import { NotFoundError } from "../../utils/graphQLErrors";
-import { Question } from "../../models/Question";
-import { VersionedQuestion } from "../../models/VersionedQuestion";
-import { QuestionCondition } from "../../models/QuestionCondition";
-import { QuestionConditionGroup } from "../../models/QuestionConditionGroup";
-import { VersionedQuestionCondition } from "../../models/VersionedQuestionCondition";
-import { VersionedQuestionConditionGroup } from "../../models/VersionedQuestionConditionGroups";
-import { Tag } from "../../models/Tag";
-import { getCurrentDate } from "../../utils/helpers";
+import { hasPermissionOnTemplate } from "../templateService.js";
+import { NotFoundError } from "../../utils/graphQLErrors.js";
+import { Question } from "../../models/Question.js";
+import { VersionedQuestion } from "../../models/VersionedQuestion.js";
+import { QuestionCondition } from "../../models/QuestionCondition.js";
+import { QuestionConditionGroup } from "../../models/QuestionConditionGroup.js";
+import { VersionedQuestionCondition } from "../../models/VersionedQuestionCondition.js";
+import { VersionedQuestionConditionGroup } from "../../models/VersionedQuestionConditionGroups.js";
+import { Tag } from "../../models/Tag.js";
+import { getCurrentDate } from "../../utils/helpers.js";
 import { CURRENT_SCHEMA_VERSION } from "@dmptool/types";
-import { MyContext } from "../../context";
+import { MyContext } from "../../context.js";
 
 // Pulling context in here so that the mysql gets mocked
-jest.mock('../../context.ts');
+jest.mock('../../context.js');
 
 let context: MyContext;
 

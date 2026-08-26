@@ -1,19 +1,19 @@
 import { Client } from "@opensearch-project/opensearch";
-import { MyContext } from '../context';
-import { OpenSearchWork, WorkType } from '../types';
-import { awsConfig } from '../config/awsConfig';
-import { prepareObjectForLogs } from '../logger';
+import { MyContext } from '../context.js';
+import { OpenSearchWork, WorkType } from '../types.js';
+import { awsConfig } from '../config/awsConfig.js';
+import { prepareObjectForLogs } from '../logger.js';
 import {
   createOpenSearchClient,
   createOpenSearchServerlessClient,
   OpenSearchConfig,
   OpenSearchServerlessConfig
-} from "../datasources/openSearch";
+} from "../datasources/openSearch.js";
 import {
   OpenSearchRe3DataRecord,
   Re3DataRepositoryRecord,
   convertRe3DataToCamelCase,
-} from '../types/repository';
+} from '../types/repository.js';
 import { GraphQLError } from "graphql";
 
 interface OpenSearchWorkRecord {

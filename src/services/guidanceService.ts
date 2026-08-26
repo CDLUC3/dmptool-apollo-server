@@ -1,22 +1,22 @@
-import { MyContext } from "../context";
-import { GuidanceGroup } from "../models/GuidanceGroup";
-import { Guidance } from "../models/Guidance";
-import { PlanGuidance } from "../models/Guidance";
-import { Affiliation } from "../models/Affiliation";
-import { VersionedGuidanceGroup } from "../models/VersionedGuidanceGroup";
-import { VersionedGuidance } from "../models/VersionedGuidance";
-import { VersionedSection } from "../models/VersionedSection";
-import { VersionedQuestion } from "../models/VersionedQuestion";
-import { VersionedQuestionCustomization } from "../models/VersionedQuestionCustomization";
-import { VersionedSectionCustomization } from "../models/VersionedSectionCustomization";
-import { VersionedCustomSection } from "../models/VersionedCustomSection";
-import { VersionedCustomQuestion } from "../models/VersionedCustomQuestion";
-import { Plan } from "../models/Plan";
-import { VersionedTemplate } from "../models/VersionedTemplate";
-import { prepareObjectForLogs } from "../logger";
-import { getCurrentDate } from "../utils/helpers";
-import { isSuperAdmin } from "./authService";
-import { GuidanceSourceType } from "../types";
+import { MyContext } from "../context.js";
+import { GuidanceGroup } from "../models/GuidanceGroup.js";
+import { Guidance } from "../models/Guidance.js";
+import { PlanGuidance } from "../models/Guidance.js";
+import { Affiliation } from "../models/Affiliation.js";
+import { VersionedGuidanceGroup } from "../models/VersionedGuidanceGroup.js";
+import { VersionedGuidance } from "../models/VersionedGuidance.js";
+import { VersionedSection } from "../models/VersionedSection.js";
+import { VersionedQuestion } from "../models/VersionedQuestion.js";
+import { VersionedQuestionCustomization } from "../models/VersionedQuestionCustomization.js";
+import { VersionedSectionCustomization } from "../models/VersionedSectionCustomization.js";
+import { VersionedCustomSection } from "../models/VersionedCustomSection.js";
+import { VersionedCustomQuestion } from "../models/VersionedCustomQuestion.js";
+import { Plan } from "../models/Plan.js";
+import { VersionedTemplate } from "../models/VersionedTemplate.js";
+import { prepareObjectForLogs } from "../logger.js";
+import { getCurrentDate } from "../utils/helpers.js";
+import { isSuperAdmin } from "./authService.js";
+import { GuidanceSourceType } from "../types.js";
 
 const GuidanceSourceType = {
   BEST_PRACTICE: 'BEST_PRACTICE' as const,

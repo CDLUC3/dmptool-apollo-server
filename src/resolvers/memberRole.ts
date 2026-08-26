@@ -1,16 +1,16 @@
 
-import { prepareObjectForLogs } from '../logger';
-import { Resolvers } from "../types";
-import { MemberRole } from "../models/MemberRole";
-import { MyContext } from '../context';
-import { isSuperAdmin } from '../services/authService';
+import { prepareObjectForLogs } from '../logger.js';
+import { Resolvers } from "../types.js";
+import { MemberRole } from "../models/MemberRole.js";
+import { MyContext } from '../context.js';
+import { isSuperAdmin } from '../services/authService.js';
 import {
   AuthenticationError,
   ForbiddenError,
   InternalServerError,
-} from '../utils/graphQLErrors';
+} from '../utils/graphQLErrors.js';
 import { GraphQLError } from 'graphql';
-import { normaliseDateTime } from "../utils/helpers";
+import { normaliseDateTime } from "../utils/helpers.js";
 
 export const resolvers: Resolvers = {
   Query: {

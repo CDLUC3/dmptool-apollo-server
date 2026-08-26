@@ -1,11 +1,12 @@
 import casual from "casual";
 import { GraphQLResolveInfo, GraphQLError } from "graphql";
-import { User, UserRole } from "../../models/User";
-import { isAdmin, isSuperAdmin, authenticatedResolver } from "../authService";
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { logger } from "../../logger";
-import { MyContext } from "../../context";
-import { JWTAccessToken } from "../tokenService";
+import { User, UserRole } from "../../models/User.js";
+import { isAdmin, isSuperAdmin, authenticatedResolver } from "../authService.js";
+import { buildMockContextWithToken } from "../../__mocks__/context.js";
+
+import { logger } from "../../logger.js";
+import { MyContext } from "../../context.js";
+import { JWTAccessToken } from "../tokenService.js";
 
 describe('isAdmin', () => {
   let token;
@@ -88,7 +89,7 @@ describe('authenticatedResolver', () => {
 
     (user.getEmail as jest.Mock) = jest.fn().mockResolvedValue(casual.email);
 
-    mockResolver = jest.fn().mockResolvedValue({success: true});
+    mockResolver = jest.fn().mockResolvedValue({ success: true });
     mockContext = await buildMockContextWithToken(logger, user);
     token = mockContext.token;
 
@@ -99,9 +100,9 @@ describe('authenticatedResolver', () => {
     it('allows access with valid token', async () => {
       const wrapped = authenticatedResolver('test', UserRole.RESEARCHER, mockResolver);
 
-      const result = await wrapped({}, {arg1: 'value'}, mockContext, mockInfo);
+      const result = await wrapped({}, { arg1: 'value' }, mockContext, mockInfo);
 
-      expect(result).toEqual({success: true});
+      expect(result).toEqual({ success: true });
       expect(mockResolver).toHaveBeenCalledTimes(1);
     });
 
@@ -116,27 +117,27 @@ describe('authenticatedResolver', () => {
 
   describe('ADMIN auth level', () => {
     it('allows access with ADMIN role and affiliationId', async () => {
-      mockContext.token = {...token, role: UserRole.ADMIN};
+      mockContext.token = { ...token, role: UserRole.ADMIN };
       const wrapped = authenticatedResolver('test', UserRole.ADMIN, mockResolver);
 
-      const result = await wrapped({}, {arg1: 'value'}, mockContext, mockInfo);
+      const result = await wrapped({}, { arg1: 'value' }, mockContext, mockInfo);
 
-      expect(result).toEqual({success: true});
+      expect(result).toEqual({ success: true });
       expect(mockResolver).toHaveBeenCalledTimes(1);
     });
 
     it('allows access with SUPERADMIN role', async () => {
-      mockContext.token = {...token, role: UserRole.SUPERADMIN};
+      mockContext.token = { ...token, role: UserRole.SUPERADMIN };
       const wrapped = authenticatedResolver('test', UserRole.ADMIN, mockResolver);
 
-      const result = await wrapped({}, {arg1: 'value'}, mockContext, mockInfo);
+      const result = await wrapped({}, { arg1: 'value' }, mockContext, mockInfo);
 
-      expect(result).toEqual({success: true});
+      expect(result).toEqual({ success: true });
       expect(mockResolver).toHaveBeenCalledTimes(1);
     });
 
     it('throws ForbiddenError with RESEARCHER role', async () => {
-      mockContext.token = {...token, role: UserRole.RESEARCHER};
+      mockContext.token = { ...token, role: UserRole.RESEARCHER };
       const wrapped = authenticatedResolver('test', UserRole.ADMIN, mockResolver);
 
       await expect(wrapped({}, {}, mockContext, mockInfo)).rejects.toThrow('Forbidden');
@@ -144,7 +145,7 @@ describe('authenticatedResolver', () => {
     });
 
     it('throws ForbiddenError when affiliationId is missing', async () => {
-      mockContext.token = {...token, role: UserRole.ADMIN, affiliationId: null};
+      mockContext.token = { ...token, role: UserRole.ADMIN, affiliationId: null };
       const wrapped = authenticatedResolver('test', UserRole.ADMIN, mockResolver);
 
       await expect(wrapped({}, {}, mockContext, mockInfo)).rejects.toThrow('Forbidden');
@@ -154,17 +155,17 @@ describe('authenticatedResolver', () => {
 
   describe('SUPERADMIN auth level', () => {
     it('allows access with SUPERADMIN role and affiliationId', async () => {
-      mockContext.token = {...token, role: UserRole.SUPERADMIN};
+      mockContext.token = { ...token, role: UserRole.SUPERADMIN };
       const wrapped = authenticatedResolver('test', UserRole.SUPERADMIN, mockResolver);
 
-      const result = await wrapped({}, {arg1: 'value'}, mockContext, mockInfo);
+      const result = await wrapped({}, { arg1: 'value' }, mockContext, mockInfo);
 
-      expect(result).toEqual({success: true});
+      expect(result).toEqual({ success: true });
       expect(mockResolver).toHaveBeenCalledTimes(1);
     });
 
     it('throws ForbiddenError with ADMIN role', async () => {
-      mockContext.token = {...token, role: UserRole.ADMIN};
+      mockContext.token = { ...token, role: UserRole.ADMIN };
       const wrapped = authenticatedResolver('test', UserRole.SUPERADMIN, mockResolver);
 
       await expect(wrapped({}, {}, mockContext, mockInfo)).rejects.toThrow('Forbidden');
@@ -172,7 +173,7 @@ describe('authenticatedResolver', () => {
     });
 
     it('throws ForbiddenError with RESEARCHER role', async () => {
-      mockContext.token = {...token, role: UserRole.RESEARCHER};
+      mockContext.token = { ...token, role: UserRole.RESEARCHER };
       const wrapped = authenticatedResolver('test', UserRole.SUPERADMIN, mockResolver);
 
       await expect(wrapped({}, {}, mockContext, mockInfo)).rejects.toThrow('Forbidden');
@@ -182,7 +183,7 @@ describe('authenticatedResolver', () => {
 
   describe('resolver execution', () => {
     it('executes resolver and returns result when authorized', async () => {
-      const expectedResult = {data: 'test-data', count: 42};
+      const expectedResult = { data: 'test-data', count: 42 };
       mockResolver.mockResolvedValue(expectedResult);
       const wrapped = authenticatedResolver('test', UserRole.RESEARCHER, mockResolver);
 
@@ -192,8 +193,8 @@ describe('authenticatedResolver', () => {
     });
 
     it('passes correct arguments to resolver', async () => {
-      const parent = {parentField: 'value'};
-      const args = {arg1: 'value1', arg2: 123};
+      const parent = { parentField: 'value' };
+      const args = { arg1: 'value1', arg2: 123 };
       const wrapped = authenticatedResolver('test', UserRole.RESEARCHER, mockResolver);
 
       await wrapped(parent, args, mockContext, mockInfo);

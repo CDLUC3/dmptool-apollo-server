@@ -5,11 +5,11 @@ import { ApolloServerPluginDrainHttpServer } from '@apollo/server/plugin/drainHt
 import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin/landingPage/default';
 import { ApolloServerPluginLandingPageDisabled } from '@apollo/server/plugin/disabled';
 
-import { typeDefs } from './schema';
-import { resolvers } from './resolver';
-import { mocks } from './mocks';
-import { loggerPlugin } from './plugins/logger';
-import {Logger} from "pino";
+import { typeDefs } from './schema.js';
+import { resolvers } from './resolver.js';
+import { mocks } from './mocks.js';
+import { loggerPlugin } from './plugins/logger.js';
+import { Logger } from "pino";
 
 dotenv.config();
 
@@ -32,7 +32,7 @@ function baseConfig() {
 
 // Standard Apollo server configuration regardless of whether we are using mock data or not
 export function serverConfig(logger: Logger, httpServer) {
-  return  {
+  return {
     ...baseConfig(),
     ...{
       plugins: [

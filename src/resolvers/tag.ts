@@ -1,13 +1,13 @@
-import { Resolvers } from "../types";
-import { MyContext } from "../context";
-import { Section } from "../models/Section";
-import { Tag } from "../models/Tag";
-import { hasPermissionOnSection } from "../services/sectionService";
-import { isSuperAdmin } from "../services/authService";
-import { NotFoundError, ForbiddenError, AuthenticationError, InternalServerError } from "../utils/graphQLErrors";
-import { prepareObjectForLogs } from "../logger";
+import { Resolvers } from "../types.js";
+import { MyContext } from "../context.js";
+import { Section } from "../models/Section.js";
+import { Tag } from "../models/Tag.js";
+import { hasPermissionOnSection } from "../services/sectionService.js";
+import { isSuperAdmin } from "../services/authService.js";
+import { NotFoundError, ForbiddenError, AuthenticationError, InternalServerError } from "../utils/graphQLErrors.js";
+import { prepareObjectForLogs } from "../logger.js";
 import { GraphQLError } from "graphql";
-import { normaliseDateTime } from "../utils/helpers";
+import { normaliseDateTime } from "../utils/helpers.js";
 
 export const resolvers: Resolvers = {
   Query: {

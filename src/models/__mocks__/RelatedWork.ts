@@ -1,8 +1,8 @@
 import casual from 'casual';
 import { createHash } from 'node:crypto';
-import { getRandomEnumValue } from '../../__tests__/helpers';
+import { getRandomEnumValue } from '../../__tests__/helpers.js';
 import { RelatedWorkSourceType, RelatedWorkStatus, WorkType } from '../RelatedWork';
-import { ContentMatch, DoiMatch, ItemMatch } from '../../types';
+import { ContentMatch, DoiMatch, ItemMatch } from '../../types.js';
 
 export function getMockHash() {
   return Buffer.from(createHash('md5').update(casual.string).digest('hex'));

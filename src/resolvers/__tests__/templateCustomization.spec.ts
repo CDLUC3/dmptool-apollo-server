@@ -1,26 +1,27 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import casual from "casual";
 import { ApolloServer } from "@apollo/server";
-import { typeDefs } from "../../schema";
-import { resolvers } from '../../resolver';
+import { typeDefs } from "../../schema.js";
+import { resolvers } from '../../resolver.js';
 
-import { buildContext, mockToken } from "../../__mocks__/context";
-import { VersionedTemplate } from '../../models/VersionedTemplate';
-import { logger } from "../../logger";
-import { JWTAccessToken } from "../../services/tokenService";
-import { UserRole } from "../../models/User";
-import { Affiliation } from '../../models/Affiliation';
-import { AdminNotification } from '../../models/AdminNotifications';
+import { buildContext, mockToken } from "../../__mocks__/context.js";
+
+import { VersionedTemplate } from '../../models/VersionedTemplate.js';
+import { logger } from "../../logger.js";
+import { JWTAccessToken } from "../../services/tokenService.js";
+import { UserRole } from "../../models/User.js";
+import { Affiliation } from '../../models/Affiliation.js';
+import { AdminNotification } from '../../models/AdminNotifications.js';
 import {
   TemplateCustomization,
   TemplateCustomizationMigrationStatus,
   TemplateCustomizationOverview,
   TemplateCustomizationStatus
-} from '../../models/TemplateCustomization';
+} from '../../models/TemplateCustomization.js';
 import {
   getValidatedCustomization,
   hasPermissionOnTemplateCustomization
-} from '../../services/templateCustomizationService';
+} from '../../services/templateCustomizationService.js';
 
 // Mock the authenticatedResolver function because it is a Highest Order Function (HOF)
 // and gets loaded when we import resolvers.ts below
@@ -30,7 +31,7 @@ jest.mock('../../services/authService', () => ({
   authenticatedResolver: jest.fn((ref, level, resolver) => resolver),
 }));
 
-jest.mock('../../context.ts');
+jest.mock('../../context.js');
 jest.mock('../../datasources/cache');
 jest.mock('../../services/openSearchService');
 

@@ -1,7 +1,7 @@
-import { MyContext } from "../context";
-import { MySqlModel } from "./MySqlModel";
+import { MyContext } from "../context.js";
+import { MySqlModel } from "./MySqlModel.js";
 
-  // Point-in-time snapshot of a QuestionConditionGroup;
+// Point-in-time snapshot of a QuestionConditionGroup;
 export class VersionedQuestionConditionGroup extends MySqlModel {
   public versionedQuestionId: number;
   public triggerQuestionId: number;

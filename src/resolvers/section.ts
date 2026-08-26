@@ -1,17 +1,17 @@
-import { ReorderSectionsResult, Resolvers } from "../types";
-import { MyContext } from "../context";
-import { Section } from "../models/Section";
-import { VersionedSection } from "../models/VersionedSection";
-import { Tag } from "../models/Tag";
-import { Template } from "../models/Template";
-import { cloneSection, hasPermissionOnSection, updateDisplayOrders } from "../services/sectionService";
-import { ForbiddenError, NotFoundError, AuthenticationError, InternalServerError, BadRequestError } from "../utils/graphQLErrors";
-import { Question } from "../models/Question";
-import { isAdmin, isAuthorized, isSuperAdmin } from "../services/authService";
-import { prepareObjectForLogs } from "../logger";
+import { ReorderSectionsResult, Resolvers } from "../types.js";
+import { MyContext } from "../context.js";
+import { Section } from "../models/Section.js";
+import { VersionedSection } from "../models/VersionedSection.js";
+import { Tag } from "../models/Tag.js";
+import { Template } from "../models/Template.js";
+import { cloneSection, hasPermissionOnSection, updateDisplayOrders } from "../services/sectionService.js";
+import { ForbiddenError, NotFoundError, AuthenticationError, InternalServerError, BadRequestError } from "../utils/graphQLErrors.js";
+import { Question } from "../models/Question.js";
+import { isAdmin, isAuthorized, isSuperAdmin } from "../services/authService.js";
+import { prepareObjectForLogs } from "../logger.js";
 import { GraphQLError } from "graphql";
-import { VersionedQuestion } from "../models/VersionedQuestion";
-import { normaliseDateTime } from "../utils/helpers";
+import { VersionedQuestion } from "../models/VersionedQuestion.js";
+import { normaliseDateTime } from "../utils/helpers.js";
 
 export const resolvers: Resolvers = {
   Query: {

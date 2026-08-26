@@ -1,11 +1,12 @@
 import casual from "casual";
-import { buildMockContextWithToken } from "../../__mocks__/context";
+import { buildMockContextWithToken } from "../../__mocks__/context.js";
+
 import { Repository, REPOSITORY_TYPE } from "../Repository";
-import { generalConfig } from "../../config/generalConfig";
-import { logger } from "../../logger";
+import { generalConfig } from "../../config/generalConfig.js";
+import { logger } from "../../logger.js";
 import { isCustomRepository, isRe3DataRepository } from "../../types/repository";
 
-jest.mock('../../context.ts');
+jest.mock('../../context.js');
 
 let context;
 
@@ -164,7 +165,7 @@ describe('findBy Queries', () => {
     expect(result).toEqual(null);
   });
 
-    it('findByURIs should call query with correct params and return the objects', async () => {
+  it('findByURIs should call query with correct params and return the objects', async () => {
     localQuery.mockResolvedValueOnce([repo]);
     const uris = [casual.url, casual.url];
     const result = await Repository.findByURIs('testing', context, uris);
@@ -220,9 +221,9 @@ describe('findBy Queries', () => {
     const result = await Repository.search('testing', context, term, [], null, repositoryType);
     const sql = 'SELECT r.* FROM repositories r';
     const vals = [`%${term.toLowerCase()}%`, `%${term.toLowerCase()}%`, `%${term.toLowerCase()}%`,
-                  JSON.stringify(repositoryType)];
+    JSON.stringify(repositoryType)];
     const whereFilters = ['(LOWER(r.name) LIKE ? OR LOWER(r.description) LIKE ? OR LOWER(r.keywords) LIKE ?)',
-                          'JSON_CONTAINS(r.repositoryTypes, ?, \'$\')'];
+      'JSON_CONTAINS(r.repositoryTypes, ?, \'$\')'];
     const sortFields = ["r.name", "r.created"];
     const opts = {
       cursor: null,

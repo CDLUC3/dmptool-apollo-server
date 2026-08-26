@@ -1,4 +1,4 @@
-import { MyContext } from "../../context";
+import { MyContext } from "../../context.js";
 const mockSendEmail = jest.fn().mockResolvedValue(true);
 
 jest.mock('nodemailer', () => ({
@@ -10,8 +10,8 @@ jest.mock('nodemailer', () => ({
 jest.mock('../../config/awsConfig');
 
 import casual from "casual";
-import { buildMockContextWithToken } from '../../__mocks__/context';
-import { logger } from "../../logger";
+import { buildMockContextWithToken } from '../../__mocks__/context.js';
+import { logger } from "../../logger.js";
 import {
   emailMessages,
   emailSubjects,
@@ -22,10 +22,10 @@ import {
   sendFeedbackCompleteEmail,
   sendContactUsEmail,
   sendResetPasswordEmail,
-} from "../emailService";
-import { generalConfig } from "../../config/generalConfig";
-import { emailConfig } from "../../config/emailConfig";
-import { User } from "../../models/User";
+} from "../emailService.js";
+import { generalConfig } from "../../config/generalConfig.js";
+import { emailConfig } from "../../config/emailConfig.js";
+import { User } from "../../models/User.js";
 
 let context: MyContext;
 
@@ -321,7 +321,7 @@ describe('sendEmail', () => {
     const planTitle = casual.sentence;
     const feedbackMessage = casual.sentence;
     // Import here to avoid hoisting issues
-    const { sendFeedbackRequestEmail } = await import('../emailService');
+    const { sendFeedbackRequestEmail } = await import('../emailService.js');
     const sent = await sendFeedbackRequestEmail(context, planOwnerName, planURL, planTitle, emails, feedbackMessage);
 
     const expectedSubject = `${subjectPrefix} - ${emailSubjects.feedbackRequest}`;

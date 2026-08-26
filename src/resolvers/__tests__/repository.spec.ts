@@ -1,29 +1,30 @@
 import { ApolloServer } from "@apollo/server";
-import { typeDefs } from "../../schema";
-import { resolvers } from "../../resolver";
+import { typeDefs } from "../../schema.js";
+import { resolvers } from "../../resolver.js";
 import casual from "casual";
-import { MyContext } from "../../context";
+import { MyContext } from "../../context.js";
 import {
   buildContext,
   mockResearcherToken,
   mockAdminToken,
   mockSuperAdminToken,
-} from "../../__mocks__/context";
-import { logger } from "../../logger";
-import { JWTAccessToken } from "../../services/tokenService";
-import { getCurrentDate } from '../../utils/helpers'
+} from "../../__mocks__/context.js";
+
+import { logger } from "../../logger.js";
+import { JWTAccessToken } from "../../services/tokenService.js";
+import { getCurrentDate } from '../../utils/helpers.js'
 
 import {
   Repository,
   DEFAULT_DMPTOOL_REPOSITORY_URL,
-} from '../../models/Repository';
-import { ResearchDomain } from '../../models/ResearchDomain';
-import { RepositoryService } from '../../services/repositoryService';
+} from '../../models/Repository.js';
+import { ResearchDomain } from '../../models/ResearchDomain.js';
+import { RepositoryService } from '../../services/repositoryService.js';
 import {
   PaginationType,
-} from '../../types/general';
+} from '../../types/general.js';
 
-jest.mock('../../context.ts');
+jest.mock('../../context.js');
 jest.mock('../../datasources/cache');
 jest.mock('../../services/openSearchService');
 jest.mock('../../models/Repository');

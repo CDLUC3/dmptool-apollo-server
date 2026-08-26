@@ -1,25 +1,26 @@
 import casual from "casual";
-import { getRandomEnumValue } from "../../__tests__/helpers";
-import { Template, TemplateVisibility } from "../../models/Template";
-import { generateTemplateVersion } from "../templateService";
-import { logger } from "../../logger";
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { TemplateVersionType, VersionedTemplate } from "../../models/VersionedTemplate";
-import { Section } from "../../models/Section";
-import { getCurrentDate } from "../../utils/helpers";
-import { Question } from "../../models/Question";
-import { Tag } from "../../models/Tag";
-import { VersionedSection } from "../../models/VersionedSection";
-import { MySqlModel } from "../../models/MySqlModel";
-import { VersionedQuestion } from "../../models/VersionedQuestion";
-import { QuestionCondition } from "../../models/QuestionCondition";
-import { QuestionConditionGroup } from "../../models/QuestionConditionGroup";
-import { VersionedQuestionCondition } from "../../models/VersionedQuestionCondition";
-import { VersionedQuestionConditionGroup } from "../../models/VersionedQuestionConditionGroups";
+import { getRandomEnumValue } from "../../__tests__/helpers.js";
+import { Template, TemplateVisibility } from "../../models/Template.js";
+import { generateTemplateVersion } from "../templateService.js";
+import { logger } from "../../logger.js";
+import { buildMockContextWithToken } from "../../__mocks__/context.js";
+
+import { TemplateVersionType, VersionedTemplate } from "../../models/VersionedTemplate.js";
+import { Section } from "../../models/Section.js";
+import { getCurrentDate } from "../../utils/helpers.js";
+import { Question } from "../../models/Question.js";
+import { Tag } from "../../models/Tag.js";
+import { VersionedSection } from "../../models/VersionedSection.js";
+import { MySqlModel } from "../../models/MySqlModel.js";
+import { VersionedQuestion } from "../../models/VersionedQuestion.js";
+import { QuestionCondition } from "../../models/QuestionCondition.js";
+import { QuestionConditionGroup } from "../../models/QuestionConditionGroup.js";
+import { VersionedQuestionCondition } from "../../models/VersionedQuestionCondition.js";
+import { VersionedQuestionConditionGroup } from "../../models/VersionedQuestionConditionGroups.js";
 import { CURRENT_SCHEMA_VERSION } from "@dmptool/types";
 
 // Pulling context in here so that the mysql gets mocked
-jest.mock('../../context.ts');
+jest.mock('../../context.js');
 
 let context;
 

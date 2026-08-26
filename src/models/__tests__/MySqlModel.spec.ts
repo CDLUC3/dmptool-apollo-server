@@ -1,18 +1,18 @@
 import casual from 'casual';
-import { MySqlModel } from "../MySqlModel";
+import { MySqlModel } from "../MySqlModel.js";
 import {
   buildMockContextWithToken
-} from '../../__mocks__/context';
-import { getCurrentDate } from '../../utils/helpers';
-import { generalConfig } from '../../config/generalConfig';
+} from '../../__mocks__/context.js';
+import { getCurrentDate } from '../../utils/helpers.js';
+import { generalConfig } from '../../config/generalConfig.js';
 import {
   PaginationOptionsForCursors,
   PaginationOptionsForOffsets,
   PaginationType
-} from '../../types/general';
-import { MyContext } from '../../context';
+} from '../../types/general.js';
+import { MyContext } from '../../context.js';
 import { formatISO9075 } from 'date-fns';
-import { logger } from "../../logger";
+import { logger } from "../../logger.js";
 
 jest.mock('../../datasources/mysql', () => {
   return {

@@ -1,9 +1,9 @@
 import { GraphQLError } from "graphql";
-import { MyContext } from "../context";
-import { prepareObjectForLogs } from "../logger";
-import { InternalServerError } from "../utils/graphQLErrors";
-import { Resolvers } from "../types";
-import { sendContactUsEmail } from "../services/emailService";
+import { MyContext } from "../context.js";
+import { prepareObjectForLogs } from "../logger.js";
+import { InternalServerError } from "../utils/graphQLErrors.js";
+import { Resolvers } from "../types.js";
+import { sendContactUsEmail } from "../services/emailService.js";
 
 
 export const resolvers: Resolvers = {

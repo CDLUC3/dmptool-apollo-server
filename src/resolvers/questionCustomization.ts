@@ -4,24 +4,24 @@ import {
   MoveCustomQuestionInput,
   Resolvers,
   UpdateCustomQuestionInput, UpdateQuestionCustomizationInput
-} from "../types";
-import { MyContext } from "../context";
+} from "../types.js";
+import { MyContext } from "../context.js";
 import {
   TemplateCustomization,
   TemplateCustomizationMigrationStatus
-} from "../models/TemplateCustomization";
-import { authenticatedResolver } from "../services/authService";
-import { NotFoundError } from "../utils/graphQLErrors";
+} from "../models/TemplateCustomization.js";
+import { authenticatedResolver } from "../services/authService.js";
+import { NotFoundError } from "../utils/graphQLErrors.js";
 import {
   getValidatedCustomization,
   markTemplateCustomizationAsDirty
-} from "../services/templateCustomizationService";
-import { QuestionCustomization } from "../models/QuestionCustomization";
-import { CustomQuestion, PinnedQuestionTypeEnum } from "../models/CustomQuestion";
-import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
-import { UserRole } from "../models/User";
-import { PinnedSectionTypeEnum } from "../models/CustomSection";
-import { VersionedQuestion } from "../models/VersionedQuestion";
+} from "../services/templateCustomizationService.js";
+import { QuestionCustomization } from "../models/QuestionCustomization.js";
+import { CustomQuestion, PinnedQuestionTypeEnum } from "../models/CustomQuestion.js";
+import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers.js";
+import { UserRole } from "../models/User.js";
+import { PinnedSectionTypeEnum } from "../models/CustomSection.js";
+import { VersionedQuestion } from "../models/VersionedQuestion.js";
 
 export const resolvers: Resolvers = {
   Query: {

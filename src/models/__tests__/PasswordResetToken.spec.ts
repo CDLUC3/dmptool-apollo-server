@@ -1,13 +1,13 @@
 import casual from 'casual';
 import { PasswordResetToken } from '../PasswordResetToken';
-import { buildMockContextWithToken } from '../../__mocks__/context';
-import { logger } from '../../logger';
-import * as helpers from '../../utils/helpers';
+import { buildMockContextWithToken } from '../../__mocks__/context.js';
+import { logger } from '../../logger.js';
+import * as helpers from '../../utils/helpers.js';
 
-jest.mock('../../context.ts');
+jest.mock('../../context.js');
 
-jest.mock('../../utils/helpers', () => ({
-  ...jest.requireActual('../../utils/helpers'),
+jest.mock('../../utils/helpers.js', () => ({
+  ...jest.requireActual('../../utils/helpers.js'),
   getFutureDate: jest.fn(),
   hashToken: jest.fn(),
 }));

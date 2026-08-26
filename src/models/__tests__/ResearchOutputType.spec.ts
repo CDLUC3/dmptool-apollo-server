@@ -1,8 +1,9 @@
 import { ResearchOutputType } from '../ResearchOutputType';
-import { MyContext } from '../../context';
+import { MyContext } from '../../context.js';
 import casual from 'casual';
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { logger } from "../../logger";
+import { buildMockContextWithToken } from "../../__mocks__/context.js";
+
+import { logger } from "../../logger.js";
 
 describe('ResearchOutputType', () => {
   let context: MyContext;
@@ -46,7 +47,7 @@ describe('ResearchOutputType', () => {
     });
 
     it('should fail validation with missing name', async () => {
-      const type = new ResearchOutputType({...mockData, name: null});
+      const type = new ResearchOutputType({ ...mockData, name: null });
       const isValid = await type.isValid();
       expect(isValid).toBeFalsy();
       expect(type.errors.name).toBeDefined();
@@ -82,7 +83,7 @@ describe('ResearchOutputType', () => {
     it('should update an existing record', async () => {
       const type = new ResearchOutputType(mockData);
       jest.spyOn(ResearchOutputType, 'update')
-          .mockResolvedValueOnce(new ResearchOutputType(mockData));
+        .mockResolvedValueOnce(new ResearchOutputType(mockData));
       jest.spyOn(ResearchOutputType, 'findById').mockResolvedValueOnce(type);
 
       const result = await type.update(context);

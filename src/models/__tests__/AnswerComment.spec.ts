@@ -1,9 +1,10 @@
 import casual from "casual";
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { AnswerComment } from "../AnswerComment";
-import { logger } from "../../logger";
+import { buildMockContextWithToken } from "../../__mocks__/context.js";
 
-jest.mock('../../context.ts');
+import { AnswerComment } from "../AnswerComment";
+import { logger } from "../../logger.js";
+
+jest.mock('../../context.js');
 
 let context;
 
@@ -66,7 +67,7 @@ describe('findBy Queries', () => {
     context = await buildMockContextWithToken(logger);
 
     answerComment = new AnswerComment({
-      id: casual.integer(1,9999),
+      id: casual.integer(1, 9999),
       answerId: casual.integer(1, 9999),
       commentText: casual.sentences(3),
     });

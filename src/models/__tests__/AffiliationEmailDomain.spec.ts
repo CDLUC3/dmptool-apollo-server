@@ -1,10 +1,10 @@
 import casual from 'casual';
 import { AffiliationEmailDomain } from '../AffiliationEmailDomain';
-import { buildMockContextWithToken } from '../../__mocks__/context';
-import { logger } from '../../logger';
-import { getCurrentDate } from '../../utils/helpers';
+import { buildMockContextWithToken } from '../../__mocks__/context.js';
+import { logger } from '../../logger.js';
+import { getCurrentDate } from '../../utils/helpers.js';
 
-jest.mock('../../context.ts');
+jest.mock('../../context.js');
 
 describe('AffiliationEmailDomain', () => {
   let emailDomain;

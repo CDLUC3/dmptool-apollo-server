@@ -1,5 +1,5 @@
 import casual from "casual";
-import { getCurrentDate } from "../../utils/helpers";
+import { getCurrentDate } from "../../utils/helpers.js";
 import {
   addEntryToMockTable,
   addMockTableStore,
@@ -11,8 +11,8 @@ import {
   getMockTableStore,
   updateEntryInMockTable
 } from "./MockStore";
-import { ProjectCollaborator, TemplateCollaborator } from "../Collaborator";
-import { MyContext } from "../../context";
+import { ProjectCollaborator, TemplateCollaborator } from "../Collaborator.js";
+import { MyContext } from "../../context.js";
 
 // Template Collaborator
 // ---------------------------------------------------

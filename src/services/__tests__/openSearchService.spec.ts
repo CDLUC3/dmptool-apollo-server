@@ -1,9 +1,9 @@
 import {
   createOpenSearchClient,
   createOpenSearchServerlessClient
-} from '../../datasources/openSearch';
-import { OpenSearchService } from '../openSearchService';
-import { MyContext } from '../../context';
+} from '../../datasources/openSearch.js';
+import { OpenSearchService } from '../openSearchService.js';
+import { MyContext } from '../../context.js';
 import { GraphQLError } from 'graphql';
 
 jest.mock('../../datasources/openSearch');

@@ -1,7 +1,7 @@
-import { MyContext } from "../context";
-import { MySqlModel } from "./MySqlModel";
-import { isNullOrUndefined } from "../utils/helpers";
-import { TemplateCustomizationMigrationStatus } from "./TemplateCustomization";
+import { MyContext } from "../context.js";
+import { MySqlModel } from "./MySqlModel.js";
+import { isNullOrUndefined } from "../utils/helpers.js";
+import { TemplateCustomizationMigrationStatus } from "./TemplateCustomization.js";
 
 /**
  * This object represents custom requirements, guidance, and sample text an

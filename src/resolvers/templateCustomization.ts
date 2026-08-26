@@ -2,20 +2,20 @@ import {
   AddTemplateCustomizationInput,
   Resolvers,
   UpdateTemplateCustomizationInput
-} from "../types";
-import { authenticatedResolver } from "../services/authService";
-import { MyContext } from "../context";
-import { VersionedTemplate } from "../models/VersionedTemplate";
-import { AdminNotification } from "../models/AdminNotifications";
-import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
+} from "../types.js";
+import { authenticatedResolver } from "../services/authService.js";
+import { MyContext } from "../context.js";
+import { VersionedTemplate } from "../models/VersionedTemplate.js";
+import { AdminNotification } from "../models/AdminNotifications.js";
+import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers.js";
 import {
   TemplateCustomization, TemplateCustomizationOverview,
   TemplateCustomizationStatus
-} from "../models/TemplateCustomization";
-import { getValidatedCustomization } from "../services/templateCustomizationService";
-import { NotFoundError } from "../utils/graphQLErrors";
-import { UserRole } from "../models/User";
-import { Affiliation } from "../models/Affiliation";
+} from "../models/TemplateCustomization.js";
+import { getValidatedCustomization } from "../services/templateCustomizationService.js";
+import { NotFoundError } from "../utils/graphQLErrors.js";
+import { UserRole } from "../models/User.js";
+import { Affiliation } from "../models/Affiliation.js";
 
 export const resolvers: Resolvers = {
   Query: {

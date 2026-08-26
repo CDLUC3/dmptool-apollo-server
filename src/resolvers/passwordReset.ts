@@ -1,14 +1,14 @@
 
-import { Resolvers } from "../types";
-import { MyContext } from '../context';
-import { User } from '../models/User';
-import { PasswordResetToken } from '../models/PasswordResetToken';
-import { hashToken } from '../utils/helpers';
-import { sendResetPasswordEmail } from '../services/emailService'; // wherever this lives
-import { ForbiddenError, InternalServerError } from "../utils/graphQLErrors";
+import { Resolvers } from "../types.js";
+import { MyContext } from '../context.js';
+import { User } from '../models/User.js';
+import { PasswordResetToken } from '../models/PasswordResetToken.js';
+import { hashToken } from '../utils/helpers.js';
+import { sendResetPasswordEmail } from '../services/emailService.js'; // wherever this lives
+import { ForbiddenError, InternalServerError } from "../utils/graphQLErrors.js";
 import { GraphQLError } from "graphql";
-import { prepareObjectForLogs } from "../logger";
-import { UserEmail } from "../models/UserEmail";
+import { prepareObjectForLogs } from "../logger.js";
+import { UserEmail } from "../models/UserEmail.js";
 
 export const resolvers: Resolvers = {
   Query: {

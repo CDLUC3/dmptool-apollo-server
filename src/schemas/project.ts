@@ -1,7 +1,7 @@
-import gql from "graphql-tag";
+import { gql } from 'graphql-tag';
 import { mergeTypeDefs } from "@graphql-tools/merge";
-import { typeDefs as memberTypeDefs } from "./member"
-import { typeDefs as funderTypeDefs } from "./funding"
+import { typeDefs as memberTypeDefs } from "./member.js"
+import { typeDefs as funderTypeDefs } from "./funding.js"
 
 export const projectTypeDefs = gql`
   extend type Query {

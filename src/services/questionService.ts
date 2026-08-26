@@ -1,16 +1,16 @@
-import { MyContext } from "../context";
-import { Template } from "../models/Template";
-import { hasPermissionOnTemplate } from "./templateService";
-import { Question } from "../models/Question";
-import { Tag } from "../models/Tag";
-import { VersionedQuestion } from "../models/VersionedQuestion";
-import { NotFoundError } from "../utils/graphQLErrors";
-import { QuestionCondition } from "../models/QuestionCondition";
-import { QuestionConditionGroup } from "../models/QuestionConditionGroup";
-import { VersionedQuestionCondition } from "../models/VersionedQuestionCondition";
-import { VersionedQuestionConditionGroup } from "../models/VersionedQuestionConditionGroups";
-import { prepareObjectForLogs } from "../logger";
-import { reorderDisplayOrder } from "../utils/helpers";
+import { MyContext } from "../context.js";
+import { Template } from "../models/Template.js";
+import { hasPermissionOnTemplate } from "./templateService.js";
+import { Question } from "../models/Question.js";
+import { Tag } from "../models/Tag.js";
+import { VersionedQuestion } from "../models/VersionedQuestion.js";
+import { NotFoundError } from "../utils/graphQLErrors.js";
+import { QuestionCondition } from "../models/QuestionCondition.js";
+import { QuestionConditionGroup } from "../models/QuestionConditionGroup.js";
+import { VersionedQuestionCondition } from "../models/VersionedQuestionCondition.js";
+import { VersionedQuestionConditionGroup } from "../models/VersionedQuestionConditionGroups.js";
+import { prepareObjectForLogs } from "../logger.js";
+import { reorderDisplayOrder } from "../utils/helpers.js";
 
 // Determine whether the specified user has permission to access the Section
 export const hasPermissionOnQuestion = async (context: MyContext, templateId: number): Promise<boolean> => {

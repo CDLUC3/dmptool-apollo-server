@@ -1,7 +1,7 @@
-import { MyContext } from "../../context";
+import { MyContext } from "../../context.js";
 import { SectionCustomization } from "../SectionCustomization";
-import { MySqlModel } from "../MySqlModel";
-import { TemplateCustomizationMigrationStatus } from "../TemplateCustomization";
+import { MySqlModel } from "../MySqlModel.js";
+import { TemplateCustomizationMigrationStatus } from "../TemplateCustomization.js";
 
 jest.mock("../MySqlModel", () => ({
   ...jest.requireActual("../MySqlModel"),

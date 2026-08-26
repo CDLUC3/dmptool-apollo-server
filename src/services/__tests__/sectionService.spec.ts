@@ -1,20 +1,21 @@
 import casual from "casual";
-import { Template } from "../../models/Template";
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { logger } from "../../logger";
-import { cloneSection, generateSectionVersion, hasPermissionOnSection, updateDisplayOrders } from "../sectionService";
+import { Template } from "../../models/Template.js";
+import { buildMockContextWithToken } from "../../__mocks__/context.js";
+
+import { logger } from "../../logger.js";
+import { cloneSection, generateSectionVersion, hasPermissionOnSection, updateDisplayOrders } from "../sectionService.js";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { hasPermissionOnTemplate } from "../templateService";
-import { NotFoundError } from "../../utils/graphQLErrors";
-import { Section } from "../../models/Section";
-import { VersionedSection } from "../../models/VersionedSection";
-import { Tag } from "../../models/Tag";
-import { getCurrentDate } from "../../utils/helpers";
-import { Question } from "../../models/Question";
-import { generateQuestionVersion } from "../questionService";
+import { hasPermissionOnTemplate } from "../templateService.js";
+import { NotFoundError } from "../../utils/graphQLErrors.js";
+import { Section } from "../../models/Section.js";
+import { VersionedSection } from "../../models/VersionedSection.js";
+import { Tag } from "../../models/Tag.js";
+import { getCurrentDate } from "../../utils/helpers.js";
+import { Question } from "../../models/Question.js";
+import { generateQuestionVersion } from "../questionService.js";
 
 // Pulling context in here so that the mysql gets mocked
-jest.mock('../../context.ts');
+jest.mock('../../context.js');
 
 jest.mock("../questionService", () => ({
   ...jest.requireActual("../questionService"),

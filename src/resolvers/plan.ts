@@ -1,5 +1,5 @@
 import { GraphQLError } from "graphql";
-import { MyContext } from "../context";
+import { MyContext } from "../context.js";
 import {
   Plan,
   PlanProgress,
@@ -7,31 +7,31 @@ import {
   PlanSectionProgress,
   PlanStatus,
   PlanVisibility
-} from "../models/Plan";
-import { Project } from "../models/Project";
-import { User, UserRole } from "../models/User";
-import { PlanMember, ProjectMember } from "../models/Member";
-import { PlanFunding } from "../models/Funding";
-import { PlanFeedback } from "../models/PlanFeedback";
-import { Affiliation } from "../models/Affiliation";
-import { VersionedTemplate } from "../models/VersionedTemplate";
-import { Answer } from "../models/Answer";
-import { ProjectCollaborator, ProjectCollaboratorAccessLevel } from "../models/Collaborator";
-import { AlternateIdentifier } from "../models/AlternateIdentifier";
-import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
+} from "../models/Plan.js";
+import { Project } from "../models/Project.js";
+import { User, UserRole } from "../models/User.js";
+import { PlanMember, ProjectMember } from "../models/Member.js";
+import { PlanFunding } from "../models/Funding.js";
+import { PlanFeedback } from "../models/PlanFeedback.js";
+import { Affiliation } from "../models/Affiliation.js";
+import { VersionedTemplate } from "../models/VersionedTemplate.js";
+import { Answer } from "../models/Answer.js";
+import { ProjectCollaborator, ProjectCollaboratorAccessLevel } from "../models/Collaborator.js";
+import { AlternateIdentifier } from "../models/AlternateIdentifier.js";
+import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers.js";
 import {
   AuthenticationError,
   BadUserInputError,
   ForbiddenError,
   InternalServerError,
   NotFoundError,
-} from "../utils/graphQLErrors";
+} from "../utils/graphQLErrors.js";
 import {
   PaginationOptions,
   PaginationOptionsForCursors,
   PaginationOptionsForOffsets,
   PaginationType
-} from "../types/general";
+} from "../types/general.js";
 import {
   AddEntirePlanInput,
   PaginatedPlanResults,
@@ -39,11 +39,11 @@ import {
   Resolvers,
   UpdateEntirePlanInput,
   PlanVersionSnapshot
-} from "../types";
-import { prepareObjectForLogs } from "../logger";
+} from "../types.js";
+import { prepareObjectForLogs } from "../logger.js";
 import { toErrorMessage } from "@dmptool/utils";
-import { MemberRole } from "../models/MemberRole";
-import { AcceptedWork } from "../models/RelatedWork";
+import { MemberRole } from "../models/MemberRole.js";
+import { AcceptedWork } from "../models/RelatedWork.js";
 // Services
 import {
   buildDataCiteXMLForPlan,
@@ -52,22 +52,22 @@ import {
   handleAsyncUpdates,
   getPlanVersions,
   getPlanVersionSnapshot,
-} from "../services/planService";
+} from "../services/planService.js";
 import {
   hasPermissionOnProject,
   isProjectReadOnlyForCurrentUser
-} from "../services/projectService";
+} from "../services/projectService.js";
 import {
   authenticatedResolver,
   isAdmin,
   isAuthorized,
   isSuperAdmin
-} from "../services/authService";
+} from "../services/authService.js";
 import {
   addEntirePlan,
   removeEntirePlan,
   replaceEntirePlan
-} from "../services/entirePlanService";
+} from "../services/entirePlanService.js";
 
 export const resolvers: Resolvers = {
   Query: {

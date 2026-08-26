@@ -3,7 +3,7 @@ import crypto from 'crypto';
 //
 
 import { formatISO9075 } from "date-fns";
-import { generalConfig } from "../config/generalConfig";
+import { generalConfig } from "../config/generalConfig.js";
 
 export const ORCID_REGEX = /^(https?:\/\/)?(www\.|pub\.)?(sandbox\.)?(orcid\.org\/)?([0-9]{4}-[0-9]{4}-[0-9]{4}-[0-9]{3}[0-9X])$/;
 

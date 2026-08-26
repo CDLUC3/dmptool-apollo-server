@@ -1,23 +1,24 @@
 import { ApolloServer } from "@apollo/server";
-import { typeDefs } from "../../schema";
-import { resolvers } from "../../resolver";
+import { typeDefs } from "../../schema.js";
+import { resolvers } from "../../resolver.js";
 import casual from "casual";
 import assert from "assert";
-import { buildContext, mockToken } from "../../__mocks__/context";
-import { logger } from "../../logger";
-import { JWTAccessToken } from "../../services/tokenService";
-import { User, UserRole } from "../../models/User";
-import { Plan } from "../../models/Plan";
-import { Project } from "../../models/Project";
-import { PlanFeedback } from "../../models/PlanFeedback";
-import { PlanFeedbackComment } from "../../models/PlanFeedbackComment";
-import { VersionedTemplate } from "../../models/VersionedTemplate";
-import { Affiliation } from "../../models/Affiliation";
-import { ProjectCollaborator } from "../../models/Collaborator";
-import { getCurrentDate } from "../../utils/helpers";
-import { sendFeedbackCompleteEmail } from "../../services/emailService";
+import { buildContext, mockToken } from "../../__mocks__/context.js";
 
-jest.mock('../../context.ts');
+import { logger } from "../../logger.js";
+import { JWTAccessToken } from "../../services/tokenService.js";
+import { User, UserRole } from "../../models/User.js";
+import { Plan } from "../../models/Plan.js";
+import { Project } from "../../models/Project.js";
+import { PlanFeedback } from "../../models/PlanFeedback.js";
+import { PlanFeedbackComment } from "../../models/PlanFeedbackComment.js";
+import { VersionedTemplate } from "../../models/VersionedTemplate.js";
+import { Affiliation } from "../../models/Affiliation.js";
+import { ProjectCollaborator } from "../../models/Collaborator.js";
+import { getCurrentDate } from "../../utils/helpers.js";
+import { sendFeedbackCompleteEmail } from "../../services/emailService.js";
+
+jest.mock('../../context.js');
 jest.mock('../../datasources/cache');
 jest.mock('../../services/emailService');
 jest.mock('../../services/openSearchService');
@@ -104,11 +105,11 @@ beforeEach(async () => {
   jest.spyOn(ProjectCollaborator, 'findByProjectId').mockResolvedValue([]);
   jest.spyOn(ProjectCollaborator, 'findPrimaryUserByProjectId').mockResolvedValue(null);
   jest.spyOn(Affiliation, 'findByURI').mockResolvedValue(
-    new Affiliation({ 
-      uri: affiliationId, 
+    new Affiliation({
+      uri: affiliationId,
       feedbackEmails: [casual.email],
       feedbackEnabled: true,
-     })
+    })
   );
   jest.spyOn(PlanFeedback.prototype, 'create').mockResolvedValue(feedback);
   jest.spyOn(PlanFeedback.prototype, 'update').mockResolvedValue(feedback);
@@ -579,7 +580,7 @@ describe('addFeedbackComment mutation', () => {
       { affiliationId }
     );
     jest.spyOn(ProjectCollaborator, 'findPrimaryUserByProjectId').mockResolvedValue(
-      primaryCollaborator as import('../../models/Collaborator').ProjectCollaboratorWithUser
+      primaryCollaborator as import('../../models/Collaborator.js').ProjectCollaboratorWithUser
     );
     jest.spyOn(PlanFeedback, 'findById').mockResolvedValue(null);
     const resp = await executeQuery(
@@ -597,7 +598,7 @@ describe('addFeedbackComment mutation', () => {
       { affiliationId }
     );
     jest.spyOn(ProjectCollaborator, 'findPrimaryUserByProjectId').mockResolvedValue(
-      primaryCollaborator as import('../../models/Collaborator').ProjectCollaboratorWithUser
+      primaryCollaborator as import('../../models/Collaborator.js').ProjectCollaboratorWithUser
     );
     const completedFeedback = new PlanFeedback({
       ...feedback,
@@ -862,7 +863,7 @@ describe('removeFeedbackComment mutation', () => {
     );
     primaryCollaborator.userId = researcherToken.id;
     jest.spyOn(ProjectCollaborator, 'findPrimaryUserByProjectId').mockResolvedValue(
-      primaryCollaborator as import('../../models/Collaborator').ProjectCollaboratorWithUser
+      primaryCollaborator as import('../../models/Collaborator.js').ProjectCollaboratorWithUser
     );
 
     const resp = await executeQuery(

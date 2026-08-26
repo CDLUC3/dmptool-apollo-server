@@ -1,26 +1,26 @@
-import { MyContext } from '../../context';
+import { MyContext } from '../../context.js';
 import {
   buildMockContextWithToken,
-} from '../../__mocks__/context';
+} from '../../__mocks__/context.js';
 import {
   ensureDefaultPlanContact,
   updateMemberRoles,
   saveMaDMPVersion,
   getPlanVersions,
-} from '../planService';
-import { MemberRole } from '../../models/MemberRole';
-import { logger } from '../../logger';
-import { PlanMember, ProjectMember } from "../../models/Member";
+} from '../planService.js';
+import { MemberRole } from '../../models/MemberRole.js';
+import { logger } from '../../logger.js';
+import { PlanMember, ProjectMember } from "../../models/Member.js";
 import casual from "casual";
-import { Project } from "../../models/Project";
-import { Plan } from "../../models/Plan";
+import { Project } from "../../models/Project.js";
+import { Plan } from "../../models/Plan.js";
 
 // For buildDataCiteXMLForPlan
-import { buildDataCiteXMLForPlan } from '../planService';
-import { Affiliation } from '../../models/Affiliation';
-import { PlanFunding, ProjectFunding } from '../../models/Funding';
-import { AlternateIdentifier } from '../../models/AlternateIdentifier';
-import * as dataciteXMLService from '../dataciteXMLService';
+import { buildDataCiteXMLForPlan } from '../planService.js';
+import { Affiliation } from '../../models/Affiliation.js';
+import { PlanFunding, ProjectFunding } from '../../models/Funding.js';
+import { AlternateIdentifier } from '../../models/AlternateIdentifier.js';
+import * as dataciteXMLService from '../dataciteXMLService.js';
 
 import {
   createDMP,
@@ -30,8 +30,8 @@ import {
   getDMPVersions,
   getDMPs,
 } from '@dmptool/utils';
-import { getDynamoConnectionParams } from '../../config/awsConfig';
-import { generalConfig } from '../../config/generalConfig';
+import { getDynamoConnectionParams } from '../../config/awsConfig.js';
+import { generalConfig } from '../../config/generalConfig.js';
 import { DMPToolDMPType } from "@dmptool/types";
 
 jest.mock('@dmptool/utils');

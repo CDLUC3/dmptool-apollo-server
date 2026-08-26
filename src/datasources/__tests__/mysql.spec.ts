@@ -1,9 +1,9 @@
 import { DatabaseError, MySQLConnection, TransactionClient } from '../mysql';
 import * as mysql2 from 'mysql2/promise';
-import { buildMockContextWithToken } from '../../__mocks__/context';
-import { MyContext } from '../../context';
+import { buildMockContextWithToken } from '../../__mocks__/context.js';
+import { MyContext } from '../../context.js';
 import { GraphQLError } from 'graphql';
-import { logger } from "../../logger";
+import { logger } from "../../logger.js";
 
 jest.mock('mysql2/promise');
 jest.mock('../../context');

@@ -1,10 +1,11 @@
 import casual from "casual";
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { MetadataStandard } from "../MetadataStandard";
-import { generalConfig } from "../../config/generalConfig";
-import { logger } from "../../logger";
+import { buildMockContextWithToken } from "../../__mocks__/context.js";
 
-jest.mock('../../context.ts');
+import { MetadataStandard } from "../MetadataStandard";
+import { generalConfig } from "../../config/generalConfig.js";
+import { logger } from "../../logger.js";
+
+jest.mock('../../context.js');
 
 let context;
 
@@ -84,7 +85,7 @@ describe('findBy Queries', () => {
     context = await buildMockContextWithToken(logger);
 
     standard = new MetadataStandard({
-      id: casual.integer(1,9999),
+      id: casual.integer(1, 9999),
       name: casual.company_name,
       uri: casual.url,
       description: casual.sentences(3),
@@ -185,9 +186,9 @@ describe('findBy Queries', () => {
     const researchDomainId = casual.integer(1, 9);
     const result = await MetadataStandard.search('testing', context, term, researchDomainId);
     const sql = 'SELECT m.* FROM metadataStandards m ' +
-                'LEFT OUTER JOIN metadataStandardResearchDomains msrd ON m.id = msrd.metadataStandardId';
+      'LEFT OUTER JOIN metadataStandardResearchDomains msrd ON m.id = msrd.metadataStandardId';
     const whereFilters = ['(LOWER(m.name) LIKE ? OR LOWER(m.keywords) LIKE ?)',
-                          'msrd.researchDomainId = ?'];
+      'msrd.researchDomainId = ?'];
     const vals = [`%${term.toLowerCase().trim()}%`, `%${term.toLowerCase().trim()}%`, researchDomainId.toString()];
     const sortFields = ["m.name", "m.created"];
     const opts = {
@@ -209,7 +210,7 @@ describe('findBy Queries', () => {
     const researchDomainId = casual.integer(1, 9);
     const result = await MetadataStandard.search('testing', context, null, researchDomainId);
     const sql = 'SELECT m.* FROM metadataStandards m ' +
-                'LEFT OUTER JOIN metadataStandardResearchDomains msrd ON m.id = msrd.metadataStandardId';
+      'LEFT OUTER JOIN metadataStandardResearchDomains msrd ON m.id = msrd.metadataStandardId';
     const whereFilters = [
       "(LOWER(m.name) LIKE ? OR LOWER(m.keywords) LIKE ?)",
       'msrd.researchDomainId = ?'
@@ -235,7 +236,7 @@ describe('findBy Queries', () => {
     const term = casual.words(3);
     const result = await MetadataStandard.search('testing', context, term, null);
     const sql = 'SELECT m.* FROM metadataStandards m ' +
-                'LEFT OUTER JOIN metadataStandardResearchDomains msrd ON m.id = msrd.metadataStandardId';
+      'LEFT OUTER JOIN metadataStandardResearchDomains msrd ON m.id = msrd.metadataStandardId';
     const whereFilters = ['(LOWER(m.name) LIKE ? OR LOWER(m.keywords) LIKE ?)'];
     const vals = [`%${term.toLowerCase().trim()}%`, `%${term.toLowerCase().trim()}%`];
     const sortFields = ["m.name", "m.created"];
@@ -257,7 +258,7 @@ describe('findBy Queries', () => {
     localPaginationQuery.mockResolvedValueOnce([standard]);
     const result = await MetadataStandard.search('testing', context, null, null);
     const sql = 'SELECT m.* FROM metadataStandards m ' +
-                'LEFT OUTER JOIN metadataStandardResearchDomains msrd ON m.id = msrd.metadataStandardId';
+      'LEFT OUTER JOIN metadataStandardResearchDomains msrd ON m.id = msrd.metadataStandardId';
     const sortFields = ["m.name", "m.created"];
     const opts = {
       cursor: null,

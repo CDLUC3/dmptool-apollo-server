@@ -1,7 +1,7 @@
-import {MyContext} from "../../context";
-import {CustomSection, PinnedSectionTypeEnum} from "../CustomSection";
-import {MySqlModel} from "../MySqlModel";
-import {TemplateCustomizationMigrationStatus} from "../TemplateCustomization";
+import { MyContext } from "../../context.js";
+import { CustomSection, PinnedSectionTypeEnum } from "../CustomSection.js";
+import { MySqlModel } from "../MySqlModel.js";
+import { TemplateCustomizationMigrationStatus } from "../TemplateCustomization.js";
 
 jest.mock("../MySqlModel", () => ({
   ...jest.requireActual("../MySqlModel"),

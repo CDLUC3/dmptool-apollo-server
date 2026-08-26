@@ -73,15 +73,15 @@ jest.mock('../datasources/dmphubAPI', () => {
 
 import casual from "casual";
 import { Logger } from "pino";
-import { JWTAccessToken } from "../services/tokenService";
-import { MyContext } from "../context";
-import { DMPHubAPI } from "../datasources/dmphubAPI";
-import { EZIDAPI } from "../datasources/EZIDAPI";
-import { MySQLConnection } from "../datasources/mysql";
-import { OpenSearch } from "../datasources/openSearch";
-import { User, UserRole } from "../models/User";
-import { defaultLanguageId } from "../models/Language";
-import {awsConfig} from "../config/awsConfig";
+import { JWTAccessToken } from "../services/tokenService.js";
+import { MyContext } from "../context.js";
+import { DMPHubAPI } from "../datasources/dmphubAPI.js";
+import { EZIDAPI } from "../datasources/EZIDAPI.js";
+import { MySQLConnection } from "../datasources/mysql.js";
+import { OpenSearch } from "../datasources/openSearch.js";
+import { User, UserRole } from "../models/User.js";
+import { defaultLanguageId } from "../models/Language.js";
+import { awsConfig } from "../config/awsConfig.js";
 
 // Mock Cache for testing, just has a local storage hash
 let mockCacheStore: Record<string, string> = {};
@@ -195,7 +195,7 @@ let cachedDataSources: MockDataSources | null = null;
 export const getMockDataSources = () => {
   if (!cachedDataSources) {
     cachedDataSources = {
-      dmphubAPIDataSource: new DMPHubAPI({ cache: null, token: null}),
+      dmphubAPIDataSource: new DMPHubAPI({ cache: null, token: null }),
       ezidAPIDataSource: new EZIDAPI({ cache: null }),
       sqlDataSource: getMockedMysqlInstance(),
       openSearchServerlessDataSource: new OpenSearch(awsConfig.opensearchServerless),

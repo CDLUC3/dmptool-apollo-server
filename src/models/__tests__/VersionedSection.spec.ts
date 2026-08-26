@@ -1,11 +1,12 @@
 import casual from "casual";
 import { VersionedSection, VersionedSectionSearchResult } from "../VersionedSection";
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { generalConfig } from "../../config/generalConfig";
-import { TemplateVersionType } from "../VersionedTemplate";
-import { logger } from "../../logger";
+import { buildMockContextWithToken } from "../../__mocks__/context.js";
 
-jest.mock('../../context.ts');
+import { generalConfig } from "../../config/generalConfig.js";
+import { TemplateVersionType } from "../VersionedTemplate";
+import { logger } from "../../logger.js";
+
+jest.mock('../../context.js');
 
 let context;
 
@@ -91,17 +92,17 @@ describe('VersionedSectionSearchResult', () => {
       const term = versionedSectionSearchResult.name.split(0, 5)[0];
       const result = await VersionedSectionSearchResult.search('Test', context, term);
       const sql = 'SELECT vs.id, vs.modified, vs.created, vs.name, vs.introduction, vs.displayOrder, vt.bestPractice, ' +
-                        'vt.id as versionedTemplateId, vt.name as versionedTemplateName, ' +
-                        'COUNT(vq.id) as versionedQuestionCount ' +
-                  'FROM versionedSections vs ' +
-                    'INNER JOIN versionedTemplates vt ON vs.versionedTemplateId = vt.id ' +
-                    'LEFT JOIN versionedQuestions vq ON vs.id = vq.versionedSectionId';
+        'vt.id as versionedTemplateId, vt.name as versionedTemplateName, ' +
+        'COUNT(vq.id) as versionedQuestionCount ' +
+        'FROM versionedSections vs ' +
+        'INNER JOIN versionedTemplates vt ON vs.versionedTemplateId = vt.id ' +
+        'LEFT JOIN versionedQuestions vq ON vs.id = vq.versionedSectionId';
 
       const vals = [TemplateVersionType.PUBLISHED.toString(), context?.token?.affiliationId, `%${term.toLowerCase()}%`];
-      const whereFilters = ['vt.active = 1','vt.versionType = ?', '(vt.ownerId = ? OR vt.bestPractice = 1)',
-                            'LOWER(vs.name) LIKE ?'];
+      const whereFilters = ['vt.active = 1', 'vt.versionType = ?', '(vt.ownerId = ? OR vt.bestPractice = 1)',
+        'LOWER(vs.name) LIKE ?'];
       const groupBy = 'GROUP BY vs.id, vs.modified, vs.created, vs.name, vs.introduction, vs.displayOrder, ' +
-                        'vt.bestPractice, vt.id, vt.name'
+        'vt.bestPractice, vt.id, vt.name'
       const sortFields = ["vs.name", "vs.created", "vs.bestPractice", "vt.name", "vs.modified", "versionedQuestionCount"];
       const opts = {
         cursor: null,

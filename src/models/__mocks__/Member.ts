@@ -1,5 +1,5 @@
 import casual from "casual";
-import { getCurrentDate } from "../../utils/helpers";
+import { getCurrentDate } from "../../utils/helpers.js";
 import {
   addEntryToMockTable,
   addMockTableStore,
@@ -11,9 +11,9 @@ import {
   getMockTableStore,
   updateEntryInMockTable
 } from "./MockStore";
-import { getMemberRoleStore, getRandomMemberRole, initMemberRoles } from "./MemberRole";
-import { getMockORCID } from "../../__tests__/helpers";
-import { MyContext } from "../../context";
+import { getMemberRoleStore, getRandomMemberRole, initMemberRoles } from "./MemberRole.js";
+import { getMockORCID } from "../../__tests__/helpers.js";
+import { MyContext } from "../../context.js";
 import { PlanMember, ProjectMember } from "../Member";
 
 // Project members

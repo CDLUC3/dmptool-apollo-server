@@ -1,10 +1,10 @@
-import { generalConfig } from "../config/generalConfig";
-import { MyContext } from "../context";
-import { TemplateCollaborator } from "../models/Collaborator";
-import { defaultLanguageId } from "../models/Language";
-import { User, UserRole } from "../models/User";
-import { UserEmail } from "../models/UserEmail";
-import { randomHex } from "../utils/helpers";
+import { generalConfig } from "../config/generalConfig.js";
+import { MyContext } from "../context.js";
+import { TemplateCollaborator } from "../models/Collaborator.js";
+import { defaultLanguageId } from "../models/Language.js";
+import { User, UserRole } from "../models/User.js";
+import { UserEmail } from "../models/UserEmail.js";
+import { randomHex } from "../utils/helpers.js";
 
 // Generate a random password (used when anonymizing and when creating an account via SSO)
 export const generateRandomPassword = () => {

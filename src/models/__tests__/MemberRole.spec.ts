@@ -1,7 +1,7 @@
 import casual from 'casual';
 import { MemberRole } from '../MemberRole';
-import { buildMockContextWithToken } from '../../__mocks__/context';
-import { logger } from "../../logger";
+import { buildMockContextWithToken } from '../../__mocks__/context.js';
+import { logger } from "../../logger.js";
 
 describe('MemberRole', () => {
   it('constructor should initialize as expected', () => {

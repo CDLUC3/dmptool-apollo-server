@@ -3,12 +3,12 @@ import {
   AugmentedRequest,
   RESTDataSource
 } from "@apollo/datasource-rest";
-import { logger, prepareObjectForLogs } from '../logger';
+import { logger, prepareObjectForLogs } from '../logger.js';
 import { DMPHubConfig } from '../config/dmpHubConfig';
-import { JWTAccessToken } from '../services/tokenService';
-import { MyContext } from "../context";
+import { JWTAccessToken } from '../services/tokenService.js';
+import { MyContext } from "../context.js";
 import { RDACommonStandardContact, RDACommonStandardContributor } from "@dmptool/utils";
-import { isNullOrUndefined } from "../utils/helpers";
+import { isNullOrUndefined } from "../utils/helpers.js";
 import { KeyvAdapter } from "@apollo/utils.keyvadapter";
 
 // This is a temporary type until the RDA Common Standard until we update the Awards

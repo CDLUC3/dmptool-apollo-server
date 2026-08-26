@@ -1,13 +1,13 @@
 import casual from 'casual';
 import { Template, TemplateSearchResult, TemplateVisibility } from "../Template";
-import { buildMockContextWithToken } from '../../__mocks__/context';
+import { buildMockContextWithToken } from '../../__mocks__/context.js';
 import { TemplateCollaborator } from '../Collaborator';
 import { defaultLanguageId } from '../Language';
-import { getRandomEnumValue } from '../../__tests__/helpers';
-import { generalConfig } from '../../config/generalConfig';
-import { logger } from "../../logger";
+import { getRandomEnumValue } from '../../__tests__/helpers.js';
+import { generalConfig } from '../../config/generalConfig.js';
+import { logger } from "../../logger.js";
 
-jest.mock('../../context.ts');
+jest.mock('../../context.js');
 
 let context;
 
@@ -68,13 +68,13 @@ describe('TemplateSearchResult', () => {
       const term = 'test';
       const result = await TemplateSearchResult.findByAffiliationIdAndTerm('Test', context, templateSearchResult.ownerId, term);
       const sql = 'SELECT t.id, t.name, t.description, t.latestPublishVisibility, t.bestPractice, t.isDirty, ' +
-                        't.latestPublishVersion, t.latestPublishDate, t.ownerId, a.displayName, t.isDefault, ' +
-                        't.createdById, TRIM(CONCAT(cu.givenName, CONCAT(\' \', cu.surName))) as createdByName, t.created, ' +
-                        't.modifiedById, TRIM(CONCAT(mu.givenName, CONCAT(\' \', mu.surName))) as modifiedByName, t.modified ' +
-                  'FROM templates t ' +
-                    'INNER JOIN affiliations a ON a.uri = t.ownerId ' +
-                    'INNER JOIN users cu ON cu.id = t.createdById ' +
-                    'INNER JOIN users mu ON mu.id = t.modifiedById';
+        't.latestPublishVersion, t.latestPublishDate, t.ownerId, a.displayName, t.isDefault, ' +
+        't.createdById, TRIM(CONCAT(cu.givenName, CONCAT(\' \', cu.surName))) as createdByName, t.created, ' +
+        't.modifiedById, TRIM(CONCAT(mu.givenName, CONCAT(\' \', mu.surName))) as modifiedByName, t.modified ' +
+        'FROM templates t ' +
+        'INNER JOIN affiliations a ON a.uri = t.ownerId ' +
+        'INNER JOIN users cu ON cu.id = t.createdById ' +
+        'INNER JOIN users mu ON mu.id = t.modifiedById';
 
       const vals = [templateSearchResult.ownerId, `%${term.toLowerCase()}%`, `%${term.toLowerCase()}%`];
       const whereFilters = ['t.ownerId = ?', '(LOWER(t.name) LIKE ? OR LOWER(t.description) LIKE ?)'];

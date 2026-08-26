@@ -1,5 +1,5 @@
 import { expressjwt } from "express-jwt";
-import { generalConfig } from "../config/generalConfig";
+import { generalConfig } from "../config/generalConfig.js";
 import { isRevokedCallback } from "../services/tokenService";
 // Setup the Express JWT handler
 export const authMiddleware = expressjwt({

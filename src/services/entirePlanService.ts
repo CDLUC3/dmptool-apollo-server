@@ -1,19 +1,19 @@
 import { GraphQLError } from "graphql";
 import { toErrorMessage } from "@dmptool/utils";
-import { MyContext } from "../context";
-import { prepareObjectForLogs } from "../logger";
-import {ensureDefaultPlanContact, updateMemberRoles} from "./planService";
-import { ensureDefaultProjectContact, setCurrentUserAsProjectOwner } from "./projectService";
-import { AlternateIdentifier } from "../models/AlternateIdentifier";
-import { defaultLanguageId } from "../models/Language";
-import { Project } from "../models/Project";
-import { Affiliation } from "../models/Affiliation";
-import { MemberRole } from "../models/MemberRole";
-import { ResearchDomain } from "../models/ResearchDomain";
-import { VersionedTemplate } from "../models/VersionedTemplate";
-import { PlanMember, ProjectMember } from "../models/Member";
-import { Plan, PlanStatus, PlanVisibility } from "../models/Plan";
-import { PlanFunding, ProjectFunding, ProjectFundingStatus } from "../models/Funding";
+import { MyContext } from "../context.js";
+import { prepareObjectForLogs } from "../logger.js";
+import { ensureDefaultPlanContact, updateMemberRoles } from "./planService.js";
+import { ensureDefaultProjectContact, setCurrentUserAsProjectOwner } from "./projectService.js";
+import { AlternateIdentifier } from "../models/AlternateIdentifier.js";
+import { defaultLanguageId } from "../models/Language.js";
+import { Project } from "../models/Project.js";
+import { Affiliation } from "../models/Affiliation.js";
+import { MemberRole } from "../models/MemberRole.js";
+import { ResearchDomain } from "../models/ResearchDomain.js";
+import { VersionedTemplate } from "../models/VersionedTemplate.js";
+import { PlanMember, ProjectMember } from "../models/Member.js";
+import { Plan, PlanStatus, PlanVisibility } from "../models/Plan.js";
+import { PlanFunding, ProjectFunding, ProjectFundingStatus } from "../models/Funding.js";
 import {
   AddEntirePlanInput,
   EntirePlanFundingFragment,
@@ -23,12 +23,12 @@ import {
   UpdateEntirePlanInput,
   OpenSearchWork,
   AddRelatedWorkManualInput
-} from "../types";
-import { BadRequestError, InternalServerError } from "../utils/graphQLErrors";
-import { AcceptedWork } from "../models/RelatedWork";
-import { openSearchFindWorkByIdentifier } from "./openSearchService";
-import { addAcceptedWork, removeAcceptedWork } from "./relatedWorkService";
-import {generalConfig} from "../config/generalConfig";
+} from "../types.js";
+import { BadRequestError, InternalServerError } from "../utils/graphQLErrors.js";
+import { AcceptedWork } from "../models/RelatedWork.js";
+import { openSearchFindWorkByIdentifier } from "./openSearchService.js";
+import { addAcceptedWork, removeAcceptedWork } from "./relatedWorkService.js";
+import { generalConfig } from "../config/generalConfig.js";
 
 interface LogBase {
   ref: string;
@@ -143,7 +143,7 @@ const reconcileAssociations = (
  * @param inputs the associated objects
  * @param config the configuration to use while processing the objects
  */
-const processAssociations  = async (
+const processAssociations = async (
   processingContext: AssociationResolutionContext,
   inputs: AssociationInputType[],
   config: AssociationReconcilerConfig
@@ -224,7 +224,7 @@ const processAssociations  = async (
  * @param members the incoming members
  * @returns a string of errors or undefined if everything was successful
  */
-export const processMemberAssociations = async(
+export const processMemberAssociations = async (
   reference: string,
   context: MyContext,
   project: Project,
@@ -386,7 +386,7 @@ export const processMemberAssociations = async(
         if (removedPlan.hasErrors()) {
           context.logger.error(
             { errors: removedPlan.errors, planMember: removedPlan },
-          `Failed to delete plan member: ${logName}`
+            `Failed to delete plan member: ${logName}`
           );
           errors.add(`Unable to delete plan member ${logName}`);
 
@@ -422,10 +422,10 @@ export const processMemberAssociations = async(
         const cPlanObj: PlanMember = currentPlanObj
           ? currentPlanObj as PlanMember
           : new PlanMember({
-              planId: plan.id,
-              projectMemberId: currentProjectObj?.id,
-              memberRoleIds: []
-            });
+            planId: plan.id,
+            projectMemberId: currentProjectObj?.id,
+            memberRoleIds: []
+          });
 
         // The PlanMembers do not load with their MemberRoles, so we need to load them here
         const planMemberRoles: MemberRole[] = await MemberRole.findByPlanMemberId(
@@ -521,7 +521,7 @@ export const processMemberAssociations = async(
  * @param funding the incoming funding
  * @returns a string of errors or undefined if everything was successful
  */
-export const processFundingAssociations = async(
+export const processFundingAssociations = async (
   reference: string,
   context: MyContext,
   project: Project,
@@ -548,8 +548,8 @@ export const processFundingAssociations = async(
       },
       findOrCreateProjectObj: async (m: EntirePlanFundingFragment): Promise<ProjectFunding> => {
         const funding: ProjectFunding = m.projectFundingId
-        ? await ProjectFunding.findById(reference, context, m.projectFundingId)
-        : await ProjectFunding.findByProjectAndAffiliation(
+          ? await ProjectFunding.findById(reference, context, m.projectFundingId)
+          : await ProjectFunding.findByProjectAndAffiliation(
             reference,
             context,
             project.id,
@@ -799,15 +799,15 @@ const processAcceptedWorks = async (
     const relatedWork: OpenSearchWork = openSearchWorks.length > 0
       ? openSearchWorks[0]
       : {
-          workType: toSave.workType,
-          doi: toSave.doi,
-          hash: '',
-          authors: [],
-          awards: [],
-          institutions: [],
-          funders: [],
-          source: { name: 'API' }
-       };
+        workType: toSave.workType,
+        doi: toSave.doi,
+        hash: '',
+        authors: [],
+        awards: [],
+        institutions: [],
+        funders: [],
+        source: { name: 'API' }
+      };
 
     const newId: AcceptedWork = await addAcceptedWork(
       ref,
@@ -1255,7 +1255,7 @@ export const removeEntirePlan = async (
 
       if (!(await plan.update(context))) {
         context.logger.error(
-          prepareObjectForLogs({...logBase, errors: plan.errors}),
+          prepareObjectForLogs({ ...logBase, errors: plan.errors }),
           'Unable to archive published plan.'
         );
         throw BadRequestError(plan.errorsToString());
@@ -1271,7 +1271,7 @@ export const removeEntirePlan = async (
 
       if (!(await plan.delete(context))) {
         context.logger.error(
-          prepareObjectForLogs({...logBase, errors: plan.errors}),
+          prepareObjectForLogs({ ...logBase, errors: plan.errors }),
           'Unable to delete plan'
         );
         throw BadRequestError(plan.errorsToString());
@@ -1282,7 +1282,7 @@ export const removeEntirePlan = async (
       if (plans.length <= 0) {
         if (!(await project.delete(context))) {
           context.logger.error(
-            prepareObjectForLogs({...logBase, errors: project.errors}),
+            prepareObjectForLogs({ ...logBase, errors: project.errors }),
             'Unable to delete project'
           );
           throw BadRequestError(project.errorsToString());

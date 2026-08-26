@@ -2,21 +2,21 @@ import { v4 } from 'uuid';
 import { timingSafeEqual } from 'crypto';
 import jwt, { JwtPayload } from 'jsonwebtoken';
 import { Response } from "express";
-import { logger, prepareObjectForLogs } from '../logger';
-import { User } from '../models/User';
-import { generalConfig } from '../config/generalConfig';
-import { UserRole } from '../models/User';
+import { logger, prepareObjectForLogs } from '../logger.js';
+import { User } from '../models/User.js';
+import { generalConfig } from '../config/generalConfig.js';
+import { UserRole } from '../models/User.js';
 import {
   AuthenticationError,
   DEFAULT_INTERNAL_SERVER_MESSAGE,
   DEFAULT_UNAUTHORIZED_MESSAGE,
   InternalServerError
-} from '../utils/graphQLErrors';
-import { Cache } from '../datasources/cache';
-import { MyContext } from '../context';
-import { defaultLanguageId } from '../models/Language';
+} from '../utils/graphQLErrors.js';
+import { Cache } from '../datasources/cache.js';
+import { MyContext } from '../context.js';
+import { defaultLanguageId } from '../models/Language.js';
 import { KeyvAdapter } from "@apollo/utils.keyvadapter";
-import { hashToken } from "../utils/helpers";
+import { hashToken } from "../utils/helpers.js";
 
 const VERSION_TAG = '{dmspt}';
 const versionKey = (userId: number | string) => `${VERSION_TAG}:version:${userId}`;

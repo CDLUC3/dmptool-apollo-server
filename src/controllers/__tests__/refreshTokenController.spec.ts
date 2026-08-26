@@ -3,7 +3,7 @@ import { Response } from 'express';
 import { Request } from 'express-jwt';
 import { refreshAccessToken, setTokenCookie } from '../../services/tokenService';
 import { refreshTokenController } from '../refreshTokenController';
-import { logger } from "../../logger";
+import { logger } from "../../logger.js";
 
 // Mocking external dependencies
 jest.mock('../../context');
@@ -15,7 +15,7 @@ describe('refreshTokenController', () => {
   let mockRequest: Partial<Request>;
   let mockResponse: Partial<Response>;
 
-  beforeEach(async() => {
+  beforeEach(async () => {
     jest.resetAllMocks();
 
     mockRequest = {

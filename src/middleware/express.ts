@@ -1,6 +1,6 @@
 import { expressMiddleware } from '@as-integrations/express5';
-import { JWTAccessToken } from '../services/tokenService';
-import { buildContext } from '../context';
+import { JWTAccessToken } from '../services/tokenService.js';
+import { buildContext } from '../context.js';
 import { ApolloServer } from '@apollo/server';
 import { Request } from 'express-jwt';
 import { Logger } from "pino";

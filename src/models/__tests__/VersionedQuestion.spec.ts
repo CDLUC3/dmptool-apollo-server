@@ -1,12 +1,13 @@
 import casual from "casual";
-import { buildMockContextWithToken } from "../../__mocks__/context";
+import { buildMockContextWithToken } from "../../__mocks__/context.js";
+
 import { VersionedQuestion } from "../VersionedQuestion";
 import { CURRENT_SCHEMA_VERSION } from "@dmptool/types";
-import { removeNullAndUndefinedFromJSON } from "../../utils/helpers";
-import { logger } from "../../logger";
+import { removeNullAndUndefinedFromJSON } from "../../utils/helpers.js";
+import { logger } from "../../logger.js";
 import { DefaultTextAreaQuestion } from '@dmptool/types'
 
-jest.mock('../../context.ts');
+jest.mock('../../context.js');
 
 let context;
 

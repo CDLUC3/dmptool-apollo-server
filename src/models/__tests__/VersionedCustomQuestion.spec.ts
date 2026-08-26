@@ -1,8 +1,8 @@
-import { MyContext } from "../../context";
-import { PinnedSectionTypeEnum } from "../CustomSection";
-import { PinnedQuestionTypeEnum } from "../CustomQuestion";
+import { MyContext } from "../../context.js";
+import { PinnedSectionTypeEnum } from "../CustomSection.js";
+import { PinnedQuestionTypeEnum } from "../CustomQuestion.js";
 import { VersionedCustomQuestion } from "../VersionedCustomQuestion";
-import { MySqlModel } from "../MySqlModel";
+import { MySqlModel } from "../MySqlModel.js";
 
 jest.mock("../MySqlModel", () => ({
   ...jest.requireActual("../MySqlModel"),

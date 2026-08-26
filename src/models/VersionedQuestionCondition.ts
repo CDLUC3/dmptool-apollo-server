@@ -1,6 +1,6 @@
-import { MyContext } from "../context";
-import { MySqlModel } from "./MySqlModel";
-import { QuestionConditionCondition } from "./QuestionCondition";
+import { MyContext } from "../context.js";
+import { MySqlModel } from "./MySqlModel.js";
+import { QuestionConditionCondition } from "./QuestionCondition.js";
 
 export class VersionedQuestionCondition extends MySqlModel {
   public versionedQuestionConditionGroupId: number;

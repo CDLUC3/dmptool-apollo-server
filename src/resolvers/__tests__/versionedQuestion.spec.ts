@@ -7,23 +7,24 @@ jest.mock('../../services/authService', () => ({
 }));
 
 import { ApolloServer } from "@apollo/server";
-import { typeDefs } from "../../schema";
-import { resolvers } from '../../resolver';
+import { typeDefs } from "../../schema.js";
+import { resolvers } from '../../resolver.js';
 
-import { logger } from "../../logger";
-import { JWTAccessToken } from "../../services/tokenService";
-import { VersionedQuestion } from '../../models/VersionedQuestion';
-import { VersionedCustomQuestion } from '../../models/VersionedCustomQuestion';
-import { Answer } from '../../models/Answer';
-import { VersionedQuestionCondition } from '../../models/VersionedQuestionCondition';
-import { VersionedTemplate } from '../../models/VersionedTemplate';
-import { VersionedTemplateCustomization } from '../../models/VersionedTemplateCustomization';
-import { VersionedQuestionCustomization } from '../../models/VersionedQuestionCustomization';
-import { Affiliation } from '../../models/Affiliation';
-import { UserRole } from "../../models/User";
-import { buildContext, mockToken } from "../../__mocks__/context";
+import { logger } from "../../logger.js";
+import { JWTAccessToken } from "../../services/tokenService.js";
+import { VersionedQuestion } from '../../models/VersionedQuestion.js';
+import { VersionedCustomQuestion } from '../../models/VersionedCustomQuestion.js';
+import { Answer } from '../../models/Answer.js';
+import { VersionedQuestionCondition } from '../../models/VersionedQuestionCondition.js';
+import { VersionedTemplate } from '../../models/VersionedTemplate.js';
+import { VersionedTemplateCustomization } from '../../models/VersionedTemplateCustomization.js';
+import { VersionedQuestionCustomization } from '../../models/VersionedQuestionCustomization.js';
+import { Affiliation } from '../../models/Affiliation.js';
+import { UserRole } from "../../models/User.js";
+import { buildContext, mockToken } from "../../__mocks__/context.js";
 
-jest.mock('../../context.ts');
+
+jest.mock('../../context.js');
 jest.mock('../../datasources/cache');
 
 jest.mock('../../models/VersionedQuestion');

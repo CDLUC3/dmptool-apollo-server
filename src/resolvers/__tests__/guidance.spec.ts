@@ -7,25 +7,26 @@ jest.mock('../../services/authService', () => ({
 }));
 
 import { ApolloServer } from "@apollo/server";
-import { typeDefs } from "../../schema";
-import { resolvers } from '../../resolver';
+import { typeDefs } from "../../schema.js";
+import { resolvers } from '../../resolver.js';
 
-import { logger } from "../../logger";
-import { JWTAccessToken } from "../../services/tokenService";
-import { Guidance } from '../../models/Guidance';
-import { GuidanceGroup } from '../../models/GuidanceGroup';
-import { Plan } from '../../models/Plan';
-import { Project } from '../../models/Project';
-import { User, UserRole } from "../../models/User";
+import { logger } from "../../logger.js";
+import { JWTAccessToken } from "../../services/tokenService.js";
+import { Guidance } from '../../models/Guidance.js';
+import { GuidanceGroup } from '../../models/GuidanceGroup.js';
+import { Plan } from '../../models/Plan.js';
+import { Project } from '../../models/Project.js';
+import { User, UserRole } from "../../models/User.js";
 import {
   hasPermissionOnGuidanceGroup,
   markGuidanceGroupAsDirty,
   getGuidanceSourcesForPlan,
-} from '../../services/guidanceService';
-import { hasPermissionOnProject } from '../../services/projectService';
-import { buildContext, mockToken } from "../../__mocks__/context";
+} from '../../services/guidanceService.js';
+import { hasPermissionOnProject } from '../../services/projectService.js';
+import { buildContext, mockToken } from "../../__mocks__/context.js";
 
-jest.mock('../../context.ts');
+
+jest.mock('../../context.js');
 jest.mock('../../datasources/cache');
 
 jest.mock('../../models/Guidance');

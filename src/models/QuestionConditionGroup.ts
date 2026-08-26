@@ -1,5 +1,5 @@
-import { MyContext } from "../context";
-import { MySqlModel } from "./MySqlModel";
+import { MyContext } from "../context.js";
+import { MySqlModel } from "./MySqlModel.js";
 
 // One row per trigger-question "box" in the Display Logic UI. Groups
 // together the conditions (option checks) that apply to a single

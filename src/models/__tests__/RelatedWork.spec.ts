@@ -1,5 +1,5 @@
 import casual from 'casual';
-import { buildMockContextWithToken } from '../../__mocks__/context';
+import { buildMockContextWithToken } from '../../__mocks__/context.js';
 import {
   RelatedWork,
   RelatedWorkSearchResult,
@@ -12,7 +12,7 @@ import {
   RelatedWorkSourceType,
   RelationType
 } from '../RelatedWork';
-import { logger } from '../../logger';
+import { logger } from '../../logger.js';
 import { Plan } from '../Plan';
 import {
   getMockHash,
@@ -27,15 +27,15 @@ import {
   Funder,
   Institution,
   RelatedWorkStatsResults
-} from '../../types';
+} from '../../types.js';
 import {
   getMockDOI,
   getMockORCID,
   getMockROR,
   getRandomEnumValue
-} from "../../__tests__/helpers";
+} from "../../__tests__/helpers.js";
 
-jest.mock('../../context.ts');
+jest.mock('../../context.js');
 
 let context;
 

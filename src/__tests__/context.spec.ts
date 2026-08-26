@@ -1,11 +1,11 @@
-import { buildContext } from '../context';
-import { DMPHubAPI } from '../datasources/dmphubAPI';
-import { getMockDataSources, MockCache } from '../__mocks__/context';
+import { buildContext } from '../context.js';
+import { DMPHubAPI } from '../datasources/dmphubAPI.js';
+import { getMockDataSources, MockCache } from '../__mocks__/context.js';
 // For some reason esLint is reporting this isn't used, but it used below
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { randomHex } from '../utils/helpers';
-import { MySQLConnection } from "../datasources/mysql";
-import { logger, REDACTION_MESSAGE } from '../logger';
+import { randomHex } from '../utils/helpers.js';
+import { MySQLConnection } from "../datasources/mysql.js";
+import { logger, REDACTION_MESSAGE } from '../logger.js';
 
 // Mock dependencies
 jest.mock('../datasources/dmphubAPI');

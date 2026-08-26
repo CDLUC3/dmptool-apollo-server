@@ -2,17 +2,18 @@ import casual from 'casual';
 import { Request, Response } from 'express';
 import { Cache } from "../../datasources/cache";
 import { generateAuthTokens, setTokenCookie } from '../../services/tokenService';
-import { generalConfig } from '../../config/generalConfig';
-import * as UserModel from '../../models/User';
+import { generalConfig } from '../../config/generalConfig.js';
+import * as UserModel from '../../models/User.js';
 import { signupController } from '../signupController';
-import { defaultLanguageId } from '../../models/Language';
-import { getCurrentDate } from '../../utils/helpers';
-import { getRandomEnumValue } from '../../__tests__/helpers';
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { logger } from "../../logger";
-import { mockUser as mockUserFn } from '../../__mocks__/context';
+import { defaultLanguageId } from '../../models/Language.js';
+import { getCurrentDate } from '../../utils/helpers.js';
+import { getRandomEnumValue } from '../../__tests__/helpers.js';
+import { buildMockContextWithToken } from "../../__mocks__/context.js";
 
-jest.mock('../../context.ts');
+import { logger } from "../../logger.js";
+import { mockUser as mockUserFn } from '../../__mocks__/context.js';
+
+jest.mock('../../context.js');
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 let context;
@@ -70,7 +71,7 @@ describe('signupController', () => {
   let mockCache: jest.Mocked<Cache>;
   let mockUser;
 
-  beforeEach(async() => {
+  beforeEach(async () => {
     jest.resetAllMocks();
 
     mockUser = mockUserFn();

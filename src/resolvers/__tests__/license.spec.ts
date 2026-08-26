@@ -1,21 +1,22 @@
 import { ApolloServer } from "@apollo/server";
-import { typeDefs } from "../../schema";
-import { resolvers } from "../../resolver";
+import { typeDefs } from "../../schema.js";
+import { resolvers } from "../../resolver.js";
 import casual from "casual";
-import { MyContext } from "../../context";
+import { MyContext } from "../../context.js";
 import {
   buildContext,
   mockResearcherToken,
   mockAdminToken,
   mockSuperAdminToken,
-} from "../../__mocks__/context";
-import { logger } from "../../logger";
-import { JWTAccessToken } from "../../services/tokenService";
-import { getCurrentDate } from '../../utils/helpers'
+} from "../../__mocks__/context.js";
 
-import { License, DEFAULT_DMPTOOL_LICENSE_URL } from '../../models/License';
+import { logger } from "../../logger.js";
+import { JWTAccessToken } from "../../services/tokenService.js";
+import { getCurrentDate } from '../../utils/helpers.js'
 
-jest.mock('../../context.ts');
+import { License, DEFAULT_DMPTOOL_LICENSE_URL } from '../../models/License.js';
+
+jest.mock('../../context.js');
 jest.mock('../../datasources/cache');
 jest.mock('../../services/openSearchService');
 
@@ -25,7 +26,7 @@ let context: MyContext;
 
 // Proxy call to the Apollo server test server
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function executeQuery (query: string, variables: any): Promise<any> {
+async function executeQuery(query: string, variables: any): Promise<any> {
   return await testServer.executeOperation(
     { query, variables },
     { contextValue: context },
@@ -180,7 +181,7 @@ describe('License Resolvers', () => {
         const querySpy = jest.spyOn(License, 'findByURI').mockResolvedValue(mockLicenses[1]);
 
         const uri = mockLicenses[1].uri;
-        const result = await executeQuery(query, {uri: uri});
+        const result = await executeQuery(query, { uri: uri });
         expect(querySpy).toHaveBeenCalledWith('license resolver', context, uri);
 
         expect(result.body.kind).toEqual('single');
@@ -194,7 +195,7 @@ describe('License Resolvers', () => {
         const querySpy = jest.spyOn(License, 'findByURI').mockRejectedValue(error);
 
         const uri = mockLicenses[1].uri;
-        const result = await executeQuery(query, {uri: uri});
+        const result = await executeQuery(query, { uri: uri });
         expect(querySpy).toHaveBeenCalledWith('license resolver', context, uri);
 
         expect(result.body.kind).toEqual('single');
@@ -538,7 +539,7 @@ describe('License Resolvers', () => {
         context.token = await mockSuperAdminToken();
         jest.spyOn(License, 'findById')
           .mockResolvedValueOnce(new License(mockLicenses[0]))
-          .mockResolvedValueOnce(new License({ uri: 'external-license'}));
+          .mockResolvedValueOnce(new License({ uri: 'external-license' }));
 
         const result = await executeQuery(query, mockInput);
         expect(querySpy).not.toHaveBeenCalled();
@@ -553,7 +554,7 @@ describe('License Resolvers', () => {
       it('doesn\'t update the license to keep if it belongs to an external repository', async () => {
         context.token = await mockSuperAdminToken();
         jest.spyOn(License, 'findById')
-          .mockResolvedValueOnce(new License({ uri: 'external-license'}))
+          .mockResolvedValueOnce(new License({ uri: 'external-license' }))
           .mockResolvedValueOnce(new License(mockLicenses[0]));
 
         const result = await executeQuery(query, mockInput);

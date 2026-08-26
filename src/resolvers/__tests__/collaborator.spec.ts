@@ -1,18 +1,19 @@
 import { ApolloServer } from "@apollo/server";
-import { typeDefs } from "../../schema";
-import { resolvers } from "../../resolver";
+import { typeDefs } from "../../schema.js";
+import { resolvers } from "../../resolver.js";
 import casual from "casual";
 import assert from "assert";
-import { buildContext, mockToken } from "../../__mocks__/context";
-import { logger } from "../../logger";
-import { JWTAccessToken } from "../../services/tokenService";
+import { buildContext, mockToken } from "../../__mocks__/context.js";
 
-import { TemplateCollaborator } from "../../models/Collaborator";
-import { clearTemplateCollaboratorsStore, initTemplateCollaboratorsStore, mockDeleteTemplateCollaborators, mockFindTemplateCollaboratorById, mockFindTemplateCollaboratorByTemplateId, mockFindTemplateCollaboratorByTemplateIdAndEmail, mockFindTemplateCollaboratorsByEmail, mockFindTemplateCollaboratorsByInviterId, mockInsertTemplateCollaborators, mockUpdateTemplateCollaborators } from "../../models/__mocks__/Collaborator";
-import { User, UserRole } from "../../models/User";
-import { Template } from "../../models/Template";
+import { logger } from "../../logger.js";
+import { JWTAccessToken } from "../../services/tokenService.js";
 
-jest.mock('../../context.ts');
+import { TemplateCollaborator } from "../../models/Collaborator.js";
+import { clearTemplateCollaboratorsStore, initTemplateCollaboratorsStore, mockDeleteTemplateCollaborators, mockFindTemplateCollaboratorById, mockFindTemplateCollaboratorByTemplateId, mockFindTemplateCollaboratorByTemplateIdAndEmail, mockFindTemplateCollaboratorsByEmail, mockFindTemplateCollaboratorsByInviterId, mockInsertTemplateCollaborators, mockUpdateTemplateCollaborators } from "../../models/__mocks__/Collaborator.js";
+import { User, UserRole } from "../../models/User.js";
+import { Template } from "../../models/Template.js";
+
+jest.mock('../../context.js');
 jest.mock('../../datasources/cache');
 jest.mock('../../services/emailService');
 jest.mock('../../services/openSearchService');
@@ -25,12 +26,12 @@ let adminToken: JWTAccessToken;
 let query: string;
 
 // Proxy call to the Apollo server test server
-async function executeQuery (
+async function executeQuery(
   query: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   variables: any,
   token: JWTAccessToken
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<any> {
   const context = buildContext(logger, token, null);
 

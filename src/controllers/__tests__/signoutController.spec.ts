@@ -4,11 +4,12 @@ import { Cache } from "../../datasources/cache";
 import { revokeAccessToken, revokeRefreshToken, verifyAccessToken } from '../../services/tokenService';
 import casual from 'casual';
 import { signoutController } from '../signoutController';
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { MyContext } from '../../context';
-import { logger } from "../../logger";
+import { buildMockContextWithToken } from "../../__mocks__/context.js";
 
-jest.mock('../../context.ts');
+import { MyContext } from '../../context.js';
+import { logger } from "../../logger.js";
+
+jest.mock('../../context.js');
 
 // Mocking external dependencies
 jest.mock('../../datasources/cache');

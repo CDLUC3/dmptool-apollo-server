@@ -1,4 +1,4 @@
-import { ORCID_REGEX } from '../utils/helpers';
+import { ORCID_REGEX } from '../utils/helpers.js';
 export interface DataCitePerson {
   givenName?: string;
   familyName: string;

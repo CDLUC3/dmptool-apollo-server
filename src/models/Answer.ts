@@ -1,9 +1,9 @@
-import { MyContext } from "../context";
-import { MySqlModel } from "./MySqlModel";
+import { MyContext } from "../context.js";
+import { MySqlModel } from "./MySqlModel.js";
 import {
   isNullOrUndefined,
   removeNullAndUndefinedFromJSON,
-} from "../utils/helpers";
+} from "../utils/helpers.js";
 import {
   AnswerSchemaMap,
   AnyResearchOutputTableColumnAnswerType,

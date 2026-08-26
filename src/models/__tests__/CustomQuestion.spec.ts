@@ -1,8 +1,8 @@
-import {MyContext} from "../../context";
-import {PinnedSectionTypeEnum} from "../CustomSection";
-import {CustomQuestion, PinnedQuestionTypeEnum} from "../CustomQuestion";
-import {MySqlModel} from "../MySqlModel";
-import {TemplateCustomizationMigrationStatus} from "../TemplateCustomization";
+import { MyContext } from "../../context.js";
+import { PinnedSectionTypeEnum } from "../CustomSection.js";
+import { CustomQuestion, PinnedQuestionTypeEnum } from "../CustomQuestion.js";
+import { MySqlModel } from "../MySqlModel.js";
+import { TemplateCustomizationMigrationStatus } from "../TemplateCustomization.js";
 
 jest.mock("../MySqlModel", () => ({
   ...jest.requireActual("../MySqlModel"),
@@ -39,8 +39,8 @@ describe("CustomQuestion", () => {
         questionText: "Test Question",
         json: {
           type: "text",
-          attributes: {maxLength: 100},
-          meta: {schemaVersion: "1.0"}
+          attributes: { maxLength: 100 },
+          meta: { schemaVersion: "1.0" }
         },
         requirementText: "Test requirements",
         guidanceText: "Test guidance",
@@ -61,8 +61,8 @@ describe("CustomQuestion", () => {
       expect(customization.questionText).toBe("Test Question");
       expect(customization.json).toEqual(JSON.stringify({
         type: "text",
-        attributes: {maxLength: 100},
-        meta: {schemaVersion: "1.0"}
+        attributes: { maxLength: 100 },
+        meta: { schemaVersion: "1.0" }
       }));
       expect(customization.requirementText).toBe("Test requirements");
       expect(customization.guidanceText).toBe("Test guidance");

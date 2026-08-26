@@ -1,6 +1,7 @@
-import * as guidanceService from "../guidanceService";
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { logger } from "../../logger";
+import * as guidanceService from "../guidanceService.js";
+import { buildMockContextWithToken } from "../../__mocks__/context.js";
+
+import { logger } from "../../logger.js";
 import {
   mockPlan,
   mockVersionedTemplate,
@@ -12,21 +13,21 @@ import {
   mockTagBasedGuidanceCDL,
   mockTagBasedGuidanceNSF,
   mockTagBasedGuidanceNIH,
-} from "../__mocks__/mockGuidanceData";
-import { MyContext } from "../../context";
-import { GuidanceGroup } from "../../models/GuidanceGroup";
-import { PlanGuidance } from "../../models/Guidance";
-import { VersionedGuidance } from "../../models/VersionedGuidance";
-import { Plan } from "../../models/Plan";
-import { VersionedTemplate } from "../../models/VersionedTemplate";
-import { VersionedSection } from "../../models/VersionedSection";
-import { VersionedQuestion } from "../../models/VersionedQuestion";
-import { VersionedSectionCustomization } from "../../models/VersionedSectionCustomization";
-import { VersionedQuestionCustomization } from "../../models/VersionedQuestionCustomization";
-import { VersionedCustomSection } from "../../models/VersionedCustomSection";
-import { VersionedCustomQuestion } from "../../models/VersionedCustomQuestion";
-import { Affiliation } from "../../models/Affiliation";
-import { isSuperAdmin } from "../authService";
+} from "../__mocks__/mockGuidanceData.js";
+import { MyContext } from "../../context.js";
+import { GuidanceGroup } from "../../models/GuidanceGroup.js";
+import { PlanGuidance } from "../../models/Guidance.js";
+import { VersionedGuidance } from "../../models/VersionedGuidance.js";
+import { Plan } from "../../models/Plan.js";
+import { VersionedTemplate } from "../../models/VersionedTemplate.js";
+import { VersionedSection } from "../../models/VersionedSection.js";
+import { VersionedQuestion } from "../../models/VersionedQuestion.js";
+import { VersionedSectionCustomization } from "../../models/VersionedSectionCustomization.js";
+import { VersionedQuestionCustomization } from "../../models/VersionedQuestionCustomization.js";
+import { VersionedCustomSection } from "../../models/VersionedCustomSection.js";
+import { VersionedCustomQuestion } from "../../models/VersionedCustomQuestion.js";
+import { Affiliation } from "../../models/Affiliation.js";
+import { isSuperAdmin } from "../authService.js";
 
 // Type for mock GuidanceGroup used in tests
 type MockGuidanceGroup = Partial<GuidanceGroup> & {

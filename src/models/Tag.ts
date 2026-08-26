@@ -1,6 +1,6 @@
-import { MySqlModel } from "./MySqlModel";
-import { MyContext } from "../context";
-import { prepareObjectForLogs } from "../logger";
+import { MySqlModel } from "./MySqlModel.js";
+import { MyContext } from "../context.js";
+import { prepareObjectForLogs } from "../logger.js";
 
 const tableName = 'tags';
 export class Tag extends MySqlModel {

@@ -1,5 +1,5 @@
-import { MyContext } from "../context";
-import { MySqlModel } from "./MySqlModel";
+import { MyContext } from "../context.js";
+import { MySqlModel } from "./MySqlModel.js";
 
 export enum ProjectFundingStatus {
   PLANNED = 'PLANNED', // The project has not yet applied for the grant
@@ -133,7 +133,7 @@ export class ProjectFunding extends MySqlModel {
     return Array.isArray(results) ? results.map((item) => new ProjectFunding(item)) : [];
   }
 
-// Fetch a project funding by its id
+  // Fetch a project funding by its id
   static async findById(reference: string, context: MyContext, projectFundingId: number): Promise<ProjectFunding> {
     const sql = `SELECT * FROM ${ProjectFunding.tableName} WHERE id = ?`;
     const results = await ProjectFunding.query(context, sql, [projectFundingId?.toString()], reference);

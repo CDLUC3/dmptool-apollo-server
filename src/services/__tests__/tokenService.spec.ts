@@ -2,10 +2,10 @@ import casual from 'casual';
 import jwt, { Jwt } from 'jsonwebtoken';
 import { createHash } from 'crypto';
 import { Response } from 'express';
-import { User, UserRole } from '../../models/User';
-import { DEFAULT_INTERNAL_SERVER_MESSAGE, DEFAULT_UNAUTHORIZED_MESSAGE } from '../../utils/graphQLErrors';
-import { Cache } from '../../datasources/cache';
-import { generalConfig } from '../../config/generalConfig';
+import { User, UserRole } from '../../models/User.js';
+import { DEFAULT_INTERNAL_SERVER_MESSAGE, DEFAULT_UNAUTHORIZED_MESSAGE } from '../../utils/graphQLErrors.js';
+import { Cache } from '../../datasources/cache.js';
+import { generalConfig } from '../../config/generalConfig.js';
 import {
   setTokenCookie,
   generateAuthTokens,
@@ -15,10 +15,10 @@ import {
   isRevokedCallback,
   verifyCSRFToken,
   generateCSRFToken,
-} from '../tokenService'; // assuming the original code is in auth.ts
-import { buildContext, mockToken, MockCache } from '../../__mocks__/context';
-import { defaultLanguageId } from '../../models/Language';
-import { logger } from "../../logger";
+} from '../tokenService.js'; // assuming the original code is in auth.ts
+import { buildContext, mockToken, MockCache } from '../../__mocks__/context.js';
+import { defaultLanguageId } from '../../models/Language.js';
+import { logger } from "../../logger.js";
 
 jest.mock('jsonwebtoken');
 jest.mock('../../datasources/cache');

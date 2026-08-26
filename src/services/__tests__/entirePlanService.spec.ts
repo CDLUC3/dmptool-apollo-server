@@ -1,34 +1,34 @@
 import { GraphQLError } from 'graphql';
-import { logger } from '../../logger';
-import { Project } from '../../models/Project';
-import { Plan } from '../../models/Plan';
-import { Affiliation } from '../../models/Affiliation';
-import { MemberRole } from '../../models/MemberRole';
-import { PlanMember, ProjectMember } from '../../models/Member';
+import { logger } from '../../logger.js';
+import { Project } from '../../models/Project.js';
+import { Plan } from '../../models/Plan.js';
+import { Affiliation } from '../../models/Affiliation.js';
+import { MemberRole } from '../../models/MemberRole.js';
+import { PlanMember, ProjectMember } from '../../models/Member.js';
 import {
   PlanFunding,
   ProjectFunding,
-} from '../../models/Funding';
-import { AlternateIdentifier } from '../../models/AlternateIdentifier';
-import { ResearchDomain } from '../../models/ResearchDomain';
-import { VersionedTemplate } from '../../models/VersionedTemplate';
-import { buildMockContextWithToken } from '../../__mocks__/context';
+} from '../../models/Funding.js';
+import { AlternateIdentifier } from '../../models/AlternateIdentifier.js';
+import { ResearchDomain } from '../../models/ResearchDomain.js';
+import { VersionedTemplate } from '../../models/VersionedTemplate.js';
+import { buildMockContextWithToken } from '../../__mocks__/context.js';
 import {
   BAD_REQUEST_ERROR_CODE,
   INTERNAL_SERVER_ERROR_CODE,
-} from '../../utils/graphQLErrors';
+} from '../../utils/graphQLErrors.js';
 import {
   addEntirePlan,
   processFundingAssociations,
   processMemberAssociations,
   removeEntirePlan,
   replaceEntirePlan,
-} from '../entirePlanService';
+} from '../entirePlanService.js';
 import {
   ensureDefaultProjectContact,
   setCurrentUserAsProjectOwner,
-} from '../projectService';
-import { ensureDefaultPlanContact } from '../planService';
+} from '../projectService.js';
+import { ensureDefaultPlanContact } from '../planService.js';
 
 jest.mock('../projectService', () => ({
   ensureDefaultProjectContact: jest.fn().mockResolvedValue(true),
@@ -84,7 +84,8 @@ describe('entirePlanService', () => {
     const defaultRole = new MemberRole({
       id: 999,
       label: 'Default Role',
-      url: 'http://example.com/role/default' }
+      url: 'http://example.com/role/default'
+    }
     );
     jest.spyOn(MemberRole, 'defaultRole').mockResolvedValue(defaultRole);
     jest.spyOn(MemberRole, 'findByURL').mockResolvedValue(null);
@@ -167,10 +168,10 @@ describe('entirePlanService', () => {
       const roleOne = makeRole(1, 'One');
       const roleTwo = makeRole(2, 'Two');
 
-      jest.spyOn(roleOne,'addToProjectMember').mockResolvedValue(true);
-      jest.spyOn(roleOne,'addToPlanMember').mockResolvedValue(true);
-      jest.spyOn(roleTwo,'addToProjectMember').mockResolvedValue(true);
-      jest.spyOn(roleTwo,'addToPlanMember').mockResolvedValue(true);
+      jest.spyOn(roleOne, 'addToProjectMember').mockResolvedValue(true);
+      jest.spyOn(roleOne, 'addToPlanMember').mockResolvedValue(true);
+      jest.spyOn(roleTwo, 'addToProjectMember').mockResolvedValue(true);
+      jest.spyOn(roleTwo, 'addToPlanMember').mockResolvedValue(true);
       jest.spyOn(ProjectMember, 'findPrimaryContact').mockResolvedValue(null);
       jest
         .spyOn(MemberRole, 'findByURL')

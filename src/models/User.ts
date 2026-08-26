@@ -5,22 +5,22 @@ import {
   getCurrentDate,
   isNullOrUndefined,
   validateEmail
-} from '../utils/helpers';
-import { prepareObjectForLogs } from '../logger';
-import { MySqlModel } from './MySqlModel';
-import { MyContext } from '../context';
-import { generalConfig } from '../config/generalConfig';
-import { defaultLanguageId, supportedLanguages } from './Language';
-import { UserEmail } from './UserEmail';
+} from '../utils/helpers.js';
+import { prepareObjectForLogs } from '../logger.js';
+import { MySqlModel } from './MySqlModel.js';
+import { MyContext } from '../context.js';
+import { generalConfig } from '../config/generalConfig.js';
+import { defaultLanguageId, supportedLanguages } from './Language.js';
+import { UserEmail } from './UserEmail.js';
 import {
   PaginatedQueryResults,
   PaginationOptions,
   PaginationOptionsForCursors,
   PaginationOptionsForOffsets,
   PaginationType
-} from '../types/general';
-import { ProjectCollaborator, TemplateCollaborator } from "./Collaborator";
-import { bumpUserTokenVersion } from '../services/tokenService';
+} from '../types/general.js';
+import { ProjectCollaborator, TemplateCollaborator } from "./Collaborator.js";
+import { bumpUserTokenVersion } from '../services/tokenService.js';
 
 export enum UserRole {
   RESEARCHER = 'RESEARCHER',

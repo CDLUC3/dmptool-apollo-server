@@ -1,11 +1,12 @@
 import casual from "casual";
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { PlanMember, ProjectMember } from "../Member";
-import { getMockORCID } from "../../__tests__/helpers";
-import { MemberRole } from "../MemberRole";
-import { logger } from "../../logger";
+import { buildMockContextWithToken } from "../../__mocks__/context.js";
 
-jest.mock('../../context.ts');
+import { PlanMember, ProjectMember } from "../Member";
+import { getMockORCID } from "../../__tests__/helpers.js";
+import { MemberRole } from "../MemberRole";
+import { logger } from "../../logger.js";
+
+jest.mock('../../context.js');
 
 let context;
 

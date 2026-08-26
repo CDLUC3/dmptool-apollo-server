@@ -1,6 +1,6 @@
 import { AugmentedRequest, RESTDataSource } from "@apollo/datasource-rest";
-import { prepareObjectForLogs } from '../logger';
-import { MyContext } from "../context";
+import { prepareObjectForLogs } from '../logger.js';
+import { MyContext } from "../context.js";
 import { EZIDConfig } from "../config/ezidConfig";
 
 // Per the "Request & response bodies" EZID documentation (https://ezid.cdlib.org/doc/apidoc.html#request-response-bodies)

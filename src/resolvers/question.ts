@@ -1,22 +1,22 @@
-import { ReorderQuestionsResult, Resolvers } from "../types";
-import { MyContext } from "../context";
-import { Question } from "../models/Question";
-import { Template } from "../models/Template";
-import { QuestionConditionGroup } from "../models/QuestionConditionGroup";
-import { updateDisplayOrders } from "../services/questionService";
+import { ReorderQuestionsResult, Resolvers } from "../types.js";
+import { MyContext } from "../context.js";
+import { Question } from "../models/Question.js";
+import { Template } from "../models/Template.js";
+import { QuestionConditionGroup } from "../models/QuestionConditionGroup.js";
+import { updateDisplayOrders } from "../services/questionService.js";
 import {
   AuthenticationError,
   BadRequestError,
   ForbiddenError,
   InternalServerError,
   NotFoundError
-} from "../utils/graphQLErrors";
-import { Tag } from "../models/Tag";
-import { prepareObjectForLogs } from "../logger";
-import { isAdmin, isAuthorized } from "../services/authService";
-import { hasPermissionOnSection } from "../services/sectionService";
+} from "../utils/graphQLErrors.js";
+import { Tag } from "../models/Tag.js";
+import { prepareObjectForLogs } from "../logger.js";
+import { isAdmin, isAuthorized } from "../services/authService.js";
+import { hasPermissionOnSection } from "../services/sectionService.js";
 import { GraphQLError } from "graphql";
-import { normaliseDateTime } from "../utils/helpers";
+import { normaliseDateTime } from "../utils/helpers.js";
 
 export const resolvers: Resolvers = {
   Query: {

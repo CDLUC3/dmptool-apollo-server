@@ -2,7 +2,7 @@ import { ApolloServer } from '@apollo/server';
 import { addMocksToSchema } from '@graphql-tools/mock';
 import { makeExecutableSchema } from '@graphql-tools/schema';
 
-import { MyContext } from '../context';
+import { MyContext } from '../context.js';
 import { typeDefs } from '../schema';
 import { resolvers } from '../resolver';
 import { mocks } from '../mocks';

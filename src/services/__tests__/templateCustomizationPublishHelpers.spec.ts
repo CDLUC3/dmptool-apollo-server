@@ -1,24 +1,25 @@
-import { MyContext } from "../../context";
-import { VersionedTemplateCustomization } from "../../models/VersionedTemplateCustomization";
-import { VersionedSection } from "../../models/VersionedSection";
-import { VersionedQuestion } from "../../models/VersionedQuestion";
-import { VersionedCustomSection } from "../../models/VersionedCustomSection";
-import { VersionedCustomQuestion } from "../../models/VersionedCustomQuestion";
-import { CustomSection, PinnedSectionTypeEnum } from "../../models/CustomSection";
-import { CustomQuestion } from "../../models/CustomQuestion";
-import { SectionCustomization } from "../../models/SectionCustomization";
-import { QuestionCustomization } from "../../models/QuestionCustomization";
-import { VersionedSectionCustomization } from "../../models/VersionedSectionCustomization";
-import { VersionedQuestionCustomization } from "../../models/VersionedQuestionCustomization";
+import { MyContext } from "../../context.js";
+import { VersionedTemplateCustomization } from "../../models/VersionedTemplateCustomization.js";
+import { VersionedSection } from "../../models/VersionedSection.js";
+import { VersionedQuestion } from "../../models/VersionedQuestion.js";
+import { VersionedCustomSection } from "../../models/VersionedCustomSection.js";
+import { VersionedCustomQuestion } from "../../models/VersionedCustomQuestion.js";
+import { CustomSection, PinnedSectionTypeEnum } from "../../models/CustomSection.js";
+import { CustomQuestion } from "../../models/CustomQuestion.js";
+import { SectionCustomization } from "../../models/SectionCustomization.js";
+import { QuestionCustomization } from "../../models/QuestionCustomization.js";
+import { VersionedSectionCustomization } from "../../models/VersionedSectionCustomization.js";
+import { VersionedQuestionCustomization } from "../../models/VersionedQuestionCustomization.js";
 import {
   PublishableCustomization,
   snapshotCustomizationChildren,
   rollbackPublishedSnapshot,
-} from "../templateCustomizationPublishHelpers";
-import { User, UserRole } from "../../models/User";
+} from "../templateCustomizationPublishHelpers.js";
+import { User, UserRole } from "../../models/User.js";
 import casual from "casual";
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { logger } from "../../logger";
+import { buildMockContextWithToken } from "../../__mocks__/context.js";
+
+import { logger } from "../../logger.js";
 
 jest.mock("../../models/VersionedTemplateCustomization");
 jest.mock("../../models/VersionedSection");

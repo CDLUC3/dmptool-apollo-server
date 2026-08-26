@@ -9,21 +9,22 @@ jest.mock('../../services/authService', () => ({
 }));
 
 import { ApolloServer } from "@apollo/server";
-import { typeDefs } from "../../schema";
-import { resolvers } from '../../resolver';
-import { logger } from "../../logger";
-import { JWTAccessToken } from "../../services/tokenService";
-import { UserRole } from "../../models/User";
-import { buildContext, mockToken } from "../../__mocks__/context";
+import { typeDefs } from "../../schema.js";
+import { resolvers } from '../../resolver.js';
+import { logger } from "../../logger.js";
+import { JWTAccessToken } from "../../services/tokenService.js";
+import { UserRole } from "../../models/User.js";
+import { buildContext, mockToken } from "../../__mocks__/context.js";
+
 import { AdminNotificationResults, AdminNotification } from "../../models/AdminNotifications";
-import { Plan } from "../../models/Plan";
-import { Template } from "../../models/Template";
-import { TemplateCustomization } from "../../models/TemplateCustomization";
-import { PlanFeedback } from "../../models/PlanFeedback";
-import { User } from "../../models/User";
+import { Plan } from "../../models/Plan.js";
+import { Template } from "../../models/Template.js";
+import { TemplateCustomization } from "../../models/TemplateCustomization.js";
+import { PlanFeedback } from "../../models/PlanFeedback.js";
+import { User } from "../../models/User.js";
 import { isSuperAdmin, isAdmin } from '../../services/authService';
 
-jest.mock('../../context.ts');
+jest.mock('../../context.js');
 jest.mock('../../datasources/cache');
 
 jest.mock('../../models/AdminNotifications', () => ({

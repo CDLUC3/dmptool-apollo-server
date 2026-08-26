@@ -141,6 +141,10 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated app to use Ecma Script Modules (ESM) [#259]
+  - Updated `tsconfig.json` for `ESM`
+  - Updated `dev` script to use `tsx` instead of `ts-node-dev` in `package.json` and updated `test` and `test-no-db` scripts because jest itself doesn't natively support ESM without the `--experimental-vm-modules` flag
+  
 - Updated docker compose so that LocalStack log level is now `WARN`.
 - Bumped versions of `@dmptool` packages to their latest versions
 - Updated `RelatedWork` model so that it does not always try to strip off the protocol and domain from the related work identifier. The DMP works matching deals with DOIs, but we are allowing users to manually add related works via the UI as well as through the REST API and sometimes the entries are URLs or other unique identetifiers that are NOT DOIs. These changes continue to strip off the `https://doi.org` if it is a DOI (for backward compatibility with the dmp works project) but otherwise preserve the entire value
@@ -689,7 +693,7 @@ prior to 2025-10-21
 - Updated structure of `cacheConfig.ts` to match other configs
 - Moved config for `MysSQLDataSource` from the datasource into its config file
 - Moved `SigTerm` handler tests for `mysql` into a separate test file. They were failing for some reason when run together
-- Refactored `context.ts` and tests to use new `dmpHubAPI` datasource
+- Refactored `context.js` and tests to use new `dmpHubAPI` datasource
 - Refactored old "mocks" to extract duplicative code into the `MySQLMock.ts`
 - Update existing resolver tests to use new mocks
 - Made sure all config entries were covered in the `__tests__/setup.ts`
@@ -705,7 +709,7 @@ prior to 2025-10-21
 - Change default JWT TTL to 30 minutes
 - Added user id to the JTI to help ensure uniqueness
 - Update sign out controller to always clear the cookies and return 200 regardless of the state of the tokens
-- Updated `src/context.ts` to use a `buildContext` wrapper function that can be called when building the context for Apollo Server and our `signin` and `signup` endpoints.
+- Updated `src/context.js` to use a `buildContext` wrapper function that can be called when building the context for Apollo Server and our `signin` and `signup` endpoints.
 - Updated use of `toUTCString()` to `toISOString()`
 - Updated `tokenService` to properly catch and throw errors
 - Updated `graphQLErrors` with more error types

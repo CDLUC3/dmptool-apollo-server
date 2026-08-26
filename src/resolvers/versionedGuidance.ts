@@ -1,14 +1,14 @@
-import { Resolvers } from "../types";
-import { MyContext } from "../context";
-import { VersionedGuidance } from "../models/VersionedGuidance";
-import { VersionedGuidanceGroup } from "../models/VersionedGuidanceGroup";
-import { Guidance } from "../models/Guidance";
-import { GuidanceGroup } from "../models/GuidanceGroup";
-import { AuthenticationError, InternalServerError } from "../utils/graphQLErrors";
-import { isAuthorized } from "../services/authService";
-import { prepareObjectForLogs } from "../logger";
+import { Resolvers } from "../types.js";
+import { MyContext } from "../context.js";
+import { VersionedGuidance } from "../models/VersionedGuidance.js";
+import { VersionedGuidanceGroup } from "../models/VersionedGuidanceGroup.js";
+import { Guidance } from "../models/Guidance.js";
+import { GuidanceGroup } from "../models/GuidanceGroup.js";
+import { AuthenticationError, InternalServerError } from "../utils/graphQLErrors.js";
+import { isAuthorized } from "../services/authService.js";
+import { prepareObjectForLogs } from "../logger.js";
 import { GraphQLError } from "graphql";
-import { normaliseDateTime } from "../utils/helpers";
+import { normaliseDateTime } from "../utils/helpers.js";
 
 export const resolvers: Resolvers = {
   Query: {

@@ -2,12 +2,12 @@
 //       SuperAdmins to update them.
 //       Load the appropriate message and send it out
 import nodemailer, { TransportOptions } from 'nodemailer';
-import { MyContext } from "../context";
-import { User } from "../models/User";
-import { awsConfig } from "../config/awsConfig";
-import { emailConfig } from "../config/emailConfig";
-import { prepareObjectForLogs } from "../logger";
-import { generalConfig } from '../config/generalConfig';
+import { MyContext } from "../context.js";
+import { User } from "../models/User.js";
+import { awsConfig } from "../config/awsConfig.js";
+import { emailConfig } from "../config/emailConfig.js";
+import { prepareObjectForLogs } from "../logger.js";
+import { generalConfig } from '../config/generalConfig.js';
 
 export const emailSubjects = {
   emailConfirmation: 'Please confirm your email address',

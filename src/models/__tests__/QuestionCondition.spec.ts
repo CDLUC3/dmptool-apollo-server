@@ -1,9 +1,10 @@
 import casual from "casual";
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { QuestionCondition } from "../QuestionCondition";
-import { logger } from "../../logger";
+import { buildMockContextWithToken } from "../../__mocks__/context.js";
 
-jest.mock('../../context.ts');
+import { QuestionCondition } from "../QuestionCondition";
+import { logger } from "../../logger.js";
+
+jest.mock('../../context.js');
 
 describe('QuestionCondition', () => {
   let questionCondition;

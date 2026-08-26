@@ -1,6 +1,6 @@
-import { Resolvers } from "../types";
-import { MyContext } from "../context";
-import { QuestionCondition } from "../models/QuestionCondition";
+import { Resolvers } from "../types.js";
+import { MyContext } from "../context.js";
+import { QuestionCondition } from "../models/QuestionCondition.js";
 import {
   NotFoundError,
   ForbiddenError,
@@ -8,15 +8,15 @@ import {
   InternalServerError,
   BadRequestError,
   BAD_REQUEST_ERROR_CODE,
-} from "../utils/graphQLErrors";
-import { isAdmin } from "../services/authService";
-import { hasPermissionOnQuestion } from "../services/questionService";
-import { QuestionConditionGroup } from "../models/QuestionConditionGroup";
-import { Question } from "../models/Question";
-import { Template } from "../models/Template";
-import { prepareObjectForLogs } from "../logger";
+} from "../utils/graphQLErrors.js";
+import { isAdmin } from "../services/authService.js";
+import { hasPermissionOnQuestion } from "../services/questionService.js";
+import { QuestionConditionGroup } from "../models/QuestionConditionGroup.js";
+import { Question } from "../models/Question.js";
+import { Template } from "../models/Template.js";
+import { prepareObjectForLogs } from "../logger.js";
 import { GraphQLError } from "graphql";
-import { normaliseDateTime } from "../utils/helpers";
+import { normaliseDateTime } from "../utils/helpers.js";
 
 
 export const resolvers: Resolvers = {

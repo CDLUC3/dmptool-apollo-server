@@ -3,9 +3,10 @@
  * https://jestjs.io/docs/configuration
  */
 
-import type {Config} from 'jest';
+/** @type {import('jest').Config} */
 
-const config: Config = {
+
+const config = {
   // All imported modules in your tests should be mocked automatically
   // automock: false,
 
@@ -36,6 +37,9 @@ const config: Config = {
 
   // Indicates which provider should be used to instrument code for coverage
   coverageProvider: "v8",
+
+  // Tell Jest to treat .ts files as ESM
+  extensionsToTreatAsEsm: ['.ts'],
 
   // A list of reporter names that Jest uses when writing coverage reports
   // coverageReporters: [
@@ -91,8 +95,11 @@ const config: Config = {
   //   "node"
   // ],
 
-  // A map from regular expressions to module names or to arrays of module names that allow to stub out resources with a single module
-  // moduleNameMapper: {},
+  // Map .js imports back to their .ts source files
+  moduleNameMapper: {
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+  },
+
 
   // An array of regexp pattern strings, matched against all module paths before considered 'visible' to the module loader
   // modulePathIgnorePatterns: [],
@@ -103,8 +110,8 @@ const config: Config = {
   // An enum that specifies notification mode. Requires { notify: true }
   // notifyMode: "failure-change",
 
-  // A preset that is used as a base for Jest's configuration
-  preset: 'ts-jest',
+  // Use ts-jest's ESM preset instead of the default preset
+  preset: 'ts-jest/presets/default-esm',
 
   // Run tests from one or more projects
   // projects: undefined,
@@ -176,26 +183,34 @@ const config: Config = {
   // This option allows use of a custom test runner
   // testRunner: "jest-circus/runner",
 
-  // A map from regular expressions to paths to transformers
-  // transform: undefined,
-
-  // An array of regexp pattern strings that are matched against all source file paths, matched files will skip transformation
-  // transformIgnorePatterns: [
-  //   "/node_modules/",
-  //   "\\.pnp\\.[^\\/]+$"
-  // ],
-
-  // An array of regexp pattern strings that are matched against all modules before the module loader will automatically return a mock for them
-  // unmockedModulePathPatterns: undefined,
-
-  // Indicates whether each individual test should be reported during the run
-  // verbose: undefined,
-
-  // An array of regexp patterns that are matched against all source file paths before re-running tests in watch mode
-  // watchPathIgnorePatterns: [],
-
-  // Whether to use watchman for file crawling
-  // watchman: true,
+  // Configure ts-jest for ESM
+  transform: {
+    '^.+\\.tsx?$': [
+      'ts-jest',
+      {
+        useESM: true,
+      },
+    ],
+  },
 };
+
+// An array of regexp pattern strings that are matched against all source file paths, matched files will skip transformation
+// transformIgnorePatterns: [
+//   "/node_modules/",
+//   "\\.pnp\\.[^\\/]+$"
+// ],
+
+// An array of regexp pattern strings that are matched against all modules before the module loader will automatically return a mock for them
+// unmockedModulePathPatterns: undefined,
+
+// Indicates whether each individual test should be reported during the run
+// verbose: undefined,
+
+// An array of regexp patterns that are matched against all source file paths before re-running tests in watch mode
+// watchPathIgnorePatterns: [],
+
+// Whether to use watchman for file crawling
+// watchman: true,
+
 
 export default config;

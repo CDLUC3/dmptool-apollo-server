@@ -1,8 +1,8 @@
 import { Response } from 'express';
 import { Request } from 'express-jwt';
-import { refreshAccessToken, setTokenCookie } from '../services/tokenService';
-import { buildContext } from '../context';
-import { prepareObjectForLogs } from '../logger';
+import { refreshAccessToken, setTokenCookie } from '../services/tokenService.js';
+import { buildContext } from '../context.js';
+import { prepareObjectForLogs } from '../logger.js';
 
 export const refreshTokenController = async (req: Request, res: Response) => {
   const refreshToken = req.cookies?.dmspr?.toString();

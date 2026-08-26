@@ -1,9 +1,10 @@
 import casual from "casual";
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { License } from "../License";
-import { logger } from "../../logger";
+import { buildMockContextWithToken } from "../../__mocks__/context.js";
 
-jest.mock('../../context.ts');
+import { License } from "../License";
+import { logger } from "../../logger.js";
+
+jest.mock('../../context.js');
 
 let context;
 
@@ -79,7 +80,7 @@ describe('findBy Queries', () => {
     context = await buildMockContextWithToken(logger);
 
     license = new License({
-      id: casual.integer(1,9999),
+      id: casual.integer(1, 9999),
       name: casual.company_name,
       uri: casual.url,
       description: casual.sentences(3),

@@ -1,14 +1,14 @@
 
-import { prepareObjectForLogs } from '../logger';
-import { MetadataStandardSearchResults, Resolvers } from "../types";
-import { DEFAULT_DMPTOOL_METADATA_STANDARD_URL, MetadataStandard } from "../models/MetadataStandard";
-import { MyContext } from '../context';
-import { isAdmin, isAuthorized, isSuperAdmin } from '../services/authService';
-import { AuthenticationError, ForbiddenError, InternalServerError, NotFoundError } from '../utils/graphQLErrors';
-import { ResearchDomain } from '../models/ResearchDomain';
+import { prepareObjectForLogs } from '../logger.js';
+import { MetadataStandardSearchResults, Resolvers } from "../types.js";
+import { DEFAULT_DMPTOOL_METADATA_STANDARD_URL, MetadataStandard } from "../models/MetadataStandard.js";
+import { MyContext } from '../context.js';
+import { isAdmin, isAuthorized, isSuperAdmin } from '../services/authService.js';
+import { AuthenticationError, ForbiddenError, InternalServerError, NotFoundError } from '../utils/graphQLErrors.js';
+import { ResearchDomain } from '../models/ResearchDomain.js';
 import { GraphQLError } from 'graphql';
-import { PaginationOptionsForCursors, PaginationOptionsForOffsets, PaginationType } from '../types/general';
-import { isNullOrUndefined, normaliseDateTime } from '../utils/helpers';
+import { PaginationOptionsForCursors, PaginationOptionsForOffsets, PaginationType } from '../types/general.js';
+import { isNullOrUndefined, normaliseDateTime } from '../utils/helpers.js';
 
 export const resolvers: Resolvers = {
   Query: {
@@ -18,8 +18,8 @@ export const resolvers: Resolvers = {
       const { term, researchDomainId, paginationOptions } = params;
       try {
         const opts = !isNullOrUndefined(paginationOptions) && paginationOptions.type === PaginationType.OFFSET
-                    ? paginationOptions as PaginationOptionsForOffsets
-                    : { ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors;
+          ? paginationOptions as PaginationOptionsForOffsets
+          : { ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors;
 
         return await MetadataStandard.search(reference, context, term, researchDomainId, opts);
       } catch (err) {
@@ -116,7 +116,7 @@ export const resolvers: Resolvers = {
           const toUpdate = new MetadataStandard(input);
           const updated = await toUpdate.update(context);
 
-          if (updated && !updated.hasErrors()){
+          if (updated && !updated.hasErrors()) {
             // Fetch all of the current ResearchDomains associated with this MetadataStandard
             const researchDomains = await ResearchDomain.findByMetadataStandardId(reference, context, standard.id);
             const currentDomainIds = researchDomains ? researchDomains.map((d) => d.id) : [];
@@ -236,7 +236,7 @@ export const resolvers: Resolvers = {
             // Merge the researchDomains
             if (toRemove.researchDomains && Array.isArray(toRemove.researchDomains)) {
               toRemove.researchDomains.filter((rd) => !toKeep.researchDomains.includes(rd))
-                                      .forEach((dom) => toKeep.researchDomains.push(dom));
+                .forEach((dom) => toKeep.researchDomains.push(dom));
             }
             await toKeep.update(context);
           }

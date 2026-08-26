@@ -9,24 +9,25 @@ jest.mock('../../services/authService', () => ({
 }));
 
 import { ApolloServer } from "@apollo/server";
-import { typeDefs } from "../../schema";
-import { resolvers } from '../../resolver';
+import { typeDefs } from "../../schema.js";
+import { resolvers } from '../../resolver.js';
 
-import { logger } from "../../logger";
-import { JWTAccessToken } from "../../services/tokenService";
-import { SectionCustomization } from '../../models/SectionCustomization';
-import { CustomSection } from '../../models/CustomSection';
-import { VersionedSection } from '../../models/VersionedSection';
-import { PinnedSectionTypeEnum } from '../../models/CustomSection';
-import { User, UserRole } from "../../models/User";
+import { logger } from "../../logger.js";
+import { JWTAccessToken } from "../../services/tokenService.js";
+import { SectionCustomization } from '../../models/SectionCustomization.js';
+import { CustomSection } from '../../models/CustomSection.js';
+import { VersionedSection } from '../../models/VersionedSection.js';
+import { PinnedSectionTypeEnum } from '../../models/CustomSection.js';
+import { User, UserRole } from "../../models/User.js";
 import {
   getValidatedCustomization,
   markTemplateCustomizationAsDirty
-} from '../../services/templateCustomizationService';
-import { buildContext, mockToken } from "../../__mocks__/context";
-import { Affiliation } from "../../models/Affiliation";
+} from '../../services/templateCustomizationService.js';
+import { buildContext, mockToken } from "../../__mocks__/context.js";
 
-jest.mock('../../context.ts');
+import { Affiliation } from "../../models/Affiliation.js";
+
+jest.mock('../../context.js');
 jest.mock('../../datasources/cache');
 
 jest.mock('../../models/SectionCustomization');

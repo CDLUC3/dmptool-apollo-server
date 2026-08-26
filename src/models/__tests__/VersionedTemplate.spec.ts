@@ -6,24 +6,24 @@ import {
   VersionedTemplateSearchResult,
   CustomizableTemplateSearchResult
 } from '../VersionedTemplate';
-import { buildMockContextWithToken } from '../../__mocks__/context';
+import { buildMockContextWithToken } from '../../__mocks__/context.js';
 import { defaultLanguageId } from '../Language';
-import { getRandomEnumValue } from '../../__tests__/helpers';
-import { generalConfig } from '../../config/generalConfig';
-import { logger } from "../../logger";
+import { getRandomEnumValue } from '../../__tests__/helpers.js';
+import { generalConfig } from '../../config/generalConfig.js';
+import { logger } from "../../logger.js";
 import {
   PaginationOptions,
   PaginationOptionsForOffsets,
   PaginationOptionsForCursors,
   PaginationType,
   PaginatedQueryResults
-} from '../../types/general';
+} from '../../types/general.js';
 import {
   TemplateCustomizationStatus,
   TemplateCustomizationMigrationStatus
 } from '../TemplateCustomization';
 
-jest.mock('../../context.ts');
+jest.mock('../../context.js');
 jest.mock('../../logger');
 
 let context;
@@ -88,21 +88,21 @@ describe('VersionedTemplateSearchResult', () => {
       const result = await VersionedTemplateSearchResult.search('Test', context, term);
       const affiliationId = context.token.affiliationId;
       const sql =
-            'SELECT vt.id, vt.templateId, vt.name, vt.description, vt.version, vt.visibility, vt.bestPractice, ' +
-            'vt.modified, vt.modifiedById, TRIM(CONCAT(u.givenName, " ", u.surName)) as modifiedByName, ' +
-            'a.id as ownerId, vt.ownerId as ownerURI, a.displayName as ownerDisplayName, ' +
-            'a.searchName as ownerSearchName, vt.isDefault, ' +
-            'vtc.id as versionedTemplateCustomizationId ' +
-            'FROM versionedTemplates vt ' +
-            'LEFT JOIN users u ON u.id = vt.modifiedById ' +
-            'LEFT JOIN affiliations a ON a.uri = vt.ownerId ' +
-            'LEFT JOIN versionedTemplateCustomizations vtc ' +
-            'ON vtc.currentVersionedTemplateId = vt.id ' +
-            'AND vtc.affiliationId=? ' +
-            'AND vtc.active = 1';
+        'SELECT vt.id, vt.templateId, vt.name, vt.description, vt.version, vt.visibility, vt.bestPractice, ' +
+        'vt.modified, vt.modifiedById, TRIM(CONCAT(u.givenName, " ", u.surName)) as modifiedByName, ' +
+        'a.id as ownerId, vt.ownerId as ownerURI, a.displayName as ownerDisplayName, ' +
+        'a.searchName as ownerSearchName, vt.isDefault, ' +
+        'vtc.id as versionedTemplateCustomizationId ' +
+        'FROM versionedTemplates vt ' +
+        'LEFT JOIN users u ON u.id = vt.modifiedById ' +
+        'LEFT JOIN affiliations a ON a.uri = vt.ownerId ' +
+        'LEFT JOIN versionedTemplateCustomizations vtc ' +
+        'ON vtc.currentVersionedTemplateId = vt.id ' +
+        'AND vtc.affiliationId=? ' +
+        'AND vtc.active = 1';
       const vals = [affiliationId, TemplateVersionType.PUBLISHED, `%${term.toLowerCase()}%`, `%${term.toLowerCase()}%`];
       const whereFilters = ['vt.active = 1 AND vt.versionType = ?',
-                            '(LOWER(vt.name) LIKE ? OR LOWER(a.searchName) LIKE ?)'];
+        '(LOWER(vt.name) LIKE ? OR LOWER(a.searchName) LIKE ?)'];
 
       const sortFields = ["vt.name", "vt.created", "vt.visibility", "vt.bestPractice", "vt.modified"];
 
@@ -137,14 +137,14 @@ describe('VersionedTemplateSearchResult', () => {
       const affiliationId = versionedTemplateSearchResult.ownerURI;
       const result = await VersionedTemplateSearchResult.findByAffiliationId('Test', context, affiliationId);
       const sql = 'SELECT vt.id, vt.templateId, vt.name, vt.description, vt.version, vt.visibility, vt.bestPractice, ' +
-                    'vt.modified, vt.modifiedById, TRIM(CONCAT(u.givenName, CONCAT(\' \', u.surName))) as modifiedByName, ' +
-                    'a.id as ownerId, vt.ownerId as ownerURI, a.displayName as ownerDisplayName, ' +
-                    'a.searchName as ownerSearchName, vt.isDefault ' +
-                  'FROM versionedTemplates vt ' +
-                    'LEFT JOIN users u ON u.id = vt.modifiedById ' +
-                    'LEFT JOIN affiliations a ON a.uri = vt.ownerId ' +
-                  'WHERE vt.ownerId = affiliationId AND vt.active = 1 AND vt.versionType = ? ' +
-                  'ORDER BY vt.modified DESC;';
+        'vt.modified, vt.modifiedById, TRIM(CONCAT(u.givenName, CONCAT(\' \', u.surName))) as modifiedByName, ' +
+        'a.id as ownerId, vt.ownerId as ownerURI, a.displayName as ownerDisplayName, ' +
+        'a.searchName as ownerSearchName, vt.isDefault ' +
+        'FROM versionedTemplates vt ' +
+        'LEFT JOIN users u ON u.id = vt.modifiedById ' +
+        'LEFT JOIN affiliations a ON a.uri = vt.ownerId ' +
+        'WHERE vt.ownerId = affiliationId AND vt.active = 1 AND vt.versionType = ? ' +
+        'ORDER BY vt.modified DESC;';
       const vals = [affiliationId, TemplateVersionType.PUBLISHED];
       expect(localQuery).toHaveBeenCalledTimes(1);
       expect(localQuery).toHaveBeenLastCalledWith(context, sql, vals, 'Test');
@@ -858,8 +858,8 @@ describe('VersionedTemplate', () => {
 
       const result = await VersionedTemplate.hasAssociatedPlans('Test', context, templateId);
       const expectedSql = 'SELECT p.id FROM plans AS p ' +
-                          'JOIN versionedTemplates AS vt ON p.versionedTemplateId = vt.id ' +
-                          'WHERE vt.templateId = ? LIMIT 1';
+        'JOIN versionedTemplates AS vt ON p.versionedTemplateId = vt.id ' +
+        'WHERE vt.templateId = ? LIMIT 1';
       expect(localQuery).toHaveBeenCalledTimes(1);
       expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [templateId.toString()], 'Test');
       expect(result).toBe(true);
@@ -870,8 +870,8 @@ describe('VersionedTemplate', () => {
 
       const result = await VersionedTemplate.hasAssociatedPlans('Test', context, templateId);
       const expectedSql = 'SELECT p.id FROM plans AS p ' +
-                          'JOIN versionedTemplates AS vt ON p.versionedTemplateId = vt.id ' +
-                          'WHERE vt.templateId = ? LIMIT 1';
+        'JOIN versionedTemplates AS vt ON p.versionedTemplateId = vt.id ' +
+        'WHERE vt.templateId = ? LIMIT 1';
       expect(localQuery).toHaveBeenCalledTimes(1);
       expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [templateId.toString()], 'Test');
       expect(result).toBe(false);

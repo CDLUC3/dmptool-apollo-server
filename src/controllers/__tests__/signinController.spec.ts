@@ -2,16 +2,17 @@ import casual from 'casual';
 import { Request, Response } from 'express';
 import { Cache } from "../../datasources/cache";
 import { generateAuthTokens, setTokenCookie } from '../../services/tokenService';
-import { generalConfig } from '../../config/generalConfig';
+import { generalConfig } from '../../config/generalConfig.js';
 import { signinController } from '../signinController';
-import * as UserModel from '../../models/User';
-import { defaultLanguageId } from '../../models/Language';
-import { getRandomEnumValue } from '../../__tests__/helpers';
-import { getCurrentDate } from '../../utils/helpers';
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { logger } from "../../logger";
+import * as UserModel from '../../models/User.js';
+import { defaultLanguageId } from '../../models/Language.js';
+import { getRandomEnumValue } from '../../__tests__/helpers.js';
+import { getCurrentDate } from '../../utils/helpers.js';
+import { buildMockContextWithToken } from "../../__mocks__/context.js";
 
-jest.mock('../../context.ts');
+import { logger } from "../../logger.js";
+
+jest.mock('../../context.js');
 
 // Mocking external dependencies
 jest.mock('../../datasources/cache');
@@ -68,7 +69,7 @@ describe('signinController', () => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let context;
 
-  beforeEach(async() => {
+  beforeEach(async () => {
     jest.resetAllMocks();
 
     context = await buildMockContextWithToken(logger);

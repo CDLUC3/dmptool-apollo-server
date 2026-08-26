@@ -6,7 +6,7 @@ import {
 } from '../TemplateCustomization';
 import { VersionedTemplateCustomization } from '../VersionedTemplateCustomization';
 import * as publishHelpers from '../../services/templateCustomizationPublishHelpers';
-import { MyContext } from '../../context';
+import { MyContext } from '../../context.js';
 
 describe('TemplateCustomization', () => {
   let mockContext: MyContext;

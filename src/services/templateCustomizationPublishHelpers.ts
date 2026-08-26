@@ -1,15 +1,15 @@
-import { MyContext } from "../context";
-import { VersionedTemplateCustomization } from "../models/VersionedTemplateCustomization";
-import { VersionedSection } from "../models/VersionedSection";
-import { VersionedQuestion } from "../models/VersionedQuestion";
-import { VersionedCustomSection } from "../models/VersionedCustomSection";
-import { VersionedCustomQuestion } from "../models/VersionedCustomQuestion";
-import { VersionedSectionCustomization } from "../models/VersionedSectionCustomization";
-import { VersionedQuestionCustomization } from "../models/VersionedQuestionCustomization";
-import { CustomSection, PinnedSectionTypeEnum } from "../models/CustomSection";
-import { CustomQuestion } from "../models/CustomQuestion";
-import { SectionCustomization } from "../models/SectionCustomization";
-import { QuestionCustomization } from "../models/QuestionCustomization";
+import { MyContext } from "../context.js";
+import { VersionedTemplateCustomization } from "../models/VersionedTemplateCustomization.js";
+import { VersionedSection } from "../models/VersionedSection.js";
+import { VersionedQuestion } from "../models/VersionedQuestion.js";
+import { VersionedCustomSection } from "../models/VersionedCustomSection.js";
+import { VersionedCustomQuestion } from "../models/VersionedCustomQuestion.js";
+import { VersionedSectionCustomization } from "../models/VersionedSectionCustomization.js";
+import { VersionedQuestionCustomization } from "../models/VersionedQuestionCustomization.js";
+import { CustomSection, PinnedSectionTypeEnum } from "../models/CustomSection.js";
+import { CustomQuestion } from "../models/CustomQuestion.js";
+import { SectionCustomization } from "../models/SectionCustomization.js";
+import { QuestionCustomization } from "../models/QuestionCustomization.js";
 
 /**
  * A minimal interface representing the shape of a TemplateCustomization that

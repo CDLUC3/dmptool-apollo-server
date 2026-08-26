@@ -1,5 +1,5 @@
-import { MyContext } from "../context";
-import { GraphQLResolveInfo } from "graphql/index";
+import { MyContext } from "../context.js";
+import { GraphQLResolveInfo } from "graphql/index.js";
 
 export type AuthenticatedResolverType<TResult, TArgs = Record<string, unknown>, TParent = Record<string, unknown>> = (
   parent: TParent,

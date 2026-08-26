@@ -1,7 +1,7 @@
-import { MySqlModel } from "./MySqlModel";
-import { isNullOrUndefined } from "../utils/helpers";
-import { MyContext } from "../context";
-import { PinnedSectionTypeEnum } from "./CustomSection";
+import { MySqlModel } from "./MySqlModel.js";
+import { isNullOrUndefined } from "../utils/helpers.js";
+import { MyContext } from "../context.js";
+import { PinnedSectionTypeEnum } from "./CustomSection.js";
 
 /**
  * This object represents a versioned snapshot of a custom section that an

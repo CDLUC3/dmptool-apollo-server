@@ -1,19 +1,20 @@
 import casual from "casual";
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { logger } from "../../logger";
-import { Affiliation, AffiliationProvenance, AffiliationType, DEFAULT_DMPTOOL_AFFILIATION_URL } from "../../models/Affiliation";
+import { buildMockContextWithToken } from "../../__mocks__/context.js";
+
+import { logger } from "../../logger.js";
+import { Affiliation, AffiliationProvenance, AffiliationType, DEFAULT_DMPTOOL_AFFILIATION_URL } from "../../models/Affiliation.js";
 import {
   processOtherAffiliationName,
   reconcileAffiliationEmailDomains,
   reconcileAffiliationLinks,
   resolveAffiliation
-} from "../affiliationService";
-import { getCurrentDate } from "../../utils/helpers";
-import { AffiliationEmailDomain } from "../../models/AffiliationEmailDomain";
-import { AffiliationLink } from "../../models/AffiliationLink";
+} from "../affiliationService.js";
+import { getCurrentDate } from "../../utils/helpers.js";
+import { AffiliationEmailDomain } from "../../models/AffiliationEmailDomain.js";
+import { AffiliationLink } from "../../models/AffiliationLink.js";
 
 // Pulling context in here so that the mysql gets mocked
-jest.mock('../../context.ts');
+jest.mock('../../context.js');
 
 let context;
 let affiliationStore;

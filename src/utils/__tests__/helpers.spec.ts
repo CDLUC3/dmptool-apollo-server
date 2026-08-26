@@ -1,4 +1,4 @@
-import { generalConfig } from '../../config/generalConfig';
+import { generalConfig } from '../../config/generalConfig.js';
 import {
   validateDate,
   validateEmail,
@@ -20,7 +20,7 @@ import {
   removeNullAndUndefinedFromJSON,
   normaliseDate,
   normaliseDateTime,
-} from '../helpers';
+} from '../helpers.js';
 
 describe('Date validation', () => {
   test('returns true when the value is a date', async () => {

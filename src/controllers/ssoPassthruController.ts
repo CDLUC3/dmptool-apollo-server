@@ -1,9 +1,9 @@
 import { Request, Response } from "express";
-import { buildContext } from "../context";
-import { AffiliationEmailDomain } from "../models/AffiliationEmailDomain";
-import { isNullOrUndefined } from "../utils/helpers";
-import { prepareObjectForLogs } from "../logger";
-import { Affiliation } from "../models/Affiliation";
+import { buildContext } from "../context.js";
+import { AffiliationEmailDomain } from "../models/AffiliationEmailDomain.js";
+import { isNullOrUndefined } from "../utils/helpers.js";
+import { prepareObjectForLogs } from "../logger.js";
+import { Affiliation } from "../models/Affiliation.js";
 
 // This is an endpoint that can be called to send a user to login to their
 // institutional SSO via our Shibboleth SP
@@ -38,7 +38,7 @@ export const ssoPassthruController = async (req: Request, res: Response) => {
     // Return a Forbidden code
     if (isNullOrUndefined(affilDomain)
       || isNullOrUndefined(affiliation)
-      || affiliation.uri !== affilDomain.affiliationId ) {
+      || affiliation.uri !== affilDomain.affiliationId) {
       context.logger.error(prepareObjectForLogs({ email, entityId }), 'SSO Passthrough 403 error');
       res.status(403).json({ success: false, message: 'SSO is not available at this time.' });
     }
@@ -62,8 +62,8 @@ export const ssoPassthruController = async (req: Request, res: Response) => {
 
     // Redirect the user to our Shibboleth SP
     res.status(301)
-       .location(`${shibURL}?target=${encodeURIComponent(targetURL)}&entityId=${entityId}`)
-       .send();
+      .location(`${shibURL}?target=${encodeURIComponent(targetURL)}&entityId=${entityId}`)
+      .send();
 
   } catch (err) {
     context.logger.error(prepareObjectForLogs({ email, entityId, err }), 'SSO Passthrough 500 error');

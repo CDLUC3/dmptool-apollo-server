@@ -1,10 +1,11 @@
 import nock from "nock";
 import { Authorizer } from "../OrcidAPI";
-import { logger } from "../../logger";
+import { logger } from "../../logger.js";
 import { OrcidConfig } from "../../config/orcidConfig";
 import { RESTDataSource } from "@apollo/datasource-rest";
 import { KeyvAdapter } from "@apollo/utils.keyvadapter";
-import { buildContext, buildMockContextWithToken } from "../../__mocks__/context";
+import { buildContext, buildMockContextWithToken } from "../../__mocks__/context.js";
+
 import { OrcidAPI } from "../OrcidAPI";
 
 // Mock RESTDataSource methods
@@ -131,7 +132,7 @@ describe('OrcidAPI', () => {
                 name: "Old University",
                 "disambiguated-organization": "https://ror.org/98765"
               },
-              url: {value: "https://old.example.com"},
+              url: { value: "https://old.example.com" },
             }
           }, {
             "employment-summary": {
@@ -142,7 +143,7 @@ describe('OrcidAPI', () => {
                   "disambiguated-organization-identifier": "https://ror.org/12345"
                 }
               },
-              url: {value: "https://test.example.com"},
+              url: { value: "https://test.example.com" },
             }
           }]
         }]

@@ -1,8 +1,9 @@
 import { SSMClient, GetParameterCommand, GetParameterCommandOutput } from "@aws-sdk/client-ssm";
 import { getParameter } from "../parameterStore";
-import { MyContext } from "../../context";
-import { logger } from "../../logger";
-import { buildContext } from "../../__mocks__/context";
+import { MyContext } from "../../context.js";
+import { logger } from "../../logger.js";
+import { buildContext } from "../../__mocks__/context.js";
+
 
 // 🟢 Mock the entire AWS SDK client
 jest.mock("@aws-sdk/client-ssm", () => {

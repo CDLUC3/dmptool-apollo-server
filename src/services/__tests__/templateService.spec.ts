@@ -1,19 +1,19 @@
 import casual from 'casual';
-import { Template, TemplateVisibility } from "../../models/Template";
-import { VersionedTemplate, TemplateVersionType } from '../../models/VersionedTemplate';
+import { Template, TemplateVisibility } from "../../models/Template.js";
+import { VersionedTemplate, TemplateVersionType } from '../../models/VersionedTemplate.js';
 import {
   cloneTemplate, generateTemplateVersion, hasPermissionOnTemplate,
   setDefaultTemplate
-} from '../templateService';
-import { TemplateCollaborator } from '../../models/Collaborator';
+} from '../templateService.js';
+import { TemplateCollaborator } from '../../models/Collaborator.js';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { isSuperAdmin } from '../authService';
-import { buildMockContextWithToken } from '../../__mocks__/context';
-import { Section } from '../../models/Section';
-import { getRandomEnumValue } from '../../__tests__/helpers';
-import { getCurrentDate } from '../../utils/helpers';
-import { logger } from '../../logger';
-import { Tag } from '../../models/Tag';
+import { isSuperAdmin } from '../authService.js';
+import { buildMockContextWithToken } from '../../__mocks__/context.js';
+import { Section } from '../../models/Section.js';
+import { getRandomEnumValue } from '../../__tests__/helpers.js';
+import { getCurrentDate } from '../../utils/helpers.js';
+import { logger } from '../../logger.js';
+import { Tag } from '../../models/Tag.js';
 
 // Mock all calls to process template customizations
 jest.mock('../../services/templateCustomizationService', () => ({
@@ -21,7 +21,7 @@ jest.mock('../../services/templateCustomizationService', () => ({
 }));
 
 // Pulling context in here so that the mysql gets mocked
-jest.mock('../../context.ts');
+jest.mock('../../context.js');
 
 let context;
 
@@ -479,8 +479,8 @@ describe('setDefaultTemplate', () => {
 
   it('successfully marks the template as default when there was no default before', async () => {
     jest.spyOn(VersionedTemplate, 'defaultTemplate').mockResolvedValue(undefined);
-    jest.spyOn(Template,'query').mockResolvedValue([{}]);
-    jest.spyOn(VersionedTemplate,'query').mockResolvedValue([{}]);
+    jest.spyOn(Template, 'query').mockResolvedValue([{}]);
+    jest.spyOn(VersionedTemplate, 'query').mockResolvedValue([{}]);
     await setDefaultTemplate('Test', context, template);
     expect(VersionedTemplate.defaultTemplate).toHaveBeenCalled();
     expect(Template.query).toHaveBeenCalledTimes(1);
@@ -491,8 +491,8 @@ describe('setDefaultTemplate', () => {
 
   it('successfully marks the template as default when one already is set', async () => {
     jest.spyOn(VersionedTemplate, 'defaultTemplate').mockResolvedValue(oldTemplate);
-    jest.spyOn(Template,'query').mockResolvedValue([{}]);
-    jest.spyOn(VersionedTemplate,'query').mockResolvedValue([{}]);
+    jest.spyOn(Template, 'query').mockResolvedValue([{}]);
+    jest.spyOn(VersionedTemplate, 'query').mockResolvedValue([{}]);
     await setDefaultTemplate('Test', context, template);
     expect(VersionedTemplate.defaultTemplate).toHaveBeenCalled();
     expect(Template.query).toHaveBeenCalledTimes(2);
@@ -503,7 +503,7 @@ describe('setDefaultTemplate', () => {
 
   it('does not unmark the existing template as default if the marking failed', async () => {
     jest.spyOn(VersionedTemplate, 'defaultTemplate').mockResolvedValue(oldTemplate);
-    jest.spyOn(Template,'query').mockResolvedValue([]);
+    jest.spyOn(Template, 'query').mockResolvedValue([]);
     await setDefaultTemplate('Test', context, template);
     expect(Template.query).toHaveBeenCalledTimes(1);
     expect(Template.query).toHaveBeenLastCalledWith(context, 'UPDATE templates SET isDefault = ? WHERE id = ?;', ['1', template.id.toString()], 'Test');
@@ -511,8 +511,8 @@ describe('setDefaultTemplate', () => {
 
   it('rolls back if marking the versionedTemplates as default fails', async () => {
     jest.spyOn(VersionedTemplate, 'defaultTemplate').mockResolvedValue(undefined);
-    jest.spyOn(Template,'query').mockResolvedValue([{}]);
-    jest.spyOn(VersionedTemplate,'query').mockResolvedValue([]);
+    jest.spyOn(Template, 'query').mockResolvedValue([{}]);
+    jest.spyOn(VersionedTemplate, 'query').mockResolvedValue([]);
     await setDefaultTemplate('Test', context, template);
     expect(Template.query).toHaveBeenCalledTimes(2);
     expect(Template.query).toHaveBeenLastCalledWith(context, 'UPDATE templates SET isDefault = ? WHERE id = ?;', ['0', template.id.toString()], 'Test');

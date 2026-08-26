@@ -1,5 +1,7 @@
-jest.mock('../logger', () => {
-  const original = jest.requireActual('../logger') as typeof import('../logger');
+import { jest } from '@jest/globals';
+
+jest.mock('../logger.js', () => {
+  const original = jest.requireActual('../logger.js') as typeof import('../logger.js');
 
   const mockLogger = {
     info: jest.fn(),
@@ -21,7 +23,7 @@ jest.mock('../logger', () => {
 });
 
 // Always mock out our config files
-jest.mock('../config/awsConfig', () => ({
+jest.mock('../config/awsConfig.js', () => ({
   awsConfig: {
     region: 'us-west-2',
     ses: {
@@ -65,7 +67,7 @@ jest.mock('../config/awsConfig', () => ({
   }),
 }));
 
-jest.mock('../config/cacheConfig', () => ({
+jest.mock('../config/cacheConfig.js', () => ({
   cacheConfig: {
     socket: {
       host: 'localhost',
@@ -76,14 +78,14 @@ jest.mock('../config/cacheConfig', () => ({
   },
 }));
 
-jest.mock('../config/emailConfig', () => ({
+jest.mock('../config/emailConfig.js', () => ({
   emailConfig: {
     helpDeskAddress: 'help@example.com',
     doNotReplyAddress: 'do-not-reply@example.com'
   }
 }));
 
-jest.mock('../config/dmpHubConfig', () => ({
+jest.mock('../config/dmpHubConfig.js', () => ({
   DMPHubConfig: {
     dmpHubAuthURL: 'http://auth.dmphub.example.com',
     dmpHubURL: 'http://api.dmphub.example.com',
@@ -94,7 +96,7 @@ jest.mock('../config/dmpHubConfig', () => ({
   }
 }));
 
-jest.mock('../config/orcidConfig', () => ({
+jest.mock('../config/orcidConfig.js', () => ({
   OrcidConfig: {
     clientId: "DUMMY_CLIENT_ID",
     clientSecret: "DUMMY_CLIENT_SECRET",
@@ -106,7 +108,7 @@ jest.mock('../config/orcidConfig', () => ({
   }
 }));
 
-jest.mock('../config/generalConfig', () => ({
+jest.mock('../config/generalConfig.js', () => ({
   generalConfig: {
     env: 'test',
     domain: 'localhost:3000',

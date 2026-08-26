@@ -1,13 +1,14 @@
 import casual from "casual";
 import { Affiliation, AffiliationSearch, PopularFunder } from "../Affiliation";
-import { buildMockContextWithToken } from "../../__mocks__/context";
+import { buildMockContextWithToken } from "../../__mocks__/context.js";
+
 import { DMPHubConfig } from "../../config/dmpHubConfig";
-import { generalConfig } from "../../config/generalConfig";
-import { logger } from "../../logger";
+import { generalConfig } from "../../config/generalConfig.js";
+import { logger } from "../../logger.js";
 import { PaginationType } from "../../types/general";
 
 let context;
-jest.mock('../../context.ts');
+jest.mock('../../context.js');
 
 describe('Affiliation', () => {
   let affiliation;
@@ -96,7 +97,7 @@ describe('findById', () => {
   let context;
   let affiliation;
 
-  beforeEach(async() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
 
     context = await buildMockContextWithToken(logger);
@@ -219,7 +220,7 @@ describe('update', () => {
   let updateQuery;
   let affiliation;
 
-  beforeEach(async() => {
+  beforeEach(async () => {
     jest.resetAllMocks();
 
     context = await buildMockContextWithToken(logger);
@@ -488,7 +489,7 @@ describe('search', () => {
     const sql = 'SELECT a.* FROM affiliations a';
     const whereFilters = ['a.active = 1', '(LOWER(a.searchName) LIKE ?)', 'a.funder = 1'];
     const vals = [`%${term.toLowerCase().trim()}%`];
-    const sortFields =  ["a.displayName", "a.created"];
+    const sortFields = ["a.displayName", "a.created"];
     const opts = {
       cursor: null,
       limit: generalConfig.defaultSearchLimit,
@@ -510,7 +511,7 @@ describe('search', () => {
     const sql = 'SELECT a.* FROM affiliations a';
     const whereFilters = ['a.active = 1', '(LOWER(a.searchName) LIKE ?)'];
     const vals = [`%${term.toLowerCase().trim()}%`];
-    const sortFields =  ["a.displayName", "a.created"];
+    const sortFields = ["a.displayName", "a.created"];
     const opts = {
       cursor: null,
       limit: generalConfig.defaultSearchLimit,
@@ -572,10 +573,10 @@ describe('top5', () => {
     localQuery.mockResolvedValueOnce([popularFunder]);
     const result = await PopularFunder.top5(context);
     const expectedSql = 'SELECT a.id, a.uri, a.displayName, a.apiTarget, COUNT(p.id) AS nbrPlans ' +
-                        'FROM affiliations a LEFT JOIN projectFundings pf ON pf.affiliationId = a.uri ' +
-                        'LEFT JOIN projects p ON p.id = pf.projectId WHERE a.active = 1 AND a.funder = 1 ' +
-                        'AND p.isTestProject = 0 AND p.created BETWEEN ? AND ? GROUP BY a.id, a.uri, ' +
-                        'a.displayName ORDER BY nbrPlans DESC LIMIT 5';
+      'FROM affiliations a LEFT JOIN projectFundings pf ON pf.affiliationId = a.uri ' +
+      'LEFT JOIN projects p ON p.id = pf.projectId WHERE a.active = 1 AND a.funder = 1 ' +
+      'AND p.isTestProject = 0 AND p.created BETWEEN ? AND ? GROUP BY a.id, a.uri, ' +
+      'a.displayName ORDER BY nbrPlans DESC LIMIT 5';
     // Get the date range for the past year
     const today = new Date();
     const lastYear = new Date();

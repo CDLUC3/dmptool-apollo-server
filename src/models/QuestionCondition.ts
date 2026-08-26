@@ -1,10 +1,10 @@
-import { MyContext } from "../context";
-import { MySqlModel } from "./MySqlModel";
-import {
+import { MyContext } from "../context.js";
+import { MySqlModel } from "./MySqlModel.js";
+import type { // Tell Node.js to compeltely ignore this. line at runtime
   QuestionConditionActionType,
   QuestionConditionMatchType,
   QuestionConditionCondition
-} from "../types";
+} from "../types.js";
 
 export { QuestionConditionActionType, QuestionConditionMatchType, QuestionConditionCondition };
 

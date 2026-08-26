@@ -1,21 +1,21 @@
-import { MyContext } from '../../context';
-import { buildMockContextWithToken } from '../../__mocks__/context';
-import { logger } from '../../logger';
-import { Plan } from '../../models/Plan';
+import { MyContext } from '../../context.js';
+import { buildMockContextWithToken } from '../../__mocks__/context.js';
+import { logger } from '../../logger.js';
+import { Plan } from '../../models/Plan.js';
 import {
   AcceptedWork,
   RelatedWork,
   RelationType,
   Work,
   WorkVersion,
-} from '../../models/RelatedWork';
-import { AddRelatedWorkManualInput } from '../../types';
-import { NOT_FOUND_ERROR_CODE } from '../../utils/graphQLErrors';
+} from '../../models/RelatedWork.js';
+import { AddRelatedWorkManualInput } from '../../types.js';
+import { NOT_FOUND_ERROR_CODE } from '../../utils/graphQLErrors.js';
 import {
   addAcceptedWork,
   removeAcceptedWork,
   UpdateAcceptedWork,
-} from '../relatedWorkService';
+} from '../relatedWorkService.js';
 
 describe('relatedWorkService', () => {
   let context: MyContext;
@@ -26,24 +26,24 @@ describe('relatedWorkService', () => {
   const buildInput = (
     overrides: Partial<AddRelatedWorkManualInput> = {},
   ): AddRelatedWorkManualInput =>
-    ({
-      planId: 42,
-      doi: '10.1234/example-doi',
-      hash: 'a1b2',
-      workType: 'DATASET',
-      relationType: 'CITES',
-      publicationDate: '2026-01-01',
-      title: 'A related work title',
-      abstractText: 'Abstract',
-      authors: [{ givenName: 'Alex', surname: 'Doe' }],
-      institutions: [{ name: 'UC3' }],
-      funders: [{ name: 'NSF' }],
-      awards: [{ awardId: 'NSF-123' }],
-      publicationVenue: 'Zenodo',
-      sourceName: 'OpenAlex',
-      sourceUrl: 'https://example.org/work',
-      ...overrides,
-    } as AddRelatedWorkManualInput);
+  ({
+    planId: 42,
+    doi: '10.1234/example-doi',
+    hash: 'a1b2',
+    workType: 'DATASET',
+    relationType: 'CITES',
+    publicationDate: '2026-01-01',
+    title: 'A related work title',
+    abstractText: 'Abstract',
+    authors: [{ givenName: 'Alex', surname: 'Doe' }],
+    institutions: [{ name: 'UC3' }],
+    funders: [{ name: 'NSF' }],
+    awards: [{ awardId: 'NSF-123' }],
+    publicationVenue: 'Zenodo',
+    sourceName: 'OpenAlex',
+    sourceUrl: 'https://example.org/work',
+    ...overrides,
+  } as AddRelatedWorkManualInput);
 
   beforeEach(async () => {
     jest.clearAllMocks();

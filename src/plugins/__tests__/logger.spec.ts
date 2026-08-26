@@ -2,10 +2,9 @@ import {
   GraphQLError,
   // GraphQLResolveInfo
 } from 'graphql';
-import {
-  GraphQLRequestContextDidEncounterSubsequentErrors,
-  // GraphQLRequestContextWillSendSubsequentPayload,
-} from '@apollo/server/dist/esm/externalTypes/requestPipeline';
+export type GraphQLRequestContextDidEncounterSubsequentErrors<TContext extends BaseContext> =
+  GraphQLRequestContext<TContext> & Required<Pick<GraphQLRequestContext<TContext>, 'source' | 'queryHash'>>;
+
 import {
   BaseContext,
   GraphQLRequestContext,
@@ -88,11 +87,11 @@ describe('loggerPlugin', () => {
   });
 
   describe('requestDidStart', () => {
-    test('skips introspection queries', async() => {
+    test('skips introspection queries', async () => {
       expect(await mockLogger.requestDidStart(mockIntrospectionRequestContext)).toEqual({});
     });
 
-    test('skips healthcheck queries', async() => {
+    test('skips healthcheck queries', async () => {
       expect(await mockLogger.requestDidStart(mockHealthCheckRequestContext)).toEqual({});
     });
 
@@ -149,12 +148,17 @@ describe('loggerPlugin', () => {
 
     test('didEncounterSubsequentErrors logs expected message', async () => {
       const listener = await mockLogger.requestDidStart(mockRequestContext) as GraphQLRequestListener<BaseContext>;
+
       listener.didEncounterSubsequentErrors(
-        mockRequestContext as GraphQLRequestContextDidEncounterSubsequentErrors<BaseContext>,
+        // Cast through unknown/any to cleanly satisfy the private method signature
+        /*eslint-disable-next-line @typescript-eslint/no-explicit-any */
+        mockRequestContext as unknown as any,
         [] as GraphQLError[]
       );
+
       expect(errorSpy).toHaveBeenCalledWith('Encountered subsequent errors!');
     });
+
 
     /*
     test('willSendResponse logs expected message', async () => {

@@ -1,4 +1,12 @@
-import { Property } from "@opensearch-project/opensearch/api/_types/_common.mapping";
+import { Client } from "@opensearch-project/opensearch";
+
+type OpenSearchProperties = NonNullable<
+  Parameters<Client["indices"]["putMapping"]>[0]["body"]
+>["properties"];
+
+// Look up the index type to get the singular MappingProperty schema
+export type MappingProperty = NonNullable<OpenSearchProperties>[string];
+
 import { OpenSearch, tokenizeText } from "../datasources/openSearch";
 import { stripIdentifierBaseURL, validateDate } from "../utils/helpers";
 import { Answer } from "../models/Answer";
@@ -27,7 +35,7 @@ export const DEFAULT_MAX_RESULTS = 100;
 /**
  * OpenSearch Index Definition
  */
-export const PropertyDefinition: Record<string, Property> = {
+export const PropertyDefinition: Record<string, MappingProperty> = {
   dmp_id: { type: "keyword" },
   title: { type: "text", fields: { keyword: { type: "keyword", ignore_above: 256 } } },
   project_title: { type: "text", fields: { keyword: { type: "keyword", ignore_above: 256 } } },
@@ -461,8 +469,8 @@ const convertDataset = (
       case 'data_flags':
         displayObject.data_flags = column.answer
           ? (column as ResearchOutputDataFlagsColumnAnswerType).answer.map((entry: string): string => {
-              return cleanString(entry);
-            })
+            return cleanString(entry);
+          })
           : undefined;
         break;
       case 'byte_size':

@@ -1,6 +1,6 @@
 import { MyContext } from "../context";
 import { MySqlModel } from "./MySqlModel";
-import {
+import type { // Tell Node.js to compeltely ignore this. line at runtime
   QuestionConditionActionType,
   QuestionConditionMatchType,
   QuestionConditionCondition

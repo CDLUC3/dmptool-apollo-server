@@ -141,6 +141,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+
 - Updated docker compose so that LocalStack log level is now `WARN`.
 - Bumped versions of `@dmptool` packages to their latest versions
 - Updated `RelatedWork` model so that it does not always try to strip off the protocol and domain from the related work identifier. The DMP works matching deals with DOIs, but we are allowing users to manually add related works via the UI as well as through the REST API and sometimes the entries are URLs or other unique identetifiers that are NOT DOIs. These changes continue to strip off the `https://doi.org` if it is a DOI (for backward compatibility with the dmp works project) but otherwise preserve the entire value

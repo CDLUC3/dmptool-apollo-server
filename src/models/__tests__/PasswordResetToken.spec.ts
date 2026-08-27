@@ -1,10 +1,10 @@
 import casual from 'casual';
-import { PasswordResetToken } from '../PasswordResetToken';
+import { PasswordResetToken } from '../PasswordResetToken.js';
 import { buildMockContextWithToken } from '../../__mocks__/context.js';
 import { logger } from '../../logger.js';
 import * as helpers from '../../utils/helpers.js';
 
-jest.mock('../../context.js');
+jest.mock('../../context.js')
 
 jest.mock('../../utils/helpers.js', () => ({
   ...jest.requireActual('../../utils/helpers.js'),

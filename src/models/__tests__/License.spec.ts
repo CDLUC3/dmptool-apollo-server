@@ -1,10 +1,10 @@
 import casual from "casual";
 import { buildMockContextWithToken } from "../../__mocks__/context.js";
 
-import { License } from "../License";
+import { License } from "../License.js";
 import { logger } from "../../logger.js";
 
-jest.mock('../../context.js');
+jest.mock('../../context.js')
 
 let context;
 

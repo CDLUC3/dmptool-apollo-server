@@ -20,7 +20,7 @@ import { VersionedQuestionConditionGroup } from "../../models/VersionedQuestionC
 import { CURRENT_SCHEMA_VERSION } from "@dmptool/types";
 
 // Pulling context in here so that the mysql gets mocked
-jest.mock('../../context.js');
+jest.mock('../../context.js')
 
 let context;
 

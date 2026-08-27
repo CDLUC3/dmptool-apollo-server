@@ -1,5 +1,5 @@
 import { MyContext } from "../../context.js";
-import { QuestionCustomization } from "../QuestionCustomization";
+import { QuestionCustomization } from "../QuestionCustomization.js";
 import { MySqlModel } from "../MySqlModel.js";
 import { TemplateCustomizationMigrationStatus } from "../TemplateCustomization.js";
 

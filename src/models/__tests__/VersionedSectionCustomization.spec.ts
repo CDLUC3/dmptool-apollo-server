@@ -1,5 +1,5 @@
 import { MyContext } from "../../context.js";
-import { VersionedSectionCustomization } from "../VersionedSectionCustomization";
+import { VersionedSectionCustomization } from "../VersionedSectionCustomization.js";
 import { MySqlModel } from "../MySqlModel.js";
 
 jest.mock("../MySqlModel", () => ({

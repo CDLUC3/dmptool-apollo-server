@@ -5,7 +5,7 @@ import { Project, ProjectSearchResult } from "../Project.js";
 import { generalConfig } from "../../config/generalConfig.js";
 import { logger } from "../../logger.js";
 
-jest.mock('../../context.js');
+jest.mock('../../context.js')
 
 let context;
 

@@ -1,5 +1,5 @@
 import casual from 'casual';
-import { MemberRole } from '../MemberRole';
+import { MemberRole } from '../MemberRole.js';
 import { buildMockContextWithToken } from '../../__mocks__/context.js';
 import { logger } from "../../logger.js";
 

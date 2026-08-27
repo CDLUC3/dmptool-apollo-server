@@ -1,4 +1,4 @@
-import { Cache } from '../cache';
+import { Cache } from '../cache.js';
 import Keyv from 'keyv';
 import KeyvRedis from '@keyv/redis';
 import { KeyvAdapter } from '@apollo/utils.keyvadapter';

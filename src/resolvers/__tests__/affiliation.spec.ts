@@ -34,7 +34,7 @@ import { buildContext, mockToken } from "../../__mocks__/context.js";
 
 import { mockRor } from "../../mocks/affiliation";
 
-jest.mock('../../context.js');
+jest.mock('../../context.js')
 jest.mock('../../datasources/cache');
 
 // Manual mock: keep AffiliationProvenance enum real, mock everything else

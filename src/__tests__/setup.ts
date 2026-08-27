@@ -1,5 +1,8 @@
 import { jest } from '@jest/globals';
 
+// Make jest available as a global so individual test files don't need to import it themselves
+(globalThis as typeof globalThis & { jest: typeof jest }).jest = jest;
+
 jest.mock('../logger.js', () => {
   const original = jest.requireActual('../logger.js') as typeof import('../logger.js');
 

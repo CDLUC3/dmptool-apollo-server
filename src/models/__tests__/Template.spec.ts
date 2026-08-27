@@ -1,13 +1,13 @@
 import casual from 'casual';
-import { Template, TemplateSearchResult, TemplateVisibility } from "../Template";
+import { Template, TemplateSearchResult, TemplateVisibility } from "../Template.js";
 import { buildMockContextWithToken } from '../../__mocks__/context.js';
-import { TemplateCollaborator } from '../Collaborator';
-import { defaultLanguageId } from '../Language';
+import { TemplateCollaborator } from '../Collaborator.js';
+import { defaultLanguageId } from '../Language.js';
 import { getRandomEnumValue } from '../../__tests__/helpers.js';
 import { generalConfig } from '../../config/generalConfig.js';
 import { logger } from "../../logger.js";
 
-jest.mock('../../context.js');
+jest.mock('../../context.js')
 
 let context;
 

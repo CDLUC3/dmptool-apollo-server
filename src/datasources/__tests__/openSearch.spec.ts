@@ -6,7 +6,7 @@ import {
   OpenSearchError,
   OpenSearchServerlessConfig,
   tokenizeText,
-} from '../openSearch';
+} from '../openSearch.js';
 import { Client } from '@opensearch-project/opensearch';
 import { AwsSigv4Signer } from '@opensearch-project/opensearch/aws';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';

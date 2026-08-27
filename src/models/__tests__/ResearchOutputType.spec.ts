@@ -1,4 +1,4 @@
-import { ResearchOutputType } from '../ResearchOutputType';
+import { ResearchOutputType } from '../ResearchOutputType.js';
 import { MyContext } from '../../context.js';
 import casual from 'casual';
 import { buildMockContextWithToken } from "../../__mocks__/context.js";

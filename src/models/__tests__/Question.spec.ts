@@ -1,7 +1,7 @@
 import casual from "casual";
 import { buildMockContextWithToken } from "../../__mocks__/context.js";
 
-import { Question } from "../Question";
+import { Question } from "../Question.js";
 import {
   CURRENT_SCHEMA_VERSION,
   DefaultResearchOutputTableQuestion,
@@ -10,7 +10,7 @@ import {
 import { removeNullAndUndefinedFromJSON } from "../../utils/helpers.js";
 import { logger } from "../../logger.js";
 
-jest.mock('../../context.js');
+jest.mock('../../context.js')
 
 let context;
 

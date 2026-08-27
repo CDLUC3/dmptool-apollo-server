@@ -24,7 +24,7 @@ import { PlanFeedback } from "../../models/PlanFeedback.js";
 import { User } from "../../models/User.js";
 import { isSuperAdmin, isAdmin } from '../../services/authService';
 
-jest.mock('../../context.js');
+jest.mock('../../context.js')
 jest.mock('../../datasources/cache');
 
 jest.mock('../../models/AdminNotifications', () => ({

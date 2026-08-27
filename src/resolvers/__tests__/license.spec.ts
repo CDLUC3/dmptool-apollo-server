@@ -16,7 +16,7 @@ import { getCurrentDate } from '../../utils/helpers.js'
 
 import { License, DEFAULT_DMPTOOL_LICENSE_URL } from '../../models/License.js';
 
-jest.mock('../../context.js');
+jest.mock('../../context.js')
 jest.mock('../../datasources/cache');
 jest.mock('../../services/openSearchService');
 

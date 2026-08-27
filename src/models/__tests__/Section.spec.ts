@@ -1,11 +1,11 @@
 import casual from "casual";
-import { Section } from "../Section";
+import { Section } from "../Section.js";
 import { buildMockContextWithToken } from "../../__mocks__/context.js";
 
 import { logger } from "../../logger.js";
 
 let context;
-jest.mock('../../context.js');
+jest.mock('../../context.js')
 
 describe('Section', () => {
   let section;

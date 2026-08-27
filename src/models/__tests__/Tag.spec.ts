@@ -1,11 +1,11 @@
 import casual from "casual";
-import { Tag } from "../Tag";
+import { Tag } from "../Tag.js";
 import { buildMockContextWithToken } from "../../__mocks__/context.js";
 
 import { logger } from "../../logger.js";
 
 let context;
-jest.mock('../../context.js');
+jest.mock('../../context.js')
 
 
 describe('Tag', () => {

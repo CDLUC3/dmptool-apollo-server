@@ -26,7 +26,7 @@ import { hasPermissionOnProject } from '../../services/projectService.js';
 import { buildContext, mockToken } from "../../__mocks__/context.js";
 
 
-jest.mock('../../context.js');
+jest.mock('../../context.js')
 jest.mock('../../datasources/cache');
 
 jest.mock('../../models/Guidance');

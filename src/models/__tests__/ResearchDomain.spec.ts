@@ -1,11 +1,11 @@
 import casual from "casual";
 import { buildMockContextWithToken } from "../../__mocks__/context.js";
 
-import { ResearchDomain } from "../ResearchDomain";
+import { ResearchDomain } from "../ResearchDomain.js";
 import { generalConfig } from "../../config/generalConfig.js";
 import { logger } from "../../logger.js";
 
-jest.mock('../../context.js');
+jest.mock('../../context.js')
 
 let context;
 

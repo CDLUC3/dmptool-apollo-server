@@ -1,12 +1,12 @@
 import casual from "casual";
 import { buildMockContextWithToken } from "../../__mocks__/context.js";
 
-import { Repository, REPOSITORY_TYPE } from "../Repository";
+import { Repository, REPOSITORY_TYPE } from "../Repository.js";
 import { generalConfig } from "../../config/generalConfig.js";
 import { logger } from "../../logger.js";
-import { isCustomRepository, isRe3DataRepository } from "../../types/repository";
+import { isCustomRepository, isRe3DataRepository } from "../../types/repository.js";
 
-jest.mock('../../context.js');
+jest.mock('../../context.js')
 
 let context;
 

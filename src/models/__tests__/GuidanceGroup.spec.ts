@@ -1,10 +1,10 @@
 import casual from "casual";
-import { GuidanceGroup } from "../GuidanceGroup";
+import { GuidanceGroup } from "../GuidanceGroup.js";
 import { buildMockContextWithToken } from "../../__mocks__/context.js";
 
 import { logger } from "../../logger.js";
 
-jest.mock('../../context.js');
+jest.mock('../../context.js')
 
 describe('GuidanceGroup', () => {
   let guidanceGroup;

@@ -1,5 +1,5 @@
 import { MyContext } from "../../context.js";
-import { SectionCustomization } from "../SectionCustomization";
+import { SectionCustomization } from "../SectionCustomization.js";
 import { MySqlModel } from "../MySqlModel.js";
 import { TemplateCustomizationMigrationStatus } from "../TemplateCustomization.js";
 

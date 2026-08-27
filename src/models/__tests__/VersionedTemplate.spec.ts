@@ -1,13 +1,13 @@
 import casual from 'casual';
-import { TemplateVisibility } from "../Template";
+import { TemplateVisibility } from "../Template.js";
 import {
   TemplateVersionType,
   VersionedTemplate,
   VersionedTemplateSearchResult,
   CustomizableTemplateSearchResult
-} from '../VersionedTemplate';
+} from '../VersionedTemplate.js';
 import { buildMockContextWithToken } from '../../__mocks__/context.js';
-import { defaultLanguageId } from '../Language';
+import { defaultLanguageId } from '../Language.js';
 import { getRandomEnumValue } from '../../__tests__/helpers.js';
 import { generalConfig } from '../../config/generalConfig.js';
 import { logger } from "../../logger.js";
@@ -21,9 +21,9 @@ import {
 import {
   TemplateCustomizationStatus,
   TemplateCustomizationMigrationStatus
-} from '../TemplateCustomization';
+} from '../TemplateCustomization.js';
 
-jest.mock('../../context.js');
+jest.mock('../../context.js')
 jest.mock('../../logger');
 
 let context;

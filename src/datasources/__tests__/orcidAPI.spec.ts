@@ -1,12 +1,12 @@
 import nock from "nock";
-import { Authorizer } from "../OrcidAPI";
+import { Authorizer } from "../OrcidAPI.js";
 import { logger } from "../../logger.js";
-import { OrcidConfig } from "../../config/orcidConfig";
+import { OrcidConfig } from "../../config/orcidConfig.js";
 import { RESTDataSource } from "@apollo/datasource-rest";
 import { KeyvAdapter } from "@apollo/utils.keyvadapter";
 import { buildContext, buildMockContextWithToken } from "../../__mocks__/context.js";
 
-import { OrcidAPI } from "../OrcidAPI";
+import { OrcidAPI } from "../OrcidAPI.js";
 
 // Mock RESTDataSource methods
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

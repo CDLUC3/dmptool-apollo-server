@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import type { Logger } from "pino";
 
 jest.mock("@dmptool/utils");
@@ -10,24 +11,24 @@ const originalNodeEnv = process.env.NODE_ENV;
 
 const buildLogger = (): Logger => {
   return {
-	  debug: jest.fn(),
-	  error: jest.fn(),
+    debug: jest.fn(),
+    error: jest.fn(),
   } as unknown as Logger;
 };
 
-const loadS3Module = async (): Promise<typeof import("../s3")> => {
-  return await import("../s3");
+const loadS3Module = async (): Promise<typeof import("../s3.js")> => {
+  return await import("../s3.js");
 };
 
 const getMockedUtils = (): {
-  getPresignedURLForImageUpload: jest.Mock;
-  removeObject: jest.Mock;
-  toErrorMessage: jest.Mock;
+  getPresignedURLForImageUpload: jest.Mock<(...args: unknown[]) => Promise<{ url: string; fields: string }>>;
+  removeObject: jest.Mock<(...args: unknown[]) => Promise<{ DeleteMarker: boolean } | null>>;
+  toErrorMessage: jest.Mock<(...args: unknown[]) => string>;
 } => {
   return jest.requireMock("@dmptool/utils") as {
-	  getPresignedURLForImageUpload: jest.Mock;
-    removeObject: jest.Mock;
-    toErrorMessage: jest.Mock;
+    getPresignedURLForImageUpload: jest.Mock<(...args: unknown[]) => Promise<{ url: string; fields: string }>>;
+    removeObject: jest.Mock<(...args: unknown[]) => Promise<{ DeleteMarker: boolean } | null>>;
+    toErrorMessage: jest.Mock<(...args: unknown[]) => string>;
   };
 };
 
@@ -41,185 +42,185 @@ const getMockedUuid = (): {
 
 describe("src/datasources/s3", () => {
   beforeEach(() => {
-	  jest.clearAllMocks();
-	  process.env.NODE_ENV = "test";
+    jest.clearAllMocks();
+    process.env.NODE_ENV = "test";
   });
 
   afterEach(() => {
-	  process.env.NODE_ENV = originalNodeEnv;
+    process.env.NODE_ENV = originalNodeEnv;
   });
 
   describe("CDN_BASE_URL", () => {
-	  it("uses the S3 bucket URL in development", async () => {
-	    process.env.NODE_ENV = "development";
-	    jest.resetModules();
+    it("uses the S3 bucket URL in development", async () => {
+      process.env.NODE_ENV = "development";
+      jest.resetModules();
 
-	    const { CDN_BASE_URL } = await loadS3Module();
+      const { CDN_BASE_URL } = await loadS3Module();
 
-	    expect(CDN_BASE_URL).toBe(
-		    "http://localhost:4566/test-bucket/"
-	    );
-	  });
+      expect(CDN_BASE_URL).toBe(
+        "http://localhost:4566/test-bucket/"
+      );
+    });
 
-	  it("uses the CDN domain in non-development environments", async () => {
-	    process.env.NODE_ENV = "production";
-	    jest.resetModules();
+    it("uses the CDN domain in non-development environments", async () => {
+      process.env.NODE_ENV = "production";
+      jest.resetModules();
 
-	    const { CDN_BASE_URL } = await loadS3Module();
+      const { CDN_BASE_URL } = await loadS3Module();
 
-	    expect(CDN_BASE_URL).toBe("https://cdn.localhost:3000/");
-	  });
+      expect(CDN_BASE_URL).toBe("https://cdn.localhost:3000/");
+    });
   });
 
   describe("getPresignedURLForAffiliationLogo", () => {
-	  it("returns a presigned URL and sanitizes the uploaded file name", async () => {
-	    const logger = buildLogger();
-	    const { getPresignedURLForAffiliationLogo } = await loadS3Module();
-	    const { getPresignedURLForImageUpload } = getMockedUtils();
+    it("returns a presigned URL and sanitizes the uploaded file name", async () => {
+      const logger = buildLogger();
+      const { getPresignedURLForAffiliationLogo } = await loadS3Module();
+      const { getPresignedURLForImageUpload } = getMockedUtils();
 
-	    getPresignedURLForImageUpload.mockResolvedValue({
-		    url: "https://s3.example.com/upload",
-		    fields: "{\"key\":\"value\"}",
-	    });
+      getPresignedURLForImageUpload.mockResolvedValue({
+        url: "https://s3.example.com/upload",
+        fields: "{\"key\":\"value\"}",
+      });
 
-	    const result = await getPresignedURLForAffiliationLogo(
-		    logger,
-		    "https://ror.org/12345",
-		    "café 2026!!.png",
-		    "image/jpeg"
-	    );
+      const result = await getPresignedURLForAffiliationLogo(
+        logger,
+        "https://ror.org/12345",
+        "café 2026!!.png",
+        "image/jpeg"
+      );
 
-	    expect(getPresignedURLForImageUpload).toHaveBeenCalledWith(
-		    logger,
-		    "test-bucket",
-		    "logos/ror.org/12345/cafe_2026_.png",
-		    "image/jpeg",
-		    "us-west-2"
-	    );
-	    expect(logger.debug).toHaveBeenCalledWith(
-		    expect.objectContaining({
-		      affiliationURI: "https://ror.org/12345",
-		      fileName: "café 2026!!.png",
-		      bucket: "test-bucket",
-		      url: "https://s3.example.com/upload",
-		      fields: "{\"key\":\"value\"}",
-		    }),
-		    "Generated presigned URL"
-	    );
-	    expect(result).toEqual({
-		    url: "https://s3.example.com/upload",
-		    fields: "{\"key\":\"value\"}",
-	    });
-	  });
+      expect(getPresignedURLForImageUpload).toHaveBeenCalledWith(
+        logger,
+        "test-bucket",
+        "logos/ror.org/12345/cafe_2026_.png",
+        "image/jpeg",
+        "us-west-2"
+      );
+      expect(logger.debug).toHaveBeenCalledWith(
+        expect.objectContaining({
+          affiliationURI: "https://ror.org/12345",
+          fileName: "café 2026!!.png",
+          bucket: "test-bucket",
+          url: "https://s3.example.com/upload",
+          fields: "{\"key\":\"value\"}",
+        }),
+        "Generated presigned URL"
+      );
+      expect(result).toEqual({
+        url: "https://s3.example.com/upload",
+        fields: "{\"key\":\"value\"}",
+      });
+    });
 
-	  it("defaults the content type to image/png when one is not provided", async () => {
-	    const logger = buildLogger();
-	    const { getPresignedURLForAffiliationLogo } = await loadS3Module();
-	    const { getPresignedURLForImageUpload } = getMockedUtils();
+    it("defaults the content type to image/png when one is not provided", async () => {
+      const logger = buildLogger();
+      const { getPresignedURLForAffiliationLogo } = await loadS3Module();
+      const { getPresignedURLForImageUpload } = getMockedUtils();
 
-	    getPresignedURLForImageUpload.mockResolvedValue({
-		    url: "https://s3.example.com/upload",
-		    fields: "fields",
-	    });
+      getPresignedURLForImageUpload.mockResolvedValue({
+        url: "https://s3.example.com/upload",
+        fields: "fields",
+      });
 
-	    await getPresignedURLForAffiliationLogo(
-		    logger,
-		    "https://ror.org/12345",
-		    "logo.png"
-	    );
+      await getPresignedURLForAffiliationLogo(
+        logger,
+        "https://ror.org/12345",
+        "logo.png"
+      );
 
-	    expect(getPresignedURLForImageUpload).toHaveBeenCalledWith(
-		    logger,
-		    "test-bucket",
-		    "logos/ror.org/12345/logo.png",
-		    "image/png",
-		    "us-west-2"
-	    );
-	  });
+      expect(getPresignedURLForImageUpload).toHaveBeenCalledWith(
+        logger,
+        "test-bucket",
+        "logos/ror.org/12345/logo.png",
+        "image/png",
+        "us-west-2"
+      );
+    });
 
-	  it("generates a fallback logo name when the file name sanitizes to an empty value", async () => {
-	    const logger = buildLogger();
-	    const { getPresignedURLForAffiliationLogo } = await loadS3Module();
-	    const reloadedUtils = getMockedUtils();
-	    const { v4 } = getMockedUuid();
+    it("generates a fallback logo name when the file name sanitizes to an empty value", async () => {
+      const logger = buildLogger();
+      const { getPresignedURLForAffiliationLogo } = await loadS3Module();
+      const reloadedUtils = getMockedUtils();
+      const { v4 } = getMockedUuid();
 
-	    v4.mockReturnValue("generated-uuid");
+      v4.mockReturnValue("generated-uuid");
       reloadedUtils.getPresignedURLForImageUpload.mockResolvedValue({
-		    url: "https://s3.example.com/upload",
-		    fields: "fields",
-	    });
+        url: "https://s3.example.com/upload",
+        fields: "fields",
+      });
 
-	    await getPresignedURLForAffiliationLogo(
-		    logger,
-		  "https://ror.org/12345",
-		  "!!!"
-	    );
+      await getPresignedURLForAffiliationLogo(
+        logger,
+        "https://ror.org/12345",
+        "!!!"
+      );
 
-	    expect(v4).toHaveBeenCalledTimes(1);
-	    expect(reloadedUtils.getPresignedURLForImageUpload).toHaveBeenCalledWith(
-		    logger,
-		    "test-bucket",
-		    "logos/ror.org/12345/logo-generated-uuid",
-		    "image/png",
-		    "us-west-2"
-	    );
-	  });
+      expect(v4).toHaveBeenCalledTimes(1);
+      expect(reloadedUtils.getPresignedURLForImageUpload).toHaveBeenCalledWith(
+        logger,
+        "test-bucket",
+        "logos/ror.org/12345/logo-generated-uuid",
+        "image/png",
+        "us-west-2"
+      );
+    });
 
-	  it("truncates long file names while preserving the extension", async () => {
-	    const logger = buildLogger();
-	    const { getPresignedURLForAffiliationLogo } = await loadS3Module();
-	    const { getPresignedURLForImageUpload } = getMockedUtils();
+    it("truncates long file names while preserving the extension", async () => {
+      const logger = buildLogger();
+      const { getPresignedURLForAffiliationLogo } = await loadS3Module();
+      const { getPresignedURLForImageUpload } = getMockedUtils();
 
-	    getPresignedURLForImageUpload.mockResolvedValue({
-		    url: "https://s3.example.com/upload",
-		    fields: "fields",
-	    });
+      getPresignedURLForImageUpload.mockResolvedValue({
+        url: "https://s3.example.com/upload",
+        fields: "fields",
+      });
 
-	    const longFileName = `${"a".repeat(60)}.png`;
-	    const expectedFileName = `${"a".repeat(46)}.png`;
+      const longFileName = `${"a".repeat(60)}.png`;
+      const expectedFileName = `${"a".repeat(46)}.png`;
 
-	    await getPresignedURLForAffiliationLogo(
-		    logger,
-		    "https://ror.org/12345",
-		    longFileName
-	    );
+      await getPresignedURLForAffiliationLogo(
+        logger,
+        "https://ror.org/12345",
+        longFileName
+      );
 
-	    expect(getPresignedURLForImageUpload).toHaveBeenCalledWith(
-		    logger,
-		    "test-bucket",
-		    `logos/ror.org/12345/${expectedFileName}`,
-		    "image/png",
-		    "us-west-2"
-	    );
-	  });
+      expect(getPresignedURLForImageUpload).toHaveBeenCalledWith(
+        logger,
+        "test-bucket",
+        `logos/ror.org/12345/${expectedFileName}`,
+        "image/png",
+        "us-west-2"
+      );
+    });
 
-	  it("truncates long file names without an extension", async () => {
-	    const logger = buildLogger();
-	    const { getPresignedURLForAffiliationLogo } = await loadS3Module();
-	    const { getPresignedURLForImageUpload } = getMockedUtils();
+    it("truncates long file names without an extension", async () => {
+      const logger = buildLogger();
+      const { getPresignedURLForAffiliationLogo } = await loadS3Module();
+      const { getPresignedURLForImageUpload } = getMockedUtils();
 
-	    getPresignedURLForImageUpload.mockResolvedValue({
-		    url: "https://s3.example.com/upload",
-		    fields: "fields",
-	    });
+      getPresignedURLForImageUpload.mockResolvedValue({
+        url: "https://s3.example.com/upload",
+        fields: "fields",
+      });
 
-	    const longFileName = "b".repeat(60);
-	    const expectedFileName = "b".repeat(50);
+      const longFileName = "b".repeat(60);
+      const expectedFileName = "b".repeat(50);
 
-	    await getPresignedURLForAffiliationLogo(
-		    logger,
-		    "https://ror.org/12345",
-		    longFileName
-	    );
+      await getPresignedURLForAffiliationLogo(
+        logger,
+        "https://ror.org/12345",
+        longFileName
+      );
 
-	    expect(getPresignedURLForImageUpload).toHaveBeenCalledWith(
-		    logger,
-		    "test-bucket",
-		    `logos/ror.org/12345/${expectedFileName}`,
-		    "image/png",
-		    "us-west-2"
-	    );
-	  });
+      expect(getPresignedURLForImageUpload).toHaveBeenCalledWith(
+        logger,
+        "test-bucket",
+        `logos/ror.org/12345/${expectedFileName}`,
+        "image/png",
+        "us-west-2"
+      );
+    });
 
     it("logs and returns undefined when presigned URL generation fails", async () => {
       const logger = buildLogger();
@@ -247,21 +248,21 @@ describe("src/datasources/s3", () => {
       );
     });
 
-	  it("returns undefined when the affiliation URI cannot be parsed", async () => {
-	    const logger = buildLogger();
-	    const { getPresignedURLForAffiliationLogo } = await loadS3Module();
-	    const { getPresignedURLForImageUpload } = getMockedUtils();
+    it("returns undefined when the affiliation URI cannot be parsed", async () => {
+      const logger = buildLogger();
+      const { getPresignedURLForAffiliationLogo } = await loadS3Module();
+      const { getPresignedURLForImageUpload } = getMockedUtils();
 
-	    const result = await getPresignedURLForAffiliationLogo(
-		    logger,
-		    "not a url",
-		    "logo.png"
-	    );
+      const result = await getPresignedURLForAffiliationLogo(
+        logger,
+        "not a url",
+        "logo.png"
+      );
 
-	    expect(result).toBeUndefined();
-	    expect(getPresignedURLForImageUpload).not.toHaveBeenCalled();
-	    expect(logger.error).not.toHaveBeenCalled();
-	  });
+      expect(result).toBeUndefined();
+      expect(getPresignedURLForImageUpload).not.toHaveBeenCalled();
+      expect(logger.error).not.toHaveBeenCalled();
+    });
   });
 
   describe("deleteAffiliationLogoFile", () => {

@@ -11,16 +11,16 @@ import {
   PlanProgress,
   PlanStatus,
   PlanVisibility
-} from "../Plan";
-import { defaultLanguageId } from "../Language";
+} from "../Plan.js";
+import { defaultLanguageId } from "../Language.js";
 import { generalConfig } from "../../config/generalConfig.js";
 import { getCurrentDate } from "../../utils/helpers.js";
-import { PlanGuidance } from "../Guidance";
-import { Project } from "../Project";
-import { VersionedTemplate } from "../VersionedTemplate";
-import { PaginationType } from "../../types/general";
+import { PlanGuidance } from "../Guidance.js";
+import { Project } from "../Project.js";
+import { VersionedTemplate } from "../VersionedTemplate.js";
+import { PaginationType } from "../../types/general.js";
 
-jest.mock('../../context.js');
+jest.mock('../../context.js')
 
 let context;
 

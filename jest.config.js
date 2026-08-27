@@ -83,23 +83,10 @@ const config = {
   //   "node_modules"
   // ],
 
-  // An array of file extensions your modules use
-  // moduleFileExtensions: [
-  //   "js",
-  //   "mjs",
-  //   "cjs",
-  //   "jsx",
-  //   "ts",
-  //   "tsx",
-  //   "json",
-  //   "node"
-  // ],
-
-  // Map .js imports back to their .ts source files
-  moduleNameMapper: {
-    '^(\\.{1,2}/.*)\\.js$': '$1',
-  },
-
+  // Tells Jest which extensions to try when resolving a bare module path.
+  // moduleNameMapper strips .js from context.js, turning it into just context. Jest then needs to figure out what file that
+  // maps to on disk. So we need moduleFileExtensions to include .ts so that Jest can find the TypeScript source file.
+  moduleFileExtensions: ['ts', 'js', 'json', 'node'],
 
   // An array of regexp pattern strings, matched against all module paths before considered 'visible' to the module loader
   // modulePathIgnorePatterns: [],
@@ -155,7 +142,7 @@ const config = {
   // snapshotSerializers: [],
 
   // The test environment that will be used for testing
-  // testEnvironment: "jest-environment-node",
+  testEnvironment: "node",
 
   // Options that will be passed to the testEnvironment
   // testEnvironmentOptions: {},
@@ -183,6 +170,16 @@ const config = {
   // This option allows use of a custom test runner
   // testRunner: "jest-circus/runner",
 
+  // Exclude node_modules from transformation
+  transformIgnorePatterns: [
+    'node_modules/(?!(.*\\.mjs$))',
+  ],
+
+
+  // Map .js imports back to their .ts source files
+  moduleNameMapper: {
+    '^(\\.{1,2}/.*)\\.js$': ['$1.ts', '$1.js', '$1'],
+  },
   // Configure ts-jest for ESM
   transform: {
     '^.+\\.tsx?$': [
@@ -193,12 +190,6 @@ const config = {
     ],
   },
 };
-
-// An array of regexp pattern strings that are matched against all source file paths, matched files will skip transformation
-// transformIgnorePatterns: [
-//   "/node_modules/",
-//   "\\.pnp\\.[^\\/]+$"
-// ],
 
 // An array of regexp pattern strings that are matched against all modules before the module loader will automatically return a mock for them
 // unmockedModulePathPatterns: undefined,

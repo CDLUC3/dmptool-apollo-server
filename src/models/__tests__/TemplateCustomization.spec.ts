@@ -3,9 +3,9 @@ import {
   TemplateCustomizationMigrationStatus,
   TemplateCustomizationStatus,
   TemplateCustomizationOverview,
-} from '../TemplateCustomization';
-import { VersionedTemplateCustomization } from '../VersionedTemplateCustomization';
-import * as publishHelpers from '../../services/templateCustomizationPublishHelpers';
+} from '../TemplateCustomization.js';
+import { VersionedTemplateCustomization } from '../VersionedTemplateCustomization.js';
+import * as publishHelpers from '../../services/templateCustomizationPublishHelpers.js';
 import { MyContext } from '../../context.js';
 
 describe('TemplateCustomization', () => {

@@ -11,16 +11,16 @@ import {
   WorkType,
   RelatedWorkSourceType,
   RelationType
-} from '../RelatedWork';
+} from '../RelatedWork.js';
 import { logger } from '../../logger.js';
-import { Plan } from '../Plan';
+import { Plan } from '../Plan.js';
 import {
   getMockHash,
   getMockRelatedWork,
   getMockRelatedWorkSearchResult,
   getMockWork,
   getMockWorkVersion,
-} from '../__mocks__/RelatedWork';
+} from '../__mocks__/RelatedWork.js';
 import {
   Author,
   Award,
@@ -35,7 +35,7 @@ import {
   getRandomEnumValue
 } from "../../__tests__/helpers.js";
 
-jest.mock('../../context.js');
+jest.mock('../../context.js')
 
 let context;
 

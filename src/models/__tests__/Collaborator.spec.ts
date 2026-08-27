@@ -5,18 +5,18 @@ import {
   ProjectCollaboratorAccessLevel,
   TemplateCollaborator
 } from "../Collaborator.js";
-import { Template } from '../Template';
-import { User } from '../User';
+import { Template } from '../Template.js';
+import { User } from '../User.js';
 import { buildMockContextWithToken } from '../../__mocks__/context.js';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { sendProjectCollaborationEmail, sendTemplateCollaborationEmail } from '../../services/emailService';
-import { Project } from '../Project';
+import { sendProjectCollaborationEmail, sendTemplateCollaborationEmail } from '../../services/emailService.js';
+import { Project } from '../Project.js';
 import { logger } from "../../logger.js";
-import { Affiliation } from "../Affiliation";
+import { Affiliation } from "../Affiliation.js";
 import { UserEmail } from "../UserEmail.js";
 
 jest.mock('../../logger.ts');
-jest.mock('../../context.js');
+jest.mock('../../context.js')
 
 let context;
 

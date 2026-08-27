@@ -21,7 +21,7 @@ jest.mock('../../services/templateCustomizationService', () => ({
 }));
 
 // Pulling context in here so that the mysql gets mocked
-jest.mock('../../context.js');
+jest.mock('../../context.js')
 
 let context;
 

@@ -1,11 +1,11 @@
 import casual from "casual";
-import { AdminNotification, AdminNotificationResults } from "../AdminNotifications";
+import { AdminNotification, AdminNotificationResults } from "../AdminNotifications.js";
 import { buildMockContextWithToken } from "../../__mocks__/context.js";
 
 import { logger } from "../../logger.js";
-import { AdminNotificationType } from "../../types";
+import { AdminNotificationType } from "../../types.js";
 
-jest.mock('../../context.js');
+jest.mock('../../context.js')
 
 // ─── Shared test data ────────────────────────────────────────────────────────
 

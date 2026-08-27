@@ -26,7 +26,7 @@ import { CURRENT_SCHEMA_VERSION } from "@dmptool/types";
 import { MyContext } from "../../context.js";
 
 // Pulling context in here so that the mysql gets mocked
-jest.mock('../../context.js');
+jest.mock('../../context.js')
 
 let context: MyContext;
 

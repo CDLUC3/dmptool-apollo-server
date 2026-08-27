@@ -27,7 +27,7 @@ import { buildContext, mockToken } from "../../__mocks__/context.js";
 
 import { Affiliation } from "../../models/Affiliation.js";
 
-jest.mock('../../context.js');
+jest.mock('../../context.js')
 jest.mock('../../datasources/cache');
 
 jest.mock('../../models/SectionCustomization');

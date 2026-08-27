@@ -13,7 +13,7 @@ import { clearTemplateCollaboratorsStore, initTemplateCollaboratorsStore, mockDe
 import { User, UserRole } from "../../models/User.js";
 import { Template } from "../../models/Template.js";
 
-jest.mock('../../context.js');
+jest.mock('../../context.js')
 jest.mock('../../datasources/cache');
 jest.mock('../../services/emailService');
 jest.mock('../../services/openSearchService');

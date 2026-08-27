@@ -64,7 +64,7 @@ import {
 import { clearAffiliationStore, initAffiliationStore, mockFindAffiliationByURI } from "../../models/__mocks__/Affiliation";
 import { clearUserStore, initUserStore, mockFindUserById } from "../../models/__mocks__/User";
 
-jest.mock('../../context.js');
+jest.mock('../../context.js')
 jest.mock('../../services/emailService');
 
 let context: MyContext;

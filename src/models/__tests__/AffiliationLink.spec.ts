@@ -1,10 +1,10 @@
 import casual from 'casual';
-import { AffiliationLink } from '../AffiliationLink';
+import { AffiliationLink } from '../AffiliationLink.js';
 import { buildMockContextWithToken } from '../../__mocks__/context.js';
 import { logger } from '../../logger.js';
 import { getCurrentDate } from '../../utils/helpers.js';
 
-jest.mock('../../context.js');
+jest.mock('../../context.js')
 
 describe('AffiliationLink', () => {
   let link;

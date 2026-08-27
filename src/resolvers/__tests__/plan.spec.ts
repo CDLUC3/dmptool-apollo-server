@@ -55,7 +55,7 @@ import { Answer } from "../../models/Answer";
 import { generalConfig } from "../../config/generalConfig.js";
 import { getCurrentDate } from "../../utils/helpers.js";
 
-jest.mock('../../context.js');
+jest.mock('../../context.js')
 jest.mock('../../services/emailService');
 
 let context: MyContext;

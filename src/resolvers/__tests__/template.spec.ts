@@ -12,7 +12,7 @@ import { VersionedTemplate } from "../../models/VersionedTemplate.js";
 import { UserRole } from "../../models/User.js";
 import * as templateService from "../../services/templateService.js";
 
-jest.mock('../../context.js');
+jest.mock('../../context.js')
 jest.mock('../../datasources/cache');
 jest.mock('../../services/emailService');
 jest.mock('../../services/templateCustomizationService', () => ({

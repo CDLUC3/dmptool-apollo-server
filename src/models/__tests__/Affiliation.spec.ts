@@ -1,14 +1,14 @@
 import casual from "casual";
-import { Affiliation, AffiliationSearch, PopularFunder } from "../Affiliation";
+import { Affiliation, AffiliationSearch, PopularFunder } from "../Affiliation.js";
 import { buildMockContextWithToken } from "../../__mocks__/context.js";
 
-import { DMPHubConfig } from "../../config/dmpHubConfig";
+import { DMPHubConfig } from "../../config/dmpHubConfig.js";
 import { generalConfig } from "../../config/generalConfig.js";
 import { logger } from "../../logger.js";
-import { PaginationType } from "../../types/general";
+import { PaginationType } from "../../types/general.js";
 
 let context;
-jest.mock('../../context.js');
+jest.mock('../../context.js')
 
 describe('Affiliation', () => {
   let affiliation;

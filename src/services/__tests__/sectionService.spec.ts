@@ -15,7 +15,7 @@ import { Question } from "../../models/Question.js";
 import { generateQuestionVersion } from "../questionService.js";
 
 // Pulling context in here so that the mysql gets mocked
-jest.mock('../../context.js');
+jest.mock('../../context.js')
 
 jest.mock("../questionService", () => ({
   ...jest.requireActual("../questionService"),

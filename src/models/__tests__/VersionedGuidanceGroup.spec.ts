@@ -1,10 +1,10 @@
 import casual from "casual";
-import { VersionedGuidanceGroup } from "../VersionedGuidanceGroup";
+import { VersionedGuidanceGroup } from "../VersionedGuidanceGroup.js";
 import { buildMockContextWithToken } from "../../__mocks__/context.js";
 
 import { logger } from "../../logger.js";
 
-jest.mock('../../context.js');
+jest.mock('../../context.js')
 
 let context;
 

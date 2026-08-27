@@ -18,7 +18,7 @@ import { ProjectCollaborator } from "../../models/Collaborator.js";
 import { getCurrentDate } from "../../utils/helpers.js";
 import { sendFeedbackCompleteEmail } from "../../services/emailService.js";
 
-jest.mock('../../context.js');
+jest.mock('../../context.js')
 jest.mock('../../datasources/cache');
 jest.mock('../../services/emailService');
 jest.mock('../../services/openSearchService');

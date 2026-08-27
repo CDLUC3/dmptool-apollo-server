@@ -1,11 +1,11 @@
 import casual from "casual";
 import { buildMockContextWithToken } from "../../__mocks__/context.js";
 
-import { PlanFunding, ProjectFunding, ProjectFundingStatus } from "../Funding";
+import { PlanFunding, ProjectFunding, ProjectFundingStatus } from "../Funding.js";
 import { getRandomEnumValue } from "../../__tests__/helpers.js";
 import { logger } from "../../logger.js";
 
-jest.mock('../../context.js');
+jest.mock('../../context.js')
 
 let context;
 

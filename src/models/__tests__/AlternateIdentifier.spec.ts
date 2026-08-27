@@ -1,5 +1,5 @@
 import casual from 'casual';
-import { AlternateIdentifier } from '../AlternateIdentifier';
+import { AlternateIdentifier } from '../AlternateIdentifier.js';
 import { buildMockContextWithToken } from '../../__mocks__/context.js';
 import { logger } from "../../logger.js";
 

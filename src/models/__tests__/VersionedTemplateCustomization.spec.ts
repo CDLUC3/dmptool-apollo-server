@@ -1,7 +1,7 @@
 import {
   VersionedTemplateCustomization
-} from '../VersionedTemplateCustomization';
-import { MySqlModel } from '../MySqlModel';
+} from '../VersionedTemplateCustomization.js';
+import { MySqlModel } from '../MySqlModel.js';
 import { MyContext } from '../../context.js';
 
 describe('VersionedTemplateCustomization', () => {

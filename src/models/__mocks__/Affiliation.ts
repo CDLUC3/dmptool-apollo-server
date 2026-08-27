@@ -7,7 +7,7 @@ import {
   AffiliationProvenance,
   AffiliationType,
   DEFAULT_ROR_AFFILIATION_URL
-} from "../Affiliation";
+} from "../Affiliation.js";
 
 // Store for all mock/test Affiliations that were persisted to the DB
 const addedAffiliationIds: number[] = [];

@@ -24,7 +24,7 @@ import {
   PaginationType,
 } from '../../types/general.js';
 
-jest.mock('../../context.js');
+jest.mock('../../context.js')
 jest.mock('../../datasources/cache');
 jest.mock('../../services/openSearchService');
 jest.mock('../../models/Repository');

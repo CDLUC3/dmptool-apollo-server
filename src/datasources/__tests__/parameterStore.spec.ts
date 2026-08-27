@@ -1,5 +1,5 @@
 import { SSMClient, GetParameterCommand, GetParameterCommandOutput } from "@aws-sdk/client-ssm";
-import { getParameter } from "../parameterStore";
+import { getParameter } from "../parameterStore.js";
 import { MyContext } from "../../context.js";
 import { logger } from "../../logger.js";
 import { buildContext } from "../../__mocks__/context.js";

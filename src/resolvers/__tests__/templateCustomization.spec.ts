@@ -31,7 +31,7 @@ jest.mock('../../services/authService', () => ({
   authenticatedResolver: jest.fn((ref, level, resolver) => resolver),
 }));
 
-jest.mock('../../context.js');
+jest.mock('../../context.js')
 jest.mock('../../datasources/cache');
 jest.mock('../../services/openSearchService');
 

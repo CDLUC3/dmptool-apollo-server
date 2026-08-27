@@ -1,18 +1,18 @@
 import 'jest-expect-message';
 import { generalConfig } from "../../config/generalConfig.js";
 import { normaliseHttpProtocol } from "../../utils/helpers.js";
-import { LogInType, User, UserRole } from '../User';
+import { LogInType, User, UserRole } from '../User.js';
 import bcrypt from 'bcryptjs';
 import casual from 'casual';
-import { defaultLanguageId, supportedLanguages } from '../Language';
+import { defaultLanguageId, supportedLanguages } from '../Language.js';
 import { buildContext, buildMockContextWithToken } from '../../__mocks__/context.js';
 import { getRandomEnumValue } from '../../__tests__/helpers.js';
 import { logger } from "../../logger.js";
-import { UserEmail } from '../UserEmail';
+import { UserEmail } from '../UserEmail.js';
 import { PaginationType } from '../../types/general.js';
 import { ProjectCollaborator, TemplateCollaborator } from "../Collaborator.js";
 
-jest.mock('../../context.js');
+jest.mock('../../context.js')
 jest.mock('../UserEmail');
 
 let mockQuery;

@@ -1,10 +1,22 @@
+import { jest } from '@jest/globals';
 import casual from 'casual';
-import { AffiliationDepartment } from '../AffiliationDepartments.js';
-import { buildMockContextWithToken } from '../../__mocks__/context.js';
-import { logger } from '../../logger.js';
-import { getCurrentDate } from '../../utils/helpers.js';
 
-jest.mock('../../context.js')
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+// Dynamic imports AFTER all mocks are registered
+const { AffiliationDepartment } = await import('../AffiliationDepartments.js');
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
+const { getCurrentDate } = await import('../../utils/helpers.js');
+
 
 describe('AffiliationDepartment', () => {
   let department;
@@ -144,7 +156,7 @@ describe('AffiliationDepartment', () => {
       mockFindById.mockResolvedValueOnce(department);
       insertQuery.mockResolvedValueOnce(department.id);
       // Mock isValid to return true
-      const localValidator = jest.fn();
+      const localValidator = jest.fn<() => Promise<boolean>>();
       (department.isValid as jest.Mock) = localValidator;
       localValidator.mockResolvedValueOnce(true);
 
@@ -159,7 +171,7 @@ describe('AffiliationDepartment', () => {
       const existingDept = new AffiliationDepartment(departmentData);
       mockFindByAffiliationAndName.mockResolvedValue(existingDept);
       // Mock isValid to return true
-      const localValidator = jest.fn();
+      const localValidator = jest.fn<() => Promise<boolean>>();
       (department.isValid as jest.Mock) = localValidator;
       localValidator.mockResolvedValueOnce(true);
 
@@ -205,7 +217,7 @@ describe('AffiliationDepartment', () => {
       mockFindById.mockResolvedValueOnce(department);
       updateQuery.mockResolvedValueOnce(true);
       // Mock isValid to return true
-      const localValidator = jest.fn();
+      const localValidator = jest.fn<() => Promise<boolean>>();
       (department.isValid as jest.Mock) = localValidator;
       localValidator.mockResolvedValueOnce(true);
 
@@ -240,7 +252,7 @@ describe('AffiliationDepartment', () => {
     it('should return department with errors if update fails', async () => {
       updateQuery.mockResolvedValueOnce(false);
       // Mock isValid to return true
-      const localValidator = jest.fn();
+      const localValidator = jest.fn<() => Promise<boolean>>();
       (department.isValid as jest.Mock) = localValidator;
       localValidator.mockResolvedValueOnce(true);
 

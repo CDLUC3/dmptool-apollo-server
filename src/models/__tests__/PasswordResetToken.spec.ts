@@ -1,16 +1,71 @@
-import casual from 'casual';
-import { PasswordResetToken } from '../PasswordResetToken.js';
-import { buildMockContextWithToken } from '../../__mocks__/context.js';
-import { logger } from '../../logger.js';
-import * as helpers from '../../utils/helpers.js';
+import { jest } from '@jest/globals';
+import casual from "casual";
 
-jest.mock('../../context.js')
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
 
-jest.mock('../../utils/helpers.js', () => ({
-  ...jest.requireActual('../../utils/helpers.js'),
-  getFutureDate: jest.fn(),
-  hashToken: jest.fn(),
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
 }));
+
+jest.unstable_mockModule('../../datasources/mysql.js', () => ({
+  MySQLConnection: {
+    getInstance: jest.fn().mockReturnValue({
+      query: jest.fn(),
+      getConnection: jest.fn(),
+      withTransaction: jest.fn(),
+      close: jest.fn(),
+    }),
+  },
+}));
+
+jest.unstable_mockModule('../../utils/helpers.js', () => ({
+  ORCID_REGEX: /^(https?:\/\/)?(www\.|pub\.)?(sandbox\.)?(orcid\.org\/)?([0-9]{4}-[0-9]{4}-[0-9]{4}-[0-9]{3}[0-9X])$/,
+  hashToken: jest.fn(),
+  formatORCID: jest.fn((v) => v),
+  stringToArray: jest.fn((arr) => arr),
+  stringToEnumValue: jest.fn(),
+  capitalizeFirstLetter: jest.fn((v) => v),
+  stripIdentifierBaseURL: jest.fn((v) => v),
+  stripORCIDIdentifierBaseURL: jest.fn((v) => v),
+  isNullOrUndefined: (value: unknown) => value === null || value === undefined,
+  valueIsEmpty: jest.fn(),
+  removeNullAndUndefinedFromJSON: jest.fn(),
+  validateDate: jest.fn(),
+  validateEmail: jest.fn(),
+  validateURL: jest.fn(),
+  verifyCriticalEnvVariable: jest.fn(),
+  incrementVersionNumber: jest.fn(),
+  getCurrentDate: jest.fn(() => '2030-01-01 00:00:00'),
+  randomFloatInRange: jest.fn(),
+  randomHex: jest.fn(),
+  randomIntInRange: jest.fn(),
+  normaliseDateTime: jest.fn(),
+  normaliseDate: jest.fn(),
+  stripHttpProtocol: jest.fn(),
+  normaliseHttpProtocol: jest.fn((v) => v),
+  reorderDisplayOrder: jest.fn(),
+  resolveNamingCollision: jest.fn(),
+  getFutureDate: jest.fn(),
+}));
+
+import type { MyContext } from '../../context.js';
+
+type PasswordResetTokenQueryFn = (
+  context: MyContext,
+  sql: string,
+  params: unknown[],
+  reference: string
+) => Promise<Array<Record<string, unknown>>>;
+
+// Dyanamic imports AFTER all mocks are registered
+const { PasswordResetToken } = await import('../PasswordResetToken.js');
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
+const helpers = await import('../../utils/helpers.js');
 
 
 let context;
@@ -57,7 +112,7 @@ describe('create', () => {
       resetPasswordExpiresAt: '2030-01-01 00:00:00'
     });
 
-    insertMock = jest.fn().mockResolvedValue(99);
+    insertMock = jest.fn<() => Promise<number>>().mockResolvedValue(99);
     (PasswordResetToken.insert as jest.Mock) = insertMock;
   });
 
@@ -67,7 +122,7 @@ describe('create', () => {
   });
 
   it('should insert and return the saved token', async () => {
-    const findMock = jest.fn().mockResolvedValue(
+    const findMock = jest.fn<() => Promise<InstanceType<typeof PasswordResetToken>>>().mockResolvedValue(
       new PasswordResetToken({
         id: 99,
         userId: 123,
@@ -106,6 +161,7 @@ describe('markUsed', () => {
 
   beforeEach(async () => {
     context = await buildMockContextWithToken(logger);
+    jest.mocked(helpers.getCurrentDate).mockReturnValue('2030-01-01 00:00:00');
   });
 
   afterEach(() => {
@@ -126,7 +182,7 @@ describe('markUsed', () => {
       userId: 1
     });
 
-    const updateMock = jest.fn().mockResolvedValue(true);
+    const updateMock = jest.fn<() => Promise<boolean>>().mockResolvedValue(true);
     (PasswordResetToken.update as jest.Mock) = updateMock;
 
     const result = await token.markUsed(context);
@@ -149,7 +205,7 @@ describe('findById', () => {
   });
 
   it('should return the token', async () => {
-    const queryMock = jest.fn().mockResolvedValue([
+    const queryMock = jest.fn<PasswordResetTokenQueryFn>().mockResolvedValue([
       {
         id: 1,
         userId: 5
@@ -180,7 +236,7 @@ describe('findById', () => {
   });
 
   it('should return null when not found', async () => {
-    (PasswordResetToken.query as jest.Mock) = jest.fn().mockResolvedValue([]);
+    (PasswordResetToken.query as jest.Mock) = jest.fn<() => Promise<Array<Record<string, unknown>>>>().mockResolvedValue([]);
 
     const result = await PasswordResetToken.findById('Test', context, 1);
 
@@ -200,7 +256,7 @@ describe('findValidByToken', () => {
   });
 
   it('should return a valid token', async () => {
-    const queryMock = jest.fn().mockResolvedValue([
+    const queryMock = jest.fn<() => Promise<Array<Record<string, unknown>>>>().mockResolvedValue([
       {
         id: 1,
         userId: 2,
@@ -217,7 +273,7 @@ describe('findValidByToken', () => {
   });
 
   it('should return null when none found', async () => {
-    (PasswordResetToken.query as jest.Mock) = jest.fn().mockResolvedValue([]);
+    (PasswordResetToken.query as jest.Mock) = jest.fn<() => Promise<Array<Record<string, unknown>>>>().mockResolvedValue([]);
 
     const result = await PasswordResetToken.findValidByToken(context, 'abc');
 
@@ -233,8 +289,10 @@ describe('createForUser', () => {
     jest.resetAllMocks();
     context = await buildMockContextWithToken(logger);
 
-    (helpers.getFutureDate as jest.Mock).mockReturnValue('2030-01-01 00:00:00');
-    (helpers.hashToken as jest.Mock).mockReturnValue('hashed-token');
+    jest.mocked(helpers.getCurrentDate).mockReturnValue('2030-01-01 00:00:00');
+    jest.mocked(helpers.getFutureDate).mockReturnValue('2030-01-01 00:00:00');
+    jest.mocked(helpers.hashToken).mockReturnValue('hashed-token');
+
   });
 
   afterEach(() => {
@@ -253,7 +311,7 @@ describe('createForUser', () => {
   });
 
   it('should invalidate previous tokens and create a new one', async () => {
-    const queryMock = jest.fn().mockResolvedValue(true);
+    const queryMock = jest.fn<() => Promise<boolean>>().mockResolvedValue(true);
     (PasswordResetToken.query as jest.Mock) = queryMock;
 
     const savedToken = new PasswordResetToken({
@@ -281,7 +339,7 @@ describe('createForUser', () => {
   });
 
   it('should return null if create fails', async () => {
-    (PasswordResetToken.query as jest.Mock) = jest.fn().mockResolvedValue(true);
+    (PasswordResetToken.query as jest.Mock) = jest.fn<() => Promise<boolean>>().mockResolvedValue(true);
 
     jest
       .spyOn(PasswordResetToken.prototype, 'create')

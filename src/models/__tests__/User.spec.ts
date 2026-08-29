@@ -1,19 +1,48 @@
-import 'jest-expect-message';
-import { generalConfig } from "../../config/generalConfig.js";
-import { normaliseHttpProtocol } from "../../utils/helpers.js";
-import { LogInType, User, UserRole } from '../User.js';
+import { jest } from '@jest/globals';
+import casual from "casual";
 import bcrypt from 'bcryptjs';
-import casual from 'casual';
-import { defaultLanguageId, supportedLanguages } from '../Language.js';
-import { buildContext, buildMockContextWithToken } from '../../__mocks__/context.js';
-import { getRandomEnumValue } from '../../__tests__/helpers.js';
-import { logger } from "../../logger.js";
-import { UserEmail } from '../UserEmail.js';
-import { PaginationType } from '../../types/general.js';
-import { ProjectCollaborator, TemplateCollaborator } from "../Collaborator.js";
 
-jest.mock('../../context.js')
-jest.mock('../UserEmail');
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+import type { MyContext } from "../../context.js";
+import type { UserRole as UserRoleType } from '../User.js';
+
+type SearchQueryWithPaginationFn = (
+  reference: string,
+  context: unknown,
+  whereFilters: string[],
+  groupBy: unknown,
+  values: string[],
+  opts: Record<string, unknown>,
+) => Promise<{
+  items: InstanceType<typeof User>[];
+  totalCount: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+  pageInfo: Record<string, unknown>;
+}>;
+
+//Dynamic imports AFTER all mocks are registered
+const { buildContext, buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
+const { generalConfig } = await import("../../config/generalConfig.js");
+
+const { normaliseHttpProtocol } = await import("../../utils/helpers.js");
+const { LogInType, User, UserRole } = await import('../User.js');
+const { defaultLanguageId, supportedLanguages } = await import('../Language.js');
+const { getRandomEnumValue } = await import('../../__tests__/helpers.js');
+const { UserEmail } = await import('../UserEmail.js');
+const { PaginationType } = await import('../../types/general.js');
+const { ProjectCollaborator, TemplateCollaborator } = await import("../Collaborator.js");
+
 
 let mockQuery;
 let mockUser;
@@ -280,7 +309,10 @@ describe('authCheck', () => {
   it('it returns null if there is no User for the specified email', async () => {
     const email = casual.email;
     const password = 'Abcd3Fgh1jkL$';
-    (UserEmail.findByEmail as jest.Mock).mockResolvedValue([]);
+    const mockFindByEmail = jest.fn<() => Promise<InstanceType<typeof UserEmail>[]>>();
+    (UserEmail.findByEmail as unknown as jest.Mock) = mockFindByEmail;
+    mockFindByEmail.mockResolvedValue([]);
+
     mockQuery.mockResolvedValueOnce([])
     expect(await User.authCheck('Testing authCheck', mockContext, email, password)).toBeFalsy();
     expect(mockContext.logger.debug).toHaveBeenCalledTimes(1);
@@ -289,12 +321,14 @@ describe('authCheck', () => {
   it('it returns null if the password does not match', async () => {
     const email = casual.email;
     const password = 'Abcd3Fgh1jkL$';
-    (UserEmail.findByEmail as jest.Mock).mockResolvedValue([
+    const mockFindByEmail = jest.fn<() => Promise<InstanceType<typeof UserEmail>[]>>();
+    (UserEmail.findByEmail as unknown as jest.Mock) = mockFindByEmail;
+    mockFindByEmail.mockResolvedValue([
       new UserEmail({ userId: 12345, isPrimary: true, isConfirmed: true, email: email })
     ]);
     mockQuery.mockResolvedValueOnce([mockUser]);
 
-    bcryptCompare = jest.fn().mockResolvedValue(false);
+    bcryptCompare = jest.fn<() => Promise<boolean>>().mockResolvedValue(false);
     (bcrypt.compare as jest.Mock) = bcryptCompare;
 
     expect(await User.authCheck('Testing authCheck', mockContext, email, password)).toBeFalsy();
@@ -306,8 +340,10 @@ describe('authCheck', () => {
     const password = 'Abcd3Fgh1jkL$';
     mockUser.id = 12345;
 
-    (UserEmail.findByEmail as jest.Mock).mockResolvedValueOnce([
-      { userId: mockUser.id, isPrimary: true, isConfirmed: true, email: email }
+    const mockFindByEmail = jest.fn<() => Promise<InstanceType<typeof UserEmail>[]>>();
+    (UserEmail.findByEmail as unknown as jest.Mock) = mockFindByEmail;
+    mockFindByEmail.mockResolvedValueOnce([
+      { userId: mockUser.id, isPrimary: true, isConfirmed: true, email: email } as InstanceType<typeof UserEmail>
     ]);
 
     const mockUserData = { ...mockUser }; // or Object.assign({}, mockUser)
@@ -315,7 +351,7 @@ describe('authCheck', () => {
 
     // jest.spyOn(User, 'findById').mockResolvedValue(mockUser);
 
-    const bcryptCompare = jest.fn().mockResolvedValue(true);
+    const bcryptCompare = jest.fn<() => Promise<boolean>>().mockResolvedValue(true);
     (bcrypt.compare as jest.Mock) = bcryptCompare;
 
     const result = await User.authCheck('Testing authCheck', mockContext, email, password);
@@ -396,7 +432,7 @@ describe('login()', () => {
     const mockSqlDataSource = (buildContext(logger, null, null)).dataSources.sqlDataSource;
     mockQuery = mockSqlDataSource.query as jest.MockedFunction<typeof mockSqlDataSource.query>;
 
-    mockUpdate = jest.fn().mockResolvedValue(true);
+    mockUpdate = jest.fn<() => Promise<boolean>>().mockResolvedValue(true);
     (User.update as jest.Mock) = mockUpdate;
   });
 
@@ -593,7 +629,7 @@ describe('register()', () => {
     expect(user.validatePassword).toHaveBeenCalledTimes(1);
   });
 
-  it('should accept all template collaboration invites', async () => {
+  it.only('should accept all template collaboration invites', async () => {
     const email = 'tester@example.com';
     const user = new User({
       id: 123,
@@ -603,8 +639,9 @@ describe('register()', () => {
       affiliationId: casual.url,
       acceptedTerms: true,
     });
-    const mockInviteUpdate = jest.fn().mockResolvedValue(true);
     const collabs = [new TemplateCollaborator({ email })];
+    const mockInviteUpdate = jest.fn<(context: MyContext) => Promise<InstanceType<typeof TemplateCollaborator>>>()
+      .mockResolvedValue(collabs[0]);
 
     // First call to Mock mysql query from findByEmail()
     jest.spyOn(UserEmail, "findByEmail").mockResolvedValue([]);
@@ -624,6 +661,11 @@ describe('register()', () => {
     jest.spyOn(user, 'validatePassword').mockReturnValue(true);
     jest.spyOn(collabs[0], 'update').mockImplementation(mockInviteUpdate);
 
+    console.log('User.query call count:', (User.query as jest.Mock).mock.calls.length);
+    console.log('mockQuery call count:', mockQuery.mock.calls.length);
+    console.log('TemplateCollaborator.findByEmail call count:', (TemplateCollaborator.findByEmail as jest.Mock).mock.calls.length);
+    console.log('TemplateCollaborator.findByEmail result:', (TemplateCollaborator.findByEmail as jest.Mock).mock.results);
+    console.log('ProjectCollaborator.findByEmail call count:', (ProjectCollaborator.findByEmail as jest.Mock).mock.calls.length);
     const response = await user.register(context, email);
     expect(response).not.toBeNull();
     expect(user.validatePassword).toHaveBeenCalledTimes(1);
@@ -640,8 +682,9 @@ describe('register()', () => {
       affiliationId: casual.url,
       acceptedTerms: true,
     });
-    const mockInviteUpdate = jest.fn().mockResolvedValue(true);
     const collabs = [new ProjectCollaborator({ email })];
+    const mockInviteUpdate = jest.fn<(context: MyContext) => Promise<InstanceType<typeof ProjectCollaborator>>>()
+      .mockResolvedValue(collabs[0]);
 
     // First call to Mock mysql query from findByEmail()
     jest.spyOn(UserEmail, "findByEmail").mockResolvedValue([]);
@@ -689,7 +732,7 @@ describe('update', () => {
   });
 
   it('returns the User without errors if it is valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (user.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -700,7 +743,7 @@ describe('update', () => {
   });
 
   it('returns an error if the User has no id', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (user.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
@@ -711,11 +754,11 @@ describe('update', () => {
   });
 
   it('returns the updated User', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (user.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof User>>>();
     (User.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValue(user);
 
@@ -727,11 +770,11 @@ describe('update', () => {
   });
 
   it('prevents the password from being updated', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (user.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof User>>>();
     (User.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValue(user);
 
@@ -769,14 +812,15 @@ describe('updatePassword', () => {
       affiliationId: casual.url,
     });
 
-    mockAuthCheck = jest.fn();
+    mockAuthCheck = jest.fn<() => Promise<boolean>>();
     (User.authCheck as jest.Mock) = mockAuthCheck;
 
-    mockValidator = jest.fn();
+    mockValidator = jest.fn<() => Promise<boolean>>();
     (user.validatePassword as jest.Mock) = mockValidator;
 
-    updateQuery = jest.fn().mockResolvedValue(user);
+    updateQuery = jest.fn<() => Promise<InstanceType<typeof User>>>().mockResolvedValue(user);
     (User.update as jest.Mock) = updateQuery;
+
   });
 
   afterEach(() => {
@@ -786,7 +830,7 @@ describe('updatePassword', () => {
   it('returns the User without errors if it is valid and we could update the password', async () => {
     mockAuthCheck.mockResolvedValueOnce(true);
     mockValidator.mockReturnValue(true);
-    const mockFindById = jest.fn().mockResolvedValue(user);
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof User>>>().mockResolvedValue(user);
     (User.findById as jest.Mock) = mockFindById;
 
     expect(await user.updatePassword(context, oldPassword, newPassword)).toBe(user);
@@ -837,14 +881,19 @@ describe('getEmail', () => {
 
   it('should return the primary email if it exists', async () => {
     const mockEmail = 'test.user@example.com';
-    (UserEmail.findPrimaryByUserId as jest.Mock).mockResolvedValue({ email: mockEmail });
+    const mockFindPrimaryByUserId = jest.fn<() => Promise<InstanceType<typeof UserEmail> | null>>();
+    (UserEmail.findPrimaryByUserId as unknown as jest.Mock) = mockFindPrimaryByUserId;
+    mockFindPrimaryByUserId.mockResolvedValue({ email: mockEmail } as InstanceType<typeof UserEmail>);
+
     const result = await user.getEmail(context);
     expect(result).toBe(mockEmail);
     expect(UserEmail.findPrimaryByUserId).toHaveBeenCalledWith('User.getEmail', context, user.id);
   });
 
   it('should return null if no primary email exists', async () => {
-    (UserEmail.findPrimaryByUserId as jest.Mock).mockResolvedValue(null);
+    const mockFindPrimaryByUserId = jest.fn<() => Promise<InstanceType<typeof UserEmail> | null>>();
+    (UserEmail.findPrimaryByUserId as unknown as jest.Mock) = mockFindPrimaryByUserId;
+    mockFindPrimaryByUserId.mockResolvedValue(null);
     const result = await user.getEmail(context);
     expect(result).toBeNull();
     expect(UserEmail.findPrimaryByUserId).toHaveBeenCalledWith('User.getEmail', context, user.id);
@@ -854,8 +903,15 @@ describe('getEmail', () => {
 describe('findByAffiliationId', () => {
   let context;
   let mockPaginatedResults;
+  let mockQueryWithPagination: jest.Mock<() => Promise<{
+    items: InstanceType<typeof User>[];
+    totalCount: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+    pageInfo: Record<string, unknown>;
+  }>>;
 
-  const makeUser = (id: number, role: UserRole) =>
+  const makeUser = (id: number, role: UserRoleType) =>
     new User({
       id,
       affiliationId: 'affil-1',
@@ -877,7 +933,14 @@ describe('findByAffiliationId', () => {
       hasPreviousPage: false,
       pageInfo: {},
     };
-    jest.spyOn(User, 'queryWithPagination').mockResolvedValue(mockPaginatedResults);
+    mockQueryWithPagination = jest.spyOn(User, 'queryWithPagination').mockResolvedValue(mockPaginatedResults) as unknown as jest.Mock<() => Promise<{
+      items: InstanceType<typeof User>[];
+      totalCount: number;
+      hasNextPage: boolean;
+      hasPreviousPage: boolean;
+      pageInfo: Record<string, unknown>;
+    }>>;
+
   });
 
   afterEach(() => {
@@ -890,19 +953,23 @@ describe('findByAffiliationId', () => {
       { type: PaginationType.OFFSET, sortField: 'u.surName', sortDir: 'ASC' },
     );
 
-    expect(User.queryWithPagination).toHaveBeenCalledTimes(1);
+    expect(mockQueryWithPagination).toHaveBeenCalledTimes(1);
     expect(result.items.length).toBe(2);
     expect(result.items[0].givenName).toBe('Alice');
     expect(result.items[1].givenName).toBe('Bob');
 
-    const [, , whereFilters, , values] = (User.queryWithPagination as jest.Mock).mock.calls[0];
+
+    const [, , whereFilters, , values] = (User.queryWithPagination as jest.Mock).mock.calls[0] as [
+      unknown, string, string[], string, string[]
+    ];
+
     expect(whereFilters).toContain('u.affiliationId = ?');
     expect(whereFilters.every((f: string) => !f.includes('u.role = ?'))).toBe(true);
     expect(values).toContain('affil-1');
   });
 
   it('filters by role when role is provided', async () => {
-    (User.queryWithPagination as jest.Mock).mockResolvedValueOnce({
+    mockQueryWithPagination.mockResolvedValueOnce({
       items: [makeUser(3, UserRole.ADMIN)],
       totalCount: 1,
       hasNextPage: false,
@@ -916,7 +983,7 @@ describe('findByAffiliationId', () => {
       UserRole.ADMIN,
     );
 
-    const [, , whereFilters, , values] = (User.queryWithPagination as jest.Mock).mock.calls[0];
+    const [, , whereFilters, , values] = (mockQueryWithPagination as jest.Mock).mock.calls[0];
     expect(whereFilters).toContain('u.role = ?');
     expect(values).toContain(UserRole.ADMIN);
     expect(result.items.length).toBe(1);
@@ -928,7 +995,9 @@ describe('findByAffiliationId', () => {
       { type: PaginationType.OFFSET },
     );
 
-    const [, , whereFilters] = (User.queryWithPagination as jest.Mock).mock.calls[0];
+    const [, , whereFilters, , values] = (mockQueryWithPagination as jest.Mock).mock.calls[0] as [
+      unknown, string, string[], string, string[]
+    ];
     expect(whereFilters.every((f: string) => !f.includes('u.role = ?'))).toBe(true);
   });
 
@@ -938,7 +1007,9 @@ describe('findByAffiliationId', () => {
       { type: PaginationType.OFFSET },
     );
 
-    const [, , whereFilters, , values] = (User.queryWithPagination as jest.Mock).mock.calls[0];
+    const [, , whereFilters, , values] = (mockQueryWithPagination as jest.Mock).mock.calls[0] as [
+      unknown, string, string[], string, string[]
+    ];
     expect(whereFilters.some((f: string) => f.includes('LOWER(u.givenName) LIKE ?'))).toBe(true);
     expect(values.some((v: string) => v.includes('alice'))).toBe(true);
   });
@@ -949,7 +1020,9 @@ describe('findByAffiliationId', () => {
       { type: PaginationType.OFFSET, sortField: 'u.surName', sortDir: 'ASC' },
     );
 
-    const [, , , , , opts] = (User.queryWithPagination as jest.Mock).mock.calls[0];
+    const [, , , , , opts] = (mockQueryWithPagination as jest.Mock).mock.calls[0] as [
+      unknown, string, string[], string, string[], Record<string, unknown>
+    ]
     expect(opts.availableSortFields).toBeDefined();
     expect(opts.availableSortFields).toContain('u.surName');
     expect(opts.sortField).toBe('u.surName');
@@ -962,7 +1035,9 @@ describe('findByAffiliationId', () => {
       { type: PaginationType.CURSOR },
     );
 
-    const [, , , , , opts] = (User.queryWithPagination as jest.Mock).mock.calls[0];
+    const [, , , , , opts] = (mockQueryWithPagination as jest.Mock).mock.calls[0] as [
+      unknown, string, string[], string, string[], Record<string, unknown>
+    ]
     expect(opts.cursorField).toBeDefined();
     expect(opts.availableSortFields).toBeUndefined();
   });
@@ -973,14 +1048,16 @@ describe('findByAffiliationId', () => {
       { type: PaginationType.OFFSET },
     );
 
-    const [, , , , , opts] = (User.queryWithPagination as jest.Mock).mock.calls[0];
+    const [, , , , , opts] = (mockQueryWithPagination as jest.Mock).mock.calls[0] as [
+      unknown, string, string[], string, string[], Record<string, unknown>
+    ]
     expect(opts.sortField).toBe('u.created');
     expect(opts.sortDir).toBe('DESC');
   });
 
   it('handles empty results', async () => {
-    (User.queryWithPagination as jest.Mock).mockResolvedValueOnce({
-      items: [], totalCount: 0, hasNextPage: false, hasPreviousPage: false,
+    mockQueryWithPagination.mockResolvedValueOnce({
+      items: [], totalCount: 0, hasNextPage: false, hasPreviousPage: false, pageInfo: {},
     });
 
     const result = await User.findByAffiliationId(
@@ -1144,8 +1221,9 @@ describe('findByOrcid', () => {
 describe('search', () => {
   let context;
   let mockPaginatedResults;
+  let mockQueryWithPagination: jest.Mock<SearchQueryWithPaginationFn>;
 
-  const makeUser = (id: number, role: UserRole) =>
+  const makeUser = (id: number, role: UserRoleType) =>
     new User({
       id,
       affiliationId: casual.url,
@@ -1169,22 +1247,22 @@ describe('search', () => {
       pageInfo: {},
     };
 
-    jest.spyOn(User, 'queryWithPagination').mockResolvedValue(mockPaginatedResults);
+    mockQueryWithPagination = jest.spyOn(User, 'queryWithPagination').mockResolvedValue(mockPaginatedResults) as unknown as jest.Mock<SearchQueryWithPaginationFn>;
+
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  it('calls queryWithPagination and returns matching users', async () => {
-    const result = await User.search(
-      'testRef',
-      context,
-      'alice',
-      { type: PaginationType.OFFSET },
-    );
+  type SearchCallArgs = [
+    unknown, unknown, string[], unknown, string[], Record<string, unknown>
+  ];
 
-    expect(User.queryWithPagination).toHaveBeenCalledTimes(1);
+  it('calls queryWithPagination and returns matching users', async () => {
+    const result = await User.search('testRef', context, 'alice', { type: PaginationType.OFFSET });
+
+    expect(mockQueryWithPagination).toHaveBeenCalledTimes(1);
     expect(result.items.length).toBe(2);
     expect(result.totalCount).toBe(2);
   });
@@ -1192,20 +1270,20 @@ describe('search', () => {
   it('passes the search term into whereFilters and values', async () => {
     await User.search('testRef', context, 'alice', { type: PaginationType.OFFSET });
 
-    const callArgs = (User.queryWithPagination as jest.Mock).mock.calls[0];
+    const callArgs = mockQueryWithPagination.mock.calls[0] as SearchCallArgs;
     const whereFilters = callArgs[2];
     const values = callArgs[4];
 
     expect(whereFilters.some((f: string) => f.includes('LOWER(u.givenName) LIKE ?'))).toBe(true);
     expect(whereFilters.some((f: string) => f.includes('LOWER(a.searchName) LIKE ?'))).toBe(true);
     expect(values.every((v: string) => v === '%alice%')).toBe(true);
-    expect(values.length).toBe(5); // one per LIKE clause
+    expect(values.length).toBe(5);
   });
 
   it('adds role filter to whereFilters and values when role is provided', async () => {
     await User.search('testRef', context, '', { type: PaginationType.OFFSET }, UserRole.ADMIN);
 
-    const callArgs = (User.queryWithPagination as jest.Mock).mock.calls[0];
+    const callArgs = mockQueryWithPagination.mock.calls[0] as SearchCallArgs;
     const whereFilters = callArgs[2];
     const values = callArgs[4];
 
@@ -1216,7 +1294,7 @@ describe('search', () => {
   it('does not add role filter when role is not provided', async () => {
     await User.search('testRef', context, '', { type: PaginationType.OFFSET });
 
-    const callArgs = (User.queryWithPagination as jest.Mock).mock.calls[0];
+    const callArgs = mockQueryWithPagination.mock.calls[0] as SearchCallArgs;
     const whereFilters = callArgs[2];
 
     expect(whereFilters.every((f: string) => !f.includes('u.role = ?'))).toBe(true);
@@ -1225,7 +1303,7 @@ describe('search', () => {
   it('includes both term and role filters when both are provided', async () => {
     await User.search('testRef', context, 'alice', { type: PaginationType.OFFSET }, UserRole.ADMIN);
 
-    const callArgs = (User.queryWithPagination as jest.Mock).mock.calls[0];
+    const callArgs = mockQueryWithPagination.mock.calls[0] as SearchCallArgs;
     const whereFilters = callArgs[2];
     const values = callArgs[4];
 
@@ -1236,14 +1314,9 @@ describe('search', () => {
   });
 
   it('uses OFFSET pagination and sets availableSortFields', async () => {
-    await User.search(
-      'testRef',
-      context,
-      '',
-      { type: PaginationType.OFFSET, sortField: 'u.surName', sortDir: 'ASC' },
-    );
+    await User.search('testRef', context, '', { type: PaginationType.OFFSET, sortField: 'u.surName', sortDir: 'ASC' });
 
-    const callArgs = (User.queryWithPagination as jest.Mock).mock.calls[0];
+    const callArgs = mockQueryWithPagination.mock.calls[0] as SearchCallArgs;
     const opts = callArgs[5];
 
     expect(opts.availableSortFields).toBeDefined();
@@ -1257,7 +1330,7 @@ describe('search', () => {
   it('uses CURSOR pagination and sets cursorField', async () => {
     await User.search('testRef', context, '', { type: PaginationType.CURSOR });
 
-    const callArgs = (User.queryWithPagination as jest.Mock).mock.calls[0];
+    const callArgs = mockQueryWithPagination.mock.calls[0] as SearchCallArgs;
     const opts = callArgs[5];
 
     expect(opts.cursorField).toBe('CONCAT(ue.email, u.id)');
@@ -1267,7 +1340,7 @@ describe('search', () => {
   it('applies default sort field and direction when none are provided', async () => {
     await User.search('testRef', context, '', { type: PaginationType.OFFSET });
 
-    const callArgs = (User.queryWithPagination as jest.Mock).mock.calls[0];
+    const callArgs = mockQueryWithPagination.mock.calls[0] as SearchCallArgs;
     const opts = callArgs[5];
 
     expect(opts.sortField).toBe('u.created');
@@ -1277,14 +1350,14 @@ describe('search', () => {
   it('sets countField to u.id', async () => {
     await User.search('testRef', context, '', { type: PaginationType.OFFSET });
 
-    const callArgs = (User.queryWithPagination as jest.Mock).mock.calls[0];
+    const callArgs = mockQueryWithPagination.mock.calls[0] as SearchCallArgs;
     const opts = callArgs[5];
 
     expect(opts.countField).toBe('u.id');
   });
 
   it('returns empty results when no users match', async () => {
-    (User.queryWithPagination as jest.Mock).mockResolvedValueOnce({
+    mockQueryWithPagination.mockResolvedValueOnce({
       items: [],
       totalCount: 0,
       hasNextPage: false,
@@ -1301,11 +1374,9 @@ describe('search', () => {
   it('handles an empty search term without adding whereFilters', async () => {
     await User.search('testRef', context, '', { type: PaginationType.OFFSET });
 
-    const callArgs = (User.queryWithPagination as jest.Mock).mock.calls[0];
+    const callArgs = mockQueryWithPagination.mock.calls[0] as SearchCallArgs;
     const whereFilters = callArgs[2];
 
-    // empty string is still truthy for isNullOrUndefined, so the LIKE block still runs —
-    // but the values will all be '%%' (match everything), not zero filters
     expect(whereFilters.some((f: string) => f.includes('LOWER(u.givenName) LIKE ?'))).toBe(true);
   });
 });

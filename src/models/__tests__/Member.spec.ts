@@ -1,12 +1,22 @@
+import { jest } from '@jest/globals';
 import casual from "casual";
-import { buildMockContextWithToken } from "../../__mocks__/context.js";
 
-import { PlanMember, ProjectMember } from "../Member.js";
-import { getMockORCID } from "../../__tests__/helpers.js";
-import { MemberRole } from "../MemberRole.js";
-import { logger } from "../../logger.js";
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
 
-jest.mock('../../context.js')
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+// Dynamic imports AFTER all mocks are registered
+const { PlanMember, ProjectMember } = await import("../Member.js");
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
+const { getMockORCID } = await import("../../__tests__/helpers.js");
+const { MemberRole } = await import("../MemberRole.js");
 
 let context;
 
@@ -303,7 +313,7 @@ describe('update', () => {
   });
 
   it('returns the ProjectMember with errors if it is not valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (projectMember.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -313,7 +323,7 @@ describe('update', () => {
   });
 
   it('returns an error if the ProjectMember has no id', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (projectMember.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
@@ -324,13 +334,13 @@ describe('update', () => {
   });
 
   it('returns the updated ProjectMember', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (projectMember.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
     updateQuery.mockResolvedValueOnce(projectMember);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof ProjectMember> | null>>();
     (ProjectMember.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(projectMember);
 
@@ -368,7 +378,7 @@ describe('create', () => {
   });
 
   it('returns the ProjectMember without errors if it is valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (projectMember.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -384,7 +394,7 @@ describe('create', () => {
   });
 
   it('returns the ProjectMember with an error if the question already exists', async () => {
-    const mockFindBy = jest.fn();
+    const mockFindBy = jest.fn<() => Promise<InstanceType<typeof ProjectMember> | null>>();
     (ProjectMember.findByProjectAndORCID as jest.Mock) = mockFindBy;
     mockFindBy.mockResolvedValueOnce(projectMember);
 
@@ -395,13 +405,13 @@ describe('create', () => {
   });
 
   it('returns the newly added ProjectMember', async () => {
-    const mockFindBy = jest.fn();
+    const mockFindBy = jest.fn<() => Promise<InstanceType<typeof ProjectMember> | null>>();
     (ProjectMember.findByProjectAndEmail as jest.Mock) = mockFindBy;
     (ProjectMember.findByProjectAndORCID as jest.Mock) = mockFindBy;
     (ProjectMember.findByProjectAndName as jest.Mock) = mockFindBy;
     mockFindBy.mockResolvedValueOnce(null);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof ProjectMember> | null>>();
     (ProjectMember.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(projectMember);
 
@@ -479,28 +489,28 @@ describe('delete', () => {
   it('returns null if it was not able to delete the record', async () => {
 
     // Mock ProjectMember.delete
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<InstanceType<typeof ProjectMember> | null>>();
     (ProjectMember.delete as jest.Mock) = deleteQuery;
     deleteQuery.mockResolvedValueOnce(null);
 
     // Mock PlanMember.delete
-    const mockPlanMemberDelete = jest.fn();
+    const mockPlanMemberDelete = jest.fn<() => Promise<boolean>>();
     (PlanMember.delete as jest.Mock) = mockPlanMemberDelete;
     mockPlanMemberDelete.mockResolvedValue(true); // or whatever you want it to return
 
-    const mockFindByProjectId = jest.fn();
+    const mockFindByProjectId = jest.fn<() => Promise<InstanceType<typeof ProjectMember>[] | null>>();
     (ProjectMember.findByProjectId as jest.Mock) = mockFindByProjectId;
     mockFindByProjectId.mockResolvedValueOnce([projectMember, projectMember2]);//Need more than just one projectMember in order to get to the delete function
 
-    const mockPlanMemberFindByProjectMemberId = jest.fn();
+    const mockPlanMemberFindByProjectMemberId = jest.fn<() => Promise<InstanceType<typeof PlanMember>[] | null>>();
     (PlanMember.findByProjectMemberId as jest.Mock) = mockPlanMemberFindByProjectMemberId;
     mockPlanMemberFindByProjectMemberId.mockResolvedValueOnce([memberData1, memberData2]);
 
-    const mockPlanMemberFindByPlanId = jest.fn();
+    const mockPlanMemberFindByPlanId = jest.fn<() => Promise<InstanceType<typeof PlanMember>[] | null>>();
     (PlanMember.findByPlanId as jest.Mock) = mockPlanMemberFindByPlanId;
     mockPlanMemberFindByPlanId.mockResolvedValue([memberData1, memberData2]); // Need more than one, or it won't reach the delete function
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof ProjectMember> | null>>();
     (ProjectMember.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValue(projectMember);
 
@@ -508,28 +518,28 @@ describe('delete', () => {
   });
 
   it('returns the ProjectMember if it was able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<boolean>>();
     (ProjectMember.delete as jest.Mock) = deleteQuery;
     deleteQuery.mockResolvedValueOnce(projectMember);
 
     // Mock PlanMember.delete
-    const mockPlanMemberDelete = jest.fn();
+    const mockPlanMemberDelete = jest.fn<() => Promise<boolean>>();
     (PlanMember.delete as jest.Mock) = mockPlanMemberDelete;
     mockPlanMemberDelete.mockResolvedValueOnce(projectMember);
 
-    const mockFindByProjectId = jest.fn();
+    const mockFindByProjectId = jest.fn<() => Promise<InstanceType<typeof ProjectMember>[] | null>>();
     (ProjectMember.findByProjectId as jest.Mock) = mockFindByProjectId;
     mockFindByProjectId.mockResolvedValueOnce([projectMember, projectMember2]);//Need more than just one projectMember in order to get to the delete function
 
-    const mockPlanMemberFindByProjectMemberId = jest.fn();
+    const mockPlanMemberFindByProjectMemberId = jest.fn<() => Promise<InstanceType<typeof PlanMember>[]>>();
     (PlanMember.findByProjectMemberId as jest.Mock) = mockPlanMemberFindByProjectMemberId;
     mockPlanMemberFindByProjectMemberId.mockResolvedValueOnce([memberData1, memberData2]);
 
-    const mockPlanMemberFindByPlanId = jest.fn();
+    const mockPlanMemberFindByPlanId = jest.fn<() => Promise<InstanceType<typeof PlanMember>[] | null>>();
     (PlanMember.findByPlanId as jest.Mock) = mockPlanMemberFindByPlanId;
     mockPlanMemberFindByPlanId.mockResolvedValue([memberData1, memberData2]); // Need more than one, or it won't reach the delete function
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof ProjectMember> | null>>();
     (ProjectMember.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValue(projectMember);
 
@@ -549,23 +559,23 @@ describe('delete', () => {
   });
 
   it('returns an error if there is only one project member', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<boolean>>();
     (ProjectMember.delete as jest.Mock) = deleteQuery;
     deleteQuery.mockResolvedValueOnce(projectMember);
 
-    const mockFindByProjectId = jest.fn();
+    const mockFindByProjectId = jest.fn<() => Promise<InstanceType<typeof ProjectMember>[]>>();
     (ProjectMember.findByProjectId as jest.Mock) = mockFindByProjectId;
     mockFindByProjectId.mockResolvedValueOnce([projectMember]);
 
-    const mockPlanMemberFindByProjectMemberId = jest.fn();
+    const mockPlanMemberFindByProjectMemberId = jest.fn<() => Promise<InstanceType<typeof PlanMember>[]>>();
     (PlanMember.findByProjectMemberId as jest.Mock) = mockPlanMemberFindByProjectMemberId;
     mockPlanMemberFindByProjectMemberId.mockResolvedValueOnce([memberData1, memberData2]);
 
-    const mockPlanMemberFindByPlanId = jest.fn();
+    const mockPlanMemberFindByPlanId = jest.fn<() => Promise<InstanceType<typeof PlanMember>[] | null>>();
     (PlanMember.findByPlanId as jest.Mock) = mockPlanMemberFindByPlanId;
     mockPlanMemberFindByPlanId.mockResolvedValue([memberData1, memberData2]); // Need more than one, or it won't reach the delete function
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof ProjectMember> | null>>();
     (ProjectMember.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValue(projectMember);
 
@@ -737,7 +747,7 @@ describe('update', () => {
   });
 
   it('returns the PlanMember with errors if it is not valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (planMember.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -747,7 +757,7 @@ describe('update', () => {
   });
 
   it('returns an error if the PlanMember has no id', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (planMember.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
@@ -758,13 +768,13 @@ describe('update', () => {
   });
 
   it('returns the updated PlanMember', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (planMember.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
     updateQuery.mockResolvedValueOnce(planMember);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof PlanMember> | null>>();
     (PlanMember.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(planMember);
 
@@ -798,7 +808,7 @@ describe('create', () => {
   });
 
   it('returns the PlanMember without errors if it is valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (planMember.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -814,7 +824,7 @@ describe('create', () => {
   });
 
   it('returns the PlanMember with an error if the question already exists', async () => {
-    const mockFindBy = jest.fn();
+    const mockFindBy = jest.fn<() => Promise<InstanceType<typeof PlanMember> | null>>();
     (PlanMember.findByPlanAndProjectMember as jest.Mock) = mockFindBy;
     mockFindBy.mockResolvedValueOnce(planMember);
 
@@ -825,11 +835,11 @@ describe('create', () => {
   });
 
   it('returns the newly added PlanMember', async () => {
-    const mockFindBy = jest.fn();
+    const mockFindBy = jest.fn<() => Promise<InstanceType<typeof PlanMember> | null>>();
     (PlanMember.findByPlanAndProjectMember as jest.Mock) = mockFindBy;
     mockFindBy.mockResolvedValueOnce(null);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof PlanMember> | null>>();
     (PlanMember.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(planMember);
 
@@ -868,14 +878,14 @@ describe('delete', () => {
   });
 
   it('returns null if it was not able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<Boolean>>();
     (PlanMember.delete as jest.Mock) = deleteQuery;
 
-    const mockFindByPlanId = jest.fn();
+    const mockFindByPlanId = jest.fn<() => Promise<InstanceType<typeof PlanMember>[]>>();
     (PlanMember.findByPlanId as jest.Mock) = mockFindByPlanId;
     mockFindByPlanId.mockResolvedValueOnce([planMember, planMember2]);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof PlanMember> | null>>();
     (PlanMember.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(planMember);
 
@@ -884,15 +894,15 @@ describe('delete', () => {
   });
 
   it('returns the PlanMember if it was able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<Boolean>>();
     (PlanMember.delete as jest.Mock) = deleteQuery;
     deleteQuery.mockResolvedValueOnce(planMember);
 
-    const mockFindByPlanId = jest.fn();
+    const mockFindByPlanId = jest.fn<() => Promise<InstanceType<typeof PlanMember>[]>>();
     (PlanMember.findByPlanId as jest.Mock) = mockFindByPlanId;
     mockFindByPlanId.mockResolvedValueOnce([planMember, planMember2]);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof PlanMember> | null>>();
     (PlanMember.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(planMember);
 
@@ -902,15 +912,15 @@ describe('delete', () => {
   });
 
   it('returns error when there is only one plan member for the given planId', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<Boolean>>();
     (PlanMember.delete as jest.Mock) = deleteQuery;
     deleteQuery.mockResolvedValueOnce(planMember);
 
-    const mockFindByPlanId = jest.fn();
+    const mockFindByPlanId = jest.fn<() => Promise<InstanceType<typeof PlanMember>[]>>();
     (PlanMember.findByPlanId as jest.Mock) = mockFindByPlanId;
     mockFindByPlanId.mockResolvedValueOnce([planMember]);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof PlanMember> | null>>();
     (PlanMember.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(planMember);
 

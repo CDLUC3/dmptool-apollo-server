@@ -1,12 +1,32 @@
-import {
+import { jest } from '@jest/globals';
+import casual from "casual";
+
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+jest.unstable_mockModule('../../services/templateCustomizationPublishHelpers.js', () => ({
+  snapshotCustomizationChildren: jest.fn(),
+  rollbackPublishedSnapshot: jest.fn(),
+}));
+
+import type { MyContext } from '../../context.js';
+
+//Dynamic imports AFTER all mocks are registered
+const {
   TemplateCustomization,
   TemplateCustomizationMigrationStatus,
   TemplateCustomizationStatus,
   TemplateCustomizationOverview,
-} from '../TemplateCustomization.js';
-import { VersionedTemplateCustomization } from '../VersionedTemplateCustomization.js';
-import * as publishHelpers from '../../services/templateCustomizationPublishHelpers.js';
-import { MyContext } from '../../context.js';
+} = await import('../TemplateCustomization.js');
+const { VersionedTemplateCustomization } = await import('../VersionedTemplateCustomization.js');
+const publishHelpers = await import('../../services/templateCustomizationPublishHelpers.js');
 
 describe('TemplateCustomization', () => {
   let mockContext: MyContext;
@@ -218,8 +238,8 @@ describe('TemplateCustomization', () => {
       const mockVersionedCustomization = {
         id: 100,
         active: true,
-        update: jest.fn().mockResolvedValue(null)
-      } as undefined as VersionedTemplateCustomization;
+        update: jest.fn<() => Promise<InstanceType<typeof VersionedTemplateCustomization> | null>>().mockResolvedValue(null)
+      } as undefined as InstanceType<typeof VersionedTemplateCustomization>;
       jest.spyOn(VersionedTemplateCustomization, 'findById').mockResolvedValue(mockVersionedCustomization);
 
       const result = await customization.unpublish(mockContext);
@@ -243,10 +263,11 @@ describe('TemplateCustomization', () => {
       const mockVersionedCustomization = {
         id: 100,
         active: true,
-        update: jest.fn().mockResolvedValue({ id: 100 })
-      } as undefined as VersionedTemplateCustomization;
+        update: jest.fn<() => Promise<InstanceType<typeof VersionedTemplateCustomization> | null>>()
+          .mockResolvedValue({ id: 100 } as InstanceType<typeof VersionedTemplateCustomization>)
+      } as undefined as InstanceType<typeof VersionedTemplateCustomization>;
       jest.spyOn(VersionedTemplateCustomization, 'findById').mockResolvedValue(mockVersionedCustomization);
-      customization.update = jest.fn().mockResolvedValue(null);
+      customization.update = jest.fn<() => Promise<InstanceType<typeof TemplateCustomization> | null>>().mockResolvedValue(null);
 
       const result = await customization.unpublish(mockContext);
 
@@ -272,10 +293,10 @@ describe('TemplateCustomization', () => {
       const mockVersionedCustomization = {
         id: 100,
         active: true,
-        update: jest.fn().mockResolvedValue({ id: 100 })
-      } as undefined as VersionedTemplateCustomization;
+        update: jest.fn<() => Promise<InstanceType<typeof VersionedTemplateCustomization> | null>>().mockResolvedValue({ id: 100 } as InstanceType<typeof VersionedTemplateCustomization>)
+      } as undefined as InstanceType<typeof VersionedTemplateCustomization>;
       jest.spyOn(VersionedTemplateCustomization, 'findById').mockResolvedValue(mockVersionedCustomization);
-      customization.update = jest.fn().mockResolvedValue(mockUpdatedCustomization);
+      customization.update = jest.fn<() => Promise<InstanceType<typeof TemplateCustomization> | null>>().mockResolvedValue(mockUpdatedCustomization);
 
       const result = await customization.unpublish(mockContext);
 
@@ -368,11 +389,12 @@ describe('TemplateCustomization', () => {
 
       const mockCreated = new VersionedTemplateCustomization({ id: 99 });
       jest.spyOn(VersionedTemplateCustomization.prototype, 'create').mockResolvedValue(mockCreated);
-      jest.spyOn(publishHelpers, 'snapshotCustomizationChildren').mockImplementation(
+      jest.mocked(publishHelpers.snapshotCustomizationChildren).mockImplementation(
         async (_ref, _ctx, custObj) => {
           custObj.addError('general', 'snapshot failed');
         }
       );
+
       const rollbackSpy = jest.spyOn(publishHelpers, 'rollbackPublishedSnapshot').mockResolvedValue();
 
       const result = await customization.publish(mockContext);
@@ -395,7 +417,7 @@ describe('TemplateCustomization', () => {
       const mockCreated = new VersionedTemplateCustomization({ id: 99 });
       jest.spyOn(VersionedTemplateCustomization.prototype, 'create').mockResolvedValue(mockCreated);
       jest.spyOn(publishHelpers, 'snapshotCustomizationChildren').mockResolvedValue();
-      customization.update = jest.fn().mockResolvedValue(null);
+      customization.update = jest.fn<() => Promise<InstanceType<typeof TemplateCustomization> | null>>().mockResolvedValue(null);
 
       const result = await customization.publish(mockContext);
 
@@ -417,7 +439,7 @@ describe('TemplateCustomization', () => {
       jest.spyOn(VersionedTemplateCustomization.prototype, 'create').mockResolvedValue(mockCreated);
       jest.spyOn(publishHelpers, 'snapshotCustomizationChildren').mockResolvedValue();
       const mockUpdated = new TemplateCustomization({ ...customization, status: TemplateCustomizationStatus.PUBLISHED });
-      customization.update = jest.fn().mockResolvedValue(mockUpdated);
+      customization.update = jest.fn<() => Promise<InstanceType<typeof TemplateCustomization> | null>>().mockResolvedValue(mockUpdated);
 
       const result = await customization.publish(mockContext);
 
@@ -2178,7 +2200,7 @@ describe('TemplateCustomizationOverview', () => {
       });
 
       jest.spyOn(TemplateCustomization, 'findById').mockResolvedValue(mockCustomization);
-      mockCustomization.update = jest.fn().mockResolvedValue(null);
+      mockCustomization.update = jest.fn<() => Promise<InstanceType<typeof TemplateCustomization> | null>>().mockResolvedValue(null);
 
       const result = await TemplateCustomization.markAsDirty('test-ref', mockContext, 123);
 
@@ -2206,7 +2228,7 @@ describe('TemplateCustomizationOverview', () => {
       });
 
       jest.spyOn(TemplateCustomization, 'findById').mockResolvedValue(mockCustomization);
-      mockCustomization.update = jest.fn().mockResolvedValue(mockUpdated);
+      mockCustomization.update = jest.fn<() => Promise<InstanceType<typeof TemplateCustomization> | null>>().mockResolvedValue(mockUpdated);
 
       const result = await TemplateCustomization.markAsDirty('test-ref', mockContext, 123);
 
@@ -2233,7 +2255,7 @@ describe('TemplateCustomizationOverview', () => {
       });
 
       jest.spyOn(TemplateCustomization, 'findById').mockResolvedValue(mockCustomization);
-      mockCustomization.update = jest.fn().mockResolvedValue(mockUpdated);
+      mockCustomization.update = jest.fn<() => Promise<InstanceType<typeof TemplateCustomization> | null>>().mockResolvedValue(mockUpdated);
 
       const result = await TemplateCustomization.markAsDirty('test-ref', mockContext, 123);
 

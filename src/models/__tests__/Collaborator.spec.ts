@@ -1,22 +1,37 @@
+import { jest } from '@jest/globals';
 import casual from 'casual';
-import {
+
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+jest.unstable_mockModule('../../services/emailService.js', () => ({
+  sendProjectCollaborationEmail: jest.fn(),
+  sendTemplateCollaborationEmail: jest.fn(),
+  sendEmailConfirmationNotification: jest.fn(),
+}));
+
+// Dynamic imports AFTER all mocks are registered
+const {
   Collaborator,
   ProjectCollaborator,
   ProjectCollaboratorAccessLevel,
   TemplateCollaborator
-} from "../Collaborator.js";
-import { Template } from '../Template.js';
-import { User } from '../User.js';
-import { buildMockContextWithToken } from '../../__mocks__/context.js';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { sendProjectCollaborationEmail, sendTemplateCollaborationEmail } from '../../services/emailService.js';
-import { Project } from '../Project.js';
-import { logger } from "../../logger.js";
-import { Affiliation } from "../Affiliation.js";
-import { UserEmail } from "../UserEmail.js";
-
-jest.mock('../../logger.ts');
-jest.mock('../../context.js')
+} = await import("../Collaborator.js");
+const { Template } = await import("../Template.js");
+const { User } = await import("../User.js");
+const { Project } = await import("../Project.js");
+const { Affiliation } = await import("../Affiliation.js");
+const { UserEmail } = await import("../UserEmail.js");
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
+const { sendProjectCollaborationEmail, sendTemplateCollaborationEmail, sendEmailConfirmationNotification } = await import('../../services/emailService.js');
 
 let context;
 
@@ -262,9 +277,6 @@ describe('TemplateCollaborator', () => {
         templateId: casual.integer(1, 999),
         email: casual.email,
       });
-
-      const mockNotification = jest.fn();
-      (sendTemplateCollaborationEmail as jest.Mock) = mockNotification;
     });
 
     afterEach(() => {
@@ -273,15 +285,15 @@ describe('TemplateCollaborator', () => {
     })
 
     it('returns the TemplateCollaborator with errors if it is not valid', async () => {
-      const localValidator = jest.fn();
+      const localValidator = jest.fn<() => Promise<boolean>>();
       (collaborator.isValid as jest.Mock) = localValidator;
       localValidator.mockResolvedValueOnce(false);
 
-      const mockFindByTemplateIdAndEmail = jest.fn();
+      const mockFindByTemplateIdAndEmail = jest.fn<() => Promise<InstanceType<typeof TemplateCollaborator> | null>>();
       (TemplateCollaborator.findByTemplateIdAndEmail as jest.Mock) = mockFindByTemplateIdAndEmail;
       mockFindByTemplateIdAndEmail.mockResolvedValueOnce(null);
 
-      const mockUser = jest.fn();
+      const mockUser = jest.fn<() => Promise<InstanceType<typeof User> | null>>();
       (User.findByEmail as jest.Mock) = mockUser;
       mockUser.mockResolvedValueOnce(null);
 
@@ -291,15 +303,15 @@ describe('TemplateCollaborator', () => {
     });
 
     it('returns the TemplateCollaborator with an error if the template already has that email', async () => {
-      const localValidator = jest.fn();
+      const localValidator = jest.fn<() => Promise<boolean>>();
       (collaborator.isValid as jest.Mock) = localValidator;
       localValidator.mockResolvedValueOnce(true);
 
-      const mockFindBy = jest.fn();
+      const mockFindBy = jest.fn<() => Promise<InstanceType<typeof TemplateCollaborator> | null>>();
       (TemplateCollaborator.findByTemplateIdAndEmail as jest.Mock) = mockFindBy;
       mockFindBy.mockResolvedValueOnce(collaborator);
 
-      const mockUser = jest.fn();
+      const mockUser = jest.fn<() => Promise<InstanceType<typeof User> | null>>();
       (User.findByEmail as jest.Mock) = mockUser;
       mockUser.mockResolvedValueOnce(null);
 
@@ -311,32 +323,34 @@ describe('TemplateCollaborator', () => {
     });
 
     it('returns the newly added TemplateCollaborator', async () => {
-      const localValidator = jest.fn();
+      const localValidator = jest.fn<() => Promise<boolean>>();
       (collaborator.isValid as jest.Mock) = localValidator;
       localValidator.mockResolvedValueOnce(true);
 
-      const mockFindBy = jest.fn();
+      const mockFindBy = jest.fn<() => Promise<InstanceType<typeof TemplateCollaborator> | null>>();
       (TemplateCollaborator.findByTemplateIdAndEmail as jest.Mock) = mockFindBy;
       mockFindBy.mockResolvedValue(null);
 
-      const mockUser = jest.fn();
+      const mockUser = jest.fn<() => Promise<InstanceType<typeof User> | null>>();
       (User.findByEmail as jest.Mock) = mockUser;
       mockUser.mockResolvedValueOnce(null);
 
       insertQuery.mockResolvedValueOnce(casual.integer(1, 999));
 
       const inviter = new User({ givenName: casual.first_name, surName: casual.last_name });
-      const mockFindUserById = jest.fn().mockResolvedValueOnce(inviter);
+      const mockFindUserById = jest.fn<() => Promise<InstanceType<typeof User> | null>>();
+      mockFindUserById.mockResolvedValueOnce(inviter);
       (User.findById as jest.Mock) = mockFindUserById;
 
       const tName = casual.sentence;
-      const mockFindTemplateById = jest.fn().mockResolvedValueOnce(new Template({ name: tName }));
+      const mockFindTemplateById = jest.fn<() => Promise<InstanceType<typeof Template> | null>>();
+      mockFindTemplateById.mockResolvedValueOnce(new Template({ name: tName }));
       (Template.findById as jest.Mock) = mockFindTemplateById;
 
-      const mockSendEmail = jest.fn();
-      (sendTemplateCollaborationEmail as jest.Mock) = mockSendEmail;
+      const mockSendEmail = jest.fn<() => Promise<boolean>>();
+      jest.mocked(sendTemplateCollaborationEmail).mockResolvedValue(true);
 
-      const mockFindById = jest.fn();
+      const mockFindById = jest.fn<() => Promise<InstanceType<typeof TemplateCollaborator> | null>>();
       (TemplateCollaborator.findById as jest.Mock) = mockFindById;
       mockFindById.mockResolvedValue(collaborator);
 
@@ -344,9 +358,10 @@ describe('TemplateCollaborator', () => {
       expect(localValidator).toHaveBeenCalledTimes(1);
       expect(mockFindBy).toHaveBeenCalledTimes(1);
       expect(insertQuery).toHaveBeenCalledTimes(1);
-      expect(mockSendEmail).toHaveBeenCalledWith(
+      expect(sendTemplateCollaborationEmail).toHaveBeenCalledWith(
         context, tName, inviter.getName(), collaborator.email, collaborator.userId
       );
+
       expect(Object.keys(result.errors).length).toBe(0);
       expect(result).toBeInstanceOf(TemplateCollaborator);
     });
@@ -377,7 +392,7 @@ describe('TemplateCollaborator', () => {
     });
 
     it('returns the TemplateCollaborator with errors if it is not valid', async () => {
-      const localValidator = jest.fn();
+      const localValidator = jest.fn<() => Promise<boolean>>();
       (collaborator.isValid as jest.Mock) = localValidator;
       localValidator.mockResolvedValueOnce(false);
 
@@ -387,7 +402,7 @@ describe('TemplateCollaborator', () => {
     });
 
     it('returns an error if the TemplateCollaborator has no id', async () => {
-      const localValidator = jest.fn();
+      const localValidator = jest.fn<() => Promise<boolean>>();
       (collaborator.isValid as jest.Mock) = localValidator;
       localValidator.mockResolvedValueOnce(true);
 
@@ -398,10 +413,15 @@ describe('TemplateCollaborator', () => {
     });
 
     it('returns the updated TemplateCollaborator', async () => {
-      const localValidator = jest.fn();
+      const localValidator = jest.fn<() => Promise<boolean>>();
       (collaborator.isValid as jest.Mock) = localValidator;
       localValidator.mockResolvedValueOnce(true);
-      const findById = jest.fn();
+
+      const mockExists = jest.fn<() => Promise<boolean>>();
+      (Template.exists as jest.Mock) = mockExists;
+      mockExists.mockResolvedValueOnce(true);
+
+      const findById = jest.fn<() => Promise<InstanceType<typeof TemplateCollaborator> | null>>();
       (TemplateCollaborator.findById as jest.Mock) = findById;
       findById.mockResolvedValueOnce(collaborator);
       updateQuery.mockResolvedValueOnce(collaborator);
@@ -438,8 +458,8 @@ describe('TemplateCollaborator', () => {
     });
 
     it('returns the original record with an error if it was not able to delete the record', async () => {
-      const deleteQuery = jest.fn();
-      const findQuery = jest.fn();
+      const deleteQuery = jest.fn<() => Promise<boolean>>();
+      const findQuery = jest.fn<() => Promise<InstanceType<typeof TemplateCollaborator> | null>>();
       (TemplateCollaborator.findById as jest.Mock) = findQuery;
       (TemplateCollaborator.delete as jest.Mock) = deleteQuery;
 
@@ -450,8 +470,8 @@ describe('TemplateCollaborator', () => {
     });
 
     it('returns the original record if it was able to delete the record', async () => {
-      const findQuery = jest.fn();
-      const deleteQuery = jest.fn();
+      const findQuery = jest.fn<() => Promise<InstanceType<typeof TemplateCollaborator> | null>>();
+      const deleteQuery = jest.fn<() => Promise<boolean>>();
       (TemplateCollaborator.findById as jest.Mock) = findQuery;
       (TemplateCollaborator.delete as jest.Mock) = deleteQuery;
 
@@ -688,9 +708,6 @@ describe('ProjectCollaborator', () => {
         projectId: casual.integer(1, 999),
         email: casual.email,
       });
-
-      const mockNotification = jest.fn();
-      (sendTemplateCollaborationEmail as jest.Mock) = mockNotification;
     });
 
     afterEach(() => {
@@ -699,15 +716,15 @@ describe('ProjectCollaborator', () => {
     })
 
     it('returns the ProjectCollaborator with errors if it is not valid', async () => {
-      const localValidator = jest.fn();
+      const localValidator = jest.fn<() => Promise<boolean>>();
       (collaborator.isValid as jest.Mock) = localValidator;
       localValidator.mockResolvedValueOnce(false);
 
-      const mockFindBy = jest.fn();
+      const mockFindBy = jest.fn<() => Promise<InstanceType<typeof ProjectCollaborator> | null>>();
       (ProjectCollaborator.findByProjectIdAndEmail as jest.Mock) = mockFindBy;
       mockFindBy.mockResolvedValue(null);
 
-      const mockUser = jest.fn();
+      const mockUser = jest.fn<() => Promise<InstanceType<typeof User> | null>>();
       (User.findByEmail as jest.Mock) = mockUser;
       mockUser.mockResolvedValueOnce(null);
 
@@ -717,15 +734,15 @@ describe('ProjectCollaborator', () => {
     });
 
     it('returns the ProjectCollaborator with an error if the template already has that email', async () => {
-      const localValidator = jest.fn();
+      const localValidator = jest.fn<() => Promise<boolean>>();
       (collaborator.isValid as jest.Mock) = localValidator;
       localValidator.mockResolvedValueOnce(true);
 
-      const mockFindBy = jest.fn();
+      const mockFindBy = jest.fn<() => Promise<InstanceType<typeof ProjectCollaborator> | null>>();
       (ProjectCollaborator.findByProjectIdAndEmail as jest.Mock) = mockFindBy;
       mockFindBy.mockResolvedValueOnce(collaborator);
 
-      const mockUser = jest.fn();
+      const mockUser = jest.fn<() => Promise<InstanceType<typeof User> | null>>();
       (User.findByEmail as jest.Mock) = mockUser;
       mockUser.mockResolvedValueOnce(null);
 
@@ -737,32 +754,32 @@ describe('ProjectCollaborator', () => {
     });
 
     it('returns the newly added ProjectCollaborator', async () => {
-      const localValidator = jest.fn();
+      const localValidator = jest.fn<() => Promise<boolean>>();
       (collaborator.isValid as jest.Mock) = localValidator;
       localValidator.mockResolvedValueOnce(true);
 
-      const mockFindBy = jest.fn();
+      const mockFindBy = jest.fn<() => Promise<InstanceType<typeof ProjectCollaborator> | null>>();
       (ProjectCollaborator.findByProjectIdAndEmail as jest.Mock) = mockFindBy;
       mockFindBy.mockResolvedValue(null);
 
-      const mockUser = jest.fn();
+      const mockUser = jest.fn<() => Promise<InstanceType<typeof User> | null>>();
       (User.findByEmail as jest.Mock) = mockUser;
       mockUser.mockResolvedValueOnce(null);
 
       insertQuery.mockResolvedValueOnce(casual.integer(1, 999));
 
       const inviter = new User({ givenName: casual.first_name, surName: casual.last_name });
-      const mockFindUserById = jest.fn().mockResolvedValueOnce(inviter);
+      const mockFindUserById = jest.fn<() => Promise<InstanceType<typeof User> | null>>();
+      mockFindUserById.mockResolvedValueOnce(inviter);
       (User.findById as jest.Mock) = mockFindUserById;
 
       const pName = casual.sentence;
-      const mockFindProjectById = jest.fn().mockResolvedValueOnce(new Project({ title: pName }));
+      const mockFindProjectById = jest.fn<() => Promise<InstanceType<typeof Project> | null>>();
+      mockFindProjectById.mockResolvedValueOnce(new Project({ title: pName }));
       (Project.findById as jest.Mock) = mockFindProjectById;
 
-      const mockSendEmail = jest.fn();
-      (sendProjectCollaborationEmail as jest.Mock) = mockSendEmail;
-
-      const mockFindById = jest.fn();
+      jest.mocked(sendProjectCollaborationEmail).mockResolvedValue(true);
+      const mockFindById = jest.fn<() => Promise<InstanceType<typeof ProjectCollaborator> | null>>();
       (ProjectCollaborator.findById as jest.Mock) = mockFindById;
       mockFindById.mockResolvedValue(collaborator);
 
@@ -770,7 +787,7 @@ describe('ProjectCollaborator', () => {
       expect(localValidator).toHaveBeenCalledTimes(1);
       expect(mockFindBy).toHaveBeenCalledTimes(1);
       expect(insertQuery).toHaveBeenCalledTimes(1);
-      expect(mockSendEmail).toHaveBeenCalledWith(
+      expect(sendProjectCollaborationEmail).toHaveBeenCalledWith(
         context, pName, inviter.getName(), collaborator.email, collaborator.userId
       );
       expect(Object.keys(result.errors).length).toBe(0);
@@ -803,7 +820,7 @@ describe('ProjectCollaborator', () => {
     });
 
     it('returns the ProjectCollaborator with errors if it is not valid', async () => {
-      const localValidator = jest.fn();
+      const localValidator = jest.fn<() => Promise<boolean>>();
       (collaborator.isValid as jest.Mock) = localValidator;
       localValidator.mockResolvedValueOnce(false);
 
@@ -813,7 +830,7 @@ describe('ProjectCollaborator', () => {
     });
 
     it('returns an error if the ProjectCollaborator has no id', async () => {
-      const localValidator = jest.fn();
+      const localValidator = jest.fn<() => Promise<boolean>>();
       (collaborator.isValid as jest.Mock) = localValidator;
       localValidator.mockResolvedValueOnce(true);
 
@@ -824,10 +841,15 @@ describe('ProjectCollaborator', () => {
     });
 
     it('returns the updated ProjectCollaborator', async () => {
-      const localValidator = jest.fn();
+      const localValidator = jest.fn<() => Promise<boolean>>();
       (collaborator.isValid as jest.Mock) = localValidator;
       localValidator.mockResolvedValueOnce(true);
-      const findById = jest.fn();
+
+      const mockExists = jest.fn<() => Promise<boolean>>();
+      (Project.exists as jest.Mock) = mockExists;
+      mockExists.mockResolvedValueOnce(true);
+
+      const findById = jest.fn<() => Promise<InstanceType<typeof ProjectCollaborator> | null>>();
       (ProjectCollaborator.findById as jest.Mock) = findById;
       findById.mockResolvedValueOnce(collaborator);
       updateQuery.mockResolvedValueOnce(collaborator);
@@ -864,8 +886,8 @@ describe('ProjectCollaborator', () => {
     });
 
     it('returns the original record with an error if it was not able to delete the record', async () => {
-      const deleteQuery = jest.fn();
-      const findQuery = jest.fn();
+      const deleteQuery = jest.fn<() => Promise<boolean>>();
+      const findQuery = jest.fn<() => Promise<InstanceType<typeof ProjectCollaborator> | null>>();
       (ProjectCollaborator.findById as jest.Mock) = findQuery;
       (ProjectCollaborator.delete as jest.Mock) = deleteQuery;
 
@@ -876,8 +898,8 @@ describe('ProjectCollaborator', () => {
     });
 
     it('returns the original record if it was able to delete the record', async () => {
-      const findQuery = jest.fn();
-      const deleteQuery = jest.fn();
+      const findQuery = jest.fn<() => Promise<InstanceType<typeof ProjectCollaborator> | null>>();
+      const deleteQuery = jest.fn<() => Promise<boolean>>();
       (ProjectCollaborator.findById as jest.Mock) = findQuery;
       (ProjectCollaborator.delete as jest.Mock) = deleteQuery;
 
@@ -1130,7 +1152,7 @@ describe('ProjectCollaborator', () => {
     });
 
     it('returns empty results if no projects found', async () => {
-      const mockFindByAffiliation = jest.fn().mockResolvedValueOnce([]);
+      const mockFindByAffiliation = jest.fn<() => Promise<InstanceType<typeof Project>[]>>().mockResolvedValueOnce([]);
       (Project.findByAffiliation as jest.Mock) = mockFindByAffiliation;
 
       const result = await ProjectCollaborator.findPotentialCollaboratorsByTerm('Test', context, 'search');
@@ -1144,7 +1166,8 @@ describe('ProjectCollaborator', () => {
         new Project({ id: casual.integer(1, 99) }),
         new Project({ id: casual.integer(100, 199) })
       ];
-      const mockFindByAffiliation = jest.fn().mockResolvedValueOnce(projects);
+      const mockFindByAffiliation = jest.fn<() => Promise<InstanceType<typeof Project>[]>>();
+      mockFindByAffiliation.mockResolvedValueOnce(projects);
       (Project.findByAffiliation as jest.Mock) = mockFindByAffiliation;
 
       const collaborators = Array.from({ length: 3 }, () => ({

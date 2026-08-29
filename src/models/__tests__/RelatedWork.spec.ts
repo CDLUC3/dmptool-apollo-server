@@ -1,6 +1,28 @@
-import casual from 'casual';
-import { buildMockContextWithToken } from '../../__mocks__/context.js';
+import { jest } from '@jest/globals';
+import casual from "casual";
 import {
+  Author,
+  Award,
+  Funder,
+  Institution,
+  RelatedWorkStatsResults
+} from '../../types.js';
+
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+
+//Dynamic imports AFTER all mocks are registered
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
+const {
   RelatedWork,
   RelatedWorkSearchResult,
   Work,
@@ -11,31 +33,23 @@ import {
   WorkType,
   RelatedWorkSourceType,
   RelationType
-} from '../RelatedWork.js';
-import { logger } from '../../logger.js';
-import { Plan } from '../Plan.js';
-import {
+} = await import('../RelatedWork.js');
+const {
   getMockHash,
   getMockRelatedWork,
   getMockRelatedWorkSearchResult,
   getMockWork,
   getMockWorkVersion,
-} from '../__mocks__/RelatedWork.js';
-import {
-  Author,
-  Award,
-  Funder,
-  Institution,
-  RelatedWorkStatsResults
-} from '../../types.js';
-import {
+} = await import('../__mocks__/RelatedWork.js');
+const { Plan } = await import('../Plan.js');
+
+const {
   getMockDOI,
   getMockORCID,
   getMockROR,
   getRandomEnumValue
-} from "../../__tests__/helpers.js";
+} = await import("../../__tests__/helpers.js");
 
-jest.mock('../../context.js')
 
 let context;
 
@@ -50,8 +64,8 @@ afterEach(() => {
 });
 
 describe('AcceptedWork', () => {
-  let localQuery: jest.Mock;
-  let acceptedWork: AcceptedWork;
+  let localQuery: jest.Mock<() => Promise<unknown[]>>;
+  let acceptedWork: InstanceType<typeof AcceptedWork>;
 
   const authorNameParts: string[] = ["Jane", "Mildred", "Doe"];
 
@@ -137,7 +151,7 @@ describe('AcceptedWork', () => {
 
   it('findByPlanIdAndDoi should return the accepted work', async () => {
     localQuery.mockResolvedValueOnce([acceptedWork]);
-    const result: AcceptedWork | null = await AcceptedWork.findByPlanIdAndDoi(
+    const result: InstanceType<typeof AcceptedWork> | null = await AcceptedWork.findByPlanIdAndDoi(
       'testing',
       context,
       acceptedWork.planId,
@@ -157,7 +171,7 @@ describe('AcceptedWork', () => {
 
   it('findByPlanIdAndDoi should return null if it is not found', async () => {
     localQuery.mockResolvedValueOnce([]);
-    const result: AcceptedWork | null = await AcceptedWork.findByPlanIdAndDoi(
+    const result: InstanceType<typeof AcceptedWork> | null = await AcceptedWork.findByPlanIdAndDoi(
       'testing',
       context,
       acceptedWork.planId,
@@ -189,7 +203,7 @@ describe('AcceptedWork', () => {
 });
 
 describe('Work', () => {
-  let work: Work;
+  let work: InstanceType<typeof Work>;
   const workData = getMockWork();
 
   beforeEach(async () => {
@@ -314,7 +328,7 @@ describe('Work update', () => {
   });
 
   it('returns the Work with errors if it is not valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (work.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -324,13 +338,13 @@ describe('Work update', () => {
   });
 
   it('returns the updated Work', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (work.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
     updateQuery.mockResolvedValueOnce(work);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof Work>>>();
     (Work.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(work);
 
@@ -359,7 +373,7 @@ describe('Work create', () => {
   });
 
   it('returns the Work without errors if it is valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (work.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -375,7 +389,7 @@ describe('Work create', () => {
   });
 
   it('returns the Work with an error if the object already exists', async () => {
-    const mockFindByDoi = jest.fn();
+    const mockFindByDoi = jest.fn<() => Promise<InstanceType<typeof Work> | null>>();
     (Work.findByDoi as jest.Mock) = mockFindByDoi;
     mockFindByDoi.mockResolvedValueOnce(work);
 
@@ -386,11 +400,11 @@ describe('Work create', () => {
   });
 
   it('returns the newly added Work', async () => {
-    const mockFindByDoi = jest.fn();
+    const mockFindByDoi = jest.fn<() => Promise<InstanceType<typeof Work> | null>>();
     (Work.findByDoi as jest.Mock) = mockFindByDoi;
     mockFindByDoi.mockResolvedValueOnce(null);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof Work>>>();
     (Work.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(work);
 
@@ -416,7 +430,7 @@ describe('Work delete', () => {
   });
 
   it('returns null if it was not able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<Boolean>>();
     (Work.delete as jest.Mock) = deleteQuery;
 
     deleteQuery.mockResolvedValueOnce(null);
@@ -424,11 +438,11 @@ describe('Work delete', () => {
   });
 
   it('returns the Work if it was able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<Boolean>>();
     (Work.delete as jest.Mock) = deleteQuery;
     deleteQuery.mockResolvedValueOnce(work);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof Work>>>();
     (Work.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(work);
 
@@ -439,7 +453,7 @@ describe('Work delete', () => {
 });
 
 describe('WorkVersion', () => {
-  let workVersion: WorkVersion;
+  let workVersion: InstanceType<typeof WorkVersion>;
 
   const workVersionData = getMockWorkVersion();
 
@@ -553,7 +567,7 @@ describe('WorkVersion update', () => {
   });
 
   it('returns the WorkVersion with errors if it is not valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (workVersion.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -563,13 +577,13 @@ describe('WorkVersion update', () => {
   });
 
   it('returns the updated WorkVersion', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (workVersion.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
     updateQuery.mockResolvedValueOnce(workVersion);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof WorkVersion>>>();
     (WorkVersion.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(workVersion);
 
@@ -598,7 +612,7 @@ describe('WorkVersion create', () => {
   });
 
   it('returns the WorkVersion without errors if it is valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (workVersion.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -614,7 +628,7 @@ describe('WorkVersion create', () => {
   });
 
   it('returns the WorkVersion with an error if the object already exists', async () => {
-    const mockFindByDoiAndHash = jest.fn();
+    const mockFindByDoiAndHash = jest.fn<() => Promise<InstanceType<typeof WorkVersion> | null>>();
     (WorkVersion.findByDoiAndHash as jest.Mock) = mockFindByDoiAndHash;
     mockFindByDoiAndHash.mockResolvedValueOnce(workVersion);
 
@@ -625,11 +639,11 @@ describe('WorkVersion create', () => {
   });
 
   it('returns the newly added WorkVersion', async () => {
-    const mockFindByDoiAndHash = jest.fn();
+    const mockFindByDoiAndHash = jest.fn<() => Promise<InstanceType<typeof WorkVersion> | null>>();
     (WorkVersion.findByDoiAndHash as jest.Mock) = mockFindByDoiAndHash;
     mockFindByDoiAndHash.mockResolvedValueOnce(null);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof WorkVersion>>>();
     (WorkVersion.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(workVersion);
 
@@ -655,7 +669,7 @@ describe('WorkVersion delete', () => {
   });
 
   it('returns null if it was not able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<Boolean>>();
     (WorkVersion.delete as jest.Mock) = deleteQuery;
 
     deleteQuery.mockResolvedValueOnce(null);
@@ -663,11 +677,11 @@ describe('WorkVersion delete', () => {
   });
 
   it('returns the WorkVersion if it was able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<Boolean>>();
     (WorkVersion.delete as jest.Mock) = deleteQuery;
     deleteQuery.mockResolvedValueOnce(workVersion);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof WorkVersion>>>();
     (WorkVersion.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(workVersion);
 
@@ -678,7 +692,7 @@ describe('WorkVersion delete', () => {
 });
 
 describe('RelatedWork', () => {
-  let relatedWork: RelatedWork;
+  let relatedWork: InstanceType<typeof RelatedWork>;
 
   const relatedWorkData = getMockRelatedWork();
 
@@ -866,7 +880,7 @@ describe('RelatedWork update', () => {
   });
 
   it('returns the RelatedWork with errors if it is not valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (relatedWork.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -876,13 +890,13 @@ describe('RelatedWork update', () => {
   });
 
   it('returns the updated RelatedWork', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (relatedWork.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
     updateQuery.mockResolvedValueOnce(relatedWork);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof RelatedWork>>>();
     (RelatedWork.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(relatedWork);
 
@@ -910,7 +924,7 @@ describe('RelatedWork create', () => {
   });
 
   it('returns the RelatedWork without errors if it is valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (relatedWork.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -926,15 +940,15 @@ describe('RelatedWork create', () => {
   });
 
   it('returns the RelatedWork with an error if the work version does not exist', async () => {
-    const mockWorkVersionFindById = jest.fn();
+    const mockWorkVersionFindById = jest.fn<() => Promise<InstanceType<typeof WorkVersion> | null>>();
     (WorkVersion.findById as jest.Mock) = mockWorkVersionFindById;
     mockWorkVersionFindById.mockResolvedValueOnce(null);
 
-    const mockPlanFindById = jest.fn();
+    const mockPlanFindById = jest.fn<() => Promise<InstanceType<typeof Plan> | null>>();
     (Plan.findById as jest.Mock) = mockPlanFindById;
     mockPlanFindById.mockResolvedValueOnce(null);
 
-    const mockRelatedWorkFindByPlanAndWorkVersionId = jest.fn();
+    const mockRelatedWorkFindByPlanAndWorkVersionId = jest.fn<() => Promise<InstanceType<typeof RelatedWork> | null>>();
     (RelatedWork.findByPlanAndWorkVersionId as jest.Mock) = mockRelatedWorkFindByPlanAndWorkVersionId;
     mockRelatedWorkFindByPlanAndWorkVersionId.mockResolvedValueOnce(relatedWork);
 
@@ -949,23 +963,23 @@ describe('RelatedWork create', () => {
   });
 
   it('returns the newly added RelatedWork', async () => {
-    const mockWorkVersionFindById = jest.fn();
+    const mockWorkVersionFindById = jest.fn<() => Promise<InstanceType<typeof WorkVersion> | null>>();
     (WorkVersion.findById as jest.Mock) = mockWorkVersionFindById;
     mockWorkVersionFindById.mockResolvedValueOnce(
       new WorkVersion({ id: casual.integer(1, 999), ...getMockWorkVersion() }),
     );
 
-    const mockPlanFindById = jest.fn();
+    const mockPlanFindById = jest.fn<() => Promise<InstanceType<typeof Plan> | null>>();
     (Plan.findById as jest.Mock) = mockPlanFindById;
     mockPlanFindById.mockResolvedValueOnce({
       id: casual.integer(1, 999),
-    });
+    } as InstanceType<typeof Plan>);
 
-    const mockRelatedWorkFindByPlanAndWorkVersionId = jest.fn();
+    const mockRelatedWorkFindByPlanAndWorkVersionId = jest.fn<() => Promise<InstanceType<typeof RelatedWork> | null>>();
     (RelatedWork.findByPlanAndWorkVersionId as jest.Mock) = mockRelatedWorkFindByPlanAndWorkVersionId;
     mockRelatedWorkFindByPlanAndWorkVersionId.mockResolvedValueOnce(null);
 
-    const mockRelatedWorkFindById = jest.fn();
+    const mockRelatedWorkFindById = jest.fn<() => Promise<InstanceType<typeof RelatedWork> | null>>();
     (RelatedWork.findById as jest.Mock) = mockRelatedWorkFindById;
     mockRelatedWorkFindById.mockResolvedValueOnce(
       new RelatedWork({ id: casual.integer(1, 999), ...getMockRelatedWork() }),
@@ -982,7 +996,7 @@ describe('RelatedWork create', () => {
 });
 
 describe('RelatedWorkSearchResult', () => {
-  let searchResult: RelatedWorkSearchResult;
+  let searchResult: InstanceType<typeof RelatedWorkSearchResult>;
   const searchResultData = getMockRelatedWorkSearchResult();
 
   beforeEach(() => {

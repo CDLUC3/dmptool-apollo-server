@@ -1,15 +1,22 @@
-import { MyContext } from "../../context.js";
-import { QuestionCustomization } from "../QuestionCustomization.js";
-import { MySqlModel } from "../MySqlModel.js";
-import { TemplateCustomizationMigrationStatus } from "../TemplateCustomization.js";
+import { jest } from '@jest/globals';
+import casual from "casual";
 
-jest.mock("../MySqlModel", () => ({
-  ...jest.requireActual("../MySqlModel"),
-  query: jest.fn(),
-  insert: jest.fn(),
-  update: jest.fn(),
-  delete: jest.fn(),
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
 }));
+
+import type { MyContext } from '../../context.js';
+
+// Dynamic imports AFTER all mocks are registered
+const { MySqlModel } = await import("../MySqlModel.js");
+const { QuestionCustomization } = await import("../QuestionCustomization.js");
+const { TemplateCustomizationMigrationStatus } = await import("../TemplateCustomization.js");
 
 describe("QuestionCustomization", () => {
   let mockContext: MyContext;

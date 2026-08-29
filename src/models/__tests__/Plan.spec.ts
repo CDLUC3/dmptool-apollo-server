@@ -1,9 +1,41 @@
+import { jest } from '@jest/globals';
 import casual from "casual";
-import { buildMockContextWithToken } from "../../__mocks__/context.js";
 
-import { logger } from "../../logger.js";
-import { getMockDMPId, getRandomEnumValue } from "../../__tests__/helpers.js";
-import {
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+import type { MyContext } from '../../context.js';
+type QueryWithPaginationFn = (
+  context: MyContext,
+  sql: string,
+  whereFilters: string[],
+  groupBy: string,
+  values: string[],
+  opts: unknown,
+  reference: string,
+  calculateTotalCount?: boolean
+) => Promise<{
+  items: InstanceType<typeof PlanSearchResult>[];
+  totalCount: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+  currentOffset: number;
+}>;
+
+//Dynamic imports AFTER all mocks are registered
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
+const { generalConfig } = await import('../../config/generalConfig.js');
+const { getMockDMPId, getRandomEnumValue } = await import("../../__tests__/helpers.js");
+
+const {
   DEFAULT_TEMPORARY_DMP_ID_PREFIX,
   Plan,
   PlanSearchResult,
@@ -11,16 +43,13 @@ import {
   PlanProgress,
   PlanStatus,
   PlanVisibility
-} from "../Plan.js";
-import { defaultLanguageId } from "../Language.js";
-import { generalConfig } from "../../config/generalConfig.js";
-import { getCurrentDate } from "../../utils/helpers.js";
-import { PlanGuidance } from "../Guidance.js";
-import { Project } from "../Project.js";
-import { VersionedTemplate } from "../VersionedTemplate.js";
-import { PaginationType } from "../../types/general.js";
-
-jest.mock('../../context.js')
+} = await import("../Plan.js");
+const { defaultLanguageId } = await import("../Language.js");
+const { getCurrentDate } = await import("../../utils/helpers.js");
+const { PlanGuidance } = await import("../Guidance.js");
+const { Project } = await import("../Project.js");
+const { VersionedTemplate } = await import("../VersionedTemplate.js");
+const { PaginationType } = await import("../../types/general.js");
 
 let context;
 
@@ -155,12 +184,13 @@ describe('PlanSearchResult.findByProjectIdWithPagination', () => {
   const originalQuery = Plan.query;
   const originalQueryWithPagination = Plan.queryWithPagination;
 
-  let localQuery: jest.Mock;
-  let localQueryWithPagination: jest.Mock;
+  let localQuery: jest.Mock<() => Promise<unknown[]>>;
+  let localQueryWithPagination: jest.Mock<QueryWithPaginationFn>;
 
   beforeEach(() => {
-    localQuery = jest.fn();
-    localQueryWithPagination = jest.fn();
+    localQuery = jest.fn<() => Promise<unknown[]>>();
+    localQueryWithPagination = jest.fn<QueryWithPaginationFn>();
+
     (Plan.query as jest.Mock) = localQuery;
     (Plan.queryWithPagination as jest.Mock) = localQueryWithPagination;
   });
@@ -179,7 +209,7 @@ describe('PlanSearchResult.findByProjectIdWithPagination', () => {
     ...overrides,
   });
 
-  const makePaginatedResult = (items: PlanSearchResult[]) => ({
+  const makePaginatedResult = (items: InstanceType<typeof PlanSearchResult>[]) => ({
     items,
     totalCount: items.length,
     hasNextPage: false,
@@ -241,8 +271,8 @@ describe('PlanSearchResult.findByProjectIdWithPagination', () => {
     await PlanSearchResult.findByUserIdWithPagination('testing', context, userId, options);
 
     const [, , , , , opts] = localQueryWithPagination.mock.calls[0];
-    expect(opts.sortField).toBe('p.created');
-    expect(opts.sortDir).toBe('DESC');
+    expect((opts as { sortField: string; sortDir: string }).sortField).toBe('p.created');
+    expect((opts as { sortField: string; sortDir: string }).sortDir).toBe('DESC');
   });
 
   it('should return paginated results', async () => {
@@ -811,7 +841,7 @@ describe('PlanProgress', () => {
 });
 
 describe('PlanProgress.findByPlanId', () => {
-  let mockFindSectionProgress: jest.SpyInstance;
+  let mockFindSectionProgress: ReturnType<typeof jest.spyOn>;
 
   beforeEach(() => {
     mockFindSectionProgress = jest.spyOn(PlanSectionProgress, 'findByPlanId');
@@ -1173,9 +1203,9 @@ describe('publish', () => {
   let plan;
   let mockFindById;
   let updateQuery;
-  let mockRegisterIdentifier: jest.Mock;
 
   const mockDataciteXML = '<?xml version="1.0" encoding="UTF-8"?><resource>mock</resource>';
+  let mockRegisterIdentifier: jest.Mock<(context: MyContext, identifier: string, metadata: Record<string, unknown>) => Promise<unknown>>;
 
   beforeEach(async () => {
     mockFindById = jest.fn();
@@ -1201,7 +1231,7 @@ describe('publish', () => {
     // Mock the EZID registerIdentifier call on the context datasource
     context = await buildMockContextWithToken(logger);
 
-    mockRegisterIdentifier = jest.fn();
+    mockRegisterIdentifier = jest.fn<(context: MyContext, identifier: string, metadata: Record<string, unknown>) => Promise<unknown>>();
     // Create a mock datasource with the query function
     context.dataSources.ezidAPIDataSource = {
       registerIdentifier: mockRegisterIdentifier
@@ -1251,7 +1281,7 @@ describe('publish', () => {
   });
 
   it('returns an error if the Plan is not valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (plan.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -1325,7 +1355,7 @@ describe('create', () => {
   it('returns the newly added Plan', async () => {
     const createdPlan = new Plan({ ...plan, id: 123 });
     insertQuery.mockResolvedValueOnce(createdPlan.id);
-    const mockFindById = jest.fn().mockResolvedValueOnce(createdPlan);
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof Plan>>>().mockResolvedValueOnce(createdPlan);
     (Plan.findById as jest.Mock) = mockFindById;
 
     const result = await plan.create(context);
@@ -1341,12 +1371,11 @@ describe('create', () => {
 
     // Mock VersionedTemplate to return an owner
     const mockVersionedTemplate = { ownerId: 'https://ror.org/template-owner' };
-    (VersionedTemplate.findById as jest.Mock) = jest.fn().mockResolvedValue(mockVersionedTemplate);
-
+    (VersionedTemplate.findById as jest.Mock) = jest.fn<() => Promise<{ ownerId: string }>>().mockResolvedValue(mockVersionedTemplate);
     // Mock successful insert and findById
     insertQuery.mockResolvedValueOnce(123);
     const createdPlan = new Plan({ ...planData, id: 123 });
-    (Plan.findById as jest.Mock) = jest.fn().mockResolvedValueOnce(createdPlan);
+    (Plan.findById as jest.Mock) = jest.fn<() => Promise<InstanceType<typeof Plan>>>().mockResolvedValueOnce(createdPlan);
 
     const plan = new Plan(planData);
     await plan.create(context);
@@ -1363,7 +1392,7 @@ describe('create', () => {
       .mockResolvedValue(undefined);
     const projectFindById = jest
       .spyOn(Project, 'findById')
-      .mockResolvedValue({ title: 'My Project' } as Project);
+      .mockResolvedValue({ title: 'My Project' } as InstanceType<typeof Project>);
     const planFindByProjectId = jest
       .spyOn(Plan, 'findByProjectId')
       .mockResolvedValue([
@@ -1432,7 +1461,7 @@ describe('update', () => {
   });
 
   it('returns the Plan with errors if it is not valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (plan.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -1442,7 +1471,7 @@ describe('update', () => {
   });
 
   it('returns an error if the Plan has no id', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (plan.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
@@ -1453,7 +1482,7 @@ describe('update', () => {
   });
 
   it('returns the updated Plan', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (plan.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValue(true);
 
@@ -1470,7 +1499,7 @@ describe('update', () => {
   });
 
   it('does not do any versioning if noTouch is true', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (plan.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValue(true);
 
@@ -1486,7 +1515,7 @@ describe('update', () => {
   });
 
   it('does not do any versioning if the Plan update failed', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (plan.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValue(true);
 
@@ -1520,7 +1549,7 @@ describe('delete', () => {
   });
 
   it('returns null if it was not able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<null>>();
     (Plan.delete as jest.Mock) = deleteQuery;
 
     deleteQuery.mockResolvedValueOnce(null);
@@ -1528,11 +1557,11 @@ describe('delete', () => {
   });
 
   it('returns the Plan if it was able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<Boolean>>();
     (Plan.delete as jest.Mock) = deleteQuery;
     deleteQuery.mockResolvedValueOnce(plan);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof Plan>>>();
     (Plan.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(plan);
 

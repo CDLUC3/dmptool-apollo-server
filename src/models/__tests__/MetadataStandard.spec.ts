@@ -1,11 +1,21 @@
+import { jest } from '@jest/globals';
 import casual from "casual";
-import { buildMockContextWithToken } from "../../__mocks__/context.js";
 
-import { MetadataStandard } from "../MetadataStandard.js";
-import { generalConfig } from "../../config/generalConfig.js";
-import { logger } from "../../logger.js";
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
 
-jest.mock('../../context.js')
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+//Dynamic imports AFTER all mocks are registered
+const { MetadataStandard } = await import('../MetadataStandard.js');
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
+const { generalConfig } = await import('../../config/generalConfig.js');
 
 let context;
 
@@ -304,7 +314,7 @@ describe('update', () => {
   });
 
   it('returns the MetadataStandard with errors if it is not valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (standard.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -314,7 +324,7 @@ describe('update', () => {
   });
 
   it('returns an error if the MetadataStandard has no id', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (standard.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
@@ -325,13 +335,13 @@ describe('update', () => {
   });
 
   it('returns the updated MetadataStandard', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (standard.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
     updateQuery.mockResolvedValueOnce(standard);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof MetadataStandard> | null>>();
     (MetadataStandard.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(standard);
 
@@ -366,7 +376,7 @@ describe('create', () => {
   });
 
   it('returns the MetadataStandard without errors if it is valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (standard.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -382,7 +392,7 @@ describe('create', () => {
   });
 
   it('returns the MetadataStandard with an error if the object already exists', async () => {
-    const mockFindBy = jest.fn();
+    const mockFindBy = jest.fn<() => Promise<InstanceType<typeof MetadataStandard> | null>>();
     (MetadataStandard.findByURI as jest.Mock) = mockFindBy;
     mockFindBy.mockResolvedValueOnce(standard);
 
@@ -393,15 +403,15 @@ describe('create', () => {
   });
 
   it('returns the newly added MetadataStandard', async () => {
-    const mockFindbyURI = jest.fn();
+    const mockFindbyURI = jest.fn<() => Promise<InstanceType<typeof MetadataStandard> | null>>();
     (MetadataStandard.findByURI as jest.Mock) = mockFindbyURI;
     mockFindbyURI.mockResolvedValueOnce(null);
 
-    const mockFindByName = jest.fn();
+    const mockFindByName = jest.fn<() => Promise<InstanceType<typeof MetadataStandard> | null>>();
     (MetadataStandard.findByName as jest.Mock) = mockFindByName;
     mockFindByName.mockResolvedValueOnce(null);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof MetadataStandard> | null>>();
     (MetadataStandard.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(standard);
 
@@ -435,7 +445,7 @@ describe('delete', () => {
   });
 
   it('returns null if it was not able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<Boolean>>();
     (MetadataStandard.delete as jest.Mock) = deleteQuery;
 
     deleteQuery.mockResolvedValueOnce(null);
@@ -443,11 +453,11 @@ describe('delete', () => {
   });
 
   it('returns the MetadataStandard if it was able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<boolean>>();
     (MetadataStandard.delete as jest.Mock) = deleteQuery;
     deleteQuery.mockResolvedValueOnce(standard);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof MetadataStandard> | null>>();
     (MetadataStandard.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(standard);
 

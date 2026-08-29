@@ -1,11 +1,23 @@
+import { jest } from '@jest/globals';
 import casual from "casual";
-import { Tag } from "../Tag.js";
-import { buildMockContextWithToken } from "../../__mocks__/context.js";
 
-import { logger } from "../../logger.js";
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+//Dynamic imports AFTER all mocks are registered
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
+const { Tag } = await import("../Tag.js");
+
 
 let context;
-jest.mock('../../context.js')
 
 
 describe('Tag', () => {
@@ -53,7 +65,7 @@ describe('create', () => {
   });
 
   it('returns the Tag with an error if the tag already exists', async () => {
-    const mockFindBy = jest.fn();
+    const mockFindBy = jest.fn<() => Promise<InstanceType<typeof Tag> | null>>();
     (Tag.findBySlug as jest.Mock) = mockFindBy;
     mockFindBy.mockResolvedValueOnce(tag);
 
@@ -63,7 +75,7 @@ describe('create', () => {
     expect(result.errors['general']).toBeTruthy();
   });
   it('returns the newly added Tag', async () => {
-    const mockFindBy = jest.fn();
+    const mockFindBy = jest.fn<() => Promise<InstanceType<typeof Tag> | null>>();
     context = {
       token: {
         id: 1,
@@ -78,7 +90,7 @@ describe('create', () => {
     mockFindBy.mockResolvedValueOnce(null);
     mockFindBy.mockResolvedValue(tag);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof Tag> | null>>();
     (Tag.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(tag);
 
@@ -108,7 +120,7 @@ describe('update', () => {
   });
 
   it('returns the Tag without errors if it is valid', async () => {
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof Tag> | null>>();
     (Tag.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(tag);
     const result = await tag.update(context);
@@ -138,12 +150,13 @@ describe('delete', () => {
     expect(await tag.delete(context)).toBe(null);
   });
   it('returns the Tag if it was able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<null>>();
     (Tag.delete as jest.Mock) = deleteQuery;
 
     deleteQuery.mockResolvedValueOnce(tag);
 
-    const mockFindById = jest.fn();
+
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof Tag> | null>>();
     (Tag.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(tag);
 

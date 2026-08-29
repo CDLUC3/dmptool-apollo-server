@@ -1,10 +1,20 @@
+import { jest } from '@jest/globals';
 import casual from "casual";
-import { buildMockContextWithToken } from "../../__mocks__/context.js";
 
-import { PlanFeedbackComment } from "../PlanFeedbackComment.js";
-import { logger } from "../../logger.js";
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
 
-jest.mock('../../context.js')
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+//Dynamic imports AFTER all mocks are registered
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
+const { PlanFeedbackComment } = await import('../PlanFeedbackComment.js');
 
 let context;
 
@@ -150,7 +160,7 @@ describe('update', () => {
   });
 
   it('returns the PlanFeedbackComment with errors if it is not valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (planFeedbackComment.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -160,7 +170,7 @@ describe('update', () => {
   });
 
   it('returns an error if the PlanFeedbackComment has no id', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (planFeedbackComment.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
@@ -171,13 +181,13 @@ describe('update', () => {
   });
 
   it('returns the updated AnswerComment', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (planFeedbackComment.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
     updateQuery.mockResolvedValueOnce(planFeedbackComment);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof PlanFeedbackComment>>>();
     (PlanFeedbackComment.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(planFeedbackComment);
 
@@ -211,7 +221,7 @@ describe('create', () => {
   });
 
   it('returns the PlanFeedbackComment without errors if it is valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (planFeedbackComment.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -227,7 +237,7 @@ describe('create', () => {
   });
 
   it('returns the newly added PlanFeedbackComment', async () => {
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof PlanFeedbackComment>>>();
     (PlanFeedbackComment.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(planFeedbackComment);
     planFeedbackComment.feedbackId = 20;
@@ -257,7 +267,7 @@ describe('delete', () => {
   });
 
   it('returns null if it was not able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<null>>();
     (PlanFeedbackComment.delete as jest.Mock) = deleteQuery;
 
     deleteQuery.mockResolvedValueOnce(null);
@@ -265,11 +275,11 @@ describe('delete', () => {
   });
 
   it('returns the PlanFeedbackComment if it was able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<Boolean>>();
     (PlanFeedbackComment.delete as jest.Mock) = deleteQuery;
     deleteQuery.mockResolvedValueOnce(planFeedbackComment);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof PlanFeedbackComment>>>();
     (PlanFeedbackComment.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(planFeedbackComment);
 

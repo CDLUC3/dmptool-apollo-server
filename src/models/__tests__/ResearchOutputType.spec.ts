@@ -1,9 +1,22 @@
-import { ResearchOutputType } from '../ResearchOutputType.js';
-import { MyContext } from '../../context.js';
-import casual from 'casual';
-import { buildMockContextWithToken } from "../../__mocks__/context.js";
+import { jest } from '@jest/globals';
+import casual from "casual";
 
-import { logger } from "../../logger.js";
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+import type { MyContext } from '../../context.js';
+
+//Dynamic imports AFTER all mocks are registered
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
+const { ResearchOutputType } = await import('../ResearchOutputType.js');
 
 describe('ResearchOutputType', () => {
   let context: MyContext;

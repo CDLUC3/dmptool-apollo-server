@@ -109,6 +109,16 @@ export class MockCache {
 // Lazy instantiate to allow mocks to be set up first
 let cachedMysqlInstance: jest.Mocked<MySQLConnectionType> | null = null;
 const getMockedMysqlInstance = () => {
+  (MySQLConnection as jest.Mock).mockImplementation(() => ({
+    pool: null,
+    validateConnection: jest.fn(),
+    getConnection: jest.fn(),
+    releaseConnection: jest.fn(),
+    query: jest.fn(),
+    withTransaction: jest.fn(),
+    close: jest.fn(),
+  }));
+
   if (!cachedMysqlInstance) {
     cachedMysqlInstance =
       new MySQLConnection() as unknown as jest.Mocked<MySQLConnectionType>;

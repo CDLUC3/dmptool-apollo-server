@@ -133,7 +133,7 @@ export function mockAppLogger() {
 
   jest.unstable_mockModule('../logger.js', () => ({
     logger: mockLogger,
-    prepareObjectForLogs: jest.fn((obj) => obj),
+    prepareObjectForLogs: (obj: unknown) => obj,
     initLogger: jest.fn().mockReturnValue(mockLogger),
   }));
 }

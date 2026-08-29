@@ -1,10 +1,20 @@
+import { jest } from '@jest/globals';
 import casual from "casual";
-import { buildMockContextWithToken } from "../../__mocks__/context.js";
 
-import { License } from "../License.js";
-import { logger } from "../../logger.js";
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
 
-jest.mock('../../context.js')
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+// Dynamic imports AFTER all mocks are registered
+const { License } = await import("../License.js");
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
 
 let context;
 
@@ -195,7 +205,7 @@ describe('update', () => {
   });
 
   it('returns the License with errors if it is not valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (license.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -205,7 +215,7 @@ describe('update', () => {
   });
 
   it('returns an error if the License has no id', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (license.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
@@ -216,13 +226,13 @@ describe('update', () => {
   });
 
   it('returns the updated License', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (license.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
     updateQuery.mockResolvedValueOnce(license);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof License> | null>>();
     (License.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(license);
 
@@ -257,7 +267,7 @@ describe('create', () => {
   });
 
   it('returns the License without errors if it is valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (license.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -273,7 +283,7 @@ describe('create', () => {
   });
 
   it('returns the License with an error if the object already exists', async () => {
-    const mockFindBy = jest.fn();
+    const mockFindBy = jest.fn<() => Promise<InstanceType<typeof License> | null>>();
     (License.findByURI as jest.Mock) = mockFindBy;
     mockFindBy.mockResolvedValueOnce(license);
 
@@ -284,15 +294,15 @@ describe('create', () => {
   });
 
   it('returns the newly added License', async () => {
-    const mockFindbyURI = jest.fn();
+    const mockFindbyURI = jest.fn<() => Promise<InstanceType<typeof License> | null>>();
     (License.findByURI as jest.Mock) = mockFindbyURI;
     mockFindbyURI.mockResolvedValueOnce(null);
 
-    const mockFindByName = jest.fn();
+    const mockFindByName = jest.fn<() => Promise<InstanceType<typeof License> | null>>();
     (License.findByName as jest.Mock) = mockFindByName;
     mockFindByName.mockResolvedValueOnce(null);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof License> | null>>();
     (License.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(license);
 
@@ -326,7 +336,7 @@ describe('delete', () => {
   });
 
   it('returns null if it was not able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<boolean>>();
     (License.delete as jest.Mock) = deleteQuery;
 
     deleteQuery.mockResolvedValueOnce(null);
@@ -334,11 +344,11 @@ describe('delete', () => {
   });
 
   it('returns the License if it was able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<boolean>>();
     (License.delete as jest.Mock) = deleteQuery;
     deleteQuery.mockResolvedValueOnce(license);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof License> | null>>();
     (License.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(license);
 

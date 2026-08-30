@@ -1,6 +1,5 @@
 import { jest } from '@jest/globals';
 import casual from "casual";
-import bcrypt from 'bcryptjs';
 
 import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
 
@@ -10,6 +9,18 @@ mockAppLogger();
 
 jest.unstable_mockModule('../../context.js', () => ({
   buildContext: jest.fn(),
+}));
+
+const mockGenSalt = jest.fn<() => Promise<string>>();
+const mockHash = jest.fn<() => Promise<string>>();
+const mockCompare = jest.fn<() => Promise<boolean>>();
+
+jest.unstable_mockModule('bcryptjs', () => ({
+  default: {
+    genSalt: mockGenSalt,
+    hash: mockHash,
+    compare: mockCompare,
+  },
 }));
 
 import type { MyContext } from "../../context.js";
@@ -42,6 +53,7 @@ const { getRandomEnumValue } = await import('../../__tests__/helpers.js');
 const { UserEmail } = await import('../UserEmail.js');
 const { PaginationType } = await import('../../types/general.js');
 const { ProjectCollaborator, TemplateCollaborator } = await import("../Collaborator.js");
+const bcrypt = await import('bcryptjs');
 
 
 let mockQuery;
@@ -328,11 +340,10 @@ describe('authCheck', () => {
     ]);
     mockQuery.mockResolvedValueOnce([mockUser]);
 
-    bcryptCompare = jest.fn<() => Promise<boolean>>().mockResolvedValue(false);
-    (bcrypt.compare as jest.Mock) = bcryptCompare;
+    mockCompare.mockResolvedValue(false);
 
     expect(await User.authCheck('Testing authCheck', mockContext, email, password)).toBeFalsy();
-    expect(mockContext.logger.debug).toHaveBeenCalledTimes(1);
+    expect(mockContext.logger.debug).toHaveBeenCalledTimes(2);
   });
 
   it('it returns the user\'s id if the password matched', async () => {
@@ -349,10 +360,7 @@ describe('authCheck', () => {
     const mockUserData = { ...mockUser }; // or Object.assign({}, mockUser)
     mockQuery.mockResolvedValueOnce([mockUserData]);
 
-    // jest.spyOn(User, 'findById').mockResolvedValue(mockUser);
-
-    const bcryptCompare = jest.fn<() => Promise<boolean>>().mockResolvedValue(true);
-    (bcrypt.compare as jest.Mock) = bcryptCompare;
+    mockCompare.mockResolvedValue(true);
 
     const result = await User.authCheck('Testing authCheck', mockContext, email, password);
     expect(result).toEqual(mockUser.id);
@@ -478,12 +486,6 @@ describe('login()', () => {
 describe('register()', () => {
   let context;
 
-  const bcryptSalt = jest.fn().mockReturnValue('abc');
-  (bcrypt.genSalt as jest.Mock) = bcryptSalt;
-
-  const bcryptPassword = jest.fn().mockReturnValue('test.user@example.com');
-  (bcrypt.hash as jest.Mock) = bcryptPassword;
-
   beforeEach(async () => {
     jest.resetAllMocks();
 
@@ -491,6 +493,11 @@ describe('register()', () => {
 
     const mockSqlDataSource = (buildContext(logger, null, null)).dataSources.sqlDataSource;
     mockQuery = mockSqlDataSource.query as jest.MockedFunction<typeof mockSqlDataSource.query>;
+
+
+    mockGenSalt.mockResolvedValue('abc');
+    mockHash.mockResolvedValue('hashed-password');
+
   });
 
   afterEach(() => {
@@ -629,8 +636,9 @@ describe('register()', () => {
     expect(user.validatePassword).toHaveBeenCalledTimes(1);
   });
 
-  it.only('should accept all template collaboration invites', async () => {
+  it('should accept all template collaboration invites', async () => {
     const email = 'tester@example.com';
+
     const user = new User({
       id: 123,
       password: '@bcd3fGhijklmnop',
@@ -639,37 +647,56 @@ describe('register()', () => {
       affiliationId: casual.url,
       acceptedTerms: true,
     });
+
     const collabs = [new TemplateCollaborator({ email })];
-    const mockInviteUpdate = jest.fn<(context: MyContext) => Promise<InstanceType<typeof TemplateCollaborator>>>()
-      .mockResolvedValue(collabs[0]);
 
-    // First call to Mock mysql query from findByEmail()
-    jest.spyOn(UserEmail, "findByEmail").mockResolvedValue([]);
-    // Second call to Mock mysql query from register()
-    jest.spyOn(User, "query").mockResolvedValueOnce([{ insertId: 1 }]);
-    // Third call to Mock mysql query from findById()
-    jest.spyOn(User, "findById").mockResolvedValueOnce(user);
-    // Fourth call to update the createdById and modifiedById
-    jest.spyOn(User, "query").mockResolvedValueOnce([user]);
-    // Fifth call to add the email
-    mockQuery.mockResolvedValueOnce({ email });
-    // Sixth call to fetch template collaborators
-    jest.spyOn(TemplateCollaborator, "findByEmail").mockResolvedValueOnce(collabs);
-    // Seventh call to fetch project collaborators
-    jest.spyOn(ProjectCollaborator, "findByEmail").mockResolvedValueOnce([]);
+    const mockInviteUpdate = jest.fn<
+      (context: MyContext) => Promise<InstanceType<typeof TemplateCollaborator>>
+    >().mockResolvedValue(collabs[0]);
 
-    jest.spyOn(user, 'validatePassword').mockReturnValue(true);
-    jest.spyOn(collabs[0], 'update').mockImplementation(mockInviteUpdate);
+    jest.spyOn(UserEmail, 'findByEmail').mockResolvedValue([]);
 
-    console.log('User.query call count:', (User.query as jest.Mock).mock.calls.length);
-    console.log('mockQuery call count:', mockQuery.mock.calls.length);
-    console.log('TemplateCollaborator.findByEmail call count:', (TemplateCollaborator.findByEmail as jest.Mock).mock.calls.length);
-    console.log('TemplateCollaborator.findByEmail result:', (TemplateCollaborator.findByEmail as jest.Mock).mock.results);
-    console.log('ProjectCollaborator.findByEmail call count:', (ProjectCollaborator.findByEmail as jest.Mock).mock.calls.length);
+    const mockUserQuery = jest
+      .spyOn(User, 'query')
+      .mockResolvedValueOnce([{ insertId: 1 }])
+      .mockResolvedValueOnce([user]);
+
+    jest.spyOn(User, 'findById')
+      .mockResolvedValueOnce(user);
+
+    jest.spyOn(TemplateCollaborator, 'findByEmail')
+      .mockResolvedValueOnce(collabs);
+
+    jest.spyOn(ProjectCollaborator, 'findByEmail')
+      .mockResolvedValueOnce([]);
+
+    jest.spyOn(collabs[0], 'update')
+      .mockImplementation(mockInviteUpdate);
+
+    jest.spyOn(user, 'validatePassword')
+      .mockReturnValue(true);
+
+    // Make sure bcrypt mocks are still implemented after resetAllMocks()
+    mockGenSalt.mockResolvedValue('abc');
+    mockHash.mockResolvedValue('hashed-password');
+
+    // UserEmail.create() uses the datasource directly
+    mockQuery.mockResolvedValueOnce({ insertId: 1 });
+    mockQuery.mockResolvedValueOnce([
+      { id: 1, userId: 123, email, isPrimary: true, isConfirmed: false }
+    ]);
     const response = await user.register(context, email);
+
     expect(response).not.toBeNull();
     expect(user.validatePassword).toHaveBeenCalledTimes(1);
-    expect(mockInviteUpdate).toHaveBeenCalledTimes(1);
+
+    expect(mockUserQuery).toHaveBeenCalledTimes(2);
+
+    expect(TemplateCollaborator.findByEmail)
+      .toHaveBeenCalledTimes(1);
+
+    expect(mockInviteUpdate)
+      .toHaveBeenCalledTimes(1);
   });
 
   it('should accept all project collaboration invites', async () => {
@@ -696,6 +723,9 @@ describe('register()', () => {
     jest.spyOn(User, "query").mockResolvedValueOnce([user]);
     // Fifth call to add the email
     mockQuery.mockResolvedValueOnce({ email });
+    mockQuery.mockResolvedValueOnce([
+      { id: 1, userId: 123, email, isPrimary: true, isConfirmed: false }
+    ]);
     // Sixth call to fetch template collaborators
     jest.spyOn(TemplateCollaborator, "findByEmail").mockResolvedValueOnce([]);
     // Seventh call to fetch project collaborators

@@ -1,8 +1,25 @@
-import {
-  VersionedTemplateCustomization
-} from '../VersionedTemplateCustomization.js';
-import { MySqlModel } from '../MySqlModel.js';
-import { MyContext } from '../../context.js';
+import { jest } from '@jest/globals';
+
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+jest.unstable_mockModule('../../services/templateCustomizationPublishHelpers.js', () => ({
+  snapshotCustomizationChildren: jest.fn(),
+  rollbackPublishedSnapshot: jest.fn(),
+}));
+
+import type { MyContext } from '../../context.js';
+
+//Dynamic imports AFTER all mocks are registered
+const { VersionedTemplateCustomization } = await import('../VersionedTemplateCustomization.js');
+const { MySqlModel } = await import('../MySqlModel.js');
 
 describe('VersionedTemplateCustomization', () => {
   let mockContext: MyContext;
@@ -27,7 +44,7 @@ describe('VersionedTemplateCustomization', () => {
     };
 
     // Mock parent class methods
-    (MySqlModel.prototype.isValid as jest.Mock) = jest.fn().mockResolvedValue(true);
+    (MySqlModel.prototype.isValid as jest.Mock) = jest.fn<() => Promise<boolean>>().mockResolvedValue(true);
     (MySqlModel.prototype.addError as jest.Mock) = jest.fn();
     (MySqlModel.prototype.hasErrors as jest.Mock) = jest.fn().mockReturnValue(false);
   });
@@ -182,7 +199,7 @@ describe('VersionedTemplateCustomization', () => {
       });
 
       jest.spyOn(instance, 'isValid').mockResolvedValue(true);
-      jest.spyOn(VersionedTemplateCustomization, 'update').mockResolvedValue({ affectedRows: 1 } as unknown as VersionedTemplateCustomization);
+      jest.spyOn(VersionedTemplateCustomization, 'update').mockResolvedValue({ affectedRows: 1 } as unknown as InstanceType<typeof VersionedTemplateCustomization>);
       jest.spyOn(mockUpdated, 'hasErrors').mockReturnValue(false);
       jest.spyOn(VersionedTemplateCustomization, 'findById').mockResolvedValue(mockFetched);
 

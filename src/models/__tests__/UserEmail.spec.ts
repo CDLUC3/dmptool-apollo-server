@@ -1,12 +1,29 @@
+import { jest } from '@jest/globals';
 import casual from "casual";
-import { buildMockContextWithToken } from "../../__mocks__/context.js";
 
-import { logger } from "../../logger.js";
-import { User } from "../User.js";
-import { UserEmail } from "../UserEmail.js";
-import { TemplateCollaborator } from "../Collaborator.js";
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { sendEmailConfirmationNotification } from "../../services/emailService.js";
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+jest.unstable_mockModule('../../services/emailService.js', () => ({
+  sendProjectCollaborationEmail: jest.fn(),
+  sendTemplateCollaborationEmail: jest.fn(),
+  sendEmailConfirmationNotification: jest.fn(),
+}));
+
+//Dynamic imports AFTER all mocks are registered
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
+const { User } = await import("../User.js");
+const { UserEmail } = await import("../UserEmail.js");
+const { TemplateCollaborator } = await import("../Collaborator.js");
+const { sendEmailConfirmationNotification } = await import("../../services/emailService.js");
 
 let context;
 let mockUser;
@@ -288,7 +305,7 @@ describe('confirmEmail', () => {
 
     // Mock the instance method update for each collaborator
     for (const collab of mockTemplateCollaborators) {
-      collab.update = jest.fn().mockResolvedValue(collab);
+      collab.update = jest.fn<() => Promise<InstanceType<typeof TemplateCollaborator>>>().mockResolvedValue(collab);
     }
 
     const result = await UserEmail.confirmEmail(context, mockUser.id, mockUserEmail.email)
@@ -334,20 +351,19 @@ describe('create', () => {
       isConfirmed: casual.boolean,
     });
 
-    mockValid = jest.fn();
+    mockValid = jest.fn<() => Promise<boolean>>();
     (mockUserEmail.isValid as jest.Mock) = mockValid;
 
-    mockFindByEmail = jest.fn();
+    mockFindByEmail = jest.fn<() => Promise<InstanceType<typeof UserEmail>[]>>().mockResolvedValue([]);
     (UserEmail.findByEmail as jest.Mock) = mockFindByEmail;
 
-    mockFindById = jest.fn();
+    mockFindById = jest.fn<() => Promise<InstanceType<typeof UserEmail> | null>>().mockResolvedValue(mockUserEmail);
     (UserEmail.findById as jest.Mock) = mockFindById;
 
-    mockInsert = jest.fn().mockResolvedValue(mockUserEmail);
+    mockInsert = jest.fn<() => Promise<InstanceType<typeof UserEmail>>>().mockResolvedValue(mockUserEmail);
     (UserEmail.insert as jest.Mock) = mockInsert;
 
-    const mockEmail = jest.fn();
-    (sendEmailConfirmationNotification as jest.Mock) = mockEmail;
+    jest.mocked(sendEmailConfirmationNotification).mockResolvedValue(true);
   });
 
   it('returns the UserEmail with errors if it is not valid', async () => {
@@ -425,7 +441,7 @@ describe('update', () => {
     mockFindById = jest.fn();
     (UserEmail.findById as jest.Mock) = mockFindById;
 
-    mockUpdate = jest.fn().mockResolvedValue(mockUserEmail);
+    mockUpdate = jest.fn<() => Promise<InstanceType<typeof UserEmail>>>().mockResolvedValue(mockUserEmail);
     (UserEmail.update as jest.Mock) = mockUpdate;
   });
 
@@ -487,7 +503,7 @@ describe('delete', () => {
     mockFindById = jest.fn();
     (UserEmail.findById as jest.Mock) = mockFindById;
 
-    mockDelete = jest.fn().mockResolvedValue(mockUserEmail);
+    mockDelete = jest.fn<() => Promise<InstanceType<typeof UserEmail>>>().mockResolvedValue(mockUserEmail);
     (UserEmail.delete as jest.Mock) = mockDelete;
   });
 

@@ -1,13 +1,25 @@
+import { jest } from '@jest/globals';
 import casual from "casual";
-import { buildMockContextWithToken } from "../../__mocks__/context.js";
+import {
+  CURRENT_SCHEMA_VERSION,
+  DefaultTextAreaQuestion
+} from "@dmptool/types";
 
-import { VersionedQuestion } from "../VersionedQuestion.js";
-import { CURRENT_SCHEMA_VERSION } from "@dmptool/types";
-import { removeNullAndUndefinedFromJSON } from "../../utils/helpers.js";
-import { logger } from "../../logger.js";
-import { DefaultTextAreaQuestion } from '@dmptool/types'
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
 
-jest.mock('../../context.js')
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+//Dynamic imports AFTER all mocks are registered
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
+const { VersionedQuestion } = await import('../VersionedQuestion.js');
+const { removeNullAndUndefinedFromJSON } = await import("../../utils/helpers.js");
 
 let context;
 
@@ -206,7 +218,7 @@ describe('create', () => {
   });
 
   it('returns the VersionedQuestion with errors if it is not valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (versionedQuestion.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -216,11 +228,11 @@ describe('create', () => {
   });
 
   it('returns the newly added VersionedQuestion', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (versionedQuestion.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
-    const mockFindBy = jest.fn();
+    const mockFindBy = jest.fn<() => Promise<InstanceType<typeof VersionedQuestion> | null>>();
     (VersionedQuestion.findById as jest.Mock) = mockFindBy;
     mockFindBy.mockResolvedValue(versionedQuestion);
 

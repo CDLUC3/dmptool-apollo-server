@@ -1,12 +1,22 @@
+import { jest } from '@jest/globals';
 import casual from "casual";
-import { VersionedSection, VersionedSectionSearchResult } from "../VersionedSection.js";
-import { buildMockContextWithToken } from "../../__mocks__/context.js";
 
-import { generalConfig } from "../../config/generalConfig.js";
-import { TemplateVersionType } from "../VersionedTemplate.js";
-import { logger } from "../../logger.js";
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
 
-jest.mock('../../context.js')
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+//Dynamic imports AFTER all mocks are registered
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
+const { VersionedSection, VersionedSectionSearchResult } = await import("../VersionedSection.js");
+const { generalConfig } = await import("../../config/generalConfig.js");
+const { TemplateVersionType } = await import("../VersionedTemplate.js");
 
 let context;
 
@@ -296,7 +306,7 @@ describe('create', () => {
   });
 
   it('returns the VersionedSection without errors if it is valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (versionedSection.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -330,7 +340,7 @@ describe('create', () => {
   });
 
   it('returns the newly added VersionedSection', async () => {
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof VersionedSection> | null>>();
     (VersionedSection.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(versionedSection);
 

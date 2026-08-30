@@ -1,15 +1,22 @@
-import { MyContext } from "../../context.js";
-import { PinnedSectionTypeEnum } from "../CustomSection.js";
-import { VersionedCustomSection } from "../VersionedCustomSection.js";
-import { MySqlModel } from "../MySqlModel.js";
+import { jest } from '@jest/globals';
 
-jest.mock("../MySqlModel", () => ({
-  ...jest.requireActual("../MySqlModel"),
-  query: jest.fn(),
-  insert: jest.fn(),
-  update: jest.fn(),
-  delete: jest.fn(),
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
 }));
+
+import { MyContext } from "../../context.js";
+
+// Dynamic imports AFTER all mocks are registered
+const { PinnedSectionTypeEnum } = await import("../CustomSection.js");
+const { MySqlModel } = await import("../MySqlModel.js");
+const { VersionedCustomSection } = await import("../VersionedCustomSection.js");
+
 
 describe("VersionedCustomSection", () => {
   let mockContext: MyContext;
@@ -21,7 +28,7 @@ describe("VersionedCustomSection", () => {
 
   describe("constructor", () => {
     it("should create a VersionedCustomSection with all properties", () => {
-      const options: VersionedCustomSection = new VersionedCustomSection({
+      const options: InstanceType<typeof VersionedCustomSection> = new VersionedCustomSection({
         id: 1,
         created: new Date().toISOString(),
         createdById: 10,

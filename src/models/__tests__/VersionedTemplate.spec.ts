@@ -1,16 +1,8 @@
-import casual from 'casual';
-import { TemplateVisibility } from "../Template.js";
-import {
-  TemplateVersionType,
-  VersionedTemplate,
-  VersionedTemplateSearchResult,
-  CustomizableTemplateSearchResult
-} from '../VersionedTemplate.js';
-import { buildMockContextWithToken } from '../../__mocks__/context.js';
-import { defaultLanguageId } from '../Language.js';
-import { getRandomEnumValue } from '../../__tests__/helpers.js';
-import { generalConfig } from '../../config/generalConfig.js';
-import { logger } from "../../logger.js";
+import { jest } from '@jest/globals';
+import casual from "casual";
+
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
 import {
   PaginationOptions,
   PaginationOptionsForOffsets,
@@ -18,13 +10,33 @@ import {
   PaginationType,
   PaginatedQueryResults
 } from '../../types/general.js';
-import {
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+
+//Dynamic imports AFTER all mocks are registered
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
+const { TemplateVisibility } = await import("../Template.js");
+const { defaultLanguageId } = await import('../Language.js');
+const { getRandomEnumValue } = await import('../../__tests__/helpers.js');
+const { generalConfig } = await import('../../config/generalConfig.js');
+const {
+  TemplateVersionType,
+  VersionedTemplate,
+  VersionedTemplateSearchResult,
+  CustomizableTemplateSearchResult
+} = await import('../VersionedTemplate.js');
+
+const {
   TemplateCustomizationStatus,
   TemplateCustomizationMigrationStatus
-} from '../TemplateCustomization.js';
-
-jest.mock('../../context.js')
-jest.mock('../../logger');
+} = await import('../TemplateCustomization.js');
 
 let context;
 
@@ -221,7 +233,7 @@ describe('CustomizableTemplateSearchResult', () => {
       };
       localGetDefaultPaginationOptions.mockReturnValue(mockOptions);
 
-      const mockResponse: PaginatedQueryResults<CustomizableTemplateSearchResult> = {
+      const mockResponse: PaginatedQueryResults<InstanceType<typeof CustomizableTemplateSearchResult>> = {
         items: [customizableTemplateSearchResult],
         hasNextPage: false,
         hasPreviousPage: false,
@@ -261,7 +273,7 @@ describe('CustomizableTemplateSearchResult', () => {
       };
       localGetDefaultPaginationOptions.mockReturnValue(mockOptions);
 
-      const mockResponse: PaginatedQueryResults<CustomizableTemplateSearchResult> = {
+      const mockResponse: PaginatedQueryResults<InstanceType<typeof CustomizableTemplateSearchResult>> = {
         items: [customizableTemplateSearchResult],
         hasNextPage: false,
         hasPreviousPage: false,
@@ -294,7 +306,7 @@ describe('CustomizableTemplateSearchResult', () => {
       };
       localGetDefaultPaginationOptions.mockReturnValue(mockOptions);
 
-      const mockResponse: PaginatedQueryResults<CustomizableTemplateSearchResult> = {
+      const mockResponse: PaginatedQueryResults<InstanceType<typeof CustomizableTemplateSearchResult>> = {
         items: [customizableTemplateSearchResult],
         hasNextPage: false,
         hasPreviousPage: false,
@@ -328,7 +340,7 @@ describe('CustomizableTemplateSearchResult', () => {
       };
       localGetDefaultPaginationOptions.mockReturnValue(mockOptions);
 
-      const mockResponse: PaginatedQueryResults<CustomizableTemplateSearchResult> = {
+      const mockResponse: PaginatedQueryResults<InstanceType<typeof CustomizableTemplateSearchResult>> = {
         items: [customizableTemplateSearchResult],
         hasNextPage: false,
         hasPreviousPage: false,
@@ -362,7 +374,7 @@ describe('CustomizableTemplateSearchResult', () => {
       };
       localGetDefaultPaginationOptions.mockReturnValue(mockOptions);
 
-      const mockResponse: PaginatedQueryResults<CustomizableTemplateSearchResult> = {
+      const mockResponse: PaginatedQueryResults<InstanceType<typeof CustomizableTemplateSearchResult>> = {
         items: [customizableTemplateSearchResult],
         hasNextPage: false,
         hasPreviousPage: false,
@@ -401,7 +413,7 @@ describe('CustomizableTemplateSearchResult', () => {
       };
       localGetDefaultPaginationOptions.mockReturnValue(mockOptions);
 
-      const mockResponse: PaginatedQueryResults<CustomizableTemplateSearchResult> = {
+      const mockResponse: PaginatedQueryResults<InstanceType<typeof CustomizableTemplateSearchResult>> = {
         items: [customizableTemplateSearchResult],
         hasNextPage: true,
         hasPreviousPage: false,
@@ -437,7 +449,7 @@ describe('CustomizableTemplateSearchResult', () => {
       };
       localGetDefaultPaginationOptions.mockReturnValue(mockOptions);
 
-      const mockResponse: PaginatedQueryResults<CustomizableTemplateSearchResult> = {
+      const mockResponse: PaginatedQueryResults<InstanceType<typeof CustomizableTemplateSearchResult>> = {
         items: [customizableTemplateSearchResult],
         hasNextPage: true,
         hasPreviousPage: true,
@@ -466,7 +478,7 @@ describe('CustomizableTemplateSearchResult', () => {
       };
       localGetDefaultPaginationOptions.mockReturnValue(mockOptions);
 
-      const mockResponse: PaginatedQueryResults<CustomizableTemplateSearchResult> = {
+      const mockResponse: PaginatedQueryResults<InstanceType<typeof CustomizableTemplateSearchResult>> = {
         items: [],
         hasNextPage: false,
         hasPreviousPage: false,
@@ -752,7 +764,7 @@ describe('VersionedTemplate', () => {
     });
 
     it('returns the VersionedTemplate with errors if it is not valid', async () => {
-      const localValidator = jest.fn();
+      const localValidator = jest.fn<() => Promise<boolean>>();
       (versionedTemplate.isValid as jest.Mock) = localValidator;
       localValidator.mockResolvedValueOnce(false);
 
@@ -762,11 +774,11 @@ describe('VersionedTemplate', () => {
     });
 
     it('returns the newly added VersionedTemplate', async () => {
-      const localValidator = jest.fn();
+      const localValidator = jest.fn<() => Promise<boolean>>();
       (versionedTemplate.isValid as jest.Mock) = localValidator;
       localValidator.mockResolvedValueOnce(true);
 
-      const mockFindBy = jest.fn();
+      const mockFindBy = jest.fn<() => Promise<InstanceType<typeof VersionedTemplate> | null>>();
       (VersionedTemplate.findVersionedTemplateById as jest.Mock) = mockFindBy;
       mockFindBy.mockResolvedValue(versionedTemplate);
 
@@ -796,7 +808,7 @@ describe('VersionedTemplate', () => {
     });
 
     it('returns the VersionedTemplate with errors if it is not valid', async () => {
-      const localValidator = jest.fn();
+      const localValidator = jest.fn<() => Promise<boolean>>();
       (versionedTemplate.isValid as jest.Mock) = localValidator;
       localValidator.mockResolvedValueOnce(false);
 
@@ -806,7 +818,7 @@ describe('VersionedTemplate', () => {
     });
 
     it('returns an error if the VersionedTemplate has no id', async () => {
-      const localValidator = jest.fn();
+      const localValidator = jest.fn<() => Promise<boolean>>();
       (versionedTemplate.isValid as jest.Mock) = localValidator;
       localValidator.mockResolvedValueOnce(true);
 
@@ -817,7 +829,7 @@ describe('VersionedTemplate', () => {
     });
 
     it('returns the updated VersionedTemplate', async () => {
-      const localValidator = jest.fn();
+      const localValidator = jest.fn<() => Promise<boolean>>();
       (versionedTemplate.isValid as jest.Mock) = localValidator;
       localValidator.mockResolvedValueOnce(true);
 

@@ -79,5 +79,6 @@ export const isAdmin = (token: JWTAccessToken): boolean => {
  * @returns true if the user is a super admin
  */
 export const isSuperAdmin = (token: JWTAccessToken): boolean => {
+  console.log("***isSuperAdmin", { token });
   return isAuthorized(token) && token?.role === UserRole.SUPERADMIN;
 }

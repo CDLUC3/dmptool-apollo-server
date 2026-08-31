@@ -3,10 +3,6 @@ import {
   // GraphQLResolveInfo
 } from 'graphql';
 import {
-  GraphQLRequestContextDidEncounterSubsequentErrors,
-  // GraphQLRequestContextWillSendSubsequentPayload,
-} from '@apollo/server/dist/esm/externalTypes/requestPipeline';
-import {
   BaseContext,
   GraphQLRequestContext,
   GraphQLRequestContextDidEncounterErrors,
@@ -150,7 +146,7 @@ describe('loggerPlugin', () => {
     test('didEncounterSubsequentErrors logs expected message', async () => {
       const listener = await mockLogger.requestDidStart(mockRequestContext) as GraphQLRequestListener<BaseContext>;
       listener.didEncounterSubsequentErrors(
-        mockRequestContext as GraphQLRequestContextDidEncounterSubsequentErrors<BaseContext>,
+        mockRequestContext as Parameters<typeof listener.didEncounterSubsequentErrors>[0],
         [] as GraphQLError[]
       );
       expect(errorSpy).toHaveBeenCalledWith('Encountered subsequent errors!');

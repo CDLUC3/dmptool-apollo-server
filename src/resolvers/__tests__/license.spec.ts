@@ -1,27 +1,48 @@
 import { ApolloServer } from "@apollo/server";
-import { typeDefs } from "../../schema.js";
-import { resolvers } from "../../resolver.js";
 import casual from "casual";
-import { MyContext } from "../../context.js";
-import {
+import { jest } from '@jest/globals';
+
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../datasources/cache.js', () => ({
+  Cache: jest.fn().mockImplementation(() => ({
+    get: jest.fn(),
+    set: jest.fn(),
+    delete: jest.fn(),
+    clear: jest.fn(),
+  })),
+}));
+
+jest.unstable_mockModule('../../services/openSearchService.js', () => ({
+  openSearchFindWorkByIdentifier: jest.fn(),
+  openSearchFindRe3Data: jest.fn(),
+  openSearchFindRe3DataByURIs: jest.fn(),
+  openSearchFindRe3DataSubjects: jest.fn(),
+  openSearchFindRe3DataRepositoryTypes: jest.fn(),
+}));
+
+
+import type { MyContext } from "../../context.js";
+
+// Dynamic import AFTER mocking the configs and logger
+const { typeDefs } = await import("../../schema.js");
+const { resolvers } = await import("../../resolver.js");
+const { logger } = await import("../../logger.js");
+const {
   buildContext,
   mockResearcherToken,
   mockAdminToken,
   mockSuperAdminToken,
-} from "../../__mocks__/context.js";
+} = await import("../../__mocks__/context.js");
+const { getCurrentDate } = await import("../../utils/helpers.js");
+const { License, DEFAULT_DMPTOOL_LICENSE_URL } = await import('../../models/License.js');
 
-import { logger } from "../../logger.js";
-import { JWTAccessToken } from "../../services/tokenService.js";
-import { getCurrentDate } from '../../utils/helpers.js'
-
-import { License, DEFAULT_DMPTOOL_LICENSE_URL } from '../../models/License.js';
-
-jest.mock('../../context.js')
-jest.mock('../../datasources/cache');
-jest.mock('../../services/openSearchService');
 
 let testServer: ApolloServer;
-let token: JWTAccessToken;
+let token: MyContext['token'];
 let context: MyContext;
 
 // Proxy call to the Apollo server test server
@@ -51,7 +72,7 @@ afterEach(() => {
 });
 
 describe('License Resolvers', () => {
-  let mockLicenses: License[];
+  let mockLicenses: InstanceType<typeof License>[];
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -70,7 +91,7 @@ describe('License Resolvers', () => {
         create: jest.fn(),
         update: jest.fn(),
         delete: jest.fn(),
-      } as unknown as License,
+      } as unknown as InstanceType<typeof License>,
       {
         id: casual.integer(100, 999),
         uri: `${DEFAULT_DMPTOOL_LICENSE_URL}/test-recommended`,
@@ -84,7 +105,7 @@ describe('License Resolvers', () => {
         create: jest.fn(),
         update: jest.fn(),
         delete: jest.fn(),
-      } as unknown as License,
+      } as unknown as InstanceType<typeof License>,
     ];
   });
 
@@ -207,7 +228,7 @@ describe('License Resolvers', () => {
   });
 
   describe('Mutation', () => {
-    let querySpy: jest.SpyInstance;
+    let querySpy: ReturnType<typeof jest.spyOn>;
     let mockInput;
 
     describe('addLicense', () => {
@@ -499,8 +520,7 @@ describe('License Resolvers', () => {
           }
         }`;
 
-      let deleteSpy: jest.SpyInstance;
-
+      let deleteSpy: ReturnType<typeof jest.spyOn>;
       beforeEach(() => {
         querySpy = jest.spyOn(License.prototype, 'update').mockResolvedValue(mockLicenses[1]);
         deleteSpy = jest.spyOn(License.prototype, 'delete').mockResolvedValue(null)

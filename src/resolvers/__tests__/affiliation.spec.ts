@@ -12,12 +12,20 @@ jest.unstable_mockModule('../../context.js', () => ({
   mockToken: jest.fn(),
 }));
 
-jest.unstable_mockModule('../../models/GuidanceGroup.js', () => ({
-  GuidanceGroup: {
-    findByAffiliationId: jest.fn(),
-    findById: jest.fn(),
-  },
-}));
+const mockFindByAffiliationId = jest.fn<(...args: any[]) => Promise<any>>();
+const mockFindById = jest.fn<(...args: any[]) => Promise<any>>();
+
+jest.unstable_mockModule('../../models/GuidanceGroup.js', () => {
+  return {
+    GuidanceGroup: {
+      findByAffiliationId: mockFindByAffiliationId,
+      findById: mockFindById,
+    },
+  };
+});
+
+const mockGetAffiliationsWithGuidanceForTemplate = jest.fn<(...args: any[]) => Promise<any>>();
+const mockAffiliationSearchSearchManagedWithPublishedGuidance = jest.fn<(...args: any[]) => Promise<any>>();
 
 jest.unstable_mockModule('../../services/guidanceService.js', () => ({
   hasPermissionOnGuidanceGroup: jest.fn(),
@@ -32,7 +40,8 @@ jest.unstable_mockModule('../../services/guidanceService.js', () => ({
   getQuestionTagsMap: jest.fn(),
   getQuestionTagsForSection: jest.fn(),
   addPlanGuidance: jest.fn(),
-  getAffiliationsWithGuidanceForTemplate: jest.fn(),
+  getAffiliationsWithGuidanceForTemplate: mockGetAffiliationsWithGuidanceForTemplate,
+  affiliationSearchSearchManagedWithPublishedGuidance: mockAffiliationSearchSearchManagedWithPublishedGuidance,
 }));
 
 jest.unstable_mockModule('../../datasources/s3.js', () => ({
@@ -75,6 +84,9 @@ jest.unstable_mockModule('../../services/openSearchService.js', () => ({
   openSearchFindRe3DataRepositoryTypes: jest.fn(),
 }));
 
+const mockAffiliationSearchSearch = jest.fn<(...args: any[]) => Promise<any>>();
+
+
 jest.unstable_mockModule('../../models/Affiliation.js', () => ({
   AffiliationProvenance: {
     DMPTOOL: 'DMPTOOL',
@@ -109,8 +121,8 @@ jest.unstable_mockModule('../../models/Affiliation.js', () => ({
     }
   ),
   AffiliationSearch: {
-    search: jest.fn(),
-    searchManagedWithPublishedGuidance: jest.fn(),
+    search: mockAffiliationSearchSearch,
+    searchManagedWithPublishedGuidance: mockAffiliationSearchSearchManagedWithPublishedGuidance,
   },
   PopularFunder: {
     top5: jest.fn(),
@@ -964,7 +976,7 @@ describe('affiliation resolver', () => {
       expect(result.body.singleResult.data.affiliationByURI.guidanceGroups).toHaveLength(2);
     });
 
-    it.only('should return only published guidance groups for a researcher', async () => {
+    it('should return only published guidance groups for a researcher', async () => {
       const uri = casual.url;
       const mockAffiliation = buildMockAffiliation({ uri });
       const groups = [
@@ -973,10 +985,9 @@ describe('affiliation resolver', () => {
       ];
 
       (Affiliation.findByURI).mockResolvedValue(mockAffiliation);
-      //(GuidanceGroup.findByAffiliationId).mockResolvedValue(groups);
+      mockFindByAffiliationId.mockResolvedValue(groups);
 
       const result = await executeQuery(query, { uri }, researcherToken);
-
       expect(result.body.singleResult.data.affiliationByURI.guidanceGroups).toHaveLength(1);
       expect(result.body.singleResult.data.affiliationByURI.guidanceGroups[0].id).toBe(1);
     });

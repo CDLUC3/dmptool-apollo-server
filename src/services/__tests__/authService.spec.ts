@@ -1,12 +1,32 @@
+import { jest } from '@jest/globals';
 import casual from "casual";
-import { GraphQLResolveInfo, GraphQLError } from "graphql";
-import { User, UserRole } from "../../models/User.js";
-import { isAdmin, isSuperAdmin, authenticatedResolver } from "../authService.js";
-import { buildMockContextWithToken } from "../../__mocks__/context.js";
 
-import { logger } from "../../logger.js";
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+mockAppConfigs();
+mockAppLogger();
+
+import { GraphQLResolveInfo, GraphQLError } from "graphql";
 import { MyContext } from "../../context.js";
-import { JWTAccessToken } from "../tokenService.js";
+
+jest.unstable_mockModule('../../datasources/cache.js', () => ({
+  Cache: jest.fn().mockImplementation(() => ({
+    get: jest.fn(),
+    set: jest.fn(),
+    delete: jest.fn(),
+    clear: jest.fn(),
+  })),
+}));
+
+const { User, UserRole } = await import("../../models/User.js");
+const { isAdmin, isSuperAdmin, authenticatedResolver } = await import("../authService.js");
+const { buildMockContextWithToken } = await import("../../__mocks__/context.js");
+const { logger } = await import("../../logger.js");
+
+type UserInstance = InstanceType<typeof User>;
+function asUser(value: any): UserInstance {
+  return value as UserInstance;
+}
 
 describe('isAdmin', () => {
   let token;
@@ -72,11 +92,11 @@ describe('isSuperAdmin', () => {
 });
 
 describe('authenticatedResolver', () => {
-  let mockResolver: jest.Mock;
+  let mockResolver: jest.Mock<(...args: any[]) => Promise<any>>;
   let mockContext: MyContext;
   let mockInfo: GraphQLResolveInfo;
-  let token: JWTAccessToken;
-  let user: User;
+  let token: MyContext['token'];
+  let user: InstanceType<typeof User>;
 
   beforeEach(async () => {
     user = new User({
@@ -87,9 +107,8 @@ describe('authenticatedResolver', () => {
       affiliationId: casual.url,
     });
 
-    (user.getEmail as jest.Mock) = jest.fn().mockResolvedValue(casual.email);
-
-    mockResolver = jest.fn().mockResolvedValue({ success: true });
+    jest.spyOn(user, 'getEmail').mockResolvedValue(casual.email);
+    mockResolver = jest.fn<(...args: any[]) => Promise<any>>().mockResolvedValue({ success: true });
     mockContext = await buildMockContextWithToken(logger, user);
     token = mockContext.token;
 

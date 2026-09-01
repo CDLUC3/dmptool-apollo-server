@@ -1,31 +1,103 @@
-import casual from "casual";
-import { logger } from "../../logger.js";
-import { buildMockContextWithToken, mockUser } from "../../__mocks__/context.js";
+import { jest } from '@jest/globals';
+import casual from 'casual';
 
-import { Project } from "../../models/Project.js";
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { isAdmin, isSuperAdmin } from "../authService.js";
-import {
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+mockAppConfigs();
+mockAppLogger();
+
+// --- datasources/mysql.js ---
+jest.unstable_mockModule('../../datasources/mysql.js', () => ({
+  __esModule: true,
+  MySQLConnection: jest.fn().mockImplementation(() => ({
+    pool: null,
+    query: jest.fn(),
+    withTransaction: jest.fn(),
+  })),
+}));
+
+// --- config/awsConfig.js ---
+const actualAwsConfig = await import('../../config/awsConfig.js');
+jest.unstable_mockModule('../../config/awsConfig.js', () => ({
+  ...actualAwsConfig,
+  awsConfig: {
+    opensearchServerless: { endpoint: 'http://localhost:9200' },
+    ses: {
+      endpoint: 'http://localhost:9210',
+      port: 465,
+      accessKey: 'test-access-key',
+      accessSecret: 'test-access-secret',
+    },
+  },
+}));
+
+const actualOpenSearch = await import('../../datasources/openSearch.js');
+jest.unstable_mockModule('../../datasources/openSearch.js', () => ({
+  ...actualOpenSearch,
+  OpenSearch: jest.fn(),
+}));
+
+// --- authService.js ---
+// projectService.js under test calls isAdmin/isSuperAdmin as real gating
+// logic — mocked here so individual tests can control the result
+// deterministically. These are the SAME jest.fn()s the dynamically-imported
+// `isAdmin`/`isSuperAdmin` bindings further down resolve to — there's no
+// separate reassignment step needed (and none is possible: they're `const`
+// bindings from a dynamic import, immutable at runtime).
+const mockIsSuperAdmin = jest.fn<(...args: any[]) => Promise<boolean>>();
+const mockIsAdmin = jest.fn<(...args: any[]) => Promise<boolean>>();
+jest.unstable_mockModule('../authService.js', () => ({
+  isSuperAdmin: mockIsSuperAdmin,
+  isAdmin: mockIsAdmin,
+}));
+
+// --- services/emailService.js ---
+// Not imported directly by projectService.js, but ProjectCollaborator.create()
+// sends an invitation email internally — mocked so setCurrentUserAsProjectOwner's
+// tests don't trigger a real email send.
+const mockSendProjectCollaboratorsCommentsAddedEmail = jest.fn<(...args: any[]) => Promise<any>>();
+const mockSendFeedbackRequestEmail = jest.fn<(...args: any[]) => Promise<any>>();
+const mockSendFeedbackCompleteEmail = jest.fn<(...args: any[]) => Promise<any>>();
+
+const actualEmailService = await import('../../services/emailService.js');
+jest.unstable_mockModule('../../services/emailService.js', () => ({
+  ...actualEmailService,
+  sendProjectCollaboratorsCommentsAddedEmail: mockSendProjectCollaboratorsCommentsAddedEmail,
+  sendFeedbackRequestEmail: mockSendFeedbackRequestEmail,
+  sendFeedbackCompleteEmail: mockSendFeedbackCompleteEmail,
+}));
+
+// --- planService.js ---
+// Retained for parity with the original CJS suite. projectService.js's
+// current source doesn't appear to import planService.js directly, so this
+// may be vestigial — but it's harmless either way since the real module's
+// exports are spread first.
+const mockCreatePlanVersion = jest.fn<(...args: any[]) => Promise<boolean>>().mockResolvedValue(true);
+const mockSyncWithDMPHub = jest.fn<(...args: any[]) => Promise<boolean>>().mockResolvedValue(true);
+const actualPlanService = await import('../planService.js');
+jest.unstable_mockModule('../planService.js', () => ({
+  ...actualPlanService,
+  createPlanVersion: mockCreatePlanVersion,
+  syncWithDMPHub: mockSyncWithDMPHub,
+}));
+
+import type { MyContext } from '../../context.js';
+
+const { logger } = await import("../../logger.js");
+const { buildMockContextWithToken, mockUser } = await import("../../__mocks__/context.js");
+const { Project } = await import('../../models/Project.js');
+const {
   ensureDefaultProjectContact,
   hasPermissionOnProject,
   setCurrentUserAsProjectOwner,
   isProjectReadOnlyForCurrentUser,
-} from "../projectService.js";
-import { ProjectCollaborator, ProjectCollaboratorAccessLevel } from "../../models/Collaborator.js";
-import { User, UserRole } from "../../models/User.js";
-import { ProjectMember } from "../../models/Member.js";
-import { MemberRole } from "../../models/MemberRole.js";
-import { MyContext } from "../../context.js";
-
-// Pulling context in here so that the mysql gets mocked
-jest.mock('../../context.js')
-jest.mock('../emailService');
-jest.mock('../planService.ts', () => {
-  return {
-    createPlanVersion: jest.fn(),
-    syncWithDMPHub: jest.fn(),
-  };
-});
+} = await import('../projectService.js');
+const { ProjectCollaborator, ProjectCollaboratorAccessLevel } = await import('../../models/Collaborator.js');
+const { User, UserRole } = await import('../../models/User.js');
+const { ProjectMember } = await import('../../models/Member.js');
+const { MemberRole } = await import('../../models/MemberRole.js');
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const { isAdmin, isSuperAdmin } = await import("../authService.js");
 
 let context;
 
@@ -40,28 +112,18 @@ afterEach(() => {
 });
 
 describe('hasPermissionOnProject', () => {
-  let project;
-  let mockQuery;
-  let mockIsSuperAdmin;
-  let mockIsAdmin;
-  let mockCollaboratorQuery;
+  let project: InstanceType<typeof Project>;
+  let mockQuery: ReturnType<typeof jest.fn>;
+  let mockCollaboratorQuery: ReturnType<typeof jest.spyOn>;
 
   beforeEach(async () => {
-
-    mockQuery = jest.fn();
+    mockQuery = jest.fn<(...args: any[]) => any>();
     context.dataSources.sqlDataSource = {
       query: mockQuery
     };
     context = await buildMockContextWithToken(logger);
 
-    mockIsSuperAdmin = jest.fn();
-    (isSuperAdmin as jest.Mock) = mockIsSuperAdmin;
-
-    mockIsAdmin = jest.fn();
-    (isAdmin as jest.Mock) = mockIsAdmin;
-
-    mockCollaboratorQuery = jest.fn();
-    (ProjectCollaborator.findByProjectId as jest.Mock) = mockCollaboratorQuery;
+    mockCollaboratorQuery = jest.spyOn(ProjectCollaborator, 'findByProjectId');
 
     project = new Project({
       id: casual.integer(1, 999),
@@ -95,7 +157,6 @@ describe('hasPermissionOnProject', () => {
     mockIsSuperAdmin.mockResolvedValueOnce(false);
     mockIsAdmin.mockResolvedValueOnce(true);
     context.token.id = casual.integer(1, 9999);
-    // mockQuery.mockResolvedValueOnce(new User({ affiliationId: context.token.affiliationId }));
     jest.spyOn(User, 'findById').mockResolvedValueOnce(new User({ affiliationId: context.token.affiliationId }));
     expect(await hasPermissionOnProject(context, project)).toBe(true)
     expect(mockIsSuperAdmin).toHaveBeenCalledTimes(1);
@@ -154,8 +215,8 @@ describe('hasPermissionOnProject', () => {
 
 describe('setCurrentUserAsProjectOwner', () => {
   let context: MyContext;
-  let project: Project;
-  let user: User;
+  let project: InstanceType<typeof Project>;
+  let user: InstanceType<typeof User>;
 
   let originalInsert: typeof ProjectCollaborator.insert;
   let originalFindByProject: typeof ProjectCollaborator.findByProjectIdAndEmail;
@@ -250,9 +311,9 @@ describe('setCurrentUserAsProjectOwner', () => {
 
 describe('ensureDefaultProjectContact', () => {
   let context: MyContext;
-  let project: Project;
-  let user: User;
-  let defaultRole: MemberRole;
+  let project: InstanceType<typeof Project>;
+  let user: InstanceType<typeof User>;
+  let defaultRole: InstanceType<typeof MemberRole>;
 
   let originalDefaultRole: typeof MemberRole.defaultRole;
   let originalFindByProjectMemberId: typeof MemberRole.findByProjectMemberId;
@@ -363,9 +424,9 @@ describe('ensureDefaultProjectContact', () => {
 });
 
 describe('isProjectReadOnlyForCurrentUser', () => {
-  let project: Project;
-  let mockFindByUserIdAndProjectId: jest.SpyInstance;
-  let mockFindPrimaryUserByProjectId: jest.SpyInstance;
+  let project: InstanceType<typeof Project>;
+  let mockFindByUserIdAndProjectId: ReturnType<typeof jest.spyOn>;
+  let mockFindPrimaryUserByProjectId: ReturnType<typeof jest.spyOn>;
 
   beforeEach(async () => {
     jest.clearAllMocks();

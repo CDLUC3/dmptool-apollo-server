@@ -1,15 +1,43 @@
-import { RepositoryService } from '../repositoryService.js';
-import { Repository } from '../../models/Repository.js';
-import * as openSearchService from '../openSearchService.js';
-import { MyContext } from '../../context.js';
-import { PaginatedQueryResults, PaginationType, PaginationOptionsForCursors } from '../../types/general.js';
+import { jest } from '@jest/globals';
 import { GraphQLError } from 'graphql';
 
-jest.mock('../../models/Repository');
-jest.mock('../openSearchService', () => ({
-  openSearchFindRe3Data: jest.fn(),
-  openSearchFindRe3DataByURIs: jest.fn(),
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+mockAppConfigs();
+mockAppLogger();
+
+// ---------------------------------------------------------------------------
+// services/openSearchService.js: deliberately a narrow, non-spread
+// replacement (not the usual spread-actual pattern). The real module
+// constructs an OpenSearchService singleton at import time, which
+// immediately calls createOpenSearchClient/createOpenSearchServerlessClient
+// — importing it for real here (even just to spread its exports) would
+// trigger that construction and need the same awsConfig-mock cascade as
+// openSearchService.spec.ts. repositoryService.ts only needs these two
+// functions, so a narrow mock avoids that path entirely.
+// ---------------------------------------------------------------------------
+const mockOpenSearchFindRe3Data = jest.fn<(...args: any[]) => Promise<any>>();
+const mockOpenSearchFindRe3DataByURIs = jest.fn<(...args: any[]) => Promise<any>>();
+
+jest.unstable_mockModule('../openSearchService.js', () => ({
+  openSearchFindRe3Data: mockOpenSearchFindRe3Data,
+  openSearchFindRe3DataByURIs: mockOpenSearchFindRe3DataByURIs,
 }));
+
+import type { MyContext } from '../../context.js';
+import type { PaginatedQueryResults, PaginationOptionsForCursors } from '../../types/general.js';
+
+// ---------------------------------------------------------------------------
+// Repository is real here (no module mock), spied per-test via jest.spyOn —
+// consistent with how it's handled in other spec files in this migration.
+// PaginationType is a real runtime enum (not type-only), so it's a dynamic
+// import alongside everything else, not a static `import type`.
+// ---------------------------------------------------------------------------
+const { RepositoryService } = await import('../repositoryService.js');
+const { Repository } = await import('../../models/Repository.js');
+const { PaginationType } = await import('../../types/general.js');
+
+type RepositoryInstance = InstanceType<typeof Repository>;
 
 describe('RepositoryService', () => {
   const mockContext = {
@@ -36,13 +64,13 @@ describe('RepositoryService', () => {
       const keyword = 'genomics';
       const repositoryType = 'disciplinary';
 
-      const mockCustomResults: PaginatedQueryResults<Repository> = {
+      const mockCustomResults: PaginatedQueryResults<RepositoryInstance> = {
         items: [
           {
             id: 1,
             name: 'Custom Repo 1',
             description: 'A custom repository',
-          } as Repository,
+          } as unknown as RepositoryInstance,
         ],
         limit: 10,
         totalCount: 1,
@@ -64,10 +92,8 @@ describe('RepositoryService', () => {
         total: 100,
       };
 
-      (Repository.search as jest.Mock).mockResolvedValueOnce(mockCustomResults);
-      (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValueOnce(
-        mockRe3DataResults,
-      );
+      jest.spyOn(Repository, 'search').mockResolvedValueOnce(mockCustomResults);
+      mockOpenSearchFindRe3Data.mockResolvedValueOnce(mockRe3DataResults);
 
       const result = await RepositoryService.searchCombined(
         reference,
@@ -94,7 +120,7 @@ describe('RepositoryService', () => {
       );
 
       // openSearchFindRe3Data should be called with pagination parameters
-      expect(openSearchService.openSearchFindRe3Data).toHaveBeenCalledWith(
+      expect(mockOpenSearchFindRe3Data).toHaveBeenCalledWith(
         term,
         mockContext,
         subjects,
@@ -116,13 +142,13 @@ describe('RepositoryService', () => {
       const reference = 'test-reference';
       const term = 'data';
 
-      const mockCustomResults: PaginatedQueryResults<Repository> = {
+      const mockCustomResults: PaginatedQueryResults<RepositoryInstance> = {
         items: [
           {
             id: 1,
             name: 'Custom Repo 1',
             description: 'A custom repository',
-          } as Repository,
+          } as unknown as RepositoryInstance,
         ],
         limit: 10,
         totalCount: 1,
@@ -139,8 +165,8 @@ describe('RepositoryService', () => {
         },
       });
 
-      (Repository.search as jest.Mock).mockResolvedValueOnce(mockCustomResults);
-      (openSearchService.openSearchFindRe3Data as jest.Mock).mockRejectedValueOnce(error);
+      jest.spyOn(Repository, 'search').mockResolvedValueOnce(mockCustomResults);
+      mockOpenSearchFindRe3Data.mockRejectedValueOnce(error);
 
       const result = await RepositoryService.searchCombined(
         reference,
@@ -163,7 +189,7 @@ describe('RepositoryService', () => {
     it('should return empty custom results when Repository.search returns no items', async () => {
       const reference = 'test-reference';
 
-      const mockCustomResults: PaginatedQueryResults<Repository> = {
+      const mockCustomResults: PaginatedQueryResults<RepositoryInstance> = {
         items: [],
         limit: 10,
         totalCount: 0,
@@ -183,10 +209,8 @@ describe('RepositoryService', () => {
         total: 50,
       };
 
-      (Repository.search as jest.Mock).mockResolvedValueOnce(mockCustomResults);
-      (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValueOnce(
-        mockRe3DataResults,
-      );
+      jest.spyOn(Repository, 'search').mockResolvedValueOnce(mockCustomResults);
+      mockOpenSearchFindRe3Data.mockResolvedValueOnce(mockRe3DataResults);
 
       const result = await RepositoryService.searchCombined(
         reference,
@@ -206,7 +230,7 @@ describe('RepositoryService', () => {
     it('should handle null items from custom results', async () => {
       const reference = 'test-reference';
 
-      const mockCustomResults: PaginatedQueryResults<Repository> = {
+      const mockCustomResults: PaginatedQueryResults<RepositoryInstance> = {
         items: null,
         limit: 10,
         totalCount: 0,
@@ -226,10 +250,8 @@ describe('RepositoryService', () => {
         total: 75,
       };
 
-      (Repository.search as jest.Mock).mockResolvedValueOnce(mockCustomResults);
-      (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValueOnce(
-        mockRe3DataResults,
-      );
+      jest.spyOn(Repository, 'search').mockResolvedValueOnce(mockCustomResults);
+      mockOpenSearchFindRe3Data.mockResolvedValueOnce(mockRe3DataResults);
 
       const result = await RepositoryService.searchCombined(
         reference,
@@ -253,7 +275,7 @@ describe('RepositoryService', () => {
       const keyword = 'dna';
       const repositoryType = 'governmental';
 
-      const mockCustomResults: PaginatedQueryResults<Repository> = {
+      const mockCustomResults: PaginatedQueryResults<RepositoryInstance> = {
         items: [],
         limit: 10,
         totalCount: 0,
@@ -268,10 +290,8 @@ describe('RepositoryService', () => {
         total: 0,
       };
 
-      (Repository.search as jest.Mock).mockResolvedValueOnce(mockCustomResults);
-      (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValueOnce(
-        mockRe3DataResults,
-      );
+      jest.spyOn(Repository, 'search').mockResolvedValueOnce(mockCustomResults);
+      mockOpenSearchFindRe3Data.mockResolvedValueOnce(mockRe3DataResults);
 
       await RepositoryService.searchCombined(
         reference,
@@ -284,7 +304,7 @@ describe('RepositoryService', () => {
       );
 
       // Verify subjects and repositoryType are passed directly to re3data search
-      expect(openSearchService.openSearchFindRe3Data).toHaveBeenCalledWith(
+      expect(mockOpenSearchFindRe3Data).toHaveBeenCalledWith(
         term,
         mockContext,
         subjects,
@@ -297,8 +317,8 @@ describe('RepositoryService', () => {
     it('should use re3data pagination for combined results', async () => {
       const reference = 'test-reference';
 
-      const mockCustomResults: PaginatedQueryResults<Repository> = {
-        items: [{ id: 1, name: 'Repo 1' } as Repository],
+      const mockCustomResults: PaginatedQueryResults<RepositoryInstance> = {
+        items: [{ id: 1, name: 'Repo 1' } as unknown as RepositoryInstance],
         limit: 20,
         totalCount: 100,
         hasNextPage: true,
@@ -314,10 +334,8 @@ describe('RepositoryService', () => {
         total: 250,
       };
 
-      (Repository.search as jest.Mock).mockResolvedValueOnce(mockCustomResults);
-      (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValueOnce(
-        mockRe3DataResults,
-      );
+      jest.spyOn(Repository, 'search').mockResolvedValueOnce(mockCustomResults);
+      mockOpenSearchFindRe3Data.mockResolvedValueOnce(mockRe3DataResults);
 
       const result = await RepositoryService.searchCombined(
         reference,
@@ -347,7 +365,7 @@ describe('RepositoryService', () => {
       const reference = 'test-reference';
       const error = new Error('Database connection failed');
 
-      (Repository.search as jest.Mock).mockRejectedValueOnce(error);
+      jest.spyOn(Repository, 'search').mockRejectedValueOnce(error);
 
       await expect(
         RepositoryService.searchCombined(
@@ -370,7 +388,7 @@ describe('RepositoryService', () => {
     it('should call openSearchFindRe3Data with pagination parameters from options', async () => {
       const reference = 'test-reference';
 
-      const mockCustomResults: PaginatedQueryResults<Repository> = {
+      const mockCustomResults: PaginatedQueryResults<RepositoryInstance> = {
         items: [],
         limit: 10,
         totalCount: 0,
@@ -385,10 +403,8 @@ describe('RepositoryService', () => {
         total: 0,
       };
 
-      (Repository.search as jest.Mock).mockResolvedValueOnce(mockCustomResults);
-      (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValueOnce(
-        mockRe3DataResults,
-      );
+      jest.spyOn(Repository, 'search').mockResolvedValueOnce(mockCustomResults);
+      mockOpenSearchFindRe3Data.mockResolvedValueOnce(mockRe3DataResults);
 
       await RepositoryService.searchCombined(
         reference,
@@ -400,7 +416,7 @@ describe('RepositoryService', () => {
         mockPaginationOptions,
       );
 
-      const call = (openSearchService.openSearchFindRe3Data as jest.Mock).mock.calls[0];
+      const call = mockOpenSearchFindRe3Data.mock.calls[0];
       expect(call[4]).toBe(10); // limit from pagination options
       expect(call[5]).toBe(0); // from offset (first page)
     });
@@ -408,7 +424,7 @@ describe('RepositoryService', () => {
     it('should pass type filter to openSearchFindRe3Data', async () => {
       const reference = 'test-reference';
 
-      const mockCustomResults: PaginatedQueryResults<Repository> = {
+      const mockCustomResults: PaginatedQueryResults<RepositoryInstance> = {
         items: [],
         limit: 10,
         totalCount: 0,
@@ -423,10 +439,8 @@ describe('RepositoryService', () => {
         total: 0,
       };
 
-      (Repository.search as jest.Mock).mockResolvedValueOnce(mockCustomResults);
-      (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValueOnce(
-        mockRe3DataResults,
-      );
+      jest.spyOn(Repository, 'search').mockResolvedValueOnce(mockCustomResults);
+      mockOpenSearchFindRe3Data.mockResolvedValueOnce(mockRe3DataResults);
 
       await RepositoryService.searchCombined(
         reference,
@@ -438,7 +452,7 @@ describe('RepositoryService', () => {
         mockPaginationOptions,
       );
 
-      const call = (openSearchService.openSearchFindRe3Data as jest.Mock).mock.calls[0];
+      const call = mockOpenSearchFindRe3Data.mock.calls[0];
       // Type parameter is passed directly in re3data format
       expect(call[3]).toBe('disciplinary');
     });
@@ -446,7 +460,7 @@ describe('RepositoryService', () => {
     it('should correctly pass various repository type values to re3data search', async () => {
       const reference = 'test-reference';
 
-      const mockCustomResults: PaginatedQueryResults<Repository> = {
+      const mockCustomResults: PaginatedQueryResults<RepositoryInstance> = {
         items: [],
         limit: 10,
         totalCount: 0,
@@ -468,8 +482,8 @@ describe('RepositoryService', () => {
 
       for (const [inputValue, expectedFormat] of testCases) {
         jest.clearAllMocks();
-        (Repository.search as jest.Mock).mockResolvedValueOnce(mockCustomResults);
-        (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValueOnce({
+        jest.spyOn(Repository, 'search').mockResolvedValueOnce(mockCustomResults);
+        mockOpenSearchFindRe3Data.mockResolvedValueOnce({
           repositories: [],
           total: 0,
         });
@@ -484,7 +498,7 @@ describe('RepositoryService', () => {
           mockPaginationOptions,
         );
 
-        const call = (openSearchService.openSearchFindRe3Data as jest.Mock).mock.calls[0];
+        const call = mockOpenSearchFindRe3Data.mock.calls[0];
         expect(call[3]).toBe(expectedFormat);
       }
     });
@@ -492,8 +506,8 @@ describe('RepositoryService', () => {
     it('should only show custom repos on the first page when re3data has results', async () => {
       const reference = 'test-reference';
 
-      const mockCustomResults: PaginatedQueryResults<Repository> = {
-        items: [{ id: 1, name: 'Custom Repo' } as Repository],
+      const mockCustomResults: PaginatedQueryResults<RepositoryInstance> = {
+        items: [{ id: 1, name: 'Custom Repo' } as unknown as RepositoryInstance],
         limit: 10,
         totalCount: 1,
         currentOffset: 0,
@@ -507,8 +521,8 @@ describe('RepositoryService', () => {
         total: 50,
       };
 
-      (Repository.search as jest.Mock).mockResolvedValue(mockCustomResults);
-      (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValue(mockRe3DataResults);
+      jest.spyOn(Repository, 'search').mockResolvedValue(mockCustomResults);
+      mockOpenSearchFindRe3Data.mockResolvedValue(mockRe3DataResults);
 
       // Page 2 (from=10): custom repos should NOT appear
       const offsetOptions = {
@@ -531,11 +545,11 @@ describe('RepositoryService', () => {
     it('should sort custom repos alphabetically before merging', async () => {
       const reference = 'test-reference';
 
-      const mockCustomResults: PaginatedQueryResults<Repository> = {
+      const mockCustomResults: PaginatedQueryResults<RepositoryInstance> = {
         items: [
-          { id: 3, name: 'Zebra Repo' } as Repository,
-          { id: 1, name: 'Alpha Repo' } as Repository,
-          { id: 2, name: 'Middle Repo' } as Repository,
+          { id: 3, name: 'Zebra Repo' } as unknown as RepositoryInstance,
+          { id: 1, name: 'Alpha Repo' } as unknown as RepositoryInstance,
+          { id: 2, name: 'Middle Repo' } as unknown as RepositoryInstance,
         ],
         limit: 10,
         totalCount: 3,
@@ -550,8 +564,8 @@ describe('RepositoryService', () => {
         total: 50,
       };
 
-      (Repository.search as jest.Mock).mockResolvedValueOnce(mockCustomResults);
-      (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValueOnce(mockRe3DataResults);
+      jest.spyOn(Repository, 'search').mockResolvedValueOnce(mockCustomResults);
+      mockOpenSearchFindRe3Data.mockResolvedValueOnce(mockRe3DataResults);
 
       const result = await RepositoryService.searchCombined(
         reference, mockContext, null, null, null, null, mockPaginationOptions,
@@ -573,7 +587,7 @@ describe('RepositoryService', () => {
         sortDir: 'ASC',
       };
 
-      const mockCustomResults: PaginatedQueryResults<Repository> = {
+      const mockCustomResults: PaginatedQueryResults<RepositoryInstance> = {
         items: [],
         limit: 10,
         totalCount: 0,
@@ -583,8 +597,8 @@ describe('RepositoryService', () => {
         availableSortFields: ['name', 'created'],
       };
 
-      (Repository.search as jest.Mock).mockResolvedValueOnce(mockCustomResults);
-      (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValueOnce({
+      jest.spyOn(Repository, 'search').mockResolvedValueOnce(mockCustomResults);
+      mockOpenSearchFindRe3Data.mockResolvedValueOnce({
         repositories: [],
         total: 0,
       });
@@ -617,9 +631,9 @@ describe('RepositoryService', () => {
       const customItems = Array.from({ length: 10 }, (_, i) => ({
         id: i + 1,
         name: `Custom Repo ${String(i + 1).padStart(2, '0')}`,
-      } as Repository));
+      } as unknown as RepositoryInstance));
 
-      const mockCustomResults: PaginatedQueryResults<Repository> = {
+      const mockCustomResults: PaginatedQueryResults<RepositoryInstance> = {
         items: customItems,
         limit: 1000,
         totalCount: 10,
@@ -629,8 +643,8 @@ describe('RepositoryService', () => {
         availableSortFields: ['name', 'created'],
       };
 
-      (Repository.search as jest.Mock).mockResolvedValueOnce(mockCustomResults);
-      (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValueOnce({
+      jest.spyOn(Repository, 'search').mockResolvedValueOnce(mockCustomResults);
+      mockOpenSearchFindRe3Data.mockResolvedValueOnce({
         repositories: [],
         total: 0,
       });
@@ -660,9 +674,9 @@ describe('RepositoryService', () => {
       const customItems = Array.from({ length: 10 }, (_, i) => ({
         id: i + 1,
         name: `Custom Repo ${i + 1}`,
-      } as Repository));
+      } as unknown as RepositoryInstance));
 
-      const mockCustomResults: PaginatedQueryResults<Repository> = {
+      const mockCustomResults: PaginatedQueryResults<RepositoryInstance> = {
         items: customItems,
         limit: 1000,
         totalCount: 10,
@@ -672,8 +686,8 @@ describe('RepositoryService', () => {
         availableSortFields: ['name', 'created'],
       };
 
-      (Repository.search as jest.Mock).mockResolvedValueOnce(mockCustomResults);
-      (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValueOnce({
+      jest.spyOn(Repository, 'search').mockResolvedValueOnce(mockCustomResults);
+      mockOpenSearchFindRe3Data.mockResolvedValueOnce({
         repositories: [],
         total: 0,
       });
@@ -711,9 +725,7 @@ describe('RepositoryService', () => {
         },
       ];
 
-      (openSearchService.openSearchFindRe3DataByURIs as jest.Mock).mockResolvedValueOnce(
-        mockResults,
-      );
+      mockOpenSearchFindRe3DataByURIs.mockResolvedValueOnce(mockResults);
 
       const result = await RepositoryService.searchRe3DataByURIs(
         reference,
@@ -721,7 +733,7 @@ describe('RepositoryService', () => {
         uris,
       );
 
-      expect(openSearchService.openSearchFindRe3DataByURIs).toHaveBeenCalledWith(
+      expect(mockOpenSearchFindRe3DataByURIs).toHaveBeenCalledWith(
         mockContext,
         uris,
       );
@@ -732,7 +744,7 @@ describe('RepositoryService', () => {
       const reference = 'test-reference';
       const uris: string[] = [];
 
-      (openSearchService.openSearchFindRe3DataByURIs as jest.Mock).mockResolvedValueOnce([]);
+      mockOpenSearchFindRe3DataByURIs.mockResolvedValueOnce([]);
 
       const result = await RepositoryService.searchRe3DataByURIs(
         reference,
@@ -753,7 +765,7 @@ describe('RepositoryService', () => {
         },
       });
 
-      (openSearchService.openSearchFindRe3DataByURIs as jest.Mock).mockRejectedValueOnce(error);
+      mockOpenSearchFindRe3DataByURIs.mockRejectedValueOnce(error);
 
       const result = await RepositoryService.searchRe3DataByURIs(
         reference,
@@ -789,9 +801,7 @@ describe('RepositoryService', () => {
         },
       ];
 
-      (openSearchService.openSearchFindRe3DataByURIs as jest.Mock).mockResolvedValueOnce(
-        mockResults,
-      );
+      mockOpenSearchFindRe3DataByURIs.mockResolvedValueOnce(mockResults);
 
       const result = await RepositoryService.searchRe3DataByURIs(
         reference,
@@ -808,7 +818,7 @@ describe('RepositoryService', () => {
       const uris = ['http://example.com/repository/r3d100010134'];
       const error = new Error('Connection timeout');
 
-      (openSearchService.openSearchFindRe3DataByURIs as jest.Mock).mockRejectedValueOnce(error);
+      mockOpenSearchFindRe3DataByURIs.mockRejectedValueOnce(error);
 
       await RepositoryService.searchRe3DataByURIs(reference, mockContext, uris);
 
@@ -830,9 +840,7 @@ describe('RepositoryService', () => {
         uri,
       }));
 
-      (openSearchService.openSearchFindRe3DataByURIs as jest.Mock).mockResolvedValueOnce(
-        mockResults,
-      );
+      mockOpenSearchFindRe3DataByURIs.mockResolvedValueOnce(mockResults);
 
       const result = await RepositoryService.searchRe3DataByURIs(
         reference,
@@ -841,7 +849,7 @@ describe('RepositoryService', () => {
       );
 
       expect(result).toHaveLength(10);
-      expect(openSearchService.openSearchFindRe3DataByURIs).toHaveBeenCalledWith(
+      expect(mockOpenSearchFindRe3DataByURIs).toHaveBeenCalledWith(
         mockContext,
         uris,
       );
@@ -852,7 +860,7 @@ describe('RepositoryService', () => {
     it('should handle all filter parameters as null', async () => {
       const reference = 'test-reference';
 
-      const mockCustomResults: PaginatedQueryResults<Repository> = {
+      const mockCustomResults: PaginatedQueryResults<RepositoryInstance> = {
         items: [],
         limit: 10,
         totalCount: 0,
@@ -867,10 +875,8 @@ describe('RepositoryService', () => {
         total: 0,
       };
 
-      (Repository.search as jest.Mock).mockResolvedValueOnce(mockCustomResults);
-      (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValueOnce(
-        mockRe3DataResults,
-      );
+      jest.spyOn(Repository, 'search').mockResolvedValueOnce(mockCustomResults);
+      mockOpenSearchFindRe3Data.mockResolvedValueOnce(mockRe3DataResults);
 
       const result = await RepositoryService.searchCombined(
         reference,
@@ -902,7 +908,7 @@ describe('RepositoryService', () => {
     it('should handle undefined filter parameters', async () => {
       const reference = 'test-reference';
 
-      const mockCustomResults: PaginatedQueryResults<Repository> = {
+      const mockCustomResults: PaginatedQueryResults<RepositoryInstance> = {
         items: [],
         limit: 10,
         totalCount: 0,
@@ -917,10 +923,8 @@ describe('RepositoryService', () => {
         total: 0,
       };
 
-      (Repository.search as jest.Mock).mockResolvedValueOnce(mockCustomResults);
-      (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValueOnce(
-        mockRe3DataResults,
-      );
+      jest.spyOn(Repository, 'search').mockResolvedValueOnce(mockCustomResults);
+      mockOpenSearchFindRe3Data.mockResolvedValueOnce(mockRe3DataResults);
 
       const result = await RepositoryService.searchCombined(
         reference,
@@ -939,11 +943,11 @@ describe('RepositoryService', () => {
     it('should handle mixed custom and re3data results with different pagination', async () => {
       const reference = 'test-reference';
 
-      const mockCustomResults: PaginatedQueryResults<Repository> = {
+      const mockCustomResults: PaginatedQueryResults<RepositoryInstance> = {
         items: Array.from({ length: 5 }, (_, i) => ({
           id: i + 1,
           name: `Custom Repo ${i + 1}`,
-        } as Repository)),
+        } as unknown as RepositoryInstance)),
         limit: 20,
         totalCount: 100,
         nextCursor: 'cursor-xyz',
@@ -962,10 +966,8 @@ describe('RepositoryService', () => {
         total: 250,
       };
 
-      (Repository.search as jest.Mock).mockResolvedValueOnce(mockCustomResults);
-      (openSearchService.openSearchFindRe3Data as jest.Mock).mockResolvedValueOnce(
-        mockRe3DataResults,
-      );
+      jest.spyOn(Repository, 'search').mockResolvedValueOnce(mockCustomResults);
+      mockOpenSearchFindRe3Data.mockResolvedValueOnce(mockRe3DataResults);
 
       const result = await RepositoryService.searchCombined(
         reference,
@@ -987,4 +989,3 @@ describe('RepositoryService', () => {
     });
   });
 });
-

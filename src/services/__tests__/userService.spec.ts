@@ -1,35 +1,45 @@
+import { jest } from '@jest/globals';
 import casual from "casual";
-import { buildMockContextWithToken } from "../../__mocks__/context.js";
 
-import { logger } from "../../logger.js";
-import { User, UserRole } from "../../models/User.js";
-import { anonymizeUser, generateRandomPassword, mergeUsers } from "../userService.js";
-import { getCurrentDate } from "../../utils/helpers.js";
-import { UserEmail } from "../../models/UserEmail.js";
-import { TemplateCollaborator } from "../../models/Collaborator.js";
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { sendEmailConfirmationNotification } from "../emailService.js";
-import { defaultLanguageId } from "../../models/Language.js";
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
 
-let affiliationId;
-let adminUser;
+mockAppConfigs();
+mockAppLogger();
 
-let userStore;
-let userEmailStore;
-let templateCollaboratorStore;
-let mockFindUserById;
-let mockFindEmailsByUserId;
-let mockFindEmailById;
-let mockFindEmailByUserIdAndEmail;
-let mockFindEmailByEmail;
-let mockfindTemplateCollaboratorByInvitedById;
-let mockFindTemplateCollaboratorById;
-let mockFindTemplateCollaboratorsByEmail;
-let mockInsert;
-let mockUpdate;
-let mockDelete;
+import type { MyContext } from "../../context.js";
 
-let context;
+const { buildMockContextWithToken } = await import("../../__mocks__/context.js");
+const { logger } = await import("../../logger.js");
+const { User, UserRole } = await import("../../models/User.js");
+const { anonymizeUser, generateRandomPassword, mergeUsers } = await import("../userService.js");
+const { getCurrentDate } = await import("../../utils/helpers.js");
+const { UserEmail } = await import("../../models/UserEmail.js");
+const { TemplateCollaborator } = await import("../../models/Collaborator.js");
+const { defaultLanguageId } = await import("../../models/Language.js");
+
+function mockAsyncFn() {
+  return jest.fn<(...args: any[]) => Promise<any>>();
+}
+
+let affiliationId: string;
+let adminUser: InstanceType<typeof User>;
+
+let userStore: any[];
+let userEmailStore: any[];
+let templateCollaboratorStore: any[];
+let mockFindUserById: ReturnType<typeof mockAsyncFn>;
+let mockFindEmailsByUserId: ReturnType<typeof mockAsyncFn>;
+let mockFindEmailById: ReturnType<typeof mockAsyncFn>;
+let mockFindEmailByUserIdAndEmail: ReturnType<typeof mockAsyncFn>;
+let mockFindEmailByEmail: ReturnType<typeof mockAsyncFn>;
+let mockfindTemplateCollaboratorByInvitedById: ReturnType<typeof mockAsyncFn>;
+let mockFindTemplateCollaboratorById: ReturnType<typeof mockAsyncFn>;
+let mockFindTemplateCollaboratorsByEmail: ReturnType<typeof mockAsyncFn>;
+let mockInsert: ReturnType<typeof mockAsyncFn>;
+let mockUpdate: ReturnType<typeof mockAsyncFn>;
+let mockDelete: ReturnType<typeof mockAsyncFn>;
+
+let context: MyContext;
 
 beforeEach(async () => {
   jest.resetAllMocks();
@@ -48,63 +58,60 @@ beforeEach(async () => {
   jest.spyOn(adminUser, 'getEmail').mockResolvedValue(casual.email);
   context = await buildMockContextWithToken(logger, adminUser);
 
-  const mockSendEmail = jest.fn().mockReturnValue(true);
-  (sendEmailConfirmationNotification as jest.Mock) = mockSendEmail;
-
   userStore = [];
   userEmailStore = [];
   templateCollaboratorStore = [];
 
   // Fetch an item from the userStore instead of the DB
-  mockFindUserById = jest.fn().mockImplementation((_, __, id) => {
+  mockFindUserById = mockAsyncFn().mockImplementation(async (_, __, id) => {
     return userStore.find((entry) => { return entry.id === id });
   });
-  (User.findById as jest.Mock) = mockFindUserById;
+  jest.spyOn(User, 'findById').mockImplementation(mockFindUserById);
 
   // Fetch items from the userEmailStore instead of the DB
-  mockFindEmailById = jest.fn().mockImplementation((_, __, id) => {
+  mockFindEmailById = mockAsyncFn().mockImplementation(async (_, __, id) => {
     return userEmailStore.filter((entry) => { return entry.id === id });
   });
-  (UserEmail.findById as jest.Mock) = mockFindEmailById;
+  jest.spyOn(UserEmail, 'findById').mockImplementation(mockFindEmailById);
 
   // Fetch items from the userEmailStore instead of the DB
-  mockFindEmailsByUserId = jest.fn().mockImplementation((_, __, userId) => {
+  mockFindEmailsByUserId = mockAsyncFn().mockImplementation(async (_, __, userId) => {
     return userEmailStore.filter((entry) => { return entry.userId === userId });
   });
-  (UserEmail.findByUserId as jest.Mock) = mockFindEmailsByUserId;
+  jest.spyOn(UserEmail, 'findByUserId').mockImplementation(mockFindEmailsByUserId);
 
-  mockFindEmailByUserIdAndEmail = jest.fn().mockImplementation((_, __, userId, email) => {
+  mockFindEmailByUserIdAndEmail = mockAsyncFn().mockImplementation(async (_, __, userId, email) => {
     return userEmailStore.filter((entry) => {
       return entry.email === email && entry.userId === userId;
     });
   });
-  (UserEmail.findByUserIdAndEmail as jest.Mock) = mockFindEmailByUserIdAndEmail;
+  jest.spyOn(UserEmail, 'findByUserIdAndEmail').mockImplementation(mockFindEmailByUserIdAndEmail);
 
   // Fetch items from the userEmailStore instead of the DB
-  mockFindEmailByEmail = jest.fn().mockImplementation((_, __, email) => {
+  mockFindEmailByEmail = mockAsyncFn().mockImplementation(async (_, __, email) => {
     return userEmailStore.filter((entry) => { return entry.email === email });
   });
-  (UserEmail.findByEmail as jest.Mock) = mockFindEmailByEmail;
+  jest.spyOn(UserEmail, 'findByEmail').mockImplementation(mockFindEmailByEmail);
 
   // Fetch items from the templateCollaboratorsStore instead of the DB
-  mockfindTemplateCollaboratorByInvitedById = jest.fn().mockImplementation((_, __, id) => {
+  mockfindTemplateCollaboratorByInvitedById = mockAsyncFn().mockImplementation(async (_, __, id) => {
     return templateCollaboratorStore.filter((entry) => { return entry.invitedById === id });
   });
-  (TemplateCollaborator.findByInvitedById as jest.Mock) = mockfindTemplateCollaboratorByInvitedById;
+  jest.spyOn(TemplateCollaborator, 'findByInvitedById').mockImplementation(mockfindTemplateCollaboratorByInvitedById);
 
   // Fetch items from the templateCollaboratorsStore instead of the DB
-  mockFindTemplateCollaboratorsByEmail = jest.fn().mockImplementation((_, __, email) => {
+  mockFindTemplateCollaboratorsByEmail = mockAsyncFn().mockImplementation(async (_, __, email) => {
     return templateCollaboratorStore.filter((entry) => { return entry.email === email });
   });
-  (TemplateCollaborator.findByEmail as jest.Mock) = mockFindTemplateCollaboratorsByEmail;
+  jest.spyOn(TemplateCollaborator, 'findByEmail').mockImplementation(mockFindTemplateCollaboratorsByEmail);
 
-  mockFindTemplateCollaboratorById = jest.fn().mockImplementation((_, __, id) => {
+  mockFindTemplateCollaboratorById = mockAsyncFn().mockImplementation(async (_, __, id) => {
     return templateCollaboratorStore.find((entry) => { return entry.id === id });
   });
-  (TemplateCollaborator.findById as jest.Mock) = mockFindTemplateCollaboratorById;
+  jest.spyOn(TemplateCollaborator, 'findById').mockImplementation(mockFindTemplateCollaboratorById);
 
   // Override the MySQLModel update function
-  mockUpdate = jest.fn().mockImplementation((context, table, obj) => {
+  mockUpdate = mockAsyncFn().mockImplementation(async (context, table, obj) => {
     obj.modifed = getCurrentDate();
     obj.modifiedById = context.token.id;
 
@@ -136,12 +143,12 @@ beforeEach(async () => {
     }
     return obj;
   });
-  (User.update as jest.Mock) = mockUpdate;
-  (UserEmail.update as jest.Mock) = mockUpdate;
-  (TemplateCollaborator.update as jest.Mock) = mockUpdate;
+  jest.spyOn(User, 'update').mockImplementation(mockUpdate);
+  jest.spyOn(UserEmail, 'update').mockImplementation(mockUpdate);
+  jest.spyOn(TemplateCollaborator, 'update').mockImplementation(mockUpdate);
 
   // Override the MySQLModel delete function
-  mockDelete = jest.fn().mockImplementation((_, table, objId) => {
+  mockDelete = mockAsyncFn().mockImplementation(async (_, table, objId) => {
     switch (table) {
       case 'userEmails': {
         const obj = userEmailStore.find((e) => { return e.id === objId });
@@ -156,11 +163,11 @@ beforeEach(async () => {
     }
     return true;
   });
-  (UserEmail.delete as jest.Mock) = mockDelete;
-  (TemplateCollaborator.delete as jest.Mock) = mockDelete;
+  jest.spyOn(UserEmail, 'delete').mockImplementation(mockDelete);
+  jest.spyOn(TemplateCollaborator, 'delete').mockImplementation(mockDelete);
 
   // Override the MySQLModel insert function
-  mockInsert = jest.fn().mockImplementation((_, table, obj) => {
+  mockInsert = mockAsyncFn().mockImplementation(async (_, table, obj) => {
     obj.created = getCurrentDate();
     obj.createdById = casual.integer(1, 999);
     obj.modified = getCurrentDate();
@@ -169,7 +176,14 @@ beforeEach(async () => {
 
     return obj.id;
   });
-  (UserEmail.insert as jest.Mock) = mockInsert;
+  jest.spyOn(UserEmail, 'insert').mockImplementation(mockInsert);
+
+  // anonymizeUser always runs for real when mergeUsers is tested (see note
+  // above), so this needs a safe default here rather than only inside the
+  // one anonymizeUser-specific test that sets it up explicitly.
+  jest.spyOn(UserEmail, 'createOrUpdatePrimary').mockResolvedValue(
+    new UserEmail({ id: casual.integer(1, 9999), email: casual.email, isPrimary: true })
+  );
 });
 
 afterEach(() => {
@@ -190,7 +204,7 @@ describe('generateRandomPassword', () => {
 });
 
 describe('anonymizeUser', () => {
-  let user;
+  let user: any;
 
   beforeEach(() => {
     // Define a fake user
@@ -315,8 +329,8 @@ describe('anonymizeUser', () => {
 });
 
 describe('mergeUsers', () => {
-  let mergeUser;
-  let keepUser;
+  let mergeUser: any;
+  let keepUser: any;
 
   beforeEach(() => {
     // Define a fake user we want to merge
@@ -372,9 +386,6 @@ describe('mergeUsers', () => {
       errors: [],
     });
     userStore.push(keepUser);
-
-    const mockAnonymize = jest.fn().mockResolvedValueOnce('anonymizeResult');
-    (anonymizeUser as jest.Mock) = mockAnonymize;
   });
 
   it('does not overwrite base MySQLModel properties', async () => {
@@ -462,9 +473,13 @@ describe('mergeUsers', () => {
 
   it('returns the original user to keep with errors if it fails to update', async () => {
     keepUser.password = null;
+
     const mergedUser = await mergeUsers(context, mergeUser, keepUser);
+
     expect(mockUpdate).toHaveBeenCalledTimes(0);
-    expect(Object.keys(mergedUser.errors)).toBeTruthy();
+    expect(mergedUser.errors.general).toBe(
+      'Unable to merge the user at this time',
+    );
   });
 
   it('merges UserEmail entries', async () => {

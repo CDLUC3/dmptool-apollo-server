@@ -1,30 +1,44 @@
-import { MyContext } from "../../context.js";
-import {
+import { jest } from '@jest/globals';
+import casual from "casual";
+
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+mockAppConfigs();
+mockAppLogger();
+
+import type { MyContext } from "../../context.js";
+
+const { buildMockContextWithToken } = await import("../../__mocks__/context.js");
+const { logger } = await import("../../logger.js");
+const {
   TemplateCustomization,
   TemplateCustomizationMigrationStatus,
-} from "../../models/TemplateCustomization.js";
-import {
+} = await import("../../models/TemplateCustomization.js");
+const {
   handleFunderTemplateRepublication,
   handleFunderTemplateArchive,
   markTemplateCustomizationAsDirty,
   getValidatedCustomization
-} from "../templateCustomizationService.js";
-import { ForbiddenError, NotFoundError } from "../../utils/graphQLErrors.js";
-import { User, UserRole } from "../../models/User.js";
-import casual from "casual";
-import { buildMockContextWithToken } from "../../__mocks__/context.js";
+} = await import("../templateCustomizationService.js");
+const { ForbiddenError, NotFoundError } = await import("../../utils/graphQLErrors.js");
+const { User, UserRole } = await import("../../models/User.js");
 
-import { logger } from "../../logger.js";
-
-jest.mock("../../models/TemplateCustomization");
-jest.mock("../templateCustomizationService", () => ({
-  ...jest.requireActual("../templateCustomizationService"),
-  hasPermissionOnTemplateCustomization: jest.fn(),
-}));
+// ---------------------------------------------------------------------------
+// Cast helpers: jest.spyOn ties itself to TemplateCustomization's real
+// method signatures, so plain-object fixtures need casting at the point
+// they're handed to a spied static method — never at their own declaration.
+// ---------------------------------------------------------------------------
+type TemplateCustomizationInstance = InstanceType<typeof TemplateCustomization>;
+function asTemplateCustomization(value: any): TemplateCustomizationInstance {
+  return value as TemplateCustomizationInstance;
+}
+function asTemplateCustomizationList(value: any[]): TemplateCustomizationInstance[] {
+  return value as TemplateCustomizationInstance[];
+}
 
 describe("templateCustomizationService", () => {
   describe('getValidatedCustomization helper', () => {
-    let user: User;
+    let user: InstanceType<typeof User>;
     let mockContext = {} as MyContext;
     const reference = "test-reference";
     const templateCustomizationId = 1;
@@ -40,7 +54,7 @@ describe("templateCustomizationService", () => {
         affiliationId: casual.url,
       });
 
-      (user.getEmail as jest.Mock) = jest.fn().mockResolvedValue(casual.email);
+      jest.spyOn(user, 'getEmail').mockResolvedValue(casual.email);
 
       mockContext = await buildMockContextWithToken(logger, user);
     });
@@ -50,9 +64,9 @@ describe("templateCustomizationService", () => {
         id: templateCustomizationId,
         templateId: 1,
         affiliationId: user.affiliationId
-      } as TemplateCustomization;
+      };
 
-      (TemplateCustomization.findById as jest.Mock).mockResolvedValue(mockCustomization);
+      jest.spyOn(TemplateCustomization, 'findById').mockResolvedValue(asTemplateCustomization(mockCustomization));
 
       const result = await getValidatedCustomization(
         reference,
@@ -65,11 +79,11 @@ describe("templateCustomizationService", () => {
         mockContext,
         templateCustomizationId
       );
-      expect(result).toBe(mockCustomization);
+      expect(result).toEqual(mockCustomization);
     });
 
     it("should throw NotFoundError when customization is not found", async () => {
-      (TemplateCustomization.findById as jest.Mock).mockResolvedValue(null);
+      jest.spyOn(TemplateCustomization, 'findById').mockResolvedValue(null);
 
       await expect(
         getValidatedCustomization(reference, mockContext, templateCustomizationId)
@@ -87,9 +101,9 @@ describe("templateCustomizationService", () => {
         id: templateCustomizationId,
         templateId: 1,
         affiliationId: "different-affiliation"
-      } as TemplateCustomization;
+      };
 
-      (TemplateCustomization.findById as jest.Mock).mockResolvedValue(mockCustomization);
+      jest.spyOn(TemplateCustomization, 'findById').mockResolvedValue(asTemplateCustomization(mockCustomization));
 
       await expect(
         getValidatedCustomization(reference, mockContext, templateCustomizationId)
@@ -114,8 +128,7 @@ describe("templateCustomizationService", () => {
     });
 
     it("should call handleFunderTemplateArchive when newVersionedTemplateId is undefined", async () => {
-      const mockCustomizations: TemplateCustomization[] = [];
-      (TemplateCustomization.findByTemplateId as jest.Mock).mockResolvedValue(mockCustomizations);
+      jest.spyOn(TemplateCustomization, 'findByTemplateId').mockResolvedValue([]);
 
       const result = await handleFunderTemplateRepublication(
         reference,
@@ -133,7 +146,7 @@ describe("templateCustomizationService", () => {
     });
 
     it("should return 0 when no customizations are found", async () => {
-      (TemplateCustomization.findByVersionedTemplateId as jest.Mock).mockResolvedValue([]);
+      jest.spyOn(TemplateCustomization, 'findByVersionedTemplateId').mockResolvedValue([]);
 
       const result = await handleFunderTemplateRepublication(
         reference,
@@ -151,13 +164,13 @@ describe("templateCustomizationService", () => {
     });
 
     it("should mark customizations as STALE and return count when customizations are found", async () => {
-      const mockUpdate = jest.fn().mockResolvedValue(undefined);
-      const mockCustomizations = [
+      const mockUpdate = jest.fn<(...args: any[]) => Promise<any>>().mockResolvedValue(undefined);
+      const mockCustomizations = asTemplateCustomizationList([
         { migrationStatus: TemplateCustomizationMigrationStatus.OK, update: mockUpdate },
         { migrationStatus: TemplateCustomizationMigrationStatus.OK, update: mockUpdate }
-      ] as unknown as TemplateCustomization[];
+      ]);
 
-      (TemplateCustomization.findByVersionedTemplateId as jest.Mock).mockResolvedValue(mockCustomizations);
+      jest.spyOn(TemplateCustomization, 'findByVersionedTemplateId').mockResolvedValue(mockCustomizations);
 
       const result = await handleFunderTemplateRepublication(
         reference,
@@ -191,7 +204,7 @@ describe("templateCustomizationService", () => {
     });
 
     it("should return 0 when no customizations are found", async () => {
-      (TemplateCustomization.findByTemplateId as jest.Mock).mockResolvedValue([]);
+      jest.spyOn(TemplateCustomization, 'findByTemplateId').mockResolvedValue([]);
 
       const result = await handleFunderTemplateArchive(
         reference,
@@ -208,14 +221,14 @@ describe("templateCustomizationService", () => {
     });
 
     it("should mark customizations as ORPHANED and return count when customizations are found", async () => {
-      const mockUpdate = jest.fn().mockResolvedValue(undefined);
-      const mockCustomizations = [
+      const mockUpdate = jest.fn<(...args: any[]) => Promise<any>>().mockResolvedValue(undefined);
+      const mockCustomizations = asTemplateCustomizationList([
         { migrationStatus: TemplateCustomizationMigrationStatus.OK, update: mockUpdate },
         { migrationStatus: TemplateCustomizationMigrationStatus.OK, update: mockUpdate },
         { migrationStatus: TemplateCustomizationMigrationStatus.STALE, update: mockUpdate }
-      ] as unknown as TemplateCustomization[];
+      ]);
 
-      (TemplateCustomization.findByTemplateId as jest.Mock).mockResolvedValue(mockCustomizations);
+      jest.spyOn(TemplateCustomization, 'findByTemplateId').mockResolvedValue(mockCustomizations);
 
       const result = await handleFunderTemplateArchive(
         reference,
@@ -251,9 +264,8 @@ describe("templateCustomizationService", () => {
     });
 
     it("should successfully mark template customization as dirty", async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const mockEntity = {} as any;
-      (TemplateCustomization.markAsDirty as jest.Mock).mockResolvedValue(true);
+      jest.spyOn(TemplateCustomization, 'markAsDirty').mockResolvedValue(true);
 
       await markTemplateCustomizationAsDirty(
         reference,
@@ -271,9 +283,8 @@ describe("templateCustomizationService", () => {
     });
 
     it("should log error when marking fails and entity does not support addError", async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const mockEntity = {} as any;
-      (TemplateCustomization.markAsDirty as jest.Mock).mockResolvedValue(false);
+      jest.spyOn(TemplateCustomization, 'markAsDirty').mockResolvedValue(false);
 
       await markTemplateCustomizationAsDirty(
         reference,
@@ -295,9 +306,8 @@ describe("templateCustomizationService", () => {
 
     it("should log error and add error to entity when marking fails and entity supports addError", async () => {
       const mockAddError = jest.fn();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const mockEntity = { addError: mockAddError } as any;
-      (TemplateCustomization.markAsDirty as jest.Mock).mockResolvedValue(false);
+      jest.spyOn(TemplateCustomization, 'markAsDirty').mockResolvedValue(false);
 
       await markTemplateCustomizationAsDirty(
         reference,

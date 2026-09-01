@@ -1,37 +1,68 @@
-import { MyContext } from "../../context.js";
-import { VersionedTemplateCustomization } from "../../models/VersionedTemplateCustomization.js";
-import { VersionedSection } from "../../models/VersionedSection.js";
-import { VersionedQuestion } from "../../models/VersionedQuestion.js";
-import { VersionedCustomSection } from "../../models/VersionedCustomSection.js";
-import { VersionedCustomQuestion } from "../../models/VersionedCustomQuestion.js";
-import { CustomSection, PinnedSectionTypeEnum } from "../../models/CustomSection.js";
-import { CustomQuestion } from "../../models/CustomQuestion.js";
-import { SectionCustomization } from "../../models/SectionCustomization.js";
-import { QuestionCustomization } from "../../models/QuestionCustomization.js";
-import { VersionedSectionCustomization } from "../../models/VersionedSectionCustomization.js";
-import { VersionedQuestionCustomization } from "../../models/VersionedQuestionCustomization.js";
-import {
-  PublishableCustomization,
+import { jest } from '@jest/globals';
+import casual from "casual";
+
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+mockAppConfigs();
+mockAppLogger();
+
+// ---------------------------------------------------------------------------
+// No jest.unstable_mockModule needed anywhere in this file — every model is
+// real, spied per-test via jest.spyOn (matching how the original already
+// used jest.spyOn(X.prototype, "create") for the Versioned* classes rather
+// than relying on automock-specific constructor behavior).
+// ---------------------------------------------------------------------------
+import type { MyContext } from "../../context.js";
+import type { PublishableCustomization } from "../templateCustomizationPublishHelpers.js";
+
+const { buildMockContextWithToken } = await import("../../__mocks__/context.js");
+const { logger } = await import("../../logger.js");
+const { VersionedTemplateCustomization } = await import("../../models/VersionedTemplateCustomization.js");
+const { VersionedSection } = await import("../../models/VersionedSection.js");
+const { VersionedQuestion } = await import("../../models/VersionedQuestion.js");
+const { VersionedCustomSection } = await import("../../models/VersionedCustomSection.js");
+const { VersionedCustomQuestion } = await import("../../models/VersionedCustomQuestion.js");
+const { CustomSection, PinnedSectionTypeEnum } = await import("../../models/CustomSection.js");
+const { CustomQuestion } = await import("../../models/CustomQuestion.js");
+const { SectionCustomization } = await import("../../models/SectionCustomization.js");
+const { QuestionCustomization } = await import("../../models/QuestionCustomization.js");
+const { VersionedSectionCustomization } = await import("../../models/VersionedSectionCustomization.js");
+const { VersionedQuestionCustomization } = await import("../../models/VersionedQuestionCustomization.js");
+const {
   snapshotCustomizationChildren,
   rollbackPublishedSnapshot,
-} from "../templateCustomizationPublishHelpers.js";
-import { User, UserRole } from "../../models/User.js";
-import casual from "casual";
-import { buildMockContextWithToken } from "../../__mocks__/context.js";
+} = await import("../templateCustomizationPublishHelpers.js");
+const { User, UserRole } = await import("../../models/User.js");
 
-import { logger } from "../../logger.js";
+// ---------------------------------------------------------------------------
+// Cast helpers: jest.spyOn ties itself to each real class's method
+// signature, so plain-object fixtures need casting at the point they're
+// handed to a spied static method — never at their own declaration.
+// ---------------------------------------------------------------------------
+type CustomSectionInstance = InstanceType<typeof CustomSection>;
+function asCustomSectionList(value: any[]): CustomSectionInstance[] {
+  return value as CustomSectionInstance[];
+}
 
-jest.mock("../../models/VersionedTemplateCustomization");
-jest.mock("../../models/VersionedSection");
-jest.mock("../../models/VersionedQuestion");
-jest.mock("../../models/VersionedCustomSection");
-jest.mock("../../models/VersionedCustomQuestion");
-jest.mock("../../models/VersionedSectionCustomization");
-jest.mock("../../models/VersionedQuestionCustomization");
-jest.mock("../../models/CustomSection");
-jest.mock("../../models/CustomQuestion");
-jest.mock("../../models/SectionCustomization");
-jest.mock("../../models/QuestionCustomization");
+type CustomQuestionInstance = InstanceType<typeof CustomQuestion>;
+function asCustomQuestionList(value: any[]): CustomQuestionInstance[] {
+  return value as CustomQuestionInstance[];
+}
+
+type SectionCustomizationInstance = InstanceType<typeof SectionCustomization>;
+function asSectionCustomizationList(value: any[]): SectionCustomizationInstance[] {
+  return value as SectionCustomizationInstance[];
+}
+
+type QuestionCustomizationInstance = InstanceType<typeof QuestionCustomization>;
+function asQuestionCustomizationList(value: any[]): QuestionCustomizationInstance[] {
+  return value as QuestionCustomizationInstance[];
+}
+
+type VersionedTemplateCustomizationInstance = InstanceType<typeof VersionedTemplateCustomization>;
+function asVersionedTemplateCustomization(value: any): VersionedTemplateCustomizationInstance {
+  return value as VersionedTemplateCustomizationInstance;
+}
 
 describe("templateCustomizationPublishHelpers", () => {
   let mockContext: MyContext;
@@ -46,29 +77,29 @@ describe("templateCustomizationPublishHelpers", () => {
       role: UserRole.ADMIN,
       affiliationId: casual.url,
     });
-    (user.getEmail as jest.Mock) = jest.fn().mockResolvedValue(casual.email);
+    jest.spyOn(user, 'getEmail').mockResolvedValue(casual.email);
     mockContext = await buildMockContextWithToken(logger, user);
   });
 
   describe("snapshotCustomizationChildren", () => {
     let customization: PublishableCustomization;
-    let created: VersionedTemplateCustomization;
+    let created: VersionedTemplateCustomizationInstance;
 
     beforeEach(() => {
       customization = {
         id: 1,
         currentVersionedTemplateId: 10,
-        addError: jest.fn(),
-        hasErrors: jest.fn().mockReturnValue(false),
+        addError: jest.fn<(...args: any[]) => void>(),
+        hasErrors: jest.fn<() => boolean>().mockReturnValue(false),
       };
       created = new VersionedTemplateCustomization({ id: 99 });
     });
 
     it("should do nothing when there are no custom sections, questions, or customizations", async () => {
-      (CustomSection.findByCustomizationId as jest.Mock).mockResolvedValue([]);
-      (CustomQuestion.findByCustomizationAndSectionType as jest.Mock).mockResolvedValue([]);
-      (SectionCustomization.findByCustomizationId as jest.Mock).mockResolvedValue([]);
-      (QuestionCustomization.findByCustomizationId as jest.Mock).mockResolvedValue([]);
+      jest.spyOn(CustomSection, 'findByCustomizationId').mockResolvedValue([]);
+      jest.spyOn(CustomQuestion, 'findByCustomizationAndSectionType').mockResolvedValue([]);
+      jest.spyOn(SectionCustomization, 'findByCustomizationId').mockResolvedValue([]);
+      jest.spyOn(QuestionCustomization, 'findByCustomizationId').mockResolvedValue([]);
 
       await snapshotCustomizationChildren(reference, mockContext, customization, created);
 
@@ -77,14 +108,14 @@ describe("templateCustomizationPublishHelpers", () => {
 
     it("should add error when versioning a custom section fails", async () => {
       const mockSection = { id: 5, name: "My Section" };
-      (CustomSection.findByCustomizationId as jest.Mock).mockResolvedValue([mockSection]);
-      (CustomQuestion.findByCustomizationAndSectionId as jest.Mock).mockResolvedValue([]);
-      (CustomQuestion.findByCustomizationAndSectionType as jest.Mock).mockResolvedValue([]);
-      (SectionCustomization.findByCustomizationId as jest.Mock).mockResolvedValue([]);
-      (QuestionCustomization.findByCustomizationId as jest.Mock).mockResolvedValue([]);
+      jest.spyOn(CustomSection, 'findByCustomizationId').mockResolvedValue(asCustomSectionList([mockSection]));
+      jest.spyOn(CustomQuestion, 'findByCustomizationAndSectionId').mockResolvedValue([]);
+      jest.spyOn(CustomQuestion, 'findByCustomizationAndSectionType').mockResolvedValue([]);
+      jest.spyOn(SectionCustomization, 'findByCustomizationId').mockResolvedValue([]);
+      jest.spyOn(QuestionCustomization, 'findByCustomizationId').mockResolvedValue([]);
 
       const failedSection = new VersionedCustomSection({ errors: { general: "DB error" } });
-      (failedSection.hasErrors as jest.Mock) = jest.fn().mockReturnValue(true);
+      jest.spyOn(failedSection, 'hasErrors').mockReturnValue(true);
       jest.spyOn(VersionedCustomSection.prototype, "create").mockResolvedValue(failedSection);
 
       await snapshotCustomizationChildren(reference, mockContext, customization, created);
@@ -111,17 +142,17 @@ describe("templateCustomizationPublishHelpers", () => {
         useSampleTextAsDefault: false,
         required: false,
       };
-      (CustomSection.findByCustomizationId as jest.Mock).mockResolvedValue([mockSection]);
-      (CustomQuestion.findByCustomizationAndSectionId as jest.Mock).mockResolvedValue([mockQuestion]);
-      (CustomQuestion.findByCustomizationAndSectionType as jest.Mock).mockResolvedValue([]);
-      (SectionCustomization.findByCustomizationId as jest.Mock).mockResolvedValue([]);
-      (QuestionCustomization.findByCustomizationId as jest.Mock).mockResolvedValue([]);
+      jest.spyOn(CustomSection, 'findByCustomizationId').mockResolvedValue(asCustomSectionList([mockSection]));
+      jest.spyOn(CustomQuestion, 'findByCustomizationAndSectionId').mockResolvedValue(asCustomQuestionList([mockQuestion]));
+      jest.spyOn(CustomQuestion, 'findByCustomizationAndSectionType').mockResolvedValue([]);
+      jest.spyOn(SectionCustomization, 'findByCustomizationId').mockResolvedValue([]);
+      jest.spyOn(QuestionCustomization, 'findByCustomizationId').mockResolvedValue([]);
 
       const okSection = new VersionedCustomSection({ id: 50 });
-      (okSection.hasErrors as jest.Mock) = jest.fn().mockReturnValue(false);
+      jest.spyOn(okSection, 'hasErrors').mockReturnValue(false);
       jest.spyOn(VersionedCustomSection.prototype, "create").mockResolvedValue(okSection);
       const failedQuestion = new VersionedCustomQuestion({ errors: { general: "DB error" } });
-      (failedQuestion.hasErrors as jest.Mock) = jest.fn().mockReturnValue(true);
+      jest.spyOn(failedQuestion, 'hasErrors').mockReturnValue(true);
       jest.spyOn(VersionedCustomQuestion.prototype, "create").mockResolvedValue(failedQuestion);
 
       await snapshotCustomizationChildren(reference, mockContext, customization, created);
@@ -134,11 +165,11 @@ describe("templateCustomizationPublishHelpers", () => {
 
     it("should add error when versioning a section customization and versioned section lookup fails", async () => {
       const mockSectionCust = { id: 7, sectionId: 20, guidance: "Some guidance" };
-      (CustomSection.findByCustomizationId as jest.Mock).mockResolvedValue([]);
-      (CustomQuestion.findByCustomizationAndSectionType as jest.Mock).mockResolvedValue([]);
-      (SectionCustomization.findByCustomizationId as jest.Mock).mockResolvedValue([mockSectionCust]);
-      (QuestionCustomization.findByCustomizationId as jest.Mock).mockResolvedValue([]);
-      (VersionedSection.query as jest.Mock).mockResolvedValue([]);
+      jest.spyOn(CustomSection, 'findByCustomizationId').mockResolvedValue([]);
+      jest.spyOn(CustomQuestion, 'findByCustomizationAndSectionType').mockResolvedValue([]);
+      jest.spyOn(SectionCustomization, 'findByCustomizationId').mockResolvedValue(asSectionCustomizationList([mockSectionCust]));
+      jest.spyOn(QuestionCustomization, 'findByCustomizationId').mockResolvedValue([]);
+      jest.spyOn(VersionedSection, 'query').mockResolvedValue([]);
 
       await snapshotCustomizationChildren(reference, mockContext, customization, created);
 
@@ -150,11 +181,11 @@ describe("templateCustomizationPublishHelpers", () => {
 
     it("should add error when versioning a question customization and versioned question lookup fails", async () => {
       const mockQuestionCust = { id: 8, questionId: 30, guidanceText: null, sampleText: null };
-      (CustomSection.findByCustomizationId as jest.Mock).mockResolvedValue([]);
-      (CustomQuestion.findByCustomizationAndSectionType as jest.Mock).mockResolvedValue([]);
-      (SectionCustomization.findByCustomizationId as jest.Mock).mockResolvedValue([]);
-      (QuestionCustomization.findByCustomizationId as jest.Mock).mockResolvedValue([mockQuestionCust]);
-      (VersionedQuestion.query as jest.Mock).mockResolvedValue([]);
+      jest.spyOn(CustomSection, 'findByCustomizationId').mockResolvedValue([]);
+      jest.spyOn(CustomQuestion, 'findByCustomizationAndSectionType').mockResolvedValue([]);
+      jest.spyOn(SectionCustomization, 'findByCustomizationId').mockResolvedValue([]);
+      jest.spyOn(QuestionCustomization, 'findByCustomizationId').mockResolvedValue(asQuestionCustomizationList([mockQuestionCust]));
+      jest.spyOn(VersionedQuestion, 'query').mockResolvedValue([]);
 
       await snapshotCustomizationChildren(reference, mockContext, customization, created);
 
@@ -179,13 +210,13 @@ describe("templateCustomizationPublishHelpers", () => {
         useSampleTextAsDefault: false,
         required: false,
       };
-      (CustomSection.findByCustomizationId as jest.Mock).mockResolvedValue([]);
-      (CustomQuestion.findByCustomizationAndSectionType as jest.Mock).mockResolvedValue([mockQuestion]);
-      (SectionCustomization.findByCustomizationId as jest.Mock).mockResolvedValue([]);
-      (QuestionCustomization.findByCustomizationId as jest.Mock).mockResolvedValue([]);
+      jest.spyOn(CustomSection, 'findByCustomizationId').mockResolvedValue([]);
+      jest.spyOn(CustomQuestion, 'findByCustomizationAndSectionType').mockResolvedValue(asCustomQuestionList([mockQuestion]));
+      jest.spyOn(SectionCustomization, 'findByCustomizationId').mockResolvedValue([]);
+      jest.spyOn(QuestionCustomization, 'findByCustomizationId').mockResolvedValue([]);
 
       const failedQuestion = new VersionedCustomQuestion({ errors: { general: "DB error" } });
-      (failedQuestion.hasErrors as jest.Mock) = jest.fn().mockReturnValue(true);
+      jest.spyOn(failedQuestion, 'hasErrors').mockReturnValue(true);
       jest.spyOn(VersionedCustomQuestion.prototype, "create").mockResolvedValue(failedQuestion);
 
       await snapshotCustomizationChildren(reference, mockContext, customization, created);
@@ -198,14 +229,14 @@ describe("templateCustomizationPublishHelpers", () => {
 
     it("should add error when VersionedSectionCustomization creation fails after section lookup succeeds", async () => {
       const mockSectionCust = { id: 7, sectionId: 20, guidance: "Some guidance" };
-      (CustomSection.findByCustomizationId as jest.Mock).mockResolvedValue([]);
-      (CustomQuestion.findByCustomizationAndSectionType as jest.Mock).mockResolvedValue([]);
-      (SectionCustomization.findByCustomizationId as jest.Mock).mockResolvedValue([mockSectionCust]);
-      (QuestionCustomization.findByCustomizationId as jest.Mock).mockResolvedValue([]);
-      (VersionedSection.query as jest.Mock).mockResolvedValue([{ id: 100 }]);
+      jest.spyOn(CustomSection, 'findByCustomizationId').mockResolvedValue([]);
+      jest.spyOn(CustomQuestion, 'findByCustomizationAndSectionType').mockResolvedValue([]);
+      jest.spyOn(SectionCustomization, 'findByCustomizationId').mockResolvedValue(asSectionCustomizationList([mockSectionCust]));
+      jest.spyOn(QuestionCustomization, 'findByCustomizationId').mockResolvedValue([]);
+      jest.spyOn(VersionedSection, 'query').mockResolvedValue([{ id: 100 }]);
 
       const failedSectionCust = new VersionedSectionCustomization({ errors: { general: "DB error" } });
-      (failedSectionCust.hasErrors as jest.Mock) = jest.fn().mockReturnValue(true);
+      jest.spyOn(failedSectionCust, 'hasErrors').mockReturnValue(true);
       jest.spyOn(VersionedSectionCustomization.prototype, "create").mockResolvedValue(failedSectionCust);
 
       await snapshotCustomizationChildren(reference, mockContext, customization, created);
@@ -218,14 +249,14 @@ describe("templateCustomizationPublishHelpers", () => {
 
     it("should add error when VersionedQuestionCustomization creation fails after question lookup succeeds", async () => {
       const mockQuestionCust = { id: 8, questionId: 30, guidanceText: null, sampleText: null };
-      (CustomSection.findByCustomizationId as jest.Mock).mockResolvedValue([]);
-      (CustomQuestion.findByCustomizationAndSectionType as jest.Mock).mockResolvedValue([]);
-      (SectionCustomization.findByCustomizationId as jest.Mock).mockResolvedValue([]);
-      (QuestionCustomization.findByCustomizationId as jest.Mock).mockResolvedValue([mockQuestionCust]);
-      (VersionedQuestion.query as jest.Mock).mockResolvedValue([{ id: 200 }]);
+      jest.spyOn(CustomSection, 'findByCustomizationId').mockResolvedValue([]);
+      jest.spyOn(CustomQuestion, 'findByCustomizationAndSectionType').mockResolvedValue([]);
+      jest.spyOn(SectionCustomization, 'findByCustomizationId').mockResolvedValue([]);
+      jest.spyOn(QuestionCustomization, 'findByCustomizationId').mockResolvedValue(asQuestionCustomizationList([mockQuestionCust]));
+      jest.spyOn(VersionedQuestion, 'query').mockResolvedValue([{ id: 200 }]);
 
       const failedQuestionCust = new VersionedQuestionCustomization({ errors: { general: "DB error" } });
-      (failedQuestionCust.hasErrors as jest.Mock) = jest.fn().mockReturnValue(true);
+      jest.spyOn(failedQuestionCust, 'hasErrors').mockReturnValue(true);
       jest.spyOn(VersionedQuestionCustomization.prototype, "create").mockResolvedValue(failedQuestionCust);
 
       await snapshotCustomizationChildren(reference, mockContext, customization, created);
@@ -239,19 +270,19 @@ describe("templateCustomizationPublishHelpers", () => {
     it("should successfully snapshot all children including section and question customizations", async () => {
       const mockSectionCust = { id: 7, sectionId: 20, guidance: "Some guidance" };
       const mockQuestionCust = { id: 8, questionId: 30, guidanceText: null, sampleText: null };
-      (CustomSection.findByCustomizationId as jest.Mock).mockResolvedValue([]);
-      (CustomQuestion.findByCustomizationAndSectionType as jest.Mock).mockResolvedValue([]);
-      (SectionCustomization.findByCustomizationId as jest.Mock).mockResolvedValue([mockSectionCust]);
-      (QuestionCustomization.findByCustomizationId as jest.Mock).mockResolvedValue([mockQuestionCust]);
-      (VersionedSection.query as jest.Mock).mockResolvedValue([{ id: 100 }]);
-      (VersionedQuestion.query as jest.Mock).mockResolvedValue([{ id: 200 }]);
+      jest.spyOn(CustomSection, 'findByCustomizationId').mockResolvedValue([]);
+      jest.spyOn(CustomQuestion, 'findByCustomizationAndSectionType').mockResolvedValue([]);
+      jest.spyOn(SectionCustomization, 'findByCustomizationId').mockResolvedValue(asSectionCustomizationList([mockSectionCust]));
+      jest.spyOn(QuestionCustomization, 'findByCustomizationId').mockResolvedValue(asQuestionCustomizationList([mockQuestionCust]));
+      jest.spyOn(VersionedSection, 'query').mockResolvedValue([{ id: 100 }]);
+      jest.spyOn(VersionedQuestion, 'query').mockResolvedValue([{ id: 200 }]);
 
       const okSectionCust = new VersionedSectionCustomization({ id: 70 });
-      (okSectionCust.hasErrors as jest.Mock) = jest.fn().mockReturnValue(false);
+      jest.spyOn(okSectionCust, 'hasErrors').mockReturnValue(false);
       jest.spyOn(VersionedSectionCustomization.prototype, "create").mockResolvedValue(okSectionCust);
 
       const okQuestionCust = new VersionedQuestionCustomization({ id: 80 });
-      (okQuestionCust.hasErrors as jest.Mock) = jest.fn().mockReturnValue(false);
+      jest.spyOn(okQuestionCust, 'hasErrors').mockReturnValue(false);
       jest.spyOn(VersionedQuestionCustomization.prototype, "create").mockResolvedValue(okQuestionCust);
 
       await snapshotCustomizationChildren(reference, mockContext, customization, created);
@@ -262,7 +293,8 @@ describe("templateCustomizationPublishHelpers", () => {
 
   describe("rollbackPublishedSnapshot", () => {
     it("should delete the snapshot and cascade to child rows without restoring a prior version", async () => {
-      (VersionedTemplateCustomization.delete as jest.Mock).mockResolvedValue(true);
+      jest.spyOn(VersionedTemplateCustomization, 'delete').mockResolvedValue(true);
+      const findByIdSpy = jest.spyOn(VersionedTemplateCustomization, 'findById');
 
       await rollbackPublishedSnapshot(mockContext, 99, undefined);
 
@@ -272,15 +304,17 @@ describe("templateCustomizationPublishHelpers", () => {
         99,
         "rollbackPublishedSnapshot"
       );
-      expect(VersionedTemplateCustomization.findById).not.toHaveBeenCalled();
+      expect(findByIdSpy).not.toHaveBeenCalled();
     });
 
     it("should re-activate the prior published version when priorPublishedVersionId is provided", async () => {
-      (VersionedTemplateCustomization.delete as jest.Mock).mockResolvedValue(true);
+      jest.spyOn(VersionedTemplateCustomization, 'delete').mockResolvedValue(true);
 
       const priorVer = new VersionedTemplateCustomization({ id: 50, active: false });
-      priorVer.update = jest.fn().mockResolvedValue({ ...priorVer, active: true });
-      (VersionedTemplateCustomization.findById as jest.Mock).mockResolvedValue(priorVer);
+      jest.spyOn(priorVer, 'update').mockResolvedValue(
+        asVersionedTemplateCustomization({ ...priorVer, active: true })
+      );
+      jest.spyOn(VersionedTemplateCustomization, 'findById').mockResolvedValue(priorVer);
 
       await rollbackPublishedSnapshot(mockContext, 99, 50);
 
@@ -294,8 +328,8 @@ describe("templateCustomizationPublishHelpers", () => {
     });
 
     it("should not attempt to restore prior version when findById returns null", async () => {
-      (VersionedTemplateCustomization.delete as jest.Mock).mockResolvedValue(true);
-      (VersionedTemplateCustomization.findById as jest.Mock).mockResolvedValue(null);
+      jest.spyOn(VersionedTemplateCustomization, 'delete').mockResolvedValue(true);
+      jest.spyOn(VersionedTemplateCustomization, 'findById').mockResolvedValue(null);
 
       await rollbackPublishedSnapshot(mockContext, 99, 50);
 

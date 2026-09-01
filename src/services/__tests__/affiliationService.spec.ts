@@ -1,6 +1,12 @@
+import { jest } from '@jest/globals';
 import casual from "casual";
-import { buildMockContextWithToken } from "../../__mocks__/context.js";
 
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+mockAppConfigs();
+mockAppLogger();
+
+import { buildMockContextWithToken } from "../../__mocks__/context.js";
 import { logger } from "../../logger.js";
 import { Affiliation, AffiliationProvenance, AffiliationType, DEFAULT_DMPTOOL_AFFILIATION_URL } from "../../models/Affiliation.js";
 import {
@@ -13,15 +19,47 @@ import { getCurrentDate } from "../../utils/helpers.js";
 import { AffiliationEmailDomain } from "../../models/AffiliationEmailDomain.js";
 import { AffiliationLink } from "../../models/AffiliationLink.js";
 
-// Pulling context in here so that the mysql gets mocked
-jest.mock('../../context.js')
+// ---------------------------------------------------------------------------
+// No jest.unstable_mockModule needed in this file at all: unlike the
+// resolver specs, there's no resolver.js/schema.js import chain forcing us
+// to intercept modules before they're loaded, and every model here is real,
+// spied per-test via jest.spyOn. The affiliationService functions themselves
+// are the real thing under test — we call them directly, not through a mock.
+//
+// The original CJS suite's `jest.mock('../../context.js')` was automocking
+// the real production context.js purely to avoid its side effects at import
+// time; mockAppConfigs()/mockAppLogger() above have been sufficient for that
+// in every other spec file converted so far, so it's dropped here too. If
+// something in this file throws at import/setup time (rather than a normal
+// assertion failure), that's the first thing to revisit.
+//
+// Cast helpers: jest.spyOn ties itself to the real class's method signature,
+// and the affiliationService functions themselves have real typed
+// parameters (`affiliation: Affiliation`, `desiredEmailDomainIds:
+// AffiliationEmailDomain[]`, etc.), so plain-object fixtures need casting at
+// the point they're handed to either — never at their own declaration.
+// ---------------------------------------------------------------------------
+type AffiliationInstance = InstanceType<typeof Affiliation>;
+function asAffiliation(value: any): AffiliationInstance {
+  return value as AffiliationInstance;
+}
 
-let context;
-let affiliationStore;
+type AffiliationEmailDomainInstance = InstanceType<typeof AffiliationEmailDomain>;
+function asAffiliationEmailDomainList(value: any[]): AffiliationEmailDomainInstance[] {
+  return value as AffiliationEmailDomainInstance[];
+}
 
-let mockFindById;
-let mockFindByName;
-let mockInsert;
+type AffiliationLinkInstance = InstanceType<typeof AffiliationLink>;
+function asAffiliationLinkList(value: any[]): AffiliationLinkInstance[] {
+  return value as AffiliationLinkInstance[];
+}
+
+let context: any;
+let affiliationStore: any[];
+
+let mockFindById: ReturnType<typeof jest.fn>;
+let mockFindByName: ReturnType<typeof jest.fn>;
+let mockInsert: ReturnType<typeof jest.fn>;
 
 beforeEach(async () => {
   jest.resetAllMocks();
@@ -30,22 +68,27 @@ beforeEach(async () => {
 
   affiliationStore = [];
 
-  // Fetch an item from the affiliationStore
-  mockFindById = jest.fn().mockImplementation((_, __, id) => {
-    return affiliationStore.find((entry) => { return entry.id === id });
+  // Fetch an item from the affiliationStore. Kept as a loosely-typed jest.fn()
+  // (rather than typing jest.spyOn's mockImplementation against the real
+  // Affiliation.findById signature directly) so the implementation callback
+  // doesn't have to structurally match the real method's exact args/return
+  // type — the `as any` on the wiring line below is the one deliberate
+  // escape hatch, isolated to a single spot.
+  mockFindById = jest.fn<(...args: any[]) => any>().mockImplementation((_, __, id) => {
+    return affiliationStore.find((entry) => entry.id === id);
   });
-  (Affiliation.findById as jest.Mock) = mockFindById;
+  jest.spyOn(Affiliation, 'findById').mockImplementation(mockFindById as any);
 
-  mockFindByName = jest.fn().mockImplementation((_, __, name) => {
+  mockFindByName = jest.fn<(...args: any[]) => any>().mockImplementation((_, __, name) => {
     return affiliationStore.find((entry) => {
       return entry.name?.toLowerCase()?.trim() === name?.toLowerCase()?.trim()
         || entry.displayName?.toLowerCase()?.trim() === name?.toLowerCase()?.trim();
     });
   });
-  (Affiliation.findByName as jest.Mock) = mockFindByName;
+  jest.spyOn(Affiliation, 'findByName').mockImplementation(mockFindByName as any);
 
   // Add an item to the affiliationStore
-  mockInsert = jest.fn().mockImplementation((context, table, obj) => {
+  mockInsert = jest.fn<(...args: any[]) => any>().mockImplementation((context, table, obj) => {
     const tstamp = getCurrentDate();
     const userId = context.token.id;
     obj.id = casual.integer(1, 9999);
@@ -57,7 +100,7 @@ beforeEach(async () => {
     affiliationStore.push(obj);
     return obj.id;
   });
-  (Affiliation.insert as jest.Mock) = mockInsert;
+  jest.spyOn(Affiliation, 'insert').mockImplementation(mockInsert as any);
 });
 
 afterEach(() => {
@@ -94,24 +137,25 @@ describe('processOtherAffiliationName', () => {
 describe('reconcileAffiliationEmailDomains', () => {
   const reference = 'reconcileAffiliationEmailDomains test';
 
-  function buildAffiliation(overrides = {}): Affiliation {
+  function buildAffiliation(overrides: Record<string, any> = {}) {
     return {
       id: casual.integer(1, 999),
       uri: 'https://ror.org/12345',
       displayName: casual.company_name,
-      addError: jest.fn(),
+      addError: jest.fn<(...args: any[]) => void>(),
       ...overrides,
-    } as unknown as Affiliation;
+    };
   }
 
-  function buildDomain(overrides = {}): AffiliationEmailDomain {
+  function buildDomain(overrides: Record<string, any> = {}) {
     return {
       id: casual.integer(1, 999),
+      affiliationId: undefined as string | undefined,
       emailDomain: 'example.edu',
-      create: jest.fn(),
-      delete: jest.fn(),
+      create: jest.fn<(...args: any[]) => Promise<any>>(),
+      delete: jest.fn<(...args: any[]) => Promise<any>>(),
       ...overrides,
-    } as unknown as AffiliationEmailDomain;
+    };
   }
 
   it('removes stale domains and adds new domains successfully', async () => {
@@ -121,19 +165,19 @@ describe('reconcileAffiliationEmailDomains', () => {
 
     const findByAffiliationIdSpy = jest
       .spyOn(AffiliationEmailDomain, 'findByAffiliationId')
-      .mockResolvedValue([existing]);
+      .mockResolvedValue(asAffiliationEmailDomainList([existing]));
     const reconcileSpy = jest
       .spyOn(Affiliation, 'reconcileAssociationIds')
       .mockReturnValue({ idsToBeRemoved: ['old.edu'], idsToBeSaved: ['new.edu'] });
 
-    (existing.delete as jest.Mock).mockResolvedValue(existing);
-    (desired.create as jest.Mock).mockResolvedValue(desired);
+    existing.delete.mockResolvedValue(existing);
+    desired.create.mockResolvedValue(desired);
 
     const result = await reconcileAffiliationEmailDomains(
       context,
       reference,
-      affiliation,
-      [desired],
+      asAffiliation(affiliation),
+      asAffiliationEmailDomainList([desired]),
     );
 
     expect(result).toBe(true);
@@ -154,20 +198,20 @@ describe('reconcileAffiliationEmailDomains', () => {
     const existing = buildDomain({ id: 11, emailDomain: 'old.edu' });
     const desired = buildDomain({ id: 22, emailDomain: 'new.edu' });
 
-    jest.spyOn(AffiliationEmailDomain, 'findByAffiliationId').mockResolvedValue([existing]);
+    jest.spyOn(AffiliationEmailDomain, 'findByAffiliationId').mockResolvedValue(asAffiliationEmailDomainList([existing]));
     jest.spyOn(Affiliation, 'reconcileAssociationIds').mockReturnValue({
       idsToBeRemoved: ['old.edu'],
       idsToBeSaved: ['new.edu'],
     });
 
-    (existing.delete as jest.Mock).mockResolvedValue(null);
-    (desired.create as jest.Mock).mockResolvedValue(null);
+    existing.delete.mockResolvedValue(null);
+    desired.create.mockResolvedValue(null);
 
     const result = await reconcileAffiliationEmailDomains(
       context,
       reference,
-      affiliation,
-      [desired],
+      asAffiliation(affiliation),
+      asAffiliationEmailDomainList([desired]),
     );
 
     expect(result).toBe(false);
@@ -183,18 +227,18 @@ describe('reconcileAffiliationEmailDomains', () => {
 
     const findByAffiliationIdSpy = jest
       .spyOn(AffiliationEmailDomain, 'findByAffiliationId')
-      .mockResolvedValue([]);
+      .mockResolvedValue(asAffiliationEmailDomainList([]));
     jest.spyOn(Affiliation, 'reconcileAssociationIds').mockReturnValue({
       idsToBeRemoved: [],
       idsToBeSaved: ['new.edu'],
     });
-    (desired.create as jest.Mock).mockResolvedValue(desired);
+    desired.create.mockResolvedValue(desired);
 
     const result = await reconcileAffiliationEmailDomains(
       context,
       reference,
-      affiliation,
-      [desired],
+      asAffiliation(affiliation),
+      asAffiliationEmailDomainList([desired]),
     );
 
     expect(result).toBe(true);
@@ -206,25 +250,25 @@ describe('reconcileAffiliationEmailDomains', () => {
 describe('reconcileAffiliationLinks', () => {
   const reference = 'reconcileAffiliationLinks test';
 
-  function buildAffiliation(overrides = {}): Affiliation {
+  function buildAffiliation(overrides: Record<string, any> = {}) {
     return {
       id: casual.integer(1, 999),
       uri: 'https://ror.org/12345',
-      addError: jest.fn(),
+      addError: jest.fn<(...args: any[]) => void>(),
       ...overrides,
-    } as unknown as Affiliation;
+    };
   }
 
-  function buildLink(overrides = {}): AffiliationLink {
+  function buildLink(overrides: Record<string, any> = {}) {
     return {
       id: casual.integer(1, 999),
       url: 'https://example.edu/help',
-      create: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-      hasErrors: jest.fn().mockReturnValue(false),
+      create: jest.fn<(...args: any[]) => Promise<any>>(),
+      update: jest.fn<(...args: any[]) => Promise<any>>(),
+      delete: jest.fn<(...args: any[]) => Promise<any>>(),
+      hasErrors: jest.fn<() => boolean>().mockReturnValue(false),
       ...overrides,
-    } as unknown as AffiliationLink;
+    };
   }
 
   it('removes stale links, updates existing links, and adds new links', async () => {
@@ -232,20 +276,20 @@ describe('reconcileAffiliationLinks', () => {
     const existing = buildLink({ id: 101, url: 'https://old.edu/1' });
     const toAdd = buildLink({ id: 303, url: 'https://new.edu/3' });
 
-    jest.spyOn(AffiliationLink, 'findByAffiliationId').mockResolvedValue([existing]);
+    jest.spyOn(AffiliationLink, 'findByAffiliationId').mockResolvedValue(asAffiliationLinkList([existing]));
     jest.spyOn(Affiliation, 'reconcileAssociationIds').mockReturnValue({
       idsToBeRemoved: ['https://old.edu/1'],
       idsToBeSaved: ['https://new.edu/3'],
     });
 
-    (existing.delete as jest.Mock).mockResolvedValue(existing);
-    (toAdd.create as jest.Mock).mockResolvedValue(toAdd);
+    existing.delete.mockResolvedValue(existing);
+    toAdd.create.mockResolvedValue(toAdd);
 
     const result = await reconcileAffiliationLinks(
       context,
       reference,
-      affiliation,
-      [toAdd],
+      asAffiliation(affiliation),
+      asAffiliationLinkList([toAdd]),
     );
 
     expect(result).toBe(true);
@@ -259,20 +303,20 @@ describe('reconcileAffiliationLinks', () => {
     const existing = buildLink({ id: 101, url: 'https://old.edu/1' });
     const toAdd = buildLink({ id: 303, url: 'https://new.edu/3' });
 
-    jest.spyOn(AffiliationLink, 'findByAffiliationId').mockResolvedValue([existing]);
+    jest.spyOn(AffiliationLink, 'findByAffiliationId').mockResolvedValue(asAffiliationLinkList([existing]));
     jest.spyOn(Affiliation, 'reconcileAssociationIds').mockReturnValue({
       idsToBeRemoved: ['https://old.edu/1'],
       idsToBeSaved: ['https://new.edu/3'],
     });
 
-    (existing.delete as jest.Mock).mockResolvedValue(null);
-    (toAdd.create as jest.Mock).mockResolvedValue(null);
+    existing.delete.mockResolvedValue(null);
+    toAdd.create.mockResolvedValue(null);
 
     const result = await reconcileAffiliationLinks(
       context,
       reference,
-      affiliation,
-      [toAdd],
+      asAffiliation(affiliation),
+      asAffiliationLinkList([toAdd]),
     );
 
     expect(result).toBe(false);
@@ -288,18 +332,18 @@ describe('reconcileAffiliationLinks', () => {
 
     const findByAffiliationIdSpy = jest
       .spyOn(AffiliationLink, 'findByAffiliationId')
-      .mockResolvedValue([]);
+      .mockResolvedValue(asAffiliationLinkList([]));
     jest.spyOn(Affiliation, 'reconcileAssociationIds').mockReturnValue({
       idsToBeRemoved: [],
       idsToBeSaved: ['https://new.edu/3'],
     });
-    (toAdd.create as jest.Mock).mockResolvedValue(toAdd);
+    toAdd.create.mockResolvedValue(toAdd);
 
     const result = await reconcileAffiliationLinks(
       context,
       reference,
-      affiliation,
-      [toAdd],
+      asAffiliation(affiliation),
+      asAffiliationLinkList([toAdd]),
     );
 
     expect(result).toBe(true);
@@ -310,11 +354,11 @@ describe('reconcileAffiliationLinks', () => {
 
 describe('resolveAffiliation', () => {
   const reference = 'resolveAffiliation test';
-  let mockFindByURI: jest.Mock;
+  let mockFindByURI: ReturnType<typeof jest.fn>;
 
   beforeEach(() => {
-    mockFindByURI = jest.fn();
-    (Affiliation.findByURI as jest.Mock) = mockFindByURI;
+    mockFindByURI = jest.fn<(...args: any[]) => any>();
+    jest.spyOn(Affiliation, 'findByURI').mockImplementation(mockFindByURI as any);
   });
 
   it('returns an error when affiliationId is "other" but no affiliationName is provided', async () => {
@@ -371,7 +415,7 @@ describe('resolveAffiliation', () => {
 
     const createSpy = jest
       .spyOn(Affiliation.prototype, 'create')
-      .mockImplementation(async function (this: Affiliation) {
+      .mockImplementation(async function (this: any) {
         return Object.assign(this, { hasErrors: () => false });
       });
 
@@ -396,7 +440,7 @@ describe('resolveAffiliation', () => {
 
     const createSpy = jest
       .spyOn(Affiliation.prototype, 'create')
-      .mockImplementation(async function (this: Affiliation) {
+      .mockImplementation(async function (this: any) {
         return Object.assign(this, { hasErrors: () => true });
       });
 
@@ -477,4 +521,3 @@ describe('resolveAffiliation', () => {
     expect(mockFindByURI).not.toHaveBeenCalled();
   });
 });
-

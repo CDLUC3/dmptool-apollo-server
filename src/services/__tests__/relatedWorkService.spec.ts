@@ -1,25 +1,40 @@
-import { MyContext } from '../../context.js';
-import { buildMockContextWithToken } from '../../__mocks__/context.js';
-import { logger } from '../../logger.js';
-import { Plan } from '../../models/Plan.js';
-import {
+import { jest } from '@jest/globals';
+
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+mockAppConfigs();
+mockAppLogger();
+
+// ---------------------------------------------------------------------------
+// No jest.unstable_mockModule needed at all in this file — every model here
+// is real, spied per-test via jest.spyOn, and every fixture handed to a
+// spied method is a genuine `new X(...)` instance rather than a plain
+// object literal, so none of the asX(...) cast helpers used elsewhere in
+// this migration are needed either.
+// ---------------------------------------------------------------------------
+import type { MyContext } from '../../context.js';
+import type { AddRelatedWorkManualInput } from '../../types.js';
+
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
+const { Plan } = await import('../../models/Plan.js');
+const {
   AcceptedWork,
   RelatedWork,
   RelationType,
   Work,
   WorkVersion,
-} from '../../models/RelatedWork.js';
-import { AddRelatedWorkManualInput } from '../../types.js';
-import { NOT_FOUND_ERROR_CODE } from '../../utils/graphQLErrors.js';
-import {
+} = await import('../../models/RelatedWork.js');
+const { NOT_FOUND_ERROR_CODE } = await import('../../utils/graphQLErrors.js');
+const {
   addAcceptedWork,
   removeAcceptedWork,
   UpdateAcceptedWork,
-} from '../relatedWorkService.js';
+} = await import('../relatedWorkService.js');
 
 describe('relatedWorkService', () => {
   let context: MyContext;
-  let plan: Plan;
+  let plan: InstanceType<typeof Plan>;
 
   const reference = 'related-work-service-test';
 
@@ -113,7 +128,7 @@ describe('relatedWorkService', () => {
       expect(WorkVersion.prototype.create).toHaveBeenCalledTimes(1);
       expect(RelatedWork.prototype.create).toHaveBeenCalledTimes(1);
 
-      const hashArg = (findByDoiAndHashSpy as jest.Mock).mock.calls[0][3];
+      const hashArg = findByDoiAndHashSpy.mock.calls[0][3];
       expect(Buffer.isBuffer(hashArg)).toBe(true);
       expect(hashArg.toString('hex')).toBe(input.hash);
     });

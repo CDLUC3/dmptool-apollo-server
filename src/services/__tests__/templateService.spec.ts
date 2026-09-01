@@ -1,29 +1,66 @@
+import { jest } from '@jest/globals';
 import casual from 'casual';
-import { Template, TemplateVisibility } from "../../models/Template.js";
-import { VersionedTemplate, TemplateVersionType } from '../../models/VersionedTemplate.js';
-import {
-  cloneTemplate, generateTemplateVersion, hasPermissionOnTemplate,
-  setDefaultTemplate
-} from '../templateService.js';
-import { TemplateCollaborator } from '../../models/Collaborator.js';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { isSuperAdmin } from '../authService.js';
-import { buildMockContextWithToken } from '../../__mocks__/context.js';
-import { Section } from '../../models/Section.js';
-import { getRandomEnumValue } from '../../__tests__/helpers.js';
-import { getCurrentDate } from '../../utils/helpers.js';
-import { logger } from '../../logger.js';
-import { Tag } from '../../models/Tag.js';
 
-// Mock all calls to process template customizations
-jest.mock('../../services/templateCustomizationService', () => ({
-  handleFunderTemplateRepublication: jest.fn().mockResolvedValue(0)
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+mockAppConfigs();
+mockAppLogger();
+
+// ---------------------------------------------------------------------------
+// templateCustomizationService.js: safe to spread-actual here (unlike the
+// heavier templateService.js itself, deliberately kept un-spread in
+// questionService.test.ts/sectionService.test.ts) — its own spec file
+// confirmed it has no import-time dependency on emailService/awsConfig/
+// OpenSearch, just real model classes. Only handleFunderTemplateRepublication
+// needs to be controllable per-test here.
+// ---------------------------------------------------------------------------
+const mockHandleFunderTemplateRepublication = jest.fn<(...args: any[]) => Promise<any>>().mockResolvedValue(0);
+
+const actualTemplateCustomizationService = await import('../templateCustomizationService.js');
+jest.unstable_mockModule('../templateCustomizationService.js', () => ({
+  ...actualTemplateCustomizationService,
+  handleFunderTemplateRepublication: mockHandleFunderTemplateRepublication,
 }));
 
-// Pulling context in here so that the mysql gets mocked
-jest.mock('../../context.js')
+// --- authService.js ---
+// isSuperAdmin needs to be independently controllable per-test (unlike files
+// where the real role-check logic is exercised), so it's replaced here
+// rather than left real.
+const mockIsSuperAdmin = jest.fn<(...args: any[]) => boolean>();
 
-let context;
+const actualAuthService = await import('../authService.js');
+jest.unstable_mockModule('../authService.js', () => ({
+  ...actualAuthService,
+  isSuperAdmin: mockIsSuperAdmin,
+}));
+
+import type { MyContext } from '../../context.js';
+
+// A bare jest.fn() resolves its parameters to `unknown` (and its return type
+// collapses to `never` once .mockResolvedValue/.mockReturnValue is chained)
+// in this project's jest typings. mockAsyncFn() gives every mock a real
+// (...args: any[]) => Promise<any> signature; every .mockImplementation
+// callback built from it must be `async`, even when the value it returns is
+// available synchronously.
+function mockAsyncFn() {
+  return jest.fn<(...args: any[]) => Promise<any>>();
+}
+
+const { Template, TemplateVisibility } = await import("../../models/Template.js");
+const { VersionedTemplate, TemplateVersionType } = await import('../../models/VersionedTemplate.js');
+const {
+  cloneTemplate, generateTemplateVersion, hasPermissionOnTemplate,
+  setDefaultTemplate
+} = await import('../templateService.js');
+const { TemplateCollaborator } = await import('../../models/Collaborator.js');
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { Section } = await import('../../models/Section.js');
+const { getRandomEnumValue } = await import('../../__tests__/helpers.js');
+const { getCurrentDate } = await import('../../utils/helpers.js');
+const { logger } = await import('../../logger.js');
+const { Tag } = await import('../../models/Tag.js');
+
+let context: MyContext;
 
 beforeEach(async () => {
   jest.resetAllMocks();
@@ -36,22 +73,17 @@ afterEach(() => {
 });
 
 describe('hasPermissionOnTemplate', () => {
-  let template;
-  let collaborator;
-  let mockIsSuperAdmin;
-  let mockFindByTemplateAndEmail;
-  let context;
+  let template: InstanceType<typeof Template>;
+  let collaborator: InstanceType<typeof TemplateCollaborator>;
+  let mockFindByTemplateAndEmail: ReturnType<typeof jest.spyOn>;
+  let context: MyContext;
 
   beforeEach(async () => {
     jest.resetAllMocks();
 
     context = await buildMockContextWithToken(logger);
 
-    mockIsSuperAdmin = jest.fn();
-    (isSuperAdmin as jest.Mock) = mockIsSuperAdmin;
-
-    mockFindByTemplateAndEmail = jest.fn();
-    (TemplateCollaborator.findByTemplateIdAndEmail as jest.Mock) = mockFindByTemplateAndEmail;
+    mockFindByTemplateAndEmail = jest.spyOn(TemplateCollaborator, 'findByTemplateIdAndEmail');
 
     template = new Template({
       id: casual.integer(1, 999),
@@ -74,7 +106,7 @@ describe('hasPermissionOnTemplate', () => {
   it('returns true if the current user is a Super Admin', async () => {
     mockIsSuperAdmin.mockReturnValue(true);
 
-    context.token = { affiliationId: 'https://test.example.com/foo' };
+    context.token = { affiliationId: 'https://test.example.com/foo' } as any;
     expect(await hasPermissionOnTemplate(context, template)).toBe(true)
     expect(mockIsSuperAdmin).toHaveBeenCalledTimes(1);
   });
@@ -82,7 +114,7 @@ describe('hasPermissionOnTemplate', () => {
   it('returns true if the current user\'s affiliation is the same as the template\'s owner', async () => {
     mockIsSuperAdmin.mockReturnValue(false);
 
-    context.token = { affiliationId: template.ownerId };
+    context.token = { affiliationId: template.ownerId } as any;
     expect(await hasPermissionOnTemplate(context, template)).toBe(true)
     expect(mockIsSuperAdmin).toHaveBeenCalledTimes(1);
 
@@ -92,7 +124,7 @@ describe('hasPermissionOnTemplate', () => {
     mockIsSuperAdmin.mockReturnValue(false);
     mockFindByTemplateAndEmail.mockResolvedValueOnce(collaborator);
 
-    context.token = { affiliationId: 'https://test.example.com/foo' };
+    context.token = { affiliationId: 'https://test.example.com/foo' } as any;
     expect(await hasPermissionOnTemplate(context, template)).toBe(true)
     expect(mockIsSuperAdmin).toHaveBeenCalledTimes(1);
     expect(mockFindByTemplateAndEmail).toHaveBeenCalledTimes(1);
@@ -102,7 +134,7 @@ describe('hasPermissionOnTemplate', () => {
     mockIsSuperAdmin.mockReturnValue(false);
     mockFindByTemplateAndEmail.mockResolvedValueOnce(null);
 
-    context.token = { affiliationId: 'https://test.example.com/other-foo' };
+    context.token = { affiliationId: 'https://test.example.com/other-foo' } as any;
     expect(await hasPermissionOnTemplate(context, template)).toBe(false)
     expect(mockIsSuperAdmin).toHaveBeenCalledTimes(1);
     expect(mockFindByTemplateAndEmail).toHaveBeenCalledTimes(1);
@@ -110,12 +142,12 @@ describe('hasPermissionOnTemplate', () => {
 });
 
 describe('cloneTemplate', () => {
-  let id;
-  let name;
-  let description;
-  let createdById;
-  let ownerId;
-  let tmplt;
+  let id: number;
+  let name: string;
+  let description: string;
+  let createdById: number;
+  let ownerId: string;
+  let tmplt: InstanceType<typeof Template>;
 
   beforeEach(() => {
     id = casual.integer(1, 999);
@@ -177,22 +209,22 @@ describe('cloneTemplate', () => {
 });
 
 describe('template versioning', () => {
-  let templateStore;
-  let versionedTemplateStore;
-  let mockInsert;
-  let mockUpdate;
-  let mockFindTemplateById;
-  let mockFindVersionedTemplatebyId;
-  let mockTagFindBySectionId;
+  let templateStore: any[];
+  let versionedTemplateStore: any[];
+  let mockInsert: ReturnType<typeof mockAsyncFn>;
+  let mockUpdate: ReturnType<typeof mockAsyncFn>;
+  let mockFindTemplateById: ReturnType<typeof mockAsyncFn>;
+  let mockFindVersionedTemplatebyId: ReturnType<typeof mockAsyncFn>;
+  let mockTagFindBySectionId: ReturnType<typeof jest.fn>;
 
   beforeEach(() => {
     // Mock the Sections
-    const mockSectionFindByTemplateId = jest.fn().mockResolvedValue([]);
-    (Section.findByTemplateId as jest.Mock) = mockSectionFindByTemplateId;
+    const mockSectionFindByTemplateId = jest.fn<(...args: any[]) => Promise<any>>().mockResolvedValue([]);
+    jest.spyOn(Section, 'findByTemplateId').mockImplementation(mockSectionFindByTemplateId);
 
     // Mock the Tags for each section
-    mockTagFindBySectionId = jest.fn().mockResolvedValue([]);
-    (Tag.findBySectionId as jest.Mock) = mockTagFindBySectionId;
+    mockTagFindBySectionId = jest.fn<(...args: any[]) => Promise<any>>().mockResolvedValue([]);
+    jest.spyOn(Tag, 'findBySectionId').mockImplementation(mockTagFindBySectionId as any);
 
     const tstamp = getCurrentDate();
 
@@ -217,17 +249,17 @@ describe('template versioning', () => {
     versionedTemplateStore = [];
 
     // Fetch an item from the templateStore
-    mockFindTemplateById = jest.fn().mockImplementation((_, __, id) => {
+    mockFindTemplateById = mockAsyncFn().mockImplementation(async (_, __, id) => {
       return templateStore.find((entry) => { return entry.id === id });
     });
 
     // Fetch an item from the versionedTemplateStore
-    mockFindVersionedTemplatebyId = jest.fn().mockImplementation((_, __, id) => {
+    mockFindVersionedTemplatebyId = mockAsyncFn().mockImplementation(async (_, __, id) => {
       return versionedTemplateStore.find((entry) => { return entry.id === id });
     });
 
     // Add the entry to the appropriate store
-    mockInsert = jest.fn().mockImplementation((context, table, obj) => {
+    mockInsert = mockAsyncFn().mockImplementation(async (context, table, obj) => {
       const tstamp = getCurrentDate();
       const userId = context.token.id;
       obj.id = casual.integer(1, 9999);
@@ -251,7 +283,7 @@ describe('template versioning', () => {
     });
 
     // Update the entry in the store
-    mockUpdate = jest.fn().mockImplementation((context, table, obj, _ref, _keys, noTouch) => {
+    mockUpdate = mockAsyncFn().mockImplementation(async (context, table, obj, _ref, _keys, noTouch) => {
       const tstamp = getCurrentDate();
       const userId = context.token.id;
       if (!noTouch) {
@@ -309,10 +341,10 @@ describe('template versioning', () => {
     const versioned = new VersionedTemplate({ templateId: tmplt.id });
     versioned.errors = { general: 'Test failure' };
 
-    (context.dataSources.sqlDataSource.query as jest.Mock).mockResolvedValueOnce(null);
-    (VersionedTemplate.insert as jest.Mock) = mockInsert;
-    const mockFindByFailure = jest.fn().mockImplementation(() => { return versioned; });
-    (VersionedTemplate.findVersionedTemplateById as jest.Mock) = mockFindByFailure;
+    (context.dataSources.sqlDataSource.query as any).mockResolvedValueOnce(null);
+    jest.spyOn(VersionedTemplate, 'insert').mockImplementation(mockInsert);
+    const mockFindByFailure = mockAsyncFn().mockImplementation(async () => { return versioned; });
+    jest.spyOn(VersionedTemplate, 'findVersionedTemplateById').mockImplementation(mockFindByFailure);
 
     const err = `Unable to generate a new version of template ${tmplt.id}`;
     expect(async () => {
@@ -325,11 +357,11 @@ describe('template versioning', () => {
     const updated = new Template({ id: tmplt.id });
     updated.errors = { general: 'Test failure' };
 
-    (VersionedTemplate.insert as jest.Mock) = mockInsert;
-    (VersionedTemplate.findVersionedTemplateById as jest.Mock) = mockFindVersionedTemplatebyId;
-    const mockUpdateFailure = jest.fn().mockImplementation(() => { return updated; });
-    (Template.update as jest.Mock) = mockUpdate;
-    (Template.findById as jest.Mock) = mockUpdateFailure;
+    jest.spyOn(VersionedTemplate, 'insert').mockImplementation(mockInsert);
+    jest.spyOn(VersionedTemplate, 'findVersionedTemplateById').mockImplementation(mockFindVersionedTemplatebyId);
+    const mockUpdateFailure = mockAsyncFn().mockImplementation(async () => { return updated; });
+    jest.spyOn(Template, 'update').mockImplementation(mockUpdate);
+    jest.spyOn(Template, 'findById').mockImplementation(mockUpdateFailure);
 
     const err = `Unable to update template: ${tmplt.id}`;
     expect(async () => {
@@ -342,10 +374,10 @@ describe('template versioning', () => {
     const comment = casual.sentences(3);
     const latestPublishVisibility = TemplateVisibility.ORGANIZATION;
     const versionType = TemplateVersionType.PUBLISHED;
-    (VersionedTemplate.insert as jest.Mock) = mockInsert;
-    (VersionedTemplate.findVersionedTemplateById as jest.Mock) = mockFindVersionedTemplatebyId;
-    (Template.update as jest.Mock) = mockUpdate;
-    (Template.findById as jest.Mock) = mockFindTemplateById;
+    jest.spyOn(VersionedTemplate, 'insert').mockImplementation(mockInsert);
+    jest.spyOn(VersionedTemplate, 'findVersionedTemplateById').mockImplementation(mockFindVersionedTemplatebyId);
+    jest.spyOn(Template, 'update').mockImplementation(mockUpdate);
+    jest.spyOn(Template, 'findById').mockImplementation(mockFindTemplateById);
 
     const newVersion = await generateTemplateVersion(
       context,
@@ -409,10 +441,10 @@ describe('template versioning', () => {
     const versionType = TemplateVersionType.DRAFT;
     const latestPublishVisibility = TemplateVisibility.PUBLIC;
 
-    (VersionedTemplate.insert as jest.Mock) = mockInsert;
-    (VersionedTemplate.findVersionedTemplateById as jest.Mock) = mockFindVersionedTemplatebyId;
-    (Template.update as jest.Mock) = mockUpdate;
-    (Template.findById as jest.Mock) = mockFindTemplateById;
+    jest.spyOn(VersionedTemplate, 'insert').mockImplementation(mockInsert);
+    jest.spyOn(VersionedTemplate, 'findVersionedTemplateById').mockImplementation(mockFindVersionedTemplatebyId);
+    jest.spyOn(Template, 'update').mockImplementation(mockUpdate);
+    jest.spyOn(Template, 'findById').mockImplementation(mockFindTemplateById);
 
     const newVersion = await generateTemplateVersion(
       context,
@@ -455,8 +487,8 @@ describe('template versioning', () => {
 });
 
 describe('setDefaultTemplate', () => {
-  let template: Template;
-  let oldTemplate: VersionedTemplate;
+  let template: InstanceType<typeof Template>;
+  let oldTemplate: InstanceType<typeof VersionedTemplate>;
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -479,8 +511,8 @@ describe('setDefaultTemplate', () => {
 
   it('successfully marks the template as default when there was no default before', async () => {
     jest.spyOn(VersionedTemplate, 'defaultTemplate').mockResolvedValue(undefined);
-    jest.spyOn(Template, 'query').mockResolvedValue([{}]);
-    jest.spyOn(VersionedTemplate, 'query').mockResolvedValue([{}]);
+    jest.spyOn(Template, 'query').mockResolvedValue([{}] as any);
+    jest.spyOn(VersionedTemplate, 'query').mockResolvedValue([{}] as any);
     await setDefaultTemplate('Test', context, template);
     expect(VersionedTemplate.defaultTemplate).toHaveBeenCalled();
     expect(Template.query).toHaveBeenCalledTimes(1);
@@ -491,8 +523,8 @@ describe('setDefaultTemplate', () => {
 
   it('successfully marks the template as default when one already is set', async () => {
     jest.spyOn(VersionedTemplate, 'defaultTemplate').mockResolvedValue(oldTemplate);
-    jest.spyOn(Template, 'query').mockResolvedValue([{}]);
-    jest.spyOn(VersionedTemplate, 'query').mockResolvedValue([{}]);
+    jest.spyOn(Template, 'query').mockResolvedValue([{}] as any);
+    jest.spyOn(VersionedTemplate, 'query').mockResolvedValue([{}] as any);
     await setDefaultTemplate('Test', context, template);
     expect(VersionedTemplate.defaultTemplate).toHaveBeenCalled();
     expect(Template.query).toHaveBeenCalledTimes(2);
@@ -511,7 +543,7 @@ describe('setDefaultTemplate', () => {
 
   it('rolls back if marking the versionedTemplates as default fails', async () => {
     jest.spyOn(VersionedTemplate, 'defaultTemplate').mockResolvedValue(undefined);
-    jest.spyOn(Template, 'query').mockResolvedValue([{}]);
+    jest.spyOn(Template, 'query').mockResolvedValue([{}] as any);
     jest.spyOn(VersionedTemplate, 'query').mockResolvedValue([]);
     await setDefaultTemplate('Test', context, template);
     expect(Template.query).toHaveBeenCalledTimes(2);
@@ -522,14 +554,14 @@ describe('setDefaultTemplate', () => {
     jest.spyOn(VersionedTemplate, 'defaultTemplate').mockResolvedValue(oldTemplate);
     const tSpy = jest.spyOn(Template, 'query');
     const vtSpy = jest.spyOn(VersionedTemplate, 'query');
-    tSpy.mockResolvedValueOnce([{}]); // Mark new template as default
-    vtSpy.mockResolvedValueOnce([{}]); // Mark new versionedTemplate as default
-    tSpy.mockResolvedValueOnce([{}]); // Unmark old template as default
+    tSpy.mockResolvedValueOnce([{}] as any); // Mark new template as default
+    vtSpy.mockResolvedValueOnce([{}] as any); // Mark new versionedTemplate as default
+    tSpy.mockResolvedValueOnce([{}] as any); // Unmark old template as default
     vtSpy.mockResolvedValueOnce([]); // Unmark old versionedTemplate as default (FAIL)
-    tSpy.mockResolvedValueOnce([{}]); // Mark old template as default (Rollback)
-    vtSpy.mockResolvedValueOnce([{}]); // Mark old versionedTemplate as default (Rollback)
-    tSpy.mockResolvedValueOnce([{}]); // Unmark new template as default (Rollback)
-    vtSpy.mockResolvedValueOnce([{}]); // Unmark new versionedTemplate as default (Rollback)
+    tSpy.mockResolvedValueOnce([{}] as any); // Mark old template as default (Rollback)
+    vtSpy.mockResolvedValueOnce([{}] as any); // Mark old versionedTemplate as default (Rollback)
+    tSpy.mockResolvedValueOnce([{}] as any); // Unmark new template as default (Rollback)
+    vtSpy.mockResolvedValueOnce([{}] as any); // Unmark new versionedTemplate as default (Rollback)
 
     await setDefaultTemplate('Test', context, template);
     expect(Template.query).toHaveBeenCalledTimes(4);

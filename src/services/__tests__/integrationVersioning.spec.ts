@@ -1,26 +1,57 @@
+import { jest } from '@jest/globals';
 import casual from "casual";
-import { getRandomEnumValue } from "../../__tests__/helpers.js";
-import { Template, TemplateVisibility } from "../../models/Template.js";
-import { generateTemplateVersion } from "../templateService.js";
-import { logger } from "../../logger.js";
-import { buildMockContextWithToken } from "../../__mocks__/context.js";
-
-import { TemplateVersionType, VersionedTemplate } from "../../models/VersionedTemplate.js";
-import { Section } from "../../models/Section.js";
-import { getCurrentDate } from "../../utils/helpers.js";
-import { Question } from "../../models/Question.js";
-import { Tag } from "../../models/Tag.js";
-import { VersionedSection } from "../../models/VersionedSection.js";
-import { MySqlModel } from "../../models/MySqlModel.js";
-import { VersionedQuestion } from "../../models/VersionedQuestion.js";
-import { QuestionCondition } from "../../models/QuestionCondition.js";
-import { QuestionConditionGroup } from "../../models/QuestionConditionGroup.js";
-import { VersionedQuestionCondition } from "../../models/VersionedQuestionCondition.js";
-import { VersionedQuestionConditionGroup } from "../../models/VersionedQuestionConditionGroups.js";
 import { CURRENT_SCHEMA_VERSION } from "@dmptool/types";
 
-// Pulling context in here so that the mysql gets mocked
-jest.mock('../../context.js')
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+mockAppConfigs();
+mockAppLogger();
+
+// ---------------------------------------------------------------------------
+// No jest.unstable_mockModule needed here at all — every model is a real
+// class, mocked per-test via jest.spyOn on its static/prototype methods
+// (matching indexDMPService.spec.ts's conversion). jest.mock('../../context.js')
+// is dropped, same as everywhere else: mockAppConfigs()/mockAppLogger() have
+// been sufficient without it throughout this migration.
+//
+// getRandomEnumValue is a dynamic import here, not a static one, for the
+// same reason as every model below: a static `import` gets hoisted to
+// evaluate before ANY of this file's own top-level code runs — including
+// mockAppConfigs() above — regardless of where the import statement appears
+// in the source. __tests__/helpers.js transitively touches generalConfig.ts
+// (which validates JWT_REFRESH_SECRET at module-evaluation time), so a
+// static import here was triggering that validation before mockAppConfigs()
+// had a chance to set it — same root cause as the earlier CACHE_PORT issue.
+// ---------------------------------------------------------------------------
+const { logger } = await import("../../logger.js");
+const { getRandomEnumValue } = await import("../../__tests__/helpers.js");
+const { buildMockContextWithToken } = await import("../../__mocks__/context.js");
+const { Template, TemplateVisibility } = await import("../../models/Template.js");
+const { generateTemplateVersion } = await import("../templateService.js");
+const { TemplateVersionType, VersionedTemplate } = await import("../../models/VersionedTemplate.js");
+const { Section } = await import("../../models/Section.js");
+const { getCurrentDate } = await import("../../utils/helpers.js");
+const { Question } = await import("../../models/Question.js");
+const { Tag } = await import("../../models/Tag.js");
+const { VersionedSection } = await import("../../models/VersionedSection.js");
+const { MySqlModel } = await import("../../models/MySqlModel.js");
+const { VersionedQuestion } = await import("../../models/VersionedQuestion.js");
+const { QuestionCondition } = await import("../../models/QuestionCondition.js");
+const { QuestionConditionGroup } = await import("../../models/QuestionConditionGroup.js");
+const { VersionedQuestionCondition } = await import("../../models/VersionedQuestionCondition.js");
+const { VersionedQuestionConditionGroup } = await import("../../models/VersionedQuestionConditionGroups.js");
+
+type MySqlModelInstance = InstanceType<typeof MySqlModel>;
+
+// A bare jest.fn() resolves its parameters to `unknown` in this project's
+// jest typings, which breaks every property access inside these
+// .mockImplementation callbacks (obj.id, entry.templateId, etc.). This
+// helper gives every one of them a real (...args: any[]) => Promise<any>
+// signature instead, since there are ~15 of these in this file and typing
+// the generic out at each call site would be repetitive.
+function mockAsyncFn() {
+  return jest.fn<(...args: any[]) => Promise<any>>();
+}
 
 let context;
 
@@ -54,7 +85,7 @@ let tagStore; // <-- add tag store
 
 // Update an entry in one of the stores
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function updateStore(store: any[], tableName: string, obj: MySqlModel) {
+function updateStore(store: any[], tableName: string, obj: MySqlModelInstance) {
   const existing = store.find((entry) => { return entry.id === obj.id });
   if (!existing) {
     throw new Error(`No entry in the ${tableName} for id: ${obj.id}`);
@@ -70,95 +101,95 @@ describe('Integration test: Template Versioning', () => {
     context = await buildMockContextWithToken(logger);
 
     // Fetch an item from the templateStore
-    mockFindTemplateById = jest.fn().mockImplementation(async (_, __, id) => {
+    mockFindTemplateById = mockAsyncFn().mockImplementation(async (_, __, id) => {
       return templateStore.find((entry) => { return entry.id === id });
     });
 
     // Find all of the questionConditions for the question
-    mockFindSections = jest.fn().mockImplementation(async (_, __, id) => {
+    mockFindSections = mockAsyncFn().mockImplementation(async (_, __, id) => {
       return sectionStore.filter((entry) => { return entry.templateId === id; });
     });
 
     // Fetch an item from the sectionStore
-    mockFindSectionById = jest.fn().mockImplementation(async (_, __, id) => {
+    mockFindSectionById = mockAsyncFn().mockImplementation(async (_, __, id) => {
       return sectionStore.find((entry) => { return entry.id === id });
     });
 
     // Find all of the questionConditions for the question
-    mockFindQuestions = jest.fn().mockImplementation(async (_, __, id) => {
+    mockFindQuestions = mockAsyncFn().mockImplementation(async (_, __, id) => {
       return questionStore.filter((entry) => { return entry.sectionId === id; });
     });
 
     // Fetch an item from the questionStore
-    mockFindQuestionById = jest.fn().mockImplementation(async (_, __, id) => {
+    mockFindQuestionById = mockAsyncFn().mockImplementation(async (_, __, id) => {
       return questionStore.find((entry) => { return entry.id === id });
     });
 
     // Find all of the questionConditions for the group
-    mockFindQuestionConditions = jest.fn().mockImplementation(async (_, __, id) => {
+    mockFindQuestionConditions = mockAsyncFn().mockImplementation(async (_, __, id) => {
       return questionConditionStore.filter((entry) => { return entry.groupId === id; });
     });
 
     // Fetch an item from the questionConditionStore
-    mockFindQuestionConditionById = jest.fn().mockImplementation(async (_, __, id) => {
+    mockFindQuestionConditionById = mockAsyncFn().mockImplementation(async (_, __, id) => {
       return questionConditionStore.find((entry) => { return entry.id === id });
     });
 
     // Find all of the QuestionConditionGroups for a question
-    mockFindQuestionConditionGroupsByQuestionId = jest.fn().mockImplementation(async (_, __, questionId) => {
+    mockFindQuestionConditionGroupsByQuestionId = mockAsyncFn().mockImplementation(async (_, __, questionId) => {
       return questionConditionGroupStore.filter((entry) => { return entry.questionId === questionId; });
     });
 
     // Fetch an item from the questionConditionGroupStore
-    mockFindQuestionConditionGroupById = jest.fn().mockImplementation(async (_, __, id) => {
+    mockFindQuestionConditionGroupById = mockAsyncFn().mockImplementation(async (_, __, id) => {
       return questionConditionGroupStore.find((entry) => { return entry.id === id });
     });
 
     // Fetch an item from the versionedTemplateStore
-    mockFindVersionedTemplatebyId = jest.fn().mockImplementation(async (_, __, id) => {
+    mockFindVersionedTemplatebyId = mockAsyncFn().mockImplementation(async (_, __, id) => {
       return versionedTemplateStore.find((entry) => { return entry.id === id });
     });
 
     // Fetch an item from the versionedSectionStore
-    mockFindVersionedSectionbyId = jest.fn().mockImplementation(async (_, __, id) => {
+    mockFindVersionedSectionbyId = mockAsyncFn().mockImplementation(async (_, __, id) => {
       return versionedSectionStore.find((entry) => { return entry.id === id });
     });
 
     // Fetch an item from the versionedQuestionStore
-    mockFindVersionedQuestionById = jest.fn().mockImplementation(async (_, __, id) => {
+    mockFindVersionedQuestionById = mockAsyncFn().mockImplementation(async (_, __, id) => {
       return versionedQuestionStore.find((entry) => { return entry.id === id });
     });
 
     // Fetch an item from the versionedQuestionConditionStore
-    mockFindVersionedQuestionConditionById = jest.fn().mockImplementation(async (_, __, id) => {
+    mockFindVersionedQuestionConditionById = mockAsyncFn().mockImplementation(async (_, __, id) => {
       const entry = versionedQuestionConditionStore.find((e) => { return e.id === id });
       return entry ? new VersionedQuestionCondition(entry) : null;
     });
 
     // Fetch an item from the versionedQuestionConditionGroupStore
-    const mockFindVersionedQuestionConditionGroupById = jest.fn().mockImplementation(async (_, __, id) => {
+    const mockFindVersionedQuestionConditionGroupById = mockAsyncFn().mockImplementation(async (_, __, id) => {
       return versionedQuestionConditionGroupStore.find((entry) => { return entry.id === id });
     });
 
     // Tag mocks (needed after templateService started querying tags)
-    const mockFindTagById = jest.fn().mockImplementation(async (_, __, id) => {
+    const mockFindTagById = mockAsyncFn().mockImplementation(async (_, __, id) => {
       return tagStore.find(t => t.id === id);
     });
-    const mockFindTagsBySectionId = jest.fn().mockImplementation(async (_, __, sectionId) => {
+    const mockFindTagsBySectionId = mockAsyncFn().mockImplementation(async (_, __, sectionId) => {
       const section = sectionStore.find(s => s.id === sectionId);
       return section ? section.tags : [];
     });
 
-    const mockFindTagsByQuestionId = jest.fn().mockImplementation(async (_, __, questionId) => {
+    const mockFindTagsByQuestionId = mockAsyncFn().mockImplementation(async (_, __, questionId) => {
       const question = questionStore.find(q => q.id === questionId);
       return question?.tags ?? [];
     });
 
-    const mockAddToVersionedSectionTags = jest.fn().mockImplementation(async () => true);
-    const mockAddToVersionedQuestionTags = jest.fn().mockImplementation(async () => true);
+    const mockAddToVersionedSectionTags = mockAsyncFn().mockImplementation(async () => true);
+    const mockAddToVersionedQuestionTags = mockAsyncFn().mockImplementation(async () => true);
 
     // Add the entry to the appropriate store
-    mockInsert = jest.fn().mockImplementation(async (context, table, obj) => {
+    mockInsert = mockAsyncFn().mockImplementation(async (context, table, obj) => {
       const tstamp = getCurrentDate();
       const userId = context.token.id;
       obj.id = casual.integer(1, 9999);
@@ -215,7 +246,7 @@ describe('Integration test: Template Versioning', () => {
     });
 
     // Update the entry in the store
-    mockUpdate = jest.fn().mockImplementation(async (context, table, obj, _ref, _keys, noTouch) => {
+    mockUpdate = mockAsyncFn().mockImplementation(async (context, table, obj, _ref, _keys, noTouch) => {
       const tstamp = getCurrentDate();
       const userId = context.token.id;
       if (!noTouch) {
@@ -439,44 +470,44 @@ describe('Integration test: Template Versioning', () => {
     versionedQuestionConditionStore = [];
 
     // Template dataStore mocks
-    (VersionedTemplate.insert as jest.Mock) = mockInsert;
-    (VersionedTemplate.findVersionedTemplateById as jest.Mock) = mockFindVersionedTemplatebyId;
-    (Template.update as jest.Mock) = mockUpdate;
-    (Template.findById as jest.Mock) = mockFindTemplateById;
+    jest.spyOn(VersionedTemplate, 'insert').mockImplementation(mockInsert as any);
+    jest.spyOn(VersionedTemplate, 'findVersionedTemplateById').mockImplementation(mockFindVersionedTemplatebyId as any);
+    jest.spyOn(Template, 'update').mockImplementation(mockUpdate as any);
+    jest.spyOn(Template, 'findById').mockImplementation(mockFindTemplateById as any);
 
     // Section dataStore mocks
-    (Section.findByTemplateId as jest.Mock) = mockFindSections;
-    (VersionedSection.insert as jest.Mock) = mockInsert;
-    (VersionedSection.findById as jest.Mock) = mockFindVersionedSectionbyId;
-    (Section.update as jest.Mock) = mockUpdate;
-    (Section.findById as jest.Mock) = mockFindSectionById;
+    jest.spyOn(Section, 'findByTemplateId').mockImplementation(mockFindSections as any);
+    jest.spyOn(VersionedSection, 'insert').mockImplementation(mockInsert as any);
+    jest.spyOn(VersionedSection, 'findById').mockImplementation(mockFindVersionedSectionbyId as any);
+    jest.spyOn(Section, 'update').mockImplementation(mockUpdate as any);
+    jest.spyOn(Section, 'findById').mockImplementation(mockFindSectionById as any);
 
     // Question dataStore mocks
-    (Question.findBySectionId as jest.Mock) = mockFindQuestions;
-    (VersionedQuestion.insert as jest.Mock) = mockInsert;
-    (VersionedQuestion.findById as jest.Mock) = mockFindVersionedQuestionById;
-    (Question.update as jest.Mock) = mockUpdate;
-    (Question.findById as jest.Mock) = mockFindQuestionById;
+    jest.spyOn(Question, 'findBySectionId').mockImplementation(mockFindQuestions as any);
+    jest.spyOn(VersionedQuestion, 'insert').mockImplementation(mockInsert as any);
+    jest.spyOn(VersionedQuestion, 'findById').mockImplementation(mockFindVersionedQuestionById as any);
+    jest.spyOn(Question, 'update').mockImplementation(mockUpdate as any);
+    jest.spyOn(Question, 'findById').mockImplementation(mockFindQuestionById as any);
 
     // QuestionCondition dataStore mocks
-    (QuestionCondition.findByGroupId as jest.Mock) = mockFindQuestionConditions;
-    (VersionedQuestionCondition.insert as jest.Mock) = mockInsert;
-    (VersionedQuestionCondition.findById as jest.Mock) = mockFindVersionedQuestionConditionById;
-    (QuestionCondition.update as jest.Mock) = mockUpdate;
-    (QuestionCondition.findById as jest.Mock) = mockFindQuestionConditionById;
+    jest.spyOn(QuestionCondition, 'findByGroupId').mockImplementation(mockFindQuestionConditions as any);
+    jest.spyOn(VersionedQuestionCondition, 'insert').mockImplementation(mockInsert as any);
+    jest.spyOn(VersionedQuestionCondition, 'findById').mockImplementation(mockFindVersionedQuestionConditionById as any);
+    jest.spyOn(QuestionCondition, 'update').mockImplementation(mockUpdate as any);
+    jest.spyOn(QuestionCondition, 'findById').mockImplementation(mockFindQuestionConditionById as any);
 
     // QuestionConditionGroup dataStore mocks
-    (QuestionConditionGroup.findByQuestionId as jest.Mock) = mockFindQuestionConditionGroupsByQuestionId;
-    (QuestionConditionGroup.findById as jest.Mock) = mockFindQuestionConditionGroupById;
-    (VersionedQuestionConditionGroup.insert as jest.Mock) = mockInsert;
-    (VersionedQuestionConditionGroup.findById as jest.Mock) = mockFindVersionedQuestionConditionGroupById;
+    jest.spyOn(QuestionConditionGroup, 'findByQuestionId').mockImplementation(mockFindQuestionConditionGroupsByQuestionId as any);
+    jest.spyOn(QuestionConditionGroup, 'findById').mockImplementation(mockFindQuestionConditionGroupById as any);
+    jest.spyOn(VersionedQuestionConditionGroup, 'insert').mockImplementation(mockInsert as any);
+    jest.spyOn(VersionedQuestionConditionGroup, 'findById').mockImplementation(mockFindVersionedQuestionConditionGroupById as any);
 
     // Tag dataStore mocks
-    (Tag.findById as jest.Mock) = mockFindTagById;
-    (Tag.findBySectionId as jest.Mock) = mockFindTagsBySectionId;
-    (Tag.findByQuestionId as jest.Mock) = mockFindTagsByQuestionId;
-    (Tag.prototype.addToVersionedSectionTags as unknown as jest.Mock) = mockAddToVersionedSectionTags;
-    (Tag.prototype.addToVersionedQuestionTags as unknown as jest.Mock) = mockAddToVersionedQuestionTags;
+    jest.spyOn(Tag, 'findById').mockImplementation(mockFindTagById as any);
+    jest.spyOn(Tag, 'findBySectionId').mockImplementation(mockFindTagsBySectionId as any);
+    jest.spyOn(Tag, 'findByQuestionId').mockImplementation(mockFindTagsByQuestionId as any);
+    jest.spyOn(Tag.prototype, 'addToVersionedSectionTags').mockImplementation(mockAddToVersionedSectionTags as any);
+    jest.spyOn(Tag.prototype, 'addToVersionedQuestionTags').mockImplementation(mockAddToVersionedQuestionTags as any);
   });
 
   afterEach(() => {

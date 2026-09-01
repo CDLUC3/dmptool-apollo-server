@@ -1,9 +1,25 @@
-import {
+import { jest } from '@jest/globals';
+
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../datasources/cache.js', () => ({
+  Cache: jest.fn().mockImplementation(() => ({
+    get: jest.fn(),
+    set: jest.fn(),
+    delete: jest.fn(),
+    clear: jest.fn(),
+  })),
+}));
+
+import { DataCiteMetadataInput } from "../dataciteXMLService.js";
+const {
   buildDataCiteXML,
   planToDataCiteMetadata,
   resolveAffiliationIdentifier,
-  DataCiteMetadataInput,
-} from '../dataciteXMLService.js';
+} = await import('../dataciteXMLService.js');
 
 describe('resolveAffiliationIdentifier', () => {
   it('returns a ROR identifier when provenance is ROR', () => {

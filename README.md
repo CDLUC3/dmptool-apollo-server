@@ -508,7 +508,7 @@ If you need to add additional Queries and/or Mutations, you will typically need 
 3. Models: The business logic associated with an object as well as how to interact with it's underlying data source (e.g. API calls, SQL queries, etc.)
 
 #### Context
-Our context is defined in `src/context.js` and consists of several items that are instantiated when the server starts up or as part of processing the incoming request.
+Our context is defined in `src/context.ts` and consists of several items that are instantiated when the server starts up or as part of processing the incoming request.
 - **token**: The JWT token passed in the header of the request.
 - **cache**: The Apollo server cache.
 - **dataSources**: An object containing the MySQL DB connection pool and the DMPHub API wrapper

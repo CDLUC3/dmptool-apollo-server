@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { ApolloServer } from "@apollo/server";
 import casual from "casual";
 import { jest } from '@jest/globals';
@@ -36,33 +38,7 @@ jest.unstable_mockModule('../../services/authService.js', () => ({
 
 import type { MyContext } from "../../context.js";
 
-type VersionedQuestionInstance = InstanceType<typeof VersionedQuestion>;
-function asVersionedQuestion(value: any): VersionedQuestionInstance {
-  return value as VersionedQuestionInstance;
-}
-
-type VersionedQuestionConditionInstance = InstanceType<typeof VersionedQuestionCondition>;
-function asVersionedQuestionCondition(value: any): VersionedQuestionConditionInstance {
-  return value as VersionedQuestionConditionInstance;
-}
-
-type VersionedQuestionCustomizationInstance = InstanceType<typeof VersionedQuestionCustomization>;
-function asVersionedQuestionCustomization(value: any): VersionedQuestionCustomizationInstance {
-  return value as VersionedQuestionCustomizationInstance;
-}
-
-type VersionedTemplateInstance = InstanceType<typeof VersionedTemplate>;
-function asVersionedTemplate(value: any): VersionedTemplateInstance {
-  return value as VersionedTemplateInstance;
-}
-
-type AffiliationInstance = InstanceType<typeof Affiliation>;
-function asAffiliation(value: any): AffiliationInstance {
-  return value as AffiliationInstance;
-}
-
 type VersionedQuestionCondition = InstanceType<typeof VersionedQuestionCondition>;
-
 
 // Dynamic import AFTER mocking the configs and logger
 const { typeDefs } = await import("../../schema.js");
@@ -90,10 +66,8 @@ let query: string;
 
 async function executeQuery(
   query: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   variables: any,
   token: MyContext['token']
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<any> {
   const context = buildContext(logger, token, null);
   return await testServer.executeOperation(
@@ -102,10 +76,8 @@ async function executeQuery(
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function executeQueryAnon(query: string, variables: any): Promise<any> {
   const context = buildContext(logger, null, null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return await testServer.executeOperation({ query, variables }, { contextValue: context }) as any;
 }
 

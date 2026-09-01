@@ -1,5 +1,9 @@
-import { generalConfig } from '../../config/generalConfig.js';
-import {
+import { mockAppConfigs } from '../../__tests__/mockConfigs.js';
+
+mockAppConfigs();
+
+const { generalConfig } = await import('../../config/generalConfig.js');
+const {
   validateDate,
   validateEmail,
   capitalizeFirstLetter,
@@ -20,7 +24,7 @@ import {
   removeNullAndUndefinedFromJSON,
   normaliseDate,
   normaliseDateTime,
-} from '../helpers.js';
+} = await import('../helpers.js');
 
 describe('Date validation', () => {
   test('returns true when the value is a date', async () => {
@@ -110,11 +114,11 @@ describe('Strips the protocol and domain from known identifiers', () => {
   test('leaves others alone', () => {
     let id = 'http://test.com/0000-0000-0000-0000';
     expect(stripIdentifierBaseURL(id)).toEqual(id);
-    id = 'http://orcid.org/0000';
+    id = 'http://unknown-orcid.example.org/0000';
     expect(stripIdentifierBaseURL(id)).toEqual(id);
-    id = 'http://ror.org/0000-0000-0000-0000';
+    id = 'http://unknown-ror.example.org/0000-0000-0000-0000';
     expect(stripIdentifierBaseURL(id)).toEqual(id);
-    id = 'http://doi.org/98724896247698457604597645067452706';
+    id = 'http://unknown-doi.example.org/98724896247698457604597645067452706';
     expect(stripIdentifierBaseURL(id)).toEqual(id);
   });
 });

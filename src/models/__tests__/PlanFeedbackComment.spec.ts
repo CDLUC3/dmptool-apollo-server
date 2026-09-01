@@ -275,7 +275,7 @@ describe('delete', () => {
   });
 
   it('returns the PlanFeedbackComment if it was able to delete the record', async () => {
-    const deleteQuery = jest.fn<() => Promise<Boolean>>();
+    const deleteQuery = jest.fn<() => Promise<boolean>>();
     (PlanFeedbackComment.delete as jest.Mock) = deleteQuery;
     deleteQuery.mockResolvedValueOnce(planFeedbackComment);
 

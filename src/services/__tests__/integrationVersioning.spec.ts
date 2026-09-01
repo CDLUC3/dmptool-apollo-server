@@ -1,6 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { jest } from '@jest/globals';
 import casual from "casual";
 import { CURRENT_SCHEMA_VERSION } from "@dmptool/types";
+import type { MySqlModel as MySqlModelType } from '../../models/MySqlModel.js';
 
 import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
 
@@ -34,14 +37,13 @@ const { getCurrentDate } = await import("../../utils/helpers.js");
 const { Question } = await import("../../models/Question.js");
 const { Tag } = await import("../../models/Tag.js");
 const { VersionedSection } = await import("../../models/VersionedSection.js");
-const { MySqlModel } = await import("../../models/MySqlModel.js");
 const { VersionedQuestion } = await import("../../models/VersionedQuestion.js");
 const { QuestionCondition } = await import("../../models/QuestionCondition.js");
 const { QuestionConditionGroup } = await import("../../models/QuestionConditionGroup.js");
 const { VersionedQuestionCondition } = await import("../../models/VersionedQuestionCondition.js");
 const { VersionedQuestionConditionGroup } = await import("../../models/VersionedQuestionConditionGroups.js");
 
-type MySqlModelInstance = InstanceType<typeof MySqlModel>;
+type MySqlModelInstance = MySqlModelType;
 
 // A bare jest.fn() resolves its parameters to `unknown` in this project's
 // jest typings, which breaks every property access inside these
@@ -84,7 +86,6 @@ let versionedQuestionConditionGroupStore;
 let tagStore; // <-- add tag store
 
 // Update an entry in one of the stores
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function updateStore(store: any[], tableName: string, obj: MySqlModelInstance) {
   const existing = store.find((entry) => { return entry.id === obj.id });
   if (!existing) {

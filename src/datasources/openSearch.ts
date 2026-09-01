@@ -38,8 +38,6 @@ export interface SearchHit {
   _source?: Record<string, unknown>;
 }
 
-import { awsConfig } from "../config/awsConfig.js";
-
 export interface OpenSearchServerlessConfig {
   node: string;
 }

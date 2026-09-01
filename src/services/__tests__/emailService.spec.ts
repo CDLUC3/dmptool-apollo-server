@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { jest } from '@jest/globals';
 import casual from "casual";
 
@@ -52,12 +54,6 @@ const {
 const { generalConfig } = await import("../../config/generalConfig.js");
 const { emailConfig } = await import("../../config/emailConfig.js");
 const { User } = await import("../../models/User.js");
-
-type UserInstance = InstanceType<typeof User>;
-function asUser(value: any): UserInstance {
-  return value as UserInstance;
-}
-
 
 let context: MyContext;
 

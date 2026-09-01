@@ -1,21 +1,38 @@
-import { DMPHubAPI, Authorizer } from '../dmphubAPI.js';
-import { RESTDataSource } from '@apollo/datasource-rest';
-import { JWTAccessToken } from '../../services/tokenService.js';
-import { buildContext, buildMockContextWithToken } from '../../__mocks__/context.js';
-import { DMPHubConfig } from '../../config/dmpHubConfig.js';
+import { jest } from '@jest/globals';
 import casual from 'casual';
-import { KeyvAdapter } from "@apollo/utils.keyvadapter";
-import { logger } from "../../logger.js";
 
-jest.mock('../../context.js')
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
 
-let mockError;
+mockAppConfigs();
+mockAppLogger();
+
+// ---------------------------------------------------------------------------
+// DMPHubConfig must be dynamic, not static, for the same reason as
+// OrcidConfig in orcidAPI.test.ts: every statically-imported module is
+// fully evaluated before any of this file's own top-level code runs —
+// including mockAppConfigs()/mockAppLogger() themselves — so a static
+// import here would force dmpHubConfig.ts to validate its env vars before
+// those mocks are in place. It also needs to be the SAME dynamically-
+// imported instance that Authorizer/DMPHubAPI (imported below, also
+// dynamically) resolve internally, so the test's own computed `creds`
+// value in the willSendRequest test matches what the class actually uses.
+//
+// RESTDataSource similarly needs to be dynamic — jest.spyOn(...prototype...)
+// needs to be spying on the exact class instance DMPHubAPI/Authorizer
+// extend, not a separately-evaluated copy.
+// ---------------------------------------------------------------------------
+import type { JWTAccessToken } from '../../services/tokenService.js';
+import type { KeyvAdapter } from '@apollo/utils.keyvadapter';
+
+const { DMPHubAPI, Authorizer } = await import('../dmphubAPI.js');
+const { RESTDataSource } = await import('@apollo/datasource-rest');
+const { buildContext, buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { DMPHubConfig } = await import('../../config/dmpHubConfig.js');
+const { logger } = await import('../../logger.js');
 
 beforeEach(() => {
   jest.clearAllMocks();
-
-  mockError = jest.fn();
-  (logger.error as jest.Mock) = mockError;
+  jest.spyOn(logger, 'error');
 });
 
 // Mock RESTDataSource methods
@@ -25,7 +42,7 @@ const mockGet = jest.spyOn(RESTDataSource.prototype as any, 'get');
 const mockPost = jest.spyOn(RESTDataSource.prototype as any, 'post');
 
 describe('Authorizer', () => {
-  let authorizer: Authorizer;
+  let authorizer: InstanceType<typeof Authorizer>;
 
   beforeEach(() => {
     mockPost.mockClear();
@@ -79,7 +96,7 @@ describe('Authorizer', () => {
 });
 
 describe('DMPToolAPI', () => {
-  let dmphubAPI: DMPHubAPI;
+  let dmphubAPI: InstanceType<typeof DMPHubAPI>;
 
   beforeEach(() => {
     mockGet.mockClear();

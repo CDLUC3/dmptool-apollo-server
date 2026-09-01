@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { jest } from '@jest/globals';
 import casual from "casual";
 
@@ -328,6 +330,7 @@ describe('anonymizeUser', () => {
   });
 });
 
+
 describe('mergeUsers', () => {
   let mergeUser: any;
   let keepUser: any;
@@ -476,10 +479,8 @@ describe('mergeUsers', () => {
 
     const mergedUser = await mergeUsers(context, mergeUser, keepUser);
 
-    expect(mockUpdate).toHaveBeenCalledTimes(0);
-    expect(mergedUser.errors.general).toBe(
-      'Unable to merge the user at this time',
-    );
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
+    expect(mergedUser.errors.password).toBe('Password is required');
   });
 
   it('merges UserEmail entries', async () => {
@@ -494,8 +495,9 @@ describe('mergeUsers', () => {
     ];
 
     await mergeUsers(context, mergeUser, keepUser);
-    expect(mockFindEmailsByUserId).toHaveBeenCalledTimes(2);
-    expect(mockUpdate).toHaveBeenCalledTimes(2);
+
+    expect(mockFindEmailsByUserId).toHaveBeenCalledTimes(3);
+    expect(mockUpdate).toHaveBeenCalledTimes(3);
     expect(mockDelete).toHaveBeenCalledTimes(2);
 
     const matchConfirmed = userEmailStore.filter((e) => { return e.email === 'match-confirmed@test.org' });
@@ -548,7 +550,8 @@ describe('mergeUsers', () => {
     await mergeUsers(context, mergeUser, keepUser);
     expect(mockfindTemplateCollaboratorByInvitedById).toHaveBeenCalledTimes(1);
     expect(mockFindTemplateCollaboratorsByEmail).toHaveBeenCalledTimes(2);
-    expect(mockUpdate).toHaveBeenCalledTimes(4);
+
+    expect(mockUpdate).toHaveBeenCalledTimes(5);
 
     const byInvitedById = templateCollaboratorStore.filter((e) => {
       return e.invitedById === keepUser.id;

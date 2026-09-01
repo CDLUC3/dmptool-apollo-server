@@ -53,8 +53,6 @@ const { getRandomEnumValue } = await import('../../__tests__/helpers.js');
 const { UserEmail } = await import('../UserEmail.js');
 const { PaginationType } = await import('../../types/general.js');
 const { ProjectCollaborator, TemplateCollaborator } = await import("../Collaborator.js");
-const bcrypt = await import('bcryptjs');
-
 
 let mockQuery;
 let mockUser;
@@ -294,8 +292,6 @@ describe('Password validation', () => {
 });
 
 describe('authCheck', () => {
-  let bcryptCompare;
-
   beforeEach(() => {
     jest.resetAllMocks();
 
@@ -1025,7 +1021,7 @@ describe('findByAffiliationId', () => {
       { type: PaginationType.OFFSET },
     );
 
-    const [, , whereFilters, , values] = (mockQueryWithPagination as jest.Mock).mock.calls[0] as [
+    const [, , whereFilters, ,] = (mockQueryWithPagination as jest.Mock).mock.calls[0] as [
       unknown, string, string[], string, string[]
     ];
     expect(whereFilters.every((f: string) => !f.includes('u.role = ?'))).toBe(true);

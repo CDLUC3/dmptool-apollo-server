@@ -430,7 +430,7 @@ describe('Work delete', () => {
   });
 
   it('returns null if it was not able to delete the record', async () => {
-    const deleteQuery = jest.fn<() => Promise<Boolean>>();
+    const deleteQuery = jest.fn<() => Promise<boolean>>();
     (Work.delete as jest.Mock) = deleteQuery;
 
     deleteQuery.mockResolvedValueOnce(null);
@@ -438,7 +438,7 @@ describe('Work delete', () => {
   });
 
   it('returns the Work if it was able to delete the record', async () => {
-    const deleteQuery = jest.fn<() => Promise<Boolean>>();
+    const deleteQuery = jest.fn<() => Promise<boolean>>();
     (Work.delete as jest.Mock) = deleteQuery;
     deleteQuery.mockResolvedValueOnce(work);
 
@@ -669,7 +669,7 @@ describe('WorkVersion delete', () => {
   });
 
   it('returns null if it was not able to delete the record', async () => {
-    const deleteQuery = jest.fn<() => Promise<Boolean>>();
+    const deleteQuery = jest.fn<() => Promise<boolean>>();
     (WorkVersion.delete as jest.Mock) = deleteQuery;
 
     deleteQuery.mockResolvedValueOnce(null);
@@ -677,7 +677,7 @@ describe('WorkVersion delete', () => {
   });
 
   it('returns the WorkVersion if it was able to delete the record', async () => {
-    const deleteQuery = jest.fn<() => Promise<Boolean>>();
+    const deleteQuery = jest.fn<() => Promise<boolean>>();
     (WorkVersion.delete as jest.Mock) = deleteQuery;
     deleteQuery.mockResolvedValueOnce(workVersion);
 

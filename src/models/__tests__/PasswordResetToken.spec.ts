@@ -59,7 +59,7 @@ type PasswordResetTokenQueryFn = (
   sql: string,
   params: unknown[],
   reference: string
-) => Promise<Array<Record<string, unknown>>>;
+) => Promise<Record<string, unknown>[]>;
 
 // Dyanamic imports AFTER all mocks are registered
 const { PasswordResetToken } = await import('../PasswordResetToken.js');
@@ -236,7 +236,7 @@ describe('findById', () => {
   });
 
   it('should return null when not found', async () => {
-    (PasswordResetToken.query as jest.Mock) = jest.fn<() => Promise<Array<Record<string, unknown>>>>().mockResolvedValue([]);
+    (PasswordResetToken.query as jest.Mock) = jest.fn<() => Promise<Record<string, unknown>[]>>().mockResolvedValue([]);
 
     const result = await PasswordResetToken.findById('Test', context, 1);
 
@@ -256,7 +256,7 @@ describe('findValidByToken', () => {
   });
 
   it('should return a valid token', async () => {
-    const queryMock = jest.fn<() => Promise<Array<Record<string, unknown>>>>().mockResolvedValue([
+    const queryMock = jest.fn<() => Promise<Record<string, unknown>[]>>().mockResolvedValue([
       {
         id: 1,
         userId: 2,
@@ -273,7 +273,7 @@ describe('findValidByToken', () => {
   });
 
   it('should return null when none found', async () => {
-    (PasswordResetToken.query as jest.Mock) = jest.fn<() => Promise<Array<Record<string, unknown>>>>().mockResolvedValue([]);
+    (PasswordResetToken.query as jest.Mock) = jest.fn<() => Promise<Record<string, unknown>[]>>().mockResolvedValue([]);
 
     const result = await PasswordResetToken.findValidByToken(context, 'abc');
 

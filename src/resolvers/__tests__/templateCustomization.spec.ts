@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { ApolloServer } from "@apollo/server";
 import casual from "casual";
 import { jest } from '@jest/globals';

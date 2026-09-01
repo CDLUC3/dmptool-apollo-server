@@ -1,12 +1,18 @@
+import { jest } from '@jest/globals';
 import nock from "nock";
-import { Authorizer } from "../OrcidAPI.js";
-import { logger } from "../../logger.js";
-import { OrcidConfig } from "../../config/orcidConfig.js";
-import { RESTDataSource } from "@apollo/datasource-rest";
 import { KeyvAdapter } from "@apollo/utils.keyvadapter";
-import { buildContext, buildMockContextWithToken } from "../../__mocks__/context.js";
+import { RESTDataSource } from "@apollo/datasource-rest";
 
-import { OrcidAPI } from "../OrcidAPI.js";
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+mockAppConfigs();
+mockAppLogger();
+
+
+const { logger } = await import('../../logger.js');
+const { buildContext, buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { Authorizer, OrcidAPI } = await import("../OrcidAPI.js");
+const { OrcidConfig } = await import("../../config/orcidConfig.js");
 
 // Mock RESTDataSource methods
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -29,7 +35,7 @@ afterEach(() => {
 });
 
 describe('Authorizer', () => {
-  let authorizer: Authorizer;
+  let authorizer: InstanceType<typeof Authorizer>;
 
   beforeEach(() => {
     mockPost.mockClear();
@@ -72,8 +78,8 @@ describe('Authorizer', () => {
 });
 
 describe('OrcidAPI', () => {
-  let orcidAPI: OrcidAPI;
-  let mockAuthorizer: Authorizer;
+  let orcidAPI: InstanceType<typeof OrcidAPI>;
+  let mockAuthorizer: InstanceType<typeof Authorizer>;
 
   beforeEach(() => {
     mockGet.mockClear();

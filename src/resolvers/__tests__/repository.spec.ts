@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { ApolloServer } from "@apollo/server";
 import casual from "casual";
 import { jest } from '@jest/globals';
@@ -69,7 +71,6 @@ let token: MyContext['token'];
 let context: MyContext;
 
 // Proxy call to the Apollo server test server
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function executeQuery(query: string, variables: any): Promise<any> {
   return await testServer.executeOperation(
     { query, variables },
@@ -170,7 +171,6 @@ describe('Repository Resolvers', () => {
 
         const repositoryServiceSpy = jest
           .spyOn(RepositoryService, 'searchCombined')
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .mockResolvedValue(mockResults as any);
 
         const result = await executeQuery(query, {
@@ -237,7 +237,6 @@ describe('Repository Resolvers', () => {
 
         const repositoryServiceSpy = jest
           .spyOn(RepositoryService, 'searchCombined')
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .mockResolvedValue(mockResults as any);
 
         // Test with lowercase hyphenated format like what comes from OpenSearch
@@ -277,7 +276,6 @@ describe('Repository Resolvers', () => {
 
         const repositoryServiceSpy = jest
           .spyOn(RepositoryService, 'searchCombined')
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .mockResolvedValue(mockResults as any);
 
         // Test with another format
@@ -486,7 +484,6 @@ describe('Repository Resolvers', () => {
         const uris = [mockRepository.uri];
         const querySpy = jest
           .spyOn(RepositoryService, 'searchRe3DataByURIs')
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .mockResolvedValue([mockRepository] as any);
 
         const result = await executeQuery(query, { uris });
@@ -617,7 +614,6 @@ describe('Repository Resolvers', () => {
           }
         }`;
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let mockInput: any;
 
       beforeEach(() => {
@@ -740,7 +736,6 @@ describe('Repository Resolvers', () => {
           }
         }`;
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let mockInput: any;
 
       beforeEach(() => {

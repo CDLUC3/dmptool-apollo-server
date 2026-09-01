@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { jest } from '@jest/globals';
 import casual from 'casual';
 
@@ -39,29 +41,14 @@ jest.unstable_mockModule('../../datasources/openSearch.js', () => ({
 import type { MyContext } from '../../context.js';
 
 
-type ProjectMemberInstance = InstanceType<typeof ProjectMember>;
-function asProjectMemberList(value: any[]): ProjectMemberInstance[] {
-  return value as ProjectMemberInstance[];
-}
-
 type PlanMemberInstance = InstanceType<typeof PlanMember>;
 function asPlanMemberList(value: any[]): PlanMemberInstance[] {
   return value as PlanMemberInstance[];
 }
 
-type ProjectFundingInstance = InstanceType<typeof ProjectFunding>;
-function asProjectFundingList(value: any[]): ProjectFundingInstance[] {
-  return value as ProjectFundingInstance[];
-}
-
 type PlanFundingInstance = InstanceType<typeof PlanFunding>;
 function asPlanFundingList(value: any[]): PlanFundingInstance[] {
   return value as PlanFundingInstance[];
-}
-
-type AffiliationInstance = InstanceType<typeof Affiliation>;
-function asAffiliation(value: any): AffiliationInstance {
-  return value as AffiliationInstance;
 }
 
 type AlternateIdentifierInstance = InstanceType<typeof AlternateIdentifier>;

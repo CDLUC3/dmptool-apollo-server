@@ -25,7 +25,7 @@ const {
 
 const { signoutController } = await import('../signoutController.js');
 
-type MockResponse = {
+interface MockResponse {
   status: jest.Mock;
   json: jest.Mock;
   clearCookie: jest.Mock;
@@ -54,8 +54,9 @@ describe('signoutController', () => {
   });
 
   it('should signout successfully', async () => {
+    const authJti = mockRequest.auth?.jti ?? '';
     jest.mocked(verifyAccessToken).mockReturnValueOnce({
-      jti: mockRequest.auth!.jti,
+      jti: authJti,
     });
 
     jest.mocked(revokeRefreshToken).mockResolvedValue(true);

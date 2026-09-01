@@ -445,7 +445,7 @@ describe('delete', () => {
   });
 
   it('returns null if it was not able to delete the record', async () => {
-    const deleteQuery = jest.fn<() => Promise<Boolean>>();
+    const deleteQuery = jest.fn<() => Promise<boolean>>();
     (MetadataStandard.delete as jest.Mock) = deleteQuery;
 
     deleteQuery.mockResolvedValueOnce(null);

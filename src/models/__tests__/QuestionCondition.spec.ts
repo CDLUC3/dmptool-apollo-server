@@ -258,7 +258,7 @@ describe('delete', () => {
   });
 
   it('returns the QuestionCondition if it was able to delete the record', async () => {
-    const deleteQuery = jest.fn<() => Promise<Boolean>>();
+    const deleteQuery = jest.fn<() => Promise<boolean>>();
     (QuestionCondition.delete as jest.Mock) = deleteQuery;
     deleteQuery.mockResolvedValueOnce(questionCondition);
 

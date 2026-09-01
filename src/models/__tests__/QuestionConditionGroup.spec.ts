@@ -259,7 +259,7 @@ describe('delete', () => {
     (QuestionConditionGroup.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(questionConditionGroup);
 
-    const deleteQuery = jest.fn<() => Promise<Boolean>>();
+    const deleteQuery = jest.fn<() => Promise<boolean>>();
     (QuestionConditionGroup.delete as jest.Mock) = deleteQuery;
     deleteQuery.mockResolvedValueOnce(null);
 
@@ -271,7 +271,7 @@ describe('delete', () => {
     (QuestionConditionGroup.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(questionConditionGroup);
 
-    const deleteQuery = jest.fn<() => Promise<Boolean>>();
+    const deleteQuery = jest.fn<() => Promise<boolean>>();
     (QuestionConditionGroup.delete as jest.Mock) = deleteQuery;
     deleteQuery.mockResolvedValueOnce(questionConditionGroup);
 

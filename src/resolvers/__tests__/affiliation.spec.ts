@@ -219,10 +219,8 @@ let query: string;
 // Proxy call to the Apollo server test server
 async function executeQuery(
   query: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   variables: any,
   token: Awaited<ReturnType<typeof mockToken>>
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<any> {
 
   const context = buildContext(logger, token, null);

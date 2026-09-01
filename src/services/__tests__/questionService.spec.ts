@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { jest } from '@jest/globals';
 import casual from "casual";
 import { CURRENT_SCHEMA_VERSION } from "@dmptool/types";

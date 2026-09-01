@@ -31,10 +31,10 @@ const { buildContext } = await import('../../context.js');
 const { logger } = await import('../../logger.js');
 
 
-type MockResponse = {
+interface MockResponse {
   status: jest.Mock;
   json: jest.Mock;
-};
+}
 
 describe('refreshTokenController', () => {
   let mockRequest: Partial<Request>;

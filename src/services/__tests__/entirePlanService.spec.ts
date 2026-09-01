@@ -1,5 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { jest } from '@jest/globals';
-import casual from "casual";
 
 import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
 

@@ -79,7 +79,7 @@ const mockedUser: InstanceType<typeof UserModel.User> = {
   errorsToString: jest.fn(),
 } as unknown as InstanceType<typeof UserModel.User>;
 
-type MockResponse = {
+interface MockResponse {
   status: jest.Mock;
   json: jest.Mock;
 };

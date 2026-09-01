@@ -1,9 +1,21 @@
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+mockAppConfigs();
+mockAppLogger();
+
+
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import mysql, { Connection } from 'mysql2/promise';
 import { MySqlContainer, StartedMySqlContainer } from '@testcontainers/mysql';
 import { Author, Award, ContentMatch, DoiMatch, Funder, Institution, ItemMatch } from '../../types.js';
 import type { ResultSetHeader } from 'mysql2/promise';
+
+// __dirname does not exist under native ES modules — Node never defines it
+// there, independent of Jest. This is the standard ESM replacement.
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 interface RelatedWork {
   planId: number;

@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { jest } from '@jest/globals';
 
 import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
@@ -173,18 +175,42 @@ jest.unstable_mockModule('../../models/Affiliation.js', () => ({
 }));
 
 import type { MyContext } from "../../context.js";
+import type { Logger } from 'pino';
+import type { GuidanceGroup as GuidanceGroupType } from '../../models/GuidanceGroup.js';
 
 // ---------------------------------------------------------------------------
 // Everything below is dynamic, registered after every mock above.
 // guidanceService.js itself is the module under test — imported for real.
 // ---------------------------------------------------------------------------
-const { buildMockContextWithToken } = await import("../../__mocks__/context.js");
 const { logger } = await import("../../logger.js");
 const guidanceService = await import('../guidanceService.js');
-const { GuidanceGroup } = await import("../../models/GuidanceGroup.js");
+
+const buildMockContextWithToken = async (
+  contextLogger: Logger
+): Promise<MyContext> => ({
+  cache: {
+    get: jest.fn<(...args: any[]) => Promise<any>>(),
+    set: jest.fn<(...args: any[]) => Promise<any>>(),
+    delete: jest.fn<(...args: any[]) => Promise<any>>(),
+  } as unknown as MyContext['cache'],
+  token: {
+    id: 1,
+    email: 'user@example.com',
+    givenName: 'Test',
+    surName: 'User',
+    affiliationId: 'https://ror.org/03yrm5c26',
+    role: 'RESEARCHER',
+    languageId: 'en-US',
+    jti: 'test-jti',
+    tokenVersion: 1,
+  },
+  logger: contextLogger,
+  requestId: 'test-request-id',
+  dataSources: {} as unknown as MyContext['dataSources'],
+});
 
 // Type for mock GuidanceGroup used in tests
-type MockGuidanceGroup = Partial<InstanceType<typeof GuidanceGroup>> & {
+type MockGuidanceGroup = Partial<GuidanceGroupType> & {
   update?: jest.Mock;
 };
 
@@ -307,7 +333,7 @@ describe("publishGuidanceGroup", () => {
   });
 
   it("publishes a group and returns true", async () => {
-    const result = await guidanceService.publishGuidanceGroup(context, group as InstanceType<typeof GuidanceGroup>);
+    const result = await guidanceService.publishGuidanceGroup(context, group as GuidanceGroupType);
     expect(result).toBe(true);
   });
 
@@ -325,7 +351,7 @@ describe("publishGuidanceGroup", () => {
     };
 
     await expect(
-      guidanceService.publishGuidanceGroup(context, invalidGroup as InstanceType<typeof GuidanceGroup>)
+      guidanceService.publishGuidanceGroup(context, invalidGroup as GuidanceGroupType)
     ).rejects.toThrow();
   });
 
@@ -337,7 +363,7 @@ describe("publishGuidanceGroup", () => {
     }));
 
     await expect(
-      guidanceService.publishGuidanceGroup(context, group as InstanceType<typeof GuidanceGroup>)
+      guidanceService.publishGuidanceGroup(context, group as GuidanceGroupType)
     ).rejects.toThrow();
   });
 
@@ -349,7 +375,7 @@ describe("publishGuidanceGroup", () => {
     }));
 
     await expect(
-      guidanceService.publishGuidanceGroup(context, group as InstanceType<typeof GuidanceGroup>)
+      guidanceService.publishGuidanceGroup(context, group as GuidanceGroupType)
     ).rejects.toThrow();
   });
 });
@@ -363,7 +389,7 @@ describe("unpublishGuidanceGroup", () => {
 
   it("unpublishes a group and returns true", async () => {
     mockVersionedGuidanceGroupDeactivateAll.mockResolvedValue(true);
-    const result = await guidanceService.unpublishGuidanceGroup(context, group as InstanceType<typeof GuidanceGroup>);
+    const result = await guidanceService.unpublishGuidanceGroup(context, group as GuidanceGroupType);
     expect(result).toBe(true);
   });
 
@@ -381,14 +407,14 @@ describe("unpublishGuidanceGroup", () => {
     };
 
     await expect(
-      guidanceService.unpublishGuidanceGroup(context, invalidGroup as InstanceType<typeof GuidanceGroup>)
+      guidanceService.unpublishGuidanceGroup(context, invalidGroup as GuidanceGroupType)
     ).rejects.toThrow();
   });
 
   it("throws if deactivateAll fails", async () => {
     mockVersionedGuidanceGroupDeactivateAll.mockResolvedValue(false);
     await expect(
-      guidanceService.unpublishGuidanceGroup(context, group as InstanceType<typeof GuidanceGroup>)
+      guidanceService.unpublishGuidanceGroup(context, group as GuidanceGroupType)
     ).rejects.toThrow();
   });
 });

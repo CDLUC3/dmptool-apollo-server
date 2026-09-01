@@ -1,10 +1,30 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { jest } from '@jest/globals';
 import type { Logger } from "pino";
 
-jest.mock("@dmptool/utils");
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
 
-jest.mock("uuid", () => ({
-  v4: jest.fn(),
+mockAppConfigs();
+mockAppLogger();
+
+
+const mockGetPresignedURLForImageUpload = jest.fn<(...args: any[]) => Promise<any>>();
+const mockRemoveObject = jest.fn<(...args: any[]) => Promise<any>>();
+const mockToErrorMessage = jest.fn<(...args: any[]) => string>();
+
+const actualDmpToolUtils = await import('@dmptool/utils');
+jest.unstable_mockModule('@dmptool/utils', () => ({
+  ...actualDmpToolUtils,
+  getPresignedURLForImageUpload: mockGetPresignedURLForImageUpload,
+  removeObject: mockRemoveObject,
+  toErrorMessage: mockToErrorMessage,
+}));
+
+// --- uuid ---
+const mockUuidV4 = jest.fn<(...args: any[]) => string>();
+jest.unstable_mockModule('uuid', () => ({
+  v4: mockUuidV4,
 }));
 
 const originalNodeEnv = process.env.NODE_ENV;
@@ -18,26 +38,6 @@ const buildLogger = (): Logger => {
 
 const loadS3Module = async (): Promise<typeof import("../s3.js")> => {
   return await import("../s3.js");
-};
-
-const getMockedUtils = (): {
-  getPresignedURLForImageUpload: jest.Mock<(...args: unknown[]) => Promise<{ url: string; fields: string }>>;
-  removeObject: jest.Mock<(...args: unknown[]) => Promise<{ DeleteMarker: boolean } | null>>;
-  toErrorMessage: jest.Mock<(...args: unknown[]) => string>;
-} => {
-  return jest.requireMock("@dmptool/utils") as {
-    getPresignedURLForImageUpload: jest.Mock<(...args: unknown[]) => Promise<{ url: string; fields: string }>>;
-    removeObject: jest.Mock<(...args: unknown[]) => Promise<{ DeleteMarker: boolean } | null>>;
-    toErrorMessage: jest.Mock<(...args: unknown[]) => string>;
-  };
-};
-
-const getMockedUuid = (): {
-  v4: jest.Mock;
-} => {
-  return jest.requireMock("uuid") as {
-    v4: jest.Mock;
-  };
 };
 
 describe("src/datasources/s3", () => {
@@ -76,9 +76,8 @@ describe("src/datasources/s3", () => {
     it("returns a presigned URL and sanitizes the uploaded file name", async () => {
       const logger = buildLogger();
       const { getPresignedURLForAffiliationLogo } = await loadS3Module();
-      const { getPresignedURLForImageUpload } = getMockedUtils();
 
-      getPresignedURLForImageUpload.mockResolvedValue({
+      mockGetPresignedURLForImageUpload.mockResolvedValue({
         url: "https://s3.example.com/upload",
         fields: "{\"key\":\"value\"}",
       });
@@ -90,7 +89,7 @@ describe("src/datasources/s3", () => {
         "image/jpeg"
       );
 
-      expect(getPresignedURLForImageUpload).toHaveBeenCalledWith(
+      expect(mockGetPresignedURLForImageUpload).toHaveBeenCalledWith(
         logger,
         "test-bucket",
         "logos/ror.org/12345/cafe_2026_.png",
@@ -116,9 +115,8 @@ describe("src/datasources/s3", () => {
     it("defaults the content type to image/png when one is not provided", async () => {
       const logger = buildLogger();
       const { getPresignedURLForAffiliationLogo } = await loadS3Module();
-      const { getPresignedURLForImageUpload } = getMockedUtils();
 
-      getPresignedURLForImageUpload.mockResolvedValue({
+      mockGetPresignedURLForImageUpload.mockResolvedValue({
         url: "https://s3.example.com/upload",
         fields: "fields",
       });
@@ -129,7 +127,7 @@ describe("src/datasources/s3", () => {
         "logo.png"
       );
 
-      expect(getPresignedURLForImageUpload).toHaveBeenCalledWith(
+      expect(mockGetPresignedURLForImageUpload).toHaveBeenCalledWith(
         logger,
         "test-bucket",
         "logos/ror.org/12345/logo.png",
@@ -141,11 +139,9 @@ describe("src/datasources/s3", () => {
     it("generates a fallback logo name when the file name sanitizes to an empty value", async () => {
       const logger = buildLogger();
       const { getPresignedURLForAffiliationLogo } = await loadS3Module();
-      const reloadedUtils = getMockedUtils();
-      const { v4 } = getMockedUuid();
 
-      v4.mockReturnValue("generated-uuid");
-      reloadedUtils.getPresignedURLForImageUpload.mockResolvedValue({
+      mockUuidV4.mockReturnValue("generated-uuid");
+      mockGetPresignedURLForImageUpload.mockResolvedValue({
         url: "https://s3.example.com/upload",
         fields: "fields",
       });
@@ -156,8 +152,8 @@ describe("src/datasources/s3", () => {
         "!!!"
       );
 
-      expect(v4).toHaveBeenCalledTimes(1);
-      expect(reloadedUtils.getPresignedURLForImageUpload).toHaveBeenCalledWith(
+      expect(mockUuidV4).toHaveBeenCalledTimes(1);
+      expect(mockGetPresignedURLForImageUpload).toHaveBeenCalledWith(
         logger,
         "test-bucket",
         "logos/ror.org/12345/logo-generated-uuid",
@@ -169,9 +165,8 @@ describe("src/datasources/s3", () => {
     it("truncates long file names while preserving the extension", async () => {
       const logger = buildLogger();
       const { getPresignedURLForAffiliationLogo } = await loadS3Module();
-      const { getPresignedURLForImageUpload } = getMockedUtils();
 
-      getPresignedURLForImageUpload.mockResolvedValue({
+      mockGetPresignedURLForImageUpload.mockResolvedValue({
         url: "https://s3.example.com/upload",
         fields: "fields",
       });
@@ -185,7 +180,7 @@ describe("src/datasources/s3", () => {
         longFileName
       );
 
-      expect(getPresignedURLForImageUpload).toHaveBeenCalledWith(
+      expect(mockGetPresignedURLForImageUpload).toHaveBeenCalledWith(
         logger,
         "test-bucket",
         `logos/ror.org/12345/${expectedFileName}`,
@@ -197,9 +192,8 @@ describe("src/datasources/s3", () => {
     it("truncates long file names without an extension", async () => {
       const logger = buildLogger();
       const { getPresignedURLForAffiliationLogo } = await loadS3Module();
-      const { getPresignedURLForImageUpload } = getMockedUtils();
 
-      getPresignedURLForImageUpload.mockResolvedValue({
+      mockGetPresignedURLForImageUpload.mockResolvedValue({
         url: "https://s3.example.com/upload",
         fields: "fields",
       });
@@ -213,7 +207,7 @@ describe("src/datasources/s3", () => {
         longFileName
       );
 
-      expect(getPresignedURLForImageUpload).toHaveBeenCalledWith(
+      expect(mockGetPresignedURLForImageUpload).toHaveBeenCalledWith(
         logger,
         "test-bucket",
         `logos/ror.org/12345/${expectedFileName}`,
@@ -225,10 +219,9 @@ describe("src/datasources/s3", () => {
     it("logs and returns undefined when presigned URL generation fails", async () => {
       const logger = buildLogger();
       const { getPresignedURLForAffiliationLogo } = await loadS3Module();
-      const { getPresignedURLForImageUpload } = getMockedUtils();
       const err = new Error("Unable to create upload URL");
 
-      getPresignedURLForImageUpload.mockRejectedValue(err);
+      mockGetPresignedURLForImageUpload.mockRejectedValue(err);
 
       const result = await getPresignedURLForAffiliationLogo(
         logger,
@@ -251,7 +244,6 @@ describe("src/datasources/s3", () => {
     it("returns undefined when the affiliation URI cannot be parsed", async () => {
       const logger = buildLogger();
       const { getPresignedURLForAffiliationLogo } = await loadS3Module();
-      const { getPresignedURLForImageUpload } = getMockedUtils();
 
       const result = await getPresignedURLForAffiliationLogo(
         logger,
@@ -260,7 +252,7 @@ describe("src/datasources/s3", () => {
       );
 
       expect(result).toBeUndefined();
-      expect(getPresignedURLForImageUpload).not.toHaveBeenCalled();
+      expect(mockGetPresignedURLForImageUpload).not.toHaveBeenCalled();
       expect(logger.error).not.toHaveBeenCalled();
     });
   });
@@ -269,14 +261,13 @@ describe("src/datasources/s3", () => {
     it("returns true when S3 responds with DeleteMarker: true", async () => {
       const logger = buildLogger();
       const { deleteAffiliationLogoFile } = await loadS3Module();
-      const { removeObject } = getMockedUtils();
 
-      removeObject.mockResolvedValue({ DeleteMarker: true });
+      mockRemoveObject.mockResolvedValue({ DeleteMarker: true });
 
       const result = await deleteAffiliationLogoFile(logger, "logos/ror.org/12345/logo.png");
 
       expect(result).toBe(true);
-      expect(removeObject).toHaveBeenCalledWith(
+      expect(mockRemoveObject).toHaveBeenCalledWith(
         logger,
         "test-bucket",
         "logos/ror.org/12345/logo.png",
@@ -292,22 +283,20 @@ describe("src/datasources/s3", () => {
     it("returns false when S3 responds with DeleteMarker: false", async () => {
       const logger = buildLogger();
       const { deleteAffiliationLogoFile } = await loadS3Module();
-      const { removeObject } = getMockedUtils();
 
-      removeObject.mockResolvedValue({ DeleteMarker: false });
+      mockRemoveObject.mockResolvedValue({ DeleteMarker: false });
 
       const result = await deleteAffiliationLogoFile(logger, "logos/ror.org/12345/logo.png");
 
       expect(result).toBe(false);
-      expect(removeObject).toHaveBeenCalledTimes(1);
+      expect(mockRemoveObject).toHaveBeenCalledTimes(1);
     });
 
     it("returns false when removeObject returns a falsy response", async () => {
       const logger = buildLogger();
       const { deleteAffiliationLogoFile } = await loadS3Module();
-      const { removeObject } = getMockedUtils();
 
-      removeObject.mockResolvedValue(null);
+      mockRemoveObject.mockResolvedValue(null);
 
       const result = await deleteAffiliationLogoFile(logger, "logos/ror.org/12345/logo.png");
 
@@ -318,11 +307,10 @@ describe("src/datasources/s3", () => {
       const logger = buildLogger() as Logger & { fatal: jest.Mock };
       (logger as unknown as Record<string, unknown>).fatal = jest.fn();
       const { deleteAffiliationLogoFile } = await loadS3Module();
-      const { removeObject, toErrorMessage } = getMockedUtils();
 
       const error = new Error("S3 connection refused");
-      removeObject.mockRejectedValue(error);
-      toErrorMessage.mockReturnValue("S3 connection refused");
+      mockRemoveObject.mockRejectedValue(error);
+      mockToErrorMessage.mockReturnValue("S3 connection refused");
 
       const result = await deleteAffiliationLogoFile(logger, "logos/ror.org/12345/logo.png");
 
@@ -338,4 +326,3 @@ describe("src/datasources/s3", () => {
     });
   });
 });
-

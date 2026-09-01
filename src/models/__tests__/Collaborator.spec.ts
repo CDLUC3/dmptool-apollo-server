@@ -31,7 +31,7 @@ const { Affiliation } = await import("../Affiliation.js");
 const { UserEmail } = await import("../UserEmail.js");
 const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
 const { logger } = await import('../../logger.js');
-const { sendProjectCollaborationEmail, sendTemplateCollaborationEmail, sendEmailConfirmationNotification } = await import('../../services/emailService.js');
+const { sendProjectCollaborationEmail, sendTemplateCollaborationEmail } = await import('../../services/emailService.js');
 
 let context;
 
@@ -347,7 +347,6 @@ describe('TemplateCollaborator', () => {
       mockFindTemplateById.mockResolvedValueOnce(new Template({ name: tName }));
       (Template.findById as jest.Mock) = mockFindTemplateById;
 
-      const mockSendEmail = jest.fn<() => Promise<boolean>>();
       jest.mocked(sendTemplateCollaborationEmail).mockResolvedValue(true);
 
       const mockFindById = jest.fn<() => Promise<InstanceType<typeof TemplateCollaborator> | null>>();

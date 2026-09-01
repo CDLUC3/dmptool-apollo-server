@@ -1557,7 +1557,7 @@ describe('delete', () => {
   });
 
   it('returns the Plan if it was able to delete the record', async () => {
-    const deleteQuery = jest.fn<() => Promise<Boolean>>();
+    const deleteQuery = jest.fn<() => Promise<boolean>>();
     (Plan.delete as jest.Mock) = deleteQuery;
     deleteQuery.mockResolvedValueOnce(plan);
 

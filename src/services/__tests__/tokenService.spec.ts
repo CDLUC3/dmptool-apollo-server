@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { jest } from '@jest/globals';
 import casual from 'casual';
 import { createHash } from 'crypto';
@@ -421,7 +423,7 @@ describe('revokeRefreshToken', () => {
     const expectedErr = `${DEFAULT_INTERNAL_SERVER_MESSAGE} - Test error`;
     await expect(() => revokeRefreshToken(context, 'mock-token')).rejects.toThrow(expectedErr);
     const thrownErr = `revokeRefreshToken - unable to delete token from cache`;
-    expect(logger.error).toHaveBeenCalledWith({}, thrownErr);
+    expect(logger.error).toHaveBeenCalledWith(mockError, thrownErr);
   });
 });
 
@@ -451,6 +453,6 @@ describe('revokeAccessToken', () => {
     const expectedErr = `${DEFAULT_INTERNAL_SERVER_MESSAGE} - Test error`;
     await expect(() => revokeAccessToken(context, mockJti)).rejects.toThrow(expectedErr);
     const thrownErr = `revokeAccessToken - unable to add token to black list`;
-    expect(logger.error).toHaveBeenCalledWith({}, thrownErr);
+    expect(logger.error).toHaveBeenCalledWith(mockError, thrownErr);
   });
 });

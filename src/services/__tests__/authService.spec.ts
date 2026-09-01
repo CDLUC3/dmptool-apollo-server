@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { jest } from '@jest/globals';
 import casual from "casual";
 
@@ -22,11 +24,6 @@ const { User, UserRole } = await import("../../models/User.js");
 const { isAdmin, isSuperAdmin, authenticatedResolver } = await import("../authService.js");
 const { buildMockContextWithToken } = await import("../../__mocks__/context.js");
 const { logger } = await import("../../logger.js");
-
-type UserInstance = InstanceType<typeof User>;
-function asUser(value: any): UserInstance {
-  return value as UserInstance;
-}
 
 describe('isAdmin', () => {
   let token;

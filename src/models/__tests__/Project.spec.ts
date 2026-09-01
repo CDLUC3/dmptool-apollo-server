@@ -480,7 +480,7 @@ describe('Project', () => {
     });
 
     it('returns null if it was not able to delete the record', async () => {
-      const deleteQuery = jest.fn<() => Promise<Boolean>>();
+      const deleteQuery = jest.fn<() => Promise<boolean>>();
       (Project.delete as jest.Mock) = deleteQuery;
 
       deleteQuery.mockResolvedValueOnce(null);
@@ -488,7 +488,7 @@ describe('Project', () => {
     });
 
     it('returns the Project if it was able to delete the record', async () => {
-      const deleteQuery = jest.fn<() => Promise<Boolean>>();
+      const deleteQuery = jest.fn<() => Promise<boolean>>();
       (Project.delete as jest.Mock) = deleteQuery;
       deleteQuery.mockResolvedValueOnce(project);
 

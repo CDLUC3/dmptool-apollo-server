@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { ApolloServer } from "@apollo/server";
 import casual from "casual";
 import { jest } from '@jest/globals';
@@ -86,10 +88,8 @@ let query: string;
 // Proxy call to the Apollo server test server
 async function executeQuery(
   query: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   variables: any,
   token: MyContext['token'],
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<any> {
   const context = buildContext(logger, token, null);
 

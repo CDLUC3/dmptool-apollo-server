@@ -1,6 +1,4 @@
 import { jest } from '@jest/globals';
-import casual from "casual";
-
 import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
 
 // Register config + logger mocks FIRST — before anything that transitively imports them

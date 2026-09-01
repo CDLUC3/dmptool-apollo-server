@@ -878,7 +878,7 @@ describe('delete', () => {
   });
 
   it('returns null if it was not able to delete the record', async () => {
-    const deleteQuery = jest.fn<() => Promise<Boolean>>();
+    const deleteQuery = jest.fn<() => Promise<boolean>>();
     (PlanMember.delete as jest.Mock) = deleteQuery;
 
     const mockFindByPlanId = jest.fn<() => Promise<InstanceType<typeof PlanMember>[]>>();
@@ -894,7 +894,7 @@ describe('delete', () => {
   });
 
   it('returns the PlanMember if it was able to delete the record', async () => {
-    const deleteQuery = jest.fn<() => Promise<Boolean>>();
+    const deleteQuery = jest.fn<() => Promise<boolean>>();
     (PlanMember.delete as jest.Mock) = deleteQuery;
     deleteQuery.mockResolvedValueOnce(planMember);
 
@@ -912,7 +912,7 @@ describe('delete', () => {
   });
 
   it('returns error when there is only one plan member for the given planId', async () => {
-    const deleteQuery = jest.fn<() => Promise<Boolean>>();
+    const deleteQuery = jest.fn<() => Promise<boolean>>();
     (PlanMember.delete as jest.Mock) = deleteQuery;
     deleteQuery.mockResolvedValueOnce(planMember);
 

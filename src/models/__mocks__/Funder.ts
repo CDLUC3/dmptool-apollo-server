@@ -10,9 +10,9 @@ import {
   findEntryInMockTableById,
   getMockTableStore,
   updateEntryInMockTable
-} from "./MockStore";
+} from "./MockStore.js";
 import { MyContext } from "../../context.js";
-import { PlanFunding, ProjectFunding, ProjectFundingStatus } from "../Funding";
+import { PlanFunding, ProjectFunding, ProjectFundingStatus } from "../Funding.js";
 import { getRandomEnumValue } from "../../__tests__/helpers.js";
 
 // Project fundings

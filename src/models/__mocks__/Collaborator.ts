@@ -10,7 +10,7 @@ import {
   findEntryInMockTableById,
   getMockTableStore,
   updateEntryInMockTable
-} from "./MockStore";
+} from "./MockStore.js";
 import { ProjectCollaborator, TemplateCollaborator } from "../Collaborator.js";
 import { MyContext } from "../../context.js";
 

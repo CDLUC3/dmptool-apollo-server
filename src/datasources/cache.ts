@@ -1,7 +1,7 @@
 import Keyv from "keyv";
 import KeyvRedis from "@keyv/redis";
 import { KeyvAdapter } from "@apollo/utils.keyvadapter";
-import { cacheConfig } from "../config/cacheConfig";
+import { cacheConfig } from "../config/cacheConfig.js";
 import { logger } from '../logger.js';
 
 // Note that Redis cache clusters require you to wrap keys in `{}` to ensure that they are stored

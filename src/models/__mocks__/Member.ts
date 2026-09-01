@@ -10,11 +10,11 @@ import {
   findEntryInMockTableById,
   getMockTableStore,
   updateEntryInMockTable
-} from "./MockStore";
+} from "./MockStore.js";
 import { getMemberRoleStore, getRandomMemberRole, initMemberRoles } from "./MemberRole.js";
 import { getMockORCID } from "../../__tests__/helpers.js";
 import { MyContext } from "../../context.js";
-import { PlanMember, ProjectMember } from "../Member";
+import { PlanMember, ProjectMember } from "../Member.js";
 
 // Project members
 // ---------------------------------------------------

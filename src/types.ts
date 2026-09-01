@@ -6673,27 +6673,27 @@ export type DirectiveResolverFn<TResult = Record<PropertyKey, never>, TParent = 
 /** Mapping of union types */
 export type ResolversUnionTypes<_RefType extends Record<string, unknown>> = {
   Repository:
-  | (CustomRepository)
-  | (Re3DataRepository)
+    | ( CustomRepository )
+    | ( Re3DataRepository )
   ;
 };
 
 /** Mapping of interface types */
 export type ResolversInterfaceTypes<_RefType extends Record<string, unknown>> = {
   PaginatedQueryResults:
-  | (AffiliationSearchResults)
-  | (CollaboratorSearchResults)
-  | (CustomizableTemplateSearchResults)
-  | (MetadataStandardSearchResults)
-  | (PaginatedPlanResults)
-  | (ProjectSearchResults)
-  | (PublishedTemplateSearchResults)
-  | (RelatedWorkSearchResults)
-  | (Omit<RepositorySearchResults, 'items'> & { items?: Maybe<Array<Maybe<_RefType['Repository']>>> })
-  | (ResearchDomainSearchResults)
-  | (TemplateSearchResults)
-  | (UserSearchResults)
-  | (VersionedSectionSearchResults)
+    | ( AffiliationSearchResults )
+    | ( CollaboratorSearchResults )
+    | ( CustomizableTemplateSearchResults )
+    | ( MetadataStandardSearchResults )
+    | ( PaginatedPlanResults )
+    | ( ProjectSearchResults )
+    | ( PublishedTemplateSearchResults )
+    | ( RelatedWorkSearchResults )
+    | ( Omit<RepositorySearchResults, 'items'> & { items?: Maybe<Array<Maybe<_RefType['Repository']>>> } )
+    | ( ResearchDomainSearchResults )
+    | ( TemplateSearchResults )
+    | ( UserSearchResults )
+    | ( VersionedSectionSearchResults )
   ;
 };
 

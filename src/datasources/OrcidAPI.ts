@@ -3,7 +3,7 @@ import { logger, prepareObjectForLogs } from '../logger.js';
 import { MyContext } from "../context.js";
 import { isNullOrUndefined } from "../utils/helpers.js";
 import { KeyvAdapter } from "@apollo/utils.keyvadapter";
-import { OrcidConfig } from "../config/orcidConfig";
+import { OrcidConfig } from "../config/orcidConfig.js";
 
 // Singleton class that retrieves an Auth token from the API
 export class Authorizer extends RESTDataSource {

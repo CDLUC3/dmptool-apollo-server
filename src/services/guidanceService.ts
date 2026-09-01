@@ -16,7 +16,7 @@ import { VersionedTemplate } from "../models/VersionedTemplate.js";
 import { prepareObjectForLogs } from "../logger.js";
 import { getCurrentDate } from "../utils/helpers.js";
 import { isSuperAdmin } from "./authService.js";
-import { GuidanceSourceType } from "../types.js";
+import type { GuidanceSourceType } from "../types.js";
 
 const GuidanceSourceType = {
   BEST_PRACTICE: 'BEST_PRACTICE' as const,

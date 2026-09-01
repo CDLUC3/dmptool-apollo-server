@@ -4,7 +4,7 @@ import {
   RESTDataSource
 } from "@apollo/datasource-rest";
 import { logger, prepareObjectForLogs } from '../logger.js';
-import { DMPHubConfig } from '../config/dmpHubConfig';
+import { DMPHubConfig } from '../config/dmpHubConfig.js';
 import { JWTAccessToken } from '../services/tokenService.js';
 import { MyContext } from "../context.js";
 import { RDACommonStandardContact, RDACommonStandardContributor } from "@dmptool/utils";

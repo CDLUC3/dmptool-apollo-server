@@ -1,7 +1,7 @@
 import casual from 'casual';
 import { createHash } from 'node:crypto';
 import { getRandomEnumValue } from '../../__tests__/helpers.js';
-import { RelatedWorkSourceType, RelatedWorkStatus, WorkType } from '../RelatedWork';
+import { RelatedWorkSourceType, RelatedWorkStatus, WorkType } from '../RelatedWork.js';
 import { ContentMatch, DoiMatch, ItemMatch } from '../../types.js';
 
 export function getMockHash() {

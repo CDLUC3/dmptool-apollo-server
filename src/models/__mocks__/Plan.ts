@@ -10,7 +10,7 @@ import {
   findEntryInMockTableById,
   getMockTableStore,
   updateEntryInMockTable
-} from "./MockStore";
+} from "./MockStore.js";
 import { getCurrentDate } from "../../utils/helpers.js";
 import { getMockDMPId, getRandomEnumValue } from "../../__tests__/helpers.js";
 import { Plan, PlanSearchResult, PlanStatus, PlanVisibility } from "../Plan.js";

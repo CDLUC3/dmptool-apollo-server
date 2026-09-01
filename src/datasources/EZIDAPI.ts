@@ -1,7 +1,7 @@
 import { AugmentedRequest, RESTDataSource } from "@apollo/datasource-rest";
 import { prepareObjectForLogs } from '../logger.js';
 import { MyContext } from "../context.js";
-import { EZIDConfig } from "../config/ezidConfig";
+import { EZIDConfig } from "../config/ezidConfig.js";
 
 // Per the "Request & response bodies" EZID documentation (https://ezid.cdlib.org/doc/apidoc.html#request-response-bodies)
 // Percent-encode ANVL structural characters per EZID spec.

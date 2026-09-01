@@ -1,8 +1,8 @@
 
 import casual from "casual";
 import { getCurrentDate } from "../../utils/helpers.js";
-import { addEntryToMockTable, addMockTableStore, clearMockTableStore, deleteEntryFromMockTable, findEntriesInMockTableByFilter, findEntryInMockTableByFilter, findEntryInMockTableById, getMockTableStore, updateEntryInMockTable } from "./MockStore";
-import { MemberRole } from "../MemberRole";
+import { addEntryToMockTable, addMockTableStore, clearMockTableStore, deleteEntryFromMockTable, findEntriesInMockTableByFilter, findEntryInMockTableByFilter, findEntryInMockTableById, getMockTableStore, updateEntryInMockTable } from "./MockStore.js";
+import { MemberRole } from "../MemberRole.js";
 
 export const getMemberRoleStore = () => {
   return getMockTableStore('memberRoles');

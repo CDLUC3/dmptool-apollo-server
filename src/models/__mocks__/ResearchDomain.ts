@@ -9,9 +9,9 @@ import {
   findEntryInMockTableById,
   getMockTableStore,
   updateEntryInMockTable
-} from "./MockStore";
+} from "./MockStore.js";
 import { getCurrentDate } from "../../utils/helpers.js";
-import { ResearchDomain } from "../ResearchDomain";
+import { ResearchDomain } from "../ResearchDomain.js";
 import { MyContext } from "../../context.js";
 
 export const getResearchDomainStore = () => {

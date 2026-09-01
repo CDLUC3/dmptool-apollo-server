@@ -4,10 +4,10 @@ import { buildContext } from '../context.js';
 import { ApolloServer } from '@apollo/server';
 import { Request } from 'express-jwt';
 import { Logger } from "pino";
-import { MySQLConnection } from "../datasources/mysql";
-import { DMPHubAPI } from "../datasources/dmphubAPI";
-import { EZIDAPI } from "../datasources/EZIDAPI";
-import { OpenSearch } from "../datasources/openSearch";
+import { MySQLConnection } from "../datasources/mysql.js";
+import { DMPHubAPI } from "../datasources/dmphubAPI.js";
+import { EZIDAPI } from "../datasources/EZIDAPI.js";
+import { OpenSearch } from "../datasources/openSearch.js";
 
 export async function attachApolloServer(
   apolloServer: ApolloServer,

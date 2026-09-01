@@ -10,9 +10,9 @@ import {
   findEntryInMockTableById,
   getMockTableStore,
   updateEntryInMockTable
-} from "./MockStore";
+} from "./MockStore.js";
 import { getCurrentDate } from "../../utils/helpers.js";
-import { Project } from "../Project";
+import { Project } from "../Project.js";
 import { MyContext } from "../../context.js";
 
 export const getProjectStore = () => {

@@ -39,7 +39,7 @@ services:
 
   # OpenSearch stand-alone Domain used for related works matching
   opensearch:
-    image: "opensearchproject/opensearch:1.3.20"
+    image: "opensearchproject/opensearch:3.8.0"
     container_name: opensearch
     environment:
       - cluster.name=opensearch-cluster # Name the cluster

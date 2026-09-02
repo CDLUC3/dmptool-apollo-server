@@ -1,11 +1,23 @@
+import { jest } from '@jest/globals';
 import casual from "casual";
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { Repository, REPOSITORY_TYPE } from "../Repository";
-import { generalConfig } from "../../config/generalConfig";
-import { logger } from "../../logger";
-import { isCustomRepository, isRe3DataRepository } from "../../types/repository";
 
-jest.mock('../../context.ts');
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+
+//Dynamic imports AFTER all mocks are registered
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
+const { Repository, REPOSITORY_TYPE } = await import("../Repository.js");
+const { generalConfig } = await import("../../config/generalConfig.js");
+const { isCustomRepository, isRe3DataRepository } = await import("../../types/repository.js");
 
 let context;
 
@@ -164,7 +176,7 @@ describe('findBy Queries', () => {
     expect(result).toEqual(null);
   });
 
-    it('findByURIs should call query with correct params and return the objects', async () => {
+  it('findByURIs should call query with correct params and return the objects', async () => {
     localQuery.mockResolvedValueOnce([repo]);
     const uris = [casual.url, casual.url];
     const result = await Repository.findByURIs('testing', context, uris);
@@ -220,9 +232,9 @@ describe('findBy Queries', () => {
     const result = await Repository.search('testing', context, term, [], null, repositoryType);
     const sql = 'SELECT r.* FROM repositories r';
     const vals = [`%${term.toLowerCase()}%`, `%${term.toLowerCase()}%`, `%${term.toLowerCase()}%`,
-                  JSON.stringify(repositoryType)];
+    JSON.stringify(repositoryType)];
     const whereFilters = ['(LOWER(r.name) LIKE ? OR LOWER(r.description) LIKE ? OR LOWER(r.keywords) LIKE ?)',
-                          'JSON_CONTAINS(r.repositoryTypes, ?, \'$\')'];
+      'JSON_CONTAINS(r.repositoryTypes, ?, \'$\')'];
     const sortFields = ["r.name", "r.created"];
     const opts = {
       cursor: null,
@@ -338,7 +350,7 @@ describe('update', () => {
   });
 
   it('returns the Repository with errors if it is not valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (repo.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -348,7 +360,7 @@ describe('update', () => {
   });
 
   it('returns an error if the Repository has no id', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (repo.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
@@ -359,13 +371,13 @@ describe('update', () => {
   });
 
   it('returns the updated Repository', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (repo.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
     updateQuery.mockResolvedValueOnce(repo);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof Repository>>>();
     (Repository.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(repo);
 
@@ -400,25 +412,25 @@ describe('create', () => {
   });
 
   it('returns the Repository without errors if it is valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (repo.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
     // Mock findByURI and findByName to return null so repo is considered new
-    const mockFindByURI = jest.fn();
+    const mockFindByURI = jest.fn<() => Promise<InstanceType<typeof Repository> | null>>();
     (Repository.findByURI as jest.Mock) = mockFindByURI;
     mockFindByURI.mockResolvedValueOnce(null);
 
-    const mockFindByName = jest.fn();
+    const mockFindByName = jest.fn<() => Promise<InstanceType<typeof Repository> | null>>();
     (Repository.findByName as jest.Mock) = mockFindByName;
     mockFindByName.mockResolvedValueOnce(null);
 
     // Mock insert and findById for successful creation
-    const mockInsert = jest.fn();
+    const mockInsert = jest.fn<() => Promise<number>>();
     (Repository.insert as jest.Mock) = mockInsert;
     mockInsert.mockResolvedValueOnce(123); // fake new id
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof Repository>>>();
     (Repository.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(repo);
 
@@ -442,7 +454,7 @@ describe('create', () => {
   });
 
   it('returns the Repository with an error if the object already exists', async () => {
-    const mockFindBy = jest.fn();
+    const mockFindBy = jest.fn<() => Promise<InstanceType<typeof Repository> | null>>();
     (Repository.findByURI as jest.Mock) = mockFindBy;
     mockFindBy.mockResolvedValueOnce(repo);
 
@@ -453,15 +465,15 @@ describe('create', () => {
   });
 
   it('returns the newly added Repository', async () => {
-    const mockFindbyURI = jest.fn();
+    const mockFindbyURI = jest.fn<() => Promise<InstanceType<typeof Repository> | null>>();
     (Repository.findByURI as jest.Mock) = mockFindbyURI;
     mockFindbyURI.mockResolvedValueOnce(null);
 
-    const mockFindByName = jest.fn();
+    const mockFindByName = jest.fn<() => Promise<InstanceType<typeof Repository> | null>>();
     (Repository.findByName as jest.Mock) = mockFindByName;
     mockFindByName.mockResolvedValueOnce(null);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof Repository>>>();
     (Repository.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(repo);
 
@@ -495,7 +507,7 @@ describe('delete', () => {
   });
 
   it('returns null if it was not able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<boolean>>();
     (Repository.delete as jest.Mock) = deleteQuery;
 
     deleteQuery.mockResolvedValueOnce(null);
@@ -503,11 +515,11 @@ describe('delete', () => {
   });
 
   it('returns the Repository if it was able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<null>>();
     (Repository.delete as jest.Mock) = deleteQuery;
     deleteQuery.mockResolvedValueOnce(repo);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof Repository>>>();
     (Repository.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(repo);
 

@@ -1,16 +1,22 @@
-import {MyContext} from "../../context";
-import {PinnedSectionTypeEnum} from "../CustomSection";
-import {CustomQuestion, PinnedQuestionTypeEnum} from "../CustomQuestion";
-import {MySqlModel} from "../MySqlModel";
-import {TemplateCustomizationMigrationStatus} from "../TemplateCustomization";
+import { jest } from '@jest/globals';
 
-jest.mock("../MySqlModel", () => ({
-  ...jest.requireActual("../MySqlModel"),
-  query: jest.fn(),
-  insert: jest.fn(),
-  update: jest.fn(),
-  delete: jest.fn(),
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
 }));
+
+import type { MyContext } from '../../context.js';
+
+// Dynamic imports AFTER all mocks are registered
+const { PinnedSectionTypeEnum } = await import("../CustomSection.js");
+const { CustomQuestion, PinnedQuestionTypeEnum } = await import("../CustomQuestion.js");
+const { MySqlModel } = await import("../MySqlModel.js");
+const { TemplateCustomizationMigrationStatus } = await import("../TemplateCustomization.js");
 
 describe("CustomQuestion", () => {
   let mockContext: MyContext;
@@ -22,7 +28,7 @@ describe("CustomQuestion", () => {
 
   describe("constructor", () => {
     it("should create a CustomQuestion with all properties", () => {
-      const options: CustomQuestion = new CustomQuestion({
+      const options: InstanceType<typeof CustomQuestion> = new CustomQuestion({
         id: 1,
         created: new Date().toISOString(),
         createdById: 10,
@@ -39,8 +45,8 @@ describe("CustomQuestion", () => {
         questionText: "Test Question",
         json: {
           type: "text",
-          attributes: {maxLength: 100},
-          meta: {schemaVersion: "1.0"}
+          attributes: { maxLength: 100 },
+          meta: { schemaVersion: "1.0" }
         },
         requirementText: "Test requirements",
         guidanceText: "Test guidance",
@@ -61,8 +67,8 @@ describe("CustomQuestion", () => {
       expect(customization.questionText).toBe("Test Question");
       expect(customization.json).toEqual(JSON.stringify({
         type: "text",
-        attributes: {maxLength: 100},
-        meta: {schemaVersion: "1.0"}
+        attributes: { maxLength: 100 },
+        meta: { schemaVersion: "1.0" }
       }));
       expect(customization.requirementText).toBe("Test requirements");
       expect(customization.guidanceText).toBe("Test guidance");

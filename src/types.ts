@@ -1,5 +1,5 @@
 import { GraphQLResolveInfo, GraphQLScalarType, GraphQLScalarTypeConfig } from 'graphql';
-import { MyContext } from './context';
+import { MyContext } from './context.js';
 export type Maybe<T> = T | null;
 export type InputMaybe<T> = Maybe<T>;
 export type Omit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>;

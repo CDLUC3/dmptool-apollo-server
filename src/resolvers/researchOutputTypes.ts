@@ -1,17 +1,17 @@
 
-import { prepareObjectForLogs } from '../logger';
-import { Resolvers } from "../types";
-import { ResearchOutputType } from "../models/ResearchOutputType";
-import { MyContext } from '../context';
-import { isSuperAdmin } from '../services/authService';
+import { prepareObjectForLogs } from '../logger.js';
+import { Resolvers } from "../types.js";
+import { ResearchOutputType } from "../models/ResearchOutputType.js";
+import { MyContext } from '../context.js';
+import { isSuperAdmin } from '../services/authService.js';
 import {
   AuthenticationError,
   ForbiddenError,
   InternalServerError,
   NotFoundError
-} from '../utils/graphQLErrors';
+} from '../utils/graphQLErrors.js';
 import { GraphQLError } from 'graphql';
-import {isNullOrUndefined, normaliseDateTime} from "../utils/helpers";
+import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers.js";
 
 export const resolvers: Resolvers = {
   Query: {

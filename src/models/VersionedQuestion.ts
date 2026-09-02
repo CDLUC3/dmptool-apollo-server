@@ -1,8 +1,8 @@
 import { QuestionSchemaMap } from "@dmptool/types";
-import { MyContext } from "../context";
-import { MySqlModel } from "./MySqlModel";
-import { QuestionConditionActionType, QuestionConditionMatchType } from "./QuestionCondition";
-import { isNullOrUndefined, removeNullAndUndefinedFromJSON } from "../utils/helpers";
+import { MyContext } from "../context.js";
+import { MySqlModel } from "./MySqlModel.js";
+import { QuestionConditionActionType, QuestionConditionMatchType } from "./QuestionCondition.js";
+import { isNullOrUndefined, removeNullAndUndefinedFromJSON } from "../utils/helpers.js";
 
 export class VersionedQuestion extends MySqlModel {
   public versionedTemplateId: number;

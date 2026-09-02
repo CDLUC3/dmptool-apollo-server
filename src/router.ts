@@ -1,15 +1,15 @@
 import express, { Response, Router, Request } from 'express';
-import { authMiddleware } from './middleware/auth';
-import { signinController } from './controllers/signinController';
-import { signupController } from './controllers/signupController';
-import { signoutController } from './controllers/signoutController';
-import { ssoPassthruController } from "./controllers/ssoPassthruController";
-import { ssoCallbackController } from "./controllers/ssoCallbackController";
-import { csrfMiddleware } from './middleware/csrf';
-import { refreshTokenController } from './controllers/refreshTokenController';
+import { authMiddleware } from './middleware/auth.js';
+import { signinController } from './controllers/signinController.js';
+import { signupController } from './controllers/signupController.js';
+import { signoutController } from './controllers/signoutController.js';
+import { ssoPassthruController } from "./controllers/ssoPassthruController.js";
+import { ssoCallbackController } from "./controllers/ssoCallbackController.js";
+import { csrfMiddleware } from './middleware/csrf.js';
+import { refreshTokenController } from './controllers/refreshTokenController.js';
 import { Logger } from "pino";
-import { MySQLConnection } from "./datasources/mysql";
-import { DMPHubAPI } from "./datasources/dmphubAPI";
+import { MySQLConnection } from "./datasources/mysql.js";
+import { DMPHubAPI } from "./datasources/dmphubAPI.js";
 import { KeyvAdapter } from "@apollo/utils.keyvadapter";
 
 // Modify the express Request to allow it to include our context resources:

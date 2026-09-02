@@ -1,10 +1,21 @@
+import { jest } from '@jest/globals';
 import casual from 'casual';
-import { AffiliationEmailDomain } from '../AffiliationEmailDomain';
-import { buildMockContextWithToken } from '../../__mocks__/context';
-import { logger } from '../../logger';
-import { getCurrentDate } from '../../utils/helpers';
 
-jest.mock('../../context.ts');
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+// Dynamic imports AFTER all mocks are registered
+const { AffiliationEmailDomain } = await import('../AffiliationEmailDomain.js');
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
+const { getCurrentDate } = await import('../../utils/helpers.js');
 
 describe('AffiliationEmailDomain', () => {
   let emailDomain;
@@ -130,7 +141,7 @@ describe('AffiliationEmailDomain', () => {
       mockFindById.mockResolvedValueOnce(emailDomain);
       insertQuery.mockResolvedValueOnce(emailDomain.id);
       // Mock isValid to return true
-      const localValidator = jest.fn();
+      const localValidator = jest.fn<() => Promise<boolean>>();
       (emailDomain.isValid as jest.Mock) = localValidator;
       localValidator.mockResolvedValueOnce(true);
 
@@ -145,7 +156,7 @@ describe('AffiliationEmailDomain', () => {
       const existingDomain = new AffiliationEmailDomain(domainData);
       mockFindByDomain.mockResolvedValue(existingDomain);
       // Mock isValid to return true
-      const localValidator = jest.fn();
+      const localValidator = jest.fn<() => Promise<boolean>>();
       (emailDomain.isValid as jest.Mock) = localValidator;
       localValidator.mockResolvedValueOnce(true);
 

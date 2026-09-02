@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import { buildContext } from "../context";
-import { prepareObjectForLogs } from "../logger";
+import { buildContext } from "../context.js";
+import { prepareObjectForLogs } from "../logger.js";
 
 // This is the entry point for SSO response information from our Shibboleth SP
 export const ssoCallbackController = async (req: Request, res: Response) => {

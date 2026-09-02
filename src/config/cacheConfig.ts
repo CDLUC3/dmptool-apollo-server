@@ -1,5 +1,5 @@
 import * as dotenv from 'dotenv';
-import { verifyCriticalEnvVariable } from "../utils/helpers";
+import { verifyCriticalEnvVariable } from "../utils/helpers.js";
 import { RedisClientOptions } from "@keyv/redis";
 
 dotenv.config();

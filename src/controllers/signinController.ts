@@ -1,9 +1,9 @@
 import { Request, Response } from 'express';
-import { prepareObjectForLogs } from '../logger';
-import { User } from '../models/User';
-import { generateAuthTokens, setTokenCookie } from '../services/tokenService';
-import { generalConfig } from '../config/generalConfig';
-import { buildContext } from '../context';
+import { prepareObjectForLogs } from '../logger.js';
+import { User } from '../models/User.js';
+import { generateAuthTokens, setTokenCookie } from '../services/tokenService.js';
+import { generalConfig } from '../config/generalConfig.js';
+import { buildContext } from '../context.js';
 
 export const signinController = async (req: Request, res: Response) => {
   const { email, ...userData } = req.body;

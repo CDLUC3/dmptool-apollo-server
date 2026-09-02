@@ -1,38 +1,95 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { ApolloServer } from "@apollo/server";
-import { typeDefs } from "../../schema";
-import { resolvers } from "../../resolver";
 import casual from "casual";
-import { buildContext, mockToken } from "../../__mocks__/context";
-import { logger } from "../../logger";
-import { JWTAccessToken } from "../../services/tokenService";
+import { jest } from '@jest/globals';
 
-import { Template } from "../../models/Template";
-import { VersionedTemplate } from "../../models/VersionedTemplate";
-import { UserRole } from "../../models/User";
-import * as templateService from "../../services/templateService";
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
 
-jest.mock('../../context.ts');
-jest.mock('../../datasources/cache');
-jest.mock('../../services/emailService');
-jest.mock('../../services/templateCustomizationService', () => ({
-  handleFunderTemplateRepublication: jest.fn(),
-  handleFunderTemplateArchive: jest.fn(),
+mockAppConfigs();
+mockAppLogger();
+
+
+jest.unstable_mockModule('../../datasources/cache.js', () => ({
+  Cache: jest.fn().mockImplementation(() => ({
+    get: jest.fn(),
+    set: jest.fn(),
+    delete: jest.fn(),
+    clear: jest.fn(),
+  })),
 }));
-jest.mock('../../services/openSearchService');
+
+jest.unstable_mockModule('../../services/openSearchService.js', () => ({
+  openSearchFindWorkByIdentifier: jest.fn(),
+  openSearchFindRe3Data: jest.fn(),
+  openSearchFindRe3DataByURIs: jest.fn(),
+  openSearchFindRe3DataSubjects: jest.fn(),
+  openSearchFindRe3DataRepositoryTypes: jest.fn(),
+}));
+
+jest.unstable_mockModule('../../services/authService.js', () => ({
+  authenticatedResolver: jest.fn((ref, level, resolver) => resolver),
+  isAuthorized: (token) => {
+    return token != null && token.id != null;
+  },
+  isAdmin: (token) => {
+    if (token != null && token.id != null && token.affiliationId) {
+      return ['ADMIN', 'SUPERADMIN'].includes(token?.role);
+    }
+    return false;
+  },
+  isSuperAdmin: (token) => {
+    return token != null && token.id != null && token?.role === 'SUPERADMIN';
+  },
+}));
+
+const mockHasPermissionOnTemplate = jest.fn<(...args: any[]) => Promise<any>>();
+
+const actualTemplateService = await import('../../services/templateService.js');
+jest.unstable_mockModule('../../services/templateService.js', () => ({
+  ...actualTemplateService,
+  hasPermissionOnTemplate: mockHasPermissionOnTemplate,
+}));
+
+const mockHandleFunderTemplateRepublication = jest.fn<(...args: any[]) => Promise<any>>();
+const mockHandleFunderTemplateArchive = jest.fn<(...args: any[]) => Promise<any>>();
+
+const actualTemplateCustomizationService = await import('../../services/templateCustomizationService.js');
+jest.unstable_mockModule('../../services/templateCustomizationService.js', () => ({
+  ...actualTemplateCustomizationService,
+  handleFunderTemplateRepublication: mockHandleFunderTemplateRepublication,
+  handleFunderTemplateArchive: mockHandleFunderTemplateArchive,
+}));
+
+const actualEmailService = await import('../../services/emailService.js');
+jest.unstable_mockModule('../../services/emailService.js', () => ({
+  ...actualEmailService,
+  sendTemplateArchiveNotification: jest.fn(),
+  sendTemplateUnpublishNotification: jest.fn(),
+}));
+
+import type { MyContext } from "../../context.js";
+
+// Dynamic imports AFTER mocks are set up
+const { typeDefs } = await import("../../schema.js");
+const { resolvers } = await import("../../resolver.js");
+const { logger } = await import("../../logger.js");
+const { buildContext, mockToken } = await import("../../__mocks__/context.js");
+const { Template } = await import("../../models/Template.js");
+const { VersionedTemplate } = await import("../../models/VersionedTemplate.js");
+const { UserRole } = await import("../../models/User.js");
+
 
 let testServer: ApolloServer;
 let affiliationId: string;
 let templateId: number;
-let adminToken: JWTAccessToken;
+let adminToken: MyContext['token'];
 let query: string;
 
 // Proxy call to the Apollo server test server
-async function executeQuery (
+async function executeQuery(
   query: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   variables: any,
-  token: JWTAccessToken
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+  token: MyContext['token']
 ): Promise<any> {
   const context = buildContext(logger, token, null);
 
@@ -61,7 +118,7 @@ afterEach(() => {
 });
 
 describe('archiveTemplate mutation', () => {
-  let template: Template;
+  let template: InstanceType<typeof Template>;
 
   beforeEach(() => {
     query = `
@@ -89,7 +146,7 @@ describe('archiveTemplate mutation', () => {
     });
 
     // Mock hasPermissionOnTemplate to always return true
-    jest.spyOn(templateService, 'hasPermissionOnTemplate').mockResolvedValue(true);
+    mockHasPermissionOnTemplate.mockResolvedValue(true);
   });
 
   it('unpublishes the template when it has associated plans', async () => {

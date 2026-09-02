@@ -1,12 +1,12 @@
-import { MySqlModel } from "./MySqlModel";
+import { MySqlModel } from "./MySqlModel.js";
 import {
   isNullOrUndefined,
   removeNullAndUndefinedFromJSON
-} from "../utils/helpers";
-import { MyContext } from "../context";
+} from "../utils/helpers.js";
+import { MyContext } from "../context.js";
 import { QuestionSchemaMap } from "@dmptool/types";
-import { PinnedSectionTypeEnum } from "./CustomSection";
-import { PinnedQuestionTypeEnum } from "./CustomQuestion";
+import { PinnedSectionTypeEnum } from "./CustomSection.js";
+import { PinnedQuestionTypeEnum } from "./CustomQuestion.js";
 
 /**
  * This object represents a snapshot version of a custom question that an

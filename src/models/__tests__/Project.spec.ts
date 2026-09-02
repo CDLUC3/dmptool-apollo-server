@@ -1,10 +1,21 @@
+import { jest } from '@jest/globals';
 import casual from "casual";
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { Project, ProjectSearchResult } from "../Project";
-import { generalConfig } from "../../config/generalConfig";
-import { logger } from "../../logger";
 
-jest.mock('../../context.ts');
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+//Dynamic imports AFTER all mocks are registered
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
+const { Project, ProjectSearchResult } = await import('../Project.js');
+const { generalConfig } = await import('../../config/generalConfig.js');
 
 let context;
 
@@ -50,7 +61,7 @@ describe('ProjectSearchResult', () => {
         { name: 'Jane Doe', accessLevel: 'Own', orcid: '0000-0000-0000-5678' }
       ],
       membersData: 'John Smith|Principal Investigator (PI)|0000-0000-0000-TEST,' +
-                          'John Smith|Other|0000-0000-0000-TEST,Elmer Fudd|Other|0000-0000-0000-9876',
+        'John Smith|Other|0000-0000-0000-TEST,Elmer Fudd|Other|0000-0000-0000-9876',
       members: [
         { name: 'John Smith', role: 'Principal Investigator (PI), Other', orcid: '0000-0000-0000-TEST' },
         { name: 'Elmer Fudd', role: 'Other', orcid: '0000-0000-0000-9876' }
@@ -85,7 +96,7 @@ describe('ProjectSearchResult', () => {
         modifiedByName: projectSearchResult.modifiedByName,
         collaboratorsData: 'foo@example.com|Comment|0000-0000-0000-1234,Jane Doe|Own|0000-0000-0000-5678',
         membersData: 'John Smith|Principal Investigator (PI)|0000-0000-0000-TEST,' +
-                          'John Smith|Other|0000-0000-0000-TEST,Elmer Fudd|Other|0000-0000-0000-9876',
+          'John Smith|Other|0000-0000-0000-TEST,Elmer Fudd|Other|0000-0000-0000-9876',
         fundingsData: 'Test funding|12345,Another funding|67890',
       }
       localQuery.mockResolvedValueOnce({ items: [queryResult] });
@@ -93,51 +104,51 @@ describe('ProjectSearchResult', () => {
       const term = 'Test';
       const result = await ProjectSearchResult.search('Test', context, term, projectSearchResult.createdById);
       const sql = 'SELECT p.id, p.title, p.abstractText, p.startDate, p.endDate, p.isTestProject, ' +
-                            'researchDomains.description as researchDomain, ' +
-                            'p.createdById, p.created, TRIM(CONCAT(cu.givenName, CONCAT(\' \', cu.surName))) as createdByName, ' +
-                            'p.modifiedById, p.modified, TRIM(CONCAT(mu.givenName, CONCAT(\' \', mu.surName))) as modifiedByName, ' +
-                            'GROUP_CONCAT(DISTINCT CONCAT_WS(\'|\', ' +
-                              'CASE ' +
-                                'WHEN collab.surName IS NOT NULL THEN TRIM(CONCAT(collab.givenName, CONCAT(\' \', collab.surName))) ' +
-                                'ELSE (SELECT collabE.email FROM userEmails collabE WHERE collabE.userId = collab.id LIMIT 1) ' +
-                              'END, ' +
-                              'CONCAT(UPPER(SUBSTRING(pcol.accessLevel, 1, 1)), LOWER(SUBSTRING(pcol.accessLevel FROM 2))), ' +
-                              'collab.orcid ' +
-                            ') ORDER BY collab.created) collaboratorsData, ' +
-                            'GROUP_CONCAT(DISTINCT ' +
-                              'CONCAT_WS(\'|\', ' +
-                              'CASE ' +
-                                'WHEN pm.surName IS NOT NULL THEN TRIM(CONCAT(pm.givenName, CONCAT(\' \', pm.surName))) ' +
-                                'ELSE (SELECT pmE.email FROM userEmails pmE WHERE pmE.userId = pm.id AND pmE.isPrimary = 1 LIMIT 1) ' +
-                              'END, ' +
-                              'r.label, ' +
-                              'pm.orcid ' +
-                            ') ORDER BY pm.created) as membersData, ' +
-                            'GROUP_CONCAT(DISTINCT CONCAT_WS(\'|\', fundings.name, pf.grantId) ' +
-                              'ORDER BY fundings.name SEPARATOR \',\') fundingsData, ' +
-                            '(SELECT COUNT(*) FROM plans WHERE projectId = p.id AND status = \'DRAFT\') as draftPlans, ' +
-                            '(SELECT COUNT(*) FROM plans WHERE projectId = p.id AND status = \'COMPLETE\') as completePlans, ' +
-                            '(SELECT COUNT(*) FROM plans WHERE projectId = p.id AND status = \'ARCHIVED\') as archivedPlans ' +
-                            'FROM projects p ' +
-                              'LEFT JOIN researchDomains ON p.researchDomainId = researchDomains.id ' +
-                              'LEFT JOIN users cu ON cu.id = p.createdById ' +
-                              'LEFT JOIN users mu ON mu.id = p.modifiedById ' +
-                              'LEFT JOIN projectCollaborators pcol ON pcol.projectId = p.id ' +
-                                'LEFT JOIN users collab ON pcol.userId = collab.id ' +
-                              'LEFT JOIN projectMembers pm ON pm.projectId = p.id ' +
-                                'LEFT JOIN projectMemberRoles pmr ON pm.id = pmr.projectMemberId ' +
-                                  'LEFT JOIN memberRoles r ON pmr.memberRoleId = r.id ' +
-                              'LEFT JOIN projectFundings pf ON pf.projectId = p.id ' +
-                                'LEFT JOIN affiliations fundings ON pf.affiliationId = fundings.uri ';
+        'researchDomains.description as researchDomain, ' +
+        'p.createdById, p.created, TRIM(CONCAT(cu.givenName, CONCAT(\' \', cu.surName))) as createdByName, ' +
+        'p.modifiedById, p.modified, TRIM(CONCAT(mu.givenName, CONCAT(\' \', mu.surName))) as modifiedByName, ' +
+        'GROUP_CONCAT(DISTINCT CONCAT_WS(\'|\', ' +
+        'CASE ' +
+        'WHEN collab.surName IS NOT NULL THEN TRIM(CONCAT(collab.givenName, CONCAT(\' \', collab.surName))) ' +
+        'ELSE (SELECT collabE.email FROM userEmails collabE WHERE collabE.userId = collab.id LIMIT 1) ' +
+        'END, ' +
+        'CONCAT(UPPER(SUBSTRING(pcol.accessLevel, 1, 1)), LOWER(SUBSTRING(pcol.accessLevel FROM 2))), ' +
+        'collab.orcid ' +
+        ') ORDER BY collab.created) collaboratorsData, ' +
+        'GROUP_CONCAT(DISTINCT ' +
+        'CONCAT_WS(\'|\', ' +
+        'CASE ' +
+        'WHEN pm.surName IS NOT NULL THEN TRIM(CONCAT(pm.givenName, CONCAT(\' \', pm.surName))) ' +
+        'ELSE (SELECT pmE.email FROM userEmails pmE WHERE pmE.userId = pm.id AND pmE.isPrimary = 1 LIMIT 1) ' +
+        'END, ' +
+        'r.label, ' +
+        'pm.orcid ' +
+        ') ORDER BY pm.created) as membersData, ' +
+        'GROUP_CONCAT(DISTINCT CONCAT_WS(\'|\', fundings.name, pf.grantId) ' +
+        'ORDER BY fundings.name SEPARATOR \',\') fundingsData, ' +
+        '(SELECT COUNT(*) FROM plans WHERE projectId = p.id AND status = \'DRAFT\') as draftPlans, ' +
+        '(SELECT COUNT(*) FROM plans WHERE projectId = p.id AND status = \'COMPLETE\') as completePlans, ' +
+        '(SELECT COUNT(*) FROM plans WHERE projectId = p.id AND status = \'ARCHIVED\') as archivedPlans ' +
+        'FROM projects p ' +
+        'LEFT JOIN researchDomains ON p.researchDomainId = researchDomains.id ' +
+        'LEFT JOIN users cu ON cu.id = p.createdById ' +
+        'LEFT JOIN users mu ON mu.id = p.modifiedById ' +
+        'LEFT JOIN projectCollaborators pcol ON pcol.projectId = p.id ' +
+        'LEFT JOIN users collab ON pcol.userId = collab.id ' +
+        'LEFT JOIN projectMembers pm ON pm.projectId = p.id ' +
+        'LEFT JOIN projectMemberRoles pmr ON pm.id = pmr.projectMemberId ' +
+        'LEFT JOIN memberRoles r ON pmr.memberRoleId = r.id ' +
+        'LEFT JOIN projectFundings pf ON pf.projectId = p.id ' +
+        'LEFT JOIN affiliations fundings ON pf.affiliationId = fundings.uri ';
       const vals = [`%${term.toLowerCase()}%`, `%${term.toLowerCase()}%`,
-                    projectSearchResult.createdById.toString(), projectSearchResult.createdById.toString()];
+      projectSearchResult.createdById.toString(), projectSearchResult.createdById.toString()];
       const whereFilters = [
         '(LOWER(p.title) LIKE ? OR LOWER(p.abstractText) LIKE ?)',
         '((SELECT COUNT(*) FROM plans WHERE projectId = p.id AND status IN (\'DRAFT\', \'COMPLETE\')) >= 1 || (SELECT COUNT(*) FROM plans WHERE projectId = p.id) = 0)',
         '(p.createdById = ? OR p.id IN (SELECT projectId FROM projectCollaborators WHERE userId = ?))'
       ];
       const groupBy = 'GROUP BY p.id, p.title, p.abstractText, p.startDate, p.endDate, p.isTestProject, ' +
-                        'p.createdById, p.created, p.modifiedById, p.modified, researchDomains.description';
+        'p.createdById, p.created, p.modifiedById, p.modified, researchDomains.description';
       const sortFields = ["p.title", "p.created", "p.modified", "p.startDate", "p.endDate", "p.isTestProject"];
       const opts = {
         cursor: null,
@@ -346,7 +357,7 @@ describe('Project', () => {
     });
 
     it('returns the Project with errors if it is not valid', async () => {
-      const localValidator = jest.fn();
+      const localValidator = jest.fn<() => Promise<boolean>>();
       (project.isValid as jest.Mock) = localValidator;
       localValidator.mockResolvedValueOnce(false);
 
@@ -356,7 +367,7 @@ describe('Project', () => {
     });
 
     it('returns an error if the Project has no id', async () => {
-      const localValidator = jest.fn();
+      const localValidator = jest.fn<() => Promise<boolean>>();
       (project.isValid as jest.Mock) = localValidator;
       localValidator.mockResolvedValueOnce(true);
 
@@ -367,13 +378,13 @@ describe('Project', () => {
     });
 
     it('returns the updated Project', async () => {
-      const localValidator = jest.fn();
+      const localValidator = jest.fn<() => Promise<boolean>>();
       (project.isValid as jest.Mock) = localValidator;
       localValidator.mockResolvedValueOnce(true);
 
       updateQuery.mockResolvedValueOnce(project);
 
-      const mockFindById = jest.fn();
+      const mockFindById = jest.fn<() => Promise<InstanceType<typeof Project>>>();
       (Project.findById as jest.Mock) = mockFindById;
       mockFindById.mockResolvedValueOnce(project);
 
@@ -409,7 +420,7 @@ describe('Project', () => {
     });
 
     it('returns the Project without errors if it is valid', async () => {
-      const localValidator = jest.fn();
+      const localValidator = jest.fn<() => Promise<boolean>>();
       (project.isValid as jest.Mock) = localValidator;
       localValidator.mockResolvedValueOnce(false);
 
@@ -425,7 +436,7 @@ describe('Project', () => {
     });
 
     it('returns the Project with an error if the question already exists', async () => {
-      const mockFindBy = jest.fn();
+      const mockFindBy = jest.fn<() => Promise<InstanceType<typeof Project>>>();
       (Project.findByOwnerAndTitle as jest.Mock) = mockFindBy;
       mockFindBy.mockResolvedValueOnce(project);
 
@@ -436,11 +447,11 @@ describe('Project', () => {
     });
 
     it('returns the newly added Project', async () => {
-      const mockFindBy = jest.fn();
+      const mockFindBy = jest.fn<() => Promise<InstanceType<typeof Project>>>();
       (Project.findByOwnerAndTitle as jest.Mock) = mockFindBy;
       mockFindBy.mockResolvedValueOnce(null);
 
-      const mockFindById = jest.fn();
+      const mockFindById = jest.fn<() => Promise<InstanceType<typeof Project>>>();
       (Project.findById as jest.Mock) = mockFindById;
       mockFindById.mockResolvedValueOnce(project);
 
@@ -469,7 +480,7 @@ describe('Project', () => {
     });
 
     it('returns null if it was not able to delete the record', async () => {
-      const deleteQuery = jest.fn();
+      const deleteQuery = jest.fn<() => Promise<boolean>>();
       (Project.delete as jest.Mock) = deleteQuery;
 
       deleteQuery.mockResolvedValueOnce(null);
@@ -477,11 +488,11 @@ describe('Project', () => {
     });
 
     it('returns the Project if it was able to delete the record', async () => {
-      const deleteQuery = jest.fn();
+      const deleteQuery = jest.fn<() => Promise<boolean>>();
       (Project.delete as jest.Mock) = deleteQuery;
       deleteQuery.mockResolvedValueOnce(project);
 
-      const mockFindById = jest.fn();
+      const mockFindById = jest.fn<() => Promise<InstanceType<typeof Project>>>();
       (Project.findById as jest.Mock) = mockFindById;
       mockFindById.mockResolvedValueOnce(project);
 

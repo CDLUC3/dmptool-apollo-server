@@ -1,36 +1,99 @@
-import { ApolloServer } from "@apollo/server";
-import { typeDefs } from "../../schema";
-import { resolvers } from "../../resolver";
+import { jest } from '@jest/globals';
 import casual from "casual";
 import assert from "assert";
-import { buildContext, mockToken } from "../../__mocks__/context";
-import { logger } from "../../logger";
-import { JWTAccessToken } from "../../services/tokenService";
 
-import { TemplateCollaborator } from "../../models/Collaborator";
-import { clearTemplateCollaboratorsStore, initTemplateCollaboratorsStore, mockDeleteTemplateCollaborators, mockFindTemplateCollaboratorById, mockFindTemplateCollaboratorByTemplateId, mockFindTemplateCollaboratorByTemplateIdAndEmail, mockFindTemplateCollaboratorsByEmail, mockFindTemplateCollaboratorsByInviterId, mockInsertTemplateCollaborators, mockUpdateTemplateCollaborators } from "../../models/__mocks__/Collaborator";
-import { User, UserRole } from "../../models/User";
-import { Template } from "../../models/Template";
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
 
-jest.mock('../../context.ts');
-jest.mock('../../datasources/cache');
-jest.mock('../../services/emailService');
-jest.mock('../../services/openSearchService');
+mockAppConfigs();
+mockAppLogger();
 
-let testServer: ApolloServer;
-let templateCollaboratorStore: TemplateCollaborator[];
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+jest.unstable_mockModule('../../datasources/cache.js', () => ({
+  Cache: { getInstance: jest.fn() },
+}));
+
+
+jest.unstable_mockModule('../../services/emailService.js', () => ({
+  emailSubjects: {
+    emailConfirmation: 'Please confirm your email address',
+    projectCollaboration: 'You were invited to collaborate on a data management plan',
+    templateCollaboration: 'You were invited to collaborate on a template',
+    projectCollaboratorCommentsAdded: 'New comments added to the plan',
+    feedbackRequest: 'You have been requested to provide feedback on a data management plan',
+    feedbackComplete: 'Feedback on your data management plan is complete',
+    contactUs: 'Contact Us form submission',
+  },
+  emailMessages: {
+    emailConfirmation: '',
+    projectCollaboration: '',
+    templateCollaboration: '',
+    projectCollaboratorCommentsAdded: '',
+    feedbackComplete: '',
+    feedbackRequest: '',
+    contactUs: '',
+    sendResetPassword: '',
+  },
+  sendEmailConfirmationNotification: jest.fn(),
+  sendTemplateCollaborationEmail: jest.fn(),
+  sendProjectCollaborationEmail: jest.fn(),
+  sendProjectCollaboratorsCommentsAddedEmail: jest.fn(),
+  sendFeedbackCompleteEmail: jest.fn(),
+  sendFeedbackRequestEmail: jest.fn(),
+  sendContactUsEmail: jest.fn(),
+  sendResetPasswordEmail: jest.fn(),
+}));
+
+jest.unstable_mockModule('../../services/openSearchService.js', () => ({
+  openSearchFindWorkByIdentifier: jest.fn(),
+  openSearchFindRe3Data: jest.fn(),
+  openSearchFindRe3DataByURIs: jest.fn(),
+  openSearchFindRe3DataSubjects: jest.fn(),
+  openSearchFindRe3DataRepositoryTypes: jest.fn(),
+}));
+
+
+import type { ApolloServer as ApolloServerType } from "@apollo/server";
+import type { JWTAccessToken } from "../../services/tokenService.js";
+
+// Dynamic imports AFTER all mocks are registered
+const { ApolloServer } = await import("@apollo/server");
+const { typeDefs } = await import("../../schema.js");
+const { resolvers } = await import("../../resolver.js");
+const { buildContext, mockToken } = await import("../../__mocks__/context.js");
+const { logger } = await import("../../logger.js");
+const { TemplateCollaborator } = await import("../../models/Collaborator.js");
+const {
+  clearTemplateCollaboratorsStore,
+  initTemplateCollaboratorsStore,
+  mockDeleteTemplateCollaborators,
+  mockFindTemplateCollaboratorById,
+  mockFindTemplateCollaboratorByTemplateId,
+  mockFindTemplateCollaboratorByTemplateIdAndEmail,
+  mockFindTemplateCollaboratorsByEmail,
+  mockFindTemplateCollaboratorsByInviterId,
+  mockInsertTemplateCollaborators,
+  mockUpdateTemplateCollaborators,
+} = await import("../../models/__mocks__/Collaborator.js");
+const { User, UserRole } = await import("../../models/User.js");
+const { Template } = await import("../../models/Template.js");
+
+let testServer: ApolloServerType;
+let templateCollaboratorStore: InstanceType<typeof TemplateCollaborator>[];
 let affiliationId: string;
 let templateId: number;
 let adminToken: JWTAccessToken;
 let query: string;
 
 // Proxy call to the Apollo server test server
-async function executeQuery (
+async function executeQuery(
   query: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   variables: any,
   token: JWTAccessToken
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<any> {
   const context = buildContext(logger, token, null);
 

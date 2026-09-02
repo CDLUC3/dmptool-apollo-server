@@ -1,15 +1,15 @@
 import { GraphQLError, GraphQLResolveInfo } from 'graphql';
-import { MyContext } from "../context";
-import { UserRole } from "../models/User";
-import { JWTAccessToken } from "./tokenService";
-import { prepareObjectForLogs } from "../logger";
-import { AuthenticatedResolverType } from "../types/general";
+import { MyContext } from "../context.js";
+import { UserRole } from "../models/User.js";
+import { JWTAccessToken } from "./tokenService.js";
+import { prepareObjectForLogs } from "../logger.js";
+import { AuthenticatedResolverType } from "../types/general.js";
 import {
   AuthenticationError,
   ForbiddenError,
   InternalServerError
-} from "../utils/graphQLErrors";
-import { isNullOrUndefined } from "../utils/helpers";
+} from "../utils/graphQLErrors.js";
+import { isNullOrUndefined } from "../utils/helpers.js";
 
 /**
  * Wraps an Apollo Server resolver to ensure that the user is authenticated and
@@ -56,7 +56,7 @@ export const authenticatedResolver = <TResult, TArgs, TParent = Record<PropertyK
  * @returns true if the user is authenticated
  */
 export const isAuthorized = (token: JWTAccessToken): boolean => {
-    return !isNullOrUndefined(token) && !isNullOrUndefined(token.id);
+  return !isNullOrUndefined(token) && !isNullOrUndefined(token.id);
 }
 
 /**
@@ -66,7 +66,7 @@ export const isAuthorized = (token: JWTAccessToken): boolean => {
  * @returns true if the user is an affiliation administrator
  */
 export const isAdmin = (token: JWTAccessToken): boolean => {
-  if(isAuthorized(token) && token.affiliationId) {
+  if (isAuthorized(token) && token.affiliationId) {
     return [UserRole.ADMIN.toString(), UserRole.SUPERADMIN.toString()].includes(token?.role);
   }
   return false;

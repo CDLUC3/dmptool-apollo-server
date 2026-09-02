@@ -1,10 +1,21 @@
+import { jest } from '@jest/globals';
 import casual from "casual";
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { PlanFunding, ProjectFunding, ProjectFundingStatus } from "../Funding";
-import { getRandomEnumValue } from "../../__tests__/helpers";
-import { logger } from "../../logger";
 
-jest.mock('../../context.ts');
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+// Dynamic imports AFTER all mocks are registered
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
+const { ProjectFunding, PlanFunding, ProjectFundingStatus } = await import("../Funding.js");
+const { getRandomEnumValue } = await import('../../__tests__/helpers.js');
 
 let context;
 
@@ -197,7 +208,7 @@ describe('update', () => {
   });
 
   it('returns the ProjectFunding with errors if it is not valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (projectFunding.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -207,7 +218,7 @@ describe('update', () => {
   });
 
   it('returns an error if the ProjectFunding has no id', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (projectFunding.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
@@ -218,13 +229,13 @@ describe('update', () => {
   });
 
   it('returns the updated ProjectFunding', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (projectFunding.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
     updateQuery.mockResolvedValueOnce(projectFunding);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof ProjectFunding> | null>>();
     (ProjectFunding.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(projectFunding);
 
@@ -260,7 +271,7 @@ describe('create', () => {
   });
 
   it('returns the ProjectFunding without errors if it is valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (projectFunding.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -276,7 +287,7 @@ describe('create', () => {
   });
 
   it('returns the ProjectFunding with an error if the question already exists', async () => {
-    const mockFindBy = jest.fn();
+    const mockFindBy = jest.fn<() => Promise<InstanceType<typeof ProjectFunding> | null>>();
     (ProjectFunding.findByProjectAndAffiliation as jest.Mock) = mockFindBy;
     mockFindBy.mockResolvedValueOnce(projectFunding);
 
@@ -287,11 +298,11 @@ describe('create', () => {
   });
 
   it('returns the newly added ProjectFunding', async () => {
-    const mockFindBy = jest.fn();
+    const mockFindBy = jest.fn<() => Promise<InstanceType<typeof ProjectFunding> | null>>();
     (ProjectFunding.findByProjectAndAffiliation as jest.Mock) = mockFindBy;
     mockFindBy.mockResolvedValueOnce(null);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof ProjectFunding> | null>>();
     (ProjectFunding.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(projectFunding);
 
@@ -325,7 +336,7 @@ describe('delete', () => {
   });
 
   it('returns null if it was not able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<boolean>>();
     (ProjectFunding.delete as jest.Mock) = deleteQuery;
 
     deleteQuery.mockResolvedValueOnce(null);
@@ -333,11 +344,11 @@ describe('delete', () => {
   });
 
   it('returns the ProjectFunding if it was able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<boolean>>();
     (ProjectFunding.delete as jest.Mock) = deleteQuery;
     deleteQuery.mockResolvedValueOnce(projectFunding);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof ProjectFunding> | null>>();
     (ProjectFunding.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(projectFunding);
 
@@ -478,7 +489,7 @@ describe('update', () => {
   });
 
   it('returns the PlanFunding with errors if it is not valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (planFunding.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -488,7 +499,7 @@ describe('update', () => {
   });
 
   it('returns an error if the PlanFunding has no id', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (planFunding.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
@@ -499,13 +510,13 @@ describe('update', () => {
   });
 
   it('returns the updated PlanFunding', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (planFunding.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
     updateQuery.mockResolvedValueOnce(planFunding);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof PlanFunding> | null>>();
     (PlanFunding.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(planFunding);
 
@@ -537,7 +548,7 @@ describe('create', () => {
   });
 
   it('returns the PlanFunding without errors if it is valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (planFunding.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -553,7 +564,7 @@ describe('create', () => {
   });
 
   it('returns the PlanFunding with an error if the question already exists', async () => {
-    const mockFindBy = jest.fn();
+    const mockFindBy = jest.fn<() => Promise<InstanceType<typeof PlanFunding> | null>>();
     (PlanFunding.findByPlanAndProjectFundingId as jest.Mock) = mockFindBy;
     mockFindBy.mockResolvedValueOnce(planFunding);
 
@@ -564,11 +575,11 @@ describe('create', () => {
   });
 
   it('returns the newly added PlanFunding', async () => {
-    const mockFindBy = jest.fn();
+    const mockFindBy = jest.fn<() => Promise<InstanceType<typeof PlanFunding> | null>>();
     (PlanFunding.findByPlanAndProjectFundingId as jest.Mock) = mockFindBy;
     mockFindBy.mockResolvedValueOnce(null);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof PlanFunding> | null>>();
     (PlanFunding.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(planFunding);
 
@@ -598,7 +609,7 @@ describe('delete', () => {
   });
 
   it('returns null if it was not able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<boolean>>();
     (PlanFunding.delete as jest.Mock) = deleteQuery;
 
     deleteQuery.mockResolvedValueOnce(null);
@@ -606,11 +617,11 @@ describe('delete', () => {
   });
 
   it('returns the PlanFunding if it was able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<boolean>>();
     (PlanFunding.delete as jest.Mock) = deleteQuery;
     deleteQuery.mockResolvedValueOnce(planFunding);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof PlanFunding> | null>>();
     (PlanFunding.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(planFunding);
 

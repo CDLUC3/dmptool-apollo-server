@@ -1,34 +1,34 @@
 import { GraphQLError } from "graphql";
-import { MyContext } from "../context";
-import { prepareObjectForLogs } from "../logger";
+import { MyContext } from "../context.js";
+import { prepareObjectForLogs } from "../logger.js";
 import {
   AuthenticationError,
   ForbiddenError,
   InternalServerError,
   NotFoundError
-} from "../utils/graphQLErrors";
+} from "../utils/graphQLErrors.js";
 
-import { isAuthorized } from "../services/authService";
-import { hasPermissionOnProject } from "../services/projectService";
+import { isAuthorized } from "../services/authService.js";
+import { hasPermissionOnProject } from "../services/projectService.js";
 import {
   sendProjectCollaboratorsCommentsAddedEmail,
   sendFeedbackRequestEmail,
   sendFeedbackCompleteEmail
-} from '../services/emailService';
-import { isAdmin, isSuperAdmin } from "../services/authService";
-import { canDeleteComment } from "../services/commentPermissions";
-import { Project } from "../models/Project";
-import { Plan } from "../models/Plan";
-import { PlanFeedback } from "../models/PlanFeedback";
-import { User } from "../models/User";
-import { ProjectCollaborator, ProjectCollaboratorAccessLevel } from "../models/Collaborator";
-import { PlanFeedbackComment } from "../models/PlanFeedbackComment";
-import { VersionedTemplate } from "../models/VersionedTemplate";
-import { Affiliation } from "../models/Affiliation";
-import { AdminNotification } from "../models/AdminNotifications";
-import { ResolversParentTypes } from "../types";
-import { Resolvers, PlanFeedbackStatus } from "../types";
-import { getCurrentDate } from "../utils/helpers";
+} from '../services/emailService.js';
+import { isAdmin, isSuperAdmin } from "../services/authService.js";
+import { canDeleteComment } from "../services/commentPermissions.js";
+import { Project } from "../models/Project.js";
+import { Plan } from "../models/Plan.js";
+import { PlanFeedback } from "../models/PlanFeedback.js";
+import { User } from "../models/User.js";
+import { ProjectCollaborator, ProjectCollaboratorAccessLevel } from "../models/Collaborator.js";
+import { PlanFeedbackComment } from "../models/PlanFeedbackComment.js";
+import { VersionedTemplate } from "../models/VersionedTemplate.js";
+import { Affiliation } from "../models/Affiliation.js";
+import { AdminNotification } from "../models/AdminNotifications.js";
+import { ResolversParentTypes } from "../types.js";
+import { Resolvers, PlanFeedbackStatus } from "../types.js";
+import { getCurrentDate } from "../utils/helpers.js";
 
 type PlanFeedbackParent = ResolversParentTypes['PlanFeedback'] & {
   requestedById?: number;

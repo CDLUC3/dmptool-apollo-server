@@ -1,5 +1,5 @@
-import { MyContext } from "../context";
-import { MySqlModel } from "./MySqlModel";
+import { MyContext } from "../context.js";
+import { MySqlModel } from "./MySqlModel.js";
 
 export class VersionedGuidance extends MySqlModel {
   public versionedGuidanceGroupId: number;

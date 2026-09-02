@@ -1,51 +1,95 @@
-import casual from "casual";
-
-// Mock the authenticatedResolver function because it is a Highest Order Function (HOF)
-// and gets loaded when we import resolvers.ts below
-jest.mock('../../services/authService', () => ({
-  ...jest.requireActual('../../services/authService'),
-  // This mocks the HOF itself to be a simple pass-through
-  authenticatedResolver: jest.fn((ref, level, resolver) => resolver),
-}));
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { ApolloServer } from "@apollo/server";
-import { typeDefs } from "../../schema";
-import { resolvers } from '../../resolver';
+import casual from "casual";
+import { jest } from '@jest/globals';
 
-import { logger } from "../../logger";
-import { JWTAccessToken } from "../../services/tokenService";
-import { QuestionCustomization } from '../../models/QuestionCustomization';
-import { CustomQuestion, PinnedQuestionTypeEnum } from '../../models/CustomQuestion';
-import { VersionedQuestion } from '../../models/VersionedQuestion';
-import { PinnedSectionTypeEnum } from '../../models/CustomSection';
-import { User, UserRole } from "../../models/User";
-import {
-  getValidatedCustomization,
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+mockAppConfigs();
+mockAppLogger();
+
+
+jest.unstable_mockModule('../../datasources/cache.js', () => ({
+  Cache: jest.fn().mockImplementation(() => ({
+    get: jest.fn(),
+    set: jest.fn(),
+    delete: jest.fn(),
+    clear: jest.fn(),
+  })),
+}));
+
+// Register mocks FIRST, before any dynamic imports
+jest.unstable_mockModule('../../services/authService.js', () => ({
+  authenticatedResolver: jest.fn((ref, level, resolver) => resolver),
+  isAuthorized: (token) => {
+    return token != null && token.id != null;
+  },
+  isAdmin: (token) => {
+    if (token != null && token.id != null && token.affiliationId) {
+      return ['ADMIN', 'SUPERADMIN'].includes(token?.role);
+    }
+    return false;
+  },
+  isSuperAdmin: (token) => {
+    return token != null && token.id != null && token?.role === 'SUPERADMIN';
+  },
+}));
+
+const mockGetValidatedCustomization = jest.fn<(...args: any[]) => Promise<any>>();
+const mockMarkTemplateCustomizationAsDirty = jest.fn<(...args: any[]) => Promise<any>>();
+
+const actualTemplateCustomizationService = await import('../../services/templateCustomizationService.js');
+jest.unstable_mockModule('../../services/templateCustomizationService.js', () => ({
+  ...actualTemplateCustomizationService,
+  getValidatedCustomization: mockGetValidatedCustomization,
+  markTemplateCustomizationAsDirty: mockMarkTemplateCustomizationAsDirty,
+}));
+
+
+import type { MyContext } from "../../context.js";
+type QuestionCustomizationInstance = InstanceType<typeof QuestionCustomization>;
+function asQuestionCustomization(value: any): QuestionCustomizationInstance {
+  return value as QuestionCustomizationInstance;
+}
+
+type CustomQuestionInstance = InstanceType<typeof CustomQuestion>;
+function asCustomQuestion(value: any): CustomQuestionInstance {
+  return value as CustomQuestionInstance;
+}
+
+type VersionedQuestionInstance = InstanceType<typeof VersionedQuestion>;
+function asVersionedQuestion(value: any): VersionedQuestionInstance {
+  return value as VersionedQuestionInstance;
+}
+
+// Dynamic import AFTER mocking the configs and logger
+const { typeDefs } = await import("../../schema.js");
+const { resolvers } = await import("../../resolver.js");
+const { logger } = await import("../../logger.js");
+const {
+  buildContext,
+  mockToken
+} = await import("../../__mocks__/context.js");
+const { QuestionCustomization } = await import('../../models/QuestionCustomization.js');
+const { CustomQuestion, PinnedQuestionTypeEnum } = await import('../../models/CustomQuestion.js');
+const { VersionedQuestion } = await import('../../models/VersionedQuestion.js');
+const { PinnedSectionTypeEnum } = await import('../../models/CustomSection.js');
+const { User, UserRole } = await import("../../models/User.js");
+const {
   markTemplateCustomizationAsDirty
-} from '../../services/templateCustomizationService';
-import { buildContext, mockToken } from "../../__mocks__/context";
-
-jest.mock('../../context.ts');
-jest.mock('../../datasources/cache');
-
-jest.mock('../../models/QuestionCustomization');
-jest.mock('../../models/CustomQuestion');
-jest.mock('../../models/TemplateCustomization');
-jest.mock('../../models/VersionedQuestion');
-jest.mock('../../services/templateCustomizationService');
+} = await import('../../services/templateCustomizationService.js');
 
 let testServer: ApolloServer;
 let affiliationId: string;
-let adminToken: JWTAccessToken;
+let adminToken: MyContext['token'];
 let query: string;
 
 // Proxy call to the Apollo server test server
 async function executeQuery(
   query: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   variables: any,
-  token: JWTAccessToken
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  token: MyContext['token'],
 ): Promise<any> {
   const context = buildContext(logger, token, null);
 
@@ -72,7 +116,7 @@ afterEach(() => {
 });
 
 describe('questionCustomization resolver', () => {
-  let user: User;
+  let user: InstanceType<typeof User>;
 
   beforeEach(async () => {
     user = new User({
@@ -83,7 +127,7 @@ describe('questionCustomization resolver', () => {
       affiliationId: casual.url,
     });
 
-    (user.getEmail as jest.Mock) = jest.fn().mockResolvedValue(casual.email);
+    (user.getEmail as jest.Mock) = jest.fn<() => Promise<string>>().mockResolvedValue(casual.email);
   });
 
   describe('Query.questionCustomization', () => {
@@ -120,9 +164,8 @@ describe('questionCustomization resolver', () => {
       };
       const mockParent = { id: 10, isDirty: false };
 
-      (QuestionCustomization.findById as jest.Mock).mockResolvedValue(mockCustomization);
-      (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
-
+      jest.spyOn(QuestionCustomization, 'findById').mockResolvedValue(mockCustomization as InstanceType<typeof QuestionCustomization>);
+      mockGetValidatedCustomization.mockResolvedValue(mockParent);
       const vars = { questionCustomizationId: 1 };
       const result = await executeQuery(query, vars, adminToken);
 
@@ -140,7 +183,7 @@ describe('questionCustomization resolver', () => {
     });
 
     it('should return NotFound error when section customization is not found', async () => {
-      (QuestionCustomization.findById as jest.Mock).mockResolvedValue(null);
+      jest.spyOn(QuestionCustomization, 'findById').mockResolvedValue(null);
 
       const vars = { questionCustomizationId: 999 };
       const result = await executeQuery(query, vars, adminToken);
@@ -156,8 +199,7 @@ describe('questionCustomization resolver', () => {
         templateCustomizationId: 10
       };
 
-      (QuestionCustomization.findById as jest.Mock).mockResolvedValue(mockCustomization);
-      (getValidatedCustomization as jest.Mock).mockResolvedValue(null);
+      jest.spyOn(QuestionCustomization, 'findById').mockResolvedValue(asQuestionCustomization(mockCustomization)); mockGetValidatedCustomization.mockResolvedValue(null);
 
       const vars = { questionCustomizationId: 1 };
       const result = await executeQuery(query, vars, adminToken);
@@ -202,8 +244,8 @@ describe('questionCustomization resolver', () => {
       };
       const mockParent = { id: 10, isDirty: false };
 
-      (QuestionCustomization.findByCustomizationAndVersionedQuestion as jest.Mock).mockResolvedValue(mockCustomization);
-      (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
+      jest.spyOn(QuestionCustomization, 'findByCustomizationAndVersionedQuestion').mockResolvedValue(asQuestionCustomization(mockCustomization));
+      mockGetValidatedCustomization.mockResolvedValue(mockParent);
 
       const vars = { templateCustomizationId: 1, versionedQuestionId: 5 };
       const result = await executeQuery(query, vars, adminToken);
@@ -223,7 +265,7 @@ describe('questionCustomization resolver', () => {
     });
 
     it('should return NotFound error when section customization is not found', async () => {
-      (QuestionCustomization.findByCustomizationAndVersionedQuestion as jest.Mock).mockResolvedValue(null);
+      jest.spyOn(QuestionCustomization, 'findByCustomizationAndVersionedQuestion').mockResolvedValue(null);
 
       const vars = { templateCustomizationId: 1, versionedQuestionId: 999 };
       const result = await executeQuery(query, vars, adminToken);
@@ -239,8 +281,8 @@ describe('questionCustomization resolver', () => {
         templateCustomizationId: 10
       };
 
-      (QuestionCustomization.findByCustomizationAndVersionedQuestion as jest.Mock).mockResolvedValue(mockCustomization);
-      (getValidatedCustomization as jest.Mock).mockResolvedValue(null);
+      jest.spyOn(QuestionCustomization, 'findByCustomizationAndVersionedQuestion').mockResolvedValue(asQuestionCustomization(mockCustomization));
+      mockGetValidatedCustomization.mockResolvedValue(null);
 
       const vars = { templateCustomizationId: 1, versionedQuestionId: 5 };
       const result = await executeQuery(query, vars, adminToken);
@@ -289,8 +331,8 @@ describe('questionCustomization resolver', () => {
       };
       const mockParent = { id: 10, isDirty: false };
 
-      (CustomQuestion.findById as jest.Mock).mockResolvedValue(mockCustomQuestion);
-      (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
+      jest.spyOn(CustomQuestion, 'findById').mockResolvedValue(asCustomQuestion(mockCustomQuestion));
+      mockGetValidatedCustomization.mockResolvedValue(mockParent);
 
       const vars = { customQuestionId: 1 };
       const result = await executeQuery(query, vars, adminToken);
@@ -306,7 +348,7 @@ describe('questionCustomization resolver', () => {
     });
 
     it('should return NotFound when custom section is not found', async () => {
-      (CustomQuestion.findById as jest.Mock).mockResolvedValue(null);
+      jest.spyOn(CustomQuestion, 'findById').mockResolvedValue(null);
 
       const vars = { customQuestionId: 999 };
       const result = await executeQuery(query, vars, adminToken);
@@ -322,8 +364,8 @@ describe('questionCustomization resolver', () => {
         templateCustomizationId: 10
       };
 
-      (CustomQuestion.findById as jest.Mock).mockResolvedValue(mockCustomQuestion);
-      (getValidatedCustomization as jest.Mock).mockResolvedValue(null);
+      jest.spyOn(CustomQuestion, 'findById').mockResolvedValue(asCustomQuestion(mockCustomQuestion));
+      mockGetValidatedCustomization.mockResolvedValue(null);
 
       const vars = { customQuestionId: 1 };
       const result = await executeQuery(query, vars, adminToken)
@@ -361,15 +403,15 @@ describe('questionCustomization resolver', () => {
       };
       const mockSection = { id: 5, name: 'Section' };
       const mockParent = { id: 10, isDirty: false };
-      const mockCreated = {
+      const mockCreated = asQuestionCustomization({
         id: 1,
         questionId: 5,
         ...input,
-        hasErrors: jest.fn().mockReturnValue(false)
-      } as undefined as QuestionCustomization;
+        hasErrors: jest.fn<() => boolean>().mockReturnValue(false)
+      });
 
-      (VersionedQuestion.findById as jest.Mock).mockResolvedValue(mockSection);
-      (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
+      jest.spyOn(VersionedQuestion, 'findById').mockResolvedValue(asVersionedQuestion(mockSection));
+      mockGetValidatedCustomization.mockResolvedValue(mockParent);
       jest.spyOn(QuestionCustomization.prototype, 'create').mockResolvedValue(mockCreated);
 
       const result = await executeQuery(query, { input }, adminToken);
@@ -391,7 +433,7 @@ describe('questionCustomization resolver', () => {
         versionedQuestionId: 999
       };
 
-      (VersionedQuestion.findById as jest.Mock).mockResolvedValue(null);
+      jest.spyOn(VersionedQuestion, 'findById').mockResolvedValue(null);
 
       const result = await executeQuery(query, { input }, adminToken);
 
@@ -407,14 +449,14 @@ describe('questionCustomization resolver', () => {
       };
       const mockSection = { id: 5 };
       const mockParent = { id: 10, isDirty: false };
-      const mockCreated = {
+      const mockCreated = asQuestionCustomization({
         id: 1,
         questionId: 5,
-        hasErrors: jest.fn().mockReturnValue(true)
-      } as undefined as QuestionCustomization;
+        hasErrors: jest.fn<() => boolean>().mockReturnValue(true)
+      });
 
-      (VersionedQuestion.findById as jest.Mock).mockResolvedValue(mockSection);
-      (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
+      jest.spyOn(VersionedQuestion, 'findById').mockResolvedValue(asVersionedQuestion(mockSection));
+      mockGetValidatedCustomization.mockResolvedValue(mockParent);
       jest.spyOn(QuestionCustomization.prototype, 'create').mockResolvedValue(mockCreated);
 
       await executeQuery(query, { input }, adminToken);
@@ -452,14 +494,14 @@ describe('questionCustomization resolver', () => {
         templateCustomizationId: 10,
         versionedQuestionId: 5,
         guidanceText: 'Old guidanceText',
-        hasErrors: jest.fn().mockReturnValue(false),
-        update: jest.fn()
+        hasErrors: jest.fn<() => boolean>().mockReturnValue(false),
+        update: jest.fn<() => Promise<any>>()
       };
       const mockParent = { id: 10, isDirty: false };
       const mockUpdated = { ...mockCustomization, guidanceText: 'Updated guidanceText' };
 
-      (QuestionCustomization.findById as jest.Mock).mockResolvedValue(mockCustomization);
-      (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
+      jest.spyOn(QuestionCustomization, 'findById').mockResolvedValue(asQuestionCustomization(mockCustomization));
+      mockGetValidatedCustomization.mockResolvedValue(mockParent);
       mockCustomization.update.mockResolvedValue(mockUpdated);
 
       const result = await executeQuery(query, { input }, adminToken);
@@ -474,7 +516,7 @@ describe('questionCustomization resolver', () => {
         guidanceText: 'New guidanceText'
       };
 
-      (QuestionCustomization.findById as jest.Mock).mockResolvedValue(null);
+      jest.spyOn(QuestionCustomization, 'findById').mockResolvedValue(null);
 
       const result = await executeQuery(query, { input }, adminToken);
 
@@ -492,13 +534,13 @@ describe('questionCustomization resolver', () => {
         id: 1,
         templateCustomizationId: 10,
         hasErrors: jest.fn().mockReturnValue(false),
-        update: jest.fn()
+        update: jest.fn<() => Promise<any>>()
       };
       const mockParent = { id: 10, isDirty: true };
       const mockUpdated = { ...mockCustomization };
 
-      (QuestionCustomization.findById as jest.Mock).mockResolvedValue(mockCustomization);
-      (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
+      jest.spyOn(QuestionCustomization, 'findById').mockResolvedValue(asQuestionCustomization(mockCustomization));
+      mockGetValidatedCustomization.mockResolvedValue(mockParent);
       mockCustomization.update.mockResolvedValue(mockUpdated);
 
       await executeQuery(query, { input }, adminToken);
@@ -530,13 +572,13 @@ describe('questionCustomization resolver', () => {
         id: 1,
         templateCustomizationId: 10,
         hasErrors: jest.fn().mockReturnValue(false),
-        delete: jest.fn()
+        delete: jest.fn<() => Promise<any>>()
       };
       const mockParent = { id: 10, isDirty: false };
       const mockDeleted = { ...mockCustomization };
 
-      (QuestionCustomization.findById as jest.Mock).mockResolvedValue(mockCustomization);
-      (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
+      jest.spyOn(QuestionCustomization, 'findById').mockResolvedValue(asQuestionCustomization(mockCustomization));
+      mockGetValidatedCustomization.mockResolvedValue(mockParent);
       mockCustomization.delete.mockResolvedValue(mockDeleted);
 
       const args = { questionCustomizationId: 1 };
@@ -548,7 +590,7 @@ describe('questionCustomization resolver', () => {
     });
 
     it('should throw NotFoundError when section customization is not found', async () => {
-      (QuestionCustomization.findById as jest.Mock).mockResolvedValue(null);
+      jest.spyOn(QuestionCustomization, 'findById').mockResolvedValue(null);
 
       const args = { questionCustomizationId: 999 };
       const result = await executeQuery(query, args, adminToken);
@@ -593,13 +635,12 @@ describe('questionCustomization resolver', () => {
         pinnedQuestionId: 5
       };
       const mockParent = { id: 10, isDirty: false };
-      const mockCreated = {
+      const mockCreated = asCustomQuestion({
         id: 1,
         ...input,
-        hasErrors: jest.fn().mockReturnValue(false)
-      } as undefined as CustomQuestion;
-
-      (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
+        hasErrors: jest.fn<() => boolean>().mockReturnValue(false)
+      });
+      mockGetValidatedCustomization.mockResolvedValue(mockParent);
 
       jest.spyOn(CustomQuestion.prototype, 'create').mockResolvedValue(mockCreated);
 
@@ -624,12 +665,13 @@ describe('questionCustomization resolver', () => {
         migrationStatus: 'OK'
       };
       const mockParent = { id: 10, isDirty: false };
-      const mockCreated = {
+      const mockCreated = asCustomQuestion({
         id: 1,
-        hasErrors: jest.fn().mockReturnValue(true)
-      } as undefined as CustomQuestion;
+        ...input,
+        hasErrors: jest.fn<() => boolean>().mockReturnValue(true)
+      });
 
-      (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
+      mockGetValidatedCustomization.mockResolvedValue(mockParent);
 
       jest.spyOn(CustomQuestion.prototype, 'create').mockResolvedValue(mockCreated);
 
@@ -689,13 +731,15 @@ describe('questionCustomization resolver', () => {
         requirementText: 'Old requirements',
         guidanceText: 'Old guidance',
         hasErrors: jest.fn().mockReturnValue(false),
-        update: jest.fn()
+        update: jest.fn<() => Promise<any>>()
       };
       const mockParent = { id: 10, isDirty: false };
       const mockUpdated = { ...mockCustomization, ...input };
 
-      (CustomQuestion.findById as jest.Mock).mockResolvedValue(mockCustomization);
-      (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
+
+
+      jest.spyOn(CustomQuestion, 'findById').mockResolvedValue(asCustomQuestion(mockCustomization));
+      mockGetValidatedCustomization.mockResolvedValue(asQuestionCustomization(mockParent));
       mockCustomization.update.mockResolvedValue(mockUpdated);
 
       const result = await executeQuery(query, { input }, adminToken);
@@ -714,7 +758,7 @@ describe('questionCustomization resolver', () => {
         guidanceText: 'Guide'
       };
 
-      (CustomQuestion.findById as jest.Mock).mockResolvedValue(null);
+      jest.spyOn(CustomQuestion, 'findById').mockResolvedValue(null);
 
       const result = await executeQuery(query, { input }, adminToken);
 
@@ -756,13 +800,13 @@ describe('questionCustomization resolver', () => {
         pinnedQuestionType: 'BASE',
         pinnedQuestionId: 5,
         hasErrors: jest.fn().mockReturnValue(false),
-        delete: jest.fn()
+        delete: jest.fn<() => Promise<any>>()
       };
       const mockParent = { id: 10, isDirty: false };
       const mockDeleted = { ...mockCustomization };
 
-      (CustomQuestion.findById as jest.Mock).mockResolvedValue(mockCustomization);
-      (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
+      jest.spyOn(CustomQuestion, 'findById').mockResolvedValue(asCustomQuestion(mockCustomization));
+      mockGetValidatedCustomization.mockResolvedValue(asQuestionCustomization(mockParent));
       mockCustomization.delete.mockResolvedValue(mockDeleted);
 
       const input = { customQuestionId: 1 };
@@ -774,7 +818,7 @@ describe('questionCustomization resolver', () => {
     });
 
     it('should throw NotFoundError when custom section is not found', async () => {
-      (CustomQuestion.findById as jest.Mock).mockResolvedValue(null);
+      jest.spyOn(CustomQuestion, 'findById').mockResolvedValue(null);
 
       const input = { customQuestionId: 999 };
       const result = await executeQuery(query, input, adminToken);
@@ -827,7 +871,7 @@ describe('questionCustomization resolver', () => {
         pinnedQuestionType: null,
         pinnedQuestionId: null,
         hasErrors: jest.fn().mockReturnValue(false),
-        update: jest.fn()
+        update: jest.fn<() => Promise<any>>()
       };
       const mockParent = { id: 10, isDirty: false };
       const mockMoved = {
@@ -837,9 +881,9 @@ describe('questionCustomization resolver', () => {
         hasErrors: jest.fn().mockReturnValue(false)
       };
 
-      (CustomQuestion.findById as jest.Mock).mockResolvedValue(mockCustomization);
-      (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
-      (CustomQuestion.findByPosition as jest.Mock).mockResolvedValue(null);
+      jest.spyOn(CustomQuestion, 'findById').mockResolvedValue(asCustomQuestion(mockCustomization));
+      mockGetValidatedCustomization.mockResolvedValue(asQuestionCustomization(mockParent));
+      jest.spyOn(CustomQuestion, 'findByPosition').mockResolvedValue(null);
       mockCustomization.update.mockResolvedValue(mockMoved);
 
       const result = await executeQuery(query, { input }, adminToken);
@@ -859,7 +903,7 @@ describe('questionCustomization resolver', () => {
         direction: 'DOWN'
       };
 
-      (CustomQuestion.findById as jest.Mock).mockResolvedValue(null);
+      jest.spyOn(CustomQuestion, 'findById').mockResolvedValue(null);
 
       const result = await executeQuery(query, { input }, adminToken);
 
@@ -877,27 +921,27 @@ describe('questionCustomization resolver', () => {
         pinnedQuestionId: null,
         direction: 'DOWN'
       };
-      const mockCustomization = {
+      const mockCustomization = asCustomQuestion({
         id: 1,
         templateCustomizationId: 10,
         pinnedQuestionType: null,
         pinnedQuestionId: null,
         hasErrors: jest.fn().mockReturnValue(false),
-        update: jest.fn()
-      } as undefined as CustomQuestion;
+        update: jest.fn<() => Promise<any>>()
+      });
       const mockParent = { id: 10, isDirty: false };
-      const mockMoved = {
+      const mockMoved = asCustomQuestion({
         ...mockCustomization,
         sectionType: PinnedSectionTypeEnum.BASE,
         sectionId: 2,
         pinnedQuestionType: null,
         pinnedQuestionId: null,
         hasErrors: jest.fn().mockReturnValue(false)
-      } as undefined as CustomQuestion;
+      });
 
-      (CustomQuestion.findById as jest.Mock).mockResolvedValue(mockCustomization);
-      (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
-      (CustomQuestion.findByPosition as jest.Mock).mockResolvedValue(null);
+      jest.spyOn(CustomQuestion, 'findById').mockResolvedValue(mockCustomization);
+      mockGetValidatedCustomization.mockResolvedValue(mockParent);
+      jest.spyOn(CustomQuestion, 'findByPosition').mockResolvedValue(null);
       jest.spyOn(mockCustomization, 'update').mockResolvedValue(mockMoved);
 
       await executeQuery(query, { input }, adminToken);
@@ -922,8 +966,8 @@ describe('questionCustomization resolver', () => {
         sectionId: 2,
         pinnedQuestionType: null,
         pinnedQuestionId: null,
-        hasErrors: jest.fn().mockReturnValue(false),
-        update: jest.fn()
+        hasErrors: jest.fn<() => boolean>().mockReturnValue(false),
+        update: jest.fn<() => Promise<any>>()
       };
       const mockOccupant = {
         id: 2,
@@ -932,28 +976,28 @@ describe('questionCustomization resolver', () => {
         sectionId: 2,
         pinnedQuestionType: PinnedQuestionTypeEnum.BASE,
         pinnedQuestionId: 5,
-        hasErrors: jest.fn().mockReturnValue(false),
-        update: jest.fn()
+        hasErrors: jest.fn<() => boolean>().mockReturnValue(false),
+        update: jest.fn<() => Promise<any>>()
       };
       const mockParent = { id: 10, isDirty: false };
       const mockTempMoved = {
         ...mockCustomization,
-        hasErrors: jest.fn().mockReturnValue(false)
+        hasErrors: jest.fn<() => boolean>().mockReturnValue(false)
       };
       const mockMoved = {
         ...mockCustomization,
         pinnedQuestionType: PinnedSectionTypeEnum.BASE,
         pinnedQuestionId: 5,
-        hasErrors: jest.fn().mockReturnValue(false)
+        hasErrors: jest.fn<() => boolean>().mockReturnValue(false)
       };
       const mockSwapped = {
         ...mockOccupant,
-        hasErrors: jest.fn().mockReturnValue(false)
+        hasErrors: jest.fn<() => boolean>().mockReturnValue(false)
       };
 
-      (CustomQuestion.findById as jest.Mock).mockResolvedValue(mockCustomization);
-      (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
-      (CustomQuestion.findByPosition as jest.Mock).mockResolvedValue(mockOccupant);
+      jest.spyOn(CustomQuestion, 'findById').mockResolvedValue(asCustomQuestion(mockCustomization));
+      mockGetValidatedCustomization.mockResolvedValue(asQuestionCustomization(mockParent));
+      jest.spyOn(CustomQuestion, 'findByPosition').mockResolvedValue(asCustomQuestion(mockOccupant));
       mockCustomization.update
         .mockResolvedValueOnce(mockTempMoved)
         .mockResolvedValueOnce(mockMoved);
@@ -989,8 +1033,8 @@ describe('questionCustomization resolver', () => {
         sectionId: originalSectionId,
         pinnedQuestionType: originalPinnedQuestionType,
         pinnedQuestionId: originalPinnedQuestionId,
-        hasErrors: jest.fn().mockReturnValue(false),
-        update: jest.fn()
+        hasErrors: jest.fn<() => boolean>().mockReturnValue(false),
+        update: jest.fn<() => Promise<any>>()
       };
       const mockOccupant = {
         id: 2,
@@ -998,8 +1042,8 @@ describe('questionCustomization resolver', () => {
         sectionId: null,
         pinnedQuestionType: null,
         pinnedQuestionId: null,
-        hasErrors: jest.fn().mockReturnValue(false),
-        update: jest.fn()
+        hasErrors: jest.fn<() => boolean>().mockReturnValue(false),
+        update: jest.fn<() => Promise<any>>()
       };
       const mockParent = { id: 10, isDirty: false };
       const mockTempMoved = {
@@ -1017,9 +1061,9 @@ describe('questionCustomization resolver', () => {
         hasErrors: jest.fn().mockReturnValue(false)
       };
 
-      (CustomQuestion.findById as jest.Mock).mockResolvedValue(mockCustomization);
-      (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
-      (CustomQuestion.findByPosition as jest.Mock).mockResolvedValue(mockOccupant);
+      jest.spyOn(CustomQuestion, 'findById').mockResolvedValue(asCustomQuestion(mockCustomization));
+      mockGetValidatedCustomization.mockResolvedValue(asQuestionCustomization(mockParent));
+      jest.spyOn(CustomQuestion, 'findByPosition').mockResolvedValue(asCustomQuestion(mockOccupant));
       mockCustomization.update
         .mockResolvedValueOnce(mockTempMoved)
         .mockResolvedValueOnce(mockMoved);
@@ -1055,8 +1099,8 @@ describe('questionCustomization resolver', () => {
         sectionId: originalSectionId,
         pinnedQuestionType: originalPinnedQuestionType,
         pinnedQuestionId: originalPinnedQuestionId,
-        hasErrors: jest.fn().mockReturnValue(false),
-        update: jest.fn()
+        hasErrors: jest.fn<() => boolean>().mockReturnValue(false),
+        update: jest.fn<() => Promise<any>>()
       };
       const mockTailQuestion = {
         id: 3,
@@ -1064,28 +1108,28 @@ describe('questionCustomization resolver', () => {
         sectionId: null,
         pinnedQuestionType: null,
         pinnedQuestionId: null,
-        hasErrors: jest.fn().mockReturnValue(false),
-        update: jest.fn()
+        hasErrors: jest.fn<() => boolean>().mockReturnValue(false),
+        update: jest.fn<() => Promise<any>>()
       };
       const mockParent = { id: 10, isDirty: false };
       const mockTempMoved = {
         ...mockCustomization,
-        hasErrors: jest.fn().mockReturnValue(false)
+        hasErrors: jest.fn<() => boolean>().mockReturnValue(false)
       };
       const mockMoved = {
         ...mockCustomization,
-        hasErrors: jest.fn().mockReturnValue(false)
+        hasErrors: jest.fn<() => boolean>().mockReturnValue(false)
       };
       const mockReanchored = {
         ...mockTailQuestion,
         hasErrors: jest.fn().mockReturnValue(false)
       };
 
-      (CustomQuestion.findById as jest.Mock).mockResolvedValue(mockCustomization);
-      (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
-      (CustomQuestion.findByPosition as jest.Mock)
+      jest.spyOn(CustomQuestion, 'findById').mockResolvedValue(asCustomQuestion(mockCustomization));
+      mockGetValidatedCustomization.mockResolvedValue(asQuestionCustomization(mockParent));
+      jest.spyOn(CustomQuestion, 'findByPosition')
         .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce(mockTailQuestion);
+        .mockResolvedValueOnce(asCustomQuestion(mockTailQuestion));
       mockCustomization.update
         .mockResolvedValueOnce(mockTempMoved)
         .mockResolvedValueOnce(mockMoved);

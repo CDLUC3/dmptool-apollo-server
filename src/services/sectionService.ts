@@ -1,14 +1,14 @@
-import { MyContext } from "../context";
-import { Section } from "../models/Section";
-import { Template } from "../models/Template";
-import { Tag } from "../models/Tag";
-import { hasPermissionOnTemplate } from "./templateService";
-import { VersionedSection } from "../models/VersionedSection";
-import { NotFoundError } from "../utils/graphQLErrors";
-import { Question } from "../models/Question";
-import { generateQuestionVersion } from "./questionService";
-import { prepareObjectForLogs } from "../logger";
-import { reorderDisplayOrder } from "../utils/helpers";
+import { MyContext } from "../context.js";
+import { Section } from "../models/Section.js";
+import { Template } from "../models/Template.js";
+import { Tag } from "../models/Tag.js";
+import { hasPermissionOnTemplate } from "./templateService.js";
+import { VersionedSection } from "../models/VersionedSection.js";
+import { NotFoundError } from "../utils/graphQLErrors.js";
+import { Question } from "../models/Question.js";
+import { generateQuestionVersion } from "./questionService.js";
+import { prepareObjectForLogs } from "../logger.js";
+import { reorderDisplayOrder } from "../utils/helpers.js";
 
 // Creates a new Version/Snapshot the specified Section (as a point in time snapshot)
 //    - Creates a new VersionedSection including all of the related Questions

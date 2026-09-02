@@ -1,780 +1,455 @@
-import { MyContext } from '../../context';
-import {
-  buildMockContextWithToken,
-} from '../../__mocks__/context';
-import {
-  ensureDefaultPlanContact,
-  updateMemberRoles,
-  saveMaDMPVersion,
-  getPlanVersions,
-} from '../planService';
-import { MemberRole } from '../../models/MemberRole';
-import { logger } from '../../logger';
-import { PlanMember, ProjectMember } from "../../models/Member";
-import casual from "casual";
-import { Project } from "../../models/Project";
-import { Plan } from "../../models/Plan";
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
-// For buildDataCiteXMLForPlan
-import { buildDataCiteXMLForPlan } from '../planService';
-import { Affiliation } from '../../models/Affiliation';
-import { PlanFunding, ProjectFunding } from '../../models/Funding';
-import { AlternateIdentifier } from '../../models/AlternateIdentifier';
-import * as dataciteXMLService from '../dataciteXMLService';
+import { jest } from '@jest/globals';
+import casual from 'casual';
 
-import {
-  createDMP,
-  deleteDMP, DMPExists, planToDMPCommonStandard,
-  tombstoneDMP,
-  updateDMP,
-  getDMPVersions,
-  getDMPs,
-} from '@dmptool/utils';
-import { getDynamoConnectionParams } from '../../config/awsConfig';
-import { generalConfig } from '../../config/generalConfig';
-import { DMPToolDMPType } from "@dmptool/types";
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
 
-jest.mock('@dmptool/utils');
+mockAppConfigs();
+mockAppLogger();
 
-jest.mock('../dataciteXMLService', () => ({
-  planToDataCiteMetadata: jest.fn(),
-  buildDataCiteXML: jest.fn(),
+// --- datasources/mysql.js ---
+jest.unstable_mockModule('../../datasources/mysql.js', () => ({
+  __esModule: true,
+  MySQLConnection: jest.fn().mockImplementation(() => ({
+    pool: null,
+    query: jest.fn(),
+    withTransaction: jest.fn(),
+  })),
 }));
 
-describe('planService', () => {
-  let context: MyContext;
+// --- config/awsConfig.js ---
+jest.unstable_mockModule('../../config/awsConfig.js', () => ({
+  awsConfig: {
+    opensearchServerless: { endpoint: 'http://localhost:9200' },
+  },
+}));
 
-  beforeEach(async () => {
-    context = await buildMockContextWithToken(logger);
+const actualOpenSearch = await import('../../datasources/openSearch.js');
+jest.unstable_mockModule('../../datasources/openSearch.js', () => ({
+  ...actualOpenSearch,
+  OpenSearch: jest.fn(),
+}));
+
+import type { MyContext } from '../../context.js';
+
+type PlanMemberInstance = InstanceType<typeof PlanMember>;
+function asPlanMemberList(value: any[]): PlanMemberInstance[] {
+  return value as PlanMemberInstance[];
+}
+
+type ProjectFundingInstance = InstanceType<typeof ProjectFunding>;
+function asProjectFundingList(value: any[]): ProjectFundingInstance[] {
+  return value as ProjectFundingInstance[];
+}
+
+type PlanFundingInstance = InstanceType<typeof PlanFunding>;
+function asPlanFundingList(value: any[]): PlanFundingInstance[] {
+  return value as PlanFundingInstance[];
+}
+
+type AlternateIdentifierInstance = InstanceType<typeof AlternateIdentifier>;
+function asAlternateIdentifierList(value: any[]): AlternateIdentifierInstance[] {
+  return value as AlternateIdentifierInstance[];
+}
+
+type AcceptedWorkInstance = InstanceType<typeof AcceptedWork>;
+function asAcceptedWorkList(value: any[]): AcceptedWorkInstance[] {
+  return value as AcceptedWorkInstance[];
+}
+
+type AnswerInstance = InstanceType<typeof Answer>;
+function asAnswerList(value: any[]): AnswerInstance[] {
+  return value as AnswerInstance[];
+}
+
+// ---------------------------------------------------------------------------
+// Everything below is dynamic, registered after every mock above.
+// ---------------------------------------------------------------------------
+const {
+  generateSearchTerms,
+  INDEX_NAME,
+  getIndexItem,
+  searchIndex,
+  updateIndexItem,
+  removeIndexItem,
+} = await import('../indexDMPService.js');
+const { Plan, PlanVisibility } = await import('../../models/Plan.js');
+const { Project } = await import('../../models/Project.js');
+const { Answer } = await import('../../models/Answer.js');
+const { ProjectMember, PlanMember } = await import('../../models/Member.js');
+const { PlanFunding, ProjectFunding, ProjectFundingStatus } = await import('../../models/Funding.js');
+const { Affiliation } = await import('../../models/Affiliation.js');
+const { AlternateIdentifier } = await import('../../models/AlternateIdentifier.js');
+const { AcceptedWork } = await import('../../models/RelatedWork.js');
+
+const TEST_DMP_ID_BASE = 'http://dmsp.com/';
+const TEST_ROR_BASE = 'http://ror.example.com/';
+const TEST_ORCID_BASE = 'http://sandbox.orcid.org/';
+
+const buildPlan = (overrides: Partial<Record<string, unknown>> = {}) =>
+  new Plan({
+    id: casual.integer(1, 9999),
+    projectId: casual.integer(1, 9999),
+    dmpId: `${TEST_DMP_ID_BASE}11.22222/${casual.word}`,
+    title: casual.title,
+    visibility: PlanVisibility.PUBLIC,
+    featured: false,
+    created: '2025-01-01T00:00:00.000Z',
+    modified: '2025-01-02T00:00:00.000Z',
+    registered: null,
+    ...overrides,
   });
-  afterEach(() => {
-    jest.clearAllMocks();
+
+const buildProject = (overrides: Partial<Record<string, unknown>> = {}) =>
+  new Project({
+    id: casual.integer(1, 9999),
+    title: casual.title,
+    abstractText: casual.sentences(2),
+    startDate: '2025-01-01',
+    endDate: '2026-12-31',
+    isTestProject: false,
+    created: '2025-01-01T00:00:00.000Z',
+    modified: '2025-01-03T00:00:00.000Z',
+    ...overrides,
   });
 
-  jest.mock('../../models/MemberRole');
+const buildProjectMember = (
+  id = casual.integer(1, 9999),
+  overrides: Partial<Record<string, unknown>> = {}
+) =>
+  new ProjectMember({
+    id,
+    projectId: casual.integer(1, 9999),
+    givenName: casual.first_name,
+    surName: casual.last_name,
+    orcid: `${TEST_ORCID_BASE}${casual.integer(1000, 9999)}-${casual.integer(1000, 9999)}-${casual.integer(1000, 9999)}`,
+    affiliationId: `${TEST_ROR_BASE}${casual.word}`,
+    isPrimaryContact: false,
+    ...overrides,
+  });
 
-  describe('updateMemberRoles', () => {
-    it('should remove roles and return updated role IDs', async () => {
-      const reference = 'test-reference';
-      const memberId = 1;
-      const currentRoleIds = [1, 2, 3];
-      const newRoleIds = [2, 4];
+const buildPlanMember = (projectMemberId: number) =>
+  new PlanMember({
+    id: casual.integer(1, 9999),
+    planId: casual.integer(1, 9999),
+    projectMemberId,
+    isPrimaryContact: false,
+    memberRoleIds: [],
+  });
 
-      MemberRole.reconcileAssociationIds = jest.fn().mockReturnValue({
-        idsToBeRemoved: [1, 3],
-        idsToBeSaved: [4],
-      });
+const buildProjectFunding = (
+  id = casual.integer(1, 9999),
+  affiliationId: string,
+  overrides: Partial<Record<string, unknown>> = {}
+) =>
+  new ProjectFunding({
+    id,
+    projectId: casual.integer(1, 9999),
+    affiliationId,
+    status: ProjectFundingStatus.PLANNED,
+    grantId: `award-${casual.word}`,
+    funderOpportunityNumber: `RFA-${casual.integer(10, 99)}`,
+    funderProjectNumber: `R01${casual.word.toUpperCase()}`,
+    ...overrides,
+  });
 
-      MemberRole.findById = jest.fn()
-        .mockResolvedValueOnce({ removeFromPlanMember: jest.fn().mockResolvedValue(true), label: 'Role 1' })
-        .mockResolvedValueOnce({ removeFromPlanMember: jest.fn().mockResolvedValue(true), label: 'Role 3' })
-        .mockResolvedValueOnce({ addToPlanMember: jest.fn().mockResolvedValue(true), label: 'Role 4' });
+const buildPlanFunding = (projectFundingId: number) =>
+  new PlanFunding({
+    id: casual.integer(1, 9999),
+    planId: casual.integer(1, 9999),
+    projectFundingId,
+  });
 
-      const result = await updateMemberRoles(reference, context, memberId, currentRoleIds, newRoleIds);
+const buildAffiliation = (uri: string, overrides: Partial<Record<string, unknown>> = {}) =>
+  new Affiliation({
+    id: casual.integer(1, 9999),
+    uri,
+    name: casual.company_name,
+    displayName: casual.company_name,
+    displayAbbreviation: casual.word.toUpperCase().slice(0, 5),
+    acronyms: ['ACR'],
+    aliases: ['Alias One'],
+    active: true,
+    funder: false,
+    types: ['OTHER'],
+    ...overrides,
+  });
 
-      expect(result.updatedRoleIds).toEqual([2, 4]);
-      expect(result.errors).toEqual([]);
-      expect(MemberRole.findById).toHaveBeenCalledTimes(3);
-    });
+const buildResearchOutputAnswerJson = (): string => JSON.stringify({
+  commonStandardId: 'researchOutputTable',
+  answer: [{
+    commonStandardId: 'researchOutputTableRow',
+    columns: [
+      { commonStandardId: 'title', answer: 'My Dataset' },
+      { commonStandardId: 'type', answer: 'dataset' },
+      { commonStandardId: 'description', answer: 'A great dataset' },
+      {
+        commonStandardId: 'host',
+        answer: [{ repositoryId: 're3data.r3d100000001', repositoryName: 'GenBank' }],
+      },
+    ],
+  }],
+});
 
-    it('should return errors if roles cannot be removed', async () => {
-      const reference = 'test-reference';
-      const memberId = 1;
-      const currentRoleIds = [1, 2];
-      const newRoleIds = [2];
+let mockOpenSearch: {
+  getIndexItem: ReturnType<typeof jest.fn>;
+  search: ReturnType<typeof jest.fn>;
+  updateIndexItem: ReturnType<typeof jest.fn>;
+  removeIndexItem: ReturnType<typeof jest.fn>;
+};
+let context: MyContext;
 
-      MemberRole.reconcileAssociationIds = jest.fn().mockReturnValue({
-        idsToBeRemoved: [1],
-        idsToBeSaved: [],
-      });
+beforeEach(() => {
+  jest.resetAllMocks();
 
-      MemberRole.findById = jest.fn()
-        .mockResolvedValueOnce({ removeFromPlanMember: jest.fn().mockResolvedValue(false), label: 'Role 1' });
+  mockOpenSearch = {
+    getIndexItem: jest.fn<(...args: any[]) => any>(),
+    search: jest.fn<(...args: any[]) => any>(),
+    updateIndexItem: jest.fn<(...args: any[]) => Promise<any>>().mockResolvedValue(undefined),
+    removeIndexItem: jest.fn<(...args: any[]) => Promise<any>>().mockResolvedValue(undefined),
+  };
 
-      const result = await updateMemberRoles(reference, context, memberId, currentRoleIds, newRoleIds);
+  context = {
+    dataSources: {
+      openSearchServerlessDataSource: mockOpenSearch,
+    },
+    logger: {
+      debug: jest.fn(),
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+    },
+    token: null,
+    requestId: 'test-request-id',
+  } as unknown as MyContext;
 
-      expect(result.updatedRoleIds).toEqual([2]);
-      expect(result.errors).toEqual(['unable to remove roles: Role 1']);
-      expect(MemberRole.findById).toHaveBeenCalledTimes(1);
-    });
+  jest.spyOn(AlternateIdentifier, 'findByPlanId').mockResolvedValue([]);
+  jest.spyOn(AcceptedWork, 'findByPlanId').mockResolvedValue([]);
+  jest.spyOn(Answer, 'findByPlanId').mockResolvedValue([]);
+  jest.spyOn(ProjectMember, 'findByProjectId').mockResolvedValue([]);
+  jest.spyOn(ProjectFunding, 'findByProjectId').mockResolvedValue([]);
+  jest.spyOn(PlanMember, 'findByPlanId').mockResolvedValue([]);
+  jest.spyOn(PlanFunding, 'findByPlanId').mockResolvedValue([]);
+  jest.spyOn(Affiliation, 'findByURI').mockResolvedValue(null);
+  jest.spyOn(Project, 'findById').mockResolvedValue(null);
+});
 
-    it('should return errors if roles cannot be added', async () => {
-      const reference = 'test-reference';
-      const memberId = 1;
-      const currentRoleIds = [1];
-      const newRoleIds = [1, 2];
+describe('generateSearchTerms', () => {
+  it('returns an empty array when title and description are undefined', () => {
+    expect(generateSearchTerms(undefined, undefined)).toEqual([]);
+  });
 
-      MemberRole.reconcileAssociationIds = jest.fn().mockReturnValue({
-        idsToBeRemoved: [],
-        idsToBeSaved: [2],
-      });
+  it('returns tokens from both title and description and removes stop words', () => {
+    const result = generateSearchTerms('the impact of climate on the ocean', 'ocean temperatures');
+    expect(result).toContain('impact');
+    expect(result).toContain('climate');
+    expect(result).toContain('ocean');
+    expect(result).toContain('temperatures');
+    expect(result).not.toContain('the');
+    expect(result).not.toContain('of');
+  });
 
-      MemberRole.findById = jest.fn()
-        .mockResolvedValueOnce({ addToPlanMember: jest.fn().mockResolvedValue(false), label: 'Role 2' });
+  it('generates adjacent bigrams from multi-word titles', () => {
+    const result = generateSearchTerms('climate change research');
+    expect(result).toContain('climate change');
+    expect(result).toContain('change research');
+  });
 
-      const result = await updateMemberRoles(reference, context, memberId, currentRoleIds, newRoleIds);
+  it('deduplicates repeated search terms', () => {
+    const result = generateSearchTerms('ocean research', 'ocean data');
+    expect(result.filter((term) => term === 'ocean').length).toBe(1);
+  });
 
-      expect(result.updatedRoleIds).toEqual([1]);
-      expect(result.errors).toEqual(['unable to assign roles: Role 2']);
-      expect(MemberRole.findById).toHaveBeenCalledTimes(1);
-    });
-
-    it('should handle both add and remove errors', async () => {
-      const reference = 'test-reference';
-      const memberId = 1;
-      const currentRoleIds = [1, 2];
-      const newRoleIds = [3];
-
-      MemberRole.reconcileAssociationIds = jest.fn().mockReturnValue({
-        idsToBeRemoved: [1, 2],
-        idsToBeSaved: [3],
-      });
-
-      MemberRole.findById = jest.fn()
-        .mockResolvedValueOnce({ removeFromPlanMember: jest.fn().mockResolvedValue(false), label: 'Role 1' })
-        .mockResolvedValueOnce({ removeFromPlanMember: jest.fn().mockResolvedValue(false), label: 'Role 2' })
-        .mockResolvedValueOnce({ addToPlanMember: jest.fn().mockResolvedValue(false), label: 'Role 3' });
-
-      const result = await updateMemberRoles(reference, context, memberId, currentRoleIds, newRoleIds);
-
-      expect(result.updatedRoleIds).toEqual([1, 2]);
-      expect(result.errors).toEqual([
-        'unable to remove roles: Role 1, Role 2',
-        'unable to assign roles: Role 3',
-      ]);
-      expect(MemberRole.findById).toHaveBeenCalledTimes(3);
-    });
+  it('ignores short tokens', () => {
+    const result = generateSearchTerms('a big study');
+    expect(result).not.toContain('a');
+    expect(result).toContain('big');
+    expect(result).toContain('study');
   });
 });
 
-describe('ensureDefaultPlanContact', () => {
-  let context: MyContext;
-  let project: Project;
-  let plan: Plan;
-  let defaultMember: ProjectMember;
-  let defaultRole: MemberRole;
+describe('getIndexItem', () => {
+  it('returns the index record for a known dmp id', async () => {
+    const plan = buildPlan({ dmpId: `${TEST_DMP_ID_BASE}11.22222/demo` });
+    const response = { dmp_id: '11.22222/demo', title: 'Demo DMP' };
+    mockOpenSearch.getIndexItem.mockResolvedValue(response);
 
-  let originalFindPrimaryContact: typeof ProjectMember.findPrimaryContact;
-  let originalDefaultRole: typeof MemberRole.defaultRole;
-  let originalFindByProjectMemberId: typeof MemberRole.findByProjectMemberId;
-
-  beforeEach(async () => {
-    jest.clearAllMocks();
-
-    context = await buildMockContextWithToken(logger)
-
-    originalFindPrimaryContact = ProjectMember.findPrimaryContact;
-    originalDefaultRole = MemberRole.defaultRole;
-    originalFindByProjectMemberId = MemberRole.findByProjectMemberId;
-
-    defaultRole = new MemberRole({
-      id: casual.integer(1, 999),
-      label: 'Test',
-    });
-    jest.spyOn(MemberRole, 'defaultRole').mockResolvedValue(defaultRole);
-    jest.spyOn(MemberRole, 'findByProjectMemberId').mockResolvedValue([defaultRole]);
-
-    project = new Project({
-      id: casual.integer(1, 999),
-      title: casual.sentence
-    });
-    plan = new Plan({
-      id: casual.integer(1, 999),
-      projectId: project.id,
-      affiliationId: casual.url,
-    });
-    defaultMember = new ProjectMember({
-      id: casual.integer(1, 999),
-      projectId: project.id,
-      email: casual.email,
-      givenName: casual.first_name,
-      surName: casual.last_name,
-      memberRoles: [defaultRole],
-      memberRoleIds: [defaultRole.id],
-    });
-
-    jest.spyOn(ProjectMember, 'findPrimaryContact').mockResolvedValue(defaultMember);
+    await expect(getIndexItem('ref', context, plan.dmpId)).resolves.toEqual(response);
+    expect(mockOpenSearch.getIndexItem).toHaveBeenCalledWith(INDEX_NAME, '11.22222/demo');
   });
 
-  afterEach(() => {
-    ProjectMember.findPrimaryContact = originalFindPrimaryContact;
-    MemberRole.defaultRole = originalDefaultRole;
-    MemberRole.findByProjectMemberId = originalFindByProjectMemberId;
-  })
+  it('throws when the index item cannot be found', async () => {
+    mockOpenSearch.getIndexItem.mockResolvedValue(undefined);
 
-  it('sets default primary contact', async () => {
-    const originalFindPrimaryContact = PlanMember.findPrimaryContact;
-    const originalInsert = PlanMember.insert;
-    const originalFindByPlanAndProjectMember = PlanMember.findByPlanAndProjectMember;
-    const originalFindById = PlanMember.findById;
-
-    const newId = casual.integer(1, 9999);
-    const newMember = new PlanMember({
-      email: casual.email,
-      planId: plan.id,
-      projectMemberId: defaultMember.id,
-      isPrimaryContact: true,
-      memberRoleIds: defaultMember.memberRoles.map(mr => mr.id),
-    });
-    jest.spyOn(PlanMember, 'findPrimaryContact').mockResolvedValue(null);
-    jest.spyOn(PlanMember, 'insert').mockResolvedValue(newId);
-    jest.spyOn(PlanMember, 'findByPlanAndProjectMember').mockResolvedValue(null);
-    jest.spyOn(PlanMember, 'findById').mockResolvedValue(newMember);
-
-    expect(await ensureDefaultPlanContact(context, plan, project)).toBe(true);
-    expect(PlanMember.insert).toHaveBeenCalledWith(
-      context,
-      'planMembers',
-      newMember,
-      'PlanMember.create',
-      ['memberRoleIds']
+    await expect(getIndexItem('ref', context, 'https://dmsp.com/11.22222/demo')).rejects.toThrow(
+      'Failed to fetch index item for DMP ID: https://dmsp.com/11.22222/demo'
     );
-    PlanMember.findPrimaryContact = originalFindPrimaryContact;
-    PlanMember.findByPlanAndProjectMember = originalFindByPlanAndProjectMember;
-    PlanMember.findById = originalFindById;
-    PlanMember.insert = originalInsert;
-  });
-
-  it('returns false if the plan or project are missing', async () => {
-    expect(await ensureDefaultPlanContact(context, null, project)).toBe(false);
-    expect(await ensureDefaultPlanContact(context, plan, null)).toBe(false);
-  });
-
-  it('returns false if there was a problem creating the PlanMember', async () => {
-    const originalFindPrimaryContact = PlanMember.findPrimaryContact;
-    jest.spyOn(PlanMember, 'findPrimaryContact').mockImplementation(() => {
-      throw new Error('test error');
-    });
-
-    await expect(ensureDefaultPlanContact(context, plan, project)).rejects.toThrow('test error');
-    PlanMember.findPrimaryContact = originalFindPrimaryContact;
-  });
-
-  it('returns true if the plan already has a primary contact', async () => {
-    const originalFindPrimaryContact = PlanMember.findPrimaryContact;
-    const current = new PlanMember({
-      planId: plan.id,
-      email: casual.email,
-    });
-    jest.spyOn(PlanMember, 'findPrimaryContact').mockResolvedValue(current);
-
-    expect(await ensureDefaultPlanContact(context, plan, project)).toBe(true);
-    PlanMember.findPrimaryContact = originalFindPrimaryContact;
   });
 });
 
-describe('saveMaDMPVersion', () => {
-  let context: MyContext;
-  const reference = 'test-reference';
-  const planId = 123;
-  const dmpId = "https://doi.org/11.2222/3A4B5c";
-  const mockExists = DMPExists as jest.MockedFunction<typeof DMPExists>;
-  const mockPlanToMaDMP = planToDMPCommonStandard as jest.MockedFunction<typeof planToDMPCommonStandard>;
-  const mockCreate = createDMP as jest.MockedFunction<typeof createDMP>;
-  const mockUpdate = updateDMP as jest.MockedFunction<typeof updateDMP>;
-  const mockDelete = deleteDMP as jest.MockedFunction<typeof deleteDMP>;
-  const mockTombstone = tombstoneDMP as jest.MockedFunction<typeof tombstoneDMP>;
+describe('searchIndex', () => {
+  it('returns the items from the response when matches exist', async () => {
+    const items = [{ dmp_id: '11.22222/demo' }, { dmp_id: '11.22222/other' }];
+    mockOpenSearch.search.mockResolvedValue({ total: 2, items });
 
-  const mockMaDMP: DMPToolDMPType = {
-    dmp: {
-      contact: {
-        contact_id: [{
-          identifier: "http://example.com/contacts/123",
-          type: "url"
-        }],
-        mbox: "tester@example.com",
-        name: "Test Contact"
-      },
-      created: "2021-01-01 03:11:23Z",
-      dataset: [{
-        title: "Test Dataset",
-        dataset_id: {
-          identifier: "http://example.com/datasets/123",
-          type: "other"
-        },
-        personal_data: "unknown",
-        sensitive_data: "no"
-      }],
-      dmp_id: {
-        identifier: "http://example.com/dmps/123",
-        type: "other"
-      },
-      ethical_issues_exist: "unknown",
-      language: "eng",
-      modified: "2021-01-01 02:23:11Z",
-      provenance: "test-system",
-      title: "Test DMP"
-    }
-  }
-
-  beforeEach(async () => {
-    context = await buildMockContextWithToken(logger);
+    await expect(searchIndex('ref', context, { match_all: {} }, [], 25)).resolves.toEqual(items);
+    expect(mockOpenSearch.search).toHaveBeenCalledWith(INDEX_NAME, {
+      size: 25,
+      query: { match_all: {} },
+      sort: [],
+    });
   });
 
-  afterEach(() => {
-    jest.clearAllMocks();
+  it('returns an empty array when there are no hits', async () => {
+    mockOpenSearch.search.mockResolvedValue({ total: 0, items: [] });
+
+    await expect(searchIndex('ref', context, { match_all: {} })).resolves.toEqual([]);
   });
 
-  it('should call createDMP when shouldDelete is false and a latest maDMP version does NOT exist', async () => {
-    mockExists.mockResolvedValue(false);
-    mockPlanToMaDMP.mockResolvedValue(mockMaDMP);
-    mockCreate.mockResolvedValue(mockMaDMP);
+  it('throws when search returns no response', async () => {
+    mockOpenSearch.search.mockResolvedValue(undefined);
 
-    const dmpId: string = mockMaDMP.dmp.dmp_id.identifier;
-    const result = await saveMaDMPVersion(reference, context, planId, dmpId, false);
-
-    expect(result).toBe(true);
-    expect(mockCreate).toHaveBeenCalledWith(getDynamoConnectionParams(context.logger), generalConfig.domain, dmpId, mockMaDMP);
-  });
-
-  it('should call updateDMP when shouldDelete is false and a latest maDMP version exists', async () => {
-    mockExists.mockResolvedValue(true);
-    mockPlanToMaDMP.mockResolvedValue(mockMaDMP);
-    mockUpdate.mockResolvedValue(mockMaDMP);
-
-    const dmpId: string = mockMaDMP.dmp.dmp_id.identifier;
-    const result = await saveMaDMPVersion(reference, context, planId, dmpId, false);
-
-    expect(result).toBe(true);
-    expect(mockUpdate).toHaveBeenCalledWith(getDynamoConnectionParams(context.logger), generalConfig.domain, dmpId, mockMaDMP, 3600000);
-  });
-
-  it('should call deleteDMP when shouldDelete is true and plan is not registered', async () => {
-    mockExists.mockResolvedValue(true);
-    mockPlanToMaDMP.mockResolvedValue(mockMaDMP);
-    mockDelete.mockResolvedValue(mockMaDMP);
-
-    const dmpId: string = mockMaDMP.dmp.dmp_id.identifier;
-    const result = await saveMaDMPVersion(reference, context, planId, dmpId, true);
-
-    expect(result).toBe(true);
-    expect(mockDelete).toHaveBeenCalledWith(getDynamoConnectionParams(context.logger), generalConfig.domain, dmpId);
-  });
-
-  it('should call tombstoneDMP when shouldDelete is true and plan is registered', async () => {
-    mockExists.mockResolvedValue(true);
-    mockPlanToMaDMP.mockResolvedValue({ dmp: { ...mockMaDMP['dmp'], registered: '2026-01-01T13:12:11Z' } });
-    mockTombstone.mockResolvedValue(mockMaDMP);
-
-    const dmpId: string = mockMaDMP.dmp.dmp_id.identifier;
-    const result = await saveMaDMPVersion(reference, context, planId, dmpId, true);
-
-    expect(result).toBe(true);
-    expect(mockTombstone).toHaveBeenCalledWith(getDynamoConnectionParams(context.logger), generalConfig.domain, dmpId);
-  });
-
-
-  it('should return false id planId is undefined', async () => {
-    const result = await saveMaDMPVersion(reference, context, undefined, dmpId, true);
-
-    expect(result).toBe(false);
-  });
-
-  it('should return false id plan could not be converted to maDMP JSON', async () => {
-    mockExists.mockResolvedValue(true);
-    mockPlanToMaDMP.mockResolvedValue(undefined);
-
-    const result = await saveMaDMPVersion(reference, context, planId, dmpId, true);
-
-    expect(result).toBe(false);
-  });
-
-  it('should return false id createDMP failed', async () => {
-    mockExists.mockResolvedValue(false);
-    mockPlanToMaDMP.mockResolvedValue(mockMaDMP);
-    mockCreate.mockResolvedValue(undefined);
-
-    const result = await saveMaDMPVersion(reference, context, planId, dmpId, false);
-
-    expect(result).toBe(false);
-  });
-
-  it('should return false id updateDMP failed', async () => {
-    mockExists.mockResolvedValue(true);
-    mockPlanToMaDMP.mockResolvedValue(mockMaDMP);
-    mockUpdate.mockResolvedValue(undefined);
-
-    const result = await saveMaDMPVersion(reference, context, planId, dmpId, false);
-
-    expect(result).toBe(false);
-  });
-
-  it('should return false id deleteDMP failed', async () => {
-    mockExists.mockResolvedValue(true);
-    mockPlanToMaDMP.mockResolvedValue(mockMaDMP);
-    mockDelete.mockResolvedValue(undefined);
-
-    const result = await saveMaDMPVersion(reference, context, planId, dmpId, true);
-
-    expect(result).toBe(false);
-  });
-
-  it('should return false id tombstoneDMP failed', async () => {
-    mockExists.mockResolvedValue(true);
-    mockPlanToMaDMP.mockResolvedValue({ dmp: { ...mockMaDMP['dmp'], registered: '2026-01-01T13:12:11Z' } });
-    mockTombstone.mockResolvedValue(undefined);
-
-    const result = await saveMaDMPVersion(reference, context, planId, dmpId, true);
-
-    expect(result).toBe(false);
+    await expect(searchIndex('ref', context, { match_all: {} })).rejects.toThrow(
+      'Failed to search index for query: {"match_all":{}}'
+    );
   });
 });
 
-describe('buildDataCiteXMLForPlan', () => {
-  let context: MyContext;
-  let plan: Plan;
-  let project: Project;
+describe('updateIndexItem', () => {
+  const ref = 'test.updateIndexItem';
 
-  const mockPlanToDataCiteMetadata = dataciteXMLService.planToDataCiteMetadata as jest.Mock;
-  const mockBuildDataCiteXML = dataciteXMLService.buildDataCiteXML as jest.Mock;
-
-  let originalProjectFindById: typeof Project.findById;
-  let originalFindByProjectId: typeof ProjectMember.findByProjectId;
-  let originalFindByProjectMemberId: typeof MemberRole.findByProjectMemberId;
-  let originalFindByURI: typeof Affiliation.findByURI;
-  let originalPlanFundingFindByPlanId: typeof PlanFunding.findByPlanId;
-  let originalProjectFundingFindById: typeof ProjectFunding.findById;
-  let originalAltIdFindByPlanId: typeof AlternateIdentifier.findByPlanId;
-
-  beforeEach(async () => {
-    jest.clearAllMocks();
-    context = await buildMockContextWithToken(logger);
-
-    project = new Project({
-      id: casual.integer(1, 999),
-      title: casual.sentence,
-      abstractText: casual.text,
+  it('builds and persists the plan document when all related objects exist', async () => {
+    const project = buildProject({
+      id: 100,
+      title: 'My project',
+      abstractText: 'A wonderful abstract',
+      startDate: '2025-01-15',
+      endDate: '2026-06-30',
+      isTestProject: true,
     });
-    plan = new Plan({
-      id: casual.integer(1, 999),
+    const plan = buildPlan({
+      id: 200,
       projectId: project.id,
-      title: casual.sentence,
-      languageId: 'en-US',
+      dmpId: `${TEST_DMP_ID_BASE}11.22222/demo-plan`,
+      title: 'My DMP',
+      visibility: PlanVisibility.PUBLIC,
+      featured: true,
+      registered: '2025-03-20T10:00:00.000Z',
     });
 
-    originalProjectFindById = Project.findById;
-    originalFindByProjectId = ProjectMember.findByProjectId;
-    originalFindByProjectMemberId = MemberRole.findByProjectMemberId;
-    originalFindByURI = Affiliation.findByURI;
-    originalPlanFundingFindByPlanId = PlanFunding.findByPlanId;
-    originalProjectFundingFindById = ProjectFunding.findById;
-    originalAltIdFindByPlanId = AlternateIdentifier.findByPlanId;
+    const memberId = 300;
+    const member = buildProjectMember(memberId, {
+      projectId: project.id,
+      givenName: 'Jane',
+      surName: 'Smith',
+      orcid: `${TEST_ORCID_BASE}0000-0001-2345-6789`,
+      affiliationId: `${TEST_ROR_BASE}abcd1234`,
+    });
+    const planMember = buildPlanMember(memberId);
+    const planMemberId = planMember.id;
+    const memberAffiliation = buildAffiliation(`${TEST_ROR_BASE}abcd1234`, {
+      name: 'State University',
+      displayName: 'State University',
+    });
+
+    const fundingId = 400;
+    const funderUri = `${TEST_ROR_BASE}funder5678`;
+    const funding = buildProjectFunding(fundingId, funderUri, {
+      projectId: project.id,
+      funderOpportunityNumber: 'RFA-22-801',
+      funderProjectNumber: 'R01ABC123',
+      status: ProjectFundingStatus.PLANNED,
+    });
+    const planFunding = buildPlanFunding(fundingId);
+    const funderAffiliation = buildAffiliation(funderUri, {
+      name: 'National Science Foundation',
+      displayName: 'National Science Foundation',
+      funder: true,
+    });
+
+    jest.spyOn(ProjectMember, 'findByProjectId').mockResolvedValue([member]);
+    jest.spyOn(PlanMember, 'findByPlanId').mockResolvedValue(asPlanMemberList([{ ...planMember, id: planMemberId, projectMemberId: memberId }]));
+    jest.spyOn(ProjectFunding, 'findByProjectId').mockResolvedValue(asProjectFundingList([funding]));
+    jest.spyOn(PlanFunding, 'findByPlanId').mockResolvedValue(asPlanFundingList([{ ...planFunding, projectFundingId: fundingId }]));
+    jest.spyOn(Affiliation, 'findByURI').mockImplementation(async (_ref: string, _context: MyContext, uri: string) => {
+      if (uri === `${TEST_ROR_BASE}abcd1234`) return memberAffiliation;
+      if (uri === funderUri) return funderAffiliation;
+      return null;
+    });
+    jest.spyOn(AlternateIdentifier, 'findByPlanId').mockResolvedValue(asAlternateIdentifierList([{ alternateIdentifier: '10.1234/demo' }]));
+    jest.spyOn(AcceptedWork, 'findByPlanId').mockResolvedValue(asAcceptedWorkList([{ doi: '10.9999/related' }]));
+    jest.spyOn(Answer, 'findByPlanId').mockResolvedValue(asAnswerList([{ json: buildResearchOutputAnswerJson() }]));
+
+    await updateIndexItem(ref, context, plan, project);
+
+    const doc = mockOpenSearch.updateIndexItem.mock.calls[0][3];
+    expect(doc.dmp_id).toBe('11.22222/demo-plan');
+    expect(doc.title).toBe('My DMP');
+    expect(doc.project_title).toBe('My project');
+    expect(doc.abstract).toBe('A wonderful abstract');
+    expect(doc.project_start).toBe(new Date('2025-01-15').toISOString());
+    expect(doc.project_end).toBe(new Date('2026-06-30').toISOString());
+    expect(doc.visibility).toBe(PlanVisibility.PUBLIC);
+    expect(doc.is_test).toBe(true);
+    expect(doc.featured).toBe(true);
+    expect(doc.alternate_identifier_ids).toContain('10.1234/demo');
+    expect(doc.related_identifier_ids).toContain('10.9999/related');
+    expect(doc.contributor_ids).toContain('0000-0001-2345-6789');
+    expect(doc.contributors_search).toEqual(expect.arrayContaining(['jane smith', 'smith, jane']));
+    expect(doc.institution_ids).toContain('abcd1234');
+    expect(doc.institutions_facets).toContain('State University');
+    expect(doc.funder_ids).toContain('funder5678');
+    expect(doc.funding_facets).toContain('National Science Foundation');
+    expect(doc.repository_ids).toContain('re3data.r3d100000001');
+    expect(doc.repositories_facets).toContain('GenBank');
+  });
+
+  it('fetches the project automatically when one is not provided', async () => {
+    const project = buildProject({ id: 123, title: 'Auto Project' });
+    const plan = buildPlan({ projectId: project.id, dmpId: `${TEST_DMP_ID_BASE}11.22222/auto` });
 
     jest.spyOn(Project, 'findById').mockResolvedValue(project);
-    jest.spyOn(ProjectMember, 'findByProjectId').mockResolvedValue([]);
-    jest.spyOn(MemberRole, 'findByProjectMemberId').mockResolvedValue([]);
-    jest.spyOn(Affiliation, 'findByURI').mockResolvedValue(null);
-    jest.spyOn(PlanFunding, 'findByPlanId').mockResolvedValue([]);
-    jest.spyOn(ProjectFunding, 'findById').mockResolvedValue(null);
-    jest.spyOn(AlternateIdentifier, 'findByPlanId').mockResolvedValue([]);
+    jest.spyOn(Answer, 'findByPlanId').mockResolvedValue([]);
 
-    mockPlanToDataCiteMetadata.mockReturnValue({ title: plan.title, creators: [{ familyName: 'Test' }] });
-    mockBuildDataCiteXML.mockReturnValue('<resource>mock-xml</resource>');
+    await updateIndexItem(ref, context, plan);
+
+    expect(Project.findById).toHaveBeenCalledWith(ref, context, plan.projectId);
+    expect(mockOpenSearch.updateIndexItem).toHaveBeenCalledTimes(1);
   });
 
-  afterEach(() => {
-    Project.findById = originalProjectFindById;
-    ProjectMember.findByProjectId = originalFindByProjectId;
-    MemberRole.findByProjectMemberId = originalFindByProjectMemberId;
-    Affiliation.findByURI = originalFindByURI;
-    PlanFunding.findByPlanId = originalPlanFundingFindByPlanId;
-    ProjectFunding.findById = originalProjectFundingFindById;
-    AlternateIdentifier.findByPlanId = originalAltIdFindByPlanId;
+  it('defaults visibility to private when the plan visibility is empty', async () => {
+    const project = buildProject({ id: 99 });
+    const plan = buildPlan({ projectId: project.id });
+    (plan as unknown as Record<string, unknown>).visibility = undefined;
+
+    await updateIndexItem(ref, context, plan, project);
+
+    const doc = mockOpenSearch.updateIndexItem.mock.calls[0][3];
+    expect(doc.visibility).toBe(PlanVisibility.PRIVATE.toLowerCase());
   });
 
-  it('returns the XML string produced by buildDataCiteXML', async () => {
-    const result = await buildDataCiteXMLForPlan(context, plan, project);
-    expect(result).toBe('<resource>mock-xml</resource>');
-  });
+  it('handles blank associations without error and keeps arrays empty', async () => {
+    const project = buildProject({ id: 88 });
+    const plan = buildPlan({ projectId: project.id });
 
-  it('uses the provided project instead of fetching it', async () => {
-    await buildDataCiteXMLForPlan(context, plan, project);
-    expect(Project.findById).not.toHaveBeenCalled();
-  });
+    await updateIndexItem(ref, context, plan, project);
 
-  it('fetches the project when none is provided', async () => {
-    await buildDataCiteXMLForPlan(context, plan);
-    expect(Project.findById).toHaveBeenCalledWith(
-      'planService.buildDataCiteXMLForPlan',
-      context,
-      plan.projectId
-    );
-  });
-
-  it('passes the plan\'s languageId through to planToDataCiteMetadata', async () => {
-    await buildDataCiteXMLForPlan(context, plan, project);
-    expect(mockPlanToDataCiteMetadata).toHaveBeenCalledWith(
-      expect.objectContaining({ language: 'en-US' })
-    );
-  });
-
-  it('maps a primary-contact member with a ROR affiliation correctly', async () => {
-    const memberRole = new MemberRole({ id: casual.integer(1, 999), uri: 'credit.niso.org/contributor-roles/supervision' });
-    const projectMember = new ProjectMember({
-      id: casual.integer(1, 999),
-      projectId: project.id,
-      isPrimaryContact: true,
-      givenName: 'Ada',
-      surName: 'Lovelace',
-      orcid: '0000-0001-5727-2427',
-      affiliationId: 'https://ror.org/03efmqc40',
-    });
-
-    (ProjectMember.findByProjectId as jest.Mock).mockResolvedValue([projectMember]);
-    (MemberRole.findByProjectMemberId as jest.Mock).mockResolvedValue([memberRole]);
-    (Affiliation.findByURI as jest.Mock).mockResolvedValue({
-      name: 'Arizona State University',
-      uri: 'https://ror.org/03efmqc40',
-      provenance: 'ROR',
-    });
-
-    await buildDataCiteXMLForPlan(context, plan, project);
-
-    expect(mockPlanToDataCiteMetadata).toHaveBeenCalledWith(
-      expect.objectContaining({
-        members: [
-          expect.objectContaining({
-            isPrimaryContact: true,
-            memberRoles: [{ uri: memberRole.uri }],
-            projectMember: expect.objectContaining({
-              givenName: 'Ada',
-              surName: 'Lovelace',
-              orcid: '0000-0001-5727-2427',
-              affiliation: expect.objectContaining({
-                name: 'Arizona State University',
-                provenance: 'ROR',
-              }),
-            }),
-          }),
-        ],
-      })
-    );
-  });
-
-  it('omits affiliation when the member has no affiliationId', async () => {
-    const projectMember = new ProjectMember({
-      id: casual.integer(1, 999),
-      projectId: project.id,
-      isPrimaryContact: false,
-      givenName: 'No',
-      surName: 'Affiliation',
-      affiliationId: null,
-    });
-    (ProjectMember.findByProjectId as jest.Mock).mockResolvedValue([projectMember]);
-
-    await buildDataCiteXMLForPlan(context, plan, project);
-
-    expect(Affiliation.findByURI).not.toHaveBeenCalled();
-    expect(mockPlanToDataCiteMetadata).toHaveBeenCalledWith(
-      expect.objectContaining({
-        members: [
-          expect.objectContaining({
-            projectMember: expect.objectContaining({ affiliation: undefined }),
-          }),
-        ],
-      })
-    );
-  });
-
-  it('maps a funding reference resolved via ProjectFunding + Affiliation', async () => {
-    const planFunding = new PlanFunding({
-      id: casual.integer(1, 999),
-      planId: plan.id,
-      projectFundingId: casual.integer(1, 999),
-    });
-    const projectFunding = new ProjectFunding({
-      id: planFunding.projectFundingId,
-      affiliationId: 'https://ror.org/021nxhr62',
-      grantId: 'AWD-12345',
-    });
-
-    (PlanFunding.findByPlanId as jest.Mock).mockResolvedValue([planFunding]);
-    (ProjectFunding.findById as jest.Mock).mockResolvedValue(projectFunding);
-    (Affiliation.findByURI as jest.Mock).mockResolvedValue({
-      name: 'National Science Foundation',
-      uri: 'https://ror.org/021nxhr62',
-      provenance: 'ROR',
-      fundrefId: '100000001',
-    });
-
-    await buildDataCiteXMLForPlan(context, plan, project);
-
-    expect(mockPlanToDataCiteMetadata).toHaveBeenCalledWith(
-      expect.objectContaining({
-        fundings: [
-          {
-            projectFunding: {
-              affiliation: expect.objectContaining({
-                name: 'National Science Foundation',
-                fundrefId: '100000001',
-              }),
-              grantId: 'AWD-12345',
-            },
-          },
-        ],
-      })
-    );
-  });
-
-  it('returns { projectFunding: undefined } when the linked ProjectFunding row is missing', async () => {
-    const planFunding = new PlanFunding({
-      id: casual.integer(1, 999),
-      planId: plan.id,
-      projectFundingId: casual.integer(1, 999),
-    });
-    (PlanFunding.findByPlanId as jest.Mock).mockResolvedValue([planFunding]);
-    (ProjectFunding.findById as jest.Mock).mockResolvedValue(null);
-
-    await buildDataCiteXMLForPlan(context, plan, project);
-
-    expect(mockPlanToDataCiteMetadata).toHaveBeenCalledWith(
-      expect.objectContaining({
-        fundings: [{ projectFunding: undefined }],
-      })
-    );
-  });
-
-  it('maps alternate identifier records to the shape planToDataCiteMetadata expects', async () => {
-    (AlternateIdentifier.findByPlanId as jest.Mock).mockResolvedValue([
-      { alternateIdentifier: '10.1234/abcd' },
-      { alternateIdentifier: 'legacy-id-9999' },
-    ]);
-
-    await buildDataCiteXMLForPlan(context, plan, project);
-
-    expect(mockPlanToDataCiteMetadata).toHaveBeenCalledWith(
-      expect.objectContaining({
-        alternateIdentifiers: [
-          { alternateIdentifier: '10.1234/abcd' },
-          { alternateIdentifier: 'legacy-id-9999' },
-        ],
-      })
-    );
-  });
-
-  it('propagates errors thrown by planToDataCiteMetadata (e.g. no primary contact)', async () => {
-    mockPlanToDataCiteMetadata.mockImplementation(() => {
-      throw new Error('Project has no member marked as primary contact; cannot determine a DataCite creator');
-    });
-
-    await expect(buildDataCiteXMLForPlan(context, plan, project)).rejects.toThrow(
-      'Project has no member marked as primary contact'
-    );
-  });
-
-  it('propagates errors thrown by a model call (e.g. DB failure)', async () => {
-    (ProjectMember.findByProjectId as jest.Mock).mockRejectedValue(new Error('db error'));
-
-    await expect(buildDataCiteXMLForPlan(context, plan, project)).rejects.toThrow('db error');
+    const doc = mockOpenSearch.updateIndexItem.mock.calls[0][3];
+    expect(doc.alternate_identifier_ids).toEqual([]);
+    expect(doc.related_identifier_ids).toEqual([]);
+    expect(doc.contributor_ids).toEqual([]);
+    expect(doc.funder_ids).toEqual([]);
+    expect(doc.repository_ids).toEqual([]);
   });
 });
 
-describe('getPlanVersions', () => {
-  let context: MyContext;
-  const reference = 'test-reference';
-  const dmpId = 'https://doi.org/11.2222/3A4B5c';
-  const mockGetDMPVersions = getDMPVersions as jest.MockedFunction<typeof getDMPVersions>;
-  const mockGetDMPs = getDMPs as jest.MockedFunction<typeof getDMPs>;
+describe('removeIndexItem', () => {
+  it('removes the indexed DMP using the stripped dmp id', async () => {
+    const plan = buildPlan({ dmpId: `${TEST_DMP_ID_BASE}11.22222/demo-remove` });
 
-  beforeEach(async () => {
-    context = await buildMockContextWithToken(logger);
-  });
+    await removeIndexItem('ref', context, plan);
 
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
-
-  it('should return an empty array when dmpId is null or undefined', async () => {
-    expect(await getPlanVersions(reference, context, null)).toEqual([]);
-    expect(await getPlanVersions(reference, context, undefined)).toEqual([]);
-    expect(mockGetDMPVersions).not.toHaveBeenCalled();
-  });
-
-  it('should return an empty array when no versions are found', async () => {
-    mockGetDMPVersions.mockResolvedValue([]);
-    /*eslint-disable-next-line @typescript-eslint/no-explicit-any */
-    mockGetDMPs.mockResolvedValue([{ dmp: { modified: '2026-08-01T14:32:00Z' } }] as any);
-
-    const result = await getPlanVersions(reference, context, dmpId);
-
-    expect(result).toEqual([]);
-    expect(mockGetDMPVersions).toHaveBeenCalledWith(getDynamoConnectionParams(context.logger), dmpId);
-  });
-
-  it('should fetch the latest version to filter it out', async () => {
-    mockGetDMPVersions.mockResolvedValue([]);
-    /*eslint-disable-next-line @typescript-eslint/no-explicit-any */
-    mockGetDMPs.mockResolvedValue([{ dmp: { modified: '2026-08-01T14:32:00Z' } }] as any);
-
-    await getPlanVersions(reference, context, dmpId);
-
-    expect(mockGetDMPs).toHaveBeenCalledWith(
-      getDynamoConnectionParams(context.logger),
-      generalConfig.domain,
-      dmpId,
-      'latest'
-    );
-  });
-
-  it('should filter out the version matching the latest modified timestamp', async () => {
-    const latestModified = '2026-08-01T14:32:00Z';
-    mockGetDMPVersions.mockResolvedValue([
-      { dmpId, modified: latestModified },  // This should be filtered out (matches latest)
-      { dmpId, modified: '2026-06-15T09:10:00Z' },
-    ]);
-    /*eslint-disable-next-line @typescript-eslint/no-explicit-any */
-    mockGetDMPs.mockResolvedValue([{ dmp: { modified: latestModified } }] as any);
-
-    const result = await getPlanVersions(reference, context, dmpId);
-
-    expect(result).toHaveLength(1);
-    expect(result[0].modified).toBe('2026-06-15T09:10:00Z');
-  });
-
-  it('should map each historical version to a timestamp and public-facing URL using generalConfig.domain', async () => {
-    const latestModified = '2026-09-01T00:00:00Z';
-    mockGetDMPVersions.mockResolvedValue([
-      { dmpId, modified: '2026-08-01T14:32:00Z' },
-      { dmpId, modified: '2026-06-15T09:10:00Z' },
-    ]);
-    /*eslint-disable-next-line @typescript-eslint/no-explicit-any */
-    mockGetDMPs.mockResolvedValue([{ dmp: { modified: latestModified } }] as any);
-
-    const result = await getPlanVersions(reference, context, dmpId);
-
-    expect(result).toEqual([
-      {
-        timestamp: '2026-08-01T14:32:00Z',
-        url: `https://${generalConfig.domain}/dmps/doi.org/11.2222/3A4B5c?version=2026-08-01T14%3A32%3A00Z`,
-        dmpId: 'https://doi.org/11.2222/3A4B5c',
-        modified: '2026-08-01T14:32:00Z',
-      },
-      {
-        timestamp: '2026-06-15T09:10:00Z',
-        url: `https://${generalConfig.domain}/dmps/doi.org/11.2222/3A4B5c?version=2026-06-15T09%3A10%3A00Z`,
-        dmpId: 'https://doi.org/11.2222/3A4B5c',
-        modified: '2026-06-15T09:10:00Z',
-      },
-    ]);
-  });
-
-  it('should return an empty array and log an error if getDMPVersions throws', async () => {
-    mockGetDMPVersions.mockRejectedValue(new Error('dynamo error'));
-
-    const result = await getPlanVersions(reference, context, dmpId);
-
-    expect(result).toEqual([]);
-  });
-
-  it('should return an empty array and log an error if getDMPs throws', async () => {
-    mockGetDMPVersions.mockResolvedValue([
-      { dmpId, modified: '2026-08-01T14:32:00Z' },
-    ]);
-    mockGetDMPs.mockRejectedValue(new Error('dynamo error'));
-
-    const result = await getPlanVersions(reference, context, dmpId);
-
-    expect(result).toEqual([]);
+    expect(mockOpenSearch.removeIndexItem).toHaveBeenCalledWith(INDEX_NAME, '11.22222/demo-remove');
   });
 });
-

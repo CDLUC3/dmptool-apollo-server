@@ -1,12 +1,12 @@
-import { MySqlModel } from "./MySqlModel";
-import { TemplateCustomizationMigrationStatus } from "./TemplateCustomization";
+import { MySqlModel } from "./MySqlModel.js";
+import { TemplateCustomizationMigrationStatus } from "./TemplateCustomization.js";
 import {
   isNullOrUndefined,
   removeNullAndUndefinedFromJSON
-} from "../utils/helpers";
-import { MyContext } from "../context";
+} from "../utils/helpers.js";
+import { MyContext } from "../context.js";
 import { DefaultTextAreaQuestion, QuestionSchemaMap } from "@dmptool/types";
-import { PinnedSectionTypeEnum } from "./CustomSection";
+import { PinnedSectionTypeEnum } from "./CustomSection.js";
 
 /**
  * The type of question the custom question follows (is pinned to)

@@ -1,30 +1,60 @@
-import { SSMClient, GetParameterCommand, GetParameterCommandOutput } from "@aws-sdk/client-ssm";
-import { getParameter } from "../parameterStore";
-import { MyContext } from "../../context";
-import { logger } from "../../logger";
-import { buildContext } from "../../__mocks__/context";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { jest } from '@jest/globals';
 
-// 🟢 Mock the entire AWS SDK client
-jest.mock("@aws-sdk/client-ssm", () => {
-  return {
-    SSMClient: jest.fn(),
-    GetParameterCommand: jest.fn()
-  };
-});
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+mockAppConfigs();
+mockAppLogger();
+
+const mockSSMClient = jest.fn<(...args: any[]) => any>();
+const mockGetParameterCommand = jest.fn<(...args: any[]) => any>();
+
+const actualAWSSDK = await import('@aws-sdk/client-ssm');
+jest.unstable_mockModule('@aws-sdk/client-ssm', () => ({
+  ...actualAWSSDK,
+  SSMClient: mockSSMClient,
+  GetParameterCommand: mockGetParameterCommand,
+}));
+
+// ---------------------------------------------------------------------------
+// Everything below is dynamic, registered after the mock above — a static
+// import here would be hoisted above jest.unstable_mockModule regardless of
+// where it's textually written, meaning parameterStore.js (which imports the
+// real @aws-sdk/client-ssm internally) would evaluate against the real SDK
+// instead of these mocks.
+// ---------------------------------------------------------------------------
+import type { MyContext } from '../../context.js';
+import type { GetParameterCommandOutput } from '@aws-sdk/client-ssm';
+
+const { logger } = await import('../../logger.js');
+const { buildContext } = await import('../../__mocks__/context.js');
 
 describe("ParameterStore.getParameter", () => {
-  let mockSend: jest.Mock;
+  let mockSend: ReturnType<typeof jest.fn>;
   let context: MyContext;
+  // getParameter is re-imported fresh in every test (see beforeEach) rather
+  // than imported once at module scope. parameterStore.ts caches its
+  // SSMClient in a module-level singleton (`let client`) — since ES modules
+  // are evaluated once and cached for the file's lifetime, that singleton
+  // would otherwise only ever get constructed on the first test that calls
+  // getParameter, permanently wiring every later test's real send() calls
+  // to the FIRST test's mockSend rather than each test's own fresh one.
+  // jest.resetModules() + a fresh dynamic import forces parameterStore.js's
+  // module state (including that singleton) to reset before each test.
+  let getParameter: typeof import('../parameterStore.js')['getParameter'];
 
-  beforeEach(() => {
-    mockSend = jest.fn();
-    (SSMClient as jest.Mock).mockImplementation(() => ({
+  beforeEach(async () => {
+    mockSend = jest.fn<(...args: any[]) => Promise<any>>();
+    mockSSMClient.mockImplementation(() => ({
       send: mockSend
     }));
 
     context = buildContext(logger);
 
     jest.clearAllMocks();
+
+    jest.resetModules();
+    ({ getParameter } = await import('../parameterStore.js'));
   });
 
   it("returns parameter value when SSM returns successfully", async () => {
@@ -36,7 +66,7 @@ describe("ParameterStore.getParameter", () => {
 
     const result = await getParameter(context, "my-key");
 
-    expect(GetParameterCommand).toHaveBeenCalledWith({
+    expect(mockGetParameterCommand).toHaveBeenCalledWith({
       Name: "my-key",
       WithDecryption: true
     });
@@ -65,8 +95,9 @@ describe("ParameterStore.getParameter", () => {
 
     expect(result).toBe("");
     expect(context.logger?.error).toHaveBeenCalledWith(
-      { err: {}, key: "bad-key" },
+      { err: error, key: "bad-key" },
       "Error fetching parameter from SSM"
     );
+
   });
 });

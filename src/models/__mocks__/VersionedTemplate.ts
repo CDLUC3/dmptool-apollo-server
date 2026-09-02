@@ -10,11 +10,11 @@ import {
   findEntryInMockTableById,
   getMockTableStore,
   updateEntryInMockTable
-} from "./MockStore";
-import { getCurrentDate } from "../../utils/helpers";
-import { MyContext } from "../../context";
-import { getMockROR, getRandomEnumValue } from "../../__tests__/helpers";
-import { TemplateVisibility } from "../Template";
+} from "./MockStore.js";
+import { getCurrentDate } from "../../utils/helpers.js";
+import { MyContext } from "../../context.js";
+import { getMockROR, getRandomEnumValue } from "../../__tests__/helpers.js";
+import { TemplateVisibility } from "../Template.js";
 
 enum MockTemplateVersionType {
   DRAFT = 'DRAFT',

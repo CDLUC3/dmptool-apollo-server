@@ -1,6 +1,6 @@
-import { MyContext } from "../context";
-import { MySqlModel } from "./MySqlModel";
-import { isNullOrUndefined } from "../utils/helpers";
+import { MyContext } from "../context.js";
+import { MySqlModel } from "./MySqlModel.js";
+import { isNullOrUndefined } from "../utils/helpers.js";
 
 /**
  * This object represents a versioned snapshot of custom guidance text an
@@ -40,10 +40,10 @@ export class VersionedSectionCustomization extends MySqlModel {
       );
     }
     if (isNullOrUndefined(this.sectionCustomizationId)) {
-      this.addError('sectionCustomizationId','Section customization can\'t be blank');
+      this.addError('sectionCustomizationId', 'Section customization can\'t be blank');
     }
     if (isNullOrUndefined(this.versionedSectionId)) {
-      this.addError('versionedSectionId','Versioned section can\'t be blank');
+      this.addError('versionedSectionId', 'Versioned section can\'t be blank');
     }
 
     return Object.keys(this.errors).length === 0;

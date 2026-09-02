@@ -1,13 +1,25 @@
-import casual from 'casual';
-import { Template, TemplateSearchResult, TemplateVisibility } from "../Template";
-import { buildMockContextWithToken } from '../../__mocks__/context';
-import { TemplateCollaborator } from '../Collaborator';
-import { defaultLanguageId } from '../Language';
-import { getRandomEnumValue } from '../../__tests__/helpers';
-import { generalConfig } from '../../config/generalConfig';
-import { logger } from "../../logger";
+import { jest } from '@jest/globals';
+import casual from "casual";
 
-jest.mock('../../context.ts');
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+
+//Dynamic imports AFTER all mocks are registered
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
+const { Template, TemplateSearchResult, TemplateVisibility } = await import("../Template.js");
+const { TemplateCollaborator } = await import('../Collaborator.js');
+const { defaultLanguageId } = await import('../Language.js');
+const { getRandomEnumValue } = await import('../../__tests__/helpers.js');
+const { generalConfig } = await import('../../config/generalConfig.js');
 
 let context;
 
@@ -68,13 +80,13 @@ describe('TemplateSearchResult', () => {
       const term = 'test';
       const result = await TemplateSearchResult.findByAffiliationIdAndTerm('Test', context, templateSearchResult.ownerId, term);
       const sql = 'SELECT t.id, t.name, t.description, t.latestPublishVisibility, t.bestPractice, t.isDirty, ' +
-                        't.latestPublishVersion, t.latestPublishDate, t.ownerId, a.displayName, t.isDefault, ' +
-                        't.createdById, TRIM(CONCAT(cu.givenName, CONCAT(\' \', cu.surName))) as createdByName, t.created, ' +
-                        't.modifiedById, TRIM(CONCAT(mu.givenName, CONCAT(\' \', mu.surName))) as modifiedByName, t.modified ' +
-                  'FROM templates t ' +
-                    'INNER JOIN affiliations a ON a.uri = t.ownerId ' +
-                    'INNER JOIN users cu ON cu.id = t.createdById ' +
-                    'INNER JOIN users mu ON mu.id = t.modifiedById';
+        't.latestPublishVersion, t.latestPublishDate, t.ownerId, a.displayName, t.isDefault, ' +
+        't.createdById, TRIM(CONCAT(cu.givenName, CONCAT(\' \', cu.surName))) as createdByName, t.created, ' +
+        't.modifiedById, TRIM(CONCAT(mu.givenName, CONCAT(\' \', mu.surName))) as modifiedByName, t.modified ' +
+        'FROM templates t ' +
+        'INNER JOIN affiliations a ON a.uri = t.ownerId ' +
+        'INNER JOIN users cu ON cu.id = t.createdById ' +
+        'INNER JOIN users mu ON mu.id = t.modifiedById';
 
       const vals = [templateSearchResult.ownerId, `%${term.toLowerCase()}%`, `%${term.toLowerCase()}%`];
       const whereFilters = ['t.ownerId = ?', '(LOWER(t.name) LIKE ? OR LOWER(t.description) LIKE ?)'];
@@ -240,7 +252,7 @@ describe('Template', () => {
     it('findByAffiliationId returns the Templates owned by the current user\'s Affiliation', async () => {
       localQuery.mockResolvedValueOnce([template]);
 
-      const mockFindByEmail = jest.fn();
+      const mockFindByEmail = jest.fn<() => Promise<InstanceType<typeof TemplateCollaborator>[]>>();
       (TemplateCollaborator.findByEmail as jest.Mock) = mockFindByEmail;
       mockFindByEmail.mockResolvedValueOnce([]);
 
@@ -261,7 +273,7 @@ describe('Template', () => {
         ownerId: casual.url,
       });
 
-      const mockFindByEmail = jest.fn();
+      const mockFindByEmail = jest.fn<() => Promise<InstanceType<typeof Template>[]>>();
       (TemplateCollaborator.findByEmail as jest.Mock) = mockFindByEmail;
       mockFindByEmail.mockResolvedValueOnce([sharedTemplate]);
 
@@ -276,7 +288,7 @@ describe('Template', () => {
     it('findByAffiliationId returns null if there are no Templates for the current user', async () => {
       localQuery.mockResolvedValueOnce([]);
 
-      const mockFindByEmail = jest.fn();
+      const mockFindByEmail = jest.fn<() => Promise<InstanceType<typeof TemplateCollaborator>[]>>();
       (TemplateCollaborator.findByEmail as jest.Mock) = mockFindByEmail;
       mockFindByEmail.mockResolvedValueOnce([]);
 
@@ -314,7 +326,7 @@ describe('Template', () => {
     });
 
     it('returns the Template with errors if it is not valid', async () => {
-      const localValidator = jest.fn();
+      const localValidator = jest.fn<() => Promise<boolean>>();
       (template.isValid as jest.Mock) = localValidator;
       localValidator.mockResolvedValueOnce(false);
 
@@ -324,11 +336,11 @@ describe('Template', () => {
     });
 
     it('returns the Template with an error if the template already exists', async () => {
-      const localValidator = jest.fn();
+      const localValidator = jest.fn<() => Promise<boolean>>();
       (template.isValid as jest.Mock) = localValidator;
       localValidator.mockResolvedValueOnce(true);
 
-      const mockFindBy = jest.fn();
+      const mockFindBy = jest.fn<() => Promise<InstanceType<typeof Template> | null>>();
       (Template.findByNameAndOwnerId as jest.Mock) = mockFindBy;
       mockFindBy.mockResolvedValueOnce(template);
 
@@ -340,16 +352,16 @@ describe('Template', () => {
     });
 
     it('returns the newly added Template', async () => {
-      const localValidator = jest.fn();
+      const localValidator = jest.fn<() => Promise<boolean>>();
       (template.isValid as jest.Mock) = localValidator;
       localValidator.mockResolvedValueOnce(true);
 
-      const mockFindBy = jest.fn();
+      const mockFindBy = jest.fn<() => Promise<InstanceType<typeof Template> | null>>();
       (Template.findByNameAndOwnerId as jest.Mock) = mockFindBy;
       mockFindBy.mockResolvedValueOnce(null);
       mockFindBy.mockResolvedValue(template);
 
-      const mockFindById = jest.fn();
+      const mockFindById = jest.fn<() => Promise<InstanceType<typeof Template> | null>>();
       (Template.findById as jest.Mock) = mockFindById;
       mockFindById.mockResolvedValueOnce(template);
 
@@ -381,7 +393,7 @@ describe('Template', () => {
     });
 
     it('returns the Template with errors if it is not valid', async () => {
-      const localValidator = jest.fn();
+      const localValidator = jest.fn<() => Promise<boolean>>();
       (template.isValid as jest.Mock) = localValidator;
       localValidator.mockResolvedValueOnce(false);
 
@@ -391,7 +403,7 @@ describe('Template', () => {
     });
 
     it('returns an error if the Template has no id', async () => {
-      const localValidator = jest.fn();
+      const localValidator = jest.fn<() => Promise<boolean>>();
       (template.isValid as jest.Mock) = localValidator;
       localValidator.mockResolvedValueOnce(true);
 
@@ -402,11 +414,11 @@ describe('Template', () => {
     });
 
     it('returns the updated Template', async () => {
-      const localValidator = jest.fn();
+      const localValidator = jest.fn<() => Promise<boolean>>();
       (template.isValid as jest.Mock) = localValidator;
       localValidator.mockResolvedValueOnce(true);
 
-      const mockFindById = jest.fn();
+      const mockFindById = jest.fn<() => Promise<InstanceType<typeof Template> | null>>();
       (Template.findById as jest.Mock) = mockFindById;
       mockFindById.mockResolvedValueOnce(template);
 
@@ -438,7 +450,7 @@ describe('Template', () => {
     });
 
     it('returns null if it was not able to delete the record', async () => {
-      const deleteQuery = jest.fn();
+      const deleteQuery = jest.fn<() => Promise<InstanceType<typeof Template> | null>>();
       (Template.delete as jest.Mock) = deleteQuery;
 
       deleteQuery.mockResolvedValueOnce(null);
@@ -446,10 +458,10 @@ describe('Template', () => {
     });
 
     it('returns the Template if it was able to delete the record', async () => {
-      const deleteQuery = jest.fn();
+      const deleteQuery = jest.fn<() => Promise<InstanceType<typeof Template> | null>>();
       (Template.delete as jest.Mock) = deleteQuery;
       deleteQuery.mockResolvedValueOnce(template);
-      const findById = jest.fn();
+      const findById = jest.fn<() => Promise<InstanceType<typeof Template> | null>>();
       (Template.findById as jest.Mock) = findById;
       findById.mockResolvedValueOnce(template);
 

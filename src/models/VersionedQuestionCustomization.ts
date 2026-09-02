@@ -1,6 +1,6 @@
-import { MyContext } from "../context";
-import { MySqlModel } from "./MySqlModel";
-import { isNullOrUndefined } from "../utils/helpers";
+import { MyContext } from "../context.js";
+import { MySqlModel } from "./MySqlModel.js";
+import { isNullOrUndefined } from "../utils/helpers.js";
 
 /**
  * This object represents a snapshot of custom requirements, guidance, and
@@ -42,10 +42,10 @@ export class VersionedQuestionCustomization extends MySqlModel {
       );
     }
     if (isNullOrUndefined(this.questionCustomizationId)) {
-      this.addError('questionCustomizationId','Versioned question customization can\'t be blank');
+      this.addError('questionCustomizationId', 'Versioned question customization can\'t be blank');
     }
     if (isNullOrUndefined(this.versionedQuestionId)) {
-      this.addError('versionedQuestionId','Versioned question can\'t be blank');
+      this.addError('versionedQuestionId', 'Versioned question can\'t be blank');
     }
 
     return Object.keys(this.errors).length === 0;

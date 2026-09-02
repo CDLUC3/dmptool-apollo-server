@@ -1,5 +1,5 @@
-import { MyContext } from "../context";
-import { MySqlModel } from "./MySqlModel";
+import { MyContext } from "../context.js";
+import { MySqlModel } from "./MySqlModel.js";
 
 // Identifiers defined outside the DMP Tool that help identify a DMP/Plan
 export class AlternateIdentifier extends MySqlModel {
@@ -27,7 +27,7 @@ export class AlternateIdentifier extends MySqlModel {
 
   // Save the current record
   async create(context: MyContext): Promise<AlternateIdentifier> {
-    if(await this.isValid()) {
+    if (await this.isValid()) {
       // First make sure the record doesn't already exist
       const current = await AlternateIdentifier.findByAlternateIdentifier(
         'AlternateIdentifier.create',

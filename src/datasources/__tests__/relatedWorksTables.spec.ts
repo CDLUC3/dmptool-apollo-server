@@ -1,9 +1,21 @@
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+mockAppConfigs();
+mockAppLogger();
+
+
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import mysql, { Connection } from 'mysql2/promise';
 import { MySqlContainer, StartedMySqlContainer } from '@testcontainers/mysql';
-import { Author, Award, ContentMatch, DoiMatch, Funder, Institution, ItemMatch } from '../../types';
+import { Author, Award, ContentMatch, DoiMatch, Funder, Institution, ItemMatch } from '../../types.js';
 import type { ResultSetHeader } from 'mysql2/promise';
+
+// __dirname does not exist under native ES modules — Node never defines it
+// there, independent of Jest. This is the standard ESM replacement.
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 interface RelatedWork {
   planId: number;
@@ -698,8 +710,8 @@ describe('Related Works Tables', () => {
     const [afterRows] = await connection.execute<ResultSetHeader[]>(
       'SELECT r.score, r.sourceType, r.status, p.dmpId FROM relatedWorks r JOIN plans p ON r.planId = p.id ORDER BY p.dmpId',
     );
-    const planAAfter:ResultSetHeader = afterRows.find((r: ResultSetHeader) => r['dmpId'] === testPlanDOIs[0]);
-    const planBAfter:ResultSetHeader = afterRows.find((r: ResultSetHeader) => r['dmpId'] === planBDoi);
+    const planAAfter: ResultSetHeader = afterRows.find((r: ResultSetHeader) => r['dmpId'] === testPlanDOIs[0]);
+    const planBAfter: ResultSetHeader = afterRows.find((r: ResultSetHeader) => r['dmpId'] === planBDoi);
 
     // Status should be updated
     expect(planAAfter['status']).toBe('ACCEPTED');

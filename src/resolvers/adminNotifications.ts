@@ -1,26 +1,26 @@
-import { Resolvers } from "../types";
-import { MyContext } from '../context';
+import { Resolvers } from "../types.js";
+import { MyContext } from '../context.js';
 import {
   AdminNotificationResults,
   AdminNotification,
-} from '../models/AdminNotifications';
-import { Plan } from '../models/Plan';
-import { Template } from '../models/Template';
-import { PlanFeedback } from '../models/PlanFeedback';
-import { User } from '../models/User';
+} from '../models/AdminNotifications.js';
+import { Plan } from '../models/Plan.js';
+import { Template } from '../models/Template.js';
+import { PlanFeedback } from '../models/PlanFeedback.js';
+import { User } from '../models/User.js';
 import {
   authenticatedResolver,
-} from "../services/authService";
+} from "../services/authService.js";
 import {
   ForbiddenError,
   InternalServerError,
   NotFoundError
-} from "../utils/graphQLErrors";
-import { prepareObjectForLogs } from "../logger";
+} from "../utils/graphQLErrors.js";
+import { prepareObjectForLogs } from "../logger.js";
 import { GraphQLError } from "graphql";
-import { UserRole } from "../models/User";
-import { PaginatedQueryResults, PaginationOptions } from "../types/general";
-import { TemplateCustomization } from "../models/TemplateCustomization";
+import { UserRole } from "../models/User.js";
+import { PaginatedQueryResults, PaginationOptions } from "../types/general.js";
+import { TemplateCustomization } from "../models/TemplateCustomization.js";
 
 export const resolvers: Resolvers = {
   Query: {

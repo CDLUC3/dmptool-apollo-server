@@ -1,6 +1,6 @@
-import { MyContext } from "../context";
-import { validateURL } from "../utils/helpers";
-import { MySqlModel } from "./MySqlModel";
+import { MyContext } from "../context.js";
+import { validateURL } from "../utils/helpers.js";
+import { MySqlModel } from "./MySqlModel.js";
 
 // A link that can be displayed to the affiliation's users within the context of the DMPTool
 export class AffiliationLink extends MySqlModel {
@@ -39,12 +39,12 @@ export class AffiliationLink extends MySqlModel {
     );
 
     // Then make sure it doesn't already exist
-    if(await this.isValid()) {
+    if (await this.isValid()) {
       if (currentDomain) {
         const assoc = currentDomain.affiliationId == this.affiliationId ? 'this Affiliation' : 'another Affiliation';
         this.addError('general', `That email domain is already associated with ${assoc}`);
       } else {
-      // Save the record and then fetch it
+        // Save the record and then fetch it
         const newId = await AffiliationLink.insert(context, AffiliationLink.tableName, this, 'AffiliationLink.create');
         return await AffiliationLink.findById('AffiliationLink.create', context, newId as number);
       }

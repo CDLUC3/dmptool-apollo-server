@@ -1,6 +1,6 @@
-import { MySqlModel } from "./MySqlModel";
-import { MyContext } from "../context";
-import {isNullOrUndefined} from "../utils/helpers";
+import { MySqlModel } from "./MySqlModel.js";
+import { MyContext } from "../context.js";
+import { isNullOrUndefined } from "../utils/helpers.js";
 
 /**
  * A snapshot version of the affiliation's customizations to a funder template
@@ -42,7 +42,7 @@ export class VersionedTemplateCustomization extends MySqlModel {
       this.addError('affiliationId', 'Affiliation can\'t be blank');
     }
     if (isNullOrUndefined(this.templateCustomizationId)) {
-      this.addError('templateCustomizationId','Template customization can\'t be blank');
+      this.addError('templateCustomizationId', 'Template customization can\'t be blank');
     }
     if (isNullOrUndefined(this.currentVersionedTemplateId)) {
       this.addError('currentVersionedTemplateId', 'Funder template can\'t be blank');
@@ -120,7 +120,7 @@ export class VersionedTemplateCustomization extends MySqlModel {
           ref,
           [],
           noTouch
-        ) as unknown as {affectedRows:number} | null;
+        ) as unknown as { affectedRows: number } | null;
 
         if (result && result.affectedRows > 0) {
           return await VersionedTemplateCustomization.findById(ref, context, this.id);

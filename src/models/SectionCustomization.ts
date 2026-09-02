@@ -1,7 +1,7 @@
-import { MyContext } from "../context";
-import { MySqlModel } from "./MySqlModel";
-import { isNullOrUndefined } from "../utils/helpers";
-import { TemplateCustomizationMigrationStatus } from "./TemplateCustomization";
+import { MyContext } from "../context.js";
+import { MySqlModel } from "./MySqlModel.js";
+import { isNullOrUndefined } from "../utils/helpers.js";
+import { TemplateCustomizationMigrationStatus } from "./TemplateCustomization.js";
 
 /**
  * This object represents custom guidance text an organization has added to an
@@ -47,7 +47,7 @@ export class SectionCustomization extends MySqlModel {
       this.addError('templateCustomizationId', 'Customization can\'t be blank');
     }
     if (isNullOrUndefined(this.sectionId)) {
-      this.addError('sectionId','Section can\'t be blank');
+      this.addError('sectionId', 'Section can\'t be blank');
     }
 
     return Object.keys(this.errors).length === 0;

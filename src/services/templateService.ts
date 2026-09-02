@@ -1,19 +1,19 @@
-import {incrementVersionNumber} from "../utils/helpers";
-import {Template, TemplateVisibility} from "../models/Template";
-import {Tag} from "../models/Tag";
+import { incrementVersionNumber } from "../utils/helpers.js";
+import { Template, TemplateVisibility } from "../models/Template.js";
+import { Tag } from "../models/Tag.js";
 import {
   TemplateVersionType,
   VersionedTemplate
-} from "../models/VersionedTemplate";
-import {MyContext} from "../context";
-import {isSuperAdmin} from "./authService";
-import {TemplateCollaborator} from "../models/Collaborator";
-import {Section} from "../models/Section";
-import {generateSectionVersion} from "./sectionService";
-import {prepareObjectForLogs} from "../logger";
+} from "../models/VersionedTemplate.js";
+import { MyContext } from "../context.js";
+import { isSuperAdmin } from "./authService.js";
+import { TemplateCollaborator } from "../models/Collaborator.js";
+import { Section } from "../models/Section.js";
+import { generateSectionVersion } from "./sectionService.js";
+import { prepareObjectForLogs } from "../logger.js";
 import {
   handleFunderTemplateRepublication
-} from "./templateCustomizationService";
+} from "./templateCustomizationService.js";
 
 // Determine whether the specified user has permission to access the Template
 export const hasPermissionOnTemplate = async (context: MyContext, template: Template): Promise<boolean> => {
@@ -233,7 +233,7 @@ export const setDefaultTemplate = async (
     // If we did NOT successfully mark the new versioned templates
     if (vtMarked.length === 0) {
       // The marking of the versioned templates failed, so roll it back
-      context.logger.debug({newDefault: template.id}, 'Mark VersionedTemplate as default failed, rolling back changes.');
+      context.logger.debug({ newDefault: template.id }, 'Mark VersionedTemplate as default failed, rolling back changes.');
       await Template.query(context, tSQL, ['0', newId], reference);
       return false;
     }
@@ -241,14 +241,14 @@ export const setDefaultTemplate = async (
     // If there was a prior default
     if (oldId) {
       // Unmark the old template
-      context.logger.debug({newDefault: template.id}, 'Removing default designation from other templates.');
+      context.logger.debug({ newDefault: template.id }, 'Removing default designation from other templates.');
       const tUnmarked = await Template.query(context, tSQL, ['0', oldId], reference);
       // Unmark the old versionedTemplates
       const vtUnmarked = await VersionedTemplate.query(context, vtSQL, ['0', oldId], reference);
 
       if (tUnmarked.length === 0 || vtUnmarked.length === 0) {
         // The unmarking of the old templates failed, so roll it all back
-        context.logger.debug({newDefault: template.id}, 'Mark as default failed, rolling back changes.');
+        context.logger.debug({ newDefault: template.id }, 'Mark as default failed, rolling back changes.');
         await Template.query(context, tSQL, ['1', oldId], reference);
         await VersionedTemplate.query(context, vtSQL, ['1', oldId], reference);
         await Template.query(context, tSQL, ['0', newId], reference);

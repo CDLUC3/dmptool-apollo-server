@@ -1,7 +1,7 @@
-import { MyContext } from "../context";
-import { prepareObjectForLogs } from "../logger";
-import { validateURL } from "../utils/helpers";
-import { MySqlModel } from "./MySqlModel";
+import { MyContext } from "../context.js";
+import { prepareObjectForLogs } from "../logger.js";
+import { validateURL } from "../utils/helpers.js";
+import { MySqlModel } from "./MySqlModel.js";
 
 export const DEFAULT_DMPTOOL_MEMBER_ROLE_URL = 'https://dmptool.org/contributor_roles/';
 

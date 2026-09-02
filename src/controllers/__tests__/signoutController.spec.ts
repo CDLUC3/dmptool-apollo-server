@@ -1,43 +1,52 @@
+import { jest } from '@jest/globals';
 import { Response } from 'express';
 import { Request } from 'express-jwt';
-import { Cache } from "../../datasources/cache";
-import { revokeAccessToken, revokeRefreshToken, verifyAccessToken } from '../../services/tokenService';
 import casual from 'casual';
-import { signoutController } from '../signoutController';
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { MyContext } from '../../context';
-import { logger } from "../../logger";
+import { logger } from "../../logger.js";
 
-jest.mock('../../context.ts');
+jest.unstable_mockModule('../../datasources/cache.js', () => ({
+  Cache: {
+    getInstance: jest.fn(),
+  },
+}));
 
-// Mocking external dependencies
-jest.mock('../../datasources/cache');
-jest.mock('../../services/tokenService');
+jest.unstable_mockModule('../../services/tokenService.js', () => ({
+  revokeAccessToken: jest.fn<() => Promise<boolean>>(),
+  revokeRefreshToken: jest.fn<() => Promise<boolean>>(),
+  verifyAccessToken: jest.fn<() => { jti: string }>(),
+}));
+
+
+const {
+  revokeAccessToken,
+  revokeRefreshToken,
+  verifyAccessToken,
+} = await import('../../services/tokenService.js');
+
+const { signoutController } = await import('../signoutController.js');
+
+interface MockResponse {
+  status: jest.Mock;
+  json: jest.Mock;
+  clearCookie: jest.Mock;
+};
 
 describe('signoutController', () => {
   let mockRequest: Partial<Request>;
-  let mockResponse: Partial<Response>;
-  let mockCache: jest.Mocked<Cache>;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  let context: MyContext;
-
+  let mockResponse: MockResponse;
   beforeEach(async () => {
     jest.resetAllMocks();
 
-    context = await buildMockContextWithToken(logger);
-
     mockRequest = {
-      logger: logger,
+      logger,
       auth: { jti: casual.integer(1, 99999).toString() },
       cookies: { dmspt: casual.uuid },
     };
     mockResponse = {
       status: jest.fn().mockReturnThis(),
-      json: jest.fn(),
-      clearCookie: jest.fn(),
+      json: jest.fn().mockReturnThis(),
+      clearCookie: jest.fn().mockReturnThis(),
     };
-    mockCache = Cache.getInstance() as jest.Mocked<Cache>;
-    (Cache.getInstance as jest.Mock).mockReturnValue(mockCache);
   });
 
   afterEach(() => {
@@ -45,12 +54,17 @@ describe('signoutController', () => {
   });
 
   it('should signout successfully', async () => {
-    (verifyAccessToken as jest.Mock).mockReturnValueOnce({ jti: mockRequest.auth.jti });
-    (revokeRefreshToken as jest.Mock).mockResolvedValue(true);
-    (revokeAccessToken as jest.Mock).mockResolvedValue({});
+    const authJti = mockRequest.auth?.jti ?? '';
+    jest.mocked(verifyAccessToken).mockReturnValueOnce({
+      jti: authJti,
+    });
+
+    jest.mocked(revokeRefreshToken).mockResolvedValue(true);
+
+    jest.mocked(revokeAccessToken).mockResolvedValue(true);
     jest.spyOn(mockResponse, 'clearCookie');
 
-    await signoutController(mockRequest as Request, mockResponse as Response);
+    await signoutController(mockRequest as Request, mockResponse as unknown as Response);
 
     expect(revokeRefreshToken).toHaveBeenCalled();
     expect(revokeAccessToken).toHaveBeenCalled();
@@ -61,24 +75,24 @@ describe('signoutController', () => {
   });
 
   it('should return 200 if no access token is present', async () => {
-    await signoutController(mockRequest as Request, mockResponse as Response);
+    await signoutController(mockRequest as Request, mockResponse as unknown as Response);
 
     expect(mockResponse.status).toHaveBeenCalledWith(200);
     expect(mockResponse.json).toHaveBeenCalledWith({});
   });
 
   it('should return 200 if unable to revoke the refresh token', async () => {
-    (revokeRefreshToken as jest.Mock).mockResolvedValue(false);
+    jest.mocked(revokeRefreshToken).mockResolvedValue(false);
 
-    await signoutController(mockRequest as Request, mockResponse as Response);
+    await signoutController(mockRequest as Request, mockResponse as unknown as Response);
 
     expect(mockResponse.status).toHaveBeenCalledWith(200);
     expect(mockResponse.json).toHaveBeenCalledWith({});
   });
 
   it('should return 200 if an unexpected error occurs', async () => {
-    (revokeRefreshToken as jest.Mock).mockImplementation(() => { throw new Error('test error'); });
-    await signoutController(mockRequest as Request, mockResponse as Response);
+    jest.mocked(revokeRefreshToken).mockImplementation(() => { throw new Error('test error'); });
+    await signoutController(mockRequest as Request, mockResponse as unknown as Response);
 
     expect(mockResponse.status).toHaveBeenCalledWith(200);
     expect(mockResponse.json).toHaveBeenCalledWith({});

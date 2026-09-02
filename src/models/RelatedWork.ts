@@ -1,13 +1,13 @@
-import { MyContext } from '../context';
-import { isNullOrUndefined, valueIsEmpty } from '../utils/helpers';
-import { MySqlModel } from './MySqlModel';
+import { MyContext } from '../context.js';
+import { isNullOrUndefined, valueIsEmpty } from '../utils/helpers.js';
+import { MySqlModel } from './MySqlModel.js';
 import {
   PaginatedQueryResults,
   PaginationOptions,
   PaginationOptionsForCursors,
   PaginationOptionsForOffsets,
   PaginationType,
-} from '../types/general';
+} from '../types/general.js';
 import {
   ContentMatch,
   DoiMatch,
@@ -18,9 +18,9 @@ import {
   Institution,
   Award,
   RelatedWorkStatsResults,
-} from '../types';
-import { prepareObjectForLogs } from '../logger';
-import { Plan } from './Plan';
+} from '../types.js';
+import { prepareObjectForLogs } from '../logger.js';
+import { Plan } from './Plan.js';
 
 export const isDOI = (value: string): boolean => {
   return value?.toLowerCase()?.includes('doi:')
@@ -258,7 +258,7 @@ export class WorkVersion extends MySqlModel {
   }
 
   // Fetch the latest WorkVersion for a DOI
-  static async findLatestByDoi(reference: string, context: MyContext, doi: string) : Promise<WorkVersion> {
+  static async findLatestByDoi(reference: string, context: MyContext, doi: string): Promise<WorkVersion> {
     const sql = `SELECT wv.* FROM workVersions wv LEFT JOIN works w ON wv.workId = w.id WHERE w.doi = ? ORDER BY wv.created DESC LIMIT 1`;
     const results = await WorkVersion.query(context, sql, [doi?.toString()], reference);
     return Array.isArray(results) && results.length > 0 ? new WorkVersion(results[0]) : null;

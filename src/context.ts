@@ -1,14 +1,14 @@
 import { Logger } from 'pino';
-import { DMPHubAPI } from './datasources/dmphubAPI'
-import { EZIDAPI } from './datasources/EZIDAPI';
-import { OpenSearch } from "./datasources/openSearch";
-import { MySQLConnection, TransactionClient } from './datasources/mysql';
-import { JWTAccessToken } from './services/tokenService';
-import { randomHex } from './utils/helpers';
+import { DMPHubAPI } from './datasources/dmphubAPI.js';
+import { EZIDAPI } from './datasources/EZIDAPI.js';
+import { OpenSearch } from "./datasources/openSearch.js";
+import { MySQLConnection, TransactionClient } from './datasources/mysql.js';
+import { JWTAccessToken } from './services/tokenService.js';
+import { randomHex } from './utils/helpers.js';
 import { BaseContext } from "@apollo/server";
 import { KeyvAdapter } from "@apollo/utils.keyvadapter";
-import { initLogger, prepareObjectForLogs } from "./logger";
-import { generalConfig } from "./config/generalConfig";
+import { initLogger, prepareObjectForLogs } from "./logger.js";
+import { generalConfig } from "./config/generalConfig.js";
 
 // The Apollo Server Context object passed in to the Resolver on each request
 export interface MyContext extends BaseContext {
@@ -73,7 +73,7 @@ export function buildContext(
         openSearchServerlessDataSource: openSearchServerlessDataSource,
       }
     }
-  } catch(err) {
+  } catch (err) {
     const msg = `Unable to buildContext - ${err.message}`;
     if (logger) {
       logger.error(prepareObjectForLogs({
@@ -84,7 +84,7 @@ export function buildContext(
         cache,
         token
       }),
-      msg);
+        msg);
     } else {
       console.log(msg);
     }

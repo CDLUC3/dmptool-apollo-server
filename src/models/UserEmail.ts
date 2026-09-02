@@ -1,11 +1,11 @@
-import { MyContext } from "../context";
-import { sendEmailConfirmationNotification } from "../services/emailService";
+import { MyContext } from "../context.js";
+import { sendEmailConfirmationNotification } from "../services/emailService.js";
 import {
   validateEmail,
   getCurrentDate,
-} from '../utils/helpers';
-import { TemplateCollaborator } from "./Collaborator";
-import { MySqlModel } from "./MySqlModel";
+} from '../utils/helpers.js';
+import { TemplateCollaborator } from "./Collaborator.js";
+import { MySqlModel } from "./MySqlModel.js";
 
 // Reepresents one of the user's email addresses
 export class UserEmail extends MySqlModel {

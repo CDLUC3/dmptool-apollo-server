@@ -1,18 +1,46 @@
-import { MyContext } from "../../context";
-const mockSendEmail = jest.fn().mockResolvedValue(true);
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
-jest.mock('nodemailer', () => ({
-  createTransport: jest.fn(() => ({
-    sendMail: mockSendEmail,
-  })),
+import { jest } from '@jest/globals';
+import casual from "casual";
+
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+mockAppConfigs();
+mockAppLogger();
+
+const mockSendEmail = jest.fn<(...args: any[]) => Promise<boolean>>().mockResolvedValue(true);
+
+const mockCreateTransport = jest.fn().mockImplementation(() => ({
+  sendMail: mockSendEmail,
 }));
 
-jest.mock('../../config/awsConfig');
+// No pre-import of the real module here — nodemailer only exports
+// createTransport (plus a couple of things we never use), and importing
+// it "for real" first is exactly what broke interception on this
+// specifier. __esModule + default are needed because emailService.js does
+// `import nodemailer from 'nodemailer'` (a default import), not a named one.
+jest.unstable_mockModule('nodemailer', () => ({
+  __esModule: true,
+  default: { createTransport: mockCreateTransport },
+  createTransport: mockCreateTransport,
+}));
 
-import casual from "casual";
-import { buildMockContextWithToken } from '../../__mocks__/context';
-import { logger } from "../../logger";
-import {
+async function autoMockModule(specifier: string): Promise<void> {
+  const actual: Record<string, any> = await import(specifier);
+  const mocked: Record<string, any> = {};
+  for (const [key, value] of Object.entries(actual)) {
+    mocked[key] = typeof value === 'function' ? jest.fn() : value;
+  }
+  jest.unstable_mockModule(specifier, () => mocked);
+}
+await autoMockModule('../../config/awsConfig.js');
+
+import { MyContext } from "../../context.js";
+
+
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import("../../logger.js");
+const {
   emailMessages,
   emailSubjects,
   sendEmailConfirmationNotification,
@@ -22,10 +50,10 @@ import {
   sendFeedbackCompleteEmail,
   sendContactUsEmail,
   sendResetPasswordEmail,
-} from "../emailService";
-import { generalConfig } from "../../config/generalConfig";
-import { emailConfig } from "../../config/emailConfig";
-import { User } from "../../models/User";
+} = await import("../emailService.js");
+const { generalConfig } = await import("../../config/generalConfig.js");
+const { emailConfig } = await import("../../config/emailConfig.js");
+const { User } = await import("../../models/User.js");
 
 let context: MyContext;
 
@@ -107,7 +135,7 @@ describe('sendEmail', () => {
     const inviterName = `${casual.first_name} ${casual.last_name}`;
 
     jest.spyOn(User.prototype, 'getEmail').mockResolvedValue(email);
-    (User.findById as jest.Mock) = jest.fn().mockResolvedValueOnce(user);
+    (User.findById as jest.Mock) = jest.fn<() => Promise<InstanceType<typeof User> | null>>().mockResolvedValueOnce(user);
     const sent = await sendTemplateCollaborationEmail(context, templateName, inviterName, email, user.id);
 
     const expectedSubject = `${subjectPrefix} - ${emailSubjects.templateCollaboration}`
@@ -154,6 +182,7 @@ describe('sendEmail', () => {
 
   it('sends the project collaboration email to the user\'s primary email', async () => {
     jest.spyOn(logger, 'info');
+    jest.spyOn(context.logger, 'error');
     const email = casual.email;
     const user = new User({
       id: casual.integer(1, 99),
@@ -165,10 +194,9 @@ describe('sendEmail', () => {
 
     jest.spyOn(User.prototype, 'getEmail').mockResolvedValue(email);
 
-    (User.findById as jest.Mock) = jest.fn().
+    (User.findById as jest.Mock) = jest.fn<() => Promise<InstanceType<typeof User> | null>>().
       mockResolvedValueOnce(user);
     const sent = await sendProjectCollaborationEmail(context, projectName, inviterName, email, user.id);
-
     const expectedSubject = `${subjectPrefix} - ${emailSubjects.projectCollaboration}`
     const expectedMessage = emailMessages.projectCollaboration;
 
@@ -234,7 +262,7 @@ describe('sendEmail', () => {
       surName: casual.last_name,
       notify_on_feedback_complete: true,
     });
-    (User.findById as jest.Mock) = jest.fn().mockResolvedValueOnce(user);
+    (User.findById as jest.Mock) = jest.fn<() => Promise<InstanceType<typeof User> | null>>().mockResolvedValueOnce(user);
     jest.spyOn(User.prototype, 'getEmail').mockResolvedValue(email);
     const sent = await sendFeedbackCompleteEmail(context, planOwnerUserId, adminName, planTitle, planURL);
 
@@ -274,7 +302,7 @@ describe('sendEmail', () => {
       surName: casual.last_name,
       notify_on_feedback_complete: false,
     });
-    (User.findById as jest.Mock) = jest.fn().mockResolvedValueOnce(user);
+    (User.findById as jest.Mock) = jest.fn<() => Promise<InstanceType<typeof User> | null>>().mockResolvedValueOnce(user);
 
     const sent = await sendFeedbackCompleteEmail(
       context,
@@ -297,7 +325,7 @@ describe('sendEmail', () => {
       surName: casual.last_name,
       notify_on_feedback_complete: true,
     });
-    (User.findById as jest.Mock) = jest.fn().mockResolvedValueOnce(user);
+    (User.findById as jest.Mock) = jest.fn<() => Promise<InstanceType<typeof User> | null>>().mockResolvedValueOnce(user);
     jest.spyOn(User.prototype, 'getEmail').mockResolvedValue(null);
 
     const sent = await sendFeedbackCompleteEmail(
@@ -321,7 +349,7 @@ describe('sendEmail', () => {
     const planTitle = casual.sentence;
     const feedbackMessage = casual.sentence;
     // Import here to avoid hoisting issues
-    const { sendFeedbackRequestEmail } = await import('../emailService');
+    const { sendFeedbackRequestEmail } = await import('../emailService.js');
     const sent = await sendFeedbackRequestEmail(context, planOwnerName, planURL, planTitle, emails, feedbackMessage);
 
     const expectedSubject = `${subjectPrefix} - ${emailSubjects.feedbackRequest}`;

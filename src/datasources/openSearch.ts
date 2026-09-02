@@ -1,17 +1,42 @@
 import { Client, ClientOptions } from "@opensearch-project/opensearch";
 import { AwsSigv4Signer } from "@opensearch-project/opensearch/aws";
 import { fromNodeProviderChain } from "@aws-sdk/credential-providers";
-import {
-  Property
-} from "@opensearch-project/opensearch/api/_types/_common.mapping";
-import {
-  Get_Response,
-  Indices_Get_Response,
-  Indices_Get_ResponseBody,
-  Search_Response
-} from "@opensearch-project/opensearch/api";
-import { Hit } from "@opensearch-project/opensearch/api/_types/_core.search";
-import { awsConfig } from "../config/awsConfig";
+
+type OpenSearchProperties = NonNullable<
+  Parameters<Client["indices"]["putMapping"]>[0]["body"]
+>["properties"];
+
+// Look up the index type to get the singular MappingProperty schema
+export type MappingProperty = NonNullable<OpenSearchProperties>[string];
+
+
+// Target the Response body data by resolving the underlying Promise value directly
+export type Search_Response = Awaited<ReturnType<Client["search"]>> extends { body: infer B }
+  ? B
+  : { hits?: { hits?: unknown[] } };
+
+
+// Now extracting the individual Hit array item will work perfectly!
+export type Hit = NonNullable<
+  NonNullable<Search_Response["hits"]>["hits"]
+>[number];
+
+
+// Extract Indices_Get_Response and ResponseBody from client.indices.get
+export type Indices_Get_Response = Awaited<ReturnType<Client["indices"]["get"]>>;
+
+// In OpenSearch 3.x, the response object directly reflects the body payload shape
+export type Indices_Get_ResponseBody = Indices_Get_Response;
+
+
+// Extract Get_Response from client.get
+export type Get_Response = Awaited<ReturnType<Client["get"]>>;
+
+export interface SearchHit {
+  _id: string;
+  fields?: Record<string, unknown>;
+  _source?: Record<string, unknown>;
+}
 
 export interface OpenSearchServerlessConfig {
   node: string;
@@ -33,11 +58,6 @@ export function createOpenSearchServerlessClient(config: OpenSearchServerlessCon
   if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
     return new Client({
       node: config.node,
-      headers: {
-        host: `${config.node
-          .replace('http://', `aoss.${awsConfig.region}.opensearch.localhost.`)
-          .replace(':', '.cloud:')}`
-      }
     });
   }
 
@@ -122,20 +142,20 @@ type SnakeToCamelCase<S extends string> = S extends `${infer T}_${infer U}`
 export type DeepCamelCase<T> = T extends (infer U)[]
   ? (DeepCamelCase<U>)[]
   : T extends object
-    ? { [K in keyof T as SnakeToCamelCase<string & K>]: DeepCamelCase<T[K]> }
-    : T;
+  ? { [K in keyof T as SnakeToCamelCase<string & K>]: DeepCamelCase<T[K]> }
+  : T;
 
 type CamelToSnakeCase<S extends string> = S extends `${infer T}${infer U}`
   ? U extends Uncapitalize<U>
-    ? `${Lowercase<T>}${CamelToSnakeCase<U>}`
-    : `${Lowercase<T>}_${CamelToSnakeCase<Uncapitalize<U>>}`
+  ? `${Lowercase<T>}${CamelToSnakeCase<U>}`
+  : `${Lowercase<T>}_${CamelToSnakeCase<Uncapitalize<U>>}`
   : S;
 
 export type DeepSnakeCase<T> = T extends (infer U)[]
   ? (DeepSnakeCase<U>)[]
   : T extends object
-    ? { [K in keyof T as CamelToSnakeCase<string & K>]: DeepSnakeCase<T[K]> }
-    : T;
+  ? { [K in keyof T as CamelToSnakeCase<string & K>]: DeepSnakeCase<T[K]> }
+  : T;
 
 /**
  * OpenSearch uses snake case for item keys but the app uses camel case. This
@@ -223,14 +243,19 @@ export class OpenSearch {
    * @param indexPrefix the optional index prefix to narrow down the results
    * @returns the list of indices
    */
+  // Instead of trying to extract the type, explicitly type it:
   private async listIndices(
     indexPrefix?: string
   ): Promise<string[]> {
     try {
-      const res: Indices_Get_Response = await this.client.indices.get({ index: indexPrefix ? `${indexPrefix}*` : '*' });
-      const body: Indices_Get_ResponseBody | undefined = res?.body;
+      const res = await this.client.indices.get({
+        index: indexPrefix ? `${indexPrefix}*` : '*'
+      });
 
-      return Object.keys(body).filter((key: string): boolean => {
+      // The response has a `body` property with the indices
+      const body = res.body as Record<string, unknown>;
+
+      return Object.keys(body || {}).filter((key: string): boolean => {
         return !key.startsWith('top_queries-') && !key.startsWith('.');
       });
     } catch (err) {
@@ -248,7 +273,7 @@ export class OpenSearch {
    */
   async findOrInitializeIndex(
     indexName: string,
-    propertyDefinition: Record<string, Property>
+    propertyDefinition: Record<string, MappingProperty>
   ): Promise<string> {
     // If there are no indices, load the list of available indices
     if (this.indices.length === 0) {
@@ -290,7 +315,7 @@ export class OpenSearch {
     }
 
     try {
-      const response: Get_Response = await this.client.get({
+      const response = await this.client.get({
         index: indexName,
         id,
       });
@@ -321,7 +346,7 @@ export class OpenSearch {
    */
   async updateIndexItem(
     indexName: string,
-    propertyDefinition: Record<string, Property>,
+    propertyDefinition: Record<string, MappingProperty>,
     id: string,
     item: object
   ): Promise<void> {
@@ -402,7 +427,7 @@ export class OpenSearch {
     }
 
     try {
-      const response: Search_Response = await this.client.search({
+      const response = await this.client.search({
         index: indexName,
         body,
       });
@@ -418,8 +443,8 @@ export class OpenSearch {
         ? response.body.hits.total
         : (response.body.hits.total as { value: number }).value;
 
-      const items: IndexSearchItemInterface[] = response.body.hits.hits.map((hit: Hit): IndexSearchItemInterface => {
-        return {_id: hit._id, fields: camelizeKeys(hit.fields)};
+      const items: IndexSearchItemInterface[] = response.body.hits.hits.map((hit: SearchHit): IndexSearchItemInterface => {
+        return { _id: hit._id, fields: camelizeKeys(hit.fields) };
       }) || [];
 
       return {

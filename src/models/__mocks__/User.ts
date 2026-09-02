@@ -1,10 +1,10 @@
 
 import casual from "casual";
-import { isNullOrUndefined } from "../../utils/helpers";
-import { User, UserRole } from "../User";
-import { MyContext } from "../../context";
-import { getMockROR, getRandomEnumValue } from "../../__tests__/helpers";
-import {prepareObjectForLogs} from "../../logger";
+import { isNullOrUndefined } from "../../utils/helpers.js";
+import { User, UserRole } from "../User.js";
+import { MyContext } from "../../context.js";
+import { getMockROR, getRandomEnumValue } from "../../__tests__/helpers.js";
+import { prepareObjectForLogs } from "../../logger.js";
 
 // Store for all mock/test Users that were persisted to the DB
 const addedUserIds: number[] = [];
@@ -60,7 +60,7 @@ export const persistUser = async (
 // Clean up all mock/test Users
 export const cleanUpAddedUsers = async (
   context: MyContext,
-) : Promise<void> => {
+): Promise<void> => {
   const reference = 'cleanUpAddedUsers';
   for (const id of addedUserIds) {
     try {

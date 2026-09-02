@@ -1,13 +1,13 @@
-import { MyContext } from "../context";
-import { MemberRole } from "../models/MemberRole";
-import { isNullOrUndefined } from "../utils/helpers";
-import { PlanMember, ProjectMember } from "../models/Member";
-import { Plan, PlanVisibility } from "../models/Plan";
-import { Project } from "../models/Project";
-import { PlanFunding, ProjectFunding } from "../models/Funding";
-import { Affiliation } from "../models/Affiliation";
-import { AlternateIdentifier } from "../models/AlternateIdentifier";
-import { AcceptedWork } from "../models/RelatedWork";
+import { MyContext } from "../context.js";
+import { MemberRole } from "../models/MemberRole.js";
+import { isNullOrUndefined } from "../utils/helpers.js";
+import { PlanMember, ProjectMember } from "../models/Member.js";
+import { Plan, PlanVisibility } from "../models/Plan.js";
+import { Project } from "../models/Project.js";
+import { PlanFunding, ProjectFunding } from "../models/Funding.js";
+import { Affiliation } from "../models/Affiliation.js";
+import { AlternateIdentifier } from "../models/AlternateIdentifier.js";
+import { AcceptedWork } from "../models/RelatedWork.js";
 import {
   createDMP,
   deleteDMP,
@@ -21,19 +21,19 @@ import {
   getDMPs,
   DMPVersionType,
 } from "@dmptool/utils";
-import { getDynamoConnectionParams } from "../config/awsConfig";
-import { generalConfig } from "../config/generalConfig";
+import { getDynamoConnectionParams } from "../config/awsConfig.js";
+import { generalConfig } from "../config/generalConfig.js";
 import { DMPToolDMPType } from "@dmptool/types";
-import { getRDSConnectionParams } from "../config/mysqlConfig";
+import { getRDSConnectionParams } from "../config/mysqlConfig.js";
 import {
   buildDataCiteXML,
   DataCiteSourceAffiliation,
   DataCiteSourceFundingAffiliation,
   planToDataCiteMetadata
-} from "./dataciteXMLService";
-import { removeIndexItem, updateIndexItem } from "./indexDMPService";
-import { PlanVersionSnapshot } from "../types";
-import { ProjectFundingStatus } from "../models/Funding";
+} from "./dataciteXMLService.js";
+import { removeIndexItem, updateIndexItem } from "./indexDMPService.js";
+import { PlanVersionSnapshot } from "../types.js";
+import { ProjectFundingStatus } from "../models/Funding.js";
 
 
 /**

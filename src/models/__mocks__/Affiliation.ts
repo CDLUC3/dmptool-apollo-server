@@ -1,13 +1,13 @@
 import casual from "casual";
-import { isNullOrUndefined } from "../../utils/helpers";
-import { getRandomEnumValue } from "../../__tests__/helpers";
-import { MyContext } from "../../context";
+import { isNullOrUndefined } from "../../utils/helpers.js";
+import { getRandomEnumValue } from "../../__tests__/helpers.js";
+import { MyContext } from "../../context.js";
 import {
   Affiliation,
   AffiliationProvenance,
   AffiliationType,
   DEFAULT_ROR_AFFILIATION_URL
-} from "../Affiliation";
+} from "../Affiliation.js";
 
 // Store for all mock/test Affiliations that were persisted to the DB
 const addedAffiliationIds: number[] = [];
@@ -32,8 +32,8 @@ export const mockAffiliation = (
   const name = casual.company_name;
   const homepage = casual.url;
   const domain = homepage.replace(/http(s)?:\/\//, '')
-                                .replace('/', '')
-                                .toLowerCase();
+    .replace('/', '')
+    .toLowerCase();
   const acronyms = casual.array_of_words(2);
   const aliases = casual.array_of_words(2);
   const searchName = [
@@ -82,7 +82,7 @@ export const persistAffiliation = async (
 // Clean up all mock/test Affiliations
 export const cleanUpAddedAffiliations = async (
   context: MyContext,
-) : Promise<void> => {
+): Promise<void> => {
   const reference = 'cleanUpAddedAffiliations';
   for (const id of addedAffiliationIds) {
     try {

@@ -1,24 +1,24 @@
-import { Resolvers, UserSearchResults } from "../types";
-import { MyContext } from '../context';
-import { User, UserRole } from '../models/User';
-import { UserEmail } from "../models/UserEmail";
-import { Affiliation } from '../models/Affiliation';
-import { Plan } from '../models/Plan';
-import { isAdmin, isAuthorized, isSuperAdmin } from "../services/authService";
-import { AuthenticationError, ForbiddenError, InternalServerError, NotFoundError } from "../utils/graphQLErrors";
-import { defaultLanguageId } from "../models/Language";
-import { anonymizeUser, mergeUsers } from "../services/userService";
-import { processOtherAffiliationName } from "../services/affiliationService";
-import { prepareObjectForLogs } from "../logger";
+import { Resolvers, UserSearchResults } from "../types.js";
+import { MyContext } from '../context.js';
+import { User, UserRole } from '../models/User.js';
+import { UserEmail } from "../models/UserEmail.js";
+import { Affiliation } from '../models/Affiliation.js';
+import { Plan } from '../models/Plan.js';
+import { isAdmin, isAuthorized, isSuperAdmin } from "../services/authService.js";
+import { AuthenticationError, ForbiddenError, InternalServerError, NotFoundError } from "../utils/graphQLErrors.js";
+import { defaultLanguageId } from "../models/Language.js";
+import { anonymizeUser, mergeUsers } from "../services/userService.js";
+import { processOtherAffiliationName } from "../services/affiliationService.js";
+import { prepareObjectForLogs } from "../logger.js";
 import { GraphQLError } from "graphql";
-import { PaginationOptionsForCursors, PaginationOptionsForOffsets, PaginationType } from "../types/general";
+import { PaginationOptionsForCursors, PaginationOptionsForOffsets, PaginationType } from "../types/general.js";
 import {
   isNullOrUndefined,
   normaliseDateTime
-} from "../utils/helpers";
+} from "../utils/helpers.js";
 import {
   authenticatedResolver,
-} from "../services/authService";
+} from "../services/authService.js";
 
 
 export const resolvers: Resolvers = {

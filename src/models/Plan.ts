@@ -1,26 +1,26 @@
 // Represents an entry from the projectPlans table
-import { generalConfig } from "../config/generalConfig";
-import { MyContext } from "../context";
+import { generalConfig } from "../config/generalConfig.js";
+import { MyContext } from "../context.js";
 import {
   getCurrentDate,
   isNullOrUndefined,
   randomHex,
   resolveNamingCollision,
   valueIsEmpty
-} from "../utils/helpers";
-import { MySqlModel } from "./MySqlModel";
-import { PlanGuidance } from "./Guidance";
-import { VersionedTemplate } from "./VersionedTemplate";
-import { Project } from "./Project";
-import { Tag } from "./Tag";
+} from "../utils/helpers.js";
+import { MySqlModel } from "./MySqlModel.js";
+import { PlanGuidance } from "./Guidance.js";
+import { VersionedTemplate } from "./VersionedTemplate.js";
+import { Project } from "./Project.js";
+import { Tag } from "./Tag.js";
 import {
   PaginatedQueryResults,
   PaginationOptions,
   PaginationOptionsForCursors,
   PaginationOptionsForOffsets,
   PaginationType
-} from '../types/general';
-import { prepareObjectForLogs } from '../logger';
+} from '../types/general.js';
+import { prepareObjectForLogs } from '../logger.js';
 
 export const DEFAULT_TEMPORARY_DMP_ID_PREFIX = 'temp-dmpId-';
 

@@ -1,16 +1,23 @@
-import { MyContext } from "../../context";
-import { PinnedSectionTypeEnum } from "../CustomSection";
-import { PinnedQuestionTypeEnum } from "../CustomQuestion";
-import { VersionedCustomQuestion } from "../VersionedCustomQuestion";
-import { MySqlModel } from "../MySqlModel";
 
-jest.mock("../MySqlModel", () => ({
-  ...jest.requireActual("../MySqlModel"),
-  query: jest.fn(),
-  insert: jest.fn(),
-  update: jest.fn(),
-  delete: jest.fn(),
+import { jest } from '@jest/globals';
+
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
 }));
+
+import type { MyContext } from '../../context.js';
+
+// Dynamic imports AFTER all mocks are registered
+const { PinnedSectionTypeEnum } = await import("../CustomSection.js");
+const { PinnedQuestionTypeEnum } = await import("../CustomQuestion.js");
+const { VersionedCustomQuestion } = await import("../VersionedCustomQuestion.js");
+const { MySqlModel } = await import("../MySqlModel.js");
 
 describe("VersionedCustomQuestion", () => {
   let mockContext: MyContext;
@@ -22,7 +29,7 @@ describe("VersionedCustomQuestion", () => {
 
   describe("constructor", () => {
     it("should create a VersionedCustomQuestion with all properties", () => {
-      const options: VersionedCustomQuestion = new VersionedCustomQuestion({
+      const options: InstanceType<typeof VersionedCustomQuestion> = new VersionedCustomQuestion({
         id: 1,
         created: new Date().toISOString(),
         createdById: 10,

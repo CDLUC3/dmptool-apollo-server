@@ -1,9 +1,9 @@
 import { AugmentedRequest, RESTDataSource } from "@apollo/datasource-rest";
-import { logger, prepareObjectForLogs } from '../logger';
-import { MyContext } from "../context";
-import { isNullOrUndefined } from "../utils/helpers";
+import { logger, prepareObjectForLogs } from '../logger.js';
+import { MyContext } from "../context.js";
+import { isNullOrUndefined } from "../utils/helpers.js";
 import { KeyvAdapter } from "@apollo/utils.keyvadapter";
-import { OrcidConfig } from "../config/orcidConfig";
+import { OrcidConfig } from "../config/orcidConfig.js";
 
 // Singleton class that retrieves an Auth token from the API
 export class Authorizer extends RESTDataSource {
@@ -77,8 +77,8 @@ export class OrcidAPI extends RESTDataSource {
     reference = 'OrcidAPI.getPerson'
   ): Promise<OrcidPerson | null> {
     try {
-    // Remove leading slash from path if present
-    const path = `${OrcidConfig.apiPath}${orcid}`.replace(/^\//, '');
+      // Remove leading slash from path if present
+      const path = `${OrcidConfig.apiPath}${orcid}`.replace(/^\//, '');
 
       context.logger.debug(`${reference} calling OrcidAPI: ${this.baseURL}${path}`);
       const response = await this.get(path);
@@ -88,7 +88,7 @@ export class OrcidAPI extends RESTDataSource {
       const person = jsonResponse?.person;
 
       if (!isNullOrUndefined(returnedOrcid) && !isNullOrUndefined(person)
-          && (returnedOrcid === orcid || returnedOrcid.endsWith(`/${orcid}`))) {
+        && (returnedOrcid === orcid || returnedOrcid.endsWith(`/${orcid}`))) {
         const name: OrcidSchemaPerson = person?.name;
         const email: OrcidSchemaEmail = person?.emails?.email?.find((e: OrcidSchemaEmail) => {
           return e.primary === true && e.verified === true
@@ -108,7 +108,7 @@ export class OrcidAPI extends RESTDataSource {
         'Error retrieving Person from OrcidAPI'
       );
       return null;
-    } catch(err) {
+    } catch (err) {
       // Handle 404 responses gracefully - person not found in ORCID
       if (err?.extensions?.response?.status === 404) {
         context.logger.debug(`ORCID ${orcid} not found in ORCID API (404)`);
@@ -116,7 +116,7 @@ export class OrcidAPI extends RESTDataSource {
       }
 
       context.logger.error(prepareObjectForLogs({ orcid, err }), 'Error calling OrcidAPI getPerson');
-      throw(err);
+      throw (err);
     }
   }
 

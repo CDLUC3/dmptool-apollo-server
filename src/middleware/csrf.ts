@@ -1,5 +1,5 @@
 import { Response, Request, NextFunction } from "express";
-import { generateCSRFToken, verifyCSRFToken } from '../services/tokenService';
+import { generateCSRFToken, verifyCSRFToken } from '../services/tokenService.js';
 
 export async function csrfMiddleware(req: Request, res: Response, next: NextFunction) {
   // Only worry about the CSRF token if the caller is performing a POST, PUT, PATCH, DELETE

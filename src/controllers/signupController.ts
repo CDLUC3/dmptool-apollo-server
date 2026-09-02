@@ -1,10 +1,10 @@
 import { Request, Response } from 'express';
-import { prepareObjectForLogs } from '../logger';
-import { User } from '../models/User';
-import { generateAuthTokens, setTokenCookie } from '../services/tokenService';
-import { generalConfig } from '../config/generalConfig';
-import { buildContext } from '../context';
-import { processOtherAffiliationName } from '../services/affiliationService';
+import { prepareObjectForLogs } from '../logger.js';
+import { User } from '../models/User.js';
+import { generateAuthTokens, setTokenCookie } from '../services/tokenService.js';
+import { generalConfig } from '../config/generalConfig.js';
+import { buildContext } from '../context.js';
+import { processOtherAffiliationName } from '../services/affiliationService.js';
 
 export const signupController = async (req: Request, res: Response) => {
   const context = buildContext(
@@ -37,7 +37,7 @@ export const signupController = async (req: Request, res: Response) => {
           const affiliation = await processOtherAffiliationName(context, props.otherAffiliationName, user.id);
 
           if (!affiliation) {
-             res.status(500).json({success: false, message: 'Unable to create the new user affiliation at this time' });
+            res.status(500).json({ success: false, message: 'Unable to create the new user affiliation at this time' });
           } else {
             // Need to reload here because the object returned by `register` does not have functions!
             const registeredUser = await User.findById('signupController', context, user.id);

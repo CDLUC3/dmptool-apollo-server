@@ -5,12 +5,12 @@ import {
   RelationType,
   Work,
   WorkVersion
-} from "../models/RelatedWork";
-import { MyContext } from "../context";
-import { AddRelatedWorkManualInput } from "../types";
-import { Plan } from "../models/Plan";
+} from "../models/RelatedWork.js";
+import { MyContext } from "../context.js";
+import { AddRelatedWorkManualInput } from "../types.js";
+import { Plan } from "../models/Plan.js";
 import { isNullOrUndefined } from "@dmptool/utils";
-import { NotFoundError } from "../utils/graphQLErrors";
+import { NotFoundError } from "../utils/graphQLErrors.js";
 
 /**
  * Generate a unique hash for the work version or return the existing hash if it exists
@@ -95,7 +95,7 @@ export const addAcceptedWork = async (
     });
     relatedWork = await relatedWork.create(context);
     if (relatedWork && !relatedWork.hasErrors()) {
-      return  await AcceptedWork.findByPlanIdAndDoi(reference, context, plan.id, parsedDOI);
+      return await AcceptedWork.findByPlanIdAndDoi(reference, context, plan.id, parsedDOI);
     }
     acceptedWork.addError('general', 'Unable to create related work');
   }

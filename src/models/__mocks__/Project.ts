@@ -10,10 +10,10 @@ import {
   findEntryInMockTableById,
   getMockTableStore,
   updateEntryInMockTable
-} from "./MockStore";
-import { getCurrentDate } from "../../utils/helpers";
-import { Project } from "../Project";
-import { MyContext } from "../../context";
+} from "./MockStore.js";
+import { getCurrentDate } from "../../utils/helpers.js";
+import { Project } from "../Project.js";
+import { MyContext } from "../../context.js";
 
 export const getProjectStore = () => {
   return getMockTableStore('projects');

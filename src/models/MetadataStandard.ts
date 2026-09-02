@@ -1,9 +1,9 @@
-import { MyContext } from "../context";
-import { prepareObjectForLogs } from "../logger";
-import { PaginatedQueryResults, PaginationOptions, PaginationOptionsForCursors, PaginationOptionsForOffsets, PaginationType } from "../types/general";
-import { isNullOrUndefined, randomHex, validateURL } from "../utils/helpers";
-import { MySqlModel } from "./MySqlModel";
-import { ResearchDomain } from "./ResearchDomain";
+import { MyContext } from "../context.js";
+import { prepareObjectForLogs } from "../logger.js";
+import { PaginatedQueryResults, PaginationOptions, PaginationOptionsForCursors, PaginationOptionsForOffsets, PaginationType } from "../types/general.js";
+import { isNullOrUndefined, randomHex, validateURL } from "../utils/helpers.js";
+import { MySqlModel } from "./MySqlModel.js";
+import { ResearchDomain } from "./ResearchDomain.js";
 
 export const DEFAULT_DMPTOOL_METADATA_STANDARD_URL = 'https://dmptool.org/metadata-standards/';;
 export class MetadataStandard extends MySqlModel {
@@ -31,7 +31,7 @@ export class MetadataStandard extends MySqlModel {
     await super.isValid();
 
     if (!this.name) this.addError('name', 'Name can\'t be blank');
-    if (!validateURL(this.uri)) this.addError ('uri', 'Invalid URL');
+    if (!validateURL(this.uri)) this.addError('uri', 'Invalid URL');
 
     return Object.keys(this.errors).length === 0;
   }
@@ -177,7 +177,7 @@ export class MetadataStandard extends MySqlModel {
     }
 
     const sqlStatement = 'SELECT m.* FROM metadataStandards m ' +
-                          'LEFT OUTER JOIN metadataStandardResearchDomains msrd ON m.id = msrd.metadataStandardId';
+      'LEFT OUTER JOIN metadataStandardResearchDomains msrd ON m.id = msrd.metadataStandardId';
 
     const response: PaginatedQueryResults<MetadataStandard> = await MetadataStandard.queryWithPagination(
       context,
@@ -197,7 +197,7 @@ export class MetadataStandard extends MySqlModel {
   static async findById(reference: string, context: MyContext, metadataStandardId: number): Promise<MetadataStandard> {
     const sql = `SELECT * FROM metadataStandards WHERE id = ?`;
     const results = await MetadataStandard.query(context, sql, [metadataStandardId?.toString()], reference);
-    if (Array.isArray(results) && results.length !== 0){
+    if (Array.isArray(results) && results.length !== 0) {
       return MetadataStandard.processResult(new MetadataStandard(results[0]));
     }
     return null;
@@ -206,13 +206,13 @@ export class MetadataStandard extends MySqlModel {
   static async findByURI(reference: string, context: MyContext, uri: string): Promise<MetadataStandard> {
     const sql = `SELECT * FROM metadataStandards WHERE uri = ?`;
     const results = await MetadataStandard.query(context, sql, [uri], reference);
-    if (Array.isArray(results) && results.length !== 0){
+    if (Array.isArray(results) && results.length !== 0) {
       return MetadataStandard.processResult(new MetadataStandard(results[0]));
     }
     return null;
   }
 
-    static async findByURIs(reference: string, context: MyContext, uris: string[]): Promise<MetadataStandard[]> {
+  static async findByURIs(reference: string, context: MyContext, uris: string[]): Promise<MetadataStandard[]> {
     if (!Array.isArray(uris) || uris.length === 0) {
       return [];
     }
@@ -229,7 +229,7 @@ export class MetadataStandard extends MySqlModel {
   static async findByName(reference: string, context: MyContext, name: string): Promise<MetadataStandard> {
     const sql = `SELECT * FROM metadataStandards WHERE LOWER(name) = ?`;
     const results = await MetadataStandard.query(context, sql, [name?.toLowerCase()?.trim()], reference);
-    if (Array.isArray(results) && results.length !== 0){
+    if (Array.isArray(results) && results.length !== 0) {
       return MetadataStandard.processResult(new MetadataStandard(results[0]));
     }
     return null;
@@ -247,7 +247,7 @@ export class MetadataStandard extends MySqlModel {
     const vals = [researchDomainId?.toString()];
 
     const results = await MetadataStandard.query(context, `${sql} ${joinClause} ${whereClause}`, vals, reference);
-    if (Array.isArray(results) && results.length !== 0){
+    if (Array.isArray(results) && results.length !== 0) {
       return results.map((res) => MetadataStandard.processResult(res))
     }
     return [];

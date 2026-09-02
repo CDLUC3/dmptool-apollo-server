@@ -1,10 +1,22 @@
+import { jest } from '@jest/globals';
 import casual from 'casual';
-import { AffiliationLink } from '../AffiliationLink';
-import { buildMockContextWithToken } from '../../__mocks__/context';
-import { logger } from '../../logger';
-import { getCurrentDate } from '../../utils/helpers';
 
-jest.mock('../../context.ts');
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+// Dynamic imports AFTER all mocks are registered
+const { AffiliationLink } = await import('../AffiliationLink.js');
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
+const { getCurrentDate } = await import('../../utils/helpers.js');
+
 
 describe('AffiliationLink', () => {
   let link;
@@ -161,7 +173,7 @@ describe('AffiliationLink', () => {
       mockFindById.mockResolvedValueOnce(link);
       insertQuery.mockResolvedValueOnce(link.id);
       // Mock isValid to return true
-      const localValidator = jest.fn();
+      const localValidator = jest.fn<() => Promise<boolean>>();
       (link.isValid as jest.Mock) = localValidator;
       localValidator.mockResolvedValueOnce(true);
 
@@ -177,7 +189,7 @@ describe('AffiliationLink', () => {
         const existingLink = new AffiliationLink(linkData);
         mockFindByAffiliationAndURL.mockResolvedValue(existingLink);
         // Mock isValid to return true
-        const localValidator = jest.fn();
+        const localValidator = jest.fn<() => Promise<boolean>>();
         (link.isValid as jest.Mock) = localValidator;
         localValidator.mockResolvedValueOnce(true);
 
@@ -192,7 +204,7 @@ describe('AffiliationLink', () => {
         const existingLink = new AffiliationLink(linkData);
         mockFindByAffiliationAndURL.mockResolvedValue(existingLink);
         // Mock isValid to return true
-        const localValidator = jest.fn();
+        const localValidator = jest.fn<() => Promise<boolean>>();
         (link.isValid as jest.Mock) = localValidator;
         localValidator.mockResolvedValueOnce(true);
 
@@ -238,7 +250,7 @@ describe('AffiliationLink', () => {
       mockFindById.mockResolvedValueOnce(link);
       updateQuery.mockResolvedValueOnce(true);
       // Mock isValid to return true
-      const localValidator = jest.fn();
+      const localValidator = jest.fn<() => Promise<boolean>>();
       (link.isValid as jest.Mock) = localValidator;
       localValidator.mockResolvedValueOnce(true);
 
@@ -273,7 +285,7 @@ describe('AffiliationLink', () => {
     it('should return link with errors if update fails', async () => {
       updateQuery.mockResolvedValueOnce(false);
       // Mock isValid to return true
-      const localValidator = jest.fn();
+      const localValidator = jest.fn<() => Promise<boolean>>();
       (link.isValid as jest.Mock) = localValidator;
       localValidator.mockResolvedValueOnce(true);
 

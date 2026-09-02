@@ -1,10 +1,10 @@
 import { GraphQLError } from 'graphql';
-import { MyContext } from '../context';
+import { MyContext } from '../context.js';
 import {
   ProjectCollaborator,
   ProjectCollaboratorAccessLevel,
-} from '../models/Collaborator';
-import { isSuperAdmin } from './authService';
+} from '../models/Collaborator.js';
+import { isSuperAdmin } from './authService.js';
 
 // Validate that an access level change is allowed:
 //   - the last PRIMARY cannot be demoted

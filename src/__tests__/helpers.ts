@@ -1,8 +1,8 @@
 import casual from 'casual';
-import { validateDmspId } from '../resolvers/scalars/dmspId';
-import { validateOrcid } from '../resolvers/scalars/orcid';
-import { validateRor } from '../resolvers/scalars/ror';
-import { generalConfig } from '../config/generalConfig';
+import { validateDmspId } from '../resolvers/scalars/dmspId.js';
+import { validateOrcid } from '../resolvers/scalars/orcid.js';
+import { validateRor } from '../resolvers/scalars/ror.js';
+import { generalConfig } from '../config/generalConfig.js';
 
 const emailRegex = new RegExp(/^[a-zA-Z0–9._-]+@[a-zA-Z0–9.-]+\.[a-zA-Z]{2,4}$/);
 const timestampRegex = new RegExp(/[0-9]{4}-[0-9]{2}-[0-9]{2}\s([0-9]{2}:){2}[0-9]{2}/);

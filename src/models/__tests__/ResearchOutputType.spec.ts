@@ -1,8 +1,22 @@
-import { ResearchOutputType } from '../ResearchOutputType';
-import { MyContext } from '../../context';
-import casual from 'casual';
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { logger } from "../../logger";
+import { jest } from '@jest/globals';
+import casual from "casual";
+
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+import type { MyContext } from '../../context.js';
+
+//Dynamic imports AFTER all mocks are registered
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
+const { ResearchOutputType } = await import('../ResearchOutputType.js');
 
 describe('ResearchOutputType', () => {
   let context: MyContext;
@@ -46,7 +60,7 @@ describe('ResearchOutputType', () => {
     });
 
     it('should fail validation with missing name', async () => {
-      const type = new ResearchOutputType({...mockData, name: null});
+      const type = new ResearchOutputType({ ...mockData, name: null });
       const isValid = await type.isValid();
       expect(isValid).toBeFalsy();
       expect(type.errors.name).toBeDefined();
@@ -82,7 +96,7 @@ describe('ResearchOutputType', () => {
     it('should update an existing record', async () => {
       const type = new ResearchOutputType(mockData);
       jest.spyOn(ResearchOutputType, 'update')
-          .mockResolvedValueOnce(new ResearchOutputType(mockData));
+        .mockResolvedValueOnce(new ResearchOutputType(mockData));
       jest.spyOn(ResearchOutputType, 'findById').mockResolvedValueOnce(type);
 
       const result = await type.update(context);

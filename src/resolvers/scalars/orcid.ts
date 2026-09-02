@@ -1,10 +1,10 @@
-import {GraphQLScalarType, Kind} from 'graphql';
-import {formatORCID} from "../../utils/helpers";
+import { GraphQLScalarType, Kind } from 'graphql';
+import { formatORCID } from "../../utils/helpers.js";
 
 // Function to ensure the ORCID is properly formatted
 export function validateOrcid(val) {
   const orcid = formatORCID(val);
-  if(orcid !== null){
+  if (orcid !== null) {
     return orcid
   }
   throw new Error(`Invalid ORCID format. Expected: "https://orcid.org/0000-0000-0000-0000" or "0000-0000-0000-0000"`);

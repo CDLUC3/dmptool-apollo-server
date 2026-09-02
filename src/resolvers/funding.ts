@@ -1,17 +1,17 @@
-import { prepareObjectForLogs } from '../logger';
-import { Resolvers } from "../types";
-import { Affiliation } from '../models/Affiliation';
-import { Project } from '../models/Project';
-import { PlanFunding, ProjectFunding } from "../models/Funding";
-import { MyContext } from '../context';
-import { isAuthorized } from '../services/authService';
-import { AuthenticationError, ForbiddenError, InternalServerError, NotFoundError } from '../utils/graphQLErrors';
-import { hasPermissionOnProject, isProjectReadOnlyForCurrentUser } from '../services/projectService';
+import { prepareObjectForLogs } from '../logger.js';
+import { Resolvers } from "../types.js";
+import { Affiliation } from '../models/Affiliation.js';
+import { Project } from '../models/Project.js';
+import { PlanFunding, ProjectFunding } from "../models/Funding.js";
+import { MyContext } from '../context.js';
+import { isAuthorized } from '../services/authService.js';
+import { AuthenticationError, ForbiddenError, InternalServerError, NotFoundError } from '../utils/graphQLErrors.js';
+import { hasPermissionOnProject, isProjectReadOnlyForCurrentUser } from '../services/projectService.js';
 import { GraphQLError } from 'graphql';
-import { Plan } from '../models/Plan';
-import { ProjectCollaboratorAccessLevel } from "../models/Collaborator";
-import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
-import { handleAsyncUpdates } from "../services/planService";
+import { Plan } from '../models/Plan.js';
+import { ProjectCollaboratorAccessLevel } from "../models/Collaborator.js";
+import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers.js";
+import { handleAsyncUpdates } from "../services/planService.js";
 
 export const resolvers: Resolvers = {
   Query: {

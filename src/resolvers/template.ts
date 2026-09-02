@@ -1,34 +1,34 @@
-import { Resolvers, TemplateSearchResults } from "../types";
-import { Template, TemplateSearchResult, TemplateVisibility } from "../models/Template";
-import { Affiliation } from "../models/Affiliation";
-import { TemplateCollaborator } from "../models/Collaborator";
-import { Section } from "../models/Section";
-import { Question } from "../models/Question";
-import { VersionedSection } from '../models/VersionedSection';
-import { VersionedQuestion } from "../models/VersionedQuestion";
-import { User, UserRole } from '../models/User';
-import { Tag } from "../models/Tag";
-import { MyContext } from "../context";
+import { Resolvers, TemplateSearchResults } from "../types.js";
+import { Template, TemplateSearchResult, TemplateVisibility } from "../models/Template.js";
+import { Affiliation } from "../models/Affiliation.js";
+import { TemplateCollaborator } from "../models/Collaborator.js";
+import { Section } from "../models/Section.js";
+import { Question } from "../models/Question.js";
+import { VersionedSection } from '../models/VersionedSection.js';
+import { VersionedQuestion } from "../models/VersionedQuestion.js";
+import { User, UserRole } from '../models/User.js';
+import { Tag } from "../models/Tag.js";
+import { MyContext } from "../context.js";
 import {
   cloneTemplate,
   generateTemplateVersion,
   hasPermissionOnTemplate,
   setDefaultTemplate
-} from "../services/templateService";
-import { cloneSection } from "../services/sectionService";
-import { cloneQuestion } from "../services/questionService";
-import { isAdmin, isSuperAdmin } from "../services/authService";
-import { AuthenticationError, ForbiddenError, InternalServerError, NotFoundError } from "../utils/graphQLErrors";
-import { VersionedTemplate, TemplateVersionType } from "../models/VersionedTemplate";
-import { prepareObjectForLogs } from "../logger";
+} from "../services/templateService.js";
+import { cloneSection } from "../services/sectionService.js";
+import { cloneQuestion } from "../services/questionService.js";
+import { isAdmin, isSuperAdmin } from "../services/authService.js";
+import { AuthenticationError, ForbiddenError, InternalServerError, NotFoundError } from "../utils/graphQLErrors.js";
+import { VersionedTemplate, TemplateVersionType } from "../models/VersionedTemplate.js";
+import { prepareObjectForLogs } from "../logger.js";
 import { GraphQLError } from "graphql";
-import { generalConfig } from "../config/generalConfig";
-import { PaginationOptionsForCursors, PaginationOptionsForOffsets, PaginationType } from "../types/general";
-import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
+import { generalConfig } from "../config/generalConfig.js";
+import { PaginationOptionsForCursors, PaginationOptionsForOffsets, PaginationType } from "../types/general.js";
+import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers.js";
 import {
   handleFunderTemplateArchive
-} from "../services/templateCustomizationService";
-import { AdminNotification } from "../models/AdminNotifications";
+} from "../services/templateCustomizationService.js";
+import { AdminNotification } from "../models/AdminNotifications.js";
 
 export const resolvers: Resolvers = {
   Query: {

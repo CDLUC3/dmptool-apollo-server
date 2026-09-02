@@ -5,16 +5,17 @@ it('passes', () => {
 
 /*
 import { ApolloServer } from "@apollo/server";
-import { typeDefs } from "../../schema";
-import { resolvers } from "../../resolver";
+import { typeDefs } from "../../schema.js";
+import { resolvers } from "../../resolver.js";
 import casual from "casual";
 import assert from "assert";
-import { buildContext, mockToken } from "../../__mocks__/context";
-import { logger } from "../../logger";
-import { JWTAccessToken } from "../../services/tokenService";
+import { buildContext, mockToken } from "../../__mocks__/context.js";
 
-import { Project } from "../../models/Project";
-import { Plan, PlanSearchResult, PlanStatus, PlanVisibility } from "../../models/Plan";
+import { logger } from "../../logger.js";
+import { JWTAccessToken } from "../../services/tokenService.js";
+
+import { Project } from "../../models/Project.js";
+import { Plan, PlanSearchResult, PlanStatus, PlanVisibility } from "../../models/Plan.js";
 import { clearProjectStore, initProjectStore, mockFindProjectById } from "../../models/__mocks__/Project";
 import {
   clearPlanStore,
@@ -27,20 +28,20 @@ import {
   mockInsertPlan,
   mockUpdatePlan
 } from "../../models/__mocks__/Plan";
-import { User, UserRole } from "../../models/User";
+import { User, UserRole } from "../../models/User.js";
 import { DMPCommonStandard } from "../../types/DMP";
 import { clearPlanVersionStore, initPlanVersionStore, mockPutItem, mockQueryTable } from "../../models/__mocks__/PlanVersion";
-import { MyContext } from "../../context";
-import { VersionedTemplate } from "../../models/VersionedTemplate";
+import { MyContext } from "../../context.js";
+import { VersionedTemplate } from "../../models/VersionedTemplate.js";
 import { clearVersionedTemplateStore, initVersionedTemplateStore, mockFindVersionedTemplateById } from "../../models/__mocks__/VersionedTemplate";
 import { ResearchDomain } from "../../models/ResearchDomain";
 import { clearResearchDomainStore, initResearchDomainStore, mockFindResearchDomainById } from "../../models/__mocks__/ResearchDomain";
 import { initUserStore, mockFindUserById } from "../../models/__mocks__/User";
 import { RelatedWork } from "../../models/RelatedWork";
 import { clearRelatedWorkStore, initRelatedWorkStore, mockFindRelatedWorksByProjectId } from "../../models/__mocks__/RelatedWork";
-import { MemberRole } from "../../models/MemberRole";
+import { MemberRole } from "../../models/MemberRole.js";
 import { clearMemberRoles, initMemberRoles, mockDefaultMemberRole } from "../../models/__mocks__/MemberRole";
-import { ProjectCollaborator, ProjectCollaboratorAccessLevel } from "../../models/Collaborator";
+import { ProjectCollaborator, ProjectCollaboratorAccessLevel } from "../../models/Collaborator.js";
 import {
   clearProjectCollaboratorsStore,
   initProjectCollaboratorsStore,
@@ -49,12 +50,12 @@ import {
 import { DynamoDBClient, PutItemCommandInput, QueryCommandInput } from "@aws-sdk/client-dynamodb";
 import { awsConfig } from "../../config/awsConfig";
 import { PlanFunding } from "../../models/Funding";
-import { PlanMember } from "../../models/Member";
+import { PlanMember } from "../../models/Member.js";
 import { Answer } from "../../models/Answer";
-import { generalConfig } from "../../config/generalConfig";
-import { getCurrentDate } from "../../utils/helpers";
+import { generalConfig } from "../../config/generalConfig.js";
+import { getCurrentDate } from "../../utils/helpers.js";
 
-jest.mock('../../context.ts');
+jest.mock('../../context.js')
 jest.mock('../../services/emailService');
 
 let context: MyContext;

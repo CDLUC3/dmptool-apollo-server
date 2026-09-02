@@ -1,23 +1,15 @@
-import casual from 'casual';
-import { MyContext } from '../../context';
-import {
-  generateSearchTerms,
-  INDEX_NAME,
-  getIndexItem,
-  searchIndex,
-  updateIndexItem,
-  removeIndexItem,
-} from '../indexDMPService';
-import { Plan, PlanVisibility } from '../../models/Plan';
-import { Project } from '../../models/Project';
-import { Answer } from '../../models/Answer';
-import { ProjectMember, PlanMember } from '../../models/Member';
-import { PlanFunding, ProjectFunding, ProjectFundingStatus } from '../../models/Funding';
-import { Affiliation } from '../../models/Affiliation';
-import { AlternateIdentifier } from '../../models/AlternateIdentifier';
-import { AcceptedWork } from '../../models/RelatedWork';
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
-jest.mock('../../datasources/mysql', () => ({
+import { jest } from '@jest/globals';
+import casual from 'casual';
+
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+mockAppConfigs();
+mockAppLogger();
+
+// --- datasources/mysql.js ---
+jest.unstable_mockModule('../../datasources/mysql.js', () => ({
   __esModule: true,
   MySQLConnection: jest.fn().mockImplementation(() => ({
     pool: null,
@@ -26,26 +18,78 @@ jest.mock('../../datasources/mysql', () => ({
   })),
 }));
 
-jest.mock('../../config/awsConfig', () => ({
+// --- config/awsConfig.js ---
+jest.unstable_mockModule('../../config/awsConfig.js', () => ({
   awsConfig: {
     opensearchServerless: { endpoint: 'http://localhost:9200' },
   },
 }));
 
-jest.mock('../../datasources/openSearch', () => {
-  const actual = jest.requireActual('../../datasources/openSearch');
-  return {
-    __esModule: true,
-    tokenizeText: actual.tokenizeText,
-    OpenSearch: jest.fn(),
-  };
-});
+// --- datasources/openSearch.js ---
+// tokenizeText is real (generateSearchTerms in indexDMPService.js depends on
+// its real tokenizing behavior — that's exercised directly by the
+// generateSearchTerms describe block below), OpenSearch itself is fully
+// mocked since indexDMPService.js only ever receives an OpenSearch instance
+// via context.dataSources, never constructs one directly.
+const actualOpenSearch = await import('../../datasources/openSearch.js');
+jest.unstable_mockModule('../../datasources/openSearch.js', () => ({
+  __esModule: true,
+  tokenizeText: actualOpenSearch.tokenizeText,
+  OpenSearch: jest.fn(),
+}));
+
+import type { MyContext } from '../../context.js';
+
+
+type PlanMemberInstance = InstanceType<typeof PlanMember>;
+function asPlanMemberList(value: any[]): PlanMemberInstance[] {
+  return value as PlanMemberInstance[];
+}
+
+type PlanFundingInstance = InstanceType<typeof PlanFunding>;
+function asPlanFundingList(value: any[]): PlanFundingInstance[] {
+  return value as PlanFundingInstance[];
+}
+
+type AlternateIdentifierInstance = InstanceType<typeof AlternateIdentifier>;
+function asAlternateIdentifierList(value: any[]): AlternateIdentifierInstance[] {
+  return value as AlternateIdentifierInstance[];
+}
+
+type AcceptedWorkInstance = InstanceType<typeof AcceptedWork>;
+function asAcceptedWorkList(value: any[]): AcceptedWorkInstance[] {
+  return value as AcceptedWorkInstance[];
+}
+
+type AnswerInstance = InstanceType<typeof Answer>;
+function asAnswerList(value: any[]): AnswerInstance[] {
+  return value as AnswerInstance[];
+}
+// ---------------------------------------------------------------------------
+// Everything below is dynamic, registered after every mock above.
+// ---------------------------------------------------------------------------
+const {
+  generateSearchTerms,
+  INDEX_NAME,
+  getIndexItem,
+  searchIndex,
+  updateIndexItem,
+  removeIndexItem,
+} = await import('../indexDMPService.js');
+const { Plan, PlanVisibility } = await import('../../models/Plan.js');
+const { Project } = await import('../../models/Project.js');
+const { Answer } = await import('../../models/Answer.js');
+const { ProjectMember, PlanMember } = await import('../../models/Member.js');
+const { PlanFunding, ProjectFunding, ProjectFundingStatus } = await import('../../models/Funding.js');
+const { Affiliation } = await import('../../models/Affiliation.js');
+const { AlternateIdentifier } = await import('../../models/AlternateIdentifier.js');
+const { AcceptedWork } = await import('../../models/RelatedWork.js');
 
 const TEST_DMP_ID_BASE = 'http://dmsp.com/';
 const TEST_ROR_BASE = 'http://ror.example.com/';
 const TEST_ORCID_BASE = 'http://sandbox.orcid.org/';
 
-const buildPlan = (overrides: Partial<Record<string, unknown>> = {}): Plan =>
+const buildPlan = (overrides: Partial<Record<string, unknown>> = {}) =>
   new Plan({
     id: casual.integer(1, 9999),
     projectId: casual.integer(1, 9999),
@@ -59,7 +103,7 @@ const buildPlan = (overrides: Partial<Record<string, unknown>> = {}): Plan =>
     ...overrides,
   });
 
-const buildProject = (overrides: Partial<Record<string, unknown>> = {}): Project =>
+const buildProject = (overrides: Partial<Record<string, unknown>> = {}) =>
   new Project({
     id: casual.integer(1, 9999),
     title: casual.title,
@@ -75,7 +119,7 @@ const buildProject = (overrides: Partial<Record<string, unknown>> = {}): Project
 const buildProjectMember = (
   id = casual.integer(1, 9999),
   overrides: Partial<Record<string, unknown>> = {}
-): ProjectMember =>
+) =>
   new ProjectMember({
     id,
     projectId: casual.integer(1, 9999),
@@ -87,7 +131,7 @@ const buildProjectMember = (
     ...overrides,
   });
 
-const buildPlanMember = (projectMemberId: number): PlanMember =>
+const buildPlanMember = (projectMemberId: number) =>
   new PlanMember({
     id: casual.integer(1, 9999),
     planId: casual.integer(1, 9999),
@@ -100,7 +144,7 @@ const buildProjectFunding = (
   id = casual.integer(1, 9999),
   affiliationId: string,
   overrides: Partial<Record<string, unknown>> = {}
-): ProjectFunding =>
+) =>
   new ProjectFunding({
     id,
     projectId: casual.integer(1, 9999),
@@ -112,14 +156,14 @@ const buildProjectFunding = (
     ...overrides,
   });
 
-const buildPlanFunding = (projectFundingId: number): PlanFunding =>
+const buildPlanFunding = (projectFundingId: number) =>
   new PlanFunding({
     id: casual.integer(1, 9999),
     planId: casual.integer(1, 9999),
     projectFundingId,
   });
 
-const buildAffiliation = (uri: string, overrides: Partial<Record<string, unknown>> = {}): Affiliation =>
+const buildAffiliation = (uri: string, overrides: Partial<Record<string, unknown>> = {}) =>
   new Affiliation({
     id: casual.integer(1, 9999),
     uri,
@@ -151,10 +195,10 @@ const buildResearchOutputAnswerJson = (): string => JSON.stringify({
 });
 
 let mockOpenSearch: {
-  getIndexItem: jest.Mock;
-  search: jest.Mock;
-  updateIndexItem: jest.Mock;
-  removeIndexItem: jest.Mock;
+  getIndexItem: ReturnType<typeof jest.fn>;
+  search: ReturnType<typeof jest.fn>;
+  updateIndexItem: ReturnType<typeof jest.fn>;
+  removeIndexItem: ReturnType<typeof jest.fn>;
 };
 let context: MyContext;
 
@@ -162,10 +206,10 @@ beforeEach(() => {
   jest.resetAllMocks();
 
   mockOpenSearch = {
-    getIndexItem: jest.fn(),
-    search: jest.fn(),
-    updateIndexItem: jest.fn().mockResolvedValue(undefined),
-    removeIndexItem: jest.fn().mockResolvedValue(undefined),
+    getIndexItem: jest.fn<(...args: any[]) => any>(),
+    search: jest.fn<(...args: any[]) => any>(),
+    updateIndexItem: jest.fn<(...args: any[]) => Promise<any>>().mockResolvedValue(undefined),
+    removeIndexItem: jest.fn<(...args: any[]) => Promise<any>>().mockResolvedValue(undefined),
   };
 
   context = {
@@ -182,15 +226,15 @@ beforeEach(() => {
     requestId: 'test-request-id',
   } as unknown as MyContext;
 
-  (AlternateIdentifier.findByPlanId as jest.Mock) = jest.fn().mockResolvedValue([]);
-  (AcceptedWork.findByPlanId as jest.Mock) = jest.fn().mockResolvedValue([]);
-  (Answer.findByPlanId as jest.Mock) = jest.fn().mockResolvedValue([]);
-  (ProjectMember.findByProjectId as jest.Mock) = jest.fn().mockResolvedValue([]);
-  (ProjectFunding.findByProjectId as jest.Mock) = jest.fn().mockResolvedValue([]);
-  (PlanMember.findByPlanId as jest.Mock) = jest.fn().mockResolvedValue([]);
-  (PlanFunding.findByPlanId as jest.Mock) = jest.fn().mockResolvedValue([]);
-  (Affiliation.findByURI as jest.Mock) = jest.fn().mockResolvedValue(null);
-  (Project.findById as jest.Mock) = jest.fn().mockResolvedValue(null);
+  jest.spyOn(AlternateIdentifier, 'findByPlanId').mockResolvedValue([]);
+  jest.spyOn(AcceptedWork, 'findByPlanId').mockResolvedValue([]);
+  jest.spyOn(Answer, 'findByPlanId').mockResolvedValue([]);
+  jest.spyOn(ProjectMember, 'findByProjectId').mockResolvedValue([]);
+  jest.spyOn(ProjectFunding, 'findByProjectId').mockResolvedValue([]);
+  jest.spyOn(PlanMember, 'findByPlanId').mockResolvedValue([]);
+  jest.spyOn(PlanFunding, 'findByPlanId').mockResolvedValue([]);
+  jest.spyOn(Affiliation, 'findByURI').mockResolvedValue(null);
+  jest.spyOn(Project, 'findById').mockResolvedValue(null);
 });
 
 describe('generateSearchTerms', () => {
@@ -326,18 +370,18 @@ describe('updateIndexItem', () => {
       funder: true,
     });
 
-    (ProjectMember.findByProjectId as jest.Mock).mockResolvedValue([member]);
-    (PlanMember.findByPlanId as jest.Mock).mockResolvedValue([{ ...planMember, id: planMemberId, projectMemberId: memberId }]);
-    (ProjectFunding.findByProjectId as jest.Mock).mockResolvedValue([funding]);
-    (PlanFunding.findByPlanId as jest.Mock).mockResolvedValue([{ ...planFunding, projectFundingId: fundingId }]);
-    (Affiliation.findByURI as jest.Mock).mockImplementation(async (_ref: string, _context: MyContext, uri: string) => {
+    jest.spyOn(ProjectMember, 'findByProjectId').mockResolvedValue([member]);
+    jest.spyOn(PlanMember, 'findByPlanId').mockResolvedValue(asPlanMemberList([{ ...planMember, id: planMemberId, projectMemberId: memberId }]));
+    jest.spyOn(ProjectFunding, 'findByProjectId').mockResolvedValue([funding]);
+    jest.spyOn(PlanFunding, 'findByPlanId').mockResolvedValue(asPlanFundingList([{ ...planFunding, projectFundingId: fundingId }]));
+    jest.spyOn(Affiliation, 'findByURI').mockImplementation(async (_ref: string, _context: MyContext, uri: string) => {
       if (uri === `${TEST_ROR_BASE}abcd1234`) return memberAffiliation;
       if (uri === funderUri) return funderAffiliation;
       return null;
     });
-    (AlternateIdentifier.findByPlanId as jest.Mock).mockResolvedValue([{ alternateIdentifier: '10.1234/demo' }]);
-    (AcceptedWork.findByPlanId as jest.Mock).mockResolvedValue([{ doi: '10.9999/related' }]);
-    (Answer.findByPlanId as jest.Mock).mockResolvedValue([{ json: buildResearchOutputAnswerJson() }]);
+    jest.spyOn(AlternateIdentifier, 'findByPlanId').mockResolvedValue(asAlternateIdentifierList([{ alternateIdentifier: '10.1234/demo' }]));
+    jest.spyOn(AcceptedWork, 'findByPlanId').mockResolvedValue(asAcceptedWorkList([{ doi: '10.9999/related' }]));
+    jest.spyOn(Answer, 'findByPlanId').mockResolvedValue(asAnswerList([{ json: buildResearchOutputAnswerJson() }]));
 
     await updateIndexItem(ref, context, plan, project);
 
@@ -367,8 +411,8 @@ describe('updateIndexItem', () => {
     const project = buildProject({ id: 123, title: 'Auto Project' });
     const plan = buildPlan({ projectId: project.id, dmpId: `${TEST_DMP_ID_BASE}11.22222/auto` });
 
-    (Project.findById as jest.Mock).mockResolvedValue(project);
-    (Answer.findByPlanId as jest.Mock).mockResolvedValue([]);
+    jest.spyOn(Project, 'findById').mockResolvedValue(project);
+    jest.spyOn(Answer, 'findByPlanId').mockResolvedValue([]);
 
     await updateIndexItem(ref, context, plan);
 

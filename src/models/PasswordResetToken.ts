@@ -1,10 +1,10 @@
 import crypto from 'crypto';
-import { MySqlModel } from './MySqlModel';
-import { MyContext } from '../context';
-import { getCurrentDate } from '../utils/helpers';
-import { prepareObjectForLogs } from '../logger';
-import { hashToken, getFutureDate } from '../utils/helpers';
-import { generalConfig } from '../config/generalConfig';
+import { MySqlModel } from './MySqlModel.js';
+import { MyContext } from '../context.js';
+import { getCurrentDate } from '../utils/helpers.js';
+import { prepareObjectForLogs } from '../logger.js';
+import { hashToken, getFutureDate } from '../utils/helpers.js';
+import { generalConfig } from '../config/generalConfig.js';
 
 export class PasswordResetToken extends MySqlModel {
   public userId: number;
@@ -24,21 +24,21 @@ export class PasswordResetToken extends MySqlModel {
 
   // Verify that the token record has all required fields and that the expiration date is valid and in the future
   async isValid(): Promise<boolean> {
-  await super.isValid();
+    await super.isValid();
 
-  if (!this.userId) this.addError('userId', 'User can\'t be blank');
-  if (!this.resetPasswordToken) this.addError('resetPasswordToken', 'Reset token can\'t be blank');
+    if (!this.userId) this.addError('userId', 'User can\'t be blank');
+    if (!this.resetPasswordToken) this.addError('resetPasswordToken', 'Reset token can\'t be blank');
 
-  if (!this.resetPasswordExpiresAt) {
-    this.addError('resetPasswordExpiresAt', 'Expiration date can\'t be blank');
-  } else if (isNaN(new Date(this.resetPasswordExpiresAt).getTime())) {
-    this.addError('resetPasswordExpiresAt', 'Expiration date is not a valid date');
-  } else if (new Date(this.resetPasswordExpiresAt).getTime() <= Date.now()) {
-    this.addError('resetPasswordExpiresAt', 'Expiration date must be in the future');
+    if (!this.resetPasswordExpiresAt) {
+      this.addError('resetPasswordExpiresAt', 'Expiration date can\'t be blank');
+    } else if (isNaN(new Date(this.resetPasswordExpiresAt).getTime())) {
+      this.addError('resetPasswordExpiresAt', 'Expiration date is not a valid date');
+    } else if (new Date(this.resetPasswordExpiresAt).getTime() <= Date.now()) {
+      this.addError('resetPasswordExpiresAt', 'Expiration date must be in the future');
+    }
+
+    return Object.keys(this.errors).length === 0;
   }
-
-  return Object.keys(this.errors).length === 0;
-}
   // Save this new reset token record
   async create(context: MyContext): Promise<PasswordResetToken> {
     const reference = 'PasswordResetToken.create';
@@ -49,7 +49,7 @@ export class PasswordResetToken extends MySqlModel {
       context.logger.debug(prepareObjectForLogs({ id: created?.id, userId: this.userId }), reference);
       return created;
     }
-    context.logger.debug(prepareObjectForLogs({ id: this.id, userId: this.userId, errors: this.errors}), reference);
+    context.logger.debug(prepareObjectForLogs({ id: this.id, userId: this.userId, errors: this.errors }), reference);
     return this;
   }
 
@@ -70,8 +70,8 @@ export class PasswordResetToken extends MySqlModel {
   static async createForUser(
     context: MyContext,
     userId: number,
-): Promise<{ record: PasswordResetToken; rawToken: string } | null> {
-     const reference = 'PasswordResetToken.createForUser';
+  ): Promise<{ record: PasswordResetToken; rawToken: string } | null> {
+    const reference = 'PasswordResetToken.createForUser';
 
     if (!userId) {
       context.logger.error(`${reference} called with missing arguments for userId ${userId}`);

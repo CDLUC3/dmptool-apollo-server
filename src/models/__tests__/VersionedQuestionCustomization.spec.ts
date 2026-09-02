@@ -1,14 +1,20 @@
-import { MyContext } from "../../context";
-import { VersionedQuestionCustomization } from "../VersionedQuestionCustomization";
-import { MySqlModel } from "../MySqlModel";
+import { jest } from '@jest/globals';
 
-jest.mock("../MySqlModel", () => ({
-  ...jest.requireActual("../MySqlModel"),
-  query: jest.fn(),
-  insert: jest.fn(),
-  update: jest.fn(),
-  delete: jest.fn(),
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
 }));
+
+import type { MyContext } from '../../context.js';
+
+// Dynamic imports AFTER all mocks are registered
+const { MySqlModel } = await import("../MySqlModel.js");
+const { VersionedQuestionCustomization } = await import("../VersionedQuestionCustomization.js");
 
 describe("VersionedQuestionCustomization", () => {
   let mockContext: MyContext;

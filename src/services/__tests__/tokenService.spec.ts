@@ -1,12 +1,52 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+import { jest } from '@jest/globals';
 import casual from 'casual';
-import jwt, { Jwt } from 'jsonwebtoken';
 import { createHash } from 'crypto';
-import { Response } from 'express';
-import { User, UserRole } from '../../models/User';
-import { DEFAULT_INTERNAL_SERVER_MESSAGE, DEFAULT_UNAUTHORIZED_MESSAGE } from '../../utils/graphQLErrors';
-import { Cache } from '../../datasources/cache';
-import { generalConfig } from '../../config/generalConfig';
-import {
+import type { Response } from 'express';
+import type { Jwt } from 'jsonwebtoken';
+
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+mockAppConfigs();
+mockAppLogger();
+
+// ---------------------------------------------------------------------------
+// jsonwebtoken: tokenService.ts does a DEFAULT import (`import jwt from
+// 'jsonwebtoken'`), so the mock factory needs a `default` key, not just
+// named exports, for `jwt.sign`/`jwt.verify` to resolve to these mocks.
+// ---------------------------------------------------------------------------
+const mockJwtSign = jest.fn<(...args: any[]) => any>();
+const mockJwtVerify = jest.fn<(...args: any[]) => any>();
+jest.unstable_mockModule('jsonwebtoken', () => ({
+  __esModule: true,
+  default: { sign: mockJwtSign, verify: mockJwtVerify },
+  sign: mockJwtSign,
+  verify: mockJwtVerify,
+}));
+
+// ---------------------------------------------------------------------------
+// datasources/cache.js: deliberately narrow, non-spread (same reasoning as
+// openSearchService.js/templateService.js elsewhere in this migration) —
+// the real module validates env config at import time, so spreading its
+// real exports (which requires importing it for real first) would
+// reintroduce the exact fatal error this mock exists to avoid.
+// isRevokedCallback calls Cache.getInstance() directly — a separate
+// singleton-access pattern from the request-scoped context.cache built via
+// __mocks__/context.js's MockCache — so only that static accessor needs to
+// be controllable here.
+// ---------------------------------------------------------------------------
+const mockCacheGetInstance = jest.fn<(...args: any[]) => any>();
+jest.unstable_mockModule('../../datasources/cache.js', () => ({
+  Cache: { getInstance: mockCacheGetInstance },
+}));
+
+const { User } = await import('../../models/User.js');
+const { UserRole } = await import('../../models/User.js');
+const { DEFAULT_INTERNAL_SERVER_MESSAGE, DEFAULT_UNAUTHORIZED_MESSAGE } = await import('../../utils/graphQLErrors.js');
+const { Cache } = await import('../../datasources/cache.js');
+const { generalConfig } = await import('../../config/generalConfig.js');
+const {
   setTokenCookie,
   generateAuthTokens,
   refreshAccessToken,
@@ -15,20 +55,29 @@ import {
   isRevokedCallback,
   verifyCSRFToken,
   generateCSRFToken,
-} from '../tokenService'; // assuming the original code is in auth.ts
-import { buildContext, mockToken, MockCache } from '../../__mocks__/context';
-import { defaultLanguageId } from '../../models/Language';
-import { logger } from "../../logger";
+} = await import('../tokenService.js');
+const { buildContext, mockToken, MockCache } = await import('../../__mocks__/context.js');
+const { defaultLanguageId } = await import('../../models/Language.js');
+const { logger } = await import('../../logger.js');
 
-jest.mock('jsonwebtoken');
-jest.mock('../../datasources/cache');
+// ---------------------------------------------------------------------------
+// Cast helper: jest.spyOn(User, 'findById') ties itself to the real class's
+// return type, so the plain-object mockUser fixture needs casting at the
+// point it's handed to a spied method or a real function's typed parameter
+// — never at its own declaration (that would make mockUser.getEmail
+// unusable as a plain jest.fn()).
+// ---------------------------------------------------------------------------
+type UserInstance = InstanceType<typeof User>;
+function asUser(value: any): UserInstance {
+  return value as UserInstance;
+}
 
 // Mock the process.env
 const originalEnv = process.env;
 
-let context;
-let mockUser;
-let mockCache;
+let context: any;
+let mockUser: any;
+let mockCache: any;
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -43,7 +92,7 @@ beforeEach(() => {
     affiliationId: casual.url,
     role: UserRole.RESEARCHER,
     languageId: defaultLanguageId,
-    getEmail: jest.fn().mockResolvedValue(casual.email)
+    getEmail: jest.fn<(...args: any[]) => Promise<string>>().mockResolvedValue(casual.email)
   };
 });
 
@@ -51,7 +100,7 @@ describe('setTokenCookie', () => {
   let mockResponse: Partial<Response>;
 
   beforeEach(() => {
-    mockResponse = { cookie: jest.fn() };
+    mockResponse = { cookie: jest.fn<(...args: any[]) => Response>() };
     // Reset process.env before each test
     process.env = { ...originalEnv };
   });
@@ -177,23 +226,23 @@ describe('generateAuthTokens', () => {
     const mockDate = new Date();
     jest.useFakeTimers().setSystemTime(mockDate);
 
-    (jwt.sign as jest.Mock).mockImplementation((_payload, secret) => {
+    mockJwtSign.mockImplementation((_payload: any, secret: any) => {
       if (secret === generalConfig.jwtSecret) return mockAccessToken;
       if (secret === generalConfig.jwtRefreshSecret) return mockRefreshToken;
     });
     jest.spyOn(mockCache.adapter, 'set').mockResolvedValue(true);
 
-    const result = await generateAuthTokens(context, mockUser);
+    const result = await generateAuthTokens(context, asUser(mockUser));
 
     expect(result).toEqual({ accessToken: mockAccessToken, refreshToken: mockRefreshToken });
-    expect(jwt.sign).toHaveBeenCalledTimes(2);
+    expect(mockJwtSign).toHaveBeenCalledTimes(2);
     expect(mockCache.adapter.set).toHaveBeenCalled();
 
     jest.useRealTimers();
   });
 
   it('should return null tokens if conditions are not met', async () => {
-    const result = await generateAuthTokens(context, {} as User);
+    const result = await generateAuthTokens(context, asUser({}));
     expect(result).toEqual({ accessToken: null, refreshToken: null });
   });
 });
@@ -219,17 +268,17 @@ describe('verifyCSRFToken', () => {
 });
 
 describe('isRevokedCallback', () => {
-  let mockDirectCache;
+  let mockDirectCache: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
 
     // The function makes direct calls to Cache.getInstance() so mock it here
-    (Cache.getInstance as jest.Mock).mockReturnValue({
+    mockCacheGetInstance.mockReturnValue({
       adapter: {
-        delete: jest.fn(),
-        get: jest.fn(),
-        set: jest.fn(),
+        delete: jest.fn<(...args: any[]) => any>(),
+        get: jest.fn<(...args: any[]) => any>(),
+        set: jest.fn<(...args: any[]) => any>(),
       },
     });
     mockDirectCache = Cache.getInstance();
@@ -250,7 +299,7 @@ describe('isRevokedCallback', () => {
     const token = { header: null, signature: null, payload: { jti: mockJti } };
 
     const mockErr = new Error('Test cache error');
-    (mockDirectCache.adapter.get as jest.Mock).mockImplementation(() => { throw mockErr; });
+    mockDirectCache.adapter.get.mockImplementation(() => { throw mockErr; });
 
     await isRevokedCallback(null, token as Jwt);
     const expoectedErr = 'isRevokedCallback - unable to fetch token from cache';
@@ -262,7 +311,7 @@ describe('isRevokedCallback', () => {
     const mockJti = casual.integer(1, 99999).toString();
     const token = { header: null, signature: null, payload: { jti: mockJti } };
 
-    (mockDirectCache.adapter.get as jest.Mock).mockReturnValueOnce(mockJti);
+    mockDirectCache.adapter.get.mockReturnValueOnce(mockJti);
 
     expect(await isRevokedCallback(null, token as Jwt)).toBe(true);
     expect(mockDirectCache.adapter.get).toHaveBeenLastCalledWith(`{dmspbl}:${mockJti}`);
@@ -270,7 +319,7 @@ describe('isRevokedCallback', () => {
 });
 
 describe('refreshAccessToken', () => {
-  let context;
+  let context: any;
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -285,10 +334,10 @@ describe('refreshAccessToken', () => {
     const mockNewAccessToken = 'valid-access-token';
     const mockNewRefreshToken = 'valid-refresh-token';
 
-    (jwt.verify as jest.Mock).mockImplementation(() => { return mockUser; });
+    mockJwtVerify.mockImplementation(() => { return mockUser; });
     jest.spyOn(mockCache.adapter, 'get').mockResolvedValue(hashedToken);
-    jest.spyOn(User, 'findById').mockResolvedValue(mockUser);
-    (jwt.sign as jest.Mock).mockImplementation((_payload, secret) => {
+    jest.spyOn(User, 'findById').mockResolvedValue(asUser(mockUser));
+    mockJwtSign.mockImplementation((_payload: any, secret: any) => {
       if (secret === generalConfig.jwtSecret) return mockNewAccessToken;
       if (secret === generalConfig.jwtRefreshSecret) return mockNewRefreshToken;
     })
@@ -296,7 +345,7 @@ describe('refreshAccessToken', () => {
     const result = await refreshAccessToken(context, mockRefreshToken);
 
     expect(result).toEqual(mockNewAccessToken);
-    expect(jwt.verify).toHaveBeenCalledWith(mockRefreshToken, generalConfig.jwtRefreshSecret);
+    expect(mockJwtVerify).toHaveBeenCalledWith(mockRefreshToken, generalConfig.jwtRefreshSecret);
   });
 
   it('should throw an AuthenticationError if the User could not be found', async () => {
@@ -304,7 +353,7 @@ describe('refreshAccessToken', () => {
     const hashedToken = createHash('sha256').update(`${mockRefreshToken}${generalConfig.hashTokenSecret}`).digest('hex');
     const mockUserId = casual.integer(1, 999);
 
-    (jwt.verify as jest.Mock).mockImplementation(() => { return { id: mockUserId }; });
+    mockJwtVerify.mockImplementation(() => { return { id: mockUserId }; });
     jest.spyOn(mockCache.adapter, 'get').mockResolvedValue(hashedToken);
     jest.spyOn(User, 'findById').mockResolvedValue(null);
 
@@ -315,7 +364,7 @@ describe('refreshAccessToken', () => {
   it('should throw an AuthenticationError if the refresh token is invalid', async () => {
     const mockRefreshToken = 'revoked-refresh-token';
 
-    (jwt.verify as jest.Mock).mockReturnValue(null);
+    mockJwtVerify.mockReturnValue(null);
 
     await expect(refreshAccessToken(context, mockRefreshToken))
       .rejects.toThrow(DEFAULT_UNAUTHORIZED_MESSAGE);
@@ -327,7 +376,7 @@ describe('refreshAccessToken', () => {
     const mockUserId = casual.integer(1, 999);
     const errorMessage = 'Invalid refresh token';
 
-    (jwt.verify as jest.Mock).mockImplementation(() => { return { id: mockUserId }; });
+    mockJwtVerify.mockImplementation(() => { return { id: mockUserId }; });
     jest.spyOn(mockCache.adapter, 'get').mockResolvedValue(mockHashed);
 
     await expect(refreshAccessToken(context, mockRefreshToken))
@@ -339,9 +388,9 @@ describe('refreshAccessToken', () => {
     const mockRefreshToken = 'invalid-refresh-token';
     const errorMessage = 'Invalid refresh token';
 
-    (jwt.verify as jest.Mock).mockImplementation(() => {
+    mockJwtVerify.mockImplementation(() => {
       throw new Error(errorMessage);
-    });;
+    });
 
     await expect(refreshAccessToken(context, mockRefreshToken))
       .rejects.toThrow(`${DEFAULT_UNAUTHORIZED_MESSAGE} - ${errorMessage}`);
@@ -374,7 +423,7 @@ describe('revokeRefreshToken', () => {
     const expectedErr = `${DEFAULT_INTERNAL_SERVER_MESSAGE} - Test error`;
     await expect(() => revokeRefreshToken(context, 'mock-token')).rejects.toThrow(expectedErr);
     const thrownErr = `revokeRefreshToken - unable to delete token from cache`;
-    expect(logger.error).toHaveBeenCalledWith({}, thrownErr);
+    expect(logger.error).toHaveBeenCalledWith(mockError, thrownErr);
   });
 });
 
@@ -404,6 +453,6 @@ describe('revokeAccessToken', () => {
     const expectedErr = `${DEFAULT_INTERNAL_SERVER_MESSAGE} - Test error`;
     await expect(() => revokeAccessToken(context, mockJti)).rejects.toThrow(expectedErr);
     const thrownErr = `revokeAccessToken - unable to add token to black list`;
-    expect(logger.error).toHaveBeenCalledWith({}, thrownErr);
+    expect(logger.error).toHaveBeenCalledWith(mockError, thrownErr);
   });
 });

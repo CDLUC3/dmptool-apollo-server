@@ -1,7 +1,7 @@
-import { MyContext } from "../context";
-import { isNullOrUndefined } from "../utils/helpers";
-import { MySqlModel } from "./MySqlModel";
-import { prepareObjectForLogs } from "../logger";
+import { MyContext } from "../context.js";
+import { isNullOrUndefined } from "../utils/helpers.js";
+import { MySqlModel } from "./MySqlModel.js";
+import { prepareObjectForLogs } from "../logger.js";
 
 // A department for an affiliation
 export class AffiliationDepartment extends MySqlModel {
@@ -41,7 +41,7 @@ export class AffiliationDepartment extends MySqlModel {
     );
 
     // Then make sure it doesn't already exist
-    if(await this.isValid()) {
+    if (await this.isValid()) {
       if (!isNullOrUndefined(current)) {
         this.addError('general', `That school/department is already associated with this Affiliation`);
       } else {

@@ -1,18 +1,18 @@
-import { Resolvers, CustomizableObjectOwnership } from "../types";
-import { MyContext } from "../context";
-import { VersionedQuestion } from "../models/VersionedQuestion";
-import { VersionedCustomQuestion } from "../models/VersionedCustomQuestion";
-import { Answer } from "../models/Answer";
-import { AuthenticationError, ForbiddenError, InternalServerError } from "../utils/graphQLErrors";
-import { VersionedQuestionCondition } from "../models/VersionedQuestionCondition";
-import { prepareObjectForLogs } from "../logger";
-import { isAuthorized } from "../services/authService";
+import { Resolvers, CustomizableObjectOwnership } from "../types.js";
+import { MyContext } from "../context.js";
+import { VersionedQuestion } from "../models/VersionedQuestion.js";
+import { VersionedCustomQuestion } from "../models/VersionedCustomQuestion.js";
+import { Answer } from "../models/Answer.js";
+import { AuthenticationError, ForbiddenError, InternalServerError } from "../utils/graphQLErrors.js";
+import { VersionedQuestionCondition } from "../models/VersionedQuestionCondition.js";
+import { prepareObjectForLogs } from "../logger.js";
+import { isAuthorized } from "../services/authService.js";
 import { GraphQLError } from "graphql";
-import { normaliseDateTime } from "../utils/helpers";
-import { VersionedTemplate } from "../models/VersionedTemplate";
-import { VersionedTemplateCustomization } from "../models/VersionedTemplateCustomization";
-import { VersionedQuestionCustomization } from "../models/VersionedQuestionCustomization";
-import { Affiliation } from "../models/Affiliation";
+import { normaliseDateTime } from "../utils/helpers.js";
+import { VersionedTemplate } from "../models/VersionedTemplate.js";
+import { VersionedTemplateCustomization } from "../models/VersionedTemplateCustomization.js";
+import { VersionedQuestionCustomization } from "../models/VersionedQuestionCustomization.js";
+import { Affiliation } from "../models/Affiliation.js";
 
 
 interface PublishedQuestionResult {

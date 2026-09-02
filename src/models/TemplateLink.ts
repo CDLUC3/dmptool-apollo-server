@@ -1,6 +1,6 @@
-import { MyContext } from "../context";
-import { isNullOrUndefined, validateURL } from "../utils/helpers";
-import { MySqlModel } from "./MySqlModel";
+import { MyContext } from "../context.js";
+import { isNullOrUndefined, validateURL } from "../utils/helpers.js";
+import { MySqlModel } from "./MySqlModel.js";
 
 export enum TemplateLinkType {
   FUNDER = 'FUNDER',
@@ -48,7 +48,7 @@ export class TemplateLink extends MySqlModel {
     );
 
     // Then make sure it doesn't already exist
-    if(await this.isValid()) {
+    if (await this.isValid()) {
       if (!isNullOrUndefined(current)) {
         this.addError('general', `That link is already associated with this Template`);
       } else {

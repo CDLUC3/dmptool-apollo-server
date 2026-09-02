@@ -1,12 +1,33 @@
-import {
-  createOpenSearchClient,
-  createOpenSearchServerlessClient
-} from '../../datasources/openSearch';
-import { OpenSearchService } from '../openSearchService';
-import { MyContext } from '../../context';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+import { jest } from '@jest/globals';
 import { GraphQLError } from 'graphql';
 
-jest.mock('../../datasources/openSearch');
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+mockAppConfigs();
+mockAppLogger();
+
+// ---------------------------------------------------------------------------
+// openSearchService.js constructs a module-level singleton
+// (`const openSearchService = new OpenSearchService();`) at import time, and
+// its constructor calls createOpenSearchClient/createOpenSearchServerlessClient
+// immediately — so these two need to be mocked before openSearchService.js
+// is ever imported, same reasoning as the transporter in emailService.js.
+// Only these two are replaced (not a spread-actual + override) since nothing
+// else openSearchService.js needs comes from this module.
+// ---------------------------------------------------------------------------
+const mockCreateOpenSearchClient = jest.fn<(...args: any[]) => any>();
+const mockCreateOpenSearchServerlessClient = jest.fn<(...args: any[]) => any>();
+
+jest.unstable_mockModule('../../datasources/openSearch.js', () => ({
+  createOpenSearchClient: mockCreateOpenSearchClient,
+  createOpenSearchServerlessClient: mockCreateOpenSearchServerlessClient,
+}));
+
+import type { MyContext } from '../../context.js';
+
+const { OpenSearchService } = await import('../openSearchService.js');
 
 describe('OpenSearchService', () => {
   const mockContext = {
@@ -16,13 +37,13 @@ describe('OpenSearchService', () => {
     },
   } as unknown as MyContext;
 
-  const mockSearch = jest.fn();
-  let service: OpenSearchService;
+  const mockSearch = jest.fn<(...args: any[]) => Promise<any>>();
+  let service: InstanceType<typeof OpenSearchService>;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (createOpenSearchClient as jest.Mock).mockReturnValue({ search: mockSearch });
-    (createOpenSearchServerlessClient as jest.Mock).mockReturnValue({ search: mockSearch });
+    mockCreateOpenSearchClient.mockReturnValue({ search: mockSearch });
+    mockCreateOpenSearchServerlessClient.mockReturnValue({ search: mockSearch });
     service = new OpenSearchService();
   });
 

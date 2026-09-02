@@ -2,28 +2,28 @@ import {
   PublishedTemplateSearchResults,
   PublishedTemplateMetaDataResults,
   Resolvers, CustomizableTemplateSearchResults
-} from "../types";
+} from "../types.js";
 import {
   CustomizableTemplateSearchResult,
   VersionedTemplate, VersionedTemplateSearchResult
-} from "../models/VersionedTemplate";
-import { User } from '../models/User';
-import { MyContext } from "../context";
-import { Template } from "../models/Template";
-import { Affiliation } from "../models/Affiliation";
-import { VersionedSection } from "../models/VersionedSection";
-import { AuthenticationError, ForbiddenError, InternalServerError } from "../utils/graphQLErrors";
-import { isAdmin, isAuthorized } from "../services/authService";
-import { prepareObjectForLogs } from "../logger";
+} from "../models/VersionedTemplate.js";
+import { User } from '../models/User.js';
+import { MyContext } from "../context.js";
+import { Template } from "../models/Template.js";
+import { Affiliation } from "../models/Affiliation.js";
+import { VersionedSection } from "../models/VersionedSection.js";
+import { AuthenticationError, ForbiddenError, InternalServerError } from "../utils/graphQLErrors.js";
+import { isAdmin, isAuthorized } from "../services/authService.js";
+import { prepareObjectForLogs } from "../logger.js";
 import { GraphQLError } from "graphql";
-import { PaginationOptionsForCursors, PaginationOptionsForOffsets, PaginationType } from "../types/general";
-import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
+import { PaginationOptionsForCursors, PaginationOptionsForOffsets, PaginationType } from "../types/general.js";
+import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers.js";
 
 export const resolvers: Resolvers = {
   Query: {
     // Get a VersionedTemplate by its id
     versionedTemplate: async (_, { id }, context: MyContext): Promise<VersionedTemplate> => {
-      const  reference = 'versionedTemplate resolver';
+      const reference = 'versionedTemplate resolver';
       try {
         if (isAuthorized(context.token)) {
           return await VersionedTemplate.findById(reference, context, id);
@@ -64,8 +64,8 @@ export const resolvers: Resolvers = {
       try {
         if (isAuthorized(context.token)) {
           const opts = !isNullOrUndefined(paginationOptions) && paginationOptions.type === PaginationType.OFFSET
-                      ? paginationOptions as PaginationOptionsForOffsets
-                      : { ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors;
+            ? paginationOptions as PaginationOptionsForOffsets
+            : { ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors;
 
           return await VersionedTemplateSearchResult.search(reference, context, term, opts);
         }

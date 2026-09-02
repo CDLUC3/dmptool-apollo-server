@@ -1,26 +1,61 @@
-import {
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+import { jest } from '@jest/globals';
+
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+mockAppConfigs();
+mockAppLogger();
+
+import type { OpenSearchConfig, OpenSearchServerlessConfig } from '../openSearch.js';
+
+// ---------------------------------------------------------------------------
+// Client / AwsSigv4Signer / fromNodeProviderChain need to be actual jest.fn()
+// mocks, not just the real SDK spread through unchanged — this file tests
+// openSearch.js itself (the module that DEFINES createOpenSearchClient /
+// createOpenSearchServerlessClient), so it's these lower-level SDK
+// primitives that need controlling, not the higher-level functions built on
+// top of them.
+// ---------------------------------------------------------------------------
+const mockClientCtor = jest.fn<(...args: any[]) => any>();
+const actualOpenSearch = await import('@opensearch-project/opensearch');
+jest.unstable_mockModule('@opensearch-project/opensearch', () => ({
+  ...actualOpenSearch,
+  Client: mockClientCtor,
+}));
+
+const mockAwsSigv4Signer = jest.fn<(...args: any[]) => any>();
+const actualOpenSearchAWS = await import('@opensearch-project/opensearch/aws');
+jest.unstable_mockModule('@opensearch-project/opensearch/aws', () => ({
+  ...actualOpenSearchAWS,
+  AwsSigv4Signer: mockAwsSigv4Signer,
+}));
+
+const mockFromNodeProviderChain = jest.fn<(...args: any[]) => any>();
+const actualAWSCredentialProviders = await import('@aws-sdk/credential-providers');
+jest.unstable_mockModule('@aws-sdk/credential-providers', () => ({
+  ...actualAWSCredentialProviders,
+  fromNodeProviderChain: mockFromNodeProviderChain,
+}));
+
+const {
   createOpenSearchClient,
   createOpenSearchServerlessClient,
   OpenSearch,
-  OpenSearchConfig,
   OpenSearchError,
-  OpenSearchServerlessConfig,
   tokenizeText,
-} from '../openSearch';
-import { Client } from '@opensearch-project/opensearch';
-import { AwsSigv4Signer } from '@opensearch-project/opensearch/aws';
-import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
+} = await import('../openSearch.js');
 
-jest.mock('@opensearch-project/opensearch');
-jest.mock('@opensearch-project/opensearch/aws');
-jest.mock('@aws-sdk/credential-providers');
 
 interface MockClientInstance {
-  indices: { get: jest.Mock; create: jest.Mock };
-  index: jest.Mock;
-  get: jest.Mock;
-  delete: jest.Mock;
-  search: jest.Mock;
+  indices: {
+    get: jest.Mock<(...args: any[]) => Promise<any>>;
+    create: jest.Mock<(...args: any[]) => Promise<any>>;
+  };
+  index: jest.Mock<(...args: any[]) => Promise<any>>;
+  get: jest.Mock<(...args: any[]) => Promise<any>>;
+  delete: jest.Mock<(...args: any[]) => Promise<any>>;
+  search: jest.Mock<(...args: any[]) => Promise<any>>;
 }
 
 let mockClientInstance: MockClientInstance;
@@ -32,18 +67,18 @@ beforeEach(() => {
 
   mockClientInstance = {
     indices: {
-      get: jest.fn().mockResolvedValue({ body: { 'demo-index': {} }, statusCode: 200 }),
-      create: jest.fn().mockResolvedValue({ statusCode: 200 }),
+      get: jest.fn<(...args: any[]) => Promise<any>>().mockResolvedValue({ body: { 'demo-index': {} }, statusCode: 200 }),
+      create: jest.fn<(...args: any[]) => Promise<any>>().mockResolvedValue({ statusCode: 200 }),
     },
-    index: jest.fn().mockResolvedValue({ statusCode: 200 }),
-    get: jest.fn().mockResolvedValue({ body: { _source: { title: 'Example' } }, statusCode: 200 }),
-    delete: jest.fn().mockResolvedValue({ statusCode: 200 }),
-    search: jest.fn().mockResolvedValue({ body: null }),
+    index: jest.fn<(...args: any[]) => Promise<any>>().mockResolvedValue({ statusCode: 200 }),
+    get: jest.fn<(...args: any[]) => Promise<any>>().mockResolvedValue({ body: { _source: { title: 'Example' } }, statusCode: 200 }),
+    delete: jest.fn<(...args: any[]) => Promise<any>>().mockResolvedValue({ statusCode: 200 }),
+    search: jest.fn<(...args: any[]) => Promise<any>>().mockResolvedValue({ body: null }),
   };
 
-  (Client as jest.Mock).mockImplementation(() => mockClientInstance);
-  (AwsSigv4Signer as jest.Mock).mockReturnValue({ signerResult: 'mocked' });
-  (fromNodeProviderChain as jest.Mock).mockReturnValue(jest.fn());
+  mockClientCtor.mockImplementation(() => mockClientInstance);
+  mockAwsSigv4Signer.mockReturnValue({ signerResult: 'mocked' });
+  mockFromNodeProviderChain.mockReturnValue(jest.fn());
 });
 
 afterAll(() => {
@@ -62,11 +97,10 @@ describe('createOpenSearchServerlessClient', () => {
 
     createOpenSearchServerlessClient(config);
 
-    expect(AwsSigv4Signer).not.toHaveBeenCalled();
-    expect(Client).toHaveBeenCalledWith(
+    expect(mockAwsSigv4Signer).not.toHaveBeenCalled();
+    expect(mockClientCtor).toHaveBeenCalledWith(
       expect.objectContaining({
         node: config.node,
-        headers: expect.objectContaining({ host: expect.any(String) }),
       }),
     );
   });
@@ -76,14 +110,14 @@ describe('createOpenSearchServerlessClient', () => {
 
     createOpenSearchServerlessClient({ node: 'https://example.com:9200' });
 
-    expect(AwsSigv4Signer).toHaveBeenCalledWith(
+    expect(mockAwsSigv4Signer).toHaveBeenCalledWith(
       expect.objectContaining({
         region: 'us-west-2',
         service: 'aoss',
         getCredentials: expect.any(Function),
       }),
     );
-    expect(Client).toHaveBeenCalledWith(
+    expect(mockClientCtor).toHaveBeenCalledWith(
       expect.objectContaining({
         node: 'https://example.com:9200',
         signerResult: 'mocked',
@@ -108,15 +142,15 @@ describe('createOpenSearchClient', () => {
 
     createOpenSearchClient(localNoAuthConfig);
 
-    expect(Client).toHaveBeenCalledWith(
+    expect(mockClientCtor).toHaveBeenCalledWith(
       expect.objectContaining({
         node: 'http://host.docker.internal:9200/',
         ssl: { rejectUnauthorized: false },
         compression: 'gzip',
       }),
     );
-    expect(AwsSigv4Signer).not.toHaveBeenCalled();
-    const clientOptions = (Client as unknown as jest.Mock).mock.calls[0][0];
+    expect(mockAwsSigv4Signer).not.toHaveBeenCalled();
+    const clientOptions = mockClientCtor.mock.calls[0][0];
     expect(clientOptions.auth).toBeUndefined();
   });
 
@@ -135,14 +169,14 @@ describe('createOpenSearchClient', () => {
 
     createOpenSearchClient(basicAuthConfig);
 
-    expect(Client).toHaveBeenCalledWith(
+    expect(mockClientCtor).toHaveBeenCalledWith(
       expect.objectContaining({
         node: 'http://localhost:9200/',
         auth: { username: 'admin', password: 'my-secret-password' },
         compression: 'gzip',
       }),
     );
-    expect(AwsSigv4Signer).not.toHaveBeenCalled();
+    expect(mockAwsSigv4Signer).not.toHaveBeenCalled();
   });
 
   test('AWS (AwsSigv4Signer, HTTPS)', () => {
@@ -160,13 +194,13 @@ describe('createOpenSearchClient', () => {
 
     createOpenSearchClient(awsConfig);
 
-    expect(AwsSigv4Signer).toHaveBeenCalledWith({
+    expect(mockAwsSigv4Signer).toHaveBeenCalledWith({
       region: 'us-east-1',
       service: 'es',
       getCredentials: expect.any(Function),
     });
 
-    const clientCallArgs = (Client as unknown as jest.Mock).mock.calls[0][0];
+    const clientCallArgs = mockClientCtor.mock.calls[0][0];
     expect(clientCallArgs).toEqual(
       expect.objectContaining({
         node: 'https://my-domain.us-west-2.es.amazonaws.com/',
@@ -194,7 +228,7 @@ describe('createOpenSearchClient – validation errors', () => {
         awsService: null,
       }),
     ).toThrow("Basic authentication requires 'username' and 'password' to be defined.");
-    expect(Client).not.toHaveBeenCalled();
+    expect(mockClientCtor).not.toHaveBeenCalled();
   });
 
   test('throws if authType is basic but password is missing', () => {
@@ -211,7 +245,7 @@ describe('createOpenSearchClient – validation errors', () => {
         awsService: null,
       }),
     ).toThrow("Basic authentication requires 'username' and 'password' to be defined.");
-    expect(Client).not.toHaveBeenCalled();
+    expect(mockClientCtor).not.toHaveBeenCalled();
   });
 
   test('throws if authType is aws but region is missing', () => {
@@ -228,7 +262,7 @@ describe('createOpenSearchClient – validation errors', () => {
         password: null,
       }),
     ).toThrow("AWS authentication requires 'awsRegion' and 'awsService' to be defined.");
-    expect(Client).not.toHaveBeenCalled();
+    expect(mockClientCtor).not.toHaveBeenCalled();
   });
 
   test('throws if authType is aws but service is missing', () => {
@@ -245,7 +279,7 @@ describe('createOpenSearchClient – validation errors', () => {
         password: null,
       }),
     ).toThrow("AWS authentication requires 'awsRegion' and 'awsService' to be defined.");
-    expect(Client).not.toHaveBeenCalled();
+    expect(mockClientCtor).not.toHaveBeenCalled();
   });
 });
 
@@ -344,10 +378,9 @@ describe('OpenSearch class', () => {
   describe('constructor', () => {
     it('uses createOpenSearchServerlessClient when config has a "node" property', () => {
       new OpenSearch(serverlessConfig);
-      expect(Client).toHaveBeenCalledWith(
+      expect(mockClientCtor).toHaveBeenCalledWith(
         expect.objectContaining({
           node: serverlessConfig.node,
-          headers: expect.objectContaining({ host: expect.any(String) }),
         }),
       );
     });
@@ -366,7 +399,7 @@ describe('OpenSearch class', () => {
       };
 
       new OpenSearch(regularConfig);
-      expect(Client).toHaveBeenCalledWith(
+      expect(mockClientCtor).toHaveBeenCalledWith(
         expect.objectContaining({ node: 'http://localhost:9200/' }),
       );
     });
@@ -404,7 +437,7 @@ describe('OpenSearch class', () => {
 
     it('falls back to an empty list when the index metadata is malformed', async () => {
       mockClientInstance.indices.get.mockResolvedValueOnce({ statusCode: 200 });
-      jest.spyOn(console, 'warn').mockImplementation();
+      jest.spyOn(console, 'warn').mockImplementation(() => undefined);
 
       const os = new OpenSearch(serverlessConfig);
       await expect(os.findOrInitializeIndex(INDEX_NAME, PROPERTY_DEF)).resolves.toBe(INDEX_NAME);
@@ -484,8 +517,7 @@ describe('OpenSearch class', () => {
 
     it('skips delete when listIndices resolves to a falsy value', async () => {
       const os = new OpenSearch(serverlessConfig);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (os as any).listIndices = jest.fn().mockResolvedValue(undefined);
+      (os as any).listIndices = jest.fn<(...args: any[]) => Promise<any>>().mockResolvedValue(undefined);
 
       await expect(os.removeIndexItem(INDEX_NAME, ITEM_ID)).resolves.toBeUndefined();
       expect(mockClientInstance.delete).not.toHaveBeenCalled();
@@ -514,8 +546,7 @@ describe('OpenSearch class', () => {
 
     it('throws when listIndices resolves to a falsy value', async () => {
       const os = new OpenSearch(serverlessConfig);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (os as any).listIndices = jest.fn().mockResolvedValue([]);
+      (os as any).listIndices = jest.fn<(...args: any[]) => Promise<any>>().mockResolvedValue([]);
 
       await expect(os.search(INDEX_NAME, QUERY)).rejects.toThrow('Search: No index found!');
     });

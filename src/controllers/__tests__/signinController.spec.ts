@@ -1,26 +1,45 @@
+import { jest } from '@jest/globals';
 import casual from 'casual';
 import { Request, Response } from 'express';
-import { Cache } from "../../datasources/cache";
-import { generateAuthTokens, setTokenCookie } from '../../services/tokenService';
-import { generalConfig } from '../../config/generalConfig';
-import { signinController } from '../signinController';
-import * as UserModel from '../../models/User';
-import { defaultLanguageId } from '../../models/Language';
-import { getRandomEnumValue } from '../../__tests__/helpers';
-import { getCurrentDate } from '../../utils/helpers';
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { logger } from "../../logger";
 
-jest.mock('../../context.ts');
+import { mockAppConfigs, mockAppLogger, mockUserModel } from '../../__tests__/mockConfigs.js';
 
-// Mocking external dependencies
-jest.mock('../../datasources/cache');
-jest.mock('../../services/tokenService');
-jest.mock('../../config/generalConfig');
+// Register config + logger + User mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+mockUserModel();
 
-const mockedUser: UserModel.User = {
+// Mock external dependencies
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+jest.unstable_mockModule('../../datasources/cache.js', () => ({
+  Cache: {
+    getInstance: jest.fn(),
+  },
+}));
+
+jest.unstable_mockModule('../../services/tokenService.js', () => ({
+  generateAuthTokens: jest.fn<() => Promise<{ accessToken?: string; refreshToken?: string }>>(),
+  setTokenCookie: jest.fn(),
+}));
+
+// Dynamic imports AFTER all mocks are registered
+const { Cache } = await import('../../datasources/cache.js');
+const { generateAuthTokens, setTokenCookie } = await import('../../services/tokenService.js');
+const { generalConfig } = await import('../../config/generalConfig.js');
+const { signinController } = await import('../signinController.js');
+const UserModel = await import('../../models/User.js');
+const { defaultLanguageId } = await import('../../models/Language.js');
+const { getRandomEnumValue } = await import('../../__tests__/helpers.js');
+const { getCurrentDate } = await import('../../utils/helpers.js');
+const { buildContext } = await import('../../context.js');
+const { logger } = await import('../../logger.js');
+
+const mockedUser: InstanceType<typeof UserModel.User> = {
   id: casual.integer(1, 999),
-  getEmail: jest.fn().mockResolvedValue(casual.email),
+  getEmail: jest.fn<() => Promise<string>>().mockResolvedValue(casual.email),
   givenName: casual.first_name,
   surName: casual.last_name,
   affiliationId: casual.url,
@@ -58,37 +77,56 @@ const mockedUser: UserModel.User = {
   addError: jest.fn(),
   hasErrors: jest.fn(),
   errorsToString: jest.fn(),
+} as unknown as InstanceType<typeof UserModel.User>;
+
+interface MockResponse {
+  status: jest.Mock;
+  json: jest.Mock;
 };
 
 describe('signinController', () => {
   let mockRequest: Partial<Request>;
-  let mockResponse: Partial<Response>;
-  let mockCache: jest.Mocked<Cache>;
-  let mockUser;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  let context;
+  let mockResponse: MockResponse;
+  let mockCache;
+  let mockUser: InstanceType<typeof UserModel.User>;
 
-  beforeEach(async() => {
+  beforeEach(async () => {
     jest.resetAllMocks();
 
-    context = await buildMockContextWithToken(logger);
+    // Re-apply mock implementations AFTER resetAllMocks, since resetAllMocks
+    // strips implementations set at factory time.
+    jest.mocked(buildContext).mockReturnValue({
+      logger: {
+        error: jest.fn(),
+        info: jest.fn(),
+        warn: jest.fn(),
+        debug: jest.fn(),
+        fatal: jest.fn(),
+        trace: jest.fn(),
+      },
+      cache: null,
+      token: null,
+      requestId: 'test-request-id',
+      dataSources: {},
+    } as never);
 
     mockRequest = {
       body: {
         email: casual.email,
         password: casual.uuid,
       },
-      logger: logger
+      logger: logger,
     };
     mockResponse = {
       status: jest.fn().mockReturnThis(),
-      json: jest.fn()
+      json: jest.fn(),
     };
-    mockCache = Cache.getInstance() as jest.Mocked<Cache>;
-    (Cache.getInstance as jest.Mock).mockReturnValue(mockCache);
+
+    mockCache = Cache.getInstance();
+    jest.mocked(Cache.getInstance).mockReturnValue(mockCache);
 
     mockUser = mockedUser;
-    jest.spyOn(UserModel, 'User').mockReturnValue(mockUser);
+    (UserModel.User as unknown as jest.Mock).mockImplementation(() => mockUser);
   });
 
   afterEach(() => {
@@ -96,13 +134,14 @@ describe('signinController', () => {
   });
 
   it('should sign the user in and set the access and refresh tokens successfully', async () => {
-    jest.spyOn(mockUser, 'login').mockResolvedValueOnce(mockedUser);
-    (generateAuthTokens as jest.Mock).mockResolvedValue({
+    jest.mocked(mockUser.login).mockResolvedValueOnce(mockedUser);
+    jest.mocked(generateAuthTokens).mockResolvedValue({
       accessToken: 'new-access-token',
-      refreshToken: 'new-refresh-token'
+      refreshToken: 'new-refresh-token',
     });
 
-    await signinController(mockRequest as Request, mockResponse as Response);
+    await signinController(mockRequest as Request, mockResponse as unknown as Response);
+
     expect(generateAuthTokens).toHaveBeenCalled();
     expect(setTokenCookie).toHaveBeenCalledWith(mockResponse, 'dmspt', 'new-access-token', generalConfig.jwtTTL);
     expect(setTokenCookie).toHaveBeenCalledWith(mockResponse, 'dmspr', 'new-refresh-token', generalConfig.jwtRefreshTTL);
@@ -111,29 +150,30 @@ describe('signinController', () => {
   });
 
   it('should return 401 if user login fails', async () => {
-    jest.spyOn(mockUser, 'login').mockResolvedValueOnce(null);
-    await signinController(mockRequest as Request, mockResponse as Response);
+    jest.mocked(mockUser.login).mockResolvedValueOnce(null);
+
+    await signinController(mockRequest as Request, mockResponse as unknown as Response);
 
     expect(mockResponse.status).toHaveBeenCalledWith(401);
     expect(mockResponse.json).toHaveBeenCalledWith({ success: false, message: 'Invalid credentials' });
   });
 
   it('should return 500 if unable to generate tokens', async () => {
-    jest.spyOn(mockUser, 'login').mockResolvedValueOnce(mockedUser);
-    (generateAuthTokens as jest.Mock).mockResolvedValue({});
+    jest.mocked(mockUser.login).mockResolvedValueOnce(mockedUser);
+    jest.mocked(generateAuthTokens).mockResolvedValue({ accessToken: undefined, refreshToken: undefined });
 
-    await signinController(mockRequest as Request, mockResponse as Response);
+    await signinController(mockRequest as Request, mockResponse as unknown as Response);
 
     expect(mockResponse.status).toHaveBeenCalledWith(500);
     expect(mockResponse.json).toHaveBeenCalledWith({ success: false, message: 'Unable to sign in at this time' });
   });
 
   it('should return 500 if an unexpected error occurs', async () => {
-    jest.spyOn(mockUser, 'login').mockResolvedValueOnce(mockedUser);
+    jest.mocked(mockUser.login).mockResolvedValueOnce(mockedUser);
     const mockError = new Error('Unexpected error');
-    (generateAuthTokens as jest.Mock).mockRejectedValue(mockError);
+    jest.mocked(generateAuthTokens).mockRejectedValue(mockError);
 
-    await signinController(mockRequest as Request, mockResponse as Response);
+    await signinController(mockRequest as Request, mockResponse as unknown as Response);
 
     expect(mockResponse.status).toHaveBeenCalledWith(500);
     expect(mockResponse.json).toHaveBeenCalledWith({ success: false, message: 'Internal server error' });

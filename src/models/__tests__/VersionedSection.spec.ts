@@ -1,11 +1,22 @@
+import { jest } from '@jest/globals';
 import casual from "casual";
-import { VersionedSection, VersionedSectionSearchResult } from "../VersionedSection";
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { generalConfig } from "../../config/generalConfig";
-import { TemplateVersionType } from "../VersionedTemplate";
-import { logger } from "../../logger";
 
-jest.mock('../../context.ts');
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+//Dynamic imports AFTER all mocks are registered
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
+const { VersionedSection, VersionedSectionSearchResult } = await import("../VersionedSection.js");
+const { generalConfig } = await import("../../config/generalConfig.js");
+const { TemplateVersionType } = await import("../VersionedTemplate.js");
 
 let context;
 
@@ -91,17 +102,17 @@ describe('VersionedSectionSearchResult', () => {
       const term = versionedSectionSearchResult.name.split(0, 5)[0];
       const result = await VersionedSectionSearchResult.search('Test', context, term);
       const sql = 'SELECT vs.id, vs.modified, vs.created, vs.name, vs.introduction, vs.displayOrder, vt.bestPractice, ' +
-                        'vt.id as versionedTemplateId, vt.name as versionedTemplateName, ' +
-                        'COUNT(vq.id) as versionedQuestionCount ' +
-                  'FROM versionedSections vs ' +
-                    'INNER JOIN versionedTemplates vt ON vs.versionedTemplateId = vt.id ' +
-                    'LEFT JOIN versionedQuestions vq ON vs.id = vq.versionedSectionId';
+        'vt.id as versionedTemplateId, vt.name as versionedTemplateName, ' +
+        'COUNT(vq.id) as versionedQuestionCount ' +
+        'FROM versionedSections vs ' +
+        'INNER JOIN versionedTemplates vt ON vs.versionedTemplateId = vt.id ' +
+        'LEFT JOIN versionedQuestions vq ON vs.id = vq.versionedSectionId';
 
       const vals = [TemplateVersionType.PUBLISHED.toString(), context?.token?.affiliationId, `%${term.toLowerCase()}%`];
-      const whereFilters = ['vt.active = 1','vt.versionType = ?', '(vt.ownerId = ? OR vt.bestPractice = 1)',
-                            'LOWER(vs.name) LIKE ?'];
+      const whereFilters = ['vt.active = 1', 'vt.versionType = ?', '(vt.ownerId = ? OR vt.bestPractice = 1)',
+        'LOWER(vs.name) LIKE ?'];
       const groupBy = 'GROUP BY vs.id, vs.modified, vs.created, vs.name, vs.introduction, vs.displayOrder, ' +
-                        'vt.bestPractice, vt.id, vt.name'
+        'vt.bestPractice, vt.id, vt.name'
       const sortFields = ["vs.name", "vs.created", "vs.bestPractice", "vt.name", "vs.modified", "versionedQuestionCount"];
       const opts = {
         cursor: null,
@@ -295,7 +306,7 @@ describe('create', () => {
   });
 
   it('returns the VersionedSection without errors if it is valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (versionedSection.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -329,7 +340,7 @@ describe('create', () => {
   });
 
   it('returns the newly added VersionedSection', async () => {
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof VersionedSection> | null>>();
     (VersionedSection.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(versionedSection);
 

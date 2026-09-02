@@ -1,7 +1,7 @@
-import { MyContext } from "../context";
-import { MySqlModel } from "./MySqlModel";
-import { VersionedTemplate } from "../types";
-import { Tag } from "./Tag";
+import { MyContext } from "../context.js";
+import { MySqlModel } from "./MySqlModel.js";
+import { VersionedTemplate } from "../types.js";
+import { Tag } from "./Tag.js";
 import {
   PaginatedQueryResults,
   PaginationOptions,
@@ -9,10 +9,10 @@ import {
   PaginationOptionsForOffsets,
   PaginationType,
   SectionQueryOptions
-} from "../types/general";
-import { prepareObjectForLogs } from "../logger";
-import { isNullOrUndefined } from "../utils/helpers";
-import { TemplateVersionType } from "./VersionedTemplate";
+} from "../types/general.js";
+import { prepareObjectForLogs } from "../logger.js";
+import { isNullOrUndefined } from "../utils/helpers.js";
+import { TemplateVersionType } from "./VersionedTemplate.js";
 
 // Search result for VersionedTemplates
 export class VersionedSectionSearchResult {
@@ -94,14 +94,14 @@ export class VersionedSectionSearchResult {
     }
 
     const sql = 'SELECT vs.id, vs.modified, vs.created, vs.name, vs.introduction, vs.displayOrder, vt.bestPractice, ' +
-                      'vt.id as versionedTemplateId, vt.name as versionedTemplateName, ' +
-                      'COUNT(vq.id) as versionedQuestionCount ' +
-                'FROM versionedSections vs ' +
-                  'INNER JOIN versionedTemplates vt ON vs.versionedTemplateId = vt.id ' +
-                  'LEFT JOIN versionedQuestions vq ON vs.id = vq.versionedSectionId';
+      'vt.id as versionedTemplateId, vt.name as versionedTemplateName, ' +
+      'COUNT(vq.id) as versionedQuestionCount ' +
+      'FROM versionedSections vs ' +
+      'INNER JOIN versionedTemplates vt ON vs.versionedTemplateId = vt.id ' +
+      'LEFT JOIN versionedQuestions vq ON vs.id = vq.versionedSectionId';
 
     const groupBy = 'GROUP BY vs.id, vs.modified, vs.created, vs.name, vs.introduction, vs.displayOrder, ' +
-                        'vt.bestPractice, vt.id, vt.name';
+      'vt.bestPractice, vt.id, vt.name';
     const response: PaginatedQueryResults<VersionedSectionSearchResult> = await VersionedSection.queryWithPagination(
       context,
       sql,

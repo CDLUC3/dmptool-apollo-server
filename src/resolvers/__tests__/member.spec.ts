@@ -6,21 +6,22 @@ it('passes', () => {
 /*
 import { ApolloServer } from "@apollo/server";
 
-import { typeDefs } from "../../schema";
-import { resolvers } from "../../resolver";
+import { typeDefs } from "../../schema.js";
+import { resolvers } from "../../resolver.js";
 import assert from "assert";
-import { buildContext, mockToken } from "../../__mocks__/context";
-import { logger } from "../../logger";
-import { JWTAccessToken } from "../../services/tokenService";
+import { buildContext, mockToken } from "../../__mocks__/context.js";
 
-import { User, UserRole } from "../../models/User";
-import { Affiliation } from "../../models/Affiliation";
-import { Project } from "../../models/Project";
-import { Plan } from "../../models/Plan";
-import { MemberRole } from "../../models/MemberRole";
-import { ProjectCollaborator, ProjectCollaboratorAccessLevel } from "../../models/Collaborator";
-import { PlanMember, ProjectMember } from "../../models/Member";
-import { MyContext } from "../../context";
+import { logger } from "../../logger.js";
+import { JWTAccessToken } from "../../services/tokenService.js";
+
+import { User, UserRole } from "../../models/User.js";
+import { Affiliation } from "../../models/Affiliation.js";
+import { Project } from "../../models/Project.js";
+import { Plan } from "../../models/Plan.js";
+import { MemberRole } from "../../models/MemberRole.js";
+import { ProjectCollaborator, ProjectCollaboratorAccessLevel } from "../../models/Collaborator.js";
+import { PlanMember, ProjectMember } from "../../models/Member.js";
+import { MyContext } from "../../context.js";
 import {
   clearProjectCollaboratorsStore,
   initProjectCollaboratorsStore,
@@ -63,7 +64,7 @@ import {
 import { clearAffiliationStore, initAffiliationStore, mockFindAffiliationByURI } from "../../models/__mocks__/Affiliation";
 import { clearUserStore, initUserStore, mockFindUserById } from "../../models/__mocks__/User";
 
-jest.mock('../../context.ts');
+jest.mock('../../context.js')
 jest.mock('../../services/emailService');
 
 let context: MyContext;

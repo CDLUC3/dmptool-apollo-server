@@ -1,5 +1,5 @@
-import { MyContext } from "../context";
-import { MySqlModel } from "./MySqlModel";
+import { MyContext } from "../context.js";
+import { MySqlModel } from "./MySqlModel.js";
 
 // An email domain associated with this affiliation. For use with SSO
 export class AffiliationEmailDomain extends MySqlModel {
@@ -39,7 +39,7 @@ export class AffiliationEmailDomain extends MySqlModel {
       if (currentDomain) {
         this.addError('general', 'The AffiliationEmailDomain already exists');
       } else {
-      // Save the record and then fetch it
+        // Save the record and then fetch it
         const newId = await AffiliationEmailDomain.insert(context, this.tableName, this, 'AffiliationEmailDomain.create');
         return await AffiliationEmailDomain.findById('AffiliationEmailDomain.create', context, newId as number);
       }

@@ -1,9 +1,20 @@
+import { jest } from '@jest/globals';
 import casual from "casual";
-import { VersionedGuidanceGroup } from "../VersionedGuidanceGroup";
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { logger } from "../../logger";
 
-jest.mock('../../context.ts');
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+// Dynamic imports AFTER all mocks are registered
+const { VersionedGuidanceGroup } = await import("../VersionedGuidanceGroup.js");
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
 
 let context;
 

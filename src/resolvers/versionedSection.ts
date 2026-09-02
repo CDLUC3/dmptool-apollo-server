@@ -1,23 +1,23 @@
-import { Resolvers, VersionedSectionSearchResults } from "../types";
-import { MyContext } from "../context";
-import { VersionedSection, VersionedSectionSearchResult } from "../models/VersionedSection";
-import { VersionedCustomSection } from "../models/VersionedCustomSection";
-import { Section } from "../models/Section";
-import { Tag } from "../models/Tag";
-import { VersionedTemplate } from "../models/VersionedTemplate";
+import { Resolvers, VersionedSectionSearchResults } from "../types.js";
+import { MyContext } from "../context.js";
+import { VersionedSection, VersionedSectionSearchResult } from "../models/VersionedSection.js";
+import { VersionedCustomSection } from "../models/VersionedCustomSection.js";
+import { Section } from "../models/Section.js";
+import { Tag } from "../models/Tag.js";
+import { VersionedTemplate } from "../models/VersionedTemplate.js";
 import {
   AuthenticationError,
   ForbiddenError,
   InternalServerError,
   NotFoundError
-} from "../utils/graphQLErrors";
-import { VersionedQuestion } from "../models/VersionedQuestion";
-import { prepareObjectForLogs } from "../logger";
+} from "../utils/graphQLErrors.js";
+import { VersionedQuestion } from "../models/VersionedQuestion.js";
+import { prepareObjectForLogs } from "../logger.js";
 import { GraphQLError } from "graphql";
-import { PaginationOptionsForCursors, PaginationOptionsForOffsets, PaginationType } from "../types/general";
-import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
-import { isAuthorized } from "../services/authService";
-import { VersionedCustomQuestion } from "../models/VersionedCustomQuestion";
+import { PaginationOptionsForCursors, PaginationOptionsForOffsets, PaginationType } from "../types/general.js";
+import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers.js";
+import { isAuthorized } from "../services/authService.js";
+import { VersionedCustomQuestion } from "../models/VersionedCustomQuestion.js";
 
 export const resolvers: Resolvers = {
   Query: {

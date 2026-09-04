@@ -10,7 +10,7 @@ import {
   BAD_REQUEST_ERROR_CODE,
 } from "../utils/graphQLErrors.js";
 import { isAdmin } from "../services/authService.js";
-import { hasPermissionOnQuestion } from "../services/questionService.js";
+import { hasPermissionOnQuestion, extractTriggerQuestionOptionValues } from "../services/questionService.js";
 import { QuestionConditionGroup } from "../models/QuestionConditionGroup.js";
 import { Question } from "../models/Question.js";
 import { Template } from "../models/Template.js";
@@ -52,8 +52,70 @@ export const resolvers: Resolvers = {
         throw context?.token ? ForbiddenError() : AuthenticationError();
       }
 
+      const priorQuestions = await Question.findPriorQuestionsForQuestion(
+        `${reference}.priorQuestions`,
+        context,
+        questionId
+      );
+      const priorQuestionMap = new Map<number, Question>(
+        priorQuestions.map((entry) => [entry.id, entry])
+      );
+
+      const addGeneralValidationError = (message: string): void => {
+        const existingMessage = question.errors.general;
+        question.addError(
+          'general',
+          existingMessage ? `${existingMessage}; ${message}` : message
+        );
+      };
+
+      // Validate input semantics before persisting any mutations.
+      groups.forEach((groupInput, groupIndex) => {
+        const groupNumber = groupIndex + 1;
+
+        if (!Array.isArray(groupInput.conditions) || groupInput.conditions.length < 1) {
+          addGeneralValidationError(
+            `Group ${groupNumber} must include at least one condition.`
+          );
+          return;
+        }
+
+        // Ensure that the trigger question is a prior question in the same template
+        const triggerQuestion = priorQuestionMap.get(groupInput.triggerQuestionId);
+        if (!triggerQuestion) {
+          addGeneralValidationError(
+            `Group ${groupNumber} trigger question must be a prior template question.`
+          );
+          return;
+        }
+
+        // Ensure that each condition's match value is one of the trigger question's selectable options
+        const optionValues = extractTriggerQuestionOptionValues(triggerQuestion);
+        if (optionValues.size < 1) {
+          addGeneralValidationError(
+            `Group ${groupNumber} trigger question has no selectable options.`
+          );
+          return;
+        }
+
+        // Validate each condition's match value against the trigger question's options
+        groupInput.conditions.forEach((conditionInput, conditionIndex) => {
+          const conditionNumber = conditionIndex + 1;
+          if (!conditionInput.conditionMatch || !optionValues.has(conditionInput.conditionMatch)) {
+            addGeneralValidationError(
+              `Group ${groupNumber} condition ${conditionNumber} must match one of the trigger question options.`
+            );
+          }
+        });
+      });
+
+      if (question.hasErrors()) {
+        return question;
+      }
+
       let updatedQuestion: Question = question;
 
+      // Wrap the entire operation in a transaction so that either all changes are persisted or none are.
       try {
         return await context.dataSources.sqlDataSource.withTransaction(context, async (): Promise<Question> => {
           question.displayLogicAction = action;
@@ -64,6 +126,7 @@ export const resolvers: Resolvers = {
             throw BadRequestError();
           }
 
+          // Delete any existing groups (cascades to conditions) for the question
           const existingGroups = await QuestionConditionGroup.findByQuestionId(reference, context, questionId);
           for (const existing of existingGroups) {
             const toDelete = new QuestionConditionGroup({ ...existing });

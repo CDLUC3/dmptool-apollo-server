@@ -271,3 +271,47 @@ export const updateDisplayOrders = async (
   }
   return reorderedQuestions;
 }
+
+/**
+ * Extracts the option values from a question's JSON data.
+ * @param question The question to extract option values from.
+ * @returns A set of the extracted option values.
+ */
+export const extractTriggerQuestionOptionValues = (question: Question): Set<string> => {
+  try {
+    const parsed = JSON.parse(question.json);
+    const optionCandidates = [parsed?.options, parsed?.attributes?.options];
+
+    const values = optionCandidates
+      .filter((entry) => Array.isArray(entry))
+      .flatMap((entry) => entry as Record<string, unknown>[])
+      .map((option) => {
+        if (typeof option?.value === 'string') {
+          return option.value;
+        }
+        if (typeof option?.label === 'string') {
+          return option.label;
+        }
+        return undefined;
+      })
+      .filter((value): value is string => Boolean(value));
+
+    return new Set(values);
+  } catch {
+    return new Set();
+  }
+};
+
+
+
+// Returns true if the provided question supports selectable options by exposing an options array in its JSON data; otherwise false.
+export const questionSupportsSelectableOptions = (question: Question): boolean => {
+  try {
+    const parsed = JSON.parse(question.json);
+    const rootOptions = parsed?.options;
+    const attributeOptions = parsed?.attributes?.options;
+    return Array.isArray(rootOptions) || Array.isArray(attributeOptions);
+  } catch {
+    return false;
+  }
+};

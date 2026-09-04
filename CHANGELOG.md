@@ -3,6 +3,8 @@
 ## v1.1.0
 
 ### Added
+- Added new `triggerQuestionsForQuestion` query to question resolver [#360]
+- Added two new methods to `questionService`: `extractTriggerQuestionOptionValues` and `questionSupportsSelectableOptions` [#360]
 - Add missing `relationType` column to the `relatedWorks` table
 - Added cascading delete logic to the `relatedWorks` table so that those entries are dropped when a plan is deleted.
 - Added chained resolver to `Plan` to return `acceptedWorks`
@@ -141,6 +143,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `Question` model with new `findPriorQuestionsForQuestion` function [#360]
 - Updated app to use Ecma Script Modules (ESM) [#259]
   - Updated `tsconfig.json` for `ESM`
   - Updated `dev` script to use `tsx` instead of `ts-node-dev` in `package.json` and updated `test` and `test-no-db` scripts because jest itself doesn't natively support ESM without the `--experimental-vm-modules` flag

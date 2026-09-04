@@ -6,6 +6,8 @@ export const typeDefs = gql`
     questions(sectionId: Int!): [Question]
     "Get the specific Question based on questionId"
     question(questionId: Int!): Question
+    "Get all prior option-type questions across the template for display-logic triggers"
+    triggerQuestionsForQuestion(questionId: Int!): [Question]
   }
 
   extend type Mutation {

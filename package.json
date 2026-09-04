@@ -1,6 +1,6 @@
 {
   "name": "dmptool-apollo-server",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Apollo GraphQL server for the DMP Tool system",
   "main": "dist/index.js",
   "type": "module",
@@ -63,7 +63,7 @@
     "express": "^5.2.1",
     "express-jwt": "^8.5.1",
     "fast-xml-parser": "^5.10.1",
-    "graphql": "^16.14.2",
+    "graphql": "^17.0.0",
     "graphql-tag": "^2.12.7",
     "http-cache-semantics": "^4.2.0",
     "is-ci": "^4.1.0",

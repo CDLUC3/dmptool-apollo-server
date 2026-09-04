@@ -4,7 +4,7 @@
 
 ### Added
 - Added new `triggerQuestionsForQuestion` query to question resolver [#360]
-- Added two new methods to `questionService`: `extractTriggerQuestionOptionValues` and `questionHasSelectableOptions` [#360]
+- Added two new methods to `questionService`: `extractTriggerQuestionOptionValues` and `questionSupportsSelectableOptions` [#360]
 - Add missing `relationType` column to the `relatedWorks` table
 - Added cascading delete logic to the `relatedWorks` table so that those entries are dropped when a plan is deleted.
 - Added chained resolver to `Plan` to return `acceptedWorks`

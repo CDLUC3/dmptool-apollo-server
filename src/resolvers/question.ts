@@ -3,7 +3,7 @@ import { MyContext } from "../context.js";
 import { Question } from "../models/Question.js";
 import { Template } from "../models/Template.js";
 import { QuestionConditionGroup } from "../models/QuestionConditionGroup.js";
-import { updateDisplayOrders } from "../services/questionService.js";
+import { updateDisplayOrders, questionHasSelectableOptions } from "../services/questionService.js";
 import {
   AuthenticationError,
   BadRequestError,
@@ -17,6 +17,7 @@ import { isAdmin, isAuthorized } from "../services/authService.js";
 import { hasPermissionOnSection } from "../services/sectionService.js";
 import { GraphQLError } from "graphql";
 import { normaliseDateTime } from "../utils/helpers.js";
+
 
 export const resolvers: Resolvers = {
   Query: {
@@ -44,6 +45,35 @@ export const resolvers: Resolvers = {
           return await Question.findById(reference, context, questionId);
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    },
+
+    // return all prior questions in the template that can be used as
+    // display-logic triggers for the specified question
+    triggerQuestionsForQuestion: async (_, { questionId }, context: MyContext): Promise<Question[]> => {
+      const reference = 'triggerQuestionsForQuestion resolver';
+      try {
+        if (!isAuthorized(context.token)) {
+          throw context?.token ? ForbiddenError() : AuthenticationError();
+        }
+
+        const targetQuestion = await Question.findById(reference, context, questionId);
+        if (!targetQuestion) {
+          throw NotFoundError('Question not found');
+        }
+
+        const priorQuestions = await Question.findPriorQuestionsForQuestion(
+          reference,
+          context,
+          questionId
+        );
+
+        return priorQuestions.filter(questionHasSelectableOptions);
       } catch (err) {
         if (err instanceof GraphQLError) throw err;
 

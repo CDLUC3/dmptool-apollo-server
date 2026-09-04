@@ -3870,6 +3870,8 @@ export type Query = {
   templateVersions?: Maybe<Array<Maybe<VersionedTemplate>>>;
   /** Get all of the top level research domains (the most generic ones) */
   topLevelResearchDomains?: Maybe<Array<Maybe<ResearchDomain>>>;
+  /** Get all prior option-type questions across the template for display-logic triggers */
+  triggerQuestionsForQuestion?: Maybe<Array<Maybe<Question>>>;
   /** Returns the specified user (Admin only) */
   user?: Maybe<User>;
   /** Get all projects for a specified user (Admin only!) */
@@ -4359,6 +4361,11 @@ export type QueryTemplateCustomizationOverviewArgs = {
 
 export type QueryTemplateVersionsArgs = {
   templateId: Scalars['Int']['input'];
+};
+
+
+export type QueryTriggerQuestionsForQuestionArgs = {
+  questionId: Scalars['Int']['input'];
 };
 
 
@@ -8646,6 +8653,7 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   templateCustomizationOverview?: Resolver<Maybe<ResolversTypes['TemplateCustomizationOverview']>, ParentType, ContextType, RequireFields<QueryTemplateCustomizationOverviewArgs, 'templateCustomizationId'>>;
   templateVersions?: Resolver<Maybe<Array<Maybe<ResolversTypes['VersionedTemplate']>>>, ParentType, ContextType, RequireFields<QueryTemplateVersionsArgs, 'templateId'>>;
   topLevelResearchDomains?: Resolver<Maybe<Array<Maybe<ResolversTypes['ResearchDomain']>>>, ParentType, ContextType>;
+  triggerQuestionsForQuestion?: Resolver<Maybe<Array<Maybe<ResolversTypes['Question']>>>, ParentType, ContextType, RequireFields<QueryTriggerQuestionsForQuestionArgs, 'questionId'>>;
   user?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<QueryUserArgs, 'userId'>>;
   userProjects?: Resolver<Maybe<ResolversTypes['ProjectSearchResults']>, ParentType, ContextType, RequireFields<QueryUserProjectsArgs, 'userId'>>;
   users?: Resolver<Maybe<ResolversTypes['UserSearchResults']>, ParentType, ContextType, Partial<QueryUsersArgs>>;

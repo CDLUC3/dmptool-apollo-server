@@ -33,7 +33,9 @@ const {
   generateQuestionConditionVersion,
   generateQuestionVersion,
   hasPermissionOnQuestion,
-  updateDisplayOrders
+  updateDisplayOrders,
+  extractTriggerQuestionOptionValues,
+  questionHasSelectableOptions
 } = await import("../questionService.js");
 const { NotFoundError } = await import("../../utils/graphQLErrors.js");
 const { Question } = await import("../../models/Question.js");
@@ -960,5 +962,185 @@ describe('updateDisplayOrders', () => {
       expect(mockFindByTemplateId).toHaveBeenCalledTimes(1);
       expect(mockUpdate).toHaveBeenCalledTimes(1);
     });
+  });
+});
+
+describe('extractTriggerQuestionOptionValues', () => {
+  const buildQuestion = (json: string): InstanceType<typeof Question> =>
+    new Question({
+      id: casual.integer(1, 999),
+      templateId: casual.integer(1, 999),
+      sectionId: casual.integer(1, 999),
+      json,
+      questionText: casual.sentence,
+    });
+
+  it('extracts values from root-level options', () => {
+    const question = buildQuestion(JSON.stringify({
+      type: 'radioButtons',
+      options: [
+        { label: 'Yes', value: 'yes' },
+        { label: 'No', value: 'no' },
+      ],
+    }));
+
+    const result = extractTriggerQuestionOptionValues(question);
+
+    expect(result).toEqual(new Set(['yes', 'no']));
+  });
+
+  it('extracts values from attributes.options', () => {
+    const question = buildQuestion(JSON.stringify({
+      type: 'selectBox',
+      attributes: {
+        options: [
+          { label: 'Apples', value: 'apples' },
+          { label: 'Oranges', value: 'oranges' },
+        ],
+      },
+    }));
+
+    const result = extractTriggerQuestionOptionValues(question);
+
+    expect(result).toEqual(new Set(['apples', 'oranges']));
+  });
+
+  it('combines root options and attributes.options when both are present', () => {
+    const question = buildQuestion(JSON.stringify({
+      type: 'radioButtons',
+      options: [{ label: 'A', value: 'a' }],
+      attributes: {
+        options: [{ label: 'B', value: 'b' }],
+      },
+    }));
+
+    const result = extractTriggerQuestionOptionValues(question);
+
+    expect(result).toEqual(new Set(['a', 'b']));
+  });
+
+  it('falls back to label when value is not a string', () => {
+    const question = buildQuestion(JSON.stringify({
+      type: 'radioButtons',
+      options: [
+        { label: 'Yes' }, // no value field
+        { value: 42, label: 'Forty Two' }, // value is not a string
+      ],
+    }));
+
+    const result = extractTriggerQuestionOptionValues(question);
+
+    expect(result).toEqual(new Set(['Yes', 'Forty Two']));
+  });
+
+  it('filters out options with neither a usable value nor label', () => {
+    const question = buildQuestion(JSON.stringify({
+      type: 'radioButtons',
+      options: [
+        { value: 'keep-me' },
+        { value: 42, label: 99 }, // neither is a string
+        {},
+      ],
+    }));
+
+    const result = extractTriggerQuestionOptionValues(question);
+
+    expect(result).toEqual(new Set(['keep-me']));
+  });
+
+  it('deduplicates repeated values', () => {
+    const question = buildQuestion(JSON.stringify({
+      type: 'radioButtons',
+      options: [
+        { value: 'dup' },
+        { value: 'dup' },
+        { value: 'unique' },
+      ],
+    }));
+
+    const result = extractTriggerQuestionOptionValues(question);
+
+    expect(result).toEqual(new Set(['dup', 'unique']));
+    expect(result.size).toEqual(2);
+  });
+
+  it('returns an empty set when no options are present', () => {
+    const question = buildQuestion(JSON.stringify({ type: 'textArea' }));
+
+    expect(extractTriggerQuestionOptionValues(question)).toEqual(new Set());
+  });
+
+  it('returns an empty set when options is not an array', () => {
+    const question = buildQuestion(JSON.stringify({
+      type: 'radioButtons',
+      options: { not: 'an array' },
+    }));
+
+    expect(extractTriggerQuestionOptionValues(question)).toEqual(new Set());
+  });
+
+  it('returns an empty set when the JSON cannot be parsed', () => {
+    const question = buildQuestion('{not valid json');
+
+    expect(extractTriggerQuestionOptionValues(question)).toEqual(new Set());
+  });
+});
+
+describe('questionHasSelectableOptions', () => {
+  const buildQuestion = (json: string): InstanceType<typeof Question> =>
+    new Question({
+      id: casual.integer(1, 999),
+      templateId: casual.integer(1, 999),
+      sectionId: casual.integer(1, 999),
+      json,
+      questionText: casual.sentence,
+    });
+
+  it('returns true when root-level options is an array', () => {
+    const question = buildQuestion(JSON.stringify({
+      type: 'radioButtons',
+      options: [{ label: 'Yes', value: 'yes' }],
+    }));
+
+    expect(questionHasSelectableOptions(question)).toBe(true);
+  });
+
+  it('returns true when attributes.options is an array', () => {
+    const question = buildQuestion(JSON.stringify({
+      type: 'selectBox',
+      attributes: { options: [{ label: 'Apples', value: 'apples' }] },
+    }));
+
+    expect(questionHasSelectableOptions(question)).toBe(true);
+  });
+
+  it('returns true when options is an empty array', () => {
+    const question = buildQuestion(JSON.stringify({
+      type: 'radioButtons',
+      options: [],
+    }));
+
+    expect(questionHasSelectableOptions(question)).toBe(true);
+  });
+
+  it('returns false when there are no options fields at all', () => {
+    const question = buildQuestion(JSON.stringify({ type: 'textArea' }));
+
+    expect(questionHasSelectableOptions(question)).toBe(false);
+  });
+
+  it('returns false when options is present but not an array', () => {
+    const question = buildQuestion(JSON.stringify({
+      type: 'radioButtons',
+      options: { not: 'an array' },
+    }));
+
+    expect(questionHasSelectableOptions(question)).toBe(false);
+  });
+
+  it('returns false when the JSON cannot be parsed', () => {
+    const question = buildQuestion('{not valid json');
+
+    expect(questionHasSelectableOptions(question)).toBe(false);
   });
 });

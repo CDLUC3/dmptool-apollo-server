@@ -35,7 +35,7 @@ const {
   hasPermissionOnQuestion,
   updateDisplayOrders,
   extractTriggerQuestionOptionValues,
-  questionHasSelectableOptions
+  questionSupportsSelectableOptions
 } = await import("../questionService.js");
 const { NotFoundError } = await import("../../utils/graphQLErrors.js");
 const { Question } = await import("../../models/Question.js");
@@ -1086,7 +1086,7 @@ describe('extractTriggerQuestionOptionValues', () => {
   });
 });
 
-describe('questionHasSelectableOptions', () => {
+describe('questionSupportsSelectableOptions', () => {
   const buildQuestion = (json: string): InstanceType<typeof Question> =>
     new Question({
       id: casual.integer(1, 999),
@@ -1102,7 +1102,7 @@ describe('questionHasSelectableOptions', () => {
       options: [{ label: 'Yes', value: 'yes' }],
     }));
 
-    expect(questionHasSelectableOptions(question)).toBe(true);
+    expect(questionSupportsSelectableOptions(question)).toBe(true);
   });
 
   it('returns true when attributes.options is an array', () => {
@@ -1111,7 +1111,7 @@ describe('questionHasSelectableOptions', () => {
       attributes: { options: [{ label: 'Apples', value: 'apples' }] },
     }));
 
-    expect(questionHasSelectableOptions(question)).toBe(true);
+    expect(questionSupportsSelectableOptions(question)).toBe(true);
   });
 
   it('returns true when options is an empty array', () => {
@@ -1120,13 +1120,13 @@ describe('questionHasSelectableOptions', () => {
       options: [],
     }));
 
-    expect(questionHasSelectableOptions(question)).toBe(true);
+    expect(questionSupportsSelectableOptions(question)).toBe(true);
   });
 
   it('returns false when there are no options fields at all', () => {
     const question = buildQuestion(JSON.stringify({ type: 'textArea' }));
 
-    expect(questionHasSelectableOptions(question)).toBe(false);
+    expect(questionSupportsSelectableOptions(question)).toBe(false);
   });
 
   it('returns false when options is present but not an array', () => {
@@ -1135,12 +1135,12 @@ describe('questionHasSelectableOptions', () => {
       options: { not: 'an array' },
     }));
 
-    expect(questionHasSelectableOptions(question)).toBe(false);
+    expect(questionSupportsSelectableOptions(question)).toBe(false);
   });
 
   it('returns false when the JSON cannot be parsed', () => {
     const question = buildQuestion('{not valid json');
 
-    expect(questionHasSelectableOptions(question)).toBe(false);
+    expect(questionSupportsSelectableOptions(question)).toBe(false);
   });
 });

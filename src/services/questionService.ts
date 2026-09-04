@@ -305,7 +305,7 @@ export const extractTriggerQuestionOptionValues = (question: Question): Set<stri
 
 
 // Returns true if the provided question has selectable options (radio buttons, checkboxes, dropdowns, etc.) in its JSON data; otherwise false.
-export const questionHasSelectableOptions = (question: Question): boolean => {
+export const questionSupportsSelectableOptions = (question: Question): boolean => {
   try {
     const parsed = JSON.parse(question.json);
     const rootOptions = parsed?.options;

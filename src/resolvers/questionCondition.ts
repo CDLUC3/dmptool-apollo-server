@@ -61,13 +61,20 @@ export const resolvers: Resolvers = {
         priorQuestions.map((entry) => [entry.id, entry])
       );
 
+      const addGeneralValidationError = (message: string): void => {
+        const existingMessage = question.errors.general;
+        question.addError(
+          'general',
+          existingMessage ? `${existingMessage}; ${message}` : message
+        );
+      };
+
       // Validate input semantics before persisting any mutations.
       groups.forEach((groupInput, groupIndex) => {
         const groupNumber = groupIndex + 1;
 
         if (!Array.isArray(groupInput.conditions) || groupInput.conditions.length < 1) {
-          question.addError(
-            'general',
+          addGeneralValidationError(
             `Group ${groupNumber} must include at least one condition.`
           );
           return;
@@ -76,8 +83,7 @@ export const resolvers: Resolvers = {
         // Ensure that the trigger question is a prior question in the same template
         const triggerQuestion = priorQuestionMap.get(groupInput.triggerQuestionId);
         if (!triggerQuestion) {
-          question.addError(
-            'general',
+          addGeneralValidationError(
             `Group ${groupNumber} trigger question must be a prior template question.`
           );
           return;
@@ -86,8 +92,7 @@ export const resolvers: Resolvers = {
         // Ensure that each condition's match value is one of the trigger question's selectable options
         const optionValues = extractTriggerQuestionOptionValues(triggerQuestion);
         if (optionValues.size < 1) {
-          question.addError(
-            'general',
+          addGeneralValidationError(
             `Group ${groupNumber} trigger question has no selectable options.`
           );
           return;
@@ -97,8 +102,7 @@ export const resolvers: Resolvers = {
         groupInput.conditions.forEach((conditionInput, conditionIndex) => {
           const conditionNumber = conditionIndex + 1;
           if (!conditionInput.conditionMatch || !optionValues.has(conditionInput.conditionMatch)) {
-            question.addError(
-              'general',
+            addGeneralValidationError(
               `Group ${groupNumber} condition ${conditionNumber} must match one of the trigger question options.`
             );
           }

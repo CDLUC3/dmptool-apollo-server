@@ -44,16 +44,16 @@ jest.unstable_mockModule('../../services/sectionService.js', () => ({
   hasPermissionOnSection: mockHasPermissionOnSection,
 }));
 
-// updateDisplayOrders / questionHasSelectableOptions are also bare function
+// updateDisplayOrders / questionSupportsSelectableOptions are also bare function
 // exports used directly by the resolvers under test.
 const mockUpdateDisplayOrders = jest.fn<(...args: any[]) => Promise<any>>();
-const mockQuestionHasSelectableOptions = jest.fn<(...args: any[]) => boolean>();
+const mockQuestionSupportsSelectableOptions = jest.fn<(...args: any[]) => boolean>();
 const mockExtractTriggerQuestionOptionValues = jest.fn<(...args: any[]) => Set<string>>(() => new Set(['option1', 'option2']));
 const mockHasPermissionOnQuestion = jest.fn<(...args: any[]) => Promise<boolean>>();
 const mockCloneQuestion = jest.fn<(...args: any[]) => Promise<any>>();
 jest.unstable_mockModule('../../services/questionService.js', () => ({
   updateDisplayOrders: mockUpdateDisplayOrders,
-  questionHasSelectableOptions: mockQuestionHasSelectableOptions,
+  questionSupportsSelectableOptions: mockQuestionSupportsSelectableOptions,
   extractTriggerQuestionOptionValues: mockExtractTriggerQuestionOptionValues,
   hasPermissionOnQuestion: mockHasPermissionOnQuestion,
   cloneQuestion: mockCloneQuestion,
@@ -216,7 +216,7 @@ describe('question resolvers', () => {
       jest.spyOn(Question, 'findPriorQuestionsForQuestion').mockResolvedValue(priorQuestions as any);
 
       // Only the first (radio) question qualifies as an options question
-      mockQuestionHasSelectableOptions.mockImplementation((q: any) => q.id === 1);
+      mockQuestionSupportsSelectableOptions.mockImplementation((q: any) => q.id === 1);
 
       const result = await executeQuery(query, { questionId: 10 }, adminToken);
 
@@ -243,7 +243,7 @@ describe('question resolvers', () => {
       const targetQuestion = { id: 10, sectionId: 20, displayOrder: 1 };
       jest.spyOn(Question, 'findById').mockResolvedValue(targetQuestion as any);
       jest.spyOn(Question, 'findPriorQuestionsForQuestion').mockResolvedValue([] as any);
-      mockQuestionHasSelectableOptions.mockReturnValue(false);
+      mockQuestionSupportsSelectableOptions.mockReturnValue(false);
 
       const result = await executeQuery(query, { questionId: 10 }, adminToken);
 

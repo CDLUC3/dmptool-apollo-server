@@ -3,7 +3,7 @@ import { MyContext } from "../context.js";
 import { Question } from "../models/Question.js";
 import { Template } from "../models/Template.js";
 import { QuestionConditionGroup } from "../models/QuestionConditionGroup.js";
-import { updateDisplayOrders, questionHasSelectableOptions } from "../services/questionService.js";
+import { updateDisplayOrders, questionSupportsSelectableOptions } from "../services/questionService.js";
 import {
   AuthenticationError,
   BadRequestError,
@@ -73,7 +73,7 @@ export const resolvers: Resolvers = {
           questionId
         );
 
-        return priorQuestions.filter(questionHasSelectableOptions);
+        return priorQuestions.filter(questionSupportsSelectableOptions);
       } catch (err) {
         if (err instanceof GraphQLError) throw err;
 

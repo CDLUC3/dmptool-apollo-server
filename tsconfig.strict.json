@@ -1,0 +1,11 @@
+// run 'npx tsc --project tsconfig.strict.json --noEmit' to compile with strict mode enabled for the listed files
+
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "strict": true
+  },
+  "include": [
+    "src/fakePath/*"
+  ]
+}

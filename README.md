@@ -441,7 +441,11 @@ To run bash commands within the container (e.g. to run DB migrations):
 
 To run the linter: `npm run lint`
 To ensure the Typescript compiles `npm run compile`
+
+**Note:** As of the TypeScript v6.0.3 upgrade, `strict` mode is disabled by default in `tsconfig.json` because it surfaced thousands of pre-existing type errors. We are gradually re-enabling strict checks file-by-file via `tsconfig.strict.json` — once a file/directory has been fixed up, add its path to the `include` list there. Run `npx tsc --project tsconfig.strict.json --noEmit` to compile with strict mode enabled for the listed files.
+
 To build the auto-generated `src/types.ts` file from the GraphQL schemas: `npm run generate` 
+
 To run the full set of tests (docker env must be running): `npm run test`
 To run the tests (without a running DB): `npm run test-no-db`
 To run the Trivy security scans: `npm run trivy-all`

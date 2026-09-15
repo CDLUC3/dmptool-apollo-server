@@ -346,6 +346,9 @@
 - Fixed issue with templates not cloning with sections and questions by updating the `addTemplate` mutation to clone from non-versioned template, section and question [#1006]
 
 ### Chore
+- Updated `typescript` to `v6.0.3` and fixed high vulnerabilities in `js-yaml` and `nodemailer` [#257]
+- Updated `tsconfig.json` to have `strict: false` by default for now, since there were over 8,000 type errors after updating `typescript` to `v6.0.3`. We will gradually address the type errors by adding the paths to the new `tsconfig.strict.json` file [#257]
+
 - Updated `uuid` to `v14.0.2`, `@aws-sdk/client-dynamodb` to `v3.1127.0`, `@aws-sdk/client-ssm` to `v3.1127.0`, `@aws-sdk/credential-providers` to `3.1127.0`, `@aws-sdk/util-dynamodb` to `v3.996.9`, `eslint` to `v10.10.0`, `globals` to `v17.12.0`, and `nock` to `v14.0.17` [#369]
 - Fixed vulnerability issue with `js-yaml` [#293]
 - Added override for `brace-expansion` to `v5.0.8` [#314]

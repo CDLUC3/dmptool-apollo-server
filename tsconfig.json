@@ -3,6 +3,7 @@
     "rootDir": "src",
     "outDir": "dist",
     "target": "ES2022",
+    "strict": false,
     "moduleResolution": "NodeNext",
     "esModuleInterop": true, // still needed for some packages that don't have ESM support
     "isolatedModules": true,

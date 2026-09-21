@@ -13,26 +13,11 @@ import { VersionedTemplate } from "../models/VersionedTemplate.js";
 import { VersionedTemplateCustomization } from "../models/VersionedTemplateCustomization.js";
 import { VersionedQuestionCustomization } from "../models/VersionedQuestionCustomization.js";
 import { Affiliation } from "../models/Affiliation.js";
-
-
-interface PublishedQuestionResult {
-  id: number;
-  questionText: string;
-  requirementText?: string;
-  guidanceText?: string;
-  sampleText?: string;
-  required: boolean;
-  hasAnswer: boolean;
-  questionType: CustomizableObjectOwnership;
-  // Type-specific IDs — one will always be present depending on questionType
-  versionedQuestionId?: number;  // present when questionType === 'BASE'
-  customQuestionId?: number;     // present when questionType === 'CUSTOM'
-}
-
+import { PublishedQuestionResult } from "../services/planService.js";
 
 export const resolvers: Resolvers = {
   Query: {
-    // return all published questions for the specified versioned section. Returns both base and custom questions, and 
+    // return all published questions for the specified versioned section. Returns both base and custom questions, and
     // includes a flag for if the question has an answer for the specified plan
     publishedQuestions: async (_, { planId, versionedSectionId }, context: MyContext): Promise<PublishedQuestionResult[]> => {
       const reference = 'publishedQuestionsWithAnsweredFlag resolver';

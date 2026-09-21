@@ -2,7 +2,7 @@ import { MyContext } from "../context.js";
 import { MemberRole } from "../models/MemberRole.js";
 import { isNullOrUndefined } from "../utils/helpers.js";
 import { PlanMember, ProjectMember } from "../models/Member.js";
-import { Plan, PlanVisibility } from "../models/Plan.js";
+import { Plan, PlanSectionProgress, PlanVisibility } from "../models/Plan.js";
 import { Project } from "../models/Project.js";
 import { PlanFunding, ProjectFunding } from "../models/Funding.js";
 import { Affiliation } from "../models/Affiliation.js";
@@ -27,14 +27,154 @@ import { DMPToolDMPType } from "@dmptool/types";
 import { getRDSConnectionParams } from "../config/mysqlConfig.js";
 import {
   buildDataCiteXML,
+  DataCiteSourceMember,
   DataCiteSourceAffiliation,
   DataCiteSourceFundingAffiliation,
-  planToDataCiteMetadata
+  planToDataCiteMetadata,
+  DataCiteSourceFunding,
+  DataCiteSourceAlternateIdentifier,
+  DataCiteMetadataInput
 } from "./dataciteXMLService.js";
 import { removeIndexItem, updateIndexItem } from "./indexDMPService.js";
-import { PlanVersionSnapshot } from "../types.js";
+import {
+  CustomizableObjectOwnership, PlanQuestion,
+  PlanSection,
+  PlanVersionSnapshot,
+  PlanVersionSnapshotRelatedWork,
+} from "../types.js";
 import { ProjectFundingStatus } from "../models/Funding.js";
+import { NotFoundError } from "../utils/graphQLErrors.js";
+import { getProjectAndCheckAuthorization } from "./projectService.js";
+import {
+  maDMPAffiliationType,
+  maDMPContributorType,
+  maDMPFunderOpportunityNumberType,
+  maDMPFunderProjectNumberType,
+  maDMPFundingType,
+  maDMPIdentifierType,
+  maDMPNarrativeQuestionType,
+  maDMPNarrativeSectionType,
+  maDMPProjectType,
+  maDMPRelatedIdentifierType,
+  maDMPType,
+  maDMPVersionsType
+} from "../types/maDMP.js";
+import { ProjectCollaborator } from "../models/Collaborator.js";
+import { User } from "../models/User.js";
+import { VersionedQuestion } from "../models/VersionedQuestion.js";
+import { VersionedCustomQuestion } from "../models/VersionedCustomQuestion.js";
+import { Answer } from "../models/Answer.js";
+import { VersionedSection } from "../models/VersionedSection.js";
+import { VersionedCustomSection } from "../models/VersionedCustomSection.js";
 
+export interface PublishedQuestionResult {
+  id: number;
+  questionText: string;
+  requirementText?: string;
+  guidanceText?: string;
+  sampleText?: string;
+  required: boolean;
+  hasAnswer: boolean;
+  questionType: CustomizableObjectOwnership;
+  // Type-specific IDs — one will always be present depending on questionType
+  versionedQuestionId?: number;  // present when questionType === 'BASE'
+  customQuestionId?: number;     // present when questionType === 'CUSTOM'
+}
+
+export interface HistoricalPlanVersion {
+  dmpId: string;
+  modified: string;
+  timestamp: string;
+  url: string;
+}
+
+export interface FlattenedMaDMPAnswer {
+  id: number,
+  questionText: string,
+  json: string
+}
+
+export interface ConsolidatedMaDMPMember {
+  name?: string;
+  orcid?: string;
+  affiliationName?: string;
+  isPrimaryContact: boolean;
+  memberRoles: {
+    id: number;
+    label: string;
+    uri: string;
+  }[];
+}
+
+export interface FlattenedMaDMPFunding {
+  funderName: string;
+  funderUri?: string;
+  status: string;
+  grantId: string | null;
+  funderProjectNumber: string | null;
+  funderOpportunityNumber: string | null;
+}
+
+/**
+ * Fetches the affiliation of the owner of the plan. The owner is determined by
+ * first checking for a project collaborator with OWN access level, and if not
+ * found, falling back to the plan creator's affiliation.
+ *
+ * @param reference A value to help identify the caller to help with logging
+ * @param context The apollo context object
+ * @param plan The plan for which to fetch the owner's affiliation
+ * @returns The Affiliation of the plan owner, or null if not found
+ */
+export async function getPlanOwnerAffiliation(reference: string, context: MyContext, plan: Plan): Promise<Affiliation | null> {
+  // First, try to get the project owner (collaborator with OWN access level)
+  const projectOwner = await ProjectCollaborator.findOwnerByProjectId(
+    reference,
+    context,
+    plan.projectId
+  );
+
+  if (projectOwner?.userId) {
+    const user = await User.findById(reference, context, projectOwner.userId);
+    if (user?.affiliationId) {
+      const affiliation = await Affiliation.findByURI(reference, context, user.affiliationId);
+      if (affiliation) return affiliation;
+    }
+  }
+
+  // Fall back to the plan creator's affiliation
+  if (plan?.createdById) {
+    const user = await User.findById(reference, context, plan.createdById);
+    if (user?.affiliationId) {
+      return await Affiliation.findByURI(reference, context, user.affiliationId);
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Fetch the specified Plan by its id and verify that the current user is authorized to access it.
+ *
+ * @param reference A value to help identify the caller to help with logging
+ * @param context The apollo context object
+ * @param planId The id of the plan to fetch
+ * @returns The Plan if found and authorized
+ * @throws NotFoundError if the Plan or its parent Project cannot be found
+ * @throws ForbiddenError if the current user is not authorized to access it
+ */
+export async function getPlanAndCheckAuthorization(
+  reference: string,
+  context: MyContext,
+  planId: number
+): Promise<{ plan: Plan, project: Project }> {
+  const plan: Plan | null = await Plan.findById(reference, context, planId);
+  if (isNullOrUndefined(plan)) {
+    throw NotFoundError(`Plan with ID, ${planId}, not found`);
+  }
+
+  const project: Project = await getProjectAndCheckAuthorization(reference, context, plan.projectId);
+  return { plan, project };
+}
 
 /**
  * Function to help update Plan member roles. It compares the current roles for
@@ -56,15 +196,15 @@ export async function updateMemberRoles(
   newRoleIds: number[]
 ): Promise<{ updatedRoleIds: number[], errors: string[] }> {
 
-  const associationErrors = [];
+  const associationErrors: string[] = [];
   const { idsToBeRemoved, idsToBeSaved } = MemberRole.reconcileAssociationIds(currentRoleIds, newRoleIds);
 
   // Remove roles
-  const removeErrors = [];
+  const removeErrors: string[] = [];
   for (const id of idsToBeRemoved) {
-    const role = await MemberRole.findById(reference, context, id as number);
+    const role: MemberRole | null = await MemberRole.findById(reference, context, id as number);
     if (role) {
-      const wasRemoved = await role.removeFromPlanMember(context, memberId);
+      const wasRemoved: boolean = await role.removeFromPlanMember(context, memberId);
       if (!wasRemoved) {
         removeErrors.push(role.label);
       }
@@ -75,11 +215,11 @@ export async function updateMemberRoles(
   }
 
   // Add roles
-  const addErrors = [];
+  const addErrors: string[] = [];
   for (const id of idsToBeSaved) {
-    const role = await MemberRole.findById(reference, context, id as number);
+    const role: MemberRole | null = await MemberRole.findById(reference, context, id as number);
     if (role) {
-      const wasAdded = await role.addToPlanMember(context, memberId);
+      const wasAdded: boolean = await role.addToPlanMember(context, memberId);
       if (!wasAdded) {
         addErrors.push(role.label);
         // Remove the role from idsToBeSaved if it couldn't be added
@@ -91,7 +231,7 @@ export async function updateMemberRoles(
     associationErrors.push(`unable to assign roles: ${addErrors.join(', ')}`);
   }
 
-  const updatedRoles = [...currentRoleIds.filter(id => !idsToBeRemoved.includes(id)), ...idsToBeSaved];
+  const updatedRoles: (string | number)[] = [...currentRoleIds.filter(id => !idsToBeRemoved.includes(id)), ...idsToBeSaved];
   return {
     updatedRoleIds: updatedRoles.length > 0 ? updatedRoles as number[] : currentRoleIds as number[],
     errors: associationErrors,
@@ -117,17 +257,17 @@ export const ensureDefaultPlanContact = async (
   const reference = 'planService.ensurePlanHasPrimaryContact';
 
   if (!isNullOrUndefined(plan) && !isNullOrUndefined(project)) {
-    const dfltMember = await ProjectMember.findPrimaryContact(reference, context, project.id);
+    const dfltMember: ProjectMember | null = await ProjectMember.findPrimaryContact(reference, context, project.id);
     if (isNullOrUndefined(dfltMember)) {
       return false;
     }
-    const dfltMemberRoles = await MemberRole.findByProjectMemberId(
+    const dfltMemberRoles: MemberRole[] = await MemberRole.findByProjectMemberId(
       reference,
       context,
       dfltMember.id
     );
 
-    const current = await PlanMember.findPrimaryContact(reference, context, plan.id);
+    const current: PlanMember | null = await PlanMember.findPrimaryContact(reference, context, plan.id);
     if (isNullOrUndefined(current)) {
       // Create a new member record from the user and set as the primary contact
       const member = new PlanMember({
@@ -137,7 +277,7 @@ export const ensureDefaultPlanContact = async (
         memberRoleIds: dfltMemberRoles.map(role => role.id),
       });
 
-      const created = await member.create(context);
+      const created: PlanMember = await member.create(context);
       if (!isNullOrUndefined(created) && !created.hasErrors()) {
         // Add the roles to the default plan member
         for (const role of dfltMemberRoles) {
@@ -167,18 +307,18 @@ export const ensureDefaultPlanContact = async (
 export async function buildDataCiteXMLForPlan(context: MyContext, plan: Plan, project?: Project): Promise<string> {
   const reference = 'planService.buildDataCiteXMLForPlan';
 
-  const resolvedProject = project ?? await Project.findById(reference, context, plan.projectId);
+  const resolvedProject: Project | null = project ?? await Project.findById(reference, context, plan.projectId);
 
   // --- Members ---
   // Project members
-  const projectMembers = await ProjectMember.findByProjectId(reference, context, plan.projectId);
+  const projectMembers: ProjectMember[] = await ProjectMember.findByProjectId(reference, context, plan.projectId);
 
-  const members = await Promise.all(projectMembers.map(async (pm) => {
-    const memberRoles = await MemberRole.findByProjectMemberId(reference, context, pm.id);
+  const members: DataCiteSourceMember[] = await Promise.all(projectMembers.map(async (pm: ProjectMember): Promise<DataCiteSourceMember> => {
+    const memberRoles: MemberRole[] = await MemberRole.findByProjectMemberId(reference, context, pm.id);
 
     let affiliation: DataCiteSourceAffiliation | undefined;
     if (pm.affiliationId) {
-      const aff = await Affiliation.findByURI(reference, context, pm.affiliationId);
+      const aff: Affiliation | null = await Affiliation.findByURI(reference, context, pm.affiliationId);
       if (aff) {
         affiliation = { name: aff.name || aff.displayName, uri: aff.uri, provenance: aff.provenance };
       }
@@ -186,7 +326,7 @@ export async function buildDataCiteXMLForPlan(context: MyContext, plan: Plan, pr
 
     return {
       isPrimaryContact: pm.isPrimaryContact,
-      memberRoles: memberRoles.map((mr) => ({ uri: mr.uri })),
+      memberRoles: memberRoles.map((mr: MemberRole): { uri: string } => ({ uri: mr.uri })),
       projectMember: {
         givenName: pm.givenName,
         surName: pm.surName,
@@ -197,15 +337,15 @@ export async function buildDataCiteXMLForPlan(context: MyContext, plan: Plan, pr
   }));
 
   // --- Plan Fundings ---
-  const planFundings = await PlanFunding.findByPlanId(reference, context, plan.id);
+  const planFundings: PlanFunding[] = await PlanFunding.findByPlanId(reference, context, plan.id);
 
-  const fundings = await Promise.all(planFundings.map(async (pf) => {
-    const projectFunding = await ProjectFunding.findById(reference, context, pf.projectFundingId);
+  const fundings: DataCiteSourceFunding[] = await Promise.all(planFundings.map(async (pf: PlanFunding): Promise<DataCiteSourceFunding> => {
+    const projectFunding: ProjectFunding | null = await ProjectFunding.findById(reference, context, pf.projectFundingId);
     if (!projectFunding) return { projectFunding: undefined };
 
     let affiliation: DataCiteSourceFundingAffiliation | undefined;
     if (projectFunding.affiliationId) {
-      const aff = await Affiliation.findByURI(reference, context, projectFunding.affiliationId);
+      const aff: Affiliation | null = await Affiliation.findByURI(reference, context, projectFunding.affiliationId);
       if (aff) {
         affiliation = {
           name: aff.name || aff.displayName,
@@ -220,12 +360,12 @@ export async function buildDataCiteXMLForPlan(context: MyContext, plan: Plan, pr
   }));
 
   // --- Alternate identifiers ---
-  const alternateIdentifierRecords = await AlternateIdentifier.findByPlanId(reference, context, plan.id);
-  const alternateIdentifiers = alternateIdentifierRecords.map((a) => ({
+  const alternateIdentifierRecords: AlternateIdentifier[] = await AlternateIdentifier.findByPlanId(reference, context, plan.id);
+  const alternateIdentifiers: DataCiteSourceAlternateIdentifier[] = alternateIdentifierRecords.map((a: AlternateIdentifier): DataCiteSourceAlternateIdentifier => ({
     alternateIdentifier: a.alternateIdentifier,
   }));
 
-  const dataciteInput = planToDataCiteMetadata({
+  const dataciteInput: DataCiteMetadataInput = planToDataCiteMetadata({
     title: plan.title,
     abstractText: resolvedProject?.abstractText,
     language: plan.languageId,
@@ -256,13 +396,13 @@ export const handleAsyncUpdates = async (
 ): Promise<void> => {
   // Update the OpenSearch index
   updateIndexItem(reference, context, plan, project)
-    .catch(err => {
+    .catch((err: unknown) => {
       context.logger.fatal({ planId: plan.id, err }, 'Index item in OpenSearch failed!');
     });
 
   // Update the maDMP record in Dynamo
   saveMaDMPVersion(reference, context, plan.id, plan.dmpId)
-    .catch(err => {
+    .catch((err: unknown) => {
       context.logger.fatal({ planId: plan.id, err }, 'save maDMP JSON failed!');
     });
 }
@@ -282,13 +422,13 @@ export const handleAsyncDeletes = async (
 ): Promise<void> => {
   // Remove the OpenSearch index
   removeIndexItem(reference, context, plan)
-    .catch(err => {
+    .catch((err: unknown) => {
       context.logger.fatal({ planId: plan.id, err }, 'Remove OpenSearch index item failed!');
     });
 
   // Remove the maDMP records from Dynamo
   saveMaDMPVersion(reference, context, plan.id, plan.dmpId, true)
-    .catch(err => {
+    .catch((err: unknown) => {
       context.logger.fatal({ planId: plan.id, err }, 'Remove/Tomb-stone maDMP json failed!');
     });
 }
@@ -420,7 +560,7 @@ export async function getPlanVersions(
   reference: string,
   context: MyContext,
   dmpId: string
-): Promise<{ modified: string, dmpId: string, timestamp: string, url: string }[]> {
+): Promise<HistoricalPlanVersion[]> {
   if (isNullOrUndefined(dmpId)) return [];
 
   const dynamoConfig: DynamoConnectionParams = getDynamoConnectionParams(context.logger);
@@ -430,13 +570,13 @@ export async function getPlanVersions(
     // Fetch the current latest snapshot's modified timestamp so it can be
     // excluded below. "VERSION#latest" isn't a queryable timestamped snapshot —
     // including it would produce a version-picker link that 404s when clicked.
-    const latest = await getDMPs(dynamoConfig, generalConfig.domain, dmpId, 'latest');
-    const latestModified = latest[0]?.dmp?.modified;
+    const latest: DMPToolDMPType[] = await getDMPs(dynamoConfig, generalConfig.domain, dmpId, 'latest');
+    const latestModified: string | undefined = latest[0]?.dmp?.modified;
 
     // Only return genuinely historical, timestamp-queryable versions.
-    const historicalVersions = versions.filter(v => v.modified !== latestModified);
+    const historicalVersions: DMPVersionType[] = versions.filter((v: DMPVersionType): boolean => v.modified !== latestModified);
 
-    return historicalVersions.map((v) => ({
+    return historicalVersions.map((v: DMPVersionType): HistoricalPlanVersion => ({
       dmpId: v.dmpId,
       modified: v.modified,
       timestamp: v.modified,
@@ -470,16 +610,16 @@ export async function getPlanVersionSnapshot(
   const dynamoConfig: DynamoConnectionParams = getDynamoConnectionParams(context.logger);
 
   try {
-    const results = await getDMPs(dynamoConfig, generalConfig.domain, dmpId, version);
+    const results: DMPToolDMPType[] = await getDMPs(dynamoConfig, generalConfig.domain, dmpId, version);
 
     if (!results || results.length === 0) {
       return null;
     }
 
     // Fetch the planId from the database by dmpId
-    const plan = await Plan.findByDMPId(reference, context, dmpId);
-    const planId = plan?.id;
-    const projectId = plan?.projectId;
+    const plan: Plan | null = await Plan.findByDMPId(reference, context, dmpId);
+    const planId: number | undefined = plan?.id;
+    const projectId: number | undefined = plan?.projectId;
 
     return await mapDMPToolDMPToSnapshot(results[0], version, context, planId, projectId);
   } catch (err) {
@@ -488,6 +628,12 @@ export async function getPlanVersionSnapshot(
   }
 }
 
+/**
+ * Maps a funding status string from the maDMP snapshot into the ProjectFundingStatus enum.
+ *
+ * @param status The funding status string from the maDMP snapshot (e.g., "granted", "denied", "planned").
+ * @returns The corresponding ProjectFundingStatus enum value. Defaults to ProjectFundingStatus.PLANNED if the input is null, undefined, or unrecognized.
+ */
 function mapFundingStatus(status?: string | null): ProjectFundingStatus {
   switch (status?.toLowerCase()) {
     case 'granted':
@@ -500,6 +646,16 @@ function mapFundingStatus(status?: string | null): ProjectFundingStatus {
   }
 }
 
+/**
+ * Maps a DMPToolDMPType object (from the maDMP snapshot) into a PlanVersionSnapshot object.
+ *
+ * @param result The DMPToolDMPType object representing the maDMP snapshot.
+ * @param version The version string (timestamp) of the snapshot.
+ * @param context The Apollo server context.
+ * @param planId The ID of the plan associated with the snapshot.
+ * @param projectId (optional) The ID of the project associated with the plan, if available.
+ * @returns A Promise that resolves to a PlanVersionSnapshot object.
+ */
 export async function mapDMPToolDMPToSnapshot(
   result: DMPToolDMPType,
   version: string,
@@ -508,15 +664,15 @@ export async function mapDMPToolDMPToSnapshot(
   projectId?: number
 ): Promise<PlanVersionSnapshot> {
 
-  const dmp = result.dmp;
-  const project = dmp.project?.[0];
-  const dmpId = dmp.dmp_id?.identifier; // already a full https://doi.org/... URL
+  const dmp: maDMPType = result.dmp;
+  const project: maDMPProjectType | undefined = dmp.project?.[0];
+  const dmpId: maDMPIdentifierType | undefined = dmp.dmp_id?.identifier; // already a full https://doi.org/... URL
 
   // Flatten narrative answers into the same {id, json} shape as live `answers`
-  const answers = (dmp.narrative?.template?.section ?? []).flatMap((section) =>
+  const answers: FlattenedMaDMPAnswer[] = (dmp.narrative?.template?.section ?? []).flatMap((section: maDMPNarrativeSectionType) =>
     (section.question ?? [])
-      .filter((q) => q.answer)
-      .map((q) => ({
+      .filter((q: maDMPNarrativeQuestionType) => q.answer)
+      .map((q: maDMPNarrativeQuestionType): FlattenedMaDMPAnswer => ({
         id: q.answer?.id,
         questionText: q.text,
         json: JSON.stringify(q.answer?.json),
@@ -524,13 +680,15 @@ export async function mapDMPToolDMPToSnapshot(
   );
 
   // Fetch every known role once, then match against contributor role URIs in memory.
-  const allMemberRoles = await MemberRole.all('mapDMPToolDMPToSnapshot.memberRoles', context);
-  const roleByUri = new Map(allMemberRoles.map((r) => [r.uri, r]));
+  const allMemberRoles: MemberRole[] = await MemberRole.all('mapDMPToolDMPToSnapshot.memberRoles', context);
+  const roleByUri = new Map(allMemberRoles.map((r: MemberRole): [string, MemberRole] => [r.uri, r]));
 
   // Get the organization from the plan owner (affiliation) — this is computed
   // synchronously so we can kick off the affiliation lookup in parallel below.
-  const ownerAffiliation = dmp.contributor?.find(c => c.name === dmp.contact?.name)?.affiliation?.[0];
-  const affiliationURI = ownerAffiliation?.affiliation_id?.identifier;
+  const ownerAffiliation: maDMPAffiliationType | undefined = dmp.contributor?.find((c: maDMPContributorType): boolean => {
+    return c.name === dmp.contact?.name;
+  })?.affiliation?.[0];
+  const affiliationURI: string | undefined = ownerAffiliation?.affiliation_id?.identifier;
 
   // Run the independent async lookups concurrently instead of sequentially:
   // - members: maps contributors and looks up isPrimaryContact per-contributor
@@ -538,15 +696,15 @@ export async function mapDMPToolDMPToSnapshot(
   // - acceptedWorks: fetches related works for this plan
   const [members, affiliation, acceptedWorks] = await Promise.all([
     Promise.all(
-      (dmp.contributor ?? []).map(async (c) => {
+      (dmp.contributor ?? []).map(async (c: maDMPContributorType): Promise<ConsolidatedMaDMPMember> => {
         let isPrimaryContact = false;
 
         // If we have a projectId, query the database for the actual isPrimaryContact value
         if (projectId && c.contributor_id) {
           // Try to find by email first (most reliable)
           if (c.contact_mbox || c.mbox) {
-            const email = c.contact_mbox || c.mbox;
-            const dbMember = await ProjectMember.findByProjectAndEmail(
+            const email: string = c.contact_mbox || c.mbox;
+            const dbMember: ProjectMember | null = await ProjectMember.findByProjectAndEmail(
               'mapDMPToolDMPToSnapshot.isPrimaryContact',
               context,
               projectId,
@@ -558,11 +716,11 @@ export async function mapDMPToolDMPToSnapshot(
             }
           } else if (c.name) {
             // Fallback to name if no email (extract given/sur name)
-            const nameParts = c.name.split(' ');
-            const givenName = nameParts[0];
-            const surName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+            const nameParts: string[] = c.name.split(' ');
+            const givenName: string = nameParts[0];
+            const surName: string = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
 
-            const dbMember = await ProjectMember.findByProjectAndName(
+            const dbMember: ProjectMember | null = await ProjectMember.findByProjectAndName(
               'mapDMPToolDMPToSnapshot.isPrimaryContact',
               context,
               projectId,
@@ -577,11 +735,11 @@ export async function mapDMPToolDMPToSnapshot(
 
         return {
           name: c.name,
-          orcid: c.contributor_id?.find((id) => id.type === 'orcid')?.identifier,
+          orcid: c.contributor_id?.find((id: maDMPIdentifierType): boolean => id.type === 'orcid')?.identifier,
           affiliationName: c.affiliation?.[0]?.name,
           isPrimaryContact,
-          memberRoles: (c.role ?? []).map((uri) => {
-            const matched = roleByUri.get(uri);
+          memberRoles: (c.role ?? []).map((uri: string): { id: number, label: string, uri: string } => {
+            const matched: MemberRole | undefined = roleByUri.get(uri);
             return matched
               ? { id: matched.id, label: matched.label, uri: matched.uri }
               : { id: undefined, label: uri, uri };
@@ -598,7 +756,7 @@ export async function mapDMPToolDMPToSnapshot(
   ]);
 
   // Map the accepted works into the snapshot's relatedWorks shape
-  const relatedWorks: PlanVersionSnapshot['relatedWorks'] = acceptedWorks.map((work) => ({
+  const relatedWorks: PlanVersionSnapshotRelatedWork[] = acceptedWorks.map((work: AcceptedWork): PlanVersionSnapshotRelatedWork => ({
     id: work.id,
     workVersion: {
       title: work.title,
@@ -621,13 +779,13 @@ export async function mapDMPToolDMPToSnapshot(
   if (version === 'latest') {
     latestModified = dmp.modified;
   } else {
-    const dynamoConfig = getDynamoConnectionParams(context.logger);
-    const latest = await getDMPs(dynamoConfig, generalConfig.domain, dmpId, 'latest');
+    const dynamoConfig: DynamoConnectionParams = getDynamoConnectionParams(context.logger);
+    const latest: DMPToolDMPType[] = await getDMPs(dynamoConfig, generalConfig.domain, dmpId, 'latest');
     latestModified = latest[0]?.dmp?.modified;
   }
 
-  const historicalVersions = (dmp.version ?? []).filter(
-    (v) => v.version !== latestModified
+  const historicalVersions: maDMPVersionsType = (dmp.version ?? []).filter(
+    (v: maDMPVersionsType): boolean => v.version !== latestModified
   );
 
   return {
@@ -670,13 +828,13 @@ export async function mapDMPToolDMPToSnapshot(
       }
       : undefined,
     members: members,
-    fundings: (project?.funding ?? []).map((f) => {
-      const funderIdentifier = f.funder_id?.identifier;
-      const opportunity = dmp.funding_opportunity?.find(
-        (fo) => fo.funder_id?.identifier === funderIdentifier
+    fundings: (project?.funding ?? []).map((f: maDMPFundingType): FlattenedMaDMPFunding => {
+      const funderIdentifier: string | undefined = f.funder_id?.identifier;
+      const opportunity: maDMPFunderOpportunityNumberType = dmp.funding_opportunity?.find(
+        (fo: maDMPFunderOpportunityNumberType): boolean => fo.funder_id?.identifier === funderIdentifier
       );
-      const fundingProject = dmp.funding_project?.find(
-        (fp) => fp.funder_id?.identifier === funderIdentifier
+      const fundingProject: maDMPFunderProjectNumberType = dmp.funding_project?.find(
+        (fp: maDMPFunderProjectNumberType): boolean => fp.funder_id?.identifier === funderIdentifier
       );
 
       return {
@@ -691,12 +849,140 @@ export async function mapDMPToolDMPToSnapshot(
 
     answers,
 
-    versions: historicalVersions.map((v) => ({
+    versions: historicalVersions.map((v: maDMPVersionsType): { timestamp: string, url: string } => ({
       timestamp: v.version,
       url: v.access_url,
     })),
     relatedWorks,
-    relatedWorkIdentifiers: (dmp.related_identifier ?? []).map((r) => r.identifier),
+    relatedWorkIdentifiers: (dmp.related_identifier ?? []).map((r: maDMPRelatedIdentifierType): string => r.identifier),
   };
 }
 
+/**
+ * Fetches all sections and their associated questions and answers for a given plan,
+ * including both base and custom questions, along with their answer status.
+ *
+ * @param reference A value to help identify the caller to help with logging
+ * @param context The apollo context object
+ * @param plan The plan for which to fetch sections and questions
+ * @returns A promise that resolves to an array of PlanSection objects, each
+ * containing its question and answer
+ */
+export async function getPlanSectionsAndQuestions (
+  reference: string,
+  context: MyContext,
+  plan: Plan
+): Promise<PlanSection[]> {
+  const sections: PlanSection[] = [];
+
+  if (plan.id) {
+    // First, fetch the high level info and progress for every section
+    const sectionProgress: PlanSectionProgress[] = await PlanSectionProgress.findByPlanId(
+      reference,
+      context,
+      plan.id,
+      plan?.versionedTemplateId
+    );
+    if (!Array.isArray(sectionProgress) || sectionProgress.length === 0) return [];
+
+    for (const progress of sectionProgress) {
+      // Second, fetch the section or custom section for each progress record
+      const sec: VersionedSection | VersionedCustomSection = progress.sectionType === 'BASE'
+        ? await VersionedSection.findById(reference, context, progress.versionedSectionId)
+        : await VersionedCustomSection.findById(reference, context, progress.customSectionId);
+
+      // Third, fetch the base questions and any custom questions for each section
+      const [baseQuestions, customQuestions] = progress.sectionType === 'BASE'
+        // Base questions can contain both base and custom questions, so we need to fetch both
+        ? await Promise.all([
+          VersionedQuestion.findByVersionedSectionId(reference, context, progress.versionedSectionId),
+          VersionedCustomQuestion.findByVersionedSectionIdAndType(reference, context, progress.versionedSectionId, 'BASE')
+        ])
+        // CustomSections only contain CustomQuestions, so we don't need to fetch
+        // base questions for them
+        : await Promise.all([
+          [],
+          VersionedCustomQuestion.findByVersionedSectionIdAndType(reference, context, progress.customSectionId, 'CUSTOM')
+        ]);
+
+      const baseIds: number[] = baseQuestions.map((q: VersionedQuestion): number => q.id);
+      const customIds: number[] = customQuestions.map((q: VersionedCustomQuestion): number => q.id);
+
+      // Fourth, find all the answers for the versionedQuestions and CustomQuestions
+      const [baseAnswers, customAnswers] = await Promise.all([
+        Answer.findFilledAnswersByQuestionIds(reference, context, plan.id, baseIds),
+        Answer.findFilledAnswersByCustomQuestionIds(reference, context, plan.id, customIds)
+      ]);
+
+      // TODO: Add GuidanceSources for each question and custom question!
+
+      const baseAnswersMap = new Set(baseAnswers.map((a: Answer): number => a.versionedQuestionId));
+      const customAnswersMap = new Set(customAnswers.map((a: Answer): number => a.versionedCustomQuestionId));
+
+      // Fifth, build an ordered list starting with base questions
+      const ordered: PlanQuestion[] = baseQuestions.map((q: VersionedQuestion, idx: number) => ({
+        questionType: 'BASE' as CustomizableObjectOwnership,
+        versionedQuestionId: q.id,
+        customQuestionId: undefined,
+        questionText: q.questionText,
+        requirementText: q.requirementText,
+        guidanceText: q.guidanceText,
+        sampleText: q.sampleText,
+        required: q.required,
+        displayOrder: idx + 1,
+        hasAnswer: baseAnswersMap.has(q.id),
+        json: q.json
+      }));
+
+      // Sort custom questions by id (same as injectCustomQuestions)
+      const sortedCustom: VersionedCustomQuestion[] = [...customQuestions].sort((a, b) => a.id - b.id);
+
+      // Sixth, splice each custom question in after its pinned question
+      for (const q of sortedCustom) {
+        const result: PlanQuestion = {
+          questionType: 'CUSTOM' as CustomizableObjectOwnership,
+          versionedQuestionId: undefined,
+          customQuestionId: q.id,
+          questionText: q.questionText,
+          requirementText: q.requirementText,
+          guidanceText: q.guidanceText,
+          sampleText: q.sampleText,
+          required: q.required,
+          hasAnswer: customAnswersMap.has(q.id),
+          json: q.json
+        };
+
+        if (q.pinnedVersionedQuestionId === null) {
+          // No pin — goes first
+          ordered.unshift(result);
+        } else {
+          const pinIdx = ordered.findIndex(o =>
+            o.questionType === q.pinnedVersionedQuestionType && o.versionedQuestionId === q.pinnedVersionedQuestionId
+          );
+          if (pinIdx !== -1) {
+            ordered.splice(pinIdx + 1, 0, result);
+          } else {
+            // Pinned question not found — append to end
+            ordered.push(result);
+          }
+        }
+      }
+
+      sections.push({
+        sectionType: progress.sectionType,
+        versionedSectionId: progress.versionedSectionId,
+        customSectionId: progress.customSectionId,
+        title: progress.title,
+        displayOrder: progress.displayOrder,
+        answeredQuestions: progress.answeredQuestions,
+        totalQuestions: progress.totalQuestions,
+
+        introduction: sec.introduction,
+        requirements: sec.requirements,
+
+        questions: ordered
+      });
+    }
+  }
+  return sections;
+}

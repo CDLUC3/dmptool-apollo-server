@@ -3,6 +3,9 @@
 ## v1.1.0
 
 ### Added
+- Added a new `maDMP` types file with shortcuts to nested maDMP types.
+- Added new helper functions to the `planService` and `projectService` which fetch the item and check permissions
+- Added new resolver to support the Plan one-page design [#371](https://github.com/CDLUC3/dmptool-doc/issues/371)
 - Added new `triggerQuestionsForQuestion` query to question resolver [#360]
 - Added two new methods to `questionService`: `extractTriggerQuestionOptionValues` and `questionSupportsSelectableOptions` [#360]
 - Add missing `relationType` column to the `relatedWorks` table
@@ -143,6 +146,8 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated the Plan schema to provide more info needed for the plan authoring one-page [#371](https://github.com/CDLUC3/dmptool-doc/issues/371)
+- Refactored the plan resolver to make use of `authenticatedResolver` and plan and project service functions to check permissions 
 - Updated `Question` model with new `findPriorQuestionsForQuestion` function [#360]
 - Updated app to use Ecma Script Modules (ESM) [#259]
   - Updated `tsconfig.json` for `ESM`

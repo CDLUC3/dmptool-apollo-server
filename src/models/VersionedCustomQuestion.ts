@@ -5,6 +5,7 @@ import {
 } from "../utils/helpers.js";
 import { MyContext } from "../context.js";
 import { QuestionSchemaMap } from "@dmptool/types";
+import { toErrorMessage } from "@dmptool/utils";
 import { PinnedSectionTypeEnum } from "./CustomSection.js";
 import { PinnedQuestionTypeEnum } from "./CustomQuestion.js";
 
@@ -21,6 +22,32 @@ import { PinnedQuestionTypeEnum } from "./CustomQuestion.js";
  *     - "STALE" The pinned section has moved position in the latest version.
  *     - "ORPHANED" The pinned section is no longer available in the latest version.
  */
+interface VersionedCustomQuestionOptions {
+  id?: number;
+  created?: string;
+  createdById?: number;
+  modified?: string;
+  modifiedById?: number;
+  errors?: Record<string, string>;
+  // These fields are required for a *valid* record, but the constructor accepts raw/untrusted
+  // input (DB rows, malformed input) that may be missing them — isValid() is what actually
+  // enforces "can't be blank" for these at runtime, so null/undefined is allowed here.
+  versionedTemplateCustomizationId?: number | null;
+  customQuestionId?: number | null;
+  versionedSectionType?: string | null;
+  versionedSectionId?: number | null;
+  pinnedVersionedQuestionType?: string | null;
+  pinnedVersionedQuestionId?: number;
+  // A raw JSON string from the DB, or an object when constructed in code (e.g. in tests)
+  json?: string | Record<string, unknown>;
+  questionText?: string | null;
+  requirementText?: string;
+  guidanceText?: string;
+  sampleText?: string;
+  useSampleTextAsDefault?: boolean;
+  required?: boolean;
+}
+
 export class VersionedCustomQuestion extends MySqlModel {
   public versionedTemplateCustomizationId: number;
   public customQuestionId: number;
@@ -39,25 +66,31 @@ export class VersionedCustomQuestion extends MySqlModel {
 
   static tableName = 'versionedCustomQuestions';
 
-  constructor(options) {
+  constructor(options: VersionedCustomQuestionOptions) {
     super(options.id, options.created, options.createdById, options.modified,
       options.modifiedById, options.errors);
 
-    this.versionedTemplateCustomizationId = options.versionedTemplateCustomizationId;
-    this.customQuestionId = options.customQuestionId;
-    this.versionedSectionType = options.versionedSectionType ? PinnedSectionTypeEnum[options.versionedSectionType] : undefined;
-    this.versionedSectionId = options.versionedSectionId;
-    this.pinnedVersionedQuestionType = options.pinnedVersionedQuestionType ? PinnedQuestionTypeEnum[options.pinnedVersionedQuestionType] : undefined;
+    // These are cast to their "valid" field type despite options allowing null/undefined —
+    // isValid() is responsible for catching and reporting a missing value at runtime.
+    this.versionedTemplateCustomizationId = options.versionedTemplateCustomizationId as number;
+    this.customQuestionId = options.customQuestionId as number;
+    this.versionedSectionType = (options.versionedSectionType
+      ? PinnedSectionTypeEnum[options.versionedSectionType as keyof typeof PinnedSectionTypeEnum]
+      : undefined) as PinnedSectionTypeEnum;
+    this.versionedSectionId = options.versionedSectionId as number;
+    this.pinnedVersionedQuestionType = options.pinnedVersionedQuestionType
+      ? PinnedQuestionTypeEnum[options.pinnedVersionedQuestionType as keyof typeof PinnedQuestionTypeEnum]
+      : undefined;
     this.pinnedVersionedQuestionId = options.pinnedVersionedQuestionId;
 
-    this.json = options.json;
-    // Ensure JSON is stored as a string
+    // Normalize to a string before attempting to strip null/undefined values
+    this.json = typeof options.json === 'string' ? options.json : JSON.stringify(options.json);
     try {
-      this.json = removeNullAndUndefinedFromJSON(options.json);
+      this.json = removeNullAndUndefinedFromJSON(this.json);
     } catch (e) {
-      this.addError('json', e.message);
+      this.addError('json', e instanceof Error ? e.message : String(e));
     }
-    this.questionText = options.questionText;
+    this.questionText = options.questionText as string;
     this.requirementText = options.requirementText;
     this.guidanceText = options.guidanceText;
     this.sampleText = options.sampleText;
@@ -95,13 +128,13 @@ export class VersionedCustomQuestion extends MySqlModel {
       if (Object.keys(QuestionSchemaMap).includes(parsedJSON['type'])) {
         // Validate the JSON against the Zod schema and if valid, set the questionType
         try {
-          const result = QuestionSchemaMap[parsedJSON['type']]?.safeParse(parsedJSON);
+          const result = QuestionSchemaMap[parsedJSON['type'] as keyof typeof QuestionSchemaMap]?.safeParse(parsedJSON);
           if (result && !result.success) {
             // If there are validation errors, add them to the errors object
             this.addError('json', result.error?.issues?.map(e => `${e.path.join('.')} - ${e.message}`)?.join('; '));
           }
         } catch (e) {
-          this.addError('json', e.message);
+          this.addError('json', toErrorMessage(e));
         }
       } else {
         // If the type is not in the schema map, add an error
@@ -137,7 +170,7 @@ export class VersionedCustomQuestion extends MySqlModel {
     const ref = 'VersionedCustomQuestion.create';
     // Make sure the record is valid
     if (await this.isValid()) {
-      const current: VersionedCustomQuestion = await VersionedCustomQuestion.findByCustomizationSectionAndQuestion(
+      const current: VersionedCustomQuestion | undefined = await VersionedCustomQuestion.findByCustomizationSectionAndQuestion(
         ref,
         context,
         this.versionedTemplateCustomizationId,
@@ -155,13 +188,21 @@ export class VersionedCustomQuestion extends MySqlModel {
         this.prepForSave();
 
         // Save the record and then fetch it
-        const newId: number = await VersionedCustomQuestion.insert(
+        const newId: number | null = await VersionedCustomQuestion.insert(
           context,
           VersionedCustomQuestion.tableName,
           this,
           ref
         );
-        return await VersionedCustomQuestion.findById(ref, context, newId);
+        if (newId === null) {
+          this.addError('general', 'Unable to save the custom question version');
+        } else {
+          const saved = await VersionedCustomQuestion.findById(ref, context, newId);
+          if (saved) {
+            return saved;
+          }
+          this.addError('general', 'Custom question version was saved but could not be retrieved');
+        }
       }
     }
     // Otherwise return as-is with all the errors
@@ -194,7 +235,12 @@ export class VersionedCustomQuestion extends MySqlModel {
           [],
           noTouch
         );
-        return await VersionedCustomQuestion.findById(ref, context, this.id);
+        // isNullOrUndefined(this.id) was already checked above, but isn't a type guard
+        const updated = await VersionedCustomQuestion.findById(ref, context, this.id as number);
+        if (updated) {
+          return updated;
+        }
+        this.addError('general', 'Custom question version was updated but could not be retrieved');
       }
     }
     // Otherwise return as-is with all the errors
@@ -213,19 +259,23 @@ export class VersionedCustomQuestion extends MySqlModel {
       // Cannot delete it if it hasn't been saved yet!
       this.addError('general', 'Custom question has never been saved');
     } else {
-      const original: VersionedCustomQuestion = await VersionedCustomQuestion.findById(
+      const original = await VersionedCustomQuestion.findById(
         ref,
         context,
         this.id
       );
-      const result: boolean = await VersionedCustomQuestion.delete(
-        context,
-        VersionedCustomQuestion.tableName,
-        this.id,
-        ref
-      );
-      if (result) {
-        return original;
+      if (!original) {
+        this.addError('general', 'Custom question could not be found for deletion');
+      } else {
+        const result: boolean = await VersionedCustomQuestion.delete(
+          context,
+          VersionedCustomQuestion.tableName,
+          this.id,
+          ref
+        );
+        if (result) {
+          return original;
+        }
       }
     }
     if (!this.hasErrors()) {
@@ -247,7 +297,7 @@ export class VersionedCustomQuestion extends MySqlModel {
     reference: string,
     context: MyContext,
     versionedCustomQuestionId: number
-  ): Promise<VersionedCustomQuestion> {
+  ): Promise<VersionedCustomQuestion | undefined> {
     const results = await VersionedCustomQuestion.query(
       context,
       `SELECT * FROM ${VersionedCustomQuestion.tableName} WHERE id = ?`,
@@ -302,7 +352,7 @@ export class VersionedCustomQuestion extends MySqlModel {
     versionedSectionId: number,
     pinnedVersionedQuestionType?: PinnedQuestionTypeEnum,
     pinnedVersionedQuestionId?: number
-  ): Promise<VersionedCustomQuestion> {
+  ): Promise<VersionedCustomQuestion | undefined> {
     const results = await VersionedCustomQuestion.query(
       context,
       `SELECT * FROM ${VersionedCustomQuestion.tableName}
@@ -314,9 +364,10 @@ export class VersionedCustomQuestion extends MySqlModel {
         customQuestionId?.toString(),
         versionedSectionType,
         versionedSectionId?.toString(),
+        // query()'s values type doesn't include null, but prepareValue() handles it at runtime
         pinnedVersionedQuestionType ? pinnedVersionedQuestionType : null,
         pinnedVersionedQuestionId ? pinnedVersionedQuestionId?.toString() : null
-      ],
+      ] as (string | boolean | Buffer)[],
       reference
     );
     return Array.isArray(results) && results.length > 0 ? new VersionedCustomQuestion(results[0]) : undefined;
@@ -346,22 +397,29 @@ export class VersionedCustomQuestion extends MySqlModel {
       : [];
   }
 
-  // Find all the custom question versions for a specific versioned section version and section type
+  // Find the custom question versions for a specific versioned section and section type, limited to the
+  // customization belonging to the given affiliation for the plan's template
   static async findByVersionedSectionIdAndType(
     reference: string,
     context: MyContext,
+    planId: number,
     versionedSectionId: number,
-    sectionType: 'BASE' | 'CUSTOM'
+    sectionType: 'BASE' | 'CUSTOM',
+    affiliationId: string
   ): Promise<VersionedCustomQuestion[]> {
     const sql = `SELECT vcq.* FROM versionedCustomQuestions as vcq
     JOIN versionedTemplateCustomizations as vtc
       ON vcq.versionedTemplateCustomizationId = vtc.id
-    WHERE vcq.versionedSectionType = ?
+    JOIN plans as p
+      ON vtc.currentVersionedTemplateId = p.versionedTemplateId
+    WHERE p.id = ?
+      AND vcq.versionedSectionType = ?
       AND vcq.versionedSectionId = ?
+      AND vtc.affiliationId = ?
       AND vtc.active = 1
     ORDER BY vcq.pinnedVersionedQuestionType ASC, vcq.pinnedVersionedQuestionId ASC`;
     const results = await VersionedCustomQuestion.query(
-      context, sql, [sectionType, versionedSectionId.toString()], reference
+      context, sql, [planId.toString(), sectionType, versionedSectionId.toString(), affiliationId], reference
     );
     return Array.isArray(results) ? results.map(r => new VersionedCustomQuestion(r)) : [];
   }

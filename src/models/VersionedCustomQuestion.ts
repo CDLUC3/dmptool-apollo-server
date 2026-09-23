@@ -5,6 +5,7 @@ import {
 } from "../utils/helpers.js";
 import { MyContext } from "../context.js";
 import { QuestionSchemaMap } from "@dmptool/types";
+import { toErrorMessage } from "@dmptool/utils";
 import { PinnedSectionTypeEnum } from "./CustomSection.js";
 import { PinnedQuestionTypeEnum } from "./CustomQuestion.js";
 
@@ -133,7 +134,7 @@ export class VersionedCustomQuestion extends MySqlModel {
             this.addError('json', result.error?.issues?.map(e => `${e.path.join('.')} - ${e.message}`)?.join('; '));
           }
         } catch (e) {
-          this.addError('json', e instanceof Error ? e.message : String(e));
+          this.addError('json', toErrorMessage(e));
         }
       } else {
         // If the type is not in the schema map, add an error

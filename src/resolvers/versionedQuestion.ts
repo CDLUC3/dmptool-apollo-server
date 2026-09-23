@@ -47,7 +47,7 @@ export const resolvers: Resolvers = {
               ? VersionedCustomQuestion.findByVersionedSectionIdAndType(
                 reference, context, planId, versionedSectionId, 'BASE', affiliationId
               )
-              : Promise.resolve([] as VersionedCustomQuestion[])
+              : [] as VersionedCustomQuestion[]
           ]);
 
           // Guard against any malformed records missing an id

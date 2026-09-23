@@ -365,4 +365,34 @@ export class VersionedCustomQuestion extends MySqlModel {
     );
     return Array.isArray(results) ? results.map(r => new VersionedCustomQuestion(r)) : [];
   }
+
+  /**
+   * Find all the custom questions by their versionedSectionIds and section type
+   *
+   * @param reference The reference to use for logging
+   * @param context The Apollo context
+   * @param versionedSectionIds The versionedSectionIds to search for
+   * @param sectionType The type of section the custom question is attached to (base or custom).
+   * @returns An array of VersionedCustomQuestions or an empty array if none were found.
+   */
+  static async findByVersionedSectionIdsAndType(
+    reference: string,
+    context: MyContext,
+    versionedSectionIds: number[],
+    sectionType: 'BASE' | 'CUSTOM'
+  ): Promise<VersionedCustomQuestion[]> {
+    if (versionedSectionIds.length === 0) return [];
+
+    const placeholders: string = versionedSectionIds.map((): string => '?').join(',');
+    const sql = `SELECT vcq.* FROM versionedCustomQuestions as vcq
+      JOIN versionedTemplateCustomizations as vtc
+        ON vcq.versionedTemplateCustomizationId = vtc.id
+      WHERE vcq.versionedSectionType = ?
+        AND vcq.versionedSectionId IN (${placeholders})
+        AND vtc.active = 1
+      ORDER BY vcq.pinnedVersionedQuestionType ASC, vcq.pinnedVersionedQuestionId ASC`;
+    const vals: string[] = [sectionType, ...versionedSectionIds.map((id: number): string => id.toString())];
+    const results: unknown[] = await VersionedCustomQuestion.query(context, sql, vals, reference);
+    return Array.isArray(results) ? results.map((entry: unknown): VersionedCustomQuestion => new VersionedCustomQuestion(entry)) : [];
+  }
 }

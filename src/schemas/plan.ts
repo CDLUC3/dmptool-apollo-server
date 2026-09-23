@@ -432,6 +432,20 @@ export const typeDefs = gql`
 
     "The guidance sources for the versioned question"
     guidanceSources: [GuidanceSource!]
+
+    "The conditional logic for the versioned question"
+    conditionalLogic: [VersionedQuestionConditionalLogic!]
+  }
+
+  type VersionedQuestionConditionalLogic {
+    "The id of the versioned question that has conditional logic"
+    versionedQuestionId: Int!
+    "The id of the versioned question that triggers the conditional logic"
+    triggerQuestionId: Int!
+    "The type of condition (e.g. equals, not equals, greater than, less than, etc.)"
+    conditionType: String!
+    "The value that the trigger question must match for the conditional logic to be applied"
+    conditionMatch: String!
   }
 
   input UpdatePlanInput {

@@ -177,6 +177,7 @@ jest.unstable_mockModule('../../models/Affiliation.js', () => ({
 import type { MyContext } from "../../context.js";
 import type { Logger } from 'pino';
 import type { GuidanceGroup as GuidanceGroupType } from '../../models/GuidanceGroup.js';
+import { GuidanceSource } from "../../types.js";
 
 // ---------------------------------------------------------------------------
 // Everything below is dynamic, registered after every mock above.
@@ -962,5 +963,188 @@ describe("getGuidanceSourcesForPlan", () => {
     expect(templateOwnerSource).toBeDefined();
     expect(templateOwnerSource.items).toHaveLength(1);
     expect(templateOwnerSource.items[0].guidanceText).toEqual("NSF tag guidance");
+  });
+});
+
+describe("getRelevantGuidanceForPlan", () => {
+  beforeEach(async () => {
+    context = await buildMockContextWithToken(logger);
+    jest.clearAllMocks();
+  });
+
+  it("groups guidance rows by source and merges same-tag entries", async () => {
+    const mockTemplate = { ownerId: "https://ror.org/template-owner" } as any;
+    const tags = new Set([
+      { tagId: 7 },
+      { tagId: 9 },
+    ]);
+
+    mockPlanGuidanceQuery.mockResolvedValue([
+      {
+        id: "bestPractice",
+        label: "Best Practice",
+        shortName: "BP",
+        uri: "https://ror.org/best-practice",
+        type: "BEST_PRACTICE",
+        tagId: 7,
+        tagName: "Data Sharing",
+        guidanceText: "Best practice 1",
+      },
+      {
+        id: "bestPractice",
+        label: "Best Practice",
+        shortName: "BP",
+        uri: "https://ror.org/best-practice",
+        type: "BEST_PRACTICE",
+        tagId: 7,
+        tagName: "Data Sharing",
+        guidanceText: "Best practice 2",
+      },
+      {
+        id: `affiliation-${mockTemplate.ownerId}`,
+        label: "Owner Org",
+        shortName: "OWNER",
+        uri: mockTemplate.ownerId,
+        type: "TEMPLATE_OWNER",
+        tagId: 9,
+        tagName: "Preservation",
+        guidanceText: "Template owner guidance",
+      },
+    ]);
+
+    const result = await guidanceService.getRelevantGuidanceForPlan(
+      "testing",
+      context,
+      42,
+      mockTemplate,
+      tags
+    );
+
+    expect(mockPlanGuidanceQuery).toHaveBeenCalledTimes(1);
+    expect(result).toHaveLength(2);
+
+    const bestPractice = result.find((source: any) => source.id === "bestPractice");
+    expect(bestPractice).toMatchObject({
+      id: "bestPractice",
+      type: "BEST_PRACTICE",
+      orgURI: "https://ror.org/best-practice",
+    });
+    expect(bestPractice.items).toEqual([
+      {
+        id: 7,
+        title: "Data Sharing",
+        guidanceText: "Best practice 1\n\nBest practice 2",
+      },
+    ]);
+
+    const ownerSource = result.find((source: any) => source.id === `affiliation-${mockTemplate.ownerId}`);
+    expect(ownerSource).toMatchObject({
+      id: `affiliation-${mockTemplate.ownerId}`,
+      type: "TEMPLATE_OWNER",
+      orgURI: mockTemplate.ownerId,
+    });
+    expect(ownerSource.items).toEqual([
+      {
+        id: 9,
+        title: "Preservation",
+        guidanceText: "Template owner guidance",
+      },
+    ]);
+  });
+
+  it("returns an empty array if no matching guidance rows are returned", async () => {
+    const mockTemplate = { ownerId: "https://ror.org/template-owner" } as any;
+
+    mockPlanGuidanceQuery.mockResolvedValue([]);
+
+    const result = await guidanceService.getRelevantGuidanceForPlan(
+      "testing",
+      context,
+      42,
+      mockTemplate,
+      new Set([{ tagId: 7 }])
+    );
+
+    expect(result).toEqual([]);
+  });
+});
+
+describe("getRelevantGuidanceForVersionedQuestion", () => {
+  it("filters to matching tags, appends question-level guidance, and adds user customization guidance", () => {
+    const affiliation = {
+      uri: "https://ror.org/user-org",
+      displayName: "User Org",
+      name: "User Org",
+      acronyms: ["UO"],
+    } as any;
+
+    const template = { ownerId: "https://ror.org/template-owner" } as any;
+    const question = {
+      id: 55,
+      versionedSectionId: 3,
+      guidanceText: "Question guidance",
+    } as any;
+
+    const relevantTags = new Set([
+      { tagId: 10, versionedQuestionId: 55 },
+      { tagId: 12, versionedSectionId: 3 },
+    ]);
+
+    const availableGuidance: GuidanceSource[] = [
+      {
+        id: "bestPractice",
+        type: "BEST_PRACTICE",
+        label: "Best Practice",
+        shortName: "BP",
+        orgURI: "https://ror.org/best-practice",
+        items: [
+          { id: 10, guidanceText: "Best practice guidance" },
+          { id: 99, guidanceText: "Ignore me" },
+        ],
+        hasGuidance: true,
+      },
+      {
+        id: `affiliation-${template.ownerId}`,
+        type: "TEMPLATE_OWNER",
+        label: "Owner Org",
+        shortName: "OO",
+        orgURI: template.ownerId,
+        items: [{ id: 10, guidanceText: "Owner tag guidance" }],
+        hasGuidance: true,
+      },
+    ];
+
+    const customizations = [
+      { versionedQuestionId: 55, guidanceText: "Custom guidance" },
+    ] as any;
+
+    const result = guidanceService.getRelevantGuidanceForVersionedQuestion(
+      affiliation,
+      customizations,
+      relevantTags,
+      availableGuidance,
+      template,
+      question
+    );
+
+    expect(result).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "bestPractice",
+          items: [{ id: 10, title: undefined, guidanceText: "Best practice guidance" }],
+        }),
+        expect.objectContaining({
+          id: `affiliation-${template.ownerId}`,
+          items: expect.arrayContaining([
+            { id: 10, title: undefined, guidanceText: "Owner tag guidance" },
+            { id: null, title: null, guidanceText: "Question guidance" },
+          ]),
+        }),
+        expect.objectContaining({
+          id: `customization-${affiliation.uri}`,
+          items: [{ id: null, title: null, guidanceText: "Custom guidance" }],
+        }),
+      ])
+    );
   });
 });

@@ -197,6 +197,30 @@ export class VersionedCustomSection extends MySqlModel {
   }
 
   /**
+   * Find the custom sections by their ids
+   *
+   * @param reference The reference to use for logging errors.
+   * @param context The Apollo context.
+   * @param ids The custom section version ids.
+   * @returns The custom section versions.
+   */
+  static async findByIds(
+    reference: string,
+    context: MyContext,
+    ids: number[]
+  ): Promise<VersionedCustomSection[]> {
+    if (!Array.isArray(ids) || ids.length === 0) return [];
+
+    const results = await VersionedCustomSection.query(
+      context,
+      `SELECT * FROM ${VersionedCustomSection.tableName} WHERE id IN (${ids.map(():string => '?').join(',')})`,
+      ids.map((id: number): string => id.toString()),
+      reference
+    );
+    return Array.isArray(results) && results.length > 0 ? results.map(r => new VersionedCustomSection(r)) : [];
+  }
+
+  /**
    * Find the custom section version by the customization, pinned section
    *
    * @param reference The reference to use for logging errors.

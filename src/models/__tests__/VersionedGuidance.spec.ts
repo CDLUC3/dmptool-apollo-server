@@ -202,6 +202,56 @@ describe('VersionedGuidance.findByVersionedGuidanceGroupId', () => {
   });
 });
 
+describe('VersionedGuidance.findByVersionedGuidanceGroupIds', () => {
+  const originalQuery = VersionedGuidance.query;
+  let localQuery;
+
+  beforeEach(async () => {
+    localQuery = jest.fn();
+    (VersionedGuidance.query as jest.Mock) = localQuery;
+    context = await buildMockContextWithToken(logger);
+  });
+
+  afterEach(() => {
+    VersionedGuidance.query = originalQuery;
+  });
+
+  it('should find guidance for the specified group ids', async () => {
+    const groupIds = [1, 2];
+    localQuery.mockResolvedValueOnce([{
+      id: 1,
+      versionedGuidanceGroupId: groupIds[0],
+      guidanceId: 3,
+      guidanceText: 'Guidance',
+    }]);
+
+    const result = await VersionedGuidance.findByVersionedGuidanceGroupIds(
+      'VersionedGuidance query',
+      context,
+      groupIds
+    );
+
+    expect(localQuery).toHaveBeenCalledWith(
+      context,
+      'SELECT * FROM versionedGuidance WHERE versionedGuidanceGroupId IN (?, ?) ORDER BY tagId ASC',
+      ['1', '2'],
+      'VersionedGuidance query'
+    );
+    expect(result[0]).toBeInstanceOf(VersionedGuidance);
+  });
+
+  it('should return an empty array without querying when no group ids are provided', async () => {
+    const result = await VersionedGuidance.findByVersionedGuidanceGroupIds(
+      'VersionedGuidance query',
+      context,
+      []
+    );
+
+    expect(localQuery).not.toHaveBeenCalled();
+    expect(result).toEqual([]);
+  });
+});
+
 describe('VersionedGuidance.findBestPracticeByTagIds', () => {
   const originalQuery = VersionedGuidance.query;
 

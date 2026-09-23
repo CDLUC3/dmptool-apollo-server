@@ -5,7 +5,6 @@ import { PlanMember, ProjectMember } from "../models/Member.js";
 import { Plan, PlanSectionProgress, PlanVisibility } from "../models/Plan.js";
 import { Project } from "../models/Project.js";
 import { PlanFunding, ProjectFunding } from "../models/Funding.js";
-import { Affiliation } from "../models/Affiliation.js";
 import { AlternateIdentifier } from "../models/AlternateIdentifier.js";
 import { AcceptedWork } from "../models/RelatedWork.js";
 import {
@@ -37,7 +36,8 @@ import {
 } from "./dataciteXMLService.js";
 import { removeIndexItem, updateIndexItem } from "./indexDMPService.js";
 import {
-  CustomizableObjectOwnership, PlanQuestion,
+  CustomizableObjectOwnership,
+  PlanQuestion,
   PlanSection,
   PlanVersionSnapshot,
   PlanVersionSnapshotRelatedWork,
@@ -61,11 +61,21 @@ import {
 } from "../types/maDMP.js";
 import { ProjectCollaborator } from "../models/Collaborator.js";
 import { User } from "../models/User.js";
+import { Affiliation } from "../models/Affiliation.js";
 import { VersionedQuestion } from "../models/VersionedQuestion.js";
 import { VersionedCustomQuestion } from "../models/VersionedCustomQuestion.js";
 import { Answer } from "../models/Answer.js";
 import { VersionedSection } from "../models/VersionedSection.js";
 import { VersionedCustomSection } from "../models/VersionedCustomSection.js";
+import { VersionedTemplate } from "../models/VersionedTemplate.js";
+import {
+  getRelevantGuidanceForPlan,
+  getRelevantGuidanceForVersionedQuestion,
+  GuidanceSource
+} from "./guidanceService.js";
+import { RelevantTag, Tag } from "../models/Tag.js";
+import { VersionedQuestionCustomization } from "../models/VersionedQuestionCustomization.js";
+import { findConditionalLogicForPlan } from "./conditionalLogicService.js";
 
 export interface PublishedQuestionResult {
   id: number;
@@ -871,11 +881,17 @@ export async function mapDMPToolDMPToSnapshot(
 export async function getPlanSectionsAndQuestions (
   reference: string,
   context: MyContext,
-  plan: Plan
+  plan: Plan,
 ): Promise<PlanSection[]> {
   const sections: PlanSection[] = [];
 
   if (plan.id) {
+    const affiliation: Affiliation = await Affiliation.findByURI(reference, context, context.token.affiliationId);
+    const vTemplate: VersionedTemplate = await VersionedTemplate.findById(reference, context, plan.versionedTemplateId);
+    if (!affiliation || !vTemplate) return [];
+
+    const relevantTags: Set<RelevantTag> = await Tag.findTagIdsForVersionedTemplateId(reference, context, vTemplate.id);
+
     // First, fetch the high level info and progress for every section
     const sectionProgress: PlanSectionProgress[] = await PlanSectionProgress.findByPlanId(
       reference,
@@ -885,59 +901,99 @@ export async function getPlanSectionsAndQuestions (
     );
     if (!Array.isArray(sectionProgress) || sectionProgress.length === 0) return [];
 
-    for (const progress of sectionProgress) {
-      // Second, fetch the section or custom section for each progress record
-      const sec: VersionedSection | VersionedCustomSection = progress.sectionType === 'BASE'
-        ? await VersionedSection.findById(reference, context, progress.versionedSectionId)
-        : await VersionedCustomSection.findById(reference, context, progress.customSectionId);
+    const baseProgress: PlanSectionProgress[] = sectionProgress.filter((p: PlanSectionProgress): boolean => p.sectionType === 'BASE');
+    const customProgress: PlanSectionProgress[] = sectionProgress.filter((p: PlanSectionProgress): boolean => p.sectionType !== 'BASE');
+    const baseSectionIds: number[] = baseProgress.map((p: PlanSectionProgress): number => p.versionedSectionId);
+    const customSectionIds: number[] = customProgress.map((p: PlanSectionProgress): number => p.customSectionId);
 
-      // Third, fetch the base questions and any custom questions for each section
-      const [baseQuestions, customQuestions] = progress.sectionType === 'BASE'
-        // Base questions can contain both base and custom questions, so we need to fetch both
-        ? await Promise.all([
-          VersionedQuestion.findByVersionedSectionId(reference, context, progress.versionedSectionId),
-          VersionedCustomQuestion.findByVersionedSectionIdAndType(reference, context, progress.versionedSectionId, 'BASE')
-        ])
-        // CustomSections only contain CustomQuestions, so we don't need to fetch
-        // base questions for them
-        : await Promise.all([
-          [],
-          VersionedCustomQuestion.findByVersionedSectionIdAndType(reference, context, progress.customSectionId, 'CUSTOM')
-        ]);
-
-      const baseIds: number[] = baseQuestions.map((q: VersionedQuestion): number => q.id);
-      const customIds: number[] = customQuestions.map((q: VersionedCustomQuestion): number => q.id);
-
-      // Fourth, find all the answers for the versionedQuestions and CustomQuestions
-      const [baseAnswers, customAnswers] = await Promise.all([
-        Answer.findFilledAnswersByQuestionIds(reference, context, plan.id, baseIds),
-        Answer.findFilledAnswersByCustomQuestionIds(reference, context, plan.id, customIds)
+    // Second, fetch everything for the whole plan at once
+    const [baseSections, customSections, allBaseQuestions, allBaseCustomQuestions, allCustomQuestions, filledAnswers, conditionalLogic, guidanceCustomizations, guidanceSources] =
+      await Promise.all([
+        VersionedSection.findByIds(reference, context, baseSectionIds),
+        VersionedCustomSection.findByIds(reference, context, customSectionIds),
+        // Base sections can contain both base and custom questions, so we need to fetch both
+        VersionedQuestion.findByVersionedSectionIds(reference, context, baseSectionIds),
+        VersionedCustomQuestion.findByVersionedSectionIdsAndType(reference, context, baseSectionIds, 'BASE'),
+        // CustomSections only contain CustomQuestions, so we don't need to fetch base questions for them
+        VersionedCustomQuestion.findByVersionedSectionIdsAndType(reference, context, customSectionIds, 'CUSTOM'),
+        Answer.findFilledAnswersByPlanId(reference, context, plan.id),
+        // Get all conditional logic for the plan's questions
+        findConditionalLogicForPlan(reference, context, baseSectionIds),
+        // Get any custom guidance set on Base questions
+        VersionedQuestionCustomization.findForActiveForAffiliationAndVersionSectionIds(reference, context, context.token.affiliationId, baseSectionIds),
+        // Guidance sources for the plan
+        getRelevantGuidanceForPlan(reference, context, plan.id, vTemplate, relevantTags),
       ]);
 
-      // TODO: Add GuidanceSources for each question and custom question!
+    const baseSectionById = new Map<number, VersionedSection>(baseSections.map((s: VersionedSection) => [s.id, s]));
+    const customSectionById: Map<number, VersionedCustomSection> = customSections.length > 0
+      ? new Map<number, VersionedCustomSection>(customSections.map((s: VersionedCustomSection) => [s.id, s]))
+      : new Map<number, VersionedCustomSection>();
 
-      const baseAnswersMap = new Set(baseAnswers.map((a: Answer): number => a.versionedQuestionId));
-      const customAnswersMap = new Set(customAnswers.map((a: Answer): number => a.versionedCustomQuestionId));
+    // Group the questions into their respective sections for easier lookup later
+    const groupBy = <T>(items: T[], key: (item: T) => number): Map<number, T[]> => {
+      const grouped = new Map<number, T[]>();
+      for (const item of items) {
+        const k: number = key(item);
+        const list: T[] | undefined = grouped.get(k);
+        if (list) list.push(item); else grouped.set(k, [item]);
+      }
+      return grouped;
+    };
+    const baseQuestionsBySection: Map<number, VersionedQuestion[]> = groupBy(allBaseQuestions, (q: VersionedQuestion): number => q.versionedSectionId);
+    const baseCustomBySection: Map<number, VersionedCustomQuestion[]> = groupBy(allBaseCustomQuestions, (q: VersionedCustomQuestion): number => q.versionedSectionId);
+    const customBySection: Map<number, VersionedCustomQuestion[]> = groupBy(allCustomQuestions, (q: VersionedCustomQuestion): number => q.versionedSectionId);
 
-      // Fifth, build an ordered list starting with base questions
-      const ordered: PlanQuestion[] = baseQuestions.map((q: VersionedQuestion, idx: number) => ({
-        questionType: 'BASE' as CustomizableObjectOwnership,
-        versionedQuestionId: q.id,
-        customQuestionId: undefined,
-        questionText: q.questionText,
-        requirementText: q.requirementText,
-        guidanceText: q.guidanceText,
-        sampleText: q.sampleText,
-        required: q.required,
-        displayOrder: idx + 1,
-        hasAnswer: baseAnswersMap.has(q.id),
-        json: q.json
-      }));
+    const baseAnswersMap: Map<number, Answer> = new Map<number, Answer>(filledAnswers.map((a: Answer): [number, Answer] => [a.versionedQuestionId, a]).filter(([id]): boolean => Boolean(id)));
+    const customAnswersMap: Map<number, Answer> = new Map<number, Answer>(filledAnswers.map((a: Answer): [number, Answer] => [a.versionedCustomQuestionId, a]).filter(([id]): boolean => Boolean(id)));
+
+    // Third, iterate through each section progress record and build the PlanSection
+    // object from the pre-fetched data
+    for (const progress of sectionProgress) {
+      const isBase: boolean = progress.sectionType === 'BASE';
+      const sectionId: number = isBase ? progress.versionedSectionId : progress.customSectionId;
+      const sec: VersionedSection | VersionedCustomSection | undefined = isBase
+        ? baseSectionById.get(sectionId)
+        : customSectionById.get(sectionId);
+
+      const baseQuestions: VersionedQuestion[] = isBase ? (baseQuestionsBySection.get(sectionId) ?? []) : [];
+      const customQuestions: VersionedCustomQuestion[] = (isBase ? baseCustomBySection : customBySection).get(sectionId) ?? [];
+
+      // Build an ordered list starting with base questions
+      const ordered: PlanQuestion[] = baseQuestions.map((q: VersionedQuestion, idx: number) => {
+        // Retrieve the relevant guidance sources for this question, based on the
+        // plan's affiliation, any customizations, and the relevant tags
+        const gSources: GuidanceSource[] = getRelevantGuidanceForVersionedQuestion(
+          affiliation,
+          guidanceCustomizations,
+          relevantTags,
+          guidanceSources,
+          vTemplate,
+          q
+        );
+
+        return {
+          questionType: 'BASE' as CustomizableObjectOwnership,
+          versionedQuestionId: q.id,
+          customQuestionId: undefined,
+          questionText: q.questionText,
+          requirementText: q.requirementText,
+          guidanceText: q.guidanceText,
+          sampleText: q.sampleText,
+          required: q.required,
+          displayOrder: idx + 1,
+          hasAnswer: baseAnswersMap.has(q.id),
+          answer: baseAnswersMap.get(q.id) || undefined,
+          json: q.json,
+          guidanceSources: gSources,
+          conditionalLogic: conditionalLogic.get(q.id) || []
+        };
+      });
 
       // Sort custom questions by id (same as injectCustomQuestions)
       const sortedCustom: VersionedCustomQuestion[] = [...customQuestions].sort((a, b) => a.id - b.id);
 
-      // Sixth, splice each custom question in after its pinned question
+      // Splice each custom question in after its pinned question
       for (const q of sortedCustom) {
         const result: PlanQuestion = {
           questionType: 'CUSTOM' as CustomizableObjectOwnership,
@@ -949,6 +1005,7 @@ export async function getPlanSectionsAndQuestions (
           sampleText: q.sampleText,
           required: q.required,
           hasAnswer: customAnswersMap.has(q.id),
+          answer: customAnswersMap.get(q.id) || undefined,
           json: q.json
         };
 

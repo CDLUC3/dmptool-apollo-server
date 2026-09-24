@@ -24,6 +24,8 @@ export const typeDefs = gql`
     templateId: Int
     "The associated template customization Id for the notification, if applicable"
     templateCustomizationId: Int
+    "The associated feedback round Id for the notification, if applicable"
+    feedbackId: Int
   }
 
   input AdminNotificationMetadataInput {
@@ -33,6 +35,8 @@ export const typeDefs = gql`
     templateId: Int
     "The associated template customization Id for the notification, if applicable"
     templateCustomizationId: Int
+    "The associated feedback round Id for the notification, if applicable"
+    feedbackId: Int
   }
 
   type AdminNotificationResultsPage {
@@ -76,7 +80,7 @@ export const typeDefs = gql`
     template: Template
     "The template customization associated with the notification if metadata contains a templateCustomizationId"
     templateCustomization: TemplateCustomization
-    "The feedback associated with the plan if metadata contains a planId"
+    "The feedback round associated with the notification (the round that was open when the notification was created)"
     feedback: PlanFeedback
     "The user who created the notification"
     createdBy: User

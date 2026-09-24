@@ -14,6 +14,7 @@ export interface AdminNotificationMetadata {
   planId?: number;
   templateId?: number;
   templateCustomizationId?: number;
+  feedbackId?: number;
 }
 export class AdminNotificationResults extends MySqlModel {
   public notificationType: AdminNotificationType;

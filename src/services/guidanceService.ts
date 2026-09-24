@@ -41,6 +41,7 @@ export interface GuidanceItem {
   id?: number;
   title?: string;
   guidanceText: string;
+  sampleText?: string;
 }
 
 export interface GuidanceSource {
@@ -1185,7 +1186,8 @@ export function getRelevantGuidanceForVersionedQuestion(
       source.items.push({
         id: null,
         title: null,
-        guidanceText: custG.guidanceText
+        guidanceText: custG.guidanceText,
+        sampleText: custG.sampleText
       });
     } else {
       gSources.set(sourceId, {
@@ -1198,7 +1200,8 @@ export function getRelevantGuidanceForVersionedQuestion(
         items: [{
           id: null,
           title: null,
-          guidanceText: custG.guidanceText
+          guidanceText: custG.guidanceText,
+          sampleText: custG.sampleText
         }]
       });
     }

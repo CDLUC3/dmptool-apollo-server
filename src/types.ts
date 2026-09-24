@@ -1381,6 +1381,8 @@ export type GuidanceItem = {
   guidanceText: Scalars['String']['output'];
   /** Tag ID this guidance is associated with */
   id?: Maybe<Scalars['Int']['output']>;
+  /** The sample text content (HTML) */
+  sampleText?: Maybe<Scalars['String']['output']>;
   /** Title/name of the tag */
   title?: Maybe<Scalars['String']['output']>;
 };
@@ -7838,6 +7840,7 @@ export type GuidanceGroupErrorsResolvers<ContextType = MyContext, ParentType ext
 export type GuidanceItemResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['GuidanceItem'] = ResolversParentTypes['GuidanceItem']> = {
   guidanceText?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  sampleText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   title?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 };
 

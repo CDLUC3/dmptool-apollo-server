@@ -1109,7 +1109,7 @@ describe("getRelevantGuidanceForVersionedQuestion", () => {
         label: "Owner Org",
         shortName: "OO",
         orgURI: template.ownerId,
-        items: [{ id: 10, guidanceText: "Owner tag guidance" }],
+        items: [{ id: 10, guidanceText: "Owner tag guidance", sampleText: "Sample text" }],
         hasGuidance: true,
       },
     ];
@@ -1136,7 +1136,7 @@ describe("getRelevantGuidanceForVersionedQuestion", () => {
         expect.objectContaining({
           id: `affiliation-${template.ownerId}`,
           items: expect.arrayContaining([
-            { id: 10, title: undefined, guidanceText: "Owner tag guidance" },
+            { id: 10, title: undefined, guidanceText: "Owner tag guidance", sampleText: "Sample text" },
             { id: null, title: null, guidanceText: "Question guidance" },
           ]),
         }),

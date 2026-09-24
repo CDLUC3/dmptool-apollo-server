@@ -1,11 +1,13 @@
-// run 'npx tsc --project tsconfig.strict.json --noEmit' to compile with strict mode enabled for the listed files
 
+// Run 'npm run check-strict' to check that the code in this file is compatible with strict mode. If not, fix the errors and commit the changes.
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "strict": true
   },
   "include": [
-    "src/fakePath/*"
+    "src/resolvers/versionedQuestion.ts",
+    "src/models/VersionedCustomQuestion.ts",
+    "src/models/__tests__/VersionedCustomQuestion.test.ts"
   ]
 }

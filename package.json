@@ -9,6 +9,7 @@
     "copy-graphql": "mkdir ./dist/schemas && cp ./src/schemas/*.graphql ./dist/schemas/",
     "generate": "graphql-codegen",
     "lint": "npx eslint . --ignore-pattern dist/ --ignore-pattern src/types.ts",
+    "check-strict": "sh ./src/scripts/check-strict.sh",
     "test": "node --experimental-vm-modules node_modules/.bin/jest --coverage",
     "test-no-db": "node --experimental-vm-modules node_modules/.bin/jest --testPathIgnorePatterns=\"src/datasources/__tests__/relatedWorksTables.spec.ts\"",
     "build": "rm -rf ./dist && npm run generate && npm run compile",

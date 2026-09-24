@@ -6,6 +6,7 @@
 - Added a new `maDMP` types file with shortcuts to nested maDMP types.
 - Added new helper functions to the `planService` and `projectService` which fetch the item and check permissions
 - Added new resolver to support the Plan one-page design [#371](https://github.com/CDLUC3/dmptool-doc/issues/371)
+- Added new script for checking type errors for files included in `tsconfig.strict.json` only
 - Added new `triggerQuestionsForQuestion` query to question resolver [#360]
 - Added two new methods to `questionService`: `extractTriggerQuestionOptionValues` and `questionSupportsSelectableOptions` [#360]
 - Add missing `relationType` column to the `relatedWorks` table
@@ -332,6 +333,8 @@
 - Removed `ioredis` package
 
 ### Fixed
+- Fixed a bug where a plan was displaying all custom questions ever added for a given versionedSectionId. Updated `publishedQuestions` resolver to only return custom questions for the given user's affiliation. Updated `findByVersionedSectionIdAndType` in `VersionCustomQuestion` model to include `affililationId` in query and updated associated unit test [#253]
+- Fixed type errors for the files that were updated for this ticket: `resolvers/versionedQuestion.ts`, `models/VersionedCustomQuestion.ts`, `models/__tests__/VersionedCustomQuestion.spec.ts` and added those files to the `tsconfig.strict.json` file [#253]
 - Fixed incorrect `versionPlanAfter` value in `generalConfig.ts`. This was changed while testing versioning for landing page [#365]
 - Fixed an issue in `MySqlModel` where the `query` function was returning a tuple with fields along with the response [#508]
 - Added missing `fast-xml-parser` back so that `re3data-os-populate.ts` can run

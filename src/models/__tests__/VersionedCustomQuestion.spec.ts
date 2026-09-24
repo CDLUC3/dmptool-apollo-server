@@ -388,7 +388,7 @@ describe("VersionedCustomQuestion", () => {
         questionText: "Updated question",
       });
 
-      const mockUpdate = jest.spyOn(MySqlModel, "update").mockResolvedValue(undefined);
+      const mockUpdate = jest.spyOn(MySqlModel, "update").mockResolvedValue(null);
       jest.spyOn(MySqlModel, "query").mockResolvedValue([
         {
           id: 1,
@@ -438,7 +438,7 @@ describe("VersionedCustomQuestion", () => {
         questionText: "  Test Question ",
       });
 
-      const mockUpdate = jest.spyOn(MySqlModel, "update").mockResolvedValue(undefined);
+      const mockUpdate = jest.spyOn(MySqlModel, "update").mockResolvedValue(null);
       jest.spyOn(MySqlModel, "query").mockResolvedValue([
         {
           id: 1,
@@ -637,6 +637,7 @@ describe("VersionedCustomQuestion", () => {
         "test.ref"
       );
       expect(result).toBeInstanceOf(VersionedCustomQuestion);
+      if (!result) throw new Error("expected result to be defined");
       expect(result.id).toBe(1);
       expect(result.versionedTemplateCustomizationId).toBe(100);
     });
@@ -652,7 +653,11 @@ describe("VersionedCustomQuestion", () => {
     it("should handle null id", async () => {
       const mockQuery = jest.spyOn(MySqlModel, "query").mockResolvedValue([]);
 
-      const result = await VersionedCustomQuestion.findById("test.ref", mockContext, null);
+      const result = await VersionedCustomQuestion.findById(
+        "test.ref",
+        mockContext,
+        null as unknown as number
+      );
 
       expect(mockQuery).toHaveBeenCalledWith(
         mockContext,
@@ -756,6 +761,7 @@ describe("VersionedCustomQuestion", () => {
         "test.ref"
       );
       expect(result).toBeInstanceOf(VersionedCustomQuestion);
+      if (!result) throw new Error("expected result to be defined");
       expect(result.id).toBe(1);
       expect(result.versionedTemplateCustomizationId).toBe(100);
     });
@@ -787,8 +793,8 @@ describe("VersionedCustomQuestion", () => {
         200,
         PinnedSectionTypeEnum.BASE,
         300,
-        null,
-        null
+        undefined,
+        undefined
       );
 
       expect(mockQuery).toHaveBeenCalledWith(
@@ -885,20 +891,22 @@ describe("VersionedCustomQuestion", () => {
       const result = await VersionedCustomQuestion.findByVersionedSectionIdAndType(
         "test.ref",
         mockContext,
+        5,
         300,
-        "BASE"
+        "BASE",
+        "https://ror.org/abc123"
       );
 
       expect(mockQuery).toHaveBeenCalledWith(
         mockContext,
         expect.stringContaining("SELECT vcq.* FROM versionedCustomQuestions as vcq"),
-        ["BASE", "300"],
+        ["5", "BASE", "300", "https://ror.org/abc123"],
         "test.ref"
       );
       expect(mockQuery).toHaveBeenCalledWith(
         mockContext,
-        expect.stringContaining("vtc.active = 1"),
-        ["BASE", "300"],
+        expect.stringContaining("vtc.affiliationId = ?"),
+        ["5", "BASE", "300", "https://ror.org/abc123"],
         "test.ref"
       );
       expect(Array.isArray(result)).toBe(true);
@@ -914,8 +922,10 @@ describe("VersionedCustomQuestion", () => {
       const result = await VersionedCustomQuestion.findByVersionedSectionIdAndType(
         "test.ref",
         mockContext,
+        5,
         999,
-        "CUSTOM"
+        "CUSTOM",
+        "https://ror.org/abc123"
       );
 
       expect(result).toEqual([]);

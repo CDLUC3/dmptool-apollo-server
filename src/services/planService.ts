@@ -89,6 +89,7 @@ export interface PublishedQuestionResult {
   // Type-specific IDs — one will always be present depending on questionType
   versionedQuestionId?: number;  // present when questionType === 'BASE'
   customQuestionId?: number;     // present when questionType === 'CUSTOM'
+  json?: string; // present when questionType === 'CUSTOM' and the question has a json field
 }
 
 export interface HistoricalPlanVersion {

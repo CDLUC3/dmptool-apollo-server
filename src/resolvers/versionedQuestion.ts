@@ -23,13 +23,35 @@ export const resolvers: Resolvers = {
       const reference = 'publishedQuestionsWithAnsweredFlag resolver';
       try {
         if (isAuthorized(context.token)) {
+          // Only include custom questions from the user's own org's customization
+          const affiliationId = context.token?.affiliationId;
           const [baseQuestions, customQuestions] = await Promise.all([
             VersionedQuestion.findByVersionedSectionId(reference, context, versionedSectionId),
-            VersionedCustomQuestion.findByVersionedSectionIdAndType(reference, context, versionedSectionId, 'BASE')
+            affiliationId
+              ? VersionedCustomQuestion.findByVersionedSectionIdAndType(
+                reference, context, planId, versionedSectionId, 'BASE', affiliationId
+              )
+              : [] as VersionedCustomQuestion[]
           ]);
 
-          const baseIds = baseQuestions.map(q => q.id);
-          const customIds = customQuestions.map(q => q.id);
+          // Guard against any malformed records missing an id
+          const validBaseQuestions = baseQuestions.filter(
+            (q): q is typeof q & { id: number } => q.id !== undefined
+          );
+          if (validBaseQuestions.length !== baseQuestions.length) {
+            context.logger.warn(`${reference}: some VersionedQuestion records missing id`);
+          }
+
+          const baseIds = validBaseQuestions.map(q => q.id);
+
+          const validCustomQuestions = customQuestions.filter(
+            (q): q is typeof q & { id: number } => q.id !== undefined
+          );
+          if (validCustomQuestions.length !== customQuestions.length) {
+            context.logger.warn(`${reference}: some VersionedCustomQuestion records missing id`);
+          }
+
+          const customIds = validCustomQuestions.map(q => q.id);
 
           const [baseAnswers, customAnswers] = await Promise.all([
             Answer.findFilledAnswersByQuestionIds(reference, context, planId, baseIds),
@@ -40,7 +62,7 @@ export const resolvers: Resolvers = {
           const customAnswersMap = new Set(customAnswers.map(a => a.versionedCustomQuestionId));
 
           // Build ordered list starting with base questions
-          const ordered: PublishedQuestionResult[] = baseQuestions.map(q => ({
+          const ordered: PublishedQuestionResult[] = validBaseQuestions.map(q => ({
             id: q.id,
             questionText: q.questionText,
             requirementText: q.requirementText,
@@ -54,7 +76,7 @@ export const resolvers: Resolvers = {
           }));
 
           // Sort custom questions by id (same as injectCustomQuestions)
-          const sortedCustom = [...customQuestions].sort((a, b) => a.id - b.id);
+          const sortedCustom = [...validCustomQuestions].sort((a, b) => a.id - b.id);
 
           // Splice each custom question in after its pinned question
           for (const q of sortedCustom) {
@@ -108,14 +130,21 @@ export const resolvers: Resolvers = {
             reference, context, versionedCustomSectionId
           );
 
-          const questionIds = questions.map(q => q.id);
+          const validQuestions = questions.filter(
+            (q): q is typeof q & { id: number } => q.id !== undefined
+          );
+          if (validQuestions.length !== questions.length) {
+            context.logger.warn(`${reference}: some VersionedCustomQuestion records missing id`);
+          }
+
+          const questionIds = validQuestions.map(q => q.id);
           const answers = await Answer.findFilledAnswersByCustomQuestionIds(
             reference, context, planId, questionIds
           );
 
           const answersMap = new Set(answers.map(a => a.versionedCustomQuestionId));
 
-          return questions.map(q => ({
+          return validQuestions.map(q => ({
             id: q.id,
             questionText: q.questionText,
             requirementText: q.requirementText,
@@ -169,11 +198,12 @@ export const resolvers: Resolvers = {
       }
     },
 
-    publishedCustomQuestion: async (_, { versionedCustomQuestionId }, context: MyContext): Promise<VersionedCustomQuestion> => {
+    publishedCustomQuestion: async (_, { versionedCustomQuestionId }, context: MyContext): Promise<VersionedCustomQuestion | null> => {
       const reference = 'publishedCustomQuestion resolver';
       try {
         if (isAuthorized(context?.token)) {
-          return await VersionedCustomQuestion.findById(reference, context, versionedCustomQuestionId);
+          // Returns null when no matching custom question is found
+          return (await VersionedCustomQuestion.findById(reference, context, versionedCustomQuestionId)) ?? null;
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();
       } catch (err) {
@@ -186,7 +216,7 @@ export const resolvers: Resolvers = {
   },
 
   VersionedCustomQuestion: {
-    ownerAffiliation: async (parent: VersionedCustomQuestion, _, context: MyContext): Promise<Affiliation | null> => {
+    ownerAffiliation: async (parent, _, context: MyContext): Promise<Affiliation | null> => {
       const reference = 'VersionedCustomQuestion.ownerAffiliation resolver';
       const vtc = await VersionedTemplateCustomization.findById(
         reference, context, parent.versionedTemplateCustomizationId
@@ -198,24 +228,29 @@ export const resolvers: Resolvers = {
       if (!versionedTemplate?.ownerId) return null;
       return await Affiliation.findByURI(reference, context, versionedTemplate.ownerId);
     },
-    created: (parent: VersionedCustomQuestion) => {
-      return normaliseDateTime(parent.created);
+    created: (parent) => {
+      return normaliseDateTime(parent.created ?? null);
     },
-    modified: (parent: VersionedCustomQuestion) => {
-      return normaliseDateTime(parent.modified);
+    modified: (parent) => {
+      return normaliseDateTime(parent.modified ?? null);
     },
   },
 
   VersionedQuestion: {
     // Chained resolver to return the VersionedQuestionConditions associated with this VersionedQuestion
-    versionedQuestionConditions: async (parent: VersionedQuestion, _, context: MyContext): Promise<VersionedQuestionCondition[]> => {
+    versionedQuestionConditions: async (parent, _, context: MyContext): Promise<VersionedQuestionCondition[]> => {
+      if (parent.id == null) {
+        context.logger.warn('VersionedQuestion.versionedQuestionConditions: parent missing id');
+        return [];
+      }
+
       return await VersionedQuestionCondition.findByVersionedQuestionConditionGroupId(
         'Chained VersionedQuestion.versionedQuestionConditions',
         context,
         parent.id
       );
     },
-    ownerAffiliation: async (parent: VersionedQuestion, _, context: MyContext): Promise<Affiliation | null> => {
+    ownerAffiliation: async (parent, _, context: MyContext): Promise<Affiliation | null> => {
       const reference = 'VersionedQuestion.ownerAffiliation resolver';
       const versionedTemplate = await VersionedTemplate.findById(
         reference,
@@ -229,19 +264,24 @@ export const resolvers: Resolvers = {
         versionedTemplate.ownerId
       );
     },
-    customizationOwnerAffiliation: async (parent: VersionedQuestion & { customizationAffiliationId?: string }, _, context: MyContext): Promise<Affiliation | null> => {
-      if (!parent.customizationAffiliationId) return null;
+    customizationOwnerAffiliation: async (parent, _, context: MyContext): Promise<Affiliation | null> => {
+      // customizationAffiliationId is not part of the schema's VersionedQuestion shape —
+      // it's attached ad hoc to the row by the query that populates this resolver's parent.
+      const customizationAffiliationId = 'customizationAffiliationId' in parent
+        ? (parent as { customizationAffiliationId?: string }).customizationAffiliationId
+        : undefined;
+      if (!customizationAffiliationId) return null;
       return await Affiliation.findByURI(
         'VersionedQuestion.customizationOwnerAffiliation resolver',
         context,
-        parent.customizationAffiliationId
+        customizationAffiliationId
       );
     },
-    created: (parent: VersionedQuestion) => {
-      return normaliseDateTime(parent.created);
+    created: (parent) => {
+      return normaliseDateTime(parent.created ?? null);
     },
-    modified: (parent: VersionedQuestion) => {
-      return normaliseDateTime(parent.modified);
+    modified: (parent) => {
+      return normaliseDateTime(parent.modified ?? null);
     }
   }
 };

@@ -1132,6 +1132,7 @@ export async function getRelevantGuidanceForPlan(
  * practice, user's affiliation, template owner, and user-selected guidance.
  *
  * @param affiliation the user's affiliation
+ * @param sectionCustomization the section customization for the versioned question
  * @param guidanceCustomizations the list of guidance customizations for the versioned question
  * @param relevantTags the set of relevant tags for the versioned question
  * @param availableGuidance the list of available guidance sources
@@ -1142,6 +1143,7 @@ export async function getRelevantGuidanceForPlan(
  */
 export function getRelevantGuidanceForVersionedQuestion(
   affiliation: Affiliation,
+  sectionCustomization: VersionedSectionCustomization | undefined,
   guidanceCustomizations: VersionedQuestionCustomization[],
   relevantTags: Set<RelevantTag>,
   availableGuidance: GuidanceSource[],
@@ -1163,7 +1165,7 @@ export function getRelevantGuidanceForVersionedQuestion(
     }));
     const matchingItems: GuidanceItem[] = Array.from(itemSet);
 
-    // Add any question specific guidance added by the template owner to the GuidanceSource item
+    // Add any question specific guidance and sample text added by the template owner
     if (versionedQuestion.guidanceText && gs.id === `affiliation-${versionedTemplate.ownerId}`) {
       matchingItems.push({
         id: null,
@@ -1175,36 +1177,41 @@ export function getRelevantGuidanceForVersionedQuestion(
     return [gs.id, { ...gs, items: matchingItems }];
   }));
 
+
+  const guidanceText: string[] = []
+  // get the section customization guidance if it exists
+  if (sectionCustomization) {
+    guidanceText.push(sectionCustomization.guidance);
+  }
+
+  // Check for any guidance/sample text customizations for the question
   const custG: VersionedQuestionCustomization | undefined = guidanceCustomizations.find(
     (gc: VersionedQuestionCustomization): boolean =>
       gc.versionedQuestionId === versionedQuestion.id
   );
   if (custG) {
+    guidanceText.push(custG.guidanceText);
+  }
+
+  // If there was any section or question customization guidance, add it as a
+  // new GuidanceSource for the plan owner's affiliation
+  if (guidanceText.length > 0) {
     const sourceId = `customization-${affiliation.uri}`;
-    const source: GuidanceSource | undefined = gSources.get(sourceId);
-    if (source) {
-      source.items.push({
+    gSources.set(sourceId,{
+      id: sourceId,
+      type: 'USER_AFFILIATION',
+      label: affiliation.displayName || affiliation.name,
+      shortName: affiliation.acronyms?.[0] || affiliation.displayName || affiliation.name,
+      orgURI: affiliation.uri,
+      hasGuidance: true,
+      tagIds: new Set<number>([]),
+      items: [{
         id: null,
         title: null,
-        guidanceText: custG.guidanceText,
-        sampleText: custG.sampleText
-      });
-    } else {
-      gSources.set(sourceId, {
-        id: sourceId,
-        type: 'USER_AFFILIATION',
-        label: affiliation.displayName || affiliation.name,
-        shortName: affiliation.acronyms?.[0] || affiliation.name,
-        orgURI: affiliation.uri,
-        hasGuidance: true,
-        items: [{
-          id: null,
-          title: null,
-          guidanceText: custG.guidanceText,
-          sampleText: custG.sampleText
-        }]
-      });
-    }
+        guidanceText: guidanceText.join('\n\n'),
+        sampleText: custG?.sampleText
+      }],
+    });
   }
 
   return Array.from(gSources.values());

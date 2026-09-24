@@ -3097,6 +3097,10 @@ export type PlanQuestion = {
   conditionalLogic?: Maybe<Array<VersionedQuestionConditionalLogic>>;
   /** The unique identifier for the Custom Question (if applicable) */
   customQuestionId?: Maybe<Scalars['Int']['output']>;
+  /** The type of action to take when the display logic matches (e.g. show, hide, send email, etc.) */
+  displayLogicAction?: Maybe<QuestionConditionActionType>;
+  /** Whether ANY or ALL of the groups must match for the display logic to be applied */
+  displayLogicMatchType?: Maybe<QuestionConditionMatchType>;
   /** The display order of the VersionedQuestion */
   displayOrder?: Maybe<Scalars['Int']['output']>;
   /** The guidance sources for the versioned question */
@@ -8312,6 +8316,8 @@ export type PlanQuestionResolvers<ContextType = MyContext, ParentType extends Re
   answer?: Resolver<Maybe<ResolversTypes['Answer']>, ParentType, ContextType>;
   conditionalLogic?: Resolver<Maybe<Array<ResolversTypes['VersionedQuestionConditionalLogic']>>, ParentType, ContextType>;
   customQuestionId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  displayLogicAction?: Resolver<Maybe<ResolversTypes['QuestionConditionActionType']>, ParentType, ContextType>;
+  displayLogicMatchType?: Resolver<Maybe<ResolversTypes['QuestionConditionMatchType']>, ParentType, ContextType>;
   displayOrder?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   guidanceSources?: Resolver<Maybe<Array<ResolversTypes['GuidanceSource']>>, ParentType, ContextType>;
   guidanceText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;

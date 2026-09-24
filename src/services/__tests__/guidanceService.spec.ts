@@ -1114,12 +1114,19 @@ describe("getRelevantGuidanceForVersionedQuestion", () => {
       },
     ];
 
+    const sectionCustomization = {
+      id: 5,
+      sectionId: 3,
+      guidance: "Custom section guidance",
+    } as any;
+
     const customizations = [
       { versionedQuestionId: 55, guidanceText: "Custom guidance" },
     ] as any;
 
     const result = guidanceService.getRelevantGuidanceForVersionedQuestion(
       affiliation,
+      sectionCustomization,
       customizations,
       relevantTags,
       availableGuidance,
@@ -1142,7 +1149,7 @@ describe("getRelevantGuidanceForVersionedQuestion", () => {
         }),
         expect.objectContaining({
           id: `customization-${affiliation.uri}`,
-          items: [{ id: null, title: null, guidanceText: "Custom guidance" }],
+          items: [{ id: null, title: null, guidanceText: "Custom section guidance\n\nCustom guidance" }],
         }),
       ])
     );

@@ -76,6 +76,9 @@ import {
 import { RelevantTag, Tag } from "../models/Tag.js";
 import { VersionedQuestionCustomization } from "../models/VersionedQuestionCustomization.js";
 import { findConditionalLogicForPlan } from "./conditionalLogicService.js";
+import {
+  VersionedSectionCustomization
+} from "../models/VersionedSectionCustomization.js";
 
 export interface PublishedQuestionResult {
   id: number;
@@ -887,7 +890,14 @@ export async function getPlanSectionsAndQuestions (
   const sections: PlanSection[] = [];
 
   if (plan.id) {
+    // Get the current user's affiliation (needed to load the appropriate guidance for the plan)
     const affiliation: Affiliation = await Affiliation.findByURI(reference, context, context.token.affiliationId);
+    // Get the plan owner and their affiliation (needed to load the appropriate customizations for the plan)
+    const planOwner: ProjectCollaborator | null = await ProjectCollaborator.findOwnerByProjectId(reference, context, plan.projectId);
+    const owner: User | null = planOwner ? await User.findById(reference, context, planOwner.userId) : null;
+    const ownerAffiliation: Affiliation = owner
+      ? await Affiliation.findByURI(reference, context, owner.affiliationId) || affiliation
+      : affiliation;
     const vTemplate: VersionedTemplate = await VersionedTemplate.findById(reference, context, plan.versionedTemplateId);
     if (!affiliation || !vTemplate) return [];
 
@@ -908,7 +918,7 @@ export async function getPlanSectionsAndQuestions (
     const customSectionIds: number[] = customProgress.map((p: PlanSectionProgress): number => p.customSectionId);
 
     // Second, fetch everything for the whole plan at once
-    const [baseSections, customSections, allBaseQuestions, allBaseCustomQuestions, allCustomQuestions, filledAnswers, conditionalLogic, guidanceCustomizations, guidanceSources] =
+    const [baseSections, customSections, allBaseQuestions, allBaseCustomQuestions, allCustomQuestions, filledAnswers, conditionalLogic, sectionCustomizations, questionCustomizations, guidanceSources] =
       await Promise.all([
         VersionedSection.findByIds(reference, context, baseSectionIds),
         VersionedCustomSection.findByIds(reference, context, customSectionIds),
@@ -920,8 +930,10 @@ export async function getPlanSectionsAndQuestions (
         Answer.findFilledAnswersByPlanId(reference, context, plan.id),
         // Get all conditional logic for the plan's questions
         findConditionalLogicForPlan(reference, context, baseSectionIds),
-        // Get any custom guidance set on Base questions
-        VersionedQuestionCustomization.findForActiveForAffiliationAndVersionSectionIds(reference, context, context.token.affiliationId, baseSectionIds),
+        // get any custom guidance set on Base sections (using the plan owner's affiliation!)
+        VersionedSectionCustomization.findForActiveForAffiliationAndVersionSectionIds(reference, context, ownerAffiliation.uri, baseSectionIds),
+        // Get any custom guidance set on Base questions (using the plan owner's affiliation!)
+        VersionedQuestionCustomization.findForActiveForAffiliationAndVersionSectionIds(reference, context, ownerAffiliation.uri, baseSectionIds),
         // Guidance sources for the plan
         getRelevantGuidanceForPlan(reference, context, plan.id, vTemplate, relevantTags),
       ]);
@@ -966,7 +978,8 @@ export async function getPlanSectionsAndQuestions (
         // plan's affiliation, any customizations, and the relevant tags
         const gSources: GuidanceSource[] = getRelevantGuidanceForVersionedQuestion(
           affiliation,
-          guidanceCustomizations,
+          sectionCustomizations.find((s: VersionedSectionCustomization): boolean => s.versionedSectionId === q.versionedSectionId),
+          questionCustomizations,
           relevantTags,
           guidanceSources,
           vTemplate,

@@ -424,6 +424,10 @@ export const typeDefs = gql`
     useSampleTextAsDefault: Boolean
     "To indicate whether the question is required to be completed"
     required: Boolean
+    "The type of action to take when the display logic matches (e.g. show, hide, send email, etc.)"
+    displayLogicAction: QuestionConditionActionType
+    "Whether ANY or ALL of the groups must match for the display logic to be applied"
+    displayLogicMatchType: QuestionConditionMatchType
 
     "Whether or not the question has been answered"
     hasAnswer: Boolean

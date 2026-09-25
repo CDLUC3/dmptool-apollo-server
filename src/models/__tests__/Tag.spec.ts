@@ -478,3 +478,50 @@ describe('findBySlug', () => {
 
   });
 });
+
+describe('findTagIdsForVersionedTemplateId', () => {
+  let context;
+
+  beforeEach(async () => {
+    context = await buildMockContextWithToken(logger);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('should query tags for questions and sections in the versioned template', async () => {
+    const versionedTemplateId = casual.integer(1, 999);
+    const relevantTags = [
+      { versionedQuestionId: 1, tagId: 2 },
+      { versionedSectionId: 3, tagId: 4 },
+    ];
+    const query = jest.spyOn(Tag, 'query').mockResolvedValueOnce(relevantTags);
+
+    const result = await Tag.findTagIdsForVersionedTemplateId(
+      'Tag query',
+      context,
+      versionedTemplateId
+    );
+
+    expect(query).toHaveBeenCalledWith(
+      context,
+      expect.stringContaining('FROM versionedQuestionTags'),
+      [versionedTemplateId.toString(), versionedTemplateId.toString()],
+      'Tag query'
+    );
+    expect(result).toEqual(new Set(relevantTags));
+  });
+
+  it('should return an empty set when the query does not return an array', async () => {
+    jest.spyOn(Tag, 'query').mockResolvedValueOnce(null);
+
+    const result = await Tag.findTagIdsForVersionedTemplateId(
+      'Tag query',
+      context,
+      casual.integer(1, 999)
+    );
+
+    expect(result).toEqual(new Set());
+  });
+});

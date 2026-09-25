@@ -1385,6 +1385,8 @@ export type GuidanceItem = {
   guidanceText: Scalars['String']['output'];
   /** Tag ID this guidance is associated with */
   id?: Maybe<Scalars['Int']['output']>;
+  /** The sample text content (HTML) */
+  sampleText?: Maybe<Scalars['String']['output']>;
   /** Title/name of the tag */
   title?: Maybe<Scalars['String']['output']>;
 };
@@ -2781,7 +2783,7 @@ export type PaginationType =
   /** Standard pagination using offsets (first, next, previous, last) */
   | 'OFFSET';
 
-/** A Data Managament Plan (DMP) */
+/** A Data Management Plan (DMP) */
 export type Plan = {
   __typename?: 'Plan';
   /** Related works that have been accepted/verified as associated with the plan */
@@ -2790,6 +2792,8 @@ export type Plan = {
   alternateIdentifiers?: Maybe<Array<AlternateIdentifier>>;
   /** Answers associated with the plan */
   answers?: Maybe<Array<Answer>>;
+  /** The guidance sources available to the Plan */
+  availableGuidanceSources?: Maybe<Array<GuidanceSource>>;
   /** The timestamp when the Object was created */
   created?: Maybe<Scalars['String']['output']>;
   /** The user who created the Object */
@@ -2806,13 +2810,13 @@ export type Plan = {
   feedbackStatus?: Maybe<PlanFeedbackStatus>;
   /** The funding for the plan */
   fundings?: Maybe<Array<PlanFunding>>;
-  /** The unique identifer for the Object */
+  /** The unique identifier for the Object */
   id?: Maybe<Scalars['Int']['output']>;
   /** The language of the plan */
   languageId?: Maybe<Scalars['String']['output']>;
   /** The members for the plan */
   members?: Maybe<Array<PlanMember>>;
-  /** The timestamp when the Object was last modifed */
+  /** The timestamp when the Object was last modified */
   modified?: Maybe<Scalars['String']['output']>;
   /** The user who last modified the Object */
   modifiedById?: Maybe<Scalars['Int']['output']>;
@@ -2832,11 +2836,13 @@ export type Plan = {
   registeredById?: Maybe<Scalars['Int']['output']>;
   /** Other works related to this plan's project (e.g. publications, datasets) */
   relatedWorks?: Maybe<Array<RelatedWorkSearchResult>>;
+  /** The sections of the plan (full detail for each section) */
+  sections?: Maybe<Array<PlanSection>>;
   /** The status/state of the plan */
   status?: Maybe<PlanStatus>;
   /** The title of the plan */
   title?: Maybe<Scalars['String']['output']>;
-  /** The section search results */
+  /** The section search results (high level progress information for the section) */
   versionedSections?: Maybe<Array<PlanSectionProgress>>;
   /** The template the plan is based on */
   versionedTemplate?: Maybe<VersionedTemplate>;
@@ -3086,6 +3092,45 @@ export type PlanProgress = {
   totalQuestions: Scalars['Int']['output'];
 };
 
+/** The versioned question view required by the EntirePlan type */
+export type PlanQuestion = {
+  __typename?: 'PlanQuestion';
+  /** The answer to the question */
+  answer?: Maybe<Answer>;
+  /** The conditional logic for the versioned question */
+  conditionalLogic?: Maybe<Array<VersionedQuestionConditionalLogic>>;
+  /** The unique identifier for the Custom Question (if applicable) */
+  customQuestionId?: Maybe<Scalars['Int']['output']>;
+  /** The type of action to take when the display logic matches (e.g. show, hide, send email, etc.) */
+  displayLogicAction?: Maybe<QuestionConditionActionType>;
+  /** Whether ANY or ALL of the groups must match for the display logic to be applied */
+  displayLogicMatchType?: Maybe<QuestionConditionMatchType>;
+  /** The display order of the VersionedQuestion */
+  displayOrder?: Maybe<Scalars['Int']['output']>;
+  /** The guidance sources for the versioned question */
+  guidanceSources?: Maybe<Array<GuidanceSource>>;
+  /** Guidance to complete the question */
+  guidanceText?: Maybe<Scalars['String']['output']>;
+  /** Whether or not the question has been answered */
+  hasAnswer?: Maybe<Scalars['Boolean']['output']>;
+  /** The JSON representation of the question type */
+  json?: Maybe<Scalars['String']['output']>;
+  /** This will be used as a sort of title for the Question */
+  questionText?: Maybe<Scalars['String']['output']>;
+  /** The type of question (customization or template question) */
+  questionType: Scalars['String']['output'];
+  /** To indicate whether the question is required to be completed */
+  required?: Maybe<Scalars['Boolean']['output']>;
+  /** Requirements associated with the Question */
+  requirementText?: Maybe<Scalars['String']['output']>;
+  /** Sample text to possibly provide a starting point or example to answer question */
+  sampleText?: Maybe<Scalars['String']['output']>;
+  /** Whether or not the sample text should be used as the default answer for this question */
+  useSampleTextAsDefault?: Maybe<Scalars['Boolean']['output']>;
+  /** The unique identifier for the Template Question (if applicable) */
+  versionedQuestionId?: Maybe<Scalars['Int']['output']>;
+};
+
 export type PlanSearchResult = {
   __typename?: 'PlanSearchResult';
   /** The timestamp when the Object was created */
@@ -3124,6 +3169,31 @@ export type PlanSearchResult = {
   versionedTemplateId?: Maybe<Scalars['Int']['output']>;
   /** The visibility/permission setting */
   visibility?: Maybe<PlanVisibility>;
+};
+
+/** The view of a versioned section required by the EntirePlan type */
+export type PlanSection = {
+  __typename?: 'PlanSection';
+  /** The number of questions that have been answered in this VersionedSection */
+  answeredQuestions: Scalars['Int']['output'];
+  /** The unique identifier for the Custom Section (if applicable) */
+  customSectionId?: Maybe<Scalars['Int']['output']>;
+  /** The displayOrder of this VersionedSection */
+  displayOrder: Scalars['Int']['output'];
+  /** The VersionedSection introduction */
+  introduction?: Maybe<Scalars['String']['output']>;
+  /** The VersionedQuestions and CustomQuestions associated with this VersionedSection */
+  questions?: Maybe<Array<PlanQuestion>>;
+  /** Requirements that a user must consider in this VersionedSection */
+  requirements?: Maybe<Scalars['String']['output']>;
+  /** The type of section (customization or template section) */
+  sectionType: Scalars['String']['output'];
+  /** The VersionedSection name/title */
+  title: Scalars['String']['output'];
+  /** The total number of questions in this VersionedSection */
+  totalQuestions: Scalars['Int']['output'];
+  /** The unique identifier for the Template Section (if applicable) */
+  versionedSectionId?: Maybe<Scalars['Int']['output']>;
 };
 
 /** The progress the user has made within a section of the plan */
@@ -6310,6 +6380,18 @@ export type VersionedQuestionConditionGroupErrors = {
   versionedQuestionId?: Maybe<Scalars['String']['output']>;
 };
 
+export type VersionedQuestionConditionalLogic = {
+  __typename?: 'VersionedQuestionConditionalLogic';
+  /** The value that the trigger question must match for the conditional logic to be applied */
+  conditionMatch: Scalars['String']['output'];
+  /** The type of condition (e.g. equals, not equals, greater than, less than, etc.) */
+  conditionType: Scalars['String']['output'];
+  /** The id of the versioned question that triggers the conditional logic */
+  triggerQuestionId: Scalars['Int']['output'];
+  /** The id of the versioned question that has conditional logic */
+  versionedQuestionId: Scalars['Int']['output'];
+};
+
 /** A collection of errors related to the VersionedQuestion */
 export type VersionedQuestionErrors = {
   __typename?: 'VersionedQuestionErrors';
@@ -6834,7 +6916,9 @@ export type ResolversTypes = {
   PlanMember: ResolverTypeWrapper<PlanMember>;
   PlanMemberErrors: ResolverTypeWrapper<PlanMemberErrors>;
   PlanProgress: ResolverTypeWrapper<PlanProgress>;
+  PlanQuestion: ResolverTypeWrapper<PlanQuestion>;
   PlanSearchResult: ResolverTypeWrapper<PlanSearchResult>;
+  PlanSection: ResolverTypeWrapper<PlanSection>;
   PlanSectionProgress: ResolverTypeWrapper<PlanSectionProgress>;
   PlanStatus: PlanStatus;
   PlanVersion: ResolverTypeWrapper<PlanVersion>;
@@ -6986,6 +7070,7 @@ export type ResolversTypes = {
   VersionedQuestionConditionErrors: ResolverTypeWrapper<VersionedQuestionConditionErrors>;
   VersionedQuestionConditionGroup: ResolverTypeWrapper<VersionedQuestionConditionGroup>;
   VersionedQuestionConditionGroupErrors: ResolverTypeWrapper<VersionedQuestionConditionGroupErrors>;
+  VersionedQuestionConditionalLogic: ResolverTypeWrapper<VersionedQuestionConditionalLogic>;
   VersionedQuestionErrors: ResolverTypeWrapper<VersionedQuestionErrors>;
   VersionedSection: ResolverTypeWrapper<VersionedSection>;
   VersionedSectionErrors: ResolverTypeWrapper<VersionedSectionErrors>;
@@ -7115,7 +7200,9 @@ export type ResolversParentTypes = {
   PlanMember: PlanMember;
   PlanMemberErrors: PlanMemberErrors;
   PlanProgress: PlanProgress;
+  PlanQuestion: PlanQuestion;
   PlanSearchResult: PlanSearchResult;
+  PlanSection: PlanSection;
   PlanSectionProgress: PlanSectionProgress;
   PlanVersion: PlanVersion;
   PlanVersionSnapshot: PlanVersionSnapshot;
@@ -7247,6 +7334,7 @@ export type ResolversParentTypes = {
   VersionedQuestionConditionErrors: VersionedQuestionConditionErrors;
   VersionedQuestionConditionGroup: VersionedQuestionConditionGroup;
   VersionedQuestionConditionGroupErrors: VersionedQuestionConditionGroupErrors;
+  VersionedQuestionConditionalLogic: VersionedQuestionConditionalLogic;
   VersionedQuestionErrors: VersionedQuestionErrors;
   VersionedSection: VersionedSection;
   VersionedSectionErrors: VersionedSectionErrors;
@@ -7761,6 +7849,7 @@ export type GuidanceGroupErrorsResolvers<ContextType = MyContext, ParentType ext
 export type GuidanceItemResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['GuidanceItem'] = ResolversParentTypes['GuidanceItem']> = {
   guidanceText?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  sampleText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   title?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 };
 
@@ -8062,6 +8151,7 @@ export type PlanResolvers<ContextType = MyContext, ParentType extends ResolversP
   acceptedWorks?: Resolver<Maybe<Array<ResolversTypes['AcceptedWork']>>, ParentType, ContextType>;
   alternateIdentifiers?: Resolver<Maybe<Array<ResolversTypes['AlternateIdentifier']>>, ParentType, ContextType>;
   answers?: Resolver<Maybe<Array<ResolversTypes['Answer']>>, ParentType, ContextType>;
+  availableGuidanceSources?: Resolver<Maybe<Array<ResolversTypes['GuidanceSource']>>, ParentType, ContextType>;
   created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   createdById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   dmpId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -8083,6 +8173,7 @@ export type PlanResolvers<ContextType = MyContext, ParentType extends ResolversP
   registered?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   registeredById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   relatedWorks?: Resolver<Maybe<Array<ResolversTypes['RelatedWorkSearchResult']>>, ParentType, ContextType>;
+  sections?: Resolver<Maybe<Array<ResolversTypes['PlanSection']>>, ParentType, ContextType>;
   status?: Resolver<Maybe<ResolversTypes['PlanStatus']>, ParentType, ContextType>;
   title?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   versionedSections?: Resolver<Maybe<Array<ResolversTypes['PlanSectionProgress']>>, ParentType, ContextType>;
@@ -8226,6 +8317,26 @@ export type PlanProgressResolvers<ContextType = MyContext, ParentType extends Re
   totalQuestions?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
 };
 
+export type PlanQuestionResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PlanQuestion'] = ResolversParentTypes['PlanQuestion']> = {
+  answer?: Resolver<Maybe<ResolversTypes['Answer']>, ParentType, ContextType>;
+  conditionalLogic?: Resolver<Maybe<Array<ResolversTypes['VersionedQuestionConditionalLogic']>>, ParentType, ContextType>;
+  customQuestionId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  displayLogicAction?: Resolver<Maybe<ResolversTypes['QuestionConditionActionType']>, ParentType, ContextType>;
+  displayLogicMatchType?: Resolver<Maybe<ResolversTypes['QuestionConditionMatchType']>, ParentType, ContextType>;
+  displayOrder?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  guidanceSources?: Resolver<Maybe<Array<ResolversTypes['GuidanceSource']>>, ParentType, ContextType>;
+  guidanceText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  hasAnswer?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
+  json?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  questionText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  questionType?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  required?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
+  requirementText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  sampleText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  useSampleTextAsDefault?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
+  versionedQuestionId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+};
+
 export type PlanSearchResultResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PlanSearchResult'] = ResolversParentTypes['PlanSearchResult']> = {
   created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   createdBy?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -8245,6 +8356,19 @@ export type PlanSearchResultResolvers<ContextType = MyContext, ParentType extend
   versionedSections?: Resolver<Maybe<Array<ResolversTypes['PlanSectionProgress']>>, ParentType, ContextType>;
   versionedTemplateId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   visibility?: Resolver<Maybe<ResolversTypes['PlanVisibility']>, ParentType, ContextType>;
+};
+
+export type PlanSectionResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PlanSection'] = ResolversParentTypes['PlanSection']> = {
+  answeredQuestions?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  customSectionId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  displayOrder?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  introduction?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  questions?: Resolver<Maybe<Array<ResolversTypes['PlanQuestion']>>, ParentType, ContextType>;
+  requirements?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  sectionType?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  title?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  totalQuestions?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  versionedSectionId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
 };
 
 export type PlanSectionProgressResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PlanSectionProgress'] = ResolversParentTypes['PlanSectionProgress']> = {
@@ -9446,6 +9570,13 @@ export type VersionedQuestionConditionGroupErrorsResolvers<ContextType = MyConte
   versionedQuestionId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 };
 
+export type VersionedQuestionConditionalLogicResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['VersionedQuestionConditionalLogic'] = ResolversParentTypes['VersionedQuestionConditionalLogic']> = {
+  conditionMatch?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  conditionType?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  triggerQuestionId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  versionedQuestionId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+};
+
 export type VersionedQuestionErrorsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['VersionedQuestionErrors'] = ResolversParentTypes['VersionedQuestionErrors']> = {
   displayOrder?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   general?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -9678,7 +9809,9 @@ export type Resolvers<ContextType = MyContext> = {
   PlanMember?: PlanMemberResolvers<ContextType>;
   PlanMemberErrors?: PlanMemberErrorsResolvers<ContextType>;
   PlanProgress?: PlanProgressResolvers<ContextType>;
+  PlanQuestion?: PlanQuestionResolvers<ContextType>;
   PlanSearchResult?: PlanSearchResultResolvers<ContextType>;
+  PlanSection?: PlanSectionResolvers<ContextType>;
   PlanSectionProgress?: PlanSectionProgressResolvers<ContextType>;
   PlanVersion?: PlanVersionResolvers<ContextType>;
   PlanVersionSnapshot?: PlanVersionSnapshotResolvers<ContextType>;
@@ -9776,6 +9909,7 @@ export type Resolvers<ContextType = MyContext> = {
   VersionedQuestionConditionErrors?: VersionedQuestionConditionErrorsResolvers<ContextType>;
   VersionedQuestionConditionGroup?: VersionedQuestionConditionGroupResolvers<ContextType>;
   VersionedQuestionConditionGroupErrors?: VersionedQuestionConditionGroupErrorsResolvers<ContextType>;
+  VersionedQuestionConditionalLogic?: VersionedQuestionConditionalLogicResolvers<ContextType>;
   VersionedQuestionErrors?: VersionedQuestionErrorsResolvers<ContextType>;
   VersionedSection?: VersionedSectionResolvers<ContextType>;
   VersionedSectionErrors?: VersionedSectionErrorsResolvers<ContextType>;

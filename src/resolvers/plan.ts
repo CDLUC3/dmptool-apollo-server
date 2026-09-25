@@ -16,9 +16,9 @@ import { PlanFeedback } from "../models/PlanFeedback.js";
 import { Affiliation } from "../models/Affiliation.js";
 import { VersionedTemplate } from "../models/VersionedTemplate.js";
 import { Answer } from "../models/Answer.js";
-import { ProjectCollaborator, ProjectCollaboratorAccessLevel } from "../models/Collaborator.js";
+import { ProjectCollaboratorAccessLevel } from "../models/Collaborator.js";
 import { AlternateIdentifier } from "../models/AlternateIdentifier.js";
-import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers.js";
+import { normaliseDateTime } from "../utils/helpers.js";
 import {
   AuthenticationError,
   BadUserInputError,
@@ -34,11 +34,16 @@ import {
 } from "../types/general.js";
 import {
   AddEntirePlanInput,
+  InputMaybe,
   PaginatedPlanResults,
   PlanFeedbackStatus,
   Resolvers,
   UpdateEntirePlanInput,
-  PlanVersionSnapshot
+  PlanStatus as PlanStatusType,
+  PlanVersionSnapshot,
+  UpdatePlanInput,
+  GuidanceSource,
+  PlanSection
 } from "../types.js";
 import { prepareObjectForLogs } from "../logger.js";
 import { toErrorMessage } from "@dmptool/utils";
@@ -52,15 +57,17 @@ import {
   handleAsyncUpdates,
   getPlanVersions,
   getPlanVersionSnapshot,
+  getPlanAndCheckAuthorization, getPlanOwnerAffiliation,
+  getPlanSectionsAndQuestions,
 } from "../services/planService.js";
 import {
+  getProjectAndCheckAuthorization,
   hasPermissionOnProject,
   isProjectReadOnlyForCurrentUser
 } from "../services/projectService.js";
 import {
   authenticatedResolver,
   isAdmin,
-  isAuthorized,
   isSuperAdmin
 } from "../services/authService.js";
 import {
@@ -68,16 +75,29 @@ import {
   removeEntirePlan,
   replaceEntirePlan
 } from "../services/entirePlanService.js";
+import { getGuidanceSourcesForPlan } from "../services/guidanceService.js";
 
 export const resolvers: Resolvers = {
   Query: {
-    // Find all of the plans for a specified userId, with pagination and optional search term filtering
+    /**
+     * ADMINS ONLY: Find all the plans for a specified userId, with pagination
+     * and optional search term filtering
+     *
+     * @param _ Ignored, this is the entrypoint for the Apollo resolver
+     * @param args the user id, search term and pagination options
+     * @param context The Apollo context
+     * @returns The Plans
+     * @throws NotFoundError when the Plan is not found
+     * @throws ForbiddenError when the caller does not have permission
+     * @throws UnauthorizedError when the JWT token is not present
+     * @throws InternalServerError when a fatal error has occurred
+     */
     plans: authenticatedResolver(
       'plansWithPagination resolver',
       UserRole.ADMIN,
       async (
         _: Record<PropertyKey, never>,
-        { userId, term, paginationOptions }: { userId: number; term?: string; paginationOptions?: PaginationOptions },
+        { userId, term, paginationOptions }: { userId: number; term: InputMaybe<string>; paginationOptions?: PaginationOptions },
         context: MyContext
       ): Promise<PaginatedPlanResults> => {
         const reference = 'plansWithPagination resolver';
@@ -95,11 +115,14 @@ export const resolvers: Resolvers = {
             }
           }
 
-          const opts = !isNullOrUndefined(paginationOptions) && paginationOptions.type === PaginationType.OFFSET
-            ? paginationOptions as PaginationOptionsForOffsets
-            : { ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors;
+          // Figure out what type of pagination we're working with
+          const opts: PaginationOptions = paginationOptions
+            ? paginationOptions.type === PaginationType.OFFSET
+              ? paginationOptions as PaginationOptionsForOffsets
+              : { ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors
+            : { type: PaginationType.CURSOR } as PaginationOptionsForCursors;
 
-          return await PlanSearchResult.findByUserIdWithPagination(reference, context, userId, opts, term);
+          return await PlanSearchResult.findByUserIdWithPagination(reference, context, userId, opts, term || '');
         } catch (err) {
           if (err instanceof GraphQLError) throw err;
           context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
@@ -107,7 +130,19 @@ export const resolvers: Resolvers = {
         }
       },
     ),
-    // Find all the plans for a specified project
+
+    /**
+     * AUTHENTICATED USERS ONLY: Get all the plans for the specified project
+     *
+     * @param _ Ignored, this is the entrypoint for the Apollo resolver
+     * @param args the project id
+     * @param context The Apollo context
+     * @returns The Plans
+     * @throws NotFoundError when the Plan is not found
+     * @throws ForbiddenError when the caller does not have permission
+     * @throws UnauthorizedError when the JWT token is not present
+     * @throws InternalServerError when a fatal error has occurred
+     */
     plansByProjectId: authenticatedResolver(
       '`plansByProjectId` resolver',
       UserRole.RESEARCHER,
@@ -117,77 +152,88 @@ export const resolvers: Resolvers = {
         context: MyContext
       ): Promise<Plan[]> => {
         const reference = 'plansByProjectId resolver';
-        try {
-          const project: Project = await Project.findById(reference, context, projectId);
-          if (!project) throw NotFoundError(`Project with ID ${projectId} not found`);
 
-          if (hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.COMMENT)) {
-            return await Plan.findByProjectId(reference, context, projectId);
-          }
+        // Fetch the project and check that the user is authorized to access it
+        await getProjectAndCheckAuthorization(reference, context, projectId);
 
-          throw context?.token ? ForbiddenError() : AuthenticationError();
-        } catch (err) {
-          if (err instanceof GraphQLError) throw err;
-          context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
-          throw InternalServerError();
-        }
+        return await Plan.findByProjectId(reference, context, projectId);
       },
     ),
-    // Find the plan by its id
-    plan: async (_, { planId }, context: MyContext): Promise<Plan> => {
-      const reference = 'plan resolver';
-      try {
-        const plan = await Plan.findById(reference, context, planId);
 
-        if (!plan) {
-          throw NotFoundError(`Plan with ID ${planId} not found`);
-        }
+    /**
+     * AUTHENTICATED USERS ONLY: Get a plan by its id
+     *
+     * @param _ Ignored, this is the entrypoint for the Apollo resolver
+     * @param args the plan id
+     * @param context The Apollo context
+     * @returns The Plan
+     * @throws NotFoundError when the Plan is not found
+     * @throws ForbiddenError when the caller does not have permission
+     * @throws UnauthorizedError when the JWT token is not present
+     * @throws InternalServerError when a fatal error has occurred
+     */
+    plan: authenticatedResolver(
+      '`plan` resolver',
+      UserRole.RESEARCHER,
+      async (
+        _: Record<PropertyKey, never>,
+        { planId }: { planId: number; },
+        context: MyContext
+      ): Promise<Plan> => {
+        const reference = 'plan resolver';
 
-        const project = await Project.findById(reference, context, plan.projectId);
-        if (!project) {
-          throw NotFoundError(`Project with ID ${plan.projectId} not found`);
-        }
+        // Fetch the plan and project and make sure the user is authorized to access it
+        const { plan, project } = await getPlanAndCheckAuthorization(reference, context, planId);
 
-        if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.COMMENT)) {
-          const readOnly = await isProjectReadOnlyForCurrentUser(reference, context, project);
-          return Object.assign(plan, { readOnly }) as Plan & { readOnly: boolean };
-        }
-        throw context?.token ? ForbiddenError() : AuthenticationError();
-      } catch (err) {
-        if (err instanceof GraphQLError) throw err;
-
-        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
-        throw InternalServerError();
+        const readOnly: boolean = await isProjectReadOnlyForCurrentUser(reference, context, project);
+        return Object.assign(plan, { readOnly }) as Plan & { readOnly: boolean };
       }
-    },
+    ),
 
-    // Find a Plan by its DMP id
-    planByDMPId: async (_, { dmpId }, context: MyContext): Promise<Plan> => {
-      const reference = 'planByDMPId resolver';
-      try {
-        const plan = await Plan.findByDMPId(reference, context, dmpId);
-        if (isNullOrUndefined(plan)) {
+    /**
+     * AUTHENTICATED USERS ONLY: Get a plan by its DMP id
+     *
+     * @param _ Ignored, this is the entrypoint for the Apollo resolver
+     * @param args the DMP id
+     * @param context The Apollo context
+     * @returns The Plan
+     * @throws NotFoundError when the Plan is not found
+     * @throws ForbiddenError when the caller does not have permission
+     * @throws UnauthorizedError when the JWT token is not present
+     * @throws InternalServerError when a fatal error has occurred
+     */
+    planByDMPId: authenticatedResolver(
+      '`planByDMPId` resolver',
+      UserRole.RESEARCHER,
+      async (
+        _: Record<PropertyKey, never>,
+        { dmpId }: { dmpId: string; },
+        context: MyContext
+      ): Promise<Plan> => {
+        const reference = 'planByDMPId resolver';
+
+        const plan: Plan | null = await Plan.findByDMPId(reference, context, dmpId);
+        if (!plan) {
           throw NotFoundError(`Plan with DMP id, ${dmpId}, not found`);
         }
 
-        const project = await Project.findById(reference, context, plan.projectId);
-        if (isNullOrUndefined(project)) {
-          throw NotFoundError(`Project with ID, ${plan.projectId}, not found`);
-        }
-
-        if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.COMMENT)) {
-          return plan;
-        }
-        throw context?.token ? ForbiddenError() : AuthenticationError();
-      } catch (err) {
-        if (err instanceof GraphQLError) throw err;
-
-        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
-        throw InternalServerError();
+        // Fetch the project and check that the user is authorized to access it
+        await getProjectAndCheckAuthorization(reference, context, plan.projectId);
+        return plan;
       }
-    },
+    ),
 
-    // Find a published plan by its DMP id and version (publicly accessible so not checking permissions)
+    /**
+     * Get the publicly visible plan by its DMP id and version timestamp.
+     * Used by the landing page
+     *
+     * @param _ Ignored, this is the entrypoint for the Apollo resolver
+     * @param args the DMP id and version timestamp
+     * @param context The Apollo context
+     * @returns The Plan
+     * @throws NotFoundError when the Plan is not found
+     * @throws InternalServerError when a fatal error has occurred
+     */
     publicPlanVersionByDMPId: async (_, { dmpId, version }, context: MyContext): Promise<PlanVersionSnapshot> => {
       const reference = 'publicPlanVersionByDMPId resolver';
       try {
@@ -204,377 +250,438 @@ export const resolvers: Resolvers = {
         throw InternalServerError();
       }
     },
-    // Lookup a Plan by its alternate identifier
-    planByAlternateIdentifier: async (_, { alternateIdentifier }, context: MyContext): Promise<Plan> => {
-      const reference = 'planByAlternateIdentifier resolver';
-      try {
+
+    /**
+     * AUTHENTICATED USERS ONLY: Get a plan by the alternate identifier (e.g. external system id)
+     *
+     * @param _ Ignored, this is the entrypoint for the Apollo resolver
+     * @param args the alternate identifier
+     * @param context The Apollo context
+     * @returns The Plan (with errors if applicable)
+     * @throws NotFoundError when the Plan is not found
+     * @throws ForbiddenError when the caller does not have permission
+     * @throws UnauthorizedError when the JWT token is not present
+     * @throws InternalServerError when a fatal error has occurred
+     */
+    planByAlternateIdentifier: authenticatedResolver(
+      '`planByAlternateIdentifier` resolver',
+      UserRole.RESEARCHER,
+      async (
+        _: Record<PropertyKey, never>,
+        { alternateIdentifier }: { alternateIdentifier: string; },
+        context: MyContext
+      ): Promise<Plan> => {
+        const reference = 'planByAlternateIdentifier resolver';
+
+        const identifier: AlternateIdentifier | null = await AlternateIdentifier.findByAlternateIdentifier(
+          reference,
+          context,
+          alternateIdentifier
+        );
+        if (!identifier) {
+          throw NotFoundError('Alternate identifier not found');
+        }
+
+        const plan = await Plan.findById(reference, context, identifier.planId);
+        if (!plan) {
+          throw NotFoundError(`Plan with ID, ${identifier.planId}, not found`);
+        }
+
+        // Fetch the project and check that the user is authorized to access it
+        await getProjectAndCheckAuthorization(reference, context, plan.projectId);
+
+        return plan;
+      }
+    ),
+  },
+
+  Mutation: {
+    /**
+     * AUTHENTICATED USERS ONLY: Add a new plan
+     *
+     * @param _ Ignored, this is the entrypoint for the Apollo resolver
+     * @param args the project id and versioned template id
+     * @param context The Apollo context
+     * @returns The Plan (with errors if applicable)
+     * @throws NotFoundError when the Plan is not found
+     * @throws ForbiddenError when the caller does not have permission
+     * @throws UnauthorizedError when the JWT token is not present
+     * @throws InternalServerError when a fatal error has occurred
+     */
+    addPlan: authenticatedResolver(
+      '`addPlan` resolver',
+      UserRole.RESEARCHER,
+      async (
+        _: Record<PropertyKey, never>,
+        { projectId, versionedTemplateId }: { projectId: number; versionedTemplateId: number; },
+        context: MyContext
+      ): Promise<Plan> => {
+        const reference = 'add plan resolver';
+
+        // Get the project and check that the user is authorized to access it
+        const project: Project = await getProjectAndCheckAuthorization(reference, context, projectId);
+
+        const versionedTemplate: VersionedTemplate | null = await VersionedTemplate.findById(reference, context, versionedTemplateId);
+        if (!versionedTemplate) {
+          throw NotFoundError(`Template with ID ${versionedTemplateId} not found`);
+        }
+
+        const plan = new Plan({ projectId, versionedTemplateId });
+        const created = await plan.create(context);
+
+        if (created.id && !created.hasErrors()) {
+          // Add the project's primary contact as the primary contact for the new plan
+          const contactWasSet = await ensureDefaultPlanContact(context, created, project);
+          if (!contactWasSet) {
+            created.addError('general', 'Unable to set the default contact');
+          }
+
+          // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+          await handleAsyncUpdates(reference, context, created);
+        }
+
+        return created;
+      }
+    ),
+
+    /**
+     * AUTHENTICATED USERS ONLY: Archive a plan
+     *
+     * @param _ Ignored, this is the entrypoint for the Apollo resolver
+     * @param args the plan id and title
+     * @param context The Apollo context
+     * @returns The Plan (with errors if applicable)
+     * @throws NotFoundError when the Plan is not found
+     * @throws ForbiddenError when the caller does not have permission
+     * @throws UnauthorizedError when the JWT token is not present
+     * @throws InternalServerError when a fatal error has occurred
+     */
+    archivePlan: authenticatedResolver(
+      '`archivePlan` resolver',
+      UserRole.RESEARCHER,
+      async (
+        _: Record<PropertyKey, never>,
+        { planId }: { planId: number; },
+        context: MyContext
+      ): Promise<Plan> => {
+        const reference = 'archive plan resolver';
+
+        // Get the plan and check that the user is authorized to access it
+        const { plan } = await getPlanAndCheckAuthorization(reference, context, planId);
+
+        if (plan.isPublished()) {
+          plan.addError('general', 'Plan is already published and cannot be archived');
+        }
+
+        const deleted: Plan | null = await plan.delete(context);
+        if (deleted && !deleted.hasErrors()) {
+          // Handle OpenSearch index removal and removal of maDMP JSON versions
+          await handleAsyncDeletes(reference, context, deleted);
+        }
+
+        return plan;
+      }
+    ),
+
+    /**
+     * AUTHENTICATED USERS ONLY: Not yet implemented!
+     *
+     * @param _ Ignored, this is the entrypoint for the Apollo resolver
+     * @param args the project id, file name and file content
+     * @param context The Apollo context
+     * @returns The Plan (with errors if applicable)
+     * @throws NotFoundError when the Plan is not found
+     * @throws ForbiddenError when the caller does not have permission
+     * @throws UnauthorizedError when the JWT token is not present
+     * @throws InternalServerError when a fatal error has occurred
+     */
+    uploadPlan: authenticatedResolver(
+      '`uploadPlan` resolver',
+      UserRole.RESEARCHER,
+      async (
+        _: Record<PropertyKey, never>,
+        { projectId, fileName, fileContent }: { projectId: number; fileName: InputMaybe<string>; fileContent: InputMaybe<string> },
+        context: MyContext
+      ): Promise<Plan> => {
+        const reference = 'upload plan resolver';
+
+        // get the project and check that the user is authorized to access it
+        await getProjectAndCheckAuthorization(reference, context, projectId);
+
+        const plan = new Plan({ projectId, fileName, fileContent });
+
+        // TODO: Figure out what would be passed in from the client and how we'd get the actual
+        //       file content and push it into an S3 bucket
+        plan.addError('general', 'Uploads have not yet been implemented');
+        return plan;
+      }
+    ),
+
+    /**
+     * AUTHENTICATED USERS ONLY: Publish a plan (aka register)
+     *
+     * @param _ Ignored, this is the entrypoint for the Apollo resolver
+     * @param args the plan id and visibility
+     * @param context The Apollo context
+     * @returns The Plan (with errors if applicable)
+     * @throws NotFoundError when the Plan is not found
+     * @throws ForbiddenError when the caller does not have permission
+     * @throws UnauthorizedError when the JWT token is not present
+     * @throws InternalServerError when a fatal error has occurred
+     */
+    publishPlan: authenticatedResolver(
+      '`publishPlan` resolver',
+      UserRole.RESEARCHER,
+      async (
+        _: Record<PropertyKey, never>,
+        { planId, visibility = PlanVisibility.PRIVATE }: { planId: number; visibility: InputMaybe<PlanVisibility> },
+        context: MyContext
+      ): Promise<Plan> => {
+        const reference = 'publish plan resolver';
+
+        const {
+          plan,
+          project
+        } = await getPlanAndCheckAuthorization(reference, context, planId);
+
+        if (plan.isPublished()) {
+          plan.addError('general', 'Plan is already published');
+        }
+        if (project.isTestProject) {
+          plan.addError('general', 'Test projects cannot be published');
+        }
+
+        if (!plan.hasErrors()) {
+          // Add the project's primary contact as the primary contact for the new plan
+          const contactWasSet: boolean = await ensureDefaultPlanContact(context, plan, project);
+          if (!contactWasSet) {
+            plan.addError('general', 'Plan must have a primary contact');
+          } else {
+            // Build the DataCite XML metadata document before publishing
+            let dataciteXML: string;
+            try {
+              dataciteXML = await buildDataCiteXMLForPlan(context, plan);
+            } catch (err) {
+              context.logger.error(
+                prepareObjectForLogs(err),
+                `${reference} failed to build DataCite metadata`
+              );
+              plan.addError('general', 'Unable to build metadata required to publish this plan');
+              return plan;
+            }
+
+            // All criteria are satisfied, so publish the plan
+            const published: Plan | null = await plan.publish(context, visibility as PlanVisibility, dataciteXML);
+
+            if (published && !published.hasErrors()) {
+              // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+              await handleAsyncUpdates(reference, context, published);
+            }
+            return published;
+          }
+
+          return plan;
+        }
+      }
+    ),
+
+    /**
+     * AUTHENTICATED USERS ONLY: Update a plan
+     *
+     * @param _ Ignored, this is the entrypoint for the Apollo resolver
+     * @param args the plan input
+     * @param context The Apollo context
+     * @returns The Plan (with errors if applicable)
+     * @throws NotFoundError when the Plan is not found
+     * @throws ForbiddenError when the caller does not have permission
+     * @throws UnauthorizedError when the JWT token is not present
+     * @throws InternalServerError when a fatal error has occurred
+     */
+    updatePlan: authenticatedResolver(
+      '`updatePlan` resolver',
+      UserRole.RESEARCHER,
+      async (
+        _: Record<PropertyKey, never>,
+        { input }: { input: UpdatePlanInput; },
+        context: MyContext
+      ): Promise<Plan> => {
+        const reference = 'update plan resolver';
+
+        if (!input.id) throw NotFoundError('Plan id is required');
+
+        // Get the plan and check that the user is authorized to access it
+        const { plan } = await getPlanAndCheckAuthorization(reference, context, input.id);
+
+        plan.title = input.title ?? plan.title;
+        plan.status = input.status as PlanStatus ?? plan.status;
+        plan.visibility = input.visibility as PlanVisibility ?? plan.visibility;
+        plan.featured = input.featured ?? plan.featured;
+        plan.languageId = input.languageId ?? plan.languageId;
+
+        const updated = await plan.update(context);
+
+        if (updated && !updated.hasErrors()) {
+          // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+          await handleAsyncUpdates(reference, context, updated);
+        }
+        return updated;
+      }
+    ),
+
+    /**
+     * AUTHENTICATED USERS ONLY: Update a plan's status
+     *
+     * @param _ Ignored, this is the entrypoint for the Apollo resolver
+     * @param args the plan id and status
+     * @param context The Apollo context
+     * @returns The QuestionCustomization (with errors if applicable)
+     * @throws NotFoundError when the QuestionCustomization or TemplateCustomization
+     * are not found
+     * @throws ForbiddenError when the caller does not have permission
+     * @throws UnauthorizedError when the JWT token is not present
+     * @throws InternalServerError when a fatal error has occurred
+     */
+    updatePlanStatus: authenticatedResolver(
+      '`updatePlanStatus` resolver',
+      UserRole.RESEARCHER,
+      async (
+        _: Record<PropertyKey, never>,
+        { planId, status }: { planId: number; status: PlanStatusType },
+        context: MyContext
+      ): Promise<Plan> => {
+        const reference = 'update plan status resolver';
+
+        // Get the plan and check that the user is authorized to access it
+        const { plan } = await getPlanAndCheckAuthorization(reference, context, planId);
+
+        plan.status = status as PlanStatus;
+        const updated = await plan.update(context);
+
+        if (updated && !updated.hasErrors()) {
+          // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+          await handleAsyncUpdates(reference, context, updated);
+        }
+        return updated;
+      }
+    ),
+
+    /**
+     * AUTHENTICATED USERS ONLY: Update a plan's title
+     *
+     * @param _ Ignored, this is the entrypoint for the Apollo resolver
+     * @param args the plan id and title
+     * @param context The Apollo context
+     * @returns The Plan (with errors if applicable)
+     * @throws NotFoundError when the Plan is not found
+     * @throws ForbiddenError when the caller does not have permission
+     * @throws UnauthorizedError when the JWT token is not present
+     * @throws InternalServerError when a fatal error has occurred
+     */
+    updatePlanTitle: authenticatedResolver(
+      '`updatePlanTitle` resolver',
+      UserRole.RESEARCHER,
+      async (
+        _: Record<PropertyKey, never>,
+        { planId, title }: { planId: number; title: string },
+        context: MyContext
+      ): Promise<Plan> => {
+        const reference = 'update plan title resolver';
+
+        // Get the plan and check that the user is authorized to access it
+        const { plan } = await getPlanAndCheckAuthorization(reference, context, planId);
+
+        plan.title = title;
+        const updated = await plan.update(context);
+
+        if (updated && !updated.hasErrors()) {
+          // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+          await handleAsyncUpdates(reference, context, updated);
+        }
+        return updated;
+      }
+    ),
+
+    /**
+     * AUTHENTICATED USERS ONLY: Add an alternate identifier to a plan (e.g. external system id)
+     *
+     * @param _ Ignored, this is the entrypoint for the Apollo resolver
+     * @param args the plan id and alternate identifier
+     * @param context The Apollo context
+     * @returns The Plan (with errors if applicable)
+     * @throws NotFoundError when the Plan is not found
+     * @throws ForbiddenError when the caller does not have permission
+     * @throws UnauthorizedError when the JWT token is not present
+     * @throws InternalServerError when a fatal error has occurred
+     */
+    addAlternateIdentifierToPlan: authenticatedResolver(
+      '`addAlternateIdentifierToPlan` resolver',
+      UserRole.RESEARCHER,
+      async (
+        _: Record<PropertyKey, never>,
+        { planId, alternateIdentifier }: { planId: number; alternateIdentifier: string },
+        context: MyContext
+      ): Promise<Plan> => {
+        const reference = 'add alternate identifier to plan resolver';
+
+        // Get the plan and check that the user is authorized to access it
+        const { plan } = await getPlanAndCheckAuthorization(reference, context, planId);
+
+        const identifier: AlternateIdentifier = new AlternateIdentifier({ planId, alternateIdentifier });
+
+        const created: AlternateIdentifier = await identifier.create(context);
+        if (created && !created.hasErrors()) {
+          // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+          await handleAsyncUpdates(reference, context, plan);
+        }
+        return plan;
+      }
+    ),
+
+    /**
+     * AUTHENTICATED USERS ONLY: Remove an alternate identifier from a plan
+     *
+     * @param _ Ignored, this is the entrypoint for the Apollo resolver
+     * @param args the plan id and alternate identifier
+     * @param context The Apollo context
+     * @returns The Plan (with errors if applicable)
+     * @throws NotFoundError when the Plan is not found
+     * @throws ForbiddenError when the caller does not have permission
+     * @throws UnauthorizedError when the JWT token is not present
+     * @throws InternalServerError when a fatal error has occurred
+     */
+    removeAlternateIdentifierFromPlan: authenticatedResolver(
+      '`removeAlternateIdentifierFromPlan` resolver',
+      UserRole.RESEARCHER,
+      async (
+        _: Record<PropertyKey, never>,
+        { planId, alternateIdentifier }: { planId: number; alternateIdentifier: string },
+        context: MyContext
+      ): Promise<Plan> => {
+        const reference = 'remove alternate identifier from plan resolver';
+
+        // Get the plan and check that the user is authorized to access it
+        const { plan } = await getPlanAndCheckAuthorization(reference, context, planId);
+
         const identifier: AlternateIdentifier = await AlternateIdentifier.findByAlternateIdentifier(
           reference,
           context,
           alternateIdentifier
         );
-        if (isNullOrUndefined(identifier)) {
+        if (!identifier) {
           throw NotFoundError('Alternate identifier not found');
         }
-
-        const plan = await Plan.findById(reference, context, identifier.planId);
-        if (isNullOrUndefined(plan)) {
-          throw NotFoundError(`Plan with ID, ${identifier.planId}, not found`);
+        if (identifier.planId !== planId) {
+          throw ForbiddenError('Alternate identifier belongs to a different plan');
         }
 
-        const project = await Project.findById(reference, context, plan.projectId);
-        if (isNullOrUndefined(project)) {
-          throw NotFoundError(`Project with ID, ${plan.projectId}, not found`);
+        const deleted = await identifier.delete(context);
+        if (deleted && !deleted.hasErrors()) {
+          // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+          await handleAsyncUpdates(reference, context, plan);
         }
-
-        if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.COMMENT)) {
-          return plan;
-        }
-        throw context?.token ? ForbiddenError() : AuthenticationError();
-      } catch (err) {
-        if (err instanceof GraphQLError) throw err;
-
-        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
-        throw InternalServerError();
+        return plan;
       }
-    }
-  },
-
-  Mutation: {
-    // Create a new plan
-    addPlan: async (_, { projectId, versionedTemplateId }, context: MyContext): Promise<Plan> => {
-      const reference = 'add plan resolver';
-      try {
-        if (isAuthorized(context.token)) {
-          const project = await Project.findById(reference, context, projectId);
-          const versionedTemplate = await VersionedTemplate.findById(reference, context, versionedTemplateId);
-
-          if (!project) {
-            throw NotFoundError(`Project with ID ${projectId} not found`);
-          }
-          if (!versionedTemplate) {
-            throw NotFoundError(`Template with ID ${versionedTemplateId} not found`);
-          }
-
-          if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.EDIT)) {
-            const plan = new Plan({ projectId, versionedTemplateId });
-            const created = await plan.create(context);
-
-            if (!isNullOrUndefined(created.id) && !created.hasErrors()) {
-              // Add the project's primary contact as the primary contact for the new plan
-              const contactWasSet = await ensureDefaultPlanContact(context, created, project);
-              if (!contactWasSet) {
-                created.addError('general', 'Unable to set the default contact');
-              }
-
-              // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
-              await handleAsyncUpdates(reference, context, created);
-            }
-
-            return created;
-          }
-        }
-        throw context?.token ? ForbiddenError() : AuthenticationError();
-      } catch (err) {
-        if (err instanceof GraphQLError) throw err;
-
-        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
-        throw InternalServerError();
-      }
-    },
-
-    // Delete a plan
-    archivePlan: async (_, { planId }, context: MyContext): Promise<Plan> => {
-      const reference = 'archive plan resolver';
-      try {
-        if (isAuthorized(context.token)) {
-          const plan = await Plan.findById(reference, context, planId);
-          if (!plan) {
-            throw NotFoundError(`Plan with id ${planId} not found`);
-          }
-
-          if (plan.isPublished()) {
-            plan.addError('general', 'Plan is already published and cannot be archived');
-          }
-
-          const project = await Project.findById(reference, context, plan.projectId);
-          if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.OWN)) {
-            if (!plan.hasErrors()) {
-              const deleted = await plan.delete(context);
-
-              if (deleted) {
-                // Handle OpenSearch index removal and removal of maDMP JSON versions
-                await handleAsyncDeletes(reference, context, deleted);
-              }
-            } else {
-              return plan;
-            }
-          }
-        }
-        throw context?.token ? ForbiddenError() : AuthenticationError();
-      } catch (err) {
-        if (err instanceof GraphQLError) throw err;
-
-        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
-        throw InternalServerError();
-      }
-    },
-
-    // Upload a PDF version of a plan
-    uploadPlan: async (_, { projectId, fileName, fileContent }, context: MyContext): Promise<Plan> => {
-      const reference = 'upload plan resolver';
-      try {
-        if (isAuthorized(context.token)) {
-          const project = await Project.findById(reference, context, projectId);
-          if (!project) {
-            throw NotFoundError(`Project with ID ${projectId} not found`);
-          }
-          if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.EDIT)) {
-            const plan = new Plan({ projectId, fileName, fileContent });
-
-            // TODO: Figure out what would be passed in from the client and how we'd get the actual
-            //       file content and push it into an S3 bucket
-            plan.addError('general', 'Uploads have not yet been implemented');
-            return plan;
-          }
-        }
-        throw context?.token ? ForbiddenError() : AuthenticationError();
-      } catch (err) {
-        if (err instanceof GraphQLError) throw err;
-
-        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
-        throw InternalServerError();
-      }
-    },
-
-    // Publish/register the plan with the DOI registrar (e.g. EZID/DataCite)
-    publishPlan: async (_, { planId, visibility = PlanVisibility.PRIVATE }, context: MyContext): Promise<Plan> => {
-      const reference = 'publish plan resolver';
-      try {
-        if (isAuthorized(context.token)) {
-          const plan = await Plan.findById(reference, context, planId);
-          if (!plan) {
-            throw NotFoundError(`Plan with id ${planId} not found`);
-          }
-          if (plan.isPublished()) {
-            plan.addError('general', 'Plan is already published');
-          }
-
-          const project = await Project.findById(reference, context, plan.projectId);
-          if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.OWN)) {
-            if (!plan.hasErrors()) {
-              if (project.isTestProject) {
-                plan.addError('general', 'Test projects cannot be published');
-              } else if (plan.isPublished()) {
-                plan.addError('general', 'Plan is already published');
-              }
-
-              if (!plan.hasErrors()) {
-                // Add the project's primary contact as the primary contact for the new plan
-                const contactWasSet = await ensureDefaultPlanContact(context, plan, project);
-                if (!contactWasSet) {
-                  plan.addError('general', 'Plan must have a primary contact');
-                } else {
-                  // Build the DataCite XML metadata document before publishing
-                  let dataciteXML: string;
-                  try {
-                    dataciteXML = await buildDataCiteXMLForPlan(context, plan);
-                  } catch (err) {
-                    context.logger.error(
-                      prepareObjectForLogs(err),
-                      `${reference} failed to build DataCite metadata`
-                    );
-                    plan.addError('general', 'Unable to build metadata required to publish this plan');
-                    return plan;
-                  }
-
-                  // All criteria was satisfied, so publish the plan
-                  const published = await plan.publish(context, visibility as PlanVisibility, dataciteXML);
-
-                  if (published && !published.hasErrors()) {
-                    // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
-                    await handleAsyncUpdates(reference, context, published);
-                  }
-                  return published;
-                }
-              }
-            }
-            return plan;
-          }
-        }
-        throw context?.token ? ForbiddenError() : AuthenticationError();
-      } catch (err) {
-        if (err instanceof GraphQLError) throw err;
-
-        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
-        throw InternalServerError();
-      }
-    },
-
-    updatePlan: async (_, { input }, context: MyContext): Promise<Plan> => {
-      const reference = 'update plan resolver';
-      try {
-        if (isAuthorized(context.token)) {
-          const plan = await Plan.findById(reference, context, input.id);
-          if (!plan) {
-            throw NotFoundError(`Plan with id ${input.id} not found`);
-          }
-          const project = await Project.findById(reference, context, plan.projectId);
-
-          if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.OWN)) {
-            plan.title = input.title ?? plan.title;
-            plan.status = input.status as PlanStatus ?? plan.status;
-            plan.visibility = input.visibility as PlanVisibility ?? plan.visibility;
-            plan.featured = input.featured ?? plan.featured;
-            plan.languageId = input.languageId ?? plan.languageId;
-
-            const updated = await plan.update(context);
-
-            if (updated && !updated.hasErrors()) {
-              // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
-              await handleAsyncUpdates(reference, context, updated);
-            }
-            return updated;
-          }
-        }
-        throw context?.token ? ForbiddenError() : AuthenticationError();
-      } catch (err) {
-        if (err instanceof GraphQLError) throw err;
-
-        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
-        throw InternalServerError();
-      }
-    },
-
-    updatePlanStatus: async (_, { planId, status }, context: MyContext): Promise<Plan> => {
-      const reference = 'update plan status resolver';
-      try {
-        if (isAuthorized(context.token)) {
-          const plan = await Plan.findById(reference, context, planId);
-          if (!plan) {
-            throw NotFoundError(`Plan with id ${planId} not found`);
-          }
-          const project = await Project.findById(reference, context, plan.projectId);
-
-          if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.OWN)) {
-            plan.status = status as PlanStatus;
-            const updated = await plan.update(context);
-
-            if (updated && !updated.hasErrors()) {
-              // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
-              await handleAsyncUpdates(reference, context, updated);
-            }
-            return updated;
-          }
-        }
-        throw context?.token ? ForbiddenError() : AuthenticationError();
-      } catch (err) {
-        if (err instanceof GraphQLError) throw err;
-
-        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
-        throw InternalServerError();
-      }
-    },
-
-    updatePlanTitle: async (_, { planId, title }, context: MyContext): Promise<Plan> => {
-      const reference = 'update plan title resolver';
-      try {
-        if (isAuthorized(context.token)) {
-          const plan = await Plan.findById(reference, context, planId);
-          if (!plan) {
-            throw NotFoundError(`Plan with id ${planId} not found`);
-          }
-          const project = await Project.findById(reference, context, plan.projectId);
-          if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.OWN)) {
-            plan.title = title;
-            const updated = await plan.update(context);
-
-            if (updated && !updated.hasErrors()) {
-              // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
-              await handleAsyncUpdates(reference, context, updated);
-            }
-            return updated;
-          }
-        }
-        throw context?.token ? ForbiddenError() : AuthenticationError();
-      } catch (err) {
-        if (err instanceof GraphQLError) throw err;
-
-        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
-        throw InternalServerError();
-      }
-    },
-
-    // Assign an alternate identifier to the plan
-    addAlternateIdentifierToPlan: async (_, { planId, alternateIdentifier }, context: MyContext): Promise<Plan> => {
-      const reference = 'add alternate identifier to plan resolver';
-      try {
-        if (isAuthorized(context.token)) {
-          const plan = await Plan.findById(reference, context, planId);
-          if (!plan) {
-            throw NotFoundError(`Plan with id ${planId} not found`);
-          }
-          const project = await Project.findById(reference, context, plan.projectId);
-
-          if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.OWN)) {
-            const identifier: AlternateIdentifier = new AlternateIdentifier({ planId, alternateIdentifier });
-
-            const created: AlternateIdentifier = await identifier.create(context);
-            if (created && !created.hasErrors()) {
-              // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
-              await handleAsyncUpdates(reference, context, plan);
-            }
-            return plan;
-          }
-        }
-        throw context?.token ? ForbiddenError() : AuthenticationError();
-      } catch (err) {
-        if (err instanceof GraphQLError) throw err;
-
-        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
-        throw InternalServerError();
-      }
-    },
-
-    // Assign an alternate identifier to the plan
-    removeAlternateIdentifierFromPlan: async (_, { planId, alternateIdentifier }, context: MyContext): Promise<Plan> => {
-      const reference = 'remove alternate identifier from plan resolver';
-      try {
-        if (isAuthorized(context.token)) {
-          const plan = await Plan.findById(reference, context, planId);
-          if (!plan) {
-            throw NotFoundError(`Plan with id ${planId} not found`);
-          }
-          const project = await Project.findById(reference, context, plan.projectId);
-          if (await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.OWN)) {
-            const identifier: AlternateIdentifier = await AlternateIdentifier.findByAlternateIdentifier(
-              reference,
-              context,
-              alternateIdentifier
-            );
-            if (isNullOrUndefined(identifier)) {
-              throw NotFoundError('Alternate identifier not found');
-            }
-            if (identifier.planId !== planId) {
-              throw ForbiddenError('Alternate identifier belongs to a different plan');
-            }
-
-            const deleted = await identifier.delete(context);
-            if (deleted && !deleted.hasErrors()) {
-              // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
-              await handleAsyncUpdates(reference, context, plan);
-            }
-            return plan;
-          }
-        }
-        throw context?.token ? ForbiddenError() : AuthenticationError();
-      } catch (err) {
-        if (err instanceof GraphQLError) throw err;
-
-        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
-        throw InternalServerError();
-      }
-    },
+    ),
 
     /**
      * AUTHENTICATED USERS ONLY: Create an entire plan (and project if applicable)
@@ -582,9 +689,8 @@ export const resolvers: Resolvers = {
      * @param _ Ignored, this is the entrypoint for the Apollo resolver
      * @param args the entire plan input (including project, members, funding and answers)
      * @param context The Apollo context
-     * @returns The QuestionCustomization (with errors if applicable)
-     * @throws NotFoundError when the QuestionCustomization or TemplateCustomization
-     * are not found
+     * @returns The Plan (with errors if applicable)
+     * @throws NotFoundError when a Template could not be identified for the plan
      * @throws ForbiddenError when the caller does not have permission
      * @throws UnauthorizedError when the JWT token is not present
      * @throws InternalServerError when a fatal error has occurred
@@ -787,30 +893,7 @@ export const resolvers: Resolvers = {
       if (!parent?.id) return null;
       const reference = 'Chained Plan.owner';
 
-      // First, try to get the project owner (collaborator with OWN access level)
-      const projectOwner = await ProjectCollaborator.findOwnerByProjectId(
-        reference,
-        context,
-        parent.projectId
-      );
-
-      if (projectOwner?.userId) {
-        const user = await User.findById(reference, context, projectOwner.userId);
-        if (user?.affiliationId) {
-          const affiliation = await Affiliation.findByURI(reference, context, user.affiliationId);
-          if (affiliation) return affiliation;
-        }
-      }
-
-      // Fall back to the plan creator's affiliation
-      if (parent?.createdById) {
-        const user = await User.findById(reference, context, parent.createdById);
-        if (user?.affiliationId) {
-          return await Affiliation.findByURI(reference, context, user.affiliationId);
-        }
-      }
-
-      return null;
+      return await getPlanOwnerAffiliation(reference, context, parent);
     },
 
     // The project the plan is associated with
@@ -862,10 +945,16 @@ export const resolvers: Resolvers = {
       return [];
     },
     versionedSections: async (parent: Plan, _, context: MyContext): Promise<PlanSectionProgress[]> => {
+      // The progress of each section within the plan
       if (parent?.id) {
         return await PlanSectionProgress.findByPlanId('plan versionedSections resolver', context, parent.id, parent?.versionedTemplateId);
       }
       return [];
+    },
+    sections: async (parent: Plan, _, context: MyContext): Promise<PlanSection[]> => {
+      const ref = 'plan.sections resolver';
+      const sections: PlanSection[] = await getPlanSectionsAndQuestions(ref, context, parent);
+      return Array.isArray(sections) ? sections : [];
     },
     progress: async (parent: Plan, _, context: MyContext): Promise<PlanProgress> => {
       if (parent?.id) {
@@ -882,6 +971,12 @@ export const resolvers: Resolvers = {
     acceptedWorks: async (parent: Plan, _, context: MyContext): Promise<AcceptedWork[]> => {
       if (parent?.id) {
         return await AcceptedWork.findByPlanId('plan acceptedWorks chained resolver', context, parent.id);
+      }
+      return [];
+    },
+    availableGuidanceSources: async (parent: Plan, _, context: MyContext): Promise<GuidanceSource[]> => {
+      if (parent?.id) {
+        return await getGuidanceSourcesForPlan(context, parent.id);
       }
       return [];
     },
@@ -929,15 +1024,16 @@ export const resolvers: Resolvers = {
       );
       return affiliation?.displayName || null;
     },
-    planCreator: async (parent: PlanSearchResult, _, context: MyContext): Promise<User> => {
+    planCreator: async (parent: PlanSearchResult, _, context: MyContext): Promise<User | null> => {
       if (parent?.createdById) {
         return await User.findById('planSearchResult.planCreator resolver', context, parent.createdById);
       }
       return null;
     }
   },
+
   PlanMember: {
-    projectMember: async (parent: PlanMember, _, context: MyContext): Promise<ProjectMember> => {
+    projectMember: async (parent: PlanMember, _, context: MyContext): Promise<ProjectMember | null> => {
       if (parent?.projectMemberId) {
         return await ProjectMember.findById('planMember.projectMember resolver', context, parent.projectMemberId);
       }
@@ -950,5 +1046,4 @@ export const resolvers: Resolvers = {
       return [];
     },
   },
-
 }

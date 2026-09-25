@@ -584,4 +584,49 @@ describe("VersionedQuestionCustomization", () => {
       expect(result).toBeUndefined();
     });
   });
+
+  describe("findForActiveForAffiliationAndVersionSectionIds", () => {
+    it("should find active customizations for the affiliation and section ids", async () => {
+      const sectionIds = [300, 301];
+      const mockQuery = jest.spyOn(MySqlModel, "query").mockResolvedValue([
+        {
+          id: 1,
+          versionedTemplateCustomizationId: 100,
+          questionCustomizationId: 200,
+          versionedQuestionId: 400,
+        },
+      ]);
+
+      const result =
+        await VersionedQuestionCustomization.findForActiveForAffiliationAndVersionSectionIds(
+          "test.ref",
+          mockContext,
+          "affil-123",
+          sectionIds
+        );
+
+      expect(mockQuery).toHaveBeenCalledWith(
+        mockContext,
+        expect.stringContaining("vq.versionedSectionId IN (?, ?)"),
+        ["affil-123", "300", "301"],
+        "test.ref"
+      );
+      expect(result[0]).toBeInstanceOf(VersionedQuestionCustomization);
+    });
+
+    it("should return an empty array without querying when no section ids are provided", async () => {
+      const mockQuery = jest.spyOn(MySqlModel, "query");
+
+      const result =
+        await VersionedQuestionCustomization.findForActiveForAffiliationAndVersionSectionIds(
+          "test.ref",
+          mockContext,
+          "affil-123",
+          []
+        );
+
+      expect(mockQuery).not.toHaveBeenCalled();
+      expect(result).toEqual([]);
+    });
+  });
 });

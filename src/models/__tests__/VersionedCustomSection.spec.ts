@@ -452,6 +452,48 @@ describe("VersionedCustomSection", () => {
     });
   });
 
+  describe("findByIds", () => {
+    it("should find VersionedCustomSections by ids", async () => {
+      const ids = [1, 2];
+      const mockQuery = jest.spyOn(MySqlModel, "query").mockResolvedValue([
+        {
+          id: ids[0],
+          versionedTemplateCustomizationId: 100,
+          customSectionId: 200,
+          name: "Test Section",
+        },
+      ]);
+
+      const result = await VersionedCustomSection.findByIds(
+        "test.ref",
+        mockContext,
+        ids
+      );
+
+      expect(mockQuery).toHaveBeenCalledWith(
+        mockContext,
+        "SELECT * FROM versionedCustomSections WHERE id IN (?,?)",
+        ["1", "2"],
+        "test.ref"
+      );
+      expect(result[0]).toBeInstanceOf(VersionedCustomSection);
+      expect(result[0].id).toBe(ids[0]);
+    });
+
+    it("should return an empty array without querying when ids are empty", async () => {
+      const mockQuery = jest.spyOn(MySqlModel, "query");
+
+      const result = await VersionedCustomSection.findByIds(
+        "test.ref",
+        mockContext,
+        []
+      );
+
+      expect(mockQuery).not.toHaveBeenCalled();
+      expect(result).toEqual([]);
+    });
+  });
+
   describe("findByCustomizationId", () => {
     it("should find VersionedCustomSections by versionedTemplateCustomizationId", async () => {
       const mockQuery = jest.spyOn(MySqlModel, "query").mockResolvedValue([

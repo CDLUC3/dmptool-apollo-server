@@ -108,6 +108,27 @@ export class VersionedQuestion extends MySqlModel {
   }
 
   /**
+   * Find all the VersionedQuestions by their VersionedSectionId
+   *
+   * @param reference The reference to use for logging
+   * @param context The Apollo context
+   * @param versionedSectionIds The versionedSectionIds to search for
+   * @returns An array of VersionedQuestions or an empty array if none were found.
+   */
+  static async findByVersionedSectionIds(
+    reference: string,
+    context: MyContext,
+    versionedSectionIds: number[]
+  ): Promise<VersionedQuestion[]> {
+    if (versionedSectionIds.length === 0) return [];
+    const placeholders: string = versionedSectionIds.map((): string => '?').join(',');
+    const sql = `SELECT * FROM versionedQuestions WHERE versionedSectionId IN (${placeholders})`;
+    const vals: string[] = versionedSectionIds.map((id: number): string => id.toString());
+    const results: unknown[] = await VersionedQuestion.query(context, sql, vals, reference);
+    return Array.isArray(results) ? results.map((entry: unknown): VersionedQuestion => new VersionedQuestion(entry)) : [];
+  }
+
+  /**
    * Find the VersionedQuestion by versionedTemplateId and the sectionId.
    *
    * @param reference The reference to use for logging

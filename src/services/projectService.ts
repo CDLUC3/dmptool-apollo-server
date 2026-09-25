@@ -7,11 +7,38 @@ import { isAdmin, isSuperAdmin } from "./authService.js";
 import { isNullOrUndefined } from "../utils/helpers.js";
 import { ProjectMember } from "../models/Member.js";
 import { MemberRole } from "../models/MemberRole.js";
+import { ForbiddenError, NotFoundError } from "../utils/graphQLErrors.js";
 
 const WRITE_ACCESS_LEVELS = new Set([
   ProjectCollaboratorAccessLevel.OWN,
   ProjectCollaboratorAccessLevel.PRIMARY,
 ]);
+
+/**
+ * Fetch the specified Project by its id and verify that the current user is authorized to access it.
+ *
+ * @param reference A value to help identify the caller to help with logging
+ * @param context The apollo context object
+ * @param projectId The id of the Project
+ * @returns The project if authorized
+ * @throws NotFoundError if the Project cannot be found
+ * @throws ForbiddenError if the current user is not authorized to access it
+ */
+export async function getProjectAndCheckAuthorization(
+  reference: string,
+  context: MyContext,
+  projectId: number
+): Promise<Project> {
+  const project = await Project.findById(reference, context, projectId);
+  if (isNullOrUndefined(project)) {
+    throw NotFoundError(`Project with ID, ${projectId}, not found`);
+  }
+
+  if (!await hasPermissionOnProject(context, project, ProjectCollaboratorAccessLevel.COMMENT)) {
+    throw ForbiddenError();
+  }
+  return project;
+}
 
 // Determine whether the specified user has permission to access the Section
 export const hasPermissionOnProject = async (

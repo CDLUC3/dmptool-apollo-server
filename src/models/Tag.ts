@@ -2,6 +2,12 @@ import { MySqlModel } from "./MySqlModel.js";
 import { MyContext } from "../context.js";
 import { prepareObjectForLogs } from "../logger.js";
 
+export interface RelevantTag {
+  versionedSectionId?: number;
+  versionedQuestionId?: number;
+  tagId: number;
+}
+
 const tableName = 'tags';
 export class Tag extends MySqlModel {
   public slug: string;
@@ -166,6 +172,32 @@ export class Tag extends MySqlModel {
     const sql = `SELECT tags.* FROM versionedQuestionTags JOIN tags ON versionedQuestionTags.tagId = tags.id WHERE versionedQuestionTags.versionedQuestionId = ?;`;
     const result = await Tag.query(context, sql, [questionId?.toString()], reference);
     return Array.isArray(result) ? result.map(item => new Tag(item)) : [];
+  }
+
+  /**
+   * Find all the tag ids associated with a versioned template id. This includes
+   * tags associated with versioned questions and versioned sections.
+   *
+   * @param reference the reference to use for logging
+   * @param context the Apollo context
+   * @param versionedTemplateId the versioned template id to search for
+   * @returns an array of tag ids or an empty array if none were found
+   */
+  static async findTagIdsForVersionedTemplateId(reference: string, context: MyContext, versionedTemplateId: number): Promise<Set<RelevantTag>> {
+    const sql = `
+      SELECT DISTINCT NULL as versionedSectionId, vq.id as versionedQuestionId, tags.id as tagId
+      FROM versionedQuestionTags vqt
+        JOIN versionedQuestions vq ON vqt.versionedQuestionId = vq.id
+          JOIN tags ON vqt.tagId = tags.id WHERE vq.versionedTemplateId = ?
+      UNION
+      SELECT DISTINCT vs.id As versionedSectionId, NULL as versionedQuestionId, tags.id as TagId
+      FROM versionedSectionTags vst
+        JOIN versionedSections vs ON vst.versionedSectionId = vs.id
+          JOIN tags ON vst.tagId = tags.id WHERE vs.versionedTemplateId = ?`;
+    ;
+    const vals: string[] = [versionedTemplateId?.toString(), versionedTemplateId?.toString()];
+    const results: RelevantTag[] = await Tag.query(context, sql, vals, reference);
+    return Array.isArray(results) ? new Set(results) : new Set();
   }
 
   static async findById(reference: string, context: MyContext, tagId: number): Promise<Tag> {

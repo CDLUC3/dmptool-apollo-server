@@ -147,6 +147,9 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Added `feedbackId` to the `AdminNotificationMetadata` schema and `AdminNotificationMetadata` class so we are able to get the data for that specific feedback, including corresponding message [#344]
+- Updated `feedback` resolver to not only return the `open` round but the completed feedback rounds as well. Updated to sort results by id, and then by date [#344]
+- Updated `requestFeedback` in `requestFeedback` to add `feedbackId` to the admin notification metadata [#344]
 - Updated the Plan schema to provide more info needed for the plan authoring one-page [#371](https://github.com/CDLUC3/dmptool-doc/issues/371)
 - Refactored the plan resolver to make use of `authenticatedResolver` and plan and project service functions to check permissions 
 - Updated `Question` model with new `findPriorQuestionsForQuestion` function [#360]

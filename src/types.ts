@@ -378,6 +378,8 @@ export type AdminNotificationErrors = {
 
 export type AdminNotificationMetadata = {
   __typename?: 'AdminNotificationMetadata';
+  /** The associated feedback round Id for the notification, if applicable */
+  feedbackId?: Maybe<Scalars['Int']['output']>;
   /** The associated plan Id for the notification, if applicable */
   planId?: Maybe<Scalars['Int']['output']>;
   /** The associated template customization Id for the notification, if applicable */
@@ -387,6 +389,8 @@ export type AdminNotificationMetadata = {
 };
 
 export type AdminNotificationMetadataInput = {
+  /** The associated feedback round Id for the notification, if applicable */
+  feedbackId?: InputMaybe<Scalars['Int']['input']>;
   /** The associated plan Id for the notification, if applicable */
   planId?: InputMaybe<Scalars['Int']['input']>;
   /** The associated template customization Id for the notification, if applicable */
@@ -407,7 +411,7 @@ export type AdminNotificationResults = {
   createdById?: Maybe<Scalars['Int']['output']>;
   /** Errors associated with the Object */
   errors?: Maybe<AdminNotificationErrors>;
-  /** The feedback associated with the plan if metadata contains a planId */
+  /** The feedback round associated with the notification (the round that was open when the notification was created) */
   feedback?: Maybe<PlanFeedback>;
   /** The unique identifer for the Object */
   id?: Maybe<Scalars['Int']['output']>;
@@ -7371,6 +7375,7 @@ export type AdminNotificationErrorsResolvers<ContextType = MyContext, ParentType
 };
 
 export type AdminNotificationMetadataResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['AdminNotificationMetadata'] = ResolversParentTypes['AdminNotificationMetadata']> = {
+  feedbackId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   planId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   templateCustomizationId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   templateId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;

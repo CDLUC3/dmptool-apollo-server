@@ -147,7 +147,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
-- Added `myAccessLevel` to `ProjectSearchResult` so that the client can use that info on the Project Dashboard [#379]
+- Added `myAccessLevel` to `ProjectSearchResult` so that the client can use that info on the Project Dashboard, and added `accessLevel` to `ProjectFilterOptions` [#379]
 - Added `feedbackId` to the `AdminNotificationMetadata` schema and `AdminNotificationMetadata` class so we are able to get the data for that specific feedback, including corresponding message [#344]
 - Updated `feedback` resolver to not only return the `open` round but the completed feedback rounds as well. Updated to sort results by id, and then by date [#344]
 - Updated `requestFeedback` in `requestFeedback` to add `feedbackId` to the admin notification metadata [#344]

@@ -996,6 +996,8 @@ export async function getPlanSectionsAndQuestions (
           sampleText: q.sampleText,
           required: q.required,
           displayOrder: idx + 1,
+          displayLogicAction: q.displayLogicAction,
+          displayLogicMatchType: q.displayLogicMatchType,
           hasAnswer: baseAnswersMap.has(q.id),
           answer: baseAnswersMap.get(q.id) || undefined,
           json: q.json,

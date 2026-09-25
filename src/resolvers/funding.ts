@@ -189,7 +189,6 @@ export const resolvers: Resolvers = {
             }
 
             const removed = await funding.delete(context);
-            console.log("***Removed funding", removed);
             if (removed && !removed.hasErrors()) {
               for (const plan of plans) {
                 // Handle OpenSearch index update and maDMP JSON versioning in Dynamo

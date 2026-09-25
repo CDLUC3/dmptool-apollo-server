@@ -400,6 +400,40 @@ describe('findBy Queries', () => {
     const result = await Answer.findByPlanId('testing', context, planId);
     expect(result).toEqual([]);
   });
+
+  it('findFilledAnswersByPlanId should query filled answers and return Answer instances', async () => {
+    const planId = casual.integer(1, 9999);
+    localQuery.mockResolvedValueOnce([answer]);
+
+    const result = await Answer.findFilledAnswersByPlanId(
+      'testing',
+      context,
+      planId
+    );
+
+    const sql = localQuery.mock.calls[0][1].replace(/\s+/g, ' ').trim();
+    expect(sql).toContain('SELECT * FROM answers WHERE planId = ?');
+    expect(sql).toContain("JSON_TYPE(json) = 'OBJECT'");
+    expect(localQuery).toHaveBeenLastCalledWith(
+      context,
+      expect.any(String),
+      [planId.toString()],
+      'testing'
+    );
+    expect(result[0]).toBeInstanceOf(Answer);
+  });
+
+  it('findFilledAnswersByPlanId should return an empty array when no answers are filled', async () => {
+    localQuery.mockResolvedValueOnce([]);
+
+    const result = await Answer.findFilledAnswersByPlanId(
+      'testing',
+      context,
+      casual.integer(1, 9999)
+    );
+
+    expect(result).toEqual([]);
+  });
 });
 
 describe('update', () => {

@@ -107,7 +107,7 @@ export class DMPHubAPI extends RESTDataSource {
 
   private authorizer: Authorizer;
 
-  constructor(options: { cache: KeyvAdapter, token: JWTAccessToken }) {
+  constructor(options: { cache: KeyvAdapter, token?: JWTAccessToken }) {
     super(options);
 
     this.authorizer = Authorizer.instance;

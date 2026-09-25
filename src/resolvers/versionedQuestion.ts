@@ -33,7 +33,7 @@ interface PublishedQuestionResult {
 
 export const resolvers: Resolvers = {
   Query: {
-    // return all published questions for the specified versioned section. Returns both base and custom questions, and 
+    // return all published questions for the specified versioned section. Returns both base and custom questions, and
     // includes a flag for if the question has an answer for the specified plan
     publishedQuestions: async (_, { planId, versionedSectionId }, context: MyContext): Promise<PublishedQuestionResult[]> => {
       const reference = 'publishedQuestionsWithAnsweredFlag resolver';
@@ -187,11 +187,11 @@ export const resolvers: Resolvers = {
     publishedQuestion: async (_, { versionedQuestionId }, context: MyContext) => {
       const reference = 'publishedQuestion resolver';
       try {
-        if (isAuthorized(context?.token)) {
+        if (isAuthorized(context?.token) && context.token?.affiliationId) {
           const [question, customization] = await Promise.all([
             VersionedQuestion.findById(reference, context, versionedQuestionId),
             VersionedQuestionCustomization.findActiveByTemplateAffiliationAndQuestion(
-              reference, context, context.token.affiliationId, versionedQuestionId
+              reference, context, context.token?.affiliationId, versionedQuestionId
             ),
           ]);
 
@@ -202,7 +202,7 @@ export const resolvers: Resolvers = {
             customizationId: customization?.id ?? null,
             customizationGuidanceText: customization?.guidanceText ?? null,
             customizationSampleText: customization?.sampleText ?? null,
-            customizationAffiliationId: customization ? context.token.affiliationId : null,
+            customizationAffiliationId: customization ? context.token?.affiliationId : null,
           };
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();

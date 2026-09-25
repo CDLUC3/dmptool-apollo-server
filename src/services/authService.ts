@@ -55,7 +55,7 @@ export const authenticatedResolver = <TResult, TArgs, TParent = Record<PropertyK
  * @param token The JWT token to check
  * @returns true if the user is authenticated
  */
-export const isAuthorized = (token: JWTAccessToken): boolean => {
+export const isAuthorized = (token: JWTAccessToken | null): boolean => {
   return !isNullOrUndefined(token) && !isNullOrUndefined(token.id);
 }
 
@@ -65,7 +65,7 @@ export const isAuthorized = (token: JWTAccessToken): boolean => {
  * @param token The JWT token to check
  * @returns true if the user is an affiliation administrator
  */
-export const isAdmin = (token: JWTAccessToken): boolean => {
+export const isAdmin = (token: JWTAccessToken | null): boolean => {
   if (isAuthorized(token) && token.affiliationId) {
     return [UserRole.ADMIN.toString(), UserRole.SUPERADMIN.toString()].includes(token?.role);
   }
@@ -78,6 +78,6 @@ export const isAdmin = (token: JWTAccessToken): boolean => {
  * @param token The JWT token to check
  * @returns true if the user is a super admin
  */
-export const isSuperAdmin = (token: JWTAccessToken): boolean => {
+export const isSuperAdmin = (token: JWTAccessToken | null): boolean => {
   return isAuthorized(token) && token?.role === UserRole.SUPERADMIN;
 }

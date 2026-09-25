@@ -31,6 +31,8 @@ export const generalConfig = {
   orcidBaseURL: process.env.ORCID_BASE_URL || 'https://orcid.org/',
   rorBaseURL: process.env.ROR_BASE_URL || 'https://ror.org/',
 
+  tokenIssuer: process.env.TOKEN_ISSUER || 'http://localhost:3000',
+
   bcryptSaltRounds: Number.parseInt(process.env.BCRYPT_SALT_ROUNDS) || 10,
 
   hashTokenSecret: process.env.TOKEN_HASH_SECRET,

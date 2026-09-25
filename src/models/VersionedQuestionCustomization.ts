@@ -270,4 +270,37 @@ export class VersionedQuestionCustomization extends MySqlModel {
       : undefined;
   }
 
+  /**
+   * Find all the active versioned question customizations for a given template and affiliation.
+   * Used to surface customization guidance in the plan guidance panel.
+   *
+   * @param reference the reference to use for logging errors
+   * @param context the Apollo context
+   * @param affiliationId the affiliation id
+   * @param versionedSectionIds the versioned section ids to search for
+   * @returns an array of active versioned question customizations, or an empty array if none exist
+   */
+  static async findForActiveForAffiliationAndVersionSectionIds(
+    reference: string,
+    context: MyContext,
+    affiliationId: string,
+    versionedSectionIds: number[]
+  ): Promise<VersionedQuestionCustomization[]> {
+    if (versionedSectionIds.length === 0) return [];
+    const placeholders: string = versionedSectionIds.map((): string => '?').join(', ');
+    const sql = `
+      SELECT vqc.*
+      FROM ${VersionedQuestionCustomization.tableName} AS vqc
+      JOIN versionedTemplateCustomizations AS vtc
+        ON vqc.versionedTemplateCustomizationId = vtc.id
+      JOIN versionedQuestions AS vq
+        ON vqc.versionedQuestionId = vq.id
+      WHERE vtc.active = 1
+        AND vtc.affiliationId = ?
+        AND vq.versionedSectionId IN (${placeholders})
+    `;
+    const vals: string[] = [affiliationId, ...versionedSectionIds.map((id: number): string => id.toString())];
+    const results: unknown[] = await VersionedQuestionCustomization.query(context, sql, vals, reference);
+    return Array.isArray(results) ? results.map((entry: unknown): VersionedQuestionCustomization => new VersionedQuestionCustomization(entry)) : [];
+  }
 }

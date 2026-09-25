@@ -931,4 +931,50 @@ describe("VersionedCustomQuestion", () => {
       expect(result).toEqual([]);
     });
   });
+
+  describe("findByVersionedSectionIdsAndType", () => {
+    it("should find VersionedCustomQuestions by section ids and type", async () => {
+      const sectionIds = [300, 301];
+      const mockQuery = jest.spyOn(MySqlModel, "query").mockResolvedValue([
+        {
+          id: 1,
+          versionedTemplateCustomizationId: 100,
+          customQuestionId: 200,
+          versionedSectionType: PinnedSectionTypeEnum.BASE,
+          versionedSectionId: sectionIds[0],
+          questionText: "Test Question",
+        },
+      ]);
+
+      const result = await VersionedCustomQuestion.findByVersionedSectionIdsAndType(
+        "test.ref",
+        mockContext,
+        sectionIds,
+        "BASE"
+      );
+
+      expect(mockQuery).toHaveBeenCalledWith(
+        mockContext,
+        expect.stringContaining("vcq.versionedSectionId IN (?,?)"),
+        ["BASE", "300", "301"],
+        "test.ref"
+      );
+      expect(result[0]).toBeInstanceOf(VersionedCustomQuestion);
+      expect(result[0].versionedSectionId).toBe(sectionIds[0]);
+    });
+
+    it("should return an empty array without querying when no section ids are provided", async () => {
+      const mockQuery = jest.spyOn(MySqlModel, "query");
+
+      const result = await VersionedCustomQuestion.findByVersionedSectionIdsAndType(
+        "test.ref",
+        mockContext,
+        [],
+        "BASE"
+      );
+
+      expect(mockQuery).not.toHaveBeenCalled();
+      expect(result).toEqual([]);
+    });
+  });
 });

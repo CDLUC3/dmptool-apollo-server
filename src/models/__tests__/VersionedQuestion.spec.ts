@@ -285,6 +285,58 @@ describe('findByVersionedSectionId', () => {
   });
 });
 
+describe('findByVersionedSectionIds', () => {
+  const originalQuery = VersionedQuestion.query;
+  let localQuery;
+
+  beforeEach(async () => {
+    localQuery = jest.fn();
+    (VersionedQuestion.query as jest.Mock) = localQuery;
+    context = await buildMockContextWithToken(logger);
+  });
+
+  afterEach(() => {
+    VersionedQuestion.query = originalQuery;
+  });
+
+  it('should find questions for the specified section ids', async () => {
+    const sectionIds = [1, 2];
+    localQuery.mockResolvedValueOnce([{
+      id: 1,
+      versionedTemplateId: 3,
+      versionedSectionId: sectionIds[0],
+      questionId: 4,
+      questionText: 'Question',
+      displayOrder: 1,
+    }]);
+
+    const result = await VersionedQuestion.findByVersionedSectionIds(
+      'testing',
+      context,
+      sectionIds
+    );
+
+    expect(localQuery).toHaveBeenCalledWith(
+      context,
+      'SELECT * FROM versionedQuestions WHERE versionedSectionId IN (?,?)',
+      ['1', '2'],
+      'testing'
+    );
+    expect(result[0]).toBeInstanceOf(VersionedQuestion);
+  });
+
+  it('should return an empty array without querying when no section ids are provided', async () => {
+    const result = await VersionedQuestion.findByVersionedSectionIds(
+      'testing',
+      context,
+      []
+    );
+
+    expect(localQuery).not.toHaveBeenCalled();
+    expect(result).toEqual([]);
+  });
+});
+
 describe('findByVersionedTemplateIdAndQuestionId', () => {
   const originalQuery = VersionedQuestion.query;
 

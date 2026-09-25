@@ -392,6 +392,33 @@ describe('finders', () => {
     expect(result).toBeInstanceOf(VersionedSection);
   });
 
+  it('findByIds should find sections for the specified ids', async () => {
+    const ids = [1, 2];
+    localQuery.mockResolvedValueOnce([versionedSection]);
+
+    const result = await VersionedSection.findByIds('testing', context, ids);
+
+    expect(localQuery).toHaveBeenCalledWith(
+      context,
+      'SELECT * FROM versionedSections WHERE id IN (?,?)',
+      ['1', '2'],
+      'testing'
+    );
+    expect(result[0]).toBeInstanceOf(VersionedSection);
+  });
+
+  it('findByIds should return an empty array when no sections are found', async () => {
+    localQuery.mockResolvedValueOnce([]);
+
+    const result = await VersionedSection.findByIds(
+      'testing',
+      context,
+      [1, 2]
+    );
+
+    expect(result).toEqual([]);
+  });
+
   it('findByVersionedTemplateIdAndSectionId returns the VersionedSection', async () => {
     localQuery.mockResolvedValueOnce([versionedSection]);
     const id = versionedSection.id;

@@ -94,7 +94,6 @@ export class Guidance extends MySqlModel {
   }
 }
 
-
 // Represents guidance associated with a plan and user
 export class PlanGuidance extends MySqlModel {
   public planId: number;

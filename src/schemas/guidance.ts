@@ -150,6 +150,8 @@ export const typeDefs = gql`
     title: String
     "The guidance text content (HTML)"
     guidanceText: String!
+    "The sample text content (HTML)"
+    sampleText: String
   }
 
   "Types of guidance sources"

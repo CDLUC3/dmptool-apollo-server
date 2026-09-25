@@ -16,6 +16,7 @@ const { buildMockContextWithToken } = await import('../../__mocks__/context.js')
 const { logger } = await import('../../logger.js');
 const { Project, ProjectSearchResult } = await import('../Project.js');
 const { generalConfig } = await import('../../config/generalConfig.js');
+const { ProjectCollaboratorAccessLevel } = await import('../Collaborator.js');
 
 let context;
 
@@ -55,11 +56,12 @@ describe('ProjectSearchResult', () => {
       modifiedById: casual.integer(1, 99),
       modifiedByName: casual.name,
       modified: casual.date('YYYY-MM-DDTHH:mm:ssZ'),
-      collaboratorsData: 'foo@example.com|Comment|0000-0000-0000-1234,Jane Doe|Own|0000-0000-0000-5678',
+      collaboratorsData: `foo@example.com|Comment|0000-0000-0000-1234|${context.token.id},Jane Doe|Own||9999`,
       collaborators: [
         { name: 'foo@example.com', accessLevel: 'Comment', orcid: '0000-0000-0000-1234' },
-        { name: 'Jane Doe', accessLevel: 'Own', orcid: '0000-0000-0000-5678' }
+        { name: 'Jane Doe', accessLevel: 'Own', orcid: null }
       ],
+      myAccessLevel: 'COMMENT',
       membersData: 'John Smith|Principal Investigator (PI)|0000-0000-0000-TEST,' +
         'John Smith|Other|0000-0000-0000-TEST,Elmer Fudd|Other|0000-0000-0000-9876',
       members: [
@@ -94,7 +96,7 @@ describe('ProjectSearchResult', () => {
         modifiedById: projectSearchResult.modifiedById,
         modified: projectSearchResult.modified,
         modifiedByName: projectSearchResult.modifiedByName,
-        collaboratorsData: 'foo@example.com|Comment|0000-0000-0000-1234,Jane Doe|Own|0000-0000-0000-5678',
+        collaboratorsData: `foo@example.com|Comment|0000-0000-0000-1234|${context.token.id},Jane Doe|Own||9999`,
         membersData: 'John Smith|Principal Investigator (PI)|0000-0000-0000-TEST,' +
           'John Smith|Other|0000-0000-0000-TEST,Elmer Fudd|Other|0000-0000-0000-9876',
         fundingsData: 'Test funding|12345,Another funding|67890',
@@ -113,7 +115,8 @@ describe('ProjectSearchResult', () => {
         'ELSE (SELECT collabE.email FROM userEmails collabE WHERE collabE.userId = collab.id LIMIT 1) ' +
         'END, ' +
         'CONCAT(UPPER(SUBSTRING(pcol.accessLevel, 1, 1)), LOWER(SUBSTRING(pcol.accessLevel FROM 2))), ' +
-        'collab.orcid ' +
+        'COALESCE(collab.orcid, \'\'), ' +
+        'COALESCE(pcol.userId, \'\') ' +
         ') ORDER BY collab.created) collaboratorsData, ' +
         'GROUP_CONCAT(DISTINCT ' +
         'CONCAT_WS(\'|\', ' +
@@ -162,6 +165,23 @@ describe('ProjectSearchResult', () => {
       expect(localQuery).toHaveBeenCalledTimes(1);
       expect(localQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, groupBy, vals, opts, 'Test')
       expect(result).toEqual({ items: [projectSearchResult] });
+    });
+
+    it('filters by the current user\'s access level when accessLevel is specified', async () => {
+      localQuery.mockResolvedValueOnce({ items: [] });
+
+      await ProjectSearchResult.search('Test', context, null, projectSearchResult.createdById, null,
+        { accessLevel: ProjectCollaboratorAccessLevel.EDIT });
+
+      const [, , whereFilters, , vals] = localQuery.mock.calls[0];
+      expect(whereFilters).toContain(
+        '(p.id IN (SELECT projectId FROM projectCollaborators WHERE userId = ? AND accessLevel = ?))'
+      );
+      expect(vals).toEqual([
+        '%%', '%%',
+        context.token.id.toString(), 'EDIT',
+        projectSearchResult.createdById.toString(), projectSearchResult.createdById.toString()
+      ]);
     });
 
     it('returns an empty array if there are no matching ProjectSearchResults', async () => {

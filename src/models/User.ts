@@ -1,15 +1,12 @@
-import bcrypt from 'bcryptjs';
 import {
   capitalizeFirstLetter,
   formatORCID,
   getCurrentDate,
   isNullOrUndefined,
-  validateEmail
 } from '../utils/helpers.js';
 import { prepareObjectForLogs } from '../logger.js';
 import { MySqlModel } from './MySqlModel.js';
 import { MyContext } from '../context.js';
-import { generalConfig } from '../config/generalConfig.js';
 import { defaultLanguageId, supportedLanguages } from './Language.js';
 import { UserEmail } from './UserEmail.js';
 import {
@@ -19,8 +16,6 @@ import {
   PaginationOptionsForOffsets,
   PaginationType
 } from '../types/general.js';
-import { ProjectCollaborator, TemplateCollaborator } from "./Collaborator.js";
-import { bumpUserTokenVersion } from '../services/tokenService.js';
 
 export enum UserRole {
   RESEARCHER = 'RESEARCHER',
@@ -121,72 +116,9 @@ export class User extends MySqlModel {
     return Object.keys(this.errors).length === 0;
   }
 
-  // Validate the password format
-  validatePassword(): boolean {
-    const specialCharsRegex = /[`!@#$%^&*_+\-=?~\s]/;
-    // eslint-disable-next-line no-useless-escape
-    const badSpecialCharsRegex = /[\(\)\{\}\[\]\|\\:;"'<>\,\.\/]/
-
-    // Test the string against the regular expression
-    if (
-      this.password?.length >= 8 &&
-      /[A-Z]/.test(this.password) &&
-      /[a-z]/.test(this.password) &&
-      /\d/.test(this.password) &&
-      specialCharsRegex.test(this.password) &&
-      !badSpecialCharsRegex.test(this.password)
-    ) {
-      return true;
-    }
-    this.addError('password', `Invalid password format.
-        Passwords must be greater than 8 characters, and contain at least
-        one number,
-        one upper case letter,
-        one lower case letter, and
-        one of the following special character (\`, !, @, #, $, %, ^, &, *, -, _, =, +, ?, ~)`);
-    return false;
-  }
-
   // Helper function to return the user's full name
   getName(): string {
     return [this.givenName, this.surName].join(' ').trim();
-  }
-
-  // Hashes the user's password
-  async hashPassword(password: string): Promise<string> {
-    const salt = await bcrypt.genSalt(generalConfig.bcryptSaltRounds);
-    return await bcrypt.hash(password, salt);
-  }
-
-  // Find the User by their email for an Auth check (includes the password)
-  static async authCheck(
-    reference: string,
-    context: MyContext,
-    email: string,
-    password: string,
-  ): Promise<number | null> {
-    const userEmails = await UserEmail.findByEmail(reference, context, email);
-
-    const userEmail = userEmails[0];
-
-    if (!userEmail || (!userEmail.isPrimary && !userEmail.isConfirmed)) {
-      context.logger.debug("No primary or confirmed UserEmail found");
-      return null;
-    }
-
-    const user = await User.findById(reference, context, userEmail.userId);
-
-    // If the user was found, check the password
-    // TODO: Add logic to lock the account after too many failures
-
-    // Otherwise check the password
-    if (user && await bcrypt.compare(password, user.password)) {
-      context.logger.debug(prepareObjectForLogs({ id: user.id }), "Successful authCheck");
-      return user.id;
-    }
-
-    context.logger.debug("Failed authCheck");
-    return null;
   }
 
   // Find the User by their id
@@ -365,25 +297,6 @@ export class User extends MySqlModel {
     return response;
   }
 
-  // Set the user's password
-  async setPassword(context: MyContext, newPassword: string): Promise<boolean> {
-    if (this.id) {
-      this.password = newPassword;
-      if (!this.validatePassword()) {
-        return false;
-      }
-      this.password = await this.hashPassword(newPassword);
-      this.passwordChangedAt = getCurrentDate();
-
-      if (await User.update(context, this.tableName, this, 'User.setPassword')) {
-        await bumpUserTokenVersion(context.cache, this.id);
-        return true;
-      }
-    }
-    context.logger.error(`setPassword failed for user ${this.id}`);
-    return false;
-  }
-
   // Update the last_login fields
   async recordLogIn(context: MyContext, loginType: LogInType): Promise<boolean> {
     if (this.id) {
@@ -397,122 +310,6 @@ export class User extends MySqlModel {
     // This recordSignIn could not update the record for some reason
     context.logger.error(`recordSignIn failed for user ${this.id}`);
     return false;
-  }
-
-  // Login making sure that the passwords match
-  async login(context: MyContext, email: string): Promise<User> {
-    this.prepForSave();
-
-    // Validate the email and password
-    if (!validateEmail(email) || !this.validatePassword()) {
-      return null;
-    }
-
-    try {
-      const userId = await User.authCheck('User.login', context, email, this.password);
-      context.logger.debug(prepareObjectForLogs({ userId }), 'User.login');
-      if (userId) {
-        const existing = await User.findById('User.login', context, userId);
-
-        // Update the User's last_sign_in fields
-        if (await new User(existing).recordLogIn(context, LogInType.PASSWORD)) {
-          // return existing;
-          return existing;
-        }
-      }
-      return null;
-    } catch (err) {
-      context.logger.error(prepareObjectForLogs({ err, email: email }), 'Error logging in User');
-      return null;
-    }
-  }
-
-  // Register the User if the data is valid
-  async register(context: MyContext, email: string): Promise<User> {
-    const reference = 'User.register';
-
-    this.prepForSave();
-    // We must save the email after the user is created so that we can add the
-    // foreign key to the UserEmail table that is generated by the User, but we
-    // could still check the format in here.
-
-    if (!validateEmail(email)) {
-      this.addError('email', 'Invalid email address');
-    }
-
-    // Make sure the account does not already exist
-    const existing = await UserEmail.findByEmail('User.register', context, email);
-    if (Array.isArray(existing) && existing.length > 0) {
-      this.addError('general', 'Account already exists');
-    }
-
-    // Validate the password
-    this.validatePassword()
-
-    // Ensure that the user has accepted the terms and conditions
-    if (this.acceptedTerms !== true) {
-      this.addError('acceptedTerms', 'You must accept the terms and conditions');
-    }
-
-    if (Object.keys(this.errors).length === 0) {
-      const passwordHash = await this.hashPassword(this.password);
-      this.password = passwordHash
-
-      try {
-        const sql = `INSERT INTO users \
-                      (password, role, givenName, surName, affiliationId, acceptedTerms) \
-                     VALUES(?, ?, ?, ?, ?, ?)`;
-        const vals = [this.password, this.role, this.givenName, this.surName, this.affiliationId, this.acceptedTerms];
-        context.logger.debug(prepareObjectForLogs({ email }), reference);
-        const result = await User.query(context, sql, vals, reference);
-
-        if (!Array.isArray(result) || !result[0].insertId) {
-          this.addError('general', 'Unable to register your account');
-          return this;
-        }
-        context.logger.debug(
-          prepareObjectForLogs({ email: email, userId: result[0].insertId }),
-          'User was created'
-        );
-
-        // Fetch the new record
-        const user = await User.findById(reference, context, result[0].insertId);
-
-        // Update the user's createdById and modifiedById to indicate themselves
-        const sqlUpdate = `UPDATE users SET createdById = ?, modifiedById = ? WHERE id = ?`;
-        const valsUpdate = [user.id.toString(), user.id.toString(), user.id.toString()];
-        await User.query(context, sqlUpdate, valsUpdate, reference);
-
-        // Add the email to the UserEmail table and send out a 'please confirm' email
-        const userEmail = new UserEmail({ userId: user.id, email: email, isPrimary: true });
-        if (!await userEmail.create(context)) {
-          context.logger.error(prepareObjectForLogs({ userEmail }), `${reference} - unable to add UserEmail`);
-        }
-
-        // Claim any open invitations to collaborate on a Template by assigning the userId
-        const tmpltCollabs = await TemplateCollaborator.findByEmail(reference, context, email);
-        for (const collab of tmpltCollabs) {
-          collab.userId = user.id;
-          await collab.update(context);
-        }
-
-        // Claim any open invitations to collaborate on a Project by assigning the userId
-        const projCollabs = await ProjectCollaborator.findByEmail(reference, context, email);
-        for (const collab of projCollabs) {
-          collab.userId = user.id;
-          await collab.update(context);
-        }
-
-        return user;
-      } catch (err) {
-        this.addError('general', 'There was an error creating user');
-        context.logger.error(prepareObjectForLogs({ err, email: email }), 'Error creating User');
-        return this;
-      }
-    } else {
-      context.logger.debug(prepareObjectForLogs({ email: email, errors: this.errors }), 'Invalid user');
-      return this;
-    }
   }
 
   // Save the changes made to the User
@@ -543,31 +340,5 @@ export class User extends MySqlModel {
       this.addError('general', 'User has never been saved');
     }
     return new User(this);
-  }
-
-  // Function to update the user's password
-  async updatePassword(
-    context: MyContext,
-    oldPassword: string,
-    newPassword: string,
-    email: string
-  ): Promise<User> {
-    const ref = 'User.updatePassword';
-    // First make sure the current password is valid
-    const validPassword = await User.authCheck(ref, context, email, oldPassword);
-    if (validPassword) {
-      this.password = newPassword;
-      if (this.validatePassword()) {
-        this.password = await this.hashPassword(newPassword);
-
-        const updated = await User.update(context, this.tableName, this, 'User.updatePassword', []);
-        if (updated) {
-          return await User.findById('updatePassword resolver', context, this.id);
-        }
-      }
-      // The new password was invalid, so return the object with errors
-      return new User(this);
-    }
-    return null;
   }
 }

@@ -1,10 +1,8 @@
 
 import casual from "casual";
-import { isNullOrUndefined } from "../../utils/helpers.js";
 import { User, UserRole } from "../User.js";
 import { MyContext } from "../../context.js";
 import { getMockROR, getRandomEnumValue } from "../../__tests__/helpers.js";
-import { prepareObjectForLogs } from "../../logger.js";
 
 // Store for all mock/test Users that were persisted to the DB
 const addedUserIds: number[] = [];
@@ -35,26 +33,6 @@ export const mockUser = (
     affiliationId: options.affiliationId ?? getMockROR(),
     acceptedTerms: options.acceptedTerms ?? casual.boolean,
   });
-}
-
-// Save a mock/test User in the DB for integration tests
-export const persistUser = async (
-  context: MyContext,
-  user: User,
-  email = casual.email,
-): Promise<User | null> => {
-  try {
-    const created = await user.register(context, email);
-    if (!isNullOrUndefined(created)) {
-      // Keep track of the id so we can clean up afterward
-      addedUserIds.push(created.id);
-      return created;
-    }
-    console.error(prepareObjectForLogs({ errors: user.errors }), "Unable to persist user");
-  } catch {
-    console.error("Error persisting user");
-  }
-  return null;
 }
 
 // Clean up all mock/test Users

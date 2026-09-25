@@ -1857,8 +1857,6 @@ export type Mutation = {
   updateMemberRole?: Maybe<MemberRole>;
   /** Update a MetadataStandard record */
   updateMetadataStandard?: Maybe<MetadataStandard>;
-  /** Change the current user's password */
-  updatePassword?: Maybe<User>;
   /** Update a plan */
   updatePlan?: Maybe<Plan>;
   /** Update multiple Plan Fundings passing in an array of projectFundingIds */
@@ -2516,13 +2514,6 @@ export type MutationUpdateMemberRoleArgs = {
 
 export type MutationUpdateMetadataStandardArgs = {
   input: UpdateMetadataStandardInput;
-};
-
-
-export type MutationUpdatePasswordArgs = {
-  email: Scalars['String']['input'];
-  newPassword: Scalars['String']['input'];
-  oldPassword: Scalars['String']['input'];
 };
 
 
@@ -8071,7 +8062,6 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   updateLicense?: Resolver<Maybe<ResolversTypes['License']>, ParentType, ContextType, RequireFields<MutationUpdateLicenseArgs, 'name' | 'uri'>>;
   updateMemberRole?: Resolver<Maybe<ResolversTypes['MemberRole']>, ParentType, ContextType, RequireFields<MutationUpdateMemberRoleArgs, 'displayOrder' | 'id' | 'label' | 'url'>>;
   updateMetadataStandard?: Resolver<Maybe<ResolversTypes['MetadataStandard']>, ParentType, ContextType, RequireFields<MutationUpdateMetadataStandardArgs, 'input'>>;
-  updatePassword?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationUpdatePasswordArgs, 'email' | 'newPassword' | 'oldPassword'>>;
   updatePlan?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType, RequireFields<MutationUpdatePlanArgs, 'input'>>;
   updatePlanFunding?: Resolver<Maybe<Array<Maybe<ResolversTypes['PlanFunding']>>>, ParentType, ContextType, RequireFields<MutationUpdatePlanFundingArgs, 'planId' | 'projectFundingIds'>>;
   updatePlanMember?: Resolver<Maybe<ResolversTypes['PlanMember']>, ParentType, ContextType, RequireFields<MutationUpdatePlanMemberArgs, 'planId' | 'planMemberId'>>;

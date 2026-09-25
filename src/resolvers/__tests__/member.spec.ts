@@ -12,7 +12,7 @@ import assert from "assert";
 import { buildContext, mockToken } from "../../__mocks__/context.js";
 
 import { logger } from "../../logger.js";
-import { JWTAccessToken } from "../../services/tokenService.js";
+import { JWTAccessToken } from "../../types/general.js";
 
 import { User, UserRole } from "../../models/User.js";
 import { Affiliation } from "../../models/Affiliation.js";

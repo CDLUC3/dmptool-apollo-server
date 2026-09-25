@@ -1,5 +1,18 @@
 import { MyContext } from "../context.js";
 import { GraphQLResolveInfo } from "graphql/index.js";
+import { JwtPayload } from "jsonwebtoken";
+
+export interface JWTAccessToken extends JwtPayload {
+  id: number,
+  email: string,
+  givenName: string,
+  surName: string,
+  role: string,
+  affiliationId: string,
+  languageId: string,
+  jti: string,
+  tokenVersion: number,
+}
 
 export type AuthenticatedResolverType<TResult, TArgs = Record<string, unknown>, TParent = Record<string, unknown>> = (
   parent: TParent,

@@ -9,7 +9,6 @@ import { logger } from './logger.js';
 import { serverConfig } from './config.js';
 import { healthcheck } from './controllers/healthcheck.js';
 import { attachApolloServer } from './middleware/express.js';
-import { setupRouter } from './router.js';
 import { MySQLConnection } from './datasources/mysql.js';
 import { Cache } from './datasources/cache.js';
 import { verifyCriticalEnvVariable } from './utils/helpers.js';
@@ -79,9 +78,6 @@ const startServer = async (): Promise<void> => {
     openSearchServerlessDataSource,
   ));
 
-  // Pass off to the Router for non-GraphQL requests
-  app.use('/', setupRouter(baseLogger, cache, sqlDataSource, null));
-
   // Start the HTTP server
   httpServer.listen({ port: PORT }, () => {
     console.log(`Server running on port ${PORT}`);
@@ -116,5 +112,3 @@ startServer().catch((error: Error): never => {
   console.log('Error starting server:', error)
   process.exit(1);
 });
-
-export default app;

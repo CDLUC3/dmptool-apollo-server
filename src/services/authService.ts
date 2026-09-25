@@ -1,9 +1,8 @@
 import { GraphQLError, GraphQLResolveInfo } from 'graphql';
 import { MyContext } from "../context.js";
 import { UserRole } from "../models/User.js";
-import { JWTAccessToken } from "./tokenService.js";
 import { prepareObjectForLogs } from "../logger.js";
-import { AuthenticatedResolverType } from "../types/general.js";
+import { AuthenticatedResolverType, JWTAccessToken } from "../types/general.js";
 import {
   AuthenticationError,
   ForbiddenError,

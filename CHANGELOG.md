@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added new `TOKEN_ISSUER` and `ACCESS_TOKEN_NAME` env variables and updated `generalConfig` to expose them
 - Added a new `maDMP` types file with shortcuts to nested maDMP types.
 - Added new helper functions to the `planService` and `projectService` which fetch the item and check permissions
 - Added new resolver to support the Plan one-page design [#371](https://github.com/CDLUC3/dmptool-doc/issues/371)
@@ -147,6 +148,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated the `auth` middleware to work with the new external Auth service 
 - Updated the Plan schema to provide more info needed for the plan authoring one-page [#371](https://github.com/CDLUC3/dmptool-doc/issues/371)
 - Refactored the plan resolver to make use of `authenticatedResolver` and plan and project service functions to check permissions 
 - Updated `Question` model with new `findPriorQuestionsForQuestion` function [#360]
@@ -310,6 +312,11 @@
 - Updates to appease newer version of eslint
 
 ### Removed
+- Removed the reset password logic as this will now be handled by the external Auth service
+- Removed the resolver/schema for changing a user's password, since that is now handled by the external Auth service
+- Removed `register`, `login` and supporting functions from the `User` model
+- Removed all the old express controllers and routes so we can begin using the new Auth service
+- Removed all the access, refresh and CSRF token logic from the `tokenService`
 - Removed unused `valueIsDate` function from the `MySQLModel`
 - Removed old `processResult` functions from the `Answer` and `Question` models. These functions were added to help add the `commonStandardId` to existing JSON records. It proved to be inadequate so we eneded up just deleting old data
 - Removed unused SQS env variable from example dotenv file

@@ -49,7 +49,6 @@ const {
   sendProjectCollaboratorsCommentsAddedEmail,
   sendFeedbackCompleteEmail,
   sendContactUsEmail,
-  sendResetPasswordEmail,
 } = await import("../emailService.js");
 const { generalConfig } = await import("../../config/generalConfig.js");
 const { emailConfig } = await import("../../config/emailConfig.js");
@@ -194,8 +193,7 @@ describe('sendEmail', () => {
 
     jest.spyOn(User.prototype, 'getEmail').mockResolvedValue(email);
 
-    (User.findById as jest.Mock) = jest.fn<() => Promise<InstanceType<typeof User> | null>>().
-      mockResolvedValueOnce(user);
+    (User.findById as jest.Mock) = jest.fn<() => Promise<InstanceType<typeof User> | null>>().mockResolvedValueOnce(user);
     const sent = await sendProjectCollaborationEmail(context, projectName, inviterName, email, user.id);
     const expectedSubject = `${subjectPrefix} - ${emailSubjects.projectCollaboration}`
     const expectedMessage = emailMessages.projectCollaboration;
@@ -217,7 +215,7 @@ describe('sendEmail', () => {
   it('should send the project collaborators emails when a comment is added', async () => {
     jest.spyOn(logger, 'info');
     const email = casual.email;
-    const emails = Array.from({ length: 5 }, () => casual.email);
+    const emails = Array.from({length: 5}, () => casual.email);
     jest.spyOn(User.prototype, 'getEmail').mockResolvedValue(email);
     const sent = await sendProjectCollaboratorsCommentsAddedEmail(context, emails);
 
@@ -343,13 +341,13 @@ describe('sendEmail', () => {
 
   it('should send feedback request emails to all collaborators', async () => {
     jest.spyOn(logger, 'info');
-    const emails = Array.from({ length: 3 }, () => casual.email);
+    const emails = Array.from({length: 3}, () => casual.email);
     const planOwnerName = `${casual.first_name} ${casual.last_name}`;
     const planURL = `/plans/${casual.uuid}`;
     const planTitle = casual.sentence;
     const feedbackMessage = casual.sentence;
     // Import here to avoid hoisting issues
-    const { sendFeedbackRequestEmail } = await import('../emailService.js');
+    const {sendFeedbackRequestEmail} = await import('../emailService.js');
     const sent = await sendFeedbackRequestEmail(context, planOwnerName, planURL, planTitle, emails, feedbackMessage);
 
     const expectedSubject = `${subjectPrefix} - ${emailSubjects.feedbackRequest}`;
@@ -409,59 +407,5 @@ describe('sendEmail', () => {
       "subject": expectedSubject,
       "to": emailConfig.helpDeskAddress,
     });
-  });
-
-  it('should send the reset password email', async () => {
-    jest.spyOn(logger, 'info');
-    const emailAddress = "dmp@cdlib.org";
-    const userEmail = "jsmith@example.com";
-    const resetToken = casual.uuid;
-    const user = new User({
-      id: casual.integer(1, 99),
-      givenName: casual.first_name,
-      surName: casual.last_name,
-    });
-    jest.spyOn(User.prototype, 'getEmail').mockResolvedValue(emailAddress);
-
-    const sent = await sendResetPasswordEmail(context, user, userEmail, resetToken);
-
-    const expectedSubject = `${subjectPrefix} - Reset Your Password`;
-    const domain = generalConfig.domain;
-    const resetPasswordUrl = `${domain}/login/reset-password?token=${resetToken}`;
-    const expectedMessage = emailMessages.sendResetPassword
-      .replace('%{userEmail}', userEmail)
-      .replace('%{resetPasswordUrl}', resetPasswordUrl)
-      .replaceAll('%{helpDeskEmail}', emailConfig.helpDeskAddress)
-      .replace('%{helpUrl}', `${domain}/help`);
-
-    expect(sent).toBe(true);
-    expect(logger.info).toHaveBeenCalledTimes(1);
-    expect(mockSendEmail).toHaveBeenCalledTimes(1);
-    expect(mockSendEmail).toHaveBeenCalledWith({
-      "bcc": "",
-      "cc": "",
-      "from": `"${generalConfig.applicationName}" <${emailConfig.doNotReplyAddress}>`,
-      "html": expectedMessage,
-      "replyTo": emailConfig.helpDeskAddress,
-      "sender": emailConfig.doNotReplyAddress,
-      "subject": expectedSubject,
-      "to": userEmail,
-    });
-  });
-
-  it('should log an error and return false when the user has no email address for reset password', async () => {
-    jest.spyOn(context.logger, 'error');
-    const user = new User({
-      id: casual.integer(1, 99),
-      givenName: casual.first_name,
-      surName: casual.last_name,
-    });
-    jest.spyOn(User.prototype, 'getEmail').mockResolvedValue(null);
-
-    const sent = await sendResetPasswordEmail(context, user, undefined, casual.uuid);
-
-    expect(sent).toBe(false);
-    expect(mockSendEmail).not.toHaveBeenCalled();
-    expect(context.logger.error).toHaveBeenCalledTimes(1);
   });
 });

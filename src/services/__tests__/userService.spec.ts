@@ -13,7 +13,7 @@ import type { MyContext } from "../../context.js";
 const { buildMockContextWithToken } = await import("../../__mocks__/context.js");
 const { logger } = await import("../../logger.js");
 const { User, UserRole } = await import("../../models/User.js");
-const { anonymizeUser, generateRandomPassword, mergeUsers } = await import("../userService.js");
+const { anonymizeUser, mergeUsers } = await import("../userService.js");
 const { getCurrentDate } = await import("../../utils/helpers.js");
 const { UserEmail } = await import("../../models/UserEmail.js");
 const { TemplateCollaborator } = await import("../../models/Collaborator.js");
@@ -192,19 +192,6 @@ afterEach(() => {
   jest.clearAllMocks();
 });
 
-describe('generateRandomPassword', () => {
-  it('generates a valid password', () => {
-    const result = generateRandomPassword();
-    expect(result.match(/[A-Z]/).length > 0).toBe(true);
-    expect(result.match(/[a-z]/).length > 0).toBe(true);
-    expect(result.match(/[0-9]/).length > 0).toBe(true);
-    // One of the special characters isn't working in this regex, so just make sure it has between 2-3
-    expect(result.match(/[`!@#$%^&*_+\-=?~\s]/g).length).toBeGreaterThanOrEqual(2);
-    expect(result.match(/[`!@#$%^&*_+\-=?~\s]/g).length).toBeLessThanOrEqual(3);
-    expect(result.length >= 8).toBe(true);
-  })
-});
-
 describe('anonymizeUser', () => {
   let user: any;
 
@@ -282,7 +269,7 @@ describe('anonymizeUser', () => {
 
     // Expect others to change
     expect(originalEmail).not.toEqual(anonymizedEmail);
-    expect(result.password).not.toEqual(original.password);
+    expect(result.password).toEqual(original.password);
     expect(result.givenName).not.toEqual(original.givenName);
     expect(result.surName).not.toEqual(original.surName);
     expect(result.languageId).toEqual(defaultLanguageId);

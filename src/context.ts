@@ -3,7 +3,7 @@ import { DMPHubAPI } from './datasources/dmphubAPI.js';
 import { EZIDAPI } from './datasources/EZIDAPI.js';
 import { OpenSearch } from "./datasources/openSearch.js";
 import { MySQLConnection, TransactionClient } from './datasources/mysql.js';
-import { JWTAccessToken } from './services/tokenService.js';
+import { JWTAccessToken } from "./types/general.js"
 import { randomHex } from './utils/helpers.js';
 import { BaseContext } from "@apollo/server";
 import { KeyvAdapter } from "@apollo/utils.keyvadapter";

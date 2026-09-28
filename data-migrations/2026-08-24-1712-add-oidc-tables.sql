@@ -1,6 +1,9 @@
 -- This migration adds the necessary tables for OpenId Connect (OIDC) authentication
 -- and authorization.
 
+-- Add a tokenVersion field to the users table to support token versioning for OIDC.
+ALTER TABLE users ADD COLUMN tokenVersion INT NOT NULL DEFAULT 0;
+
 -- Table that stores the JSON Web Key Sets (JWKS) for OIDC authentication.
 -- This table is used to store the public keys that are used to verify the
 -- signatures of JWTs issued by the OIDC provider.

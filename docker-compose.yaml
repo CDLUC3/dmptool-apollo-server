@@ -126,6 +126,7 @@ services:
       - "AWS_SECRET_ACCESS_KEY=DUMMYEXAMPLEKEY"
       - "REGION=us-west-2"
       - "NODE_ENV=development"
+      - "PORT=4000"
 
       # Local MySQL database
       - "MYSQL_CONNECTION_LIMIT=5"
@@ -153,6 +154,10 @@ services:
 
       # LocalStack Port
       - "LOCALSTACK_PORT=4566"
+
+      # The issuer of the access token, this should be the URL of your auth server
+      # see the https://github.com/CDLUC3/dmptool-auth repo
+      - "TOKEN_ISSUER=http://auth:4646"
 
       # DynamoDB table used to store maDMP versions
       - "DYNAMO_ENDPOINT=http://localstack:4566"

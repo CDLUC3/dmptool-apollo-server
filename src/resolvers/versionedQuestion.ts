@@ -171,11 +171,11 @@ export const resolvers: Resolvers = {
     publishedQuestion: async (_, { versionedQuestionId }, context: MyContext) => {
       const reference = 'publishedQuestion resolver';
       try {
-        if (isAuthorized(context?.token)) {
+        if (isAuthorized(context?.token) && context.token?.affiliationId) {
           const [question, customization] = await Promise.all([
             VersionedQuestion.findById(reference, context, versionedQuestionId),
             VersionedQuestionCustomization.findActiveByTemplateAffiliationAndQuestion(
-              reference, context, context.token.affiliationId, versionedQuestionId
+              reference, context, context.token?.affiliationId, versionedQuestionId
             ),
           ]);
 
@@ -186,7 +186,7 @@ export const resolvers: Resolvers = {
             customizationId: customization?.id ?? null,
             customizationGuidanceText: customization?.guidanceText ?? null,
             customizationSampleText: customization?.sampleText ?? null,
-            customizationAffiliationId: customization ? context.token.affiliationId : null,
+            customizationAffiliationId: customization ? context.token?.affiliationId : null,
           };
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();

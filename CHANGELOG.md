@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added new `PORT`, `TOKEN_ISSUER`, `TOKEN_AUDIENCES` and `ACCESS_TOKEN_NAME` env variables and updated `generalConfig` to expose them
 - Added a new `maDMP` types file with shortcuts to nested maDMP types.
 - Added new helper functions to the `planService` and `projectService` which fetch the item and check permissions
 - Added new resolver to support the Plan one-page design [#371](https://github.com/CDLUC3/dmptool-doc/issues/371)
@@ -147,6 +148,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated the `auth` middleware to work with the new external Auth service 
 - Added `feedbackId` to the `AdminNotificationMetadata` schema and `AdminNotificationMetadata` class so we are able to get the data for that specific feedback, including corresponding message [#344]
 - Updated `feedback` resolver to not only return the `open` round but the completed feedback rounds as well. Updated to sort results by id, and then by date [#344]
 - Updated `requestFeedback` in `requestFeedback` to add `feedbackId` to the admin notification metadata [#344]
@@ -154,12 +156,12 @@
 - Refactored the plan resolver to make use of `authenticatedResolver` and plan and project service functions to check permissions 
 - Updated `Question` model with new `findPriorQuestionsForQuestion` function [#360]
 - Updated app to use Ecma Script Modules (ESM) [#259]
-  - Updated `tsconfig.json` for `ESM`
-  - Updated `dev` script to use `tsx` instead of `ts-node-dev` in `package.json` and updated `test` and `test-no-db` scripts because jest itself doesn't natively support ESM without the `--experimental-vm-modules` flag
-  - Added use of `type: module` and `"main": "dist/index.js"` to package.json for ESM [#259]
-  - Updated all unit tests to be compliant with `ESM` [#259]
-  - Adjusted jest.config.js for `ESM` [#259]
-  - Updated `jest.mock` everywhere to `jest.unstable_mockModule` for ESM [#259]
+- Updated `tsconfig.json` for `ESM`
+- Updated `dev` script to use `tsx` instead of `ts-node-dev` in `package.json` and updated `test` and `test-no-db` scripts because jest itself doesn't natively support ESM without the `--experimental-vm-modules` flag
+- Added use of `type: module` and `"main": "dist/index.js"` to package.json for ESM [#259]
+- Updated all unit tests to be compliant with `ESM` [#259]
+- Adjusted jest.config.js for `ESM` [#259]
+- Updated `jest.mock` everywhere to `jest.unstable_mockModule` for ESM [#259]
 - Updated docker compose so that LocalStack log level is now `WARN`.
 - Bumped versions of `@dmptool` packages to their latest versions
 - Updated `RelatedWork` model so that it does not always try to strip off the protocol and domain from the related work identifier. The DMP works matching deals with DOIs, but we are allowing users to manually add related works via the UI as well as through the REST API and sometimes the entries are URLs or other unique identetifiers that are NOT DOIs. These changes continue to strip off the `https://doi.org` if it is a DOI (for backward compatibility with the dmp works project) but otherwise preserve the entire value
@@ -313,6 +315,11 @@
 - Updates to appease newer version of eslint
 
 ### Removed
+- Removed the reset password logic as this will now be handled by the external Auth service
+- Removed the resolver/schema for changing a user's password, since that is now handled by the external Auth service
+- Removed `register`, `login` and supporting functions from the `User` model
+- Removed all the old express controllers and routes so we can begin using the new Auth service
+- Removed all the access, refresh and CSRF token logic from the `tokenService`
 - Removed unused `valueIsDate` function from the `MySQLModel`
 - Removed old `processResult` functions from the `Answer` and `Question` models. These functions were added to help add the `commonStandardId` to existing JSON records. It proved to be inadequate so we eneded up just deleting old data
 - Removed unused SQS env variable from example dotenv file

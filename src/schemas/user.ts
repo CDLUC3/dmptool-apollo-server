@@ -31,9 +31,6 @@ export const typeDefs = gql`
     "Designate the email as the current user's primary email address"
     setPrimaryUserEmail(email: String!): [UserEmail]
 
-    "Change the current user's password"
-    updatePassword(oldPassword: String!, newPassword: String!, email: String!): User
-
     "Deactivate the specified user Account (Admin only)"
     deactivateUser(userId: Int!): User
     "Reactivate the specified user Account (Admin only)"

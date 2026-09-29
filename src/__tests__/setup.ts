@@ -14,6 +14,9 @@ process.env.TOKEN_HASH_SECRET =
 process.env.TOKEN_HASH_SECRET ?? 'testTokenSecret';
 process.env.CACHE_HOST = process.env.CACHE_HOST ?? 'localhost';
 process.env.CACHE_PORT = process.env.CACHE_PORT ?? '6379';
+process.env.TOKEN_ISSUER = process.env.TOKEN_ISSUER ?? 'http://localhost:4646';
+process.env.TOKEN_AUDIENCES = process.env.TOKEN_AUDIENCES ?? 'http://localhost:3000';
+process.env.ACCESS_TOKEN_NAME = process.env.ACCESS_TOKEN_NAME ?? 'access_token';
 
 jest.mock('../logger.js', () => {
   const original = jest.requireActual('../logger.js') as typeof import('../logger.js');

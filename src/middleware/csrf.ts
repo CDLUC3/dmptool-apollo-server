@@ -13,9 +13,6 @@ import { generalConfig } from "../config/generalConfig.js";
  * @returns a promise that resolves when the middleware has completed its checks
  */
 export async function csrfMiddleware(req: Request, res: ExpressResponse, next: NextFunction) {
-
-console.log('CSRF CHECK', req.method);
-
   // Only worry about the CSRF token if the caller is performing a POST, PUT, PATCH, DELETE
   if (req.method !== 'GET' && req.method !== 'HEAD' && req.method !== 'OPTIONS') {
     // The CSRF is only needed if this is a mutation operation
@@ -37,11 +34,8 @@ console.log('CSRF CHECK', req.method);
 
       if (response.status !== 200) {
         return res.status(403).json({error: 'Invalid CSRF token'});
-      } else {
-        next(); // Token is valid, proceed to the next middleware or route handler
       }
-    } else {
-      next(); // Not a mutation operation, proceed to the next middleware or route handler
     }
   }
+  next();
 }

@@ -50,7 +50,6 @@ const getToken = (req: JWTRequest) => {
     return req.headers.authorization.split(' ')[1];
   }
 
-  // If no token is found, return null
   return null;
 }
 
@@ -72,7 +71,6 @@ export const validateClaims = (
   next: NextFunction
 ) => {
   const payload: JwtPayload | undefined = req.auth;
-
   if (
     payload && (
       typeof payload.id !== 'string'
@@ -109,7 +107,7 @@ export const requireAuth = expressjwt({
   audience: new RegExp(generalConfig.tokenAudiences),
   issuer: generalConfig.tokenIssuer,
   algorithms: ['RS256'],
-  credentialsRequired: true,
+  credentialsRequired: false, // Setting to false allows access to queries that don't require auth
   getToken: getToken,
   isRevoked: isRevokedCallback
 });

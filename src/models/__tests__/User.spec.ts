@@ -11,18 +11,6 @@ jest.unstable_mockModule('../../context.js', () => ({
   buildContext: jest.fn(),
 }));
 
-const mockGenSalt = jest.fn<() => Promise<string>>();
-const mockHash = jest.fn<() => Promise<string>>();
-const mockCompare = jest.fn<() => Promise<boolean>>();
-
-jest.unstable_mockModule('bcryptjs', () => ({
-  default: {
-    genSalt: mockGenSalt,
-    hash: mockHash,
-    compare: mockCompare,
-  },
-}));
-
 import type { UserRole as UserRoleType } from '../User.js';
 
 type SearchQueryWithPaginationFn = (

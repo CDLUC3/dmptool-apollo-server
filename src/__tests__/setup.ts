@@ -8,15 +8,12 @@ process.env.DOTENV_CONFIG_QUIET = process.env.DOTENV_CONFIG_QUIET ?? 'true';
 process.env.DOMAIN = process.env.DOMAIN ?? 'localhost:3000';
 process.env.APP_NAME = process.env.APP_NAME ?? 'My test app';
 process.env.DEFAULT_AFFILIATION_URI =
-  process.env.DEFAULT_AFFILIATION_URI ?? 'https://ror.org/1234abcd';
+process.env.DEFAULT_AFFILIATION_URI ?? 'https://ror.org/1234abcd';
 process.env.DMP_ID_SHOULDER = process.env.DMP_ID_SHOULDER ?? '11.22222/C3';
 process.env.TOKEN_HASH_SECRET =
-  process.env.TOKEN_HASH_SECRET ?? 'testTokenSecret';
+process.env.TOKEN_HASH_SECRET ?? 'testTokenSecret';
 process.env.CACHE_HOST = process.env.CACHE_HOST ?? 'localhost';
 process.env.CACHE_PORT = process.env.CACHE_PORT ?? '6379';
-process.env.JWT_SECRET = process.env.JWT_SECRET ?? 'testJwtSecret';
-process.env.JWT_REFRESH_SECRET =
-  process.env.JWT_REFRESH_SECRET ?? 'testJwtRefreshSecret';
 
 jest.mock('../logger.js', () => {
   const original = jest.requireActual('../logger.js') as typeof import('../logger.js');
@@ -143,10 +140,9 @@ jest.mock('../config/generalConfig.js', () => ({
     orcidBaseURL: 'http://sandbox.orcid.org/',
     rorBaseURL: 'http://ror.example.com/',
 
-    jwtSecret: 'testJwtSecret',
-    jwtTTL: 30,
-    jwtRefreshSecret: 'testJwtRefreshSecret',
-    jwtRefreshTTL: 500,
+    tokenIssuer: 'http://localhost:4646',
+    tokenAudiences: 'http://localhost:3000',
+    accessTokenName: 'access_token',
   },
   envAsEnumValue: () => 'dev'
 }));

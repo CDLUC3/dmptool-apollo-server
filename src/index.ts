@@ -18,6 +18,7 @@ import { EZIDAPI } from "./datasources/EZIDAPI.js";
 import { OpenSearch } from "./datasources/openSearch.js";
 import { awsConfig } from "./config/awsConfig.js";
 import { requireAuth, validateClaims } from "./middleware/auth.js";
+import {csrfMiddleware} from "./middleware/csrf.js";
 
 verifyCriticalEnvVariable('NODE_ENV');
 console.log(`DMPTool Apollo server backend starting in ${process.env.NODE_ENV} mode.`)
@@ -65,10 +66,10 @@ const startServer = async (): Promise<void> => {
   )
 
   // GraphQL operations
-  // Apollo server has its own built-in way of dealing with CSRF.
-  //     See: https://www.apollographql.com/docs/router/configuration/csrf/
-  // Use the authMiddleware to extract the token from the cookies and then Attach Apollo server
-  app.use('/graphql', requireAuth, validateClaims, await attachApolloServer(
+  // The order of the middleware is important here. We want to see if the
+  // user is authenticated and if so, has valid claims before we attach the Apollo
+  // server middleware.
+  app.use('/graphql', requireAuth, validateClaims, csrfMiddleware, await attachApolloServer(
     apolloServer,
     cache,
     baseLogger,

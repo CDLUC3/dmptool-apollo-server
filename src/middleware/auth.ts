@@ -106,7 +106,7 @@ export const requireAuth = expressjwt({
     jwksRequestsPerMinute: 5,
     jwksUri: `${generalConfig.tokenIssuer}/jwks`,
   }) as unknown as Secret, // Type cast required for express-jwt secret compatibility
-  audience: new RegExp(generalConfig.tokenAudience),
+  audience: new RegExp(generalConfig.tokenAudiences),
   issuer: generalConfig.tokenIssuer,
   algorithms: ['RS256'],
   credentialsRequired: true,

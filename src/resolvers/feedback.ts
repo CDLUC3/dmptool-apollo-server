@@ -202,7 +202,7 @@ export const resolvers: Resolvers = {
                 context,
                 affiliation.uri,
                 'FEEDBACK_REQUESTED',
-                { planId },
+                { planId, feedbackId: createdFeedback.id },
               );
             }
 
@@ -244,7 +244,8 @@ export const resolvers: Resolvers = {
               requestedById: feedback.requestedById,
               completedById: context.token.id,
               completed: getCurrentDate(),
-              summaryText: summaryText ?? ''
+              summaryText: summaryText ?? '',
+              messageToOrg: feedback.messageToOrg,
             });
 
             const updatedFeedback = await newFeedback.update(context);

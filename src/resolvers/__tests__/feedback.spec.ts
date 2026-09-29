@@ -40,6 +40,7 @@ const { Plan } = await import("../../models/Plan.js");
 const { Project } = await import("../../models/Project.js");
 const { PlanFeedback } = await import("../../models/PlanFeedback.js");
 const { PlanFeedbackComment } = await import("../../models/PlanFeedbackComment.js");
+const { AdminNotification } = await import("../../models/AdminNotifications.js");
 const { VersionedTemplate } = await import("../../models/VersionedTemplate.js");
 const { Affiliation } = await import("../../models/Affiliation.js");
 const { ProjectCollaborator } = await import("../../models/Collaborator.js");
@@ -432,6 +433,28 @@ describe('requestFeedback mutation', () => {
     expect(mockSendFeedbackRequestEmail).toHaveBeenCalledTimes(1);
   });
 
+  it('should store the new feedbackId in the admin notification metadata', async () => {
+    project.createdById = researcherToken.id;
+    researcherToken.affiliationId = affiliationId;
+    const addNotificationSpy = jest.spyOn(AdminNotification, 'addNotificationForAffiliation').mockResolvedValue(true);
+
+    const resp = await executeQuery(
+      query,
+      { planId, messageToOrg: casual.sentence },
+      researcherToken,
+    );
+
+    assert(resp.body.kind === 'single');
+    expect(resp.body.singleResult.errors).toBeUndefined();
+    expect(addNotificationSpy).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(Object),
+      expect.any(String),
+      'FEEDBACK_REQUESTED',
+      { planId, feedbackId: feedback.id },
+    );
+  });
+
   it('returns a 500 on a fatal error', async () => {
     project.createdById = researcherToken.id;
     researcherToken.affiliationId = affiliationId;
@@ -537,6 +560,23 @@ describe('completeFeedback mutation', () => {
     expect(resp.body.singleResult.data.completeFeedback.id).toEqual(feedback.id);
     expect(PlanFeedback.prototype.update).toHaveBeenCalledTimes(1);
     expect(mockSendFeedbackCompleteEmail).not.toHaveBeenCalled();
+  });
+
+  it('should preserve the original messageToOrg when completing the feedback', async () => {
+    project.createdById = researcherToken.id;
+    const messageToOrg = casual.sentence;
+    jest.spyOn(PlanFeedback, 'findById').mockResolvedValue(new PlanFeedback({ ...feedback, messageToOrg }));
+    const updateSpy = jest.spyOn(PlanFeedback.prototype, 'update');
+
+    const resp = await executeQuery(
+      query,
+      { planId, planFeedbackId, summaryText: casual.sentence, sendEmail: false },
+      researcherToken,
+    );
+
+    assert(resp.body.kind === 'single');
+    expect(resp.body.singleResult.errors).toBeUndefined();
+    expect((updateSpy.mock.contexts[0] as InstanceType<typeof PlanFeedback>).messageToOrg).toEqual(messageToOrg);
   });
 
   it('returns a 500 on a fatal error', async () => {

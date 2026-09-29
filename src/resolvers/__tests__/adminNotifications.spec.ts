@@ -582,10 +582,39 @@ describe('adminNotification resolver', () => {
       );
     });
 
-    it('should return null for feedback when all feedback rounds are completed', async () => {
+    it('should resolve the specific feedback round when metadata contains feedbackId', async () => {
       const planId = casual.integer(1, 999);
-      const completedFeedback = { id: casual.integer(1, 999), messageToOrg: 'Done', completed: new Date().toISOString() };
-      const mockNotification = buildMockNotification({ metadata: { planId } });
+      const feedbackId = casual.integer(1, 999);
+      const mockFeedback = { id: feedbackId, messageToOrg: 'Original message', completed: new Date().toISOString() };
+      const mockNotification = buildMockNotification({ metadata: { planId, feedbackId } });
+
+      (AdminNotificationResults.findReadByUserId).mockResolvedValue(
+        buildPaginatedResult([mockNotification])
+      );
+      jest.spyOn(Plan, 'findById').mockResolvedValue({ id: planId, title: 'Plan' } as any);
+      jest.spyOn(PlanFeedback, 'findById').mockResolvedValue(mockFeedback as any);
+      jest.spyOn(PlanFeedback, 'findByPlanId');
+
+      const result = await executeQuery(query.replace(/adminNotificationsUnread/g, 'adminNotificationsRead'), {}, adminToken);
+
+      expect(result.body.singleResult.data.adminNotificationsRead.items[0].feedback.messageToOrg).toBe('Original message');
+      expect(PlanFeedback.findById).toHaveBeenCalledWith(
+        'Chained AdminNotificationResults.feedback',
+        expect.any(Object),
+        feedbackId
+      );
+      expect(PlanFeedback.findByPlanId).not.toHaveBeenCalled();
+    });
+
+    it('should resolve a completed feedback round for legacy notifications without a feedbackId', async () => {
+      const planId = casual.integer(1, 999);
+      const completedFeedback = {
+        id: casual.integer(1, 999),
+        messageToOrg: 'Done',
+        requested: '2026-01-01 00:00:00',
+        completed: new Date().toISOString(),
+      };
+      const mockNotification = buildMockNotification({ metadata: { planId }, created: '2026-01-01 00:00:01' });
 
       (AdminNotificationResults.findUnreadByUserId).mockResolvedValue(
         buildPaginatedResult([mockNotification])
@@ -595,7 +624,24 @@ describe('adminNotification resolver', () => {
 
       const result = await executeQuery(query, {}, adminToken);
 
-      expect(result.body.singleResult.data.adminNotificationsUnread.items[0].feedback).toBeNull();
+      expect(result.body.singleResult.data.adminNotificationsUnread.items[0].feedback.messageToOrg).toBe('Done');
+    });
+
+    it('should match legacy notifications to the round requested before the notification was created', async () => {
+      const planId = casual.integer(1, 999);
+      const olderRound = { id: 1, messageToOrg: 'First request', requested: '2026-01-01 00:00:00', completed: '2026-01-02 00:00:00' };
+      const newerRound = { id: 2, messageToOrg: 'Second request', requested: '2026-02-01 00:00:00', completed: null };
+      const mockNotification = buildMockNotification({ metadata: { planId }, created: '2026-01-01 00:00:01' });
+
+      (AdminNotificationResults.findUnreadByUserId).mockResolvedValue(
+        buildPaginatedResult([mockNotification])
+      );
+      jest.spyOn(Plan, 'findById').mockResolvedValue({ id: planId, title: 'Plan' } as any);
+      jest.spyOn(PlanFeedback, 'findByPlanId').mockResolvedValue([olderRound, newerRound] as any);
+
+      const result = await executeQuery(query, {}, adminToken);
+
+      expect(result.body.singleResult.data.adminNotificationsUnread.items[0].feedback.messageToOrg).toBe('First request');
     });
 
     it('should resolve createdBy when createdById is set', async () => {

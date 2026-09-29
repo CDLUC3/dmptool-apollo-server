@@ -162,12 +162,24 @@ export const resolvers: Resolvers = {
       return null;
     },
 
-    // Fetch the feedback associated with the plan if metadata contains a planId
+    // Fetch the feedback round this notification was created for. Each feedback request creates a
+    // new row in the feedback table, so pinning the notification to its round means read (older)
+    // notifications keep their original messageToOrg while new ones show the latest message.
     feedback: async (parent: AdminNotificationResults, _, context: MyContext): Promise<PlanFeedback | null> => {
+      const reference = 'Chained AdminNotificationResults.feedback';
+      if (parent.metadata?.feedbackId) {
+        return await PlanFeedback.findById(reference, context, parent.metadata.feedbackId);
+      }
+
+      // Legacy notifications (created before feedbackId was stored in metadata) only have a planId,
+      // so use the latest feedback round that was requested at or before the notification was created
       if (parent.metadata?.planId) {
-        const feedbackList = await PlanFeedback.findByPlanId('Chained AdminNotificationResults.feedback', context, parent.metadata.planId);
-        // Return the most recent open feedback round
-        return feedbackList.find(fb => fb.completed === null) ?? null;
+        const feedbackList = await PlanFeedback.findByPlanId(reference, context, parent.metadata.planId);
+        const sorted = [...feedbackList].sort((a, b) => b.id - a.id);// newest round first
+        const notificationCreated = new Date(parent.created).getTime();
+        return sorted.find((fb) => new Date(fb.requested).getTime() <= notificationCreated) // newest round requested at or before the notification was created
+          ?? sorted[0] // no matching round found, return the latest round
+          ?? null; // plan has no feedback rows at all
       }
       return null;
     },

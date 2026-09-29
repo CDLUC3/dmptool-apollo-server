@@ -34,6 +34,27 @@ const isRevokedCallback: IsRevoked = async (
 }
 
 /**
+ * Extracts the JWT token from the request, either from the cookie or the Authorization header.
+ *
+ * @param req the Express request object, which may contain the JWT token in cookies or headers
+ * @returns the JWT token string if found, or null if not found
+ */
+const getToken = (req: JWTRequest) => {
+  // Check for the token in the cookie first
+  if (req.cookies && req.cookies[generalConfig.accessTokenName]) {
+    return req.cookies[generalConfig.accessTokenName];
+  }
+
+  // If not found in cookies, check the Authorization header
+  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+    return req.headers.authorization.split(' ')[1];
+  }
+
+  // If no token is found, return null
+  return null;
+}
+
+/**
  * Express middleware to validate the custom claims in the JWT payload.
  * This middleware checks that the JWT payload contains the expected claims with
  * the correct types.
@@ -85,9 +106,10 @@ export const requireAuth = expressjwt({
     jwksRequestsPerMinute: 5,
     jwksUri: `${generalConfig.tokenIssuer}/jwks`,
   }) as unknown as Secret, // Type cast required for express-jwt secret compatibility
-  audience: generalConfig.applicationName,
+  audience: new RegExp(generalConfig.tokenAudience),
   issuer: generalConfig.tokenIssuer,
   algorithms: ['RS256'],
-  credentialsRequired: false,
+  credentialsRequired: true,
+  getToken: getToken,
   isRevoked: isRevokedCallback
 });

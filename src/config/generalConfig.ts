@@ -32,6 +32,8 @@ export const generalConfig = {
   rorBaseURL: process.env.ROR_BASE_URL || 'https://ror.org/',
 
   tokenIssuer: process.env.TOKEN_ISSUER || 'http://localhost:3000',
+  tokenAudience: process.env.TOKEN_AUDIENCE || 'http://localhost:3000',
+  accessTokenName: process.env.ACCESS_TOKEN_NAME || 'access_token',
 
   bcryptSaltRounds: Number.parseInt(process.env.BCRYPT_SALT_ROUNDS) || 10,
 

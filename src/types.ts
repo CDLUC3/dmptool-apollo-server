@@ -3486,6 +3486,8 @@ export type ProjectErrors = {
 
 /** Project search filter options */
 export type ProjectFilterOptions = {
+  /** Filter results by the current user's access level on the project */
+  accessLevel?: InputMaybe<ProjectCollaboratorAccessLevel>;
   /** Filter results by the plan's status */
   status?: InputMaybe<PlanStatus>;
 };
@@ -3627,6 +3629,8 @@ export type ProjectSearchResult = {
   modifiedById?: Maybe<Scalars['Int']['output']>;
   /** The name of the person who last modified the project */
   modifiedByName?: Maybe<Scalars['String']['output']>;
+  /** The current user's access level on the project (null if they are not a collaborator) */
+  myAccessLevel?: Maybe<ProjectCollaboratorAccessLevel>;
   /** The plans in the project */
   plans?: Maybe<Array<PlanSearchResult>>;
   /** The type of research being done */
@@ -8613,6 +8617,7 @@ export type ProjectSearchResultResolvers<ContextType = MyContext, ParentType ext
   modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   modifiedByName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  myAccessLevel?: Resolver<Maybe<ResolversTypes['ProjectCollaboratorAccessLevel']>, ParentType, ContextType>;
   plans?: Resolver<Maybe<Array<ResolversTypes['PlanSearchResult']>>, ParentType, ContextType>;
   researchDomain?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   startDate?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;

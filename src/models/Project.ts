@@ -11,6 +11,7 @@ import { isNullOrUndefined, validateDate } from "../utils/helpers.js";
 import { MySqlModel } from "./MySqlModel.js";
 import { PlanStatus } from "./Plan.js";
 import { ProjectFilterOptions } from "../types.js";
+import type { ProjectCollaboratorAccessLevel } from "./Collaborator.js";
 
 export class ProjectSearchResult {
   public id: number;
@@ -28,6 +29,7 @@ export class ProjectSearchResult {
   public modifiedByName: string;
   public collaboratorsData: string;
   public collaborators: { name: string, accessLevel: string, orcid: string }[];
+  public myAccessLevel?: ProjectCollaboratorAccessLevel;
   public membersData: string;
   public members: { name: string, role: string, orcid: string }[];
   public fundingsData: string;
@@ -49,6 +51,7 @@ export class ProjectSearchResult {
     this.modifiedByName = options.modifiedByName;
     this.collaboratorsData = options.collaboratorsData;
     this.collaborators = options.collaborators;
+    this.myAccessLevel = options.myAccessLevel;
     this.membersData = options.membersData;
     this.members = options.members;
     this.fundingsData = options.fundingsData;
@@ -91,6 +94,12 @@ export class ProjectSearchResult {
         break;
     }
 
+    // Handle the current user's access level filter
+    if (!isNullOrUndefined(filterOptions.accessLevel) && !isNullOrUndefined(context.token?.id)) {
+      whereFilters.push('(p.id IN (SELECT projectId FROM projectCollaborators WHERE userId = ? AND accessLevel = ?))');
+      values.push(context.token.id.toString(), filterOptions.accessLevel);
+    }
+
     // Specify the fields available for sorting
     options.availableSortFields = ['p.title', 'p.created', 'p.modified', 'p.startDate', 'p.endDate', 'p.isTestProject'];
     // Specify the field we want to use for the totalCount
@@ -118,7 +127,8 @@ export class ProjectSearchResult {
       whereFilters.push('(cu.affiliationId = ?)');
       values.push(affiliationId);
     }
-
+    // Have to COALESCE the userId in the subquery because it can be null for collaborators that are not registered users
+    // Also we have to wrap collab.orcid in COALESCE because without it, a null ORCID would be dropped and the userId would slide into the ORCID slot
     const sqlStatement = 'SELECT p.id, p.title, p.abstractText, p.startDate, p.endDate, p.isTestProject, ' +
       'researchDomains.description as researchDomain, ' +
       'p.createdById, p.created, TRIM(CONCAT(cu.givenName, CONCAT(\' \', cu.surName))) as createdByName, ' +
@@ -129,7 +139,8 @@ export class ProjectSearchResult {
       'ELSE (SELECT collabE.email FROM userEmails collabE WHERE collabE.userId = collab.id LIMIT 1) ' +
       'END, ' +
       'CONCAT(UPPER(SUBSTRING(pcol.accessLevel, 1, 1)), LOWER(SUBSTRING(pcol.accessLevel FROM 2))), ' +
-      'collab.orcid ' +
+      'COALESCE(collab.orcid, \'\'), ' +
+      'COALESCE(pcol.userId, \'\') ' +
       ') ORDER BY collab.created) collaboratorsData, ' +
       'GROUP_CONCAT(DISTINCT ' +
       'CONCAT_WS(\'|\', ' +
@@ -176,10 +187,15 @@ export class ProjectSearchResult {
       const contribs = item.membersData?.split(',') ?? [];
       const funds = item.fundingsData?.split(',') ?? [];
 
-      // Translate the string data into collaborator objects
+      // Translate the string data into collaborator objects and pick out the current user's access level
+      item.myAccessLevel = null;
       item.collaborators = collabs.map((collab) => {
-        const [name, accessLevel, orcid] = collab.split('|');
-        return { name, accessLevel, orcid };
+        const [name, accessLevel, orcid, collabUserId] = collab.split('|');
+        // Set the current user's access level if they are a collaborator on this project
+        if (!isNullOrUndefined(context.token?.id) && collabUserId === context.token.id.toString()) {
+          item.myAccessLevel = accessLevel?.toUpperCase() as ProjectCollaboratorAccessLevel;
+        }
+        return { name, accessLevel, orcid: orcid || null };
       });
       // Translate the string data into member objects.
       item.members = contribs.map((contrib) => {

@@ -148,9 +148,7 @@
 
 ### Updated
 - Made updates to help the backend check whether a `section` or `question` can be moved when there is associated `conditional display logic` [#986]:
-  - Added `findCrossSectionBySectionId` and `findByQuestionOrTriggerQuestionId` functions to `QuestionConditionGroup` model
-  - Updated `updateQuestionDisplayOrder` and `updateSectionDisplayOrder` to check for conflicts
-  - Added `findQuestionMoveConflicts` to `questionService` and `findSectionMoveConflicts` to `sectionService`
+- Added `myAccessLevel` to `ProjectSearchResult` so that the client can use that info on the Project Dashboard, and added `accessLevel` to `ProjectFilterOptions` [#379]
 - Added `feedbackId` to the `AdminNotificationMetadata` schema and `AdminNotificationMetadata` class so we are able to get the data for that specific feedback, including corresponding message [#344]
 - Updated `feedback` resolver to not only return the `open` round but the completed feedback rounds as well. Updated to sort results by id, and then by date [#344]
 - Updated `requestFeedback` in `requestFeedback` to add `feedbackId` to the admin notification metadata [#344]
@@ -340,6 +338,7 @@
 - Removed `ioredis` package
 
 ### Fixed
+- Updated `node-mailer` to `v10.0.13` and `brace-expansion` to `v5.0.12` to address high vulnerabilities [#451]
 - Fixed a bug where a plan was displaying all custom questions ever added for a given versionedSectionId. Updated `publishedQuestions` resolver to only return custom questions for the given user's affiliation. Updated `findByVersionedSectionIdAndType` in `VersionCustomQuestion` model to include `affililationId` in query and updated associated unit test [#253]
 - Fixed type errors for the files that were updated for this ticket: `resolvers/versionedQuestion.ts`, `models/VersionedCustomQuestion.ts`, `models/__tests__/VersionedCustomQuestion.spec.ts` and added those files to the `tsconfig.strict.json` file [#253]
 - Fixed incorrect `versionPlanAfter` value in `generalConfig.ts`. This was changed while testing versioning for landing page [#365]

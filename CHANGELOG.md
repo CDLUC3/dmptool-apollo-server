@@ -147,6 +147,10 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Made updates to help the backend check whether a `section` or `question` can be moved when there is associated `conditional display logic` [#986]:
+  - Added `findCrossSectionBySectionId` and `findByQuestionOrTriggerQuestionId` functions to `QuestionConditionGroup` model
+  - Updated `updateQuestionDisplayOrder` and `updateSectionDisplayOrder` to check for conflicts
+  - Added `findQuestionMoveConflicts` to `questionService` and `findSectionMoveConflicts` to `sectionService`
 - Added `feedbackId` to the `AdminNotificationMetadata` schema and `AdminNotificationMetadata` class so we are able to get the data for that specific feedback, including corresponding message [#344]
 - Updated `feedback` resolver to not only return the `open` round but the completed feedback rounds as well. Updated to sort results by id, and then by date [#344]
 - Updated `requestFeedback` in `requestFeedback` to add `feedbackId` to the admin notification metadata [#344]

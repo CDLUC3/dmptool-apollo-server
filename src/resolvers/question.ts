@@ -3,7 +3,13 @@ import { MyContext } from "../context.js";
 import { Question } from "../models/Question.js";
 import { Template } from "../models/Template.js";
 import { QuestionConditionGroup } from "../models/QuestionConditionGroup.js";
-import { updateDisplayOrders, questionSupportsSelectableOptions } from "../services/questionService.js";
+import {
+  findQuestionMoveConflicts,
+  findQuestionOptionConflicts,
+  findQuestionRemoveConflicts,
+  updateDisplayOrders,
+  questionSupportsSelectableOptions
+} from "../services/questionService.js";
 import {
   AuthenticationError,
   BadRequestError,
@@ -211,6 +217,15 @@ export const resolvers: Resolvers = {
             isDirty: questionData.isDirty
           });
 
+          // Removing or renaming an option that another question's display logic matches, or changing to a
+          // question type without options, would silently break that display logic, so don't allow it. The error
+          // is on the json field since the options and type are in the question's JSON
+          const conflicts = await findQuestionOptionConflicts(context, questionData, json);
+          if (conflicts.length > 0) {
+            question.addError('json', 'One or more of this question\'s options are used in the display logic of another question. Remove that display logic condition before removing or renaming the option, or changing the question type.');
+            return question;
+          }
+
           const updatedQuestion = await question.update(context);
 
           if (updatedQuestion && !updatedQuestion.hasErrors()) {
@@ -300,6 +315,18 @@ export const resolvers: Resolvers = {
           // Check that user has permission to update this question
           if (await hasPermissionOnSection(context, question.templateId)) {
             try {
+              // Display logic can only be triggered by prior questions, so don't allow a move that would
+              // put a question above one of its trigger questions
+              const conflicts = await findQuestionMoveConflicts(context, question.sectionId, questionId, newDisplayOrder);
+              if (conflicts.length > 0) {
+                return {
+                  questions: [],
+                  errors: {
+                    general: 'This question is used in display logic. Remove the display logic condition before moving it so that the trigger question stays before the question it controls.'
+                  }
+                };
+              }
+
               // Reorder the sections
               const reordered = await updateDisplayOrders(
                 context,
@@ -344,6 +371,14 @@ export const resolvers: Resolvers = {
         if (isAdmin(context.token) && await hasPermissionOnSection(context, questionData.templateId)) {
           //Need to create a new instance of Question so that it recognizes the 'delete' function of that instance
           const question = new Question({ ...questionData, id: questionId });
+
+          // Deleting the question would also delete the display logic of any questions it triggers, so don't
+          // allow it until that display logic is removed
+          const conflicts = await findQuestionRemoveConflicts(context, questionId);
+          if (conflicts.length > 0) {
+            question.addError('general', 'This question is a trigger question in the display logic of another question. Remove that display logic condition before deleting this question.');
+            return question;
+          }
 
           // Update the associated template to set isDirty=1
           await Template.markTemplateAsDirty('Question resolver - removeQuestion', context, questionData.templateId);

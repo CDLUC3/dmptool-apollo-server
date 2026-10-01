@@ -51,7 +51,13 @@ const mockQuestionSupportsSelectableOptions = jest.fn<(...args: any[]) => boolea
 const mockExtractTriggerQuestionOptionValues = jest.fn<(...args: any[]) => Set<string>>(() => new Set(['option1', 'option2']));
 const mockHasPermissionOnQuestion = jest.fn<(...args: any[]) => Promise<boolean>>();
 const mockCloneQuestion = jest.fn<(...args: any[]) => Promise<any>>();
+const mockFindQuestionMoveConflicts = jest.fn<(...args: any[]) => Promise<any>>();
+const mockFindQuestionRemoveConflicts = jest.fn<(...args: any[]) => Promise<any>>();
+const mockFindQuestionOptionConflicts = jest.fn<(...args: any[]) => Promise<any>>();
 jest.unstable_mockModule('../../services/questionService.js', () => ({
+  findQuestionMoveConflicts: mockFindQuestionMoveConflicts,
+  findQuestionOptionConflicts: mockFindQuestionOptionConflicts,
+  findQuestionRemoveConflicts: mockFindQuestionRemoveConflicts,
   updateDisplayOrders: mockUpdateDisplayOrders,
   questionSupportsSelectableOptions: mockQuestionSupportsSelectableOptions,
   extractTriggerQuestionOptionValues: mockExtractTriggerQuestionOptionValues,
@@ -368,10 +374,37 @@ describe('question resolvers', () => {
             id
             questionText
             displayOrder
-            errors { general }
+            errors { general json }
           }
         }
       `;
+      mockFindQuestionOptionConflicts.mockResolvedValue([]);
+    });
+
+    it('should not update a question when the change would break display logic that uses its options', async () => {
+      const newJson = '{"type":"radioButtons","options":[{"label":"No","value":"No"}]}';
+      const input = { questionId: 1, questionText: 'Updated text', json: newJson };
+      const existingQuestion = {
+        id: 1,
+        sectionId: 5,
+        templateId: 100,
+        createdById: 2,
+        displayOrder: 1,
+        json: '{"type":"radioButtons","options":[{"label":"Yes","value":"Yes"},{"label":"No","value":"No"}]}',
+        isDirty: false,
+      };
+
+      jest.spyOn(Question, 'findById').mockResolvedValueOnce(existingQuestion as any);
+      const updateSpy = jest.spyOn(Question.prototype, 'update');
+      jest.spyOn(Template, 'markTemplateAsDirty').mockResolvedValue(undefined as any);
+      mockFindQuestionOptionConflicts.mockResolvedValue([{ id: 1, groupId: 1, conditionMatch: 'Yes' }]);
+
+      const result = await executeQuery(query, { input }, adminToken);
+
+      expect(mockFindQuestionOptionConflicts).toHaveBeenCalledWith(expect.any(Object), existingQuestion, newJson);
+      expect(updateSpy).not.toHaveBeenCalled();
+      expect(Template.markTemplateAsDirty).not.toHaveBeenCalled();
+      expect(result.body.singleResult.data.updateQuestion.errors.json).toContain('display logic');
     });
 
     it('should update an existing question successfully', async () => {
@@ -451,6 +484,24 @@ describe('question resolvers', () => {
           }
         }
       `;
+      mockFindQuestionMoveConflicts.mockResolvedValue([]);
+    });
+
+    it('should not reorder questions when the move would break display logic', async () => {
+      const existingQuestion = { id: 1, sectionId: 5, templateId: 100, displayOrder: 2 };
+      jest.spyOn(Question, 'findById').mockResolvedValue(existingQuestion as any);
+      mockFindQuestionMoveConflicts.mockResolvedValue([{ questionId: 1, triggerQuestionId: 2 }]);
+
+      const result = await executeQuery(
+        query,
+        { questionId: 1, newDisplayOrder: 1 },
+        adminToken
+      );
+
+      expect(mockFindQuestionMoveConflicts).toHaveBeenCalledWith(expect.any(Object), 5, 1, 1);
+      expect(mockUpdateDisplayOrders).not.toHaveBeenCalled();
+      expect(result.body.singleResult.data.updateQuestionDisplayOrder.questions).toEqual([]);
+      expect(result.body.singleResult.data.updateQuestionDisplayOrder.errors.general).toContain('display logic');
     });
 
     it('should reorder questions successfully', async () => {
@@ -541,6 +592,22 @@ describe('question resolvers', () => {
           }
         }
       `;
+      mockFindQuestionRemoveConflicts.mockResolvedValue([]);
+    });
+
+    it('should not delete a question that is a trigger question in display logic', async () => {
+      const existingQuestion = { id: 1, templateId: 100, sectionId: 5 };
+      jest.spyOn(Question, 'findById').mockResolvedValue(existingQuestion as any);
+      jest.spyOn(Template, 'markTemplateAsDirty').mockResolvedValue(undefined as any);
+      const deleteSpy = jest.spyOn(Question.prototype, 'delete').mockResolvedValue({ id: 1 } as any);
+      mockFindQuestionRemoveConflicts.mockResolvedValue([{ questionId: 2, triggerQuestionId: 1 }]);
+
+      const result = await executeQuery(query, { questionId: 1 }, adminToken);
+
+      expect(mockFindQuestionRemoveConflicts).toHaveBeenCalledWith(expect.any(Object), 1);
+      expect(deleteSpy).not.toHaveBeenCalled();
+      expect(Template.markTemplateAsDirty).not.toHaveBeenCalled();
+      expect(result.body.singleResult.data.removeQuestion.errors.general).toContain('display logic');
     });
 
     it('should delete the question successfully', async () => {

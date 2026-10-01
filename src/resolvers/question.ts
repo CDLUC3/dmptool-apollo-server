@@ -222,7 +222,7 @@ export const resolvers: Resolvers = {
           // is on the json field since the options and type are in the question's JSON
           const conflicts = await findQuestionOptionConflicts(context, questionData, json);
           if (conflicts.length > 0) {
-            question.addError('json', 'One or more of this question\'s options are used in the display logic of another question. Remove that display logic condition before removing or renaming the option, or changing the question type.');
+            question.addError('json', 'Your changes were not saved. One or more of this question\'s options are used in the display logic of another question. Remove that display logic condition before removing or renaming the option, or changing the question type.');
             return question;
           }
 

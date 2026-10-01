@@ -150,7 +150,7 @@ export const resolvers: Resolvers = {
                   addTagErrors.push(`Tag ${item.id} not found`);
                 }
 
-                const wasAdded = tag.addToQuestion(context, questionId)
+                const wasAdded = await tag.addToQuestion(context, questionId);
                 if (!wasAdded) {
                   addTagErrors.push(tag.name);
                 }
@@ -261,7 +261,7 @@ export const resolvers: Resolvers = {
             for (const id of idsToBeRemoved) {
               const tag = await Tag.findById(reference, context, id as number);
               if (tag) {
-                const wasRemoved = tag.removeFromQuestion(context, updatedQuestion.id)
+                const wasRemoved = await tag.removeFromQuestion(context, updatedQuestion.id);
                 if (!wasRemoved) {
                   removeTagErrors.push(tag.name);
                 }
@@ -277,7 +277,7 @@ export const resolvers: Resolvers = {
             for (const id of idsToBeSaved) {
               const tag = await Tag.findById(reference, context, id as number);
               if (tag) {
-                const wasAdded = tag.addToQuestion(context, updatedQuestion.id)
+                const wasAdded = await tag.addToQuestion(context, updatedQuestion.id);
                 if (!wasAdded) {
                   addTagErrors.push(tag.name);
                 }

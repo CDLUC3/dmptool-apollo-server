@@ -27,6 +27,22 @@ export const hasPermissionOnQuestion = async (context: MyContext, templateId: nu
   return await hasPermissionOnTemplate(context, template);
 }
 
+export const lockQuestionTemplate = async (
+  context: MyContext,
+  templateId: number
+): Promise<void> => {
+  const templates = await Template.query(
+    context,
+    'SELECT id FROM templates WHERE id = ? FOR UPDATE',
+    [templateId.toString()],
+    'questionService.lockQuestionTemplate'
+  );
+
+  if (templates.length === 0) {
+    throw new Error(`Unable to lock template: ${templateId}`);
+  }
+}
+
 // Creates a new Version/Snapshot of the specified QuestionConditionGroup (as a point in
 // time snapshot), and versions each QuestionCondition that belongs to it.
 //    - creates a new VersionedQuestionConditionGroup

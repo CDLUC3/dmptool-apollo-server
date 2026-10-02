@@ -16,7 +16,10 @@ import { PlanFeedback } from "../models/PlanFeedback.js";
 import { Affiliation } from "../models/Affiliation.js";
 import { VersionedTemplate } from "../models/VersionedTemplate.js";
 import { Answer } from "../models/Answer.js";
-import { ProjectCollaboratorAccessLevel } from "../models/Collaborator.js";
+import {
+  ProjectCollaborator,
+  ProjectCollaboratorAccessLevel
+} from "../models/Collaborator.js";
 import { AlternateIdentifier } from "../models/AlternateIdentifier.js";
 import { normaliseDateTime } from "../utils/helpers.js";
 import {
@@ -75,7 +78,7 @@ import {
   removeEntirePlan,
   replaceEntirePlan
 } from "../services/entirePlanService.js";
-import { getGuidanceSourcesForPlan } from "../services/guidanceService.js";
+import { getAllAvailableGuidanceForVersionedTemplate } from "../services/guidanceService.js";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -895,6 +898,19 @@ export const resolvers: Resolvers = {
 
       return await getPlanOwnerAffiliation(reference, context, parent);
     },
+    myAccessLevel: async (parent: Plan, _, context: MyContext): Promise<ProjectCollaboratorAccessLevel> => {
+      if (!parent?.id) return null;
+      const reference = 'Chained Plan.myAccessLevel';
+
+      const collaborator: ProjectCollaborator | null =  await ProjectCollaborator.findByUserIdAndProjectId(
+        reference,
+        context,
+        context.token?.id,
+        parent.projectId
+      );
+
+      return collaborator?.accessLevel || null;
+    },
 
     // The project the plan is associated with
     project: async (parent: Plan, _, context: MyContext): Promise<Project> => {
@@ -976,7 +992,11 @@ export const resolvers: Resolvers = {
     },
     availableGuidanceSources: async (parent: Plan, _, context: MyContext): Promise<GuidanceSource[]> => {
       if (parent?.id) {
-        return await getGuidanceSourcesForPlan(context, parent.id);
+        return await getAllAvailableGuidanceForVersionedTemplate(
+          'plan availableGuidanceSources resolver',
+          context,
+          parent.versionedTemplateId
+        );
       }
       return [];
     },

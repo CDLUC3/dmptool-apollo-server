@@ -70,7 +70,7 @@ import { VersionedCustomSection } from "../models/VersionedCustomSection.js";
 import { VersionedTemplate } from "../models/VersionedTemplate.js";
 import {
   getRelevantGuidanceForPlan,
-  getRelevantGuidanceForVersionedQuestion,
+  getRelevantGuidanceForVersionedQuestion, GuidanceItem,
   GuidanceSource
 } from "./guidanceService.js";
 import { RelevantTag, Tag } from "../models/Tag.js";
@@ -986,14 +986,53 @@ export async function getPlanSectionsAndQuestions (
           q
         );
 
+        // See if there's already a guidance source for the plan owner's affiliation — if so,
+        // we don't need to add it again
+        let questionGSource: GuidanceSource | undefined = gSources.find((gs: GuidanceSource): boolean => {
+          return gs.type === 'USER_AFFILIATION' && gs.orgURI === ownerAffiliation.uri
+        });
+
+        // See if the question's parent section has guidance
+        let sectionGuidance: string | undefined;
+        if (isBase) {
+          const parentSection: VersionedSection | undefined = baseSectionById.get(sectionId);
+          if (parentSection) {
+            sectionGuidance = parentSection.guidance;
+          }
+        }
+
+        if (!questionGSource) {
+          // If not, add a guidance source for the plan owner's affiliation, even if it has no guidance items
+          questionGSource = {
+            id: `affiliation-${ownerAffiliation.uri}`,
+            label: ownerAffiliation.displayName || ownerAffiliation.name,
+            shortName: ownerAffiliation.acronyms?.[0] || ownerAffiliation.displayName || ownerAffiliation.name,
+            orgURI: ownerAffiliation.uri,
+            type: 'USER_AFFILIATION',
+            hasGuidance: false,
+            items: []
+          };
+          gSources.push(questionGSource);
+        }
+
+        if (q.guidanceText || q.sampleText || sectionGuidance) {
+          // If the question itself has guidance or a sample, add it to the plan owner's guidance source
+          const guidanceItem: GuidanceItem = {
+            id: null,
+            title: null,
+            guidanceText: [sectionGuidance, q.guidanceText].join('\n\n').trim(),
+            sampleText: q.sampleText
+          };
+          questionGSource.items.push(guidanceItem);
+          questionGSource.hasGuidance = true;
+        }
+
         return {
           questionType: 'BASE' as CustomizableObjectOwnership,
           versionedQuestionId: q.id,
           customQuestionId: undefined,
           questionText: q.questionText,
           requirementText: q.requirementText,
-          guidanceText: q.guidanceText,
-          sampleText: q.sampleText,
           required: q.required,
           displayOrder: idx + 1,
           displayLogicAction: q.displayLogicAction,
@@ -1001,7 +1040,9 @@ export async function getPlanSectionsAndQuestions (
           hasAnswer: baseAnswersMap.has(q.id),
           answer: baseAnswersMap.get(q.id) || undefined,
           json: q.json,
-          guidanceSources: gSources,
+          guidanceSources: gSources.filter((gs: GuidanceSource): boolean => {
+            return gs.hasGuidance;
+          }),
           conditionalLogic: conditionalLogic.get(q.id) || []
         };
       });
@@ -1011,19 +1052,54 @@ export async function getPlanSectionsAndQuestions (
 
       // Splice each custom question in after its pinned question
       for (const q of sortedCustom) {
+        let customSectionGuidance: string;
+
+        // If the parent section has guidance, grab it so we can add it to the
+        // question's guidance
+        if (q.customQuestionId) {
+          const parentSection: VersionedCustomSection | undefined = customSectionById.get(q.versionedSectionId);
+          if (parentSection?.guidance) {
+            customSectionGuidance = parentSection.guidance;
+          }
+        }
+
+        // If the question itself has guidance or a sample or its parent custom
+        // section had guidance
+        let guidanceItem: GuidanceItem;
+        if (q.guidanceText || q.sampleText || customSectionGuidance) {
+          guidanceItem = {
+            id: null,
+            title: null,
+            guidanceText: [customSectionGuidance, q.guidanceText].join('\n\n').trim(),
+            sampleText: q.sampleText
+          };
+        }
+
         const result: PlanQuestion = {
           questionType: 'CUSTOM' as CustomizableObjectOwnership,
           versionedQuestionId: undefined,
           customQuestionId: q.id,
           questionText: q.questionText,
           requirementText: q.requirementText,
-          guidanceText: q.guidanceText,
-          sampleText: q.sampleText,
           required: q.required,
           hasAnswer: customAnswersMap.has(q.id),
           answer: customAnswersMap.get(q.id) || undefined,
-          json: q.json
+          json: q.json,
+          guidanceSources: [{
+            id: `affiliation-${ownerAffiliation.uri}`,
+            label: ownerAffiliation.displayName || ownerAffiliation.name,
+            shortName: ownerAffiliation.acronyms?.[0] || ownerAffiliation.displayName || ownerAffiliation.name,
+            orgURI: ownerAffiliation.uri,
+            type: 'USER_AFFILIATION',
+            hasGuidance: !!guidanceItem,
+            items: [guidanceItem]
+          }]
         };
+
+        // Remove any empty guidance sources
+        result.guidanceSources = result.guidanceSources.filter((gs: GuidanceSource): boolean => {
+          return gs.hasGuidance;
+        });
 
         if (q.pinnedVersionedQuestionId === null) {
           // No pin — goes first

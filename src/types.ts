@@ -2820,6 +2820,8 @@ export type Plan = {
   modified?: Maybe<Scalars['String']['output']>;
   /** The user who last modified the Object */
   modifiedById?: Maybe<Scalars['Int']['output']>;
+  /** The current user's access level for the plan */
+  myAccessLevel?: Maybe<ProjectCollaboratorAccessLevel>;
   /** The affiliation that owns the plan */
   owner?: Maybe<Affiliation>;
   /** The user who created the plan */
@@ -3109,8 +3111,6 @@ export type PlanQuestion = {
   displayOrder?: Maybe<Scalars['Int']['output']>;
   /** The guidance sources for the versioned question */
   guidanceSources?: Maybe<Array<GuidanceSource>>;
-  /** Guidance to complete the question */
-  guidanceText?: Maybe<Scalars['String']['output']>;
   /** Whether or not the question has been answered */
   hasAnswer?: Maybe<Scalars['Boolean']['output']>;
   /** The JSON representation of the question type */
@@ -3123,8 +3123,6 @@ export type PlanQuestion = {
   required?: Maybe<Scalars['Boolean']['output']>;
   /** Requirements associated with the Question */
   requirementText?: Maybe<Scalars['String']['output']>;
-  /** Sample text to possibly provide a starting point or example to answer question */
-  sampleText?: Maybe<Scalars['String']['output']>;
   /** Whether or not the sample text should be used as the default answer for this question */
   useSampleTextAsDefault?: Maybe<Scalars['Boolean']['output']>;
   /** The unique identifier for the Template Question (if applicable) */
@@ -8169,6 +8167,7 @@ export type PlanResolvers<ContextType = MyContext, ParentType extends ResolversP
   members?: Resolver<Maybe<Array<ResolversTypes['PlanMember']>>, ParentType, ContextType>;
   modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  myAccessLevel?: Resolver<Maybe<ResolversTypes['ProjectCollaboratorAccessLevel']>, ParentType, ContextType>;
   owner?: Resolver<Maybe<ResolversTypes['Affiliation']>, ParentType, ContextType>;
   planCreator?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType>;
   progress?: Resolver<Maybe<ResolversTypes['PlanProgress']>, ParentType, ContextType>;
@@ -8329,14 +8328,12 @@ export type PlanQuestionResolvers<ContextType = MyContext, ParentType extends Re
   displayLogicMatchType?: Resolver<Maybe<ResolversTypes['QuestionConditionMatchType']>, ParentType, ContextType>;
   displayOrder?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   guidanceSources?: Resolver<Maybe<Array<ResolversTypes['GuidanceSource']>>, ParentType, ContextType>;
-  guidanceText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   hasAnswer?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
   json?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   questionText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   questionType?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   required?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
   requirementText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  sampleText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   useSampleTextAsDefault?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
   versionedQuestionId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
 };

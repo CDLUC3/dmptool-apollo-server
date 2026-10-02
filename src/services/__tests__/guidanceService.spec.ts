@@ -178,6 +178,7 @@ import type { MyContext } from "../../context.js";
 import type { Logger } from 'pino';
 import type { GuidanceGroup as GuidanceGroupType } from '../../models/GuidanceGroup.js';
 import { GuidanceSource } from "../../types.js";
+import { Tag } from "../../models/Tag.js"
 
 // ---------------------------------------------------------------------------
 // Everything below is dynamic, registered after every mock above.
@@ -1153,5 +1154,152 @@ describe("getRelevantGuidanceForVersionedQuestion", () => {
         }),
       ])
     );
+  });
+});
+
+describe("getAllAvailableGuidanceForVersionedTemplate", () => {
+  beforeEach(async () => {
+    context = await buildMockContextWithToken(logger);
+    jest.clearAllMocks();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("returns an empty array and skips the guidance query when the template has no tags", async () => {
+    jest
+      .spyOn(Tag, "findTagIdsForVersionedTemplateId")
+      .mockResolvedValue(new Set());
+
+    const result = await guidanceService.getAllAvailableGuidanceForVersionedTemplate(
+      "testing",
+      context,
+      42
+    );
+
+    expect(result).toEqual([]);
+    expect(mockPlanGuidanceQuery).not.toHaveBeenCalled();
+  });
+
+  it("groups guidance by source and combines entries for the same tag", async () => {
+    jest
+      .spyOn(Tag, "findTagIdsForVersionedTemplateId")
+      .mockResolvedValue(
+        new Set([
+          { tagId: 7, versionedSectionId: 1 },
+          { tagId: 9, versionedQuestionId: 2 },
+        ])
+      );
+
+    mockPlanGuidanceQuery.mockResolvedValue([
+      {
+        id: "bestPractice",
+        type: "BEST_PRACTICE",
+        label: "Best Practice",
+        shortName: "BP",
+        uri: "https://ror.org/best-practice",
+        tagId: 7,
+        tagName: "Data Sharing",
+        guidanceText: "First best-practice entry",
+      },
+      {
+        id: "bestPractice",
+        type: "BEST_PRACTICE",
+        label: "Best Practice",
+        shortName: "BP",
+        uri: "https://ror.org/best-practice",
+        tagId: 7,
+        tagName: "Data Sharing",
+        guidanceText: "Second best-practice entry",
+      },
+      {
+        id: "bestPractice",
+        type: "BEST_PRACTICE",
+        label: "Best Practice",
+        shortName: "BP",
+        uri: "https://ror.org/best-practice",
+        tagId: 9,
+        tagName: "Preservation",
+        guidanceText: "Preservation guidance",
+      },
+      {
+        id: "affiliation-https://ror.org/template-owner",
+        type: "TEMPLATE_OWNER",
+        label: "Template Owner",
+        shortName: "TO",
+        uri: "https://ror.org/template-owner",
+        tagId: 7,
+        tagName: "Data Sharing",
+        guidanceText: "Owner guidance",
+      },
+    ]);
+
+    const result = await guidanceService.getAllAvailableGuidanceForVersionedTemplate(
+      "testing",
+      context,
+      42
+    );
+
+    expect(mockPlanGuidanceQuery).toHaveBeenCalledWith(
+      context,
+      expect.stringContaining("vg.tagId IN (?,?)"),
+      ["42", "7", "9"],
+      "testing"
+    );
+    expect(result).toHaveLength(2);
+
+    const bestPractice = result.find((source) => source.id === "bestPractice");
+    expect(bestPractice).toMatchObject({
+      type: "BEST_PRACTICE",
+      label: "Best Practice",
+      shortName: "BP",
+      orgURI: "https://ror.org/best-practice",
+      hasGuidance: true,
+    });
+    expect(Array.from(bestPractice?.tagIds ?? [])).toEqual([7, 9]);
+    expect(bestPractice?.items).toEqual([
+      {
+        id: 7,
+        title: "Data Sharing",
+        guidanceText: "First best-practice entry\n\nSecond best-practice entry",
+      },
+      {
+        id: 9,
+        title: "Preservation",
+        guidanceText: "Preservation guidance",
+      },
+    ]);
+
+    const owner = result.find(
+      (source) => source.id === "affiliation-https://ror.org/template-owner"
+    );
+    expect(owner).toMatchObject({
+      type: "TEMPLATE_OWNER",
+      label: "Template Owner",
+      orgURI: "https://ror.org/template-owner",
+      items: [
+        {
+          id: 7,
+          title: "Data Sharing",
+          guidanceText: "Owner guidance",
+        },
+      ],
+    });
+  });
+
+  it("returns an empty array when the guidance query has no rows", async () => {
+    jest
+      .spyOn(Tag, "findTagIdsForVersionedTemplateId")
+      .mockResolvedValue(new Set([{ tagId: 7 }]));
+    mockPlanGuidanceQuery.mockResolvedValue([]);
+
+    const result = await guidanceService.getAllAvailableGuidanceForVersionedTemplate(
+      "testing",
+      context,
+      42
+    );
+
+    expect(result).toEqual([]);
   });
 });

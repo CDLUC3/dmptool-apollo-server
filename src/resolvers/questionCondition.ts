@@ -62,13 +62,12 @@ export const resolvers: Resolvers = {
       try {
         return await context.dataSources.sqlDataSource.withTransaction(context, async (): Promise<Question> => {
           await lockQuestionTemplate(context, question.templateId);
+
+          // Re-read the question now that we hold the lock, so the update below doesn't overwrite changes
+          // another request made after the permission check  above (or act on a question that was deleted)
           const currentQuestion = await Question.findById(reference, context, questionId);
           if (!currentQuestion) {
             throw NotFoundError('Question not found');
-          }
-
-          if (!isAdmin(context.token) || !(await hasPermissionOnQuestion(context, currentQuestion.templateId))) {
-            throw context?.token ? ForbiddenError() : AuthenticationError();
           }
 
           const priorQuestions = await Question.findPriorQuestionsForQuestion(

@@ -386,7 +386,12 @@ export const resolvers: Resolvers = {
 
             } catch (err) {
               context.logger.error(prepareObjectForLogs(err), `${reference} failed: questionId: ${questionId}`);
-              return { questions: [], errors: { general: err.message } };
+              // GraphQLError messages (e.g. NotFound/BadRequest) are written for users. Anything else, like a
+              // failure to lock the template, is internal, so don't expose its message
+              const message = err instanceof GraphQLError
+                ? err.message
+                : 'Unable to move the question at this time. Please try again.';
+              return { questions: [], errors: { general: message } };
             }
           }
         }

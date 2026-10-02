@@ -27,6 +27,20 @@ export const hasPermissionOnQuestion = async (context: MyContext, templateId: nu
   return await hasPermissionOnTemplate(context, template);
 }
 
+/**
+ * "FOR UPDATE" locks the row in the database so that no other 
+ * transaction can modify it until the current transaction is complete. 
+ * This is used to prevent race conditions when multiple users are 
+ * trying to modify the same template at the same time.
+ * Note: This only works inside a "withTransaction" block and has to be the 
+ * first query in the transaction.
+ */
+/**
+ * 
+ * @param context The Apollo context (must have activeTransation)
+ * @param templateId the template to lock
+ * @throws Error if the template does not exist
+ */
 export const lockQuestionTemplate = async (
   context: MyContext,
   templateId: number

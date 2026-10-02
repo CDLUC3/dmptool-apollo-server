@@ -623,7 +623,49 @@ describe('question resolvers', () => {
       );
 
       expect(result.body.singleResult.data.updateQuestionDisplayOrder.questions).toEqual([]);
-      expect(result.body.singleResult.data.updateQuestionDisplayOrder.errors.general).toEqual('DB error during reorder');
+      // Internal error messages should not be exposed to the user
+      expect(result.body.singleResult.data.updateQuestionDisplayOrder.errors.general)
+        .toEqual('Unable to move the question at this time. Please try again.');
+    });
+
+    it('should return a generic error and not reorder when the template cannot be locked', async () => {
+      const existingQuestion = { id: 1, sectionId: 5, templateId: 100, displayOrder: 1 };
+      jest.spyOn(Question, 'findById').mockResolvedValue(existingQuestion as any);
+      mockLockQuestionTemplate.mockRejectedValue(new Error('Unable to lock template: 100'));
+
+      const result = await executeQuery(
+        query,
+        { questionId: 1, newDisplayOrder: 4 },
+        adminToken
+      );
+
+      expect(mockLockQuestionTemplate).toHaveBeenCalledWith(expect.any(Object), 100);
+      expect(mockFindQuestionMoveConflicts).not.toHaveBeenCalled();
+      expect(mockUpdateDisplayOrders).not.toHaveBeenCalled();
+      const { questions, errors } = result.body.singleResult.data.updateQuestionDisplayOrder;
+      expect(questions).toEqual([]);
+      expect(errors.general).toEqual('Unable to move the question at this time. Please try again.');
+      expect(errors.general).not.toContain('lock');
+    });
+
+    it('should return the message of a GraphQLError thrown while reordering', async () => {
+      const existingQuestion = { id: 1, sectionId: 5, templateId: 100, displayOrder: 1 };
+      // Found before the transaction, but deleted by another request before the lock was acquired
+      jest.spyOn(Question, 'findById')
+        .mockResolvedValueOnce(existingQuestion as any)
+        .mockResolvedValueOnce(null);
+
+      const result = await executeQuery(
+        query,
+        { questionId: 1, newDisplayOrder: 4 },
+        adminToken
+      );
+
+      expect(mockUpdateDisplayOrders).not.toHaveBeenCalled();
+      const { questions, errors } = result.body.singleResult.data.updateQuestionDisplayOrder;
+      expect(questions).toEqual([]);
+      // The NotFoundError's own message is passed through rather than the generic one
+      expect(errors.general).toEqual('Not Found');
     });
 
     it('should throw AuthenticationError/ForbiddenError when not admin', async () => {

@@ -3,7 +3,14 @@ import { MyContext } from "../context.js";
 import { Question } from "../models/Question.js";
 import { Template } from "../models/Template.js";
 import { QuestionConditionGroup } from "../models/QuestionConditionGroup.js";
-import { updateDisplayOrders, questionSupportsSelectableOptions } from "../services/questionService.js";
+import {
+  findQuestionMoveConflicts,
+  findQuestionOptionConflicts,
+  findQuestionRemoveConflicts,
+  lockQuestionTemplate,
+  updateDisplayOrders,
+  questionSupportsSelectableOptions
+} from "../services/questionService.js";
 import {
   AuthenticationError,
   BadRequestError,
@@ -143,7 +150,7 @@ export const resolvers: Resolvers = {
                   addTagErrors.push(`Tag ${item.id} not found`);
                 }
 
-                const wasAdded = tag.addToQuestion(context, questionId)
+                const wasAdded = await tag.addToQuestion(context, questionId);
                 if (!wasAdded) {
                   addTagErrors.push(tag.name);
                 }
@@ -195,23 +202,45 @@ export const resolvers: Resolvers = {
 
         // Check that user has permission to update this question
         if (isAdmin(context.token) && await hasPermissionOnSection(context, questionData.templateId)) {
-          const question = new Question({
-            id: questionId,
-            sectionId: questionData.sectionId,
-            templateId: questionData.templateId,
-            createdById: questionData.createdById,
-            displayOrder: displayOrder ?? questionData.displayOrder,
-            json: json ?? questionData.json,
-            questionText: questionText,
-            requirementText: requirementText,
-            guidanceText: guidanceText,
-            sampleText: sampleText,
-            useSampleTextAsDefault: useSampleTextAsDefault,
-            required: required,
-            isDirty: questionData.isDirty
-          });
+          let updatedQuestion: Question | null = null;
+          await context.dataSources.sqlDataSource.withTransaction(context, async () => {
+            await lockQuestionTemplate(context, questionData.templateId);
+            const currentQuestionData = await Question.findById(reference, context, questionId);
+            if (!currentQuestionData) {
+              throw NotFoundError('Question not found');
+            }
 
-          const updatedQuestion = await question.update(context);
+            const question = new Question({
+              id: questionId,
+              sectionId: currentQuestionData.sectionId,
+              templateId: currentQuestionData.templateId,
+              createdById: currentQuestionData.createdById,
+              displayOrder: displayOrder ?? currentQuestionData.displayOrder,
+              json: json ?? currentQuestionData.json,
+              questionText: questionText,
+              requirementText: requirementText,
+              guidanceText: guidanceText,
+              sampleText: sampleText,
+              useSampleTextAsDefault: useSampleTextAsDefault,
+              required: required,
+              isDirty: currentQuestionData.isDirty
+            });
+
+            // Removing or renaming an option that another question's display logic matches, or changing to a
+            // question type without options, would silently break that display logic, so don't allow it.
+            const conflicts = await findQuestionOptionConflicts(
+              context,
+              currentQuestionData,
+              json ?? currentQuestionData.json
+            );
+            if (conflicts.length > 0) {
+              question.addError('json', 'Your changes were not saved. One or more of this question\'s options are used in the display logic of another question. Remove that display logic condition before removing or renaming the option, or changing the question type.');
+              updatedQuestion = question;
+              return;
+            }
+
+            updatedQuestion = await question.update(context);
+          });
 
           if (updatedQuestion && !updatedQuestion.hasErrors()) {
             // Update the associated template to set isDirty=1
@@ -232,7 +261,7 @@ export const resolvers: Resolvers = {
             for (const id of idsToBeRemoved) {
               const tag = await Tag.findById(reference, context, id as number);
               if (tag) {
-                const wasRemoved = tag.removeFromQuestion(context, updatedQuestion.id)
+                const wasRemoved = await tag.removeFromQuestion(context, updatedQuestion.id);
                 if (!wasRemoved) {
                   removeTagErrors.push(tag.name);
                 }
@@ -248,7 +277,7 @@ export const resolvers: Resolvers = {
             for (const id of idsToBeSaved) {
               const tag = await Tag.findById(reference, context, id as number);
               if (tag) {
-                const wasAdded = tag.addToQuestion(context, updatedQuestion.id)
+                const wasAdded = await tag.addToQuestion(context, updatedQuestion.id);
                 if (!wasAdded) {
                   addTagErrors.push(tag.name);
                 }
@@ -300,22 +329,69 @@ export const resolvers: Resolvers = {
           // Check that user has permission to update this question
           if (await hasPermissionOnSection(context, question.templateId)) {
             try {
-              // Reorder the sections
-              const reordered = await updateDisplayOrders(
+              const reordered = await context.dataSources.sqlDataSource.withTransaction(
                 context,
-                question.sectionId,
-                questionId,
-                newDisplayOrder
+                async () => {
+                  await lockQuestionTemplate(context, question.templateId);
+                  const currentQuestion = await Question.findById(reference, context, questionId);
+                  if (!currentQuestion) {
+                    throw NotFoundError();
+                  }
+
+                  if (currentQuestion.displayOrder === newDisplayOrder) {
+                    throw BadRequestError('The new display order is the same as the current one');
+                  }
+
+                  // Display logic can only be triggered by prior questions, so don't allow a move that would
+                  // put a question above one of its trigger questions
+                  const conflicts = await findQuestionMoveConflicts(
+                    context,
+                    currentQuestion.sectionId,
+                    questionId,
+                    newDisplayOrder
+                  );
+                  if (conflicts.length > 0) {
+                    return null;
+                  }
+
+                  // Reorder the sections
+                  const updated = await updateDisplayOrders(
+                    context,
+                    currentQuestion.sectionId,
+                    questionId,
+                    newDisplayOrder
+                  );
+
+                  // Update the associated template to set isDirty=1
+                  await Template.markTemplateAsDirty(
+                    'Question resolver - updateQuestionDisplayOrder',
+                    context,
+                    currentQuestion.templateId
+                  );
+
+                  return updated;
+                }
               );
 
-              // Update the associated template to set isDirty=1
-              await Template.markTemplateAsDirty('Question resolver - updateQuestionDisplayOrder', context, question.templateId);
+              if (reordered === null) {
+                return {
+                  questions: [],
+                  errors: {
+                    general: 'This question is used in display logic. Remove the display logic condition before moving it so that the trigger question stays before the question it controls.'
+                  }
+                };
+              }
 
               return { questions: reordered ?? [] };
 
             } catch (err) {
               context.logger.error(prepareObjectForLogs(err), `${reference} failed: questionId: ${questionId}`);
-              return { questions: [], errors: { general: err.message } };
+              // GraphQLError messages (e.g. NotFound/BadRequest) are written for users. Anything else, like a
+              // failure to lock the template, is internal, so don't expose its message
+              const message = err instanceof GraphQLError
+                ? err.message
+                : 'Unable to move the question at this time. Please try again.';
+              return { questions: [], errors: { general: message } };
             }
           }
         }
@@ -342,14 +418,33 @@ export const resolvers: Resolvers = {
 
         // if the user is an admin and has permission on the section
         if (isAdmin(context.token) && await hasPermissionOnSection(context, questionData.templateId)) {
-          //Need to create a new instance of Question so that it recognizes the 'delete' function of that instance
-          const question = new Question({ ...questionData, id: questionId });
+          return await context.dataSources.sqlDataSource.withTransaction(
+            context,
+            async () => {
+              await lockQuestionTemplate(context, questionData.templateId);
+              const currentQuestion = await Question.findById(reference, context, questionId);
+              if (!currentQuestion) {
+                throw NotFoundError('Question not found');
+              }
 
-          // Update the associated template to set isDirty=1
-          await Template.markTemplateAsDirty('Question resolver - removeQuestion', context, questionData.templateId);
+              //Need to create a new instance of Question so that it recognizes the 'delete' function of that instance
+              const question = new Question({ ...currentQuestion, id: questionId });
 
-          // The delete will also delete all associated questionOptions
-          return await question.delete(context);
+              // Deleting the question would also delete the display logic of any questions it triggers, so don't
+              // allow it until that display logic is removed
+              const conflicts = await findQuestionRemoveConflicts(context, questionId);
+              if (conflicts.length > 0) {
+                question.addError('general', 'This question is a trigger question in the display logic of another question. Remove that display logic condition before deleting this question.');
+                return question;
+              }
+
+              // Update the associated template to set isDirty=1
+              await Template.markTemplateAsDirty('Question resolver - removeQuestion', context, currentQuestion.templateId);
+
+              // The delete will also delete all associated questionOptions
+              return await question.delete(context);
+            }
+          );
 
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();

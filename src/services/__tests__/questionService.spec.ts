@@ -29,6 +29,9 @@ const { logger } = await import("../../logger.js");
 const { Template } = await import("../../models/Template.js");
 const {
   cloneQuestion,
+  findQuestionMoveConflicts,
+  findQuestionOptionConflicts,
+  findQuestionRemoveConflicts,
   generateQuestionConditionGroupVersion,
   generateQuestionConditionVersion,
   generateQuestionVersion,
@@ -1142,5 +1145,137 @@ describe('questionSupportsSelectableOptions', () => {
     const question = buildQuestion('{not valid json');
 
     expect(questionSupportsSelectableOptions(question)).toBe(false);
+  });
+});
+
+describe('findQuestionMoveConflicts', () => {
+  const sectionId = 5;
+  let mockFindGroups: ReturnType<typeof mockAsyncFn>;
+  let mockFindBySectionId: ReturnType<typeof mockAsyncFn>;
+
+  // Q1 (trigger question) -> Q2 -> Q3 (shows only when Q1 matches)
+  const dependentGroup = new QuestionConditionGroup({ id: 1, questionId: 3, triggerQuestionId: 1 });
+
+  beforeEach(() => {
+    mockFindGroups = mockAsyncFn().mockResolvedValue([dependentGroup]);
+    jest.spyOn(QuestionConditionGroup, 'findByQuestionOrTriggerQuestionId').mockImplementation(mockFindGroups);
+
+    mockFindBySectionId = mockAsyncFn().mockResolvedValue([
+      new Question({ id: 1, sectionId, displayOrder: 1 }),
+      new Question({ id: 2, sectionId, displayOrder: 2 }),
+      new Question({ id: 3, sectionId, displayOrder: 3 }),
+    ]);
+    jest.spyOn(Question, 'findBySectionId').mockImplementation(mockFindBySectionId);
+  });
+
+  it('returns the group when a question would move above its trigger question', async () => {
+    const conflicts = await findQuestionMoveConflicts(context, sectionId, 3, 1);
+    expect(mockFindGroups).toHaveBeenCalledWith(expect.any(String), context, 3);
+    expect(mockFindBySectionId).toHaveBeenCalledWith(expect.any(String), context, sectionId);
+    expect(conflicts).toEqual([dependentGroup]);
+  });
+
+  it('returns the group when a trigger question would move below a question that depends on it', async () => {
+    const conflicts = await findQuestionMoveConflicts(context, sectionId, 1, 3);
+    expect(conflicts).toEqual([dependentGroup]);
+  });
+
+  it('returns an empty array when the question stays after its trigger question', async () => {
+    const conflicts = await findQuestionMoveConflicts(context, sectionId, 3, 2);
+    expect(conflicts).toEqual([]);
+  });
+
+  it('ignores trigger questions that are in another section', async () => {
+    mockFindGroups.mockResolvedValueOnce([
+      new QuestionConditionGroup({ id: 2, questionId: 1, triggerQuestionId: 99 }),
+    ]);
+    const conflicts = await findQuestionMoveConflicts(context, sectionId, 1, 3);
+    expect(conflicts).toEqual([]);
+  });
+
+  it('does not load the section questions when the question has no display logic', async () => {
+    mockFindGroups.mockResolvedValueOnce([]);
+    const conflicts = await findQuestionMoveConflicts(context, sectionId, 2, 1);
+    expect(conflicts).toEqual([]);
+    expect(mockFindBySectionId).not.toHaveBeenCalled();
+  });
+});
+
+describe('findQuestionRemoveConflicts', () => {
+  let mockFindGroups: ReturnType<typeof mockAsyncFn>;
+
+  beforeEach(() => {
+    mockFindGroups = mockAsyncFn();
+    jest.spyOn(QuestionConditionGroup, 'findByQuestionOrTriggerQuestionId').mockImplementation(mockFindGroups);
+  });
+
+  it('returns the groups where the question is the trigger question for another question', async () => {
+    const triggeredGroup = new QuestionConditionGroup({ id: 1, questionId: 3, triggerQuestionId: 1 });
+    mockFindGroups.mockResolvedValueOnce([triggeredGroup]);
+
+    const conflicts = await findQuestionRemoveConflicts(context, 1);
+    expect(mockFindGroups).toHaveBeenCalledWith(expect.any(String), context, 1);
+    expect(conflicts).toEqual([triggeredGroup]);
+  });
+
+  it('ignores the question\'s own display logic groups, which are deleted along with it', async () => {
+    mockFindGroups.mockResolvedValueOnce([
+      new QuestionConditionGroup({ id: 2, questionId: 1, triggerQuestionId: 5 }),
+    ]);
+
+    const conflicts = await findQuestionRemoveConflicts(context, 1);
+    expect(conflicts).toEqual([]);
+  });
+
+  it('returns an empty array when the question has no display logic', async () => {
+    mockFindGroups.mockResolvedValueOnce([]);
+    expect(await findQuestionRemoveConflicts(context, 1)).toEqual([]);
+  });
+});
+
+describe('findQuestionOptionConflicts', () => {
+  let mockFindByTriggerQuestionId: ReturnType<typeof mockAsyncFn>;
+
+  const optionsJson = (type: string, values: string[]) => JSON.stringify({
+    type,
+    meta: { schemaVersion: CURRENT_SCHEMA_VERSION },
+    options: values.map((value) => ({ label: value, value, selected: false })),
+  });
+
+  // Question 1 is a radio button question with "Yes" and "No" options; another question shows when it is "Yes"
+  const triggerQuestion = new Question({ id: 1, json: optionsJson('radioButtons', ['Yes', 'No']) });
+  const yesCondition = new QuestionCondition({ id: 1, groupId: 1, conditionType: 'EQUAL', conditionMatch: 'Yes' });
+
+  beforeEach(() => {
+    mockFindByTriggerQuestionId = mockAsyncFn().mockResolvedValue([yesCondition]);
+    jest.spyOn(QuestionCondition, 'findByTriggerQuestionId').mockImplementation(mockFindByTriggerQuestionId);
+  });
+
+  it('returns the conditions that match an option that was removed', async () => {
+    const conflicts = await findQuestionOptionConflicts(context, triggerQuestion, optionsJson('radioButtons', ['No']));
+    expect(mockFindByTriggerQuestionId).toHaveBeenCalledWith(expect.any(String), context, 1);
+    expect(conflicts).toEqual([yesCondition]);
+  });
+
+  it('returns the conditions that match an option that was renamed', async () => {
+    const conflicts = await findQuestionOptionConflicts(context, triggerQuestion, optionsJson('radioButtons', ['Yes!', 'No']));
+    expect(conflicts).toEqual([yesCondition]);
+  });
+
+  it('returns the conditions when the question changes to a type without options', async () => {
+    const textJson = JSON.stringify({ type: 'text', meta: { schemaVersion: CURRENT_SCHEMA_VERSION } });
+    const conflicts = await findQuestionOptionConflicts(context, triggerQuestion, textJson);
+    expect(conflicts).toEqual([yesCondition]);
+  });
+
+  it('returns an empty array when the matched options are kept', async () => {
+    const conflicts = await findQuestionOptionConflicts(context, triggerQuestion, optionsJson('radioButtons', ['Yes', 'No', 'Maybe']));
+    expect(conflicts).toEqual([]);
+  });
+
+  it('does not look up conditions when the JSON is not being changed', async () => {
+    expect(await findQuestionOptionConflicts(context, triggerQuestion, undefined)).toEqual([]);
+    expect(await findQuestionOptionConflicts(context, triggerQuestion, triggerQuestion.json)).toEqual([]);
+    expect(mockFindByTriggerQuestionId).not.toHaveBeenCalled();
   });
 });

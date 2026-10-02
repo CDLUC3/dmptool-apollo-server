@@ -9,6 +9,7 @@ import { Question } from "../models/Question.js";
 import { generateQuestionVersion } from "./questionService.js";
 import { prepareObjectForLogs } from "../logger.js";
 import { reorderDisplayOrder } from "../utils/helpers.js";
+import { QuestionConditionGroup, QuestionConditionGroupSections } from "../models/QuestionConditionGroup.js";
 
 // Creates a new Version/Snapshot the specified Section (as a point in time snapshot)
 //    - Creates a new VersionedSection including all of the related Questions
@@ -192,4 +193,64 @@ export const updateDisplayOrders = async (
     }
   }
   return reorderedSections;
+}
+
+/**
+ * Display logic can only use trigger questions that come before the question being shown/hidden, and a
+ * trigger question can be in an earlier section. Returns the display logic groups that would break if the
+ * specified section were moved to newDisplayOrder, either because a question in the moved section would
+ * end up before one of its trigger questions, or because a trigger question in the moved section would
+ * end up after a question that depends on it.
+ *
+ * @param context The Apollo context
+ * @param templateId The template the section belongs to
+ * @param sectionId The section being moved
+ * @param newDisplayOrder The display order the section is being moved to
+ * @returns The QuestionConditionGroups that would break (empty if the move is safe)
+ */
+export const findSectionMoveConflicts = async (
+  context: MyContext,
+  templateId: number,
+  sectionId: number,
+  newDisplayOrder: number
+): Promise<QuestionConditionGroupSections[]> => {
+  const reference = 'sectionService.findSectionMoveConflicts';
+
+  // Only groups that link the moved section to another section can be affected by the move
+  const groups = await QuestionConditionGroup.findCrossSectionBySectionId(reference, context, sectionId);
+  if (groups.length === 0) return [];
+
+  // Simulate the move to get each section's new display order
+  const sections = await Section.findByTemplateId(reference, context, templateId);
+  const reorderedSections = reorderDisplayOrder(sectionId, newDisplayOrder, sections ?? []);
+  const newDisplayOrders = new Map(reorderedSections.map((s) => [s.id, s.displayOrder]));
+
+  return groups.filter((group) => {
+    const questionDisplayOrder = newDisplayOrders.get(group.questionSectionId);
+    const triggerDisplayOrder = newDisplayOrders.get(group.triggerQuestionSectionId);
+    if (questionDisplayOrder === undefined || triggerDisplayOrder === undefined) return false;
+
+    return triggerDisplayOrder > questionDisplayOrder;
+  });
+}
+
+/**
+ * Returns the display logic groups that would break if the specified section were deleted, i.e. the groups
+ * where a question in the section is the trigger question for a question in another section. Deleting the
+ * section deletes its questions, which also deletes these groups (via the foreign key cascade) and would
+ * silently change the other questions' display logic. Display logic entirely within the section is deleted
+ * along with it, so it is not a conflict.
+ *
+ * @param context The Apollo context
+ * @param sectionId The section being deleted
+ * @returns The QuestionConditionGroups that would break (empty if the delete is safe)
+ */
+export const findSectionRemoveConflicts = async (
+  context: MyContext,
+  sectionId: number
+): Promise<QuestionConditionGroupSections[]> => {
+  const reference = 'sectionService.findSectionRemoveConflicts';
+
+  const groups = await QuestionConditionGroup.findCrossSectionBySectionId(reference, context, sectionId);
+  return groups.filter((group) => group.triggerQuestionSectionId === sectionId);
 }

@@ -99,6 +99,26 @@ describe('findBy Queries', () => {
     const result = await QuestionCondition.findByGroupId('testing', context, groupId);
     expect(result).toEqual([]);
   });
+
+  it('findByTriggerQuestionId should call query with the trigger question id and return the conditions', async () => {
+    localQuery.mockResolvedValueOnce([questionCondition]);
+    const triggerQuestionId = casual.integer(1, 999);
+    const result = await QuestionCondition.findByTriggerQuestionId('testing', context, triggerQuestionId);
+    expect(localQuery).toHaveBeenCalledTimes(1);
+    expect(localQuery).toHaveBeenLastCalledWith(
+      context,
+      expect.stringContaining('WHERE qcg.triggerQuestionId = ? AND qcg.questionId <> ?'),
+      [triggerQuestionId.toString(), triggerQuestionId.toString()],
+      'testing'
+    );
+    expect(result).toEqual([questionCondition]);
+  });
+
+  it('findByTriggerQuestionId should return an empty array if it finds no records', async () => {
+    localQuery.mockResolvedValueOnce([]);
+    const result = await QuestionCondition.findByTriggerQuestionId('testing', context, casual.integer(1, 999));
+    expect(result).toEqual([]);
+  });
 });
 
 describe('create', () => {

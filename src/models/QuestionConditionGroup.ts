@@ -1,6 +1,14 @@
 import { MyContext } from "../context.js";
 import { MySqlModel } from "./MySqlModel.js";
 
+// The ids of a group's question and trigger question, along with the sections they belong to
+export interface QuestionConditionGroupSections {
+  questionId: number;
+  triggerQuestionId: number;
+  questionSectionId: number;
+  triggerQuestionSectionId: number;
+}
+
 // One row per trigger-question "box" in the Display Logic UI. Groups
 // together the conditions (option checks) that apply to a single
 // prior options question. 
@@ -70,5 +78,45 @@ export class QuestionConditionGroup extends MySqlModel {
     const sql = 'SELECT * FROM questionConditionGroups WHERE questionId = ?';
     const results = await QuestionConditionGroup.query(context, sql, [questionId?.toString()], reference);
     return Array.isArray(results) ? results.map((entry) => new QuestionConditionGroup(entry)) : [];
+  }
+
+  // Fetch all of the QuestionConditionGroups that the specified Question belongs to, either as the
+  // question being shown/hidden or as the trigger question
+  static async findByQuestionOrTriggerQuestionId(
+    reference: string,
+    context: MyContext,
+    questionId: number
+  ): Promise<QuestionConditionGroup[]> {
+    const sql = 'SELECT * FROM questionConditionGroups WHERE questionId = ? OR triggerQuestionId = ?';
+    const results = await QuestionConditionGroup.query(
+      context,
+      sql,
+      [questionId?.toString(), questionId?.toString()],
+      reference
+    );
+    return Array.isArray(results) ? results.map((entry) => new QuestionConditionGroup(entry)) : [];
+  }
+
+  // Fetch the QuestionConditionGroups that link a question in the specified Section to a question in
+  // a different Section, along with the sections of both questions
+  static async findCrossSectionBySectionId(
+    reference: string,
+    context: MyContext,
+    sectionId: number
+  ): Promise<QuestionConditionGroupSections[]> {
+    const sql = `SELECT qcg.questionId, qcg.triggerQuestionId,
+        q.sectionId AS questionSectionId, tq.sectionId AS triggerQuestionSectionId
+      FROM questionConditionGroups qcg
+      INNER JOIN questions q ON q.id = qcg.questionId
+      INNER JOIN questions tq ON tq.id = qcg.triggerQuestionId
+      WHERE (q.sectionId = ? OR tq.sectionId = ?)
+      AND q.sectionId <> tq.sectionId`;
+    const results = await QuestionConditionGroup.query(
+      context,
+      sql,
+      [sectionId?.toString(), sectionId?.toString()],
+      reference
+    );
+    return Array.isArray(results) ? results as QuestionConditionGroupSections[] : [];
   }
 }

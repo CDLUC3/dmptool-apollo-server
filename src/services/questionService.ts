@@ -27,6 +27,36 @@ export const hasPermissionOnQuestion = async (context: MyContext, templateId: nu
   return await hasPermissionOnTemplate(context, template);
 }
 
+/**
+ * "FOR UPDATE" locks the row in the database so that no other 
+ * transaction can modify it until the current transaction is complete. 
+ * This is used to prevent race conditions when multiple users are 
+ * trying to modify the same template at the same time.
+ * Note: This only works inside a "withTransaction" block and has to be the 
+ * first query in the transaction.
+ */
+/**
+ * 
+ * @param context The Apollo context (must have activeTransation)
+ * @param templateId the template to lock
+ * @throws Error if the template does not exist
+ */
+export const lockQuestionTemplate = async (
+  context: MyContext,
+  templateId: number
+): Promise<void> => {
+  const templates = await Template.query(
+    context,
+    'SELECT id FROM templates WHERE id = ? FOR UPDATE',
+    [templateId.toString()],
+    'questionService.lockQuestionTemplate'
+  );
+
+  if (templates.length === 0) {
+    throw new Error(`Unable to lock template: ${templateId}`);
+  }
+}
+
 // Creates a new Version/Snapshot of the specified QuestionConditionGroup (as a point in
 // time snapshot), and versions each QuestionCondition that belongs to it.
 //    - creates a new VersionedQuestionConditionGroup
@@ -270,6 +300,91 @@ export const updateDisplayOrders = async (
     }
   }
   return reorderedQuestions;
+}
+
+/**
+ * Display logic can only use trigger questions that come before the question being shown/hidden.
+ * Returns the display logic groups that would break if the specified question were moved to
+ * newDisplayOrder within its section, either because the question would move above one of its trigger
+ * questions, or because a trigger question would move below a question that depends on it. Trigger
+ * questions in other sections are unaffected by a move within the section, so they are ignored.
+ *
+ * @param context The Apollo context
+ * @param sectionId The section the question belongs to
+ * @param questionId The question being moved
+ * @param newDisplayOrder The display order the question is being moved to
+ * @returns The QuestionConditionGroups that would break (empty if the move is safe)
+ */
+export const findQuestionMoveConflicts = async (
+  context: MyContext,
+  sectionId: number,
+  questionId: number,
+  newDisplayOrder: number
+): Promise<QuestionConditionGroup[]> => {
+  const reference = 'questionService.findQuestionMoveConflicts';
+
+  const groups = await QuestionConditionGroup.findByQuestionOrTriggerQuestionId(reference, context, questionId);
+  if (groups.length === 0) return [];
+
+  // Simulate the move to get each question's new display order
+  const questions = await Question.findBySectionId(reference, context, sectionId);
+  const reorderedQuestions = reorderDisplayOrder(questionId, newDisplayOrder, questions ?? []);
+  const newDisplayOrders = new Map(reorderedQuestions.map((q) => [q.id, q.displayOrder]));
+
+  return groups.filter((group) => {
+    const questionDisplayOrder = newDisplayOrders.get(group.questionId);
+    const triggerDisplayOrder = newDisplayOrders.get(group.triggerQuestionId);
+    if (questionDisplayOrder === undefined || triggerDisplayOrder === undefined) return false;
+
+    return triggerDisplayOrder > questionDisplayOrder;
+  });
+}
+
+/**
+ * Returns the display logic groups that would break if the specified question were deleted, i.e. the
+ * groups where it is the trigger question for another question. Deleting a question also deletes these
+ * groups (via the foreign key cascade), which would silently change the other questions' display logic.
+ * The question's own display logic groups are deleted along with it, so they are not conflicts.
+ *
+ * @param context The Apollo context
+ * @param questionId The question being deleted
+ * @returns The QuestionConditionGroups that would break (empty if the delete is safe)
+ */
+export const findQuestionRemoveConflicts = async (
+  context: MyContext,
+  questionId: number
+): Promise<QuestionConditionGroup[]> => {
+  const reference = 'questionService.findQuestionRemoveConflicts';
+
+  const groups = await QuestionConditionGroup.findByQuestionOrTriggerQuestionId(reference, context, questionId);
+  return groups.filter((group) => group.triggerQuestionId === questionId && group.questionId !== questionId);
+}
+
+/**
+ * Returns the display logic conditions that would break if the specified question's JSON were updated to
+ * newJson, i.e. conditions that use the question as their trigger question and match an option value that
+ * newJson no longer has. This covers removing an option, renaming it (the option value follows its text),
+ * and changing the question to a type without options.
+ *
+ * @param context The Apollo context
+ * @param question The question being updated, with its current JSON
+ * @param newJson The question's new JSON
+ * @returns The QuestionConditions that would break (empty if the update is safe)
+ */
+export const findQuestionOptionConflicts = async (
+  context: MyContext,
+  question: Question,
+  newJson: string
+): Promise<QuestionCondition[]> => {
+  const reference = 'questionService.findQuestionOptionConflicts';
+
+  if (!newJson || newJson === question.json) return [];
+
+  const conditions = await QuestionCondition.findByTriggerQuestionId(reference, context, question.id);
+  if (conditions.length === 0) return [];
+
+  const newOptionValues = extractTriggerQuestionOptionValues(new Question({ ...question, json: newJson }));
+  return conditions.filter((condition) => !newOptionValues.has(condition.conditionMatch));
 }
 
 /**

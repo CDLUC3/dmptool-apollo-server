@@ -41,7 +41,15 @@ const { VersionedSection } = await import("../../models/VersionedSection.js");
 const { generateQuestionVersion } = await import("../questionService.js");
 const { Tag } = await import("../../models/Tag.js");
 const { getCurrentDate } = await import("../../utils/helpers.js");
-const { cloneSection, generateSectionVersion, hasPermissionOnSection, updateDisplayOrders } = await import("../sectionService.js");
+const {
+  cloneSection,
+  findSectionMoveConflicts,
+  findSectionRemoveConflicts,
+  generateSectionVersion,
+  hasPermissionOnSection,
+  updateDisplayOrders
+} = await import("../sectionService.js");
+const { QuestionConditionGroup } = await import("../../models/QuestionConditionGroup.js");
 
 let context: MyContext;
 
@@ -620,5 +628,87 @@ describe('updateDisplayOrders', () => {
       expect(mockFindByTemplateId).toHaveBeenCalledTimes(1);
       expect(mockUpdate).toHaveBeenCalledTimes(1);
     });
+  });
+});
+
+describe('findSectionMoveConflicts', () => {
+  const templateId = 100;
+  let mockFindCrossSection: ReturnType<typeof mockAsyncFn>;
+  let mockFindByTemplateId: ReturnType<typeof mockAsyncFn>;
+
+  // Question 3 in section 30 shows only when question 1 in section 10 matches
+  const crossSectionGroup = {
+    questionId: 3,
+    triggerQuestionId: 1,
+    questionSectionId: 30,
+    triggerQuestionSectionId: 10,
+  };
+
+  beforeEach(() => {
+    mockFindCrossSection = mockAsyncFn().mockResolvedValue([crossSectionGroup]);
+    jest.spyOn(QuestionConditionGroup, 'findCrossSectionBySectionId').mockImplementation(mockFindCrossSection);
+
+    mockFindByTemplateId = mockAsyncFn().mockResolvedValue([
+      new Section({ id: 10, templateId, displayOrder: 1 }),
+      new Section({ id: 20, templateId, displayOrder: 2 }),
+      new Section({ id: 30, templateId, displayOrder: 3 }),
+    ]);
+    jest.spyOn(Section, 'findByTemplateId').mockImplementation(mockFindByTemplateId);
+  });
+
+  it('returns the group when a section would move above the section containing its trigger question', async () => {
+    const conflicts = await findSectionMoveConflicts(context, templateId, 30, 1);
+    expect(mockFindCrossSection).toHaveBeenCalledWith(expect.any(String), context, 30);
+    expect(mockFindByTemplateId).toHaveBeenCalledWith(expect.any(String), context, templateId);
+    expect(conflicts).toEqual([crossSectionGroup]);
+  });
+
+  it('returns the group when a section with a trigger question would move below a section that depends on it', async () => {
+    const conflicts = await findSectionMoveConflicts(context, templateId, 10, 3);
+    expect(conflicts).toEqual([crossSectionGroup]);
+  });
+
+  it('returns an empty array when the trigger question section stays first', async () => {
+    expect(await findSectionMoveConflicts(context, templateId, 30, 2)).toEqual([]);
+    expect(await findSectionMoveConflicts(context, templateId, 10, 2)).toEqual([]);
+  });
+
+  it('does not load the template sections when no display logic crosses into the section', async () => {
+    mockFindCrossSection.mockResolvedValueOnce([]);
+    const conflicts = await findSectionMoveConflicts(context, templateId, 20, 1);
+    expect(conflicts).toEqual([]);
+    expect(mockFindByTemplateId).not.toHaveBeenCalled();
+  });
+});
+
+describe('findSectionRemoveConflicts', () => {
+  let mockFindCrossSection: ReturnType<typeof mockAsyncFn>;
+
+  beforeEach(() => {
+    mockFindCrossSection = mockAsyncFn();
+    jest.spyOn(QuestionConditionGroup, 'findCrossSectionBySectionId').mockImplementation(mockFindCrossSection);
+  });
+
+  it('returns the groups where a question in the section triggers a question in another section', async () => {
+    const triggeredGroup = { questionId: 3, triggerQuestionId: 1, questionSectionId: 30, triggerQuestionSectionId: 10 };
+    mockFindCrossSection.mockResolvedValueOnce([triggeredGroup]);
+
+    const conflicts = await findSectionRemoveConflicts(context, 10);
+    expect(mockFindCrossSection).toHaveBeenCalledWith(expect.any(String), context, 10);
+    expect(conflicts).toEqual([triggeredGroup]);
+  });
+
+  it('ignores display logic in the section that is triggered by a question in another section', async () => {
+    mockFindCrossSection.mockResolvedValueOnce([
+      { questionId: 3, triggerQuestionId: 1, questionSectionId: 30, triggerQuestionSectionId: 10 },
+    ]);
+
+    const conflicts = await findSectionRemoveConflicts(context, 30);
+    expect(conflicts).toEqual([]);
+  });
+
+  it('returns an empty array when no display logic crosses into the section', async () => {
+    mockFindCrossSection.mockResolvedValueOnce([]);
+    expect(await findSectionRemoveConflicts(context, 10)).toEqual([]);
   });
 });

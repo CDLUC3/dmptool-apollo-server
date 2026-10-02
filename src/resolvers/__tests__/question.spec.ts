@@ -51,7 +51,15 @@ const mockQuestionSupportsSelectableOptions = jest.fn<(...args: any[]) => boolea
 const mockExtractTriggerQuestionOptionValues = jest.fn<(...args: any[]) => Set<string>>(() => new Set(['option1', 'option2']));
 const mockHasPermissionOnQuestion = jest.fn<(...args: any[]) => Promise<boolean>>();
 const mockCloneQuestion = jest.fn<(...args: any[]) => Promise<any>>();
+const mockFindQuestionMoveConflicts = jest.fn<(...args: any[]) => Promise<any>>();
+const mockFindQuestionRemoveConflicts = jest.fn<(...args: any[]) => Promise<any>>();
+const mockFindQuestionOptionConflicts = jest.fn<(...args: any[]) => Promise<any>>();
+const mockLockQuestionTemplate = jest.fn<(...args: any[]) => Promise<void>>();
 jest.unstable_mockModule('../../services/questionService.js', () => ({
+  findQuestionMoveConflicts: mockFindQuestionMoveConflicts,
+  findQuestionOptionConflicts: mockFindQuestionOptionConflicts,
+  findQuestionRemoveConflicts: mockFindQuestionRemoveConflicts,
+  lockQuestionTemplate: mockLockQuestionTemplate,
   updateDisplayOrders: mockUpdateDisplayOrders,
   questionSupportsSelectableOptions: mockQuestionSupportsSelectableOptions,
   extractTriggerQuestionOptionValues: mockExtractTriggerQuestionOptionValues,
@@ -67,7 +75,8 @@ const { resolvers } = await import("../../resolver.js");
 const { logger } = await import("../../logger.js");
 const {
   buildContext,
-  mockToken
+  mockToken,
+  getMockDataSources
 } = await import("../../__mocks__/context.js");
 const { Question } = await import('../../models/Question.js');
 const { Template } = await import('../../models/Template.js');
@@ -105,6 +114,9 @@ beforeEach(async () => {
 
   // Sensible defaults so most tests don't need to restate permission checks
   mockHasPermissionOnSection.mockResolvedValue(true);
+  mockLockQuestionTemplate.mockResolvedValue(undefined);
+  const sqlDataSource = getMockDataSources().sqlDataSource as any;
+  sqlDataSource.withTransaction.mockImplementation(async (_context, action) => action());
 });
 
 afterEach(() => {
@@ -368,10 +380,38 @@ describe('question resolvers', () => {
             id
             questionText
             displayOrder
-            errors { general }
+            errors { general json }
           }
         }
       `;
+      mockFindQuestionOptionConflicts.mockResolvedValue([]);
+    });
+
+    it('should not update a question when the change would break display logic that uses its options', async () => {
+      const newJson = '{"type":"radioButtons","options":[{"label":"No","value":"No"}]}';
+      const input = { questionId: 1, questionText: 'Updated text', json: newJson };
+      const existingQuestion = {
+        id: 1,
+        sectionId: 5,
+        templateId: 100,
+        createdById: 2,
+        displayOrder: 1,
+        json: '{"type":"radioButtons","options":[{"label":"Yes","value":"Yes"},{"label":"No","value":"No"}]}',
+        isDirty: false,
+      };
+
+      jest.spyOn(Question, 'findById').mockResolvedValue(existingQuestion as any);
+      const updateSpy = jest.spyOn(Question.prototype, 'update');
+      jest.spyOn(Template, 'markTemplateAsDirty').mockResolvedValue(undefined as any);
+      mockFindQuestionOptionConflicts.mockResolvedValue([{ id: 1, groupId: 1, conditionMatch: 'Yes' }]);
+
+      const result = await executeQuery(query, { input }, adminToken);
+
+      expect(mockFindQuestionOptionConflicts).toHaveBeenCalledWith(expect.any(Object), existingQuestion, newJson);
+      expect(mockLockQuestionTemplate).toHaveBeenCalled();
+      expect(updateSpy).not.toHaveBeenCalled();
+      expect(Template.markTemplateAsDirty).not.toHaveBeenCalled();
+      expect(result.body.singleResult.data.updateQuestion.errors.json).toContain('display logic');
     });
 
     it('should update an existing question successfully', async () => {
@@ -390,6 +430,7 @@ describe('question resolvers', () => {
 
       jest.spyOn(Question, 'findById')
         .mockResolvedValueOnce(existingQuestion as any) // initial lookup
+        .mockResolvedValueOnce(existingQuestion as any) // refetch inside transaction
         .mockResolvedValueOnce(mockFinal as any); // refetch after update
       jest.spyOn(Question.prototype, 'update').mockResolvedValue(mockUpdated as any);
       jest.spyOn(Template, 'markTemplateAsDirty').mockResolvedValue(undefined as any);
@@ -441,6 +482,53 @@ describe('question resolvers', () => {
     });
   });
 
+  describe('Mutation.saveQuestionDisplayLogic', () => {
+    it('locks the template before validating display logic', async () => {
+      query = `
+        mutation saveQuestionDisplayLogic($input: SaveQuestionDisplayLogicInput!) {
+          saveQuestionDisplayLogic(input: $input) {
+            id
+            errors { general }
+          }
+        }
+      `;
+      const question = new Question({
+        id: 2,
+        templateId: 100,
+        sectionId: 5,
+        questionText: 'Question',
+        displayOrder: 2,
+        json: '{"type":"radioButtons","options":[]}',
+        errors: {},
+      });
+      const mockUpdated = { hasErrors: jest.fn<() => boolean>().mockReturnValue(false) };
+
+      jest.spyOn(Question, 'findById')
+        .mockResolvedValueOnce(question as any)
+        .mockResolvedValueOnce(question as any)
+        .mockResolvedValueOnce(question as any);
+      mockHasPermissionOnQuestion.mockResolvedValue(true);
+      const priorQuestionsSpy = jest.spyOn(Question, 'findPriorQuestionsForQuestion')
+        .mockResolvedValue([] as any);
+      jest.spyOn(Question.prototype, 'update').mockResolvedValue(mockUpdated as any);
+      jest.spyOn(QuestionConditionGroup, 'findByQuestionId').mockResolvedValue([] as any);
+      jest.spyOn(Template, 'markTemplateAsDirty').mockResolvedValue(undefined as any);
+
+      const result = await executeQuery(query, {
+        input: {
+          questionId: 2,
+          action: 'SHOW_QUESTION',
+          matchType: 'ANY',
+          groups: [],
+        },
+      }, adminToken);
+
+      expect(result.body.singleResult.data.saveQuestionDisplayLogic.id).toEqual(2);
+      expect(mockLockQuestionTemplate.mock.invocationCallOrder[0])
+        .toBeLessThan(priorQuestionsSpy.mock.invocationCallOrder[0]);
+    });
+  });
+
   describe('Mutation.updateQuestionDisplayOrder', () => {
     beforeEach(() => {
       query = `
@@ -451,6 +539,25 @@ describe('question resolvers', () => {
           }
         }
       `;
+      mockFindQuestionMoveConflicts.mockResolvedValue([]);
+    });
+
+    it('should not reorder questions when the move would break display logic', async () => {
+      const existingQuestion = { id: 1, sectionId: 5, templateId: 100, displayOrder: 2 };
+      jest.spyOn(Question, 'findById').mockResolvedValue(existingQuestion as any);
+      mockFindQuestionMoveConflicts.mockResolvedValue([{ questionId: 1, triggerQuestionId: 2 }]);
+
+      const result = await executeQuery(
+        query,
+        { questionId: 1, newDisplayOrder: 1 },
+        adminToken
+      );
+
+      expect(mockFindQuestionMoveConflicts).toHaveBeenCalledWith(expect.any(Object), 5, 1, 1);
+      expect(mockLockQuestionTemplate).toHaveBeenCalled();
+      expect(mockUpdateDisplayOrders).not.toHaveBeenCalled();
+      expect(result.body.singleResult.data.updateQuestionDisplayOrder.questions).toEqual([]);
+      expect(result.body.singleResult.data.updateQuestionDisplayOrder.errors.general).toContain('display logic');
     });
 
     it('should reorder questions successfully', async () => {
@@ -516,7 +623,49 @@ describe('question resolvers', () => {
       );
 
       expect(result.body.singleResult.data.updateQuestionDisplayOrder.questions).toEqual([]);
-      expect(result.body.singleResult.data.updateQuestionDisplayOrder.errors.general).toEqual('DB error during reorder');
+      // Internal error messages should not be exposed to the user
+      expect(result.body.singleResult.data.updateQuestionDisplayOrder.errors.general)
+        .toEqual('Unable to move the question at this time. Please try again.');
+    });
+
+    it('should return a generic error and not reorder when the template cannot be locked', async () => {
+      const existingQuestion = { id: 1, sectionId: 5, templateId: 100, displayOrder: 1 };
+      jest.spyOn(Question, 'findById').mockResolvedValue(existingQuestion as any);
+      mockLockQuestionTemplate.mockRejectedValue(new Error('Unable to lock template: 100'));
+
+      const result = await executeQuery(
+        query,
+        { questionId: 1, newDisplayOrder: 4 },
+        adminToken
+      );
+
+      expect(mockLockQuestionTemplate).toHaveBeenCalledWith(expect.any(Object), 100);
+      expect(mockFindQuestionMoveConflicts).not.toHaveBeenCalled();
+      expect(mockUpdateDisplayOrders).not.toHaveBeenCalled();
+      const { questions, errors } = result.body.singleResult.data.updateQuestionDisplayOrder;
+      expect(questions).toEqual([]);
+      expect(errors.general).toEqual('Unable to move the question at this time. Please try again.');
+      expect(errors.general).not.toContain('lock');
+    });
+
+    it('should return the message of a GraphQLError thrown while reordering', async () => {
+      const existingQuestion = { id: 1, sectionId: 5, templateId: 100, displayOrder: 1 };
+      // Found before the transaction, but deleted by another request before the lock was acquired
+      jest.spyOn(Question, 'findById')
+        .mockResolvedValueOnce(existingQuestion as any)
+        .mockResolvedValueOnce(null);
+
+      const result = await executeQuery(
+        query,
+        { questionId: 1, newDisplayOrder: 4 },
+        adminToken
+      );
+
+      expect(mockUpdateDisplayOrders).not.toHaveBeenCalled();
+      const { questions, errors } = result.body.singleResult.data.updateQuestionDisplayOrder;
+      expect(questions).toEqual([]);
+      // The NotFoundError's own message is passed through rather than the generic one
+      expect(errors.general).toEqual('Not Found');
     });
 
     it('should throw AuthenticationError/ForbiddenError when not admin', async () => {
@@ -541,6 +690,23 @@ describe('question resolvers', () => {
           }
         }
       `;
+      mockFindQuestionRemoveConflicts.mockResolvedValue([]);
+    });
+
+    it('should not delete a question that is a trigger question in display logic', async () => {
+      const existingQuestion = { id: 1, templateId: 100, sectionId: 5 };
+      jest.spyOn(Question, 'findById').mockResolvedValue(existingQuestion as any);
+      jest.spyOn(Template, 'markTemplateAsDirty').mockResolvedValue(undefined as any);
+      const deleteSpy = jest.spyOn(Question.prototype, 'delete').mockResolvedValue({ id: 1 } as any);
+      mockFindQuestionRemoveConflicts.mockResolvedValue([{ questionId: 2, triggerQuestionId: 1 }]);
+
+      const result = await executeQuery(query, { questionId: 1 }, adminToken);
+
+      expect(mockFindQuestionRemoveConflicts).toHaveBeenCalledWith(expect.any(Object), 1);
+      expect(mockLockQuestionTemplate).toHaveBeenCalled();
+      expect(deleteSpy).not.toHaveBeenCalled();
+      expect(Template.markTemplateAsDirty).not.toHaveBeenCalled();
+      expect(result.body.singleResult.data.removeQuestion.errors.general).toContain('display logic');
     });
 
     it('should delete the question successfully', async () => {

@@ -62,11 +62,11 @@ import {
   getPlanVersionSnapshot,
   getPlanAndCheckAuthorization, getPlanOwnerAffiliation,
   getPlanSectionsAndQuestions,
+  isPlanReadOnlyForCurrentUser
 } from "../services/planService.js";
 import {
   getProjectAndCheckAuthorization,
   hasPermissionOnProject,
-  isProjectReadOnlyForCurrentUser
 } from "../services/projectService.js";
 import {
   authenticatedResolver,
@@ -186,9 +186,9 @@ export const resolvers: Resolvers = {
         const reference = 'plan resolver';
 
         // Fetch the plan and project and make sure the user is authorized to access it
-        const { plan, project } = await getPlanAndCheckAuthorization(reference, context, planId);
+        const { plan } = await getPlanAndCheckAuthorization(reference, context, planId);
 
-        const readOnly: boolean = await isProjectReadOnlyForCurrentUser(reference, context, project);
+        const readOnly: boolean = await isPlanReadOnlyForCurrentUser(reference, context, plan);
         return Object.assign(plan, { readOnly }) as Plan & { readOnly: boolean };
       }
     ),

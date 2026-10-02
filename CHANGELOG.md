@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added a `isPlanReadOnlyForCurrentUser` function to the `planService` to determine if the current user has read-only access to a given plan. [#430]
 - Added a `getAllAvailableGuidanceForVersionedTemplate` function to the `guidanceService` to return all available tagged guidance for a given versioned template [#430]
 - Added a new `maDMP` types file with shortcuts to nested maDMP types.
 - Added new helper functions to the `planService` and `projectService` which fetch the item and check permissions
@@ -148,6 +149,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Fixed some broken tests for the `planService` 
 - Updated `getPlanSectionsAndQuestions` to no longer return guidance sources for a question if they have no guidance text [#430]
 - Updated `getPlanSectionsAndQuestions` to return `guidanceText` and `sampleText` for all questions and to include any section level `guidance` [#430]
 - Added `myAccessLevel` to `ProjectSearchResult` so that the client can use that info on the Project Dashboard, and added `accessLevel` to `ProjectFilterOptions` [#379]

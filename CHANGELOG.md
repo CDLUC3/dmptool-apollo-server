@@ -343,6 +343,7 @@
 - Removed `ioredis` package
 
 ### Fixed
+- Fixed `npm ci` failure on `development` by restoring an in-sync `package-lock.json` (it was out of sync after #838 was merged)
 - Updated `node-mailer` to `v10.0.13` and `brace-expansion` to `v5.0.12` to address high vulnerabilities [#451]
 - Fixed a bug where a plan was displaying all custom questions ever added for a given versionedSectionId. Updated `publishedQuestions` resolver to only return custom questions for the given user's affiliation. Updated `findByVersionedSectionIdAndType` in `VersionCustomQuestion` model to include `affililationId` in query and updated associated unit test [#253]
 - Fixed type errors for the files that were updated for this ticket: `resolvers/versionedQuestion.ts`, `models/VersionedCustomQuestion.ts`, `models/__tests__/VersionedCustomQuestion.spec.ts` and added those files to the `tsconfig.strict.json` file [#253]

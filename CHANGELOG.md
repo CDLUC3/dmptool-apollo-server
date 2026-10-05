@@ -150,6 +150,13 @@
 
 ### Updated
 - Updated the `auth` middleware to work with the new external Auth service 
+- Made updates to help the backend check whether a `section` or `question` can be moved when there is associated `conditional display logic` [#986]:
+  - `updateSectionDisplayOrder` and `updateQuestionDisplayOrder` reject a move that would put a question above one of its trigger questions
+  - `removeSection` and `removeQuestion` reject deleting a section or question that contains a trigger question for display logic elsewhere in the template
+  - `updateQuestion` rejects removing or renaming an option that is used in a display logic condition, or changing the question to a type without options
+  - Added `findSectionMoveConflicts`, `findSectionRemoveConflicts`, `findQuestionMoveConflicts`, `findQuestionRemoveConflicts` and `findQuestionOptionConflicts` service functions, and new lookups on the `QuestionCondition` and `QuestionConditionGroup` models
+  - Fixed missing `await` on tag add/remove in `addQuestion` and `updateQuestion` so tag errors are reported
+- Added `myAccessLevel` to `ProjectSearchResult` so that the client can use that info on the Project Dashboard, and added `accessLevel` to `ProjectFilterOptions` [#379]
 - Added `feedbackId` to the `AdminNotificationMetadata` schema and `AdminNotificationMetadata` class so we are able to get the data for that specific feedback, including corresponding message [#344]
 - Updated `feedback` resolver to not only return the `open` round but the completed feedback rounds as well. Updated to sort results by id, and then by date [#344]
 - Updated `requestFeedback` in `requestFeedback` to add `feedbackId` to the admin notification metadata [#344]
@@ -344,6 +351,9 @@
 - Removed `ioredis` package
 
 ### Fixed
+- Fixed `@fastify/busboy` (`v3.2.2`) and `http-cache-semantics` (`v4.3.0`) by funning `npm audit fix`. The other high vulnerabilities listed are `development-only` tools, so they don't affect build or production. Updated `buildspec.yaml` to remove the `echo "production=false" >> .npmrc` which was overriding the `npm audit --omit=dev` [#458]
+- Fixed `npm ci` failure on `development` by restoring an in-sync `package-lock.json` (it was out of sync after #838 was merged)
+- Updated `node-mailer` to `v10.0.13` and `brace-expansion` to `v5.0.12` to address high vulnerabilities [#451]
 - Fixed a bug where a plan was displaying all custom questions ever added for a given versionedSectionId. Updated `publishedQuestions` resolver to only return custom questions for the given user's affiliation. Updated `findByVersionedSectionIdAndType` in `VersionCustomQuestion` model to include `affililationId` in query and updated associated unit test [#253]
 - Fixed type errors for the files that were updated for this ticket: `resolvers/versionedQuestion.ts`, `models/VersionedCustomQuestion.ts`, `models/__tests__/VersionedCustomQuestion.spec.ts` and added those files to the `tsconfig.strict.json` file [#253]
 - Fixed incorrect `versionPlanAfter` value in `generalConfig.ts`. This was changed while testing versioning for landing page [#365]

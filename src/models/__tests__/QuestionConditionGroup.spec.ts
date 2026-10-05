@@ -124,6 +124,43 @@ describe('findBy Queries', () => {
     const result = await QuestionConditionGroup.findByQuestionId('testing', context, questionId);
     expect(result).toEqual([]);
   });
+
+  it('findByQuestionOrTriggerQuestionId should call query with correct params and return the groups', async () => {
+    localQuery.mockResolvedValueOnce([questionConditionGroup]);
+    const questionId = casual.integer(1, 999);
+    const result = await QuestionConditionGroup.findByQuestionOrTriggerQuestionId('testing', context, questionId);
+    const expectedSql = 'SELECT * FROM questionConditionGroups WHERE questionId = ? OR triggerQuestionId = ?';
+    expect(localQuery).toHaveBeenCalledTimes(1);
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [questionId.toString(), questionId.toString()], 'testing');
+    expect(result).toEqual([questionConditionGroup]);
+  });
+
+  it('findByQuestionOrTriggerQuestionId should return empty array if it finds none', async () => {
+    localQuery.mockResolvedValueOnce([]);
+    const result = await QuestionConditionGroup.findByQuestionOrTriggerQuestionId('testing', context, casual.integer(1, 999));
+    expect(result).toEqual([]);
+  });
+
+  it('findCrossSectionBySectionId should call query with the section id and return the rows', async () => {
+    const row = { questionId: 3, triggerQuestionId: 1, questionSectionId: 30, triggerQuestionSectionId: 10 };
+    localQuery.mockResolvedValueOnce([row]);
+    const sectionId = casual.integer(1, 999);
+    const result = await QuestionConditionGroup.findCrossSectionBySectionId('testing', context, sectionId);
+    expect(localQuery).toHaveBeenCalledTimes(1);
+    expect(localQuery).toHaveBeenLastCalledWith(
+      context,
+      expect.stringContaining('q.sectionId <> tq.sectionId'),
+      [sectionId.toString(), sectionId.toString()],
+      'testing'
+    );
+    expect(result).toEqual([row]);
+  });
+
+  it('findCrossSectionBySectionId should return empty array if it finds none', async () => {
+    localQuery.mockResolvedValueOnce([]);
+    const result = await QuestionConditionGroup.findCrossSectionBySectionId('testing', context, casual.integer(1, 999));
+    expect(result).toEqual([]);
+  });
 });
 
 describe('create', () => {

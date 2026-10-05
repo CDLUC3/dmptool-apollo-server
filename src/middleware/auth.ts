@@ -28,9 +28,12 @@ const isRevokedCallback: IsRevoked = async (
   }
 
   // Call the issuer's revocation check endpoint with the jti to see if it has been revoked
-  const revocationCheckURL = `${generalConfig.tokenIssuer}//revocations/${jti}`;
+  const revocationCheckURL = `${generalConfig.tokenIssuer}/revocations/${jti}`;
   const response: Response = await fetch(revocationCheckURL);
-  return response.status === 200 || response.status === 400;
+  const responseBody: { revoked: boolean } = await response.json();
+  // The token has been revoked if the status is 200 and body indicates revoked,
+  // or if the status is 400 (malformed jti)
+  return (response.status === 200 && responseBody.revoked) || response.status === 400;
 }
 
 /**
@@ -73,14 +76,14 @@ export const validateClaims = (
   const payload: JwtPayload | undefined = req.auth;
   if (
     payload && (
-      typeof payload.id !== 'string'
+      (typeof payload.id !== 'string' && typeof payload.id !== 'number')
       || typeof payload.email !== 'string'
       || typeof payload.givenName !== 'string'
       || typeof payload.surName !== 'string'
       || typeof payload.affiliationId !== 'string'
       || typeof payload.languageId !== 'string'
       || typeof payload.role !== 'string'
-      || typeof payload.jti !== 'string'
+      || (typeof payload.jti !== 'string' && typeof payload.jti !== 'number')
       || typeof payload.tokenVersion !== 'number')
   ) {
 

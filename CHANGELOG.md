@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added local data migration to reset the default user passwords using the new default pepper for the auth service
 - Added new `PORT`, `TOKEN_ISSUER`, `TOKEN_AUDIENCES` and `ACCESS_TOKEN_NAME` env variables and updated `generalConfig` to expose them
 - Added a new `maDMP` types file with shortcuts to nested maDMP types.
 - Added new helper functions to the `planService` and `projectService` which fetch the item and check permissions

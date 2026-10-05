@@ -50,10 +50,15 @@ export async function attachApolloServer(
   return expressMiddleware(apolloServer, {
     context: async ({ req }: { req: Request }) => {
       // Extract the token from the incoming request so we can pass it on to the resolvers
+      // Make sure the token id is an integer if it exists
+      const token = req.auth as JWTAccessToken | null;
+      if (token && token.id) {
+        token.id = Number.isInteger(token.id) ? token.id : parseInt(token.id as unknown as string, 10);
+      }
       return buildContext(
         logger,
         cache,
-        req.auth as JWTAccessToken,
+        token,
         sqlDataSource,
         dmphubAPIDataSource,
         ezidAPIDataSource,

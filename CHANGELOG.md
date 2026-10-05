@@ -343,6 +343,7 @@
 - Removed `ioredis` package
 
 ### Fixed
+- Fixed `@fastify/busboy` (`v3.2.2`) and `http-cache-semantics` (`v4.3.0`) by funning `npm audit fix`. The other high vulnerabilities listed are `development-only` tools, so they don't affect build or production. Updated `buildspec.yaml` to remove the `echo "production=false" >> .npmrc` which was overriding the `npm audit --omit-dev` [#458]
 - Fixed `npm ci` failure on `development` by restoring an in-sync `package-lock.json` (it was out of sync after #838 was merged)
 - Updated `node-mailer` to `v10.0.13` and `brace-expansion` to `v5.0.12` to address high vulnerabilities [#451]
 - Fixed a bug where a plan was displaying all custom questions ever added for a given versionedSectionId. Updated `publishedQuestions` resolver to only return custom questions for the given user's affiliation. Updated `findByVersionedSectionIdAndType` in `VersionCustomQuestion` model to include `affililationId` in query and updated associated unit test [#253]

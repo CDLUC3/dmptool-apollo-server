@@ -3,6 +3,10 @@
 ## v1.1.0
 
 ### Added
+- Added `versionedTemplateCustomizationId` column to the `plans` table via data migration, so a Plan stays tied to the version of the template customization that existed when it was created [#388]
+- Added `versionedTemplateCustomizationId` to the `Plan` model, and updated `Plan.create` to set it from the active customization for the creator's affiliation [#388]
+- Added `findActiveByTemplateAndAffiliation` to the `VersionedTemplateCustomization` model [#388]
+- Added optional `planId` argument to the `publishedQuestion` query so question customizations come from the Plan's pinned customization [#388]
 - Added a new `maDMP` types file with shortcuts to nested maDMP types.
 - Added new helper functions to the `planService` and `projectService` which fetch the item and check permissions
 - Added new resolver to support the Plan one-page design [#371](https://github.com/CDLUC3/dmptool-doc/issues/371)
@@ -147,6 +151,12 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `PlanSectionProgress.findByPlanId` and its helpers (`fetchCustomSections`, `fetchExtraQuestionsForBaseSections`, `fetchAnsweredCustomQuestions`) to use the Plan's `versionedTemplateCustomizationId` instead of the current user's affiliation. Base section question counts now come from the published `versionedCustomQuestions` rather than the draft `customQuestions` table [#388]
+- Updated `VersionedCustomQuestion.findByVersionedSectionIdAndType`, `findByVersionedCustomSectionId` and `findByVersionedSectionIdsAndType`, and `VersionedCustomSection.findByPlanAndSectionId`, to look up custom questions and sections by the Plan's pinned customization instead of affiliation and `active` status [#388]
+- Updated `VersionedQuestionCustomization.findByVersionedCustomizationAndVersionedSectionIds` and `VersionedSectionCustomization.findByVersionedCustomizationAndVersionedSectionIds` (renamed from `findForActiveForAffiliationAndVersionSectionIds`) to look up guidance by the Plan's pinned customization [#388]
+- Updated `publishedQuestion`, `publishedQuestions` and `publishedCustomSection` resolvers, `guidanceService.getGuidanceSourcesForPlan` and `planService.getPlanSectionsAndQuestions` to use the Plan's pinned customization instead of the current user's or plan owner's affiliation [#388]
+- Updated `publishedQuestion` to return the affiliation that published the customization as `customizationAffiliationId`, instead of the viewer's affiliation [#388]
+- Removed the unused `versionedTemplateId` parameter from `PlanSectionProgress.findByPlanId` and `PlanProgress.findByPlanId` [#388]
 - Made updates to help the backend check whether a `section` or `question` can be moved when there is associated `conditional display logic` [#986]:
   - `updateSectionDisplayOrder` and `updateQuestionDisplayOrder` reject a move that would put a question above one of its trigger questions
   - `removeSection` and `removeQuestion` reject deleting a section or question that contains a trigger question for display logic elsewhere in the template
@@ -320,6 +330,8 @@
 - Updates to appease newer version of eslint
 
 ### Removed
+- Removed `VersionedQuestionCustomization.findActiveByTemplateAffiliationAndQuestion` and `VersionedSectionCustomization.findActiveByTemplateAffiliationAndSection`, which have been replaced by the existing `findByVersionedCustomizationAndVersionedQuestion` and `findByVersionedCustomizationAndVersionedSection` [#388]
+- Removed the private `findTemplateCustomizationId` helper from `PlanSectionProgress` [#388]
 - Removed unused `valueIsDate` function from the `MySQLModel`
 - Removed old `processResult` functions from the `Answer` and `Question` models. These functions were added to help add the `commonStandardId` to existing JSON records. It proved to be inadequate so we eneded up just deleting old data
 - Removed unused SQS env variable from example dotenv file
@@ -343,6 +355,7 @@
 - Removed `ioredis` package
 
 ### Fixed
+- Fixed `VersionedSectionCustomization` batch lookup filtering on `vsc.id` instead of `vsc.versionedSectionId` [#388]
 - Fixed `@fastify/busboy` (`v3.2.2`) and `http-cache-semantics` (`v4.3.0`) by funning `npm audit fix`. The other high vulnerabilities listed are `development-only` tools, so they don't affect build or production. Updated `buildspec.yaml` to remove the `echo "production=false" >> .npmrc` which was overriding the `npm audit --omit=dev` [#458]
 - Fixed `npm ci` failure on `development` by restoring an in-sync `package-lock.json` (it was out of sync after #838 was merged)
 - Updated `node-mailer` to `v10.0.13` and `brace-expansion` to `v5.0.12` to address high vulnerabilities [#451]

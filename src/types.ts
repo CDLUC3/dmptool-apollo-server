@@ -4259,6 +4259,7 @@ export type QueryPublishedCustomSectionArgs = {
 
 
 export type QueryPublishedQuestionArgs = {
+  planId?: InputMaybe<Scalars['Int']['input']>;
   versionedQuestionId: Scalars['Int']['input'];
 };
 

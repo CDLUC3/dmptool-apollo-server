@@ -131,21 +131,21 @@ jest.unstable_mockModule('../../models/VersionedQuestion.js', () => ({
   VersionedQuestion: { findById: mockVersionedQuestionFindById },
 }));
 
-// --- models/VersionedSectionCustomization.js ---
-const mockVersionedSectionCustomizationFindActive = jest.fn<(...args: any[]) => Promise<any>>();
-
-jest.unstable_mockModule('../../models/VersionedSectionCustomization.js', () => ({
-  VersionedSectionCustomization: {
-    findActiveByTemplateAffiliationAndSection: mockVersionedSectionCustomizationFindActive,
-  },
-}));
-
 // --- models/VersionedQuestionCustomization.js ---
-const mockVersionedQuestionCustomizationFindActive = jest.fn<(...args: any[]) => Promise<any>>();
+const mockVersionedQuestionCustomizationFind = jest.fn<(...args: any[]) => Promise<any>>();
 
 jest.unstable_mockModule('../../models/VersionedQuestionCustomization.js', () => ({
   VersionedQuestionCustomization: {
-    findActiveByTemplateAffiliationAndQuestion: mockVersionedQuestionCustomizationFindActive,
+    findByVersionedCustomizationAndVersionedQuestion: mockVersionedQuestionCustomizationFind,
+  },
+}));
+
+// --- models/VersionedSectionCustomization.js ---
+const mockVersionedSectionCustomizationFind = jest.fn<(...args: any[]) => Promise<any>>();
+
+jest.unstable_mockModule('../../models/VersionedSectionCustomization.js', () => ({
+  VersionedSectionCustomization: {
+    findByVersionedCustomizationAndVersionedSection: mockVersionedSectionCustomizationFind,
   },
 }));
 
@@ -649,7 +649,7 @@ describe("getGuidanceSourcesForPlan", () => {
     mockPlanFindById.mockResolvedValue({ id: 1, versionedTemplateId: 1 });
     mockPlanGuidanceQuery.mockResolvedValue([]);
     mockVersionedSectionFindById.mockResolvedValue({ guidance: null });
-    mockVersionedSectionCustomizationFindActive.mockResolvedValue(null);
+    mockVersionedSectionCustomizationFind.mockResolvedValue(null);
     mockVersionedTemplateFindById.mockResolvedValue({ ownerId: null });
     mockPlanGuidanceFindByPlanAndUserId.mockResolvedValue([]);
 
@@ -681,7 +681,7 @@ describe("getGuidanceSourcesForPlan", () => {
     mockPlanFindById.mockResolvedValue(mockPlan);
     mockVersionedTemplateFindById.mockResolvedValue(mockVersionedTemplate);
     mockVersionedSectionFindById.mockResolvedValue({ guidance: null });
-    mockVersionedSectionCustomizationFindActive.mockResolvedValue(null);
+    mockVersionedSectionCustomizationFind.mockResolvedValue(null);
     mockPlanGuidanceFindByPlanAndUserId.mockResolvedValue(mockUserSelections);
     mockPlanGuidanceQuery.mockResolvedValue([
       { id: 1, name: "Data Sharing" },
@@ -718,7 +718,7 @@ describe("getGuidanceSourcesForPlan", () => {
       id: 10, versionedSectionId: 5, guidanceText: null,
     });
     mockPlanGuidanceQuery.mockResolvedValue([{ id: 1, name: "Data Sharing" }]);
-    mockVersionedQuestionCustomizationFindActive.mockResolvedValue(null);
+    mockVersionedQuestionCustomizationFind.mockResolvedValue(null);
     mockVersionedTemplateFindById.mockResolvedValue(mockVersionedTemplate);
     mockPlanGuidanceFindByPlanAndUserId.mockResolvedValue([]);
     mockVersionedGuidanceFindBestPracticeByTagIds.mockResolvedValue(mockBestPracticeGuidance);
@@ -737,7 +737,7 @@ describe("getGuidanceSourcesForPlan", () => {
     mockPlanFindById.mockResolvedValue(mockPlan);
     mockPlanGuidanceQuery.mockResolvedValue([]);
     mockVersionedSectionFindById.mockResolvedValue({ guidance: "Template-level guidance" });
-    mockVersionedSectionCustomizationFindActive.mockResolvedValue(null);
+    mockVersionedSectionCustomizationFind.mockResolvedValue(null);
     mockVersionedTemplateFindById.mockResolvedValue(mockVersionedTemplate);
     mockPlanGuidanceFindByPlanAndUserId.mockResolvedValue([
       { affiliationId: mockVersionedTemplate.ownerId },
@@ -759,7 +759,7 @@ describe("getGuidanceSourcesForPlan", () => {
     mockPlanFindById.mockResolvedValue(mockPlan);
     mockPlanGuidanceQuery.mockResolvedValue([]);
     mockVersionedSectionFindById.mockResolvedValue({ guidance: null });
-    mockVersionedSectionCustomizationFindActive.mockResolvedValue(null);
+    mockVersionedSectionCustomizationFind.mockResolvedValue(null);
     mockVersionedTemplateFindById.mockResolvedValue({ ownerId: null });
     mockPlanGuidanceFindByPlanAndUserId.mockResolvedValue([
       { affiliationId: "https://ror.org/01cwqze88" },
@@ -780,11 +780,12 @@ describe("getGuidanceSourcesForPlan", () => {
   it("should prepend section customization guidanceText to user affiliation items", async () => {
     const userAffiliationUri = "https://ror.org/03yrm5c26";
     const localContext = { ...context, token: { ...context.token, affiliationId: userAffiliationUri } };
+    const customizedPlan = { ...mockPlan, versionedTemplateCustomizationId: 12 };
 
-    mockPlanFindById.mockResolvedValue(mockPlan);
+    mockPlanFindById.mockResolvedValue(customizedPlan);
     mockPlanGuidanceQuery.mockResolvedValue([{ id: 1, name: "Data Sharing" }]);
     mockVersionedSectionFindById.mockResolvedValue({ guidance: null });
-    mockVersionedSectionCustomizationFindActive.mockResolvedValue({
+    mockVersionedSectionCustomizationFind.mockResolvedValue({
       guidance: "Customized section guidance",
     });
     mockVersionedTemplateFindById.mockResolvedValue(mockVersionedTemplate);
@@ -798,13 +799,65 @@ describe("getGuidanceSourcesForPlan", () => {
     mockAffiliationFindByURI.mockResolvedValue(mockAffiliationCDL);
 
     const result = await guidanceService.getGuidanceSourcesForPlan(
-      localContext as MyContext, mockPlan.id, 1
+      localContext as MyContext, customizedPlan.id, 1
     );
 
+    // Customization is looked up by the plan's pinned versionedTemplateCustomizationId, not the user's affiliation
+    expect(mockVersionedSectionCustomizationFind).toHaveBeenCalledWith(
+      expect.any(String), localContext, 12, 1
+    );
     const userSource = result.find((s: any) => s.id === `affiliation-${userAffiliationUri}`);
     expect(userSource).toBeDefined();
     expect(userSource.type).toEqual("USER_AFFILIATION");
     expect(userSource.items[0].guidanceText).toEqual("Customized section guidance");
+  });
+
+  it("should prepend question customization guidanceText to user affiliation items", async () => {
+    const userAffiliationUri = "https://ror.org/03yrm5c26";
+    const localContext = { ...context, token: { ...context.token, affiliationId: userAffiliationUri } };
+    const customizedPlan = { ...mockPlan, versionedTemplateCustomizationId: 12 };
+
+    mockPlanFindById.mockResolvedValue(customizedPlan);
+    mockVersionedQuestionFindById.mockResolvedValue({
+      id: 10, versionedSectionId: 5, guidanceText: null,
+    });
+    mockPlanGuidanceQuery.mockResolvedValue([{ id: 1, name: "Data Sharing" }]);
+    mockVersionedQuestionCustomizationFind.mockResolvedValue({
+      guidanceText: "Customized question guidance",
+    });
+    mockVersionedTemplateFindById.mockResolvedValue(mockVersionedTemplate);
+    mockPlanGuidanceFindByPlanAndUserId.mockResolvedValue([
+      { affiliationId: userAffiliationUri },
+    ]);
+    mockVersionedGuidanceFindBestPracticeByTagIds.mockResolvedValue([]);
+    mockVersionedGuidanceFindByAffiliationAndTagIds.mockResolvedValue([
+      { tagId: 1, guidanceText: "CDL tag guidance" },
+    ]);
+    mockAffiliationFindByURI.mockResolvedValue(mockAffiliationCDL);
+
+    const result = await guidanceService.getGuidanceSourcesForPlan(
+      localContext as MyContext, customizedPlan.id, undefined, 10
+    );
+
+    expect(mockVersionedQuestionCustomizationFind).toHaveBeenCalledWith(
+      expect.any(String), localContext, 12, 10
+    );
+    const userSource = result.find((s: any) => s.id === `affiliation-${userAffiliationUri}`);
+    expect(userSource).toBeDefined();
+    expect(userSource.items[0].guidanceText).toEqual("Customized question guidance");
+  });
+
+  it("should not look up customization guidance when the plan has no versionedTemplateCustomizationId", async () => {
+    mockPlanFindById.mockResolvedValue(mockPlan);
+    mockPlanGuidanceQuery.mockResolvedValue([]);
+    mockVersionedSectionFindById.mockResolvedValue({ guidance: null });
+    mockVersionedTemplateFindById.mockResolvedValue(mockVersionedTemplate);
+    mockPlanGuidanceFindByPlanAndUserId.mockResolvedValue([]);
+
+    await guidanceService.getGuidanceSourcesForPlan(context, mockPlan.id, 1);
+
+    expect(mockVersionedSectionCustomizationFind).not.toHaveBeenCalled();
+    expect(mockVersionedQuestionCustomizationFind).not.toHaveBeenCalled();
   });
 
   it("should not prepend guidanceText to template owner items when customSectionId is used", async () => {

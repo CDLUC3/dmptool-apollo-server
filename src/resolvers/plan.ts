@@ -947,7 +947,7 @@ export const resolvers: Resolvers = {
     versionedSections: async (parent: Plan, _, context: MyContext): Promise<PlanSectionProgress[]> => {
       // The progress of each section within the plan
       if (parent?.id) {
-        return await PlanSectionProgress.findByPlanId('plan versionedSections resolver', context, parent.id, parent?.versionedTemplateId);
+        return await PlanSectionProgress.findByPlanId('plan versionedSections resolver', context, parent.id);
       }
       return [];
     },
@@ -958,7 +958,7 @@ export const resolvers: Resolvers = {
     },
     progress: async (parent: Plan, _, context: MyContext): Promise<PlanProgress> => {
       if (parent?.id) {
-        return await PlanProgress.findByPlanId('plan progress resolver', context, parent.id, parent?.versionedTemplateId);
+        return await PlanProgress.findByPlanId('plan progress resolver', context, parent.id);
       }
       return null;
     },
@@ -1001,8 +1001,7 @@ export const resolvers: Resolvers = {
         return await PlanSectionProgress.findByPlanId(
           'planSearchresult versionedSections resolver',
           context,
-          parent.id,
-          parent?.versionedTemplateId
+          parent.id
         );
       }
       return [];

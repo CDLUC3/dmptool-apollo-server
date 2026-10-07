@@ -3624,6 +3624,8 @@ export type ProjectSearchResult = {
   myAccessLevel?: Maybe<ProjectCollaboratorAccessLevel>;
   /** The plans in the project */
   plans?: Maybe<Array<PlanSearchResult>>;
+  /** The number of accepted related works across all plans for the project */
+  relatedWorksCount?: Maybe<Scalars['Int']['output']>;
   /** The type of research being done */
   researchDomain?: Maybe<Scalars['String']['output']>;
   /** The estimated date the research project will begin (use YYYY-MM-DD format) */
@@ -8609,6 +8611,7 @@ export type ProjectSearchResultResolvers<ContextType = MyContext, ParentType ext
   modifiedByName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   myAccessLevel?: Resolver<Maybe<ResolversTypes['ProjectCollaboratorAccessLevel']>, ParentType, ContextType>;
   plans?: Resolver<Maybe<Array<ResolversTypes['PlanSearchResult']>>, ParentType, ContextType>;
+  relatedWorksCount?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   researchDomain?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   startDate?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   title?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;

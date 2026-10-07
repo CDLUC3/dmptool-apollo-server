@@ -131,7 +131,8 @@ describe('ProjectSearchResult', () => {
         'ORDER BY fundings.name SEPARATOR \',\') fundingsData, ' +
         '(SELECT COUNT(*) FROM plans WHERE projectId = p.id AND status = \'DRAFT\') as draftPlans, ' +
         '(SELECT COUNT(*) FROM plans WHERE projectId = p.id AND status = \'COMPLETE\') as completePlans, ' +
-        '(SELECT COUNT(*) FROM plans WHERE projectId = p.id AND status = \'ARCHIVED\') as archivedPlans ' +
+        '(SELECT COUNT(*) FROM plans WHERE projectId = p.id AND status = \'ARCHIVED\') as archivedPlans, ' +
+        '(SELECT COUNT(*) FROM relatedWorks rw JOIN plans pl ON pl.id = rw.planId WHERE pl.projectId = p.id AND rw.status = \'ACCEPTED\') as relatedWorksCount ' +
         'FROM projects p ' +
         'LEFT JOIN researchDomains ON p.researchDomainId = researchDomains.id ' +
         'LEFT JOIN users cu ON cu.id = p.createdById ' +

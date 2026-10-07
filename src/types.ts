@@ -1414,6 +1414,8 @@ export type GuidanceSource = {
 export type GuidanceSourceType =
   /** Best practice guidance from DMP Tool */
   | 'BEST_PRACTICE'
+  /** Guidance from another organization that has not yet been selected by the user */
+  | 'OTHER_ORGANIZATION'
   /** Guidance from the template owner organization */
   | 'TEMPLATE_OWNER'
   /** Guidance from the user's affiliation */

@@ -164,5 +164,7 @@ export const typeDefs = gql`
     USER_AFFILIATION
     "Guidance from user-selected organizations"
     USER_SELECTED
+    "Guidance from another organization that has not yet been selected by the user"
+    OTHER_ORGANIZATION
   }
 `;

@@ -1045,7 +1045,7 @@ export async function getAllAvailableGuidanceForVersionedTemplate(
       IF(gg.bestPractice = 1, 'bestPractice', CONCAT('affiliation-', a.uri)) AS id,
       a.displayName AS label, COALESCE(a.acronyms->>'$[0]', a.name) AS shortName, a.uri AS uri,
       IF(gg.bestPractice = 1, 'BEST_PRACTICE',
-      IF(a.uri = ?, 'TEMPLATE_OWNER', IF(a.uri = ?, 'USER_AFFILIATION', 'USER_SELECTED'))) AS type,
+      IF(a.uri = ?, 'TEMPLATE_OWNER', IF(a.uri = ?, 'USER_AFFILIATION', 'OTHER_AFFILIATION'))) AS type,
       vg.tagId AS tagId, t.name AS tagName, vg.guidanceText AS guidanceText
     FROM guidanceGroups AS gg
       JOIN affiliations AS a ON a.uri = gg.affiliationId

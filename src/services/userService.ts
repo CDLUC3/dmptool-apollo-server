@@ -6,43 +6,6 @@ import { User, UserRole } from "../models/User.js";
 import { UserEmail } from "../models/UserEmail.js";
 import { randomHex } from "../utils/helpers.js";
 
-// Generate a random password (used when anonymizing and when creating an account via SSO)
-export const generateRandomPassword = () => {
-  const chars = ['!', '@', '#', '$', '%', '^', '&', '*', '_', '+', '-', '=', '?', '~', ' '];
-  // generate a random hex
-  const basePwd = randomHex(24).split('');
-
-  // Swap out 3 characters with special chars
-  for (let i = 0; i < 3; i++) {
-    const char = chars[Math.floor(Math.random() * chars.length)];
-    const idx = Math.floor(Math.random() * basePwd.length);
-    basePwd.splice(idx, 1, char);
-  }
-
-  // Upper case some of the alpha characters
-  for (let i = 0; i < 6; i++) {
-    const idx = Math.floor(Math.random() * basePwd.length);
-    if (/[a-z]/.test(basePwd[idx])) {
-      basePwd.splice(idx, 1, basePwd[idx].toUpperCase());
-    }
-  }
-
-  let pwd = basePwd.join('');
-  // if there is no upper case add one
-  if (basePwd.findIndex(str => /[A-Z]/.test(str)) <= 0) {
-    pwd = `${pwd}Z`;
-  }
-  // if there is no lower case add one
-  if (basePwd.findIndex(str => /[a-z]/.test(str)) <= 0) {
-    pwd = `${pwd}q`;
-  }
-  // if there is no number add one
-  if (basePwd.findIndex(str => /[0-9]/.test(str)) <= 0) {
-    pwd = `${pwd}99`;
-  }
-  return pwd;
-}
-
 // Anonymize the User record (our version of deleting the account)
 export const anonymizeUser = async (context: MyContext, user: User): Promise<User> => {
   const ref = 'UserService.anonymize';
@@ -57,7 +20,6 @@ export const anonymizeUser = async (context: MyContext, user: User): Promise<Use
   await UserEmail.createOrUpdatePrimary(context,
     user.id,
     `${randomHex(6)}@deleted-account.${generalConfig.domain}`);
-  user.password = await user.hashPassword(generateRandomPassword());
   user.givenName = 'Deleted';
   user.surName = 'Account';
   user.affiliationId = null;

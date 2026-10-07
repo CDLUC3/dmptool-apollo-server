@@ -1,5 +1,5 @@
 import { expressMiddleware } from '@as-integrations/express5';
-import { JWTAccessToken } from '../services/tokenService.js';
+import { JWTAccessToken } from "../types/general.js";
 import { buildContext } from '../context.js';
 import { ApolloServer } from '@apollo/server';
 import { Request } from 'express-jwt';
@@ -9,6 +9,18 @@ import { DMPHubAPI } from "../datasources/dmphubAPI.js";
 import { EZIDAPI } from "../datasources/EZIDAPI.js";
 import { OpenSearch } from "../datasources/openSearch.js";
 
+/**
+ * Attaches the Apollo Server middleware to the Express application.
+ *
+ * @param apolloServer The Apollo Server instance to attach to the Express app
+ * @param cache The cache instance to be used in the context
+ * @param logger The logger instance to be used in the context
+ * @param sqlDataSource The MySQL data source instance to be used in the context
+ * @param dmphubAPIDataSource The DMPHub API data source instance to be used in the context
+ * @param ezidAPIDataSource The EZID API data source instance to be used in the context
+ * @param openSearchServerlessDataSource The OpenSearch data source instance to be used in the context
+ * @returns The Express middleware function for the Apollo Server
+ */
 export async function attachApolloServer(
   apolloServer: ApolloServer,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -38,10 +50,15 @@ export async function attachApolloServer(
   return expressMiddleware(apolloServer, {
     context: async ({ req }: { req: Request }) => {
       // Extract the token from the incoming request so we can pass it on to the resolvers
+      // Make sure the token id is an integer if it exists
+      const token = req.auth as JWTAccessToken | null;
+      if (token && token.id) {
+        token.id = Number.isInteger(token.id) ? token.id : parseInt(token.id as unknown as string, 10);
+      }
       return buildContext(
         logger,
         cache,
-        req.auth as JWTAccessToken,
+        token,
         sqlDataSource,
         dmphubAPIDataSource,
         ezidAPIDataSource,

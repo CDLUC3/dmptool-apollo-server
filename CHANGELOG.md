@@ -3,6 +3,8 @@
 ## v1.1.0
 
 ### Added
+- Added a `isPlanReadOnlyForCurrentUser` function to the `planService` to determine if the current user has read-only access to a given plan. [#430]
+- Added a `getAllAvailableGuidanceForVersionedTemplate` function to the `guidanceService` to return all available tagged guidance for a given versioned template [#430]
 - Added a new `maDMP` types file with shortcuts to nested maDMP types.
 - Added new helper functions to the `planService` and `projectService` which fetch the item and check permissions
 - Added new resolver to support the Plan one-page design [#371](https://github.com/CDLUC3/dmptool-doc/issues/371)
@@ -147,6 +149,10 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+
+- Fixed some broken tests for the `planService` 
+- Updated `getPlanSectionsAndQuestions` to no longer return guidance sources for a question if they have no guidance text [#430]
+- Updated `getPlanSectionsAndQuestions` to return `guidanceText` and `sampleText` for all questions and to include any section level `guidance` [#430]
 - Made updates to help the backend check whether a `section` or `question` can be moved when there is associated `conditional display logic` [#986]:
   - `updateSectionDisplayOrder` and `updateQuestionDisplayOrder` reject a move that would put a question above one of its trigger questions
   - `removeSection` and `removeQuestion` reject deleting a section or question that contains a trigger question for display logic elsewhere in the template

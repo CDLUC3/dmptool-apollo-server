@@ -17,7 +17,7 @@ import { prepareObjectForLogs } from "../logger.js";
 import { getCurrentDate } from "../utils/helpers.js";
 import { isSuperAdmin } from "./authService.js";
 import type { GuidanceSourceType } from "../types.js";
-import { RelevantTag } from "../models/Tag.js";
+import {RelevantTag, Tag} from "../models/Tag.js";
 
 const GuidanceSourceType = {
   BEST_PRACTICE: 'BEST_PRACTICE' as const,
@@ -1018,6 +1018,88 @@ export async function getAffiliationsWithGuidanceForTemplate(
     context.logger.error({ err, versionedTemplateId }, 'Error getting affiliations with guidance for template');
     return [];
   }
+}
+
+/**
+ * Get all available guidance for a plan.
+ *
+ * @param reference the reference string for logging
+ * @param context the MyContext object
+ * @param versionedTemplate the VersionedTemplate object
+ * @returns a Promise that resolves to an array of GuidanceSource objects
+ */
+export async function getAllAvailableGuidanceForVersionedTemplate(
+  reference: string,
+  context: MyContext,
+  versionedTemplate: VersionedTemplate,
+): Promise<GuidanceSource[]> {
+  const distinctTags: Set<RelevantTag> = await Tag.findTagIdsForVersionedTemplateId(reference, context, versionedTemplate.id);
+  const tagIds: number[] = Array.from(distinctTags).map((rt: RelevantTag): number => rt.tagId).filter(Boolean) as number[];
+  if (tagIds.length === 0) {
+    return [];
+  }
+
+  const placeholders: string = Array.from(tagIds).map((): string => '?').join(',');
+  const sql = `
+    SELECT
+      IF(gg.bestPractice = 1, 'bestPractice', CONCAT('affiliation-', a.uri)) AS id,
+      a.displayName AS label, COALESCE(a.acronyms->>'$[0]', a.name) AS shortName, a.uri AS uri,
+      IF(gg.bestPractice = 1, 'BEST_PRACTICE',
+      IF(a.uri = ?, 'TEMPLATE_OWNER', IF(a.uri = ?, 'USER_AFFILIATION', 'OTHER_AFFILIATION'))) AS type,
+      vg.tagId AS tagId, t.name AS tagName, vg.guidanceText AS guidanceText
+    FROM guidanceGroups AS gg
+      JOIN affiliations AS a ON a.uri = gg.affiliationId
+      JOIN versionedGuidanceGroups vgg ON vgg.guidanceGroupId = gg.id
+        JOIN versionedGuidance AS vg ON vg.versionedGuidanceGroupId = vgg.id
+          JOIN tags AS t ON t.id = vg.tagId
+    WHERE vgg.active = 1
+      AND vg.tagId IN (${placeholders});
+  `;
+  const vals: string[] = [
+    versionedTemplate.ownerId,
+    context.token.affiliationId,
+    ...tagIds.map((tagId: number): string => tagId.toString())
+  ];
+  const results: RelevantGuidanceRow[] = await PlanGuidance.query(context, sql, vals, reference);
+  if (!Array.isArray(results) || results.length === 0) return [];
+
+  // Organize the results into a hierarchical GuidanceSource -> GuidanceItem structure
+  const guidanceSources: Map<string, GuidanceSource> = new Map<string, GuidanceSource>();
+  for (const row of results) {
+    // If we haven't seen this source before add it to the map
+    if (!guidanceSources.has(row.id)) {
+      guidanceSources.set(row.id, {
+        id: row.id,
+        type: row.type,
+        label: row.label,
+        shortName: row.shortName,
+        orgURI: row.uri,
+        hasGuidance: true,
+        tagIds: new Set<number>([row.tagId]),
+        items: [{ id: row.tagId, title: row.tagName, guidanceText: row.guidanceText }],
+      });
+    } else {
+      // Otherwise just add the tag and guidance to the items list
+      const source: GuidanceSource = guidanceSources.get(row.id);
+      if (source) {
+        source.tagIds.add(row.tagId);
+
+        const existingItem: GuidanceItem | undefined = source.items.find((item: GuidanceItem): boolean => item.id === row.tagId);
+        if (existingItem) {
+          existingItem.guidanceText += `\n\n${row.guidanceText}`;
+        } else {
+          source.items.push({
+            id: row.tagId,
+            title: row.tagName,
+            guidanceText: row.guidanceText
+          });
+        }
+      }
+    }
+  }
+
+  // Convert the Map to an array of GuidanceSource objects
+  return Array.from(guidanceSources.values());
 }
 
 /**

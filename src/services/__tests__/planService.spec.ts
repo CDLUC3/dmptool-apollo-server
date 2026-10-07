@@ -32,6 +32,13 @@ jest.unstable_mockModule('../../datasources/openSearch.js', () => ({
 }));
 
 import type { MyContext } from '../../context.js';
+const { logger } = await import("../../logger.js");
+import { isPlanReadOnlyForCurrentUser } from "../planService.js";
+import { buildMockContextWithToken } from "../../__mocks__/context.js";
+import {
+  ProjectCollaborator,
+  ProjectCollaboratorAccessLevel
+} from "../../models/Collaborator.js";
 
 type PlanMemberInstance = InstanceType<typeof PlanMember>;
 function asPlanMemberList(value: any[]): PlanMemberInstance[] {
@@ -276,7 +283,7 @@ describe('getIndexItem', () => {
     mockOpenSearch.getIndexItem.mockResolvedValue(response);
 
     await expect(getIndexItem('ref', context, plan.dmpId)).resolves.toEqual(response);
-    expect(mockOpenSearch.getIndexItem).toHaveBeenCalledWith(INDEX_NAME, '11.22222/demo');
+    expect(mockOpenSearch.getIndexItem).toHaveBeenCalledWith(INDEX_NAME, `${TEST_DMP_ID_BASE}11.22222/demo`);
   });
 
   it('throws when the index item cannot be found', async () => {
@@ -384,7 +391,7 @@ describe('updateIndexItem', () => {
     await updateIndexItem(ref, context, plan, project);
 
     const doc = mockOpenSearch.updateIndexItem.mock.calls[0][3];
-    expect(doc.dmp_id).toBe('11.22222/demo-plan');
+    expect(doc.dmp_id).toBe(`${TEST_DMP_ID_BASE}11.22222/demo-plan`);
     expect(doc.title).toBe('My DMP');
     expect(doc.project_title).toBe('My project');
     expect(doc.abstract).toBe('A wonderful abstract');
@@ -395,11 +402,11 @@ describe('updateIndexItem', () => {
     expect(doc.featured).toBe(true);
     expect(doc.alternate_identifier_ids).toContain('10.1234/demo');
     expect(doc.related_identifier_ids).toContain('10.9999/related');
-    expect(doc.contributor_ids).toContain('0000-0001-2345-6789');
+    expect(doc.contributor_ids).toContain(`${TEST_ORCID_BASE}0000-0001-2345-6789`);
     expect(doc.contributors_search).toEqual(expect.arrayContaining(['jane smith', 'smith, jane']));
-    expect(doc.institution_ids).toContain('abcd1234');
+    expect(doc.institution_ids).toContain(`${TEST_ROR_BASE}abcd1234`);
     expect(doc.institutions_facets).toContain('State University');
-    expect(doc.funder_ids).toContain('funder5678');
+    expect(doc.funder_ids).toContain(`${TEST_ROR_BASE}funder5678`);
     expect(doc.funding_facets).toContain('National Science Foundation');
     expect(doc.repository_ids).toContain('re3data.r3d100000001');
     expect(doc.repositories_facets).toContain('GenBank');
@@ -450,6 +457,90 @@ describe('removeIndexItem', () => {
 
     await removeIndexItem('ref', context, plan);
 
-    expect(mockOpenSearch.removeIndexItem).toHaveBeenCalledWith(INDEX_NAME, '11.22222/demo-remove');
+    expect(mockOpenSearch.removeIndexItem).toHaveBeenCalledWith(INDEX_NAME, `${TEST_DMP_ID_BASE}11.22222/demo-remove`);
+  });
+});
+
+describe('isPlanReadOnlyForCurrentUser', () => {
+  let project: InstanceType<typeof Project>;
+  let mockFindByUserIdAndProjectId: ReturnType<typeof jest.spyOn>;
+  let plan: InstanceType<typeof Plan>;
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+
+    context = await buildMockContextWithToken(logger);
+
+    project = new Project({
+      id: casual.integer(1, 999),
+      title: casual.sentence,
+    });
+
+    plan = new Plan({
+      id: casual.integer(1, 999),
+      projectId: project.id,
+      dmpId: `${TEST_DMP_ID_BASE}${casual.integer(1000, 9999)}/${casual.word}`,
+      title: casual.title,
+      visibility: PlanVisibility.PRIVATE,
+    })
+
+    mockFindByUserIdAndProjectId = jest.spyOn(ProjectCollaborator, 'findByUserIdAndProjectId');
+  });
+
+  afterEach(() => {
+    mockFindByUserIdAndProjectId.mockRestore();
+  });
+
+  it('returns false (not read-only) if caller has OWN access level', async () => {
+    mockFindByUserIdAndProjectId.mockResolvedValueOnce({
+      accessLevel: ProjectCollaboratorAccessLevel.OWN,
+    });
+
+    const result = await isPlanReadOnlyForCurrentUser('test', context, plan);
+
+    expect(result).toBe(false);
+    expect(mockFindByUserIdAndProjectId).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns false (not read-only) if caller has PRIMARY access level', async () => {
+    mockFindByUserIdAndProjectId.mockResolvedValueOnce({
+      accessLevel: ProjectCollaboratorAccessLevel.PRIMARY,
+    });
+
+    const result = await isPlanReadOnlyForCurrentUser('test', context, plan);
+
+    expect(result).toBe(false);
+    expect(mockFindByUserIdAndProjectId).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns false (not read-only) if caller has EDIT access level', async () => {
+    mockFindByUserIdAndProjectId.mockResolvedValueOnce({
+      accessLevel: ProjectCollaboratorAccessLevel.EDIT,
+    });
+
+    const result = await isPlanReadOnlyForCurrentUser('test', context, plan);
+
+    expect(result).toBe(false);
+    expect(mockFindByUserIdAndProjectId).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns true (read-only) if caller has COMMENT access level', async () => {
+    mockFindByUserIdAndProjectId.mockResolvedValueOnce({
+      accessLevel: ProjectCollaboratorAccessLevel.COMMENT,
+    });
+
+    const result = await isPlanReadOnlyForCurrentUser('test', context, plan);
+
+    expect(result).toBe(true);
+    expect(mockFindByUserIdAndProjectId).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns true (read-only) if caller has no collaborator record', async () => {
+    mockFindByUserIdAndProjectId.mockResolvedValueOnce(null);
+
+    const result = await isPlanReadOnlyForCurrentUser('test', context, plan);
+
+    expect(result).toBe(true);
+    expect(mockFindByUserIdAndProjectId).toHaveBeenCalledTimes(1);
   });
 });

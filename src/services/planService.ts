@@ -1,40 +1,44 @@
-import { MyContext } from "../context.js";
-import { MemberRole } from "../models/MemberRole.js";
-import { isNullOrUndefined } from "../utils/helpers.js";
-import { PlanMember, ProjectMember } from "../models/Member.js";
-import { Plan, PlanSectionProgress, PlanVisibility } from "../models/Plan.js";
-import { Project } from "../models/Project.js";
-import { PlanFunding, ProjectFunding } from "../models/Funding.js";
-import { AlternateIdentifier } from "../models/AlternateIdentifier.js";
-import { AcceptedWork } from "../models/RelatedWork.js";
+import {MyContext} from "../context.js";
+import {MemberRole} from "../models/MemberRole.js";
+import {isNullOrUndefined} from "../utils/helpers.js";
+import {PlanMember, ProjectMember} from "../models/Member.js";
+import {Plan, PlanSectionProgress, PlanVisibility} from "../models/Plan.js";
+import {Project} from "../models/Project.js";
+import {
+  PlanFunding,
+  ProjectFunding,
+  ProjectFundingStatus
+} from "../models/Funding.js";
+import {AlternateIdentifier} from "../models/AlternateIdentifier.js";
+import {AcceptedWork} from "../models/RelatedWork.js";
 import {
   createDMP,
   deleteDMP,
   DMPExists,
+  DMPVersionType,
   DynamoConnectionParams,
   EnvironmentEnum,
+  getDMPs,
+  getDMPVersions,
   planToDMPCommonStandard,
   tombstoneDMP,
   updateDMP,
-  getDMPVersions,
-  getDMPs,
-  DMPVersionType,
 } from "@dmptool/utils";
-import { getDynamoConnectionParams } from "../config/awsConfig.js";
-import { generalConfig } from "../config/generalConfig.js";
-import { DMPToolDMPType } from "@dmptool/types";
-import { getRDSConnectionParams } from "../config/mysqlConfig.js";
+import {getDynamoConnectionParams} from "../config/awsConfig.js";
+import {generalConfig} from "../config/generalConfig.js";
+import {DMPToolDMPType} from "@dmptool/types";
+import {getRDSConnectionParams} from "../config/mysqlConfig.js";
 import {
   buildDataCiteXML,
-  DataCiteSourceMember,
+  DataCiteMetadataInput,
   DataCiteSourceAffiliation,
-  DataCiteSourceFundingAffiliation,
-  planToDataCiteMetadata,
-  DataCiteSourceFunding,
   DataCiteSourceAlternateIdentifier,
-  DataCiteMetadataInput
+  DataCiteSourceFunding,
+  DataCiteSourceFundingAffiliation,
+  DataCiteSourceMember,
+  planToDataCiteMetadata
 } from "./dataciteXMLService.js";
-import { removeIndexItem, updateIndexItem } from "./indexDMPService.js";
+import {removeIndexItem, updateIndexItem} from "./indexDMPService.js";
 import {
   CustomizableObjectOwnership,
   PlanQuestion,
@@ -42,9 +46,8 @@ import {
   PlanVersionSnapshot,
   PlanVersionSnapshotRelatedWork,
 } from "../types.js";
-import { ProjectFundingStatus } from "../models/Funding.js";
-import { NotFoundError } from "../utils/graphQLErrors.js";
-import { getProjectAndCheckAuthorization } from "./projectService.js";
+import {NotFoundError} from "../utils/graphQLErrors.js";
+import {getProjectAndCheckAuthorization} from "./projectService.js";
 import {
   maDMPAffiliationType,
   maDMPContributorType,
@@ -59,23 +62,29 @@ import {
   maDMPType,
   maDMPVersionsType
 } from "../types/maDMP.js";
-import { ProjectCollaborator } from "../models/Collaborator.js";
-import { User } from "../models/User.js";
-import { Affiliation } from "../models/Affiliation.js";
-import { VersionedQuestion } from "../models/VersionedQuestion.js";
-import { VersionedCustomQuestion } from "../models/VersionedCustomQuestion.js";
-import { Answer } from "../models/Answer.js";
-import { VersionedSection } from "../models/VersionedSection.js";
-import { VersionedCustomSection } from "../models/VersionedCustomSection.js";
-import { VersionedTemplate } from "../models/VersionedTemplate.js";
+import {
+  ProjectCollaborator,
+  ProjectCollaboratorAccessLevel
+} from "../models/Collaborator.js";
+import {User} from "../models/User.js";
+import {Affiliation} from "../models/Affiliation.js";
+import {VersionedQuestion} from "../models/VersionedQuestion.js";
+import {VersionedCustomQuestion} from "../models/VersionedCustomQuestion.js";
+import {Answer} from "../models/Answer.js";
+import {VersionedSection} from "../models/VersionedSection.js";
+import {VersionedCustomSection} from "../models/VersionedCustomSection.js";
+import {VersionedTemplate} from "../models/VersionedTemplate.js";
 import {
   getRelevantGuidanceForPlan,
   getRelevantGuidanceForVersionedQuestion,
+  GuidanceItem,
   GuidanceSource
 } from "./guidanceService.js";
-import { RelevantTag, Tag } from "../models/Tag.js";
-import { VersionedQuestionCustomization } from "../models/VersionedQuestionCustomization.js";
-import { findConditionalLogicForPlan } from "./conditionalLogicService.js";
+import {RelevantTag, Tag} from "../models/Tag.js";
+import {
+  VersionedQuestionCustomization
+} from "../models/VersionedQuestionCustomization.js";
+import {findConditionalLogicForPlan} from "./conditionalLogicService.js";
 import {
   VersionedSectionCustomization
 } from "../models/VersionedSectionCustomization.js";
@@ -127,6 +136,25 @@ export interface FlattenedMaDMPFunding {
   grantId: string | null;
   funderProjectNumber: string | null;
   funderOpportunityNumber: string | null;
+}
+
+/**
+ * Determines if the current user has read-only access to the specified plan.
+ *
+ * @param reference the string reference for logging
+ * @param context the Apollo server context
+ * @param plan the Plan to check access for
+ * @returns true if the current user has read-only access, false otherwise
+ */
+export async function isPlanReadOnlyForCurrentUser(reference: string, context: MyContext, plan: Plan): Promise<boolean> {
+  const callerCollaborator = await ProjectCollaborator.findByUserIdAndProjectId(
+    reference,
+    context,
+    context.token?.id,
+    plan.projectId,
+  );
+  // The plan is read only if the user only has COMMENT level access
+  return !callerCollaborator || callerCollaborator.accessLevel === ProjectCollaboratorAccessLevel.COMMENT;
 }
 
 /**
@@ -986,14 +1014,53 @@ export async function getPlanSectionsAndQuestions (
           q
         );
 
+        // See if there's already a guidance source for the plan owner's affiliation — if so,
+        // we don't need to add it again
+        let questionGSource: GuidanceSource | undefined = gSources.find((gs: GuidanceSource): boolean => {
+          return gs.type === 'USER_AFFILIATION' && gs.orgURI === ownerAffiliation.uri
+        });
+
+        // See if the question's parent section has guidance
+        let sectionGuidance: string | undefined;
+        if (isBase) {
+          const parentSection: VersionedSection | undefined = baseSectionById.get(sectionId);
+          if (parentSection) {
+            sectionGuidance = parentSection.guidance;
+          }
+        }
+
+        if (!questionGSource) {
+          // If not, add a guidance source for the plan owner's affiliation, even if it has no guidance items
+          questionGSource = {
+            id: `affiliation-${ownerAffiliation.uri}`,
+            label: ownerAffiliation.displayName || ownerAffiliation.name,
+            shortName: ownerAffiliation.acronyms?.[0] || ownerAffiliation.displayName || ownerAffiliation.name,
+            orgURI: ownerAffiliation.uri,
+            type: 'USER_AFFILIATION',
+            hasGuidance: false,
+            items: []
+          };
+          gSources.push(questionGSource);
+        }
+
+        if (q.guidanceText || q.sampleText || sectionGuidance) {
+          // If the question itself has guidance or a sample, add it to the plan owner's guidance source
+          const guidanceItem: GuidanceItem = {
+            id: null,
+            title: null,
+            guidanceText: [sectionGuidance, q.guidanceText].join('\n\n').trim(),
+            sampleText: q.sampleText
+          };
+          questionGSource.items.push(guidanceItem);
+          questionGSource.hasGuidance = true;
+        }
+
         return {
           questionType: 'BASE' as CustomizableObjectOwnership,
           versionedQuestionId: q.id,
           customQuestionId: undefined,
           questionText: q.questionText,
           requirementText: q.requirementText,
-          guidanceText: q.guidanceText,
-          sampleText: q.sampleText,
           required: q.required,
           displayOrder: idx + 1,
           displayLogicAction: q.displayLogicAction,
@@ -1001,7 +1068,9 @@ export async function getPlanSectionsAndQuestions (
           hasAnswer: baseAnswersMap.has(q.id),
           answer: baseAnswersMap.get(q.id) || undefined,
           json: q.json,
-          guidanceSources: gSources,
+          guidanceSources: gSources.filter((gs: GuidanceSource): boolean => {
+            return gs.hasGuidance;
+          }),
           conditionalLogic: conditionalLogic.get(q.id) || []
         };
       });
@@ -1011,19 +1080,54 @@ export async function getPlanSectionsAndQuestions (
 
       // Splice each custom question in after its pinned question
       for (const q of sortedCustom) {
+        let customSectionGuidance: string;
+
+        // If the parent section has guidance, grab it so we can add it to the
+        // question's guidance
+        if (q.customQuestionId) {
+          const parentSection: VersionedCustomSection | undefined = customSectionById.get(q.versionedSectionId);
+          if (parentSection?.guidance) {
+            customSectionGuidance = parentSection.guidance;
+          }
+        }
+
+        // If the question itself has guidance or a sample or its parent custom
+        // section had guidance
+        let guidanceItem: GuidanceItem;
+        if (q.guidanceText || q.sampleText || customSectionGuidance) {
+          guidanceItem = {
+            id: null,
+            title: null,
+            guidanceText: [customSectionGuidance, q.guidanceText].join('\n\n').trim(),
+            sampleText: q.sampleText
+          };
+        }
+
         const result: PlanQuestion = {
           questionType: 'CUSTOM' as CustomizableObjectOwnership,
           versionedQuestionId: undefined,
           customQuestionId: q.id,
           questionText: q.questionText,
           requirementText: q.requirementText,
-          guidanceText: q.guidanceText,
-          sampleText: q.sampleText,
           required: q.required,
           hasAnswer: customAnswersMap.has(q.id),
           answer: customAnswersMap.get(q.id) || undefined,
-          json: q.json
+          json: q.json,
+          guidanceSources: [{
+            id: `affiliation-${ownerAffiliation.uri}`,
+            label: ownerAffiliation.displayName || ownerAffiliation.name,
+            shortName: ownerAffiliation.acronyms?.[0] || ownerAffiliation.displayName || ownerAffiliation.name,
+            orgURI: ownerAffiliation.uri,
+            type: 'USER_AFFILIATION',
+            hasGuidance: !!guidanceItem,
+            items: [guidanceItem]
+          }]
         };
+
+        // Remove any empty guidance sources
+        result.guidanceSources = result.guidanceSources.filter((gs: GuidanceSource): boolean => {
+          return gs.hasGuidance;
+        });
 
         if (q.pinnedVersionedQuestionId === null) {
           // No pin — goes first

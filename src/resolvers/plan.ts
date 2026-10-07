@@ -992,11 +992,18 @@ export const resolvers: Resolvers = {
     },
     availableGuidanceSources: async (parent: Plan, _, context: MyContext): Promise<GuidanceSource[]> => {
       if (parent?.id) {
-        return await getAllAvailableGuidanceForVersionedTemplate(
+        const versionedTemplate = await VersionedTemplate.findById(
           'plan availableGuidanceSources resolver',
           context,
           parent.versionedTemplateId
         );
+        if (versionedTemplate) {
+          return await getAllAvailableGuidanceForVersionedTemplate(
+            'plan availableGuidanceSources resolver',
+            context,
+            versionedTemplate
+          );
+        }
       }
       return [];
     },

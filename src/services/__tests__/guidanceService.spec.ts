@@ -179,6 +179,8 @@ import type { Logger } from 'pino';
 import type { GuidanceGroup as GuidanceGroupType } from '../../models/GuidanceGroup.js';
 import { GuidanceSource } from "../../types.js";
 import { Tag } from "../../models/Tag.js"
+import {VersionedTemplate} from "../../models/VersionedTemplate.js";
+import casual from "casual";
 
 // ---------------------------------------------------------------------------
 // Everything below is dynamic, registered after every mock above.
@@ -1158,8 +1160,21 @@ describe("getRelevantGuidanceForVersionedQuestion", () => {
 });
 
 describe("getAllAvailableGuidanceForVersionedTemplate", () => {
+  let versionedTemplate: VersionedTemplate;
+
   beforeEach(async () => {
     context = await buildMockContextWithToken(logger);
+
+    versionedTemplate = new VersionedTemplate({
+      id: casual.integer(1, 9999),
+      templateId: casual.integer(1, 9999),
+      title: casual.sentences(1),
+      ownerId: casual.url,
+      created: casual.date(),
+      createdById: casual.integer(1, 999),
+      modified: casual.date(),
+      modifiedById: casual.integer(1, 999)
+    })
     jest.clearAllMocks();
   });
 
@@ -1175,7 +1190,7 @@ describe("getAllAvailableGuidanceForVersionedTemplate", () => {
     const result = await guidanceService.getAllAvailableGuidanceForVersionedTemplate(
       "testing",
       context,
-      42
+      versionedTemplate
     );
 
     expect(result).toEqual([]);
@@ -1238,13 +1253,13 @@ describe("getAllAvailableGuidanceForVersionedTemplate", () => {
     const result = await guidanceService.getAllAvailableGuidanceForVersionedTemplate(
       "testing",
       context,
-      42
+      versionedTemplate
     );
 
     expect(mockPlanGuidanceQuery).toHaveBeenCalledWith(
       context,
       expect.stringContaining("vg.tagId IN (?,?)"),
-      ["42", "7", "9"],
+      [versionedTemplate.ownerId, context.token.affiliationId, "7", "9"],
       "testing"
     );
     expect(result).toHaveLength(2);
@@ -1297,7 +1312,7 @@ describe("getAllAvailableGuidanceForVersionedTemplate", () => {
     const result = await guidanceService.getAllAvailableGuidanceForVersionedTemplate(
       "testing",
       context,
-      42
+      versionedTemplate
     );
 
     expect(result).toEqual([]);

@@ -1025,15 +1025,15 @@ export async function getAffiliationsWithGuidanceForTemplate(
  *
  * @param reference the reference string for logging
  * @param context the MyContext object
- * @param versionedTemplateId the id of the VersionedTemplate object
+ * @param versionedTemplate the VersionedTemplate object
  * @returns a Promise that resolves to an array of GuidanceSource objects
  */
 export async function getAllAvailableGuidanceForVersionedTemplate(
   reference: string,
   context: MyContext,
-  versionedTemplateId: number,
+  versionedTemplate: VersionedTemplate,
 ): Promise<GuidanceSource[]> {
-  const distinctTags: Set<RelevantTag> = await Tag.findTagIdsForVersionedTemplateId(reference, context, versionedTemplateId);
+  const distinctTags: Set<RelevantTag> = await Tag.findTagIdsForVersionedTemplateId(reference, context, versionedTemplate.id);
   const tagIds: number[] = Array.from(distinctTags).map((rt: RelevantTag): number => rt.tagId).filter(Boolean) as number[];
   if (tagIds.length === 0) {
     return [];
@@ -1044,7 +1044,8 @@ export async function getAllAvailableGuidanceForVersionedTemplate(
     SELECT
       IF(gg.bestPractice = 1, 'bestPractice', CONCAT('affiliation-', a.uri)) AS id,
       a.displayName AS label, COALESCE(a.acronyms->>'$[0]', a.name) AS shortName, a.uri AS uri,
-      IF(gg.bestPractice = 1, 'BEST_PRACTICE', IF(a.uri = ?, 'TEMPLATE_OWNER', 'USER_AFFILIATION')) AS type,
+      IF(gg.bestPractice = 1, 'BEST_PRACTICE',
+      IF(a.uri = ?, 'TEMPLATE_OWNER', IF(a.uri = ?, 'USER_AFFILIATION', 'USER_SELECTED'))) AS type,
       vg.tagId AS tagId, t.name AS tagName, vg.guidanceText AS guidanceText
     FROM guidanceGroups AS gg
       JOIN affiliations AS a ON a.uri = gg.affiliationId
@@ -1055,7 +1056,8 @@ export async function getAllAvailableGuidanceForVersionedTemplate(
       AND vg.tagId IN (${placeholders});
   `;
   const vals: string[] = [
-    versionedTemplateId.toString(),
+    versionedTemplate.ownerId,
+    context.token.affiliationId,
     ...tagIds.map((tagId: number): string => tagId.toString())
   ];
   const results: RelevantGuidanceRow[] = await PlanGuidance.query(context, sql, vals, reference);

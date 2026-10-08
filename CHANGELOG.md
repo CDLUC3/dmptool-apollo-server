@@ -3,6 +3,8 @@
 ## v1.1.0
 
 ### Added
+- Added local data migration to reset the default user passwords using the new default pepper for the auth service
+- Added new `PORT`, `TOKEN_ISSUER`, `TOKEN_AUDIENCES` and `ACCESS_TOKEN_NAME` env variables and updated `generalConfig` to expose them
 - Added a new `maDMP` types file with shortcuts to nested maDMP types.
 - Added new helper functions to the `planService` and `projectService` which fetch the item and check permissions
 - Added new resolver to support the Plan one-page design [#371](https://github.com/CDLUC3/dmptool-doc/issues/371)
@@ -147,6 +149,8 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated the `auth` middleware to work with the new external Auth service 
+- Updated `ProjectSearchResult.search` sql query to include relatedWorksCount, and updated the schema [#378]
 - Made updates to help the backend check whether a `section` or `question` can be moved when there is associated `conditional display logic` [#986]:
   - `updateSectionDisplayOrder` and `updateQuestionDisplayOrder` reject a move that would put a question above one of its trigger questions
   - `removeSection` and `removeQuestion` reject deleting a section or question that contains a trigger question for display logic elsewhere in the template
@@ -161,12 +165,12 @@
 - Refactored the plan resolver to make use of `authenticatedResolver` and plan and project service functions to check permissions 
 - Updated `Question` model with new `findPriorQuestionsForQuestion` function [#360]
 - Updated app to use Ecma Script Modules (ESM) [#259]
-  - Updated `tsconfig.json` for `ESM`
-  - Updated `dev` script to use `tsx` instead of `ts-node-dev` in `package.json` and updated `test` and `test-no-db` scripts because jest itself doesn't natively support ESM without the `--experimental-vm-modules` flag
-  - Added use of `type: module` and `"main": "dist/index.js"` to package.json for ESM [#259]
-  - Updated all unit tests to be compliant with `ESM` [#259]
-  - Adjusted jest.config.js for `ESM` [#259]
-  - Updated `jest.mock` everywhere to `jest.unstable_mockModule` for ESM [#259]
+- Updated `tsconfig.json` for `ESM`
+- Updated `dev` script to use `tsx` instead of `ts-node-dev` in `package.json` and updated `test` and `test-no-db` scripts because jest itself doesn't natively support ESM without the `--experimental-vm-modules` flag
+- Added use of `type: module` and `"main": "dist/index.js"` to package.json for ESM [#259]
+- Updated all unit tests to be compliant with `ESM` [#259]
+- Adjusted jest.config.js for `ESM` [#259]
+- Updated `jest.mock` everywhere to `jest.unstable_mockModule` for ESM [#259]
 - Updated docker compose so that LocalStack log level is now `WARN`.
 - Bumped versions of `@dmptool` packages to their latest versions
 - Updated `RelatedWork` model so that it does not always try to strip off the protocol and domain from the related work identifier. The DMP works matching deals with DOIs, but we are allowing users to manually add related works via the UI as well as through the REST API and sometimes the entries are URLs or other unique identetifiers that are NOT DOIs. These changes continue to strip off the `https://doi.org` if it is a DOI (for backward compatibility with the dmp works project) but otherwise preserve the entire value
@@ -320,6 +324,11 @@
 - Updates to appease newer version of eslint
 
 ### Removed
+- Removed the reset password logic as this will now be handled by the external Auth service
+- Removed the resolver/schema for changing a user's password, since that is now handled by the external Auth service
+- Removed `register`, `login` and supporting functions from the `User` model
+- Removed all the old express controllers and routes so we can begin using the new Auth service
+- Removed all the access, refresh and CSRF token logic from the `tokenService`
 - Removed unused `valueIsDate` function from the `MySQLModel`
 - Removed old `processResult` functions from the `Answer` and `Question` models. These functions were added to help add the `commonStandardId` to existing JSON records. It proved to be inadequate so we eneded up just deleting old data
 - Removed unused SQS env variable from example dotenv file
@@ -343,6 +352,8 @@
 - Removed `ioredis` package
 
 ### Fixed
+- Fixed `@graphql-tools/utils` high vulnerability by updating `@graphql-tools/schema` to `v10.1.3`, `@graphql-tools/mock` to `v9.1.16` and `@graphql-tools/merge` to `v9.2.6`. Also, ran `npm audit fix` to address `proxy-addr` vulnerability which comes from `express@5.2.1`.
+- Fixed `@fastify/busboy` (`v3.2.2`) and `http-cache-semantics` (`v4.3.0`) by funning `npm audit fix`. The other high vulnerabilities listed are `development-only` tools, so they don't affect build or production. Updated `buildspec.yaml` to remove the `echo "production=false" >> .npmrc` which was overriding the `npm audit --omit=dev` [#458]
 - Fixed `npm ci` failure on `development` by restoring an in-sync `package-lock.json` (it was out of sync after #838 was merged)
 - Updated `node-mailer` to `v10.0.13` and `brace-expansion` to `v5.0.12` to address high vulnerabilities [#451]
 - Fixed a bug where a plan was displaying all custom questions ever added for a given versionedSectionId. Updated `publishedQuestions` resolver to only return custom questions for the given user's affiliation. Updated `findByVersionedSectionIdAndType` in `VersionCustomQuestion` model to include `affililationId` in query and updated associated unit test [#253]

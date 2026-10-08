@@ -149,6 +149,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `@dmptool/utils` to `v2.2.0` to get the new conditional display logic [#510]
 - Updated the `auth` middleware to work with the new external Auth service 
 - Updated `ProjectSearchResult.search` sql query to include relatedWorksCount, and updated the schema [#378]
 - Made updates to help the backend check whether a `section` or `question` can be moved when there is associated `conditional display logic` [#986]:

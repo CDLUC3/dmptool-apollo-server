@@ -3,6 +3,7 @@ import { MyContext } from "../context.js";
 import { VersionedQuestion } from "../models/VersionedQuestion.js";
 import { VersionedCustomQuestion } from "../models/VersionedCustomQuestion.js";
 import { Answer } from "../models/Answer.js";
+import { Plan } from "../models/Plan.js";
 import { AuthenticationError, ForbiddenError, InternalServerError } from "../utils/graphQLErrors.js";
 import { VersionedQuestionCondition } from "../models/VersionedQuestionCondition.js";
 import { prepareObjectForLogs } from "../logger.js";
@@ -29,7 +30,7 @@ export const resolvers: Resolvers = {
             VersionedQuestion.findByVersionedSectionId(reference, context, versionedSectionId),
             affiliationId
               ? VersionedCustomQuestion.findByVersionedSectionIdAndType(
-                reference, context, planId, versionedSectionId, 'BASE', affiliationId
+                reference, context, planId, versionedSectionId, 'BASE',
               )
               : [] as VersionedCustomQuestion[]
           ]);
@@ -167,16 +168,25 @@ export const resolvers: Resolvers = {
     },
 
     // Return the VersionedQuestion for the specified versionedQuestionId which includes customization
-    // sample text, guidance text, and info on the org that customized it
-    publishedQuestion: async (_, { versionedQuestionId }, context: MyContext) => {
+    // sample text, guidance text, and info on the org that customized it. The customization comes from
+    // the one the plan was pinned to when it was created
+    publishedQuestion: async (_, { versionedQuestionId, planId }, context: MyContext) => {
       const reference = 'publishedQuestion resolver';
       try {
-        if (isAuthorized(context?.token) && context.token?.affiliationId) {
-          const [question, customization] = await Promise.all([
+        if (isAuthorized(context?.token)) {
+          const plan = planId ? await Plan.findById(reference, context, planId) : null;
+          const versionedTemplateCustomizationId = plan?.versionedTemplateCustomizationId;
+
+          const [question, customization, vtc] = await Promise.all([
             VersionedQuestion.findById(reference, context, versionedQuestionId),
-            VersionedQuestionCustomization.findActiveByTemplateAffiliationAndQuestion(
-              reference, context, context.token?.affiliationId, versionedQuestionId
-            ),
+            versionedTemplateCustomizationId
+              ? VersionedQuestionCustomization.findByVersionedCustomizationAndVersionedQuestion(
+                reference, context, versionedTemplateCustomizationId, versionedQuestionId
+              )
+              : undefined,
+            versionedTemplateCustomizationId
+              ? VersionedTemplateCustomization.findById(reference, context, versionedTemplateCustomizationId)
+              : undefined,
           ]);
 
           if (!question) return null;
@@ -186,7 +196,7 @@ export const resolvers: Resolvers = {
             customizationId: customization?.id ?? null,
             customizationGuidanceText: customization?.guidanceText ?? null,
             customizationSampleText: customization?.sampleText ?? null,
-            customizationAffiliationId: customization ? context.token?.affiliationId : null,
+            customizationAffiliationId: customization ? vtc?.affiliationId ?? null : null,
           };
         }
         throw context?.token ? ForbiddenError() : AuthenticationError();

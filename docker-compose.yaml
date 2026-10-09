@@ -155,8 +155,10 @@ services:
       # LocalStack Port
       - "LOCALSTACK_PORT=4566"
 
-      # The issuer of the access token, this should be the URL of your auth server
-      # see the https://github.com/CDLUC3/dmptool-auth repo
+      # The host and port of the Auth service
+      - "AUTH_HOST=http://auth:4646"
+      # The issuer of the access token (can be different from the AUTH_HOST, this
+      # is typically just the URL of you UI).
       - "TOKEN_ISSUER=http://auth:4646"
 
       # DynamoDB table used to store maDMP versions

@@ -153,6 +153,8 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `@dmptool/utils` to `v2.2.0` to get the new conditional display logic [#510]
+
 - Updated `PlanSectionProgress.findByPlanId` and its helpers (`fetchCustomSections`, `fetchExtraQuestionsForBaseSections`, `fetchAnsweredCustomQuestions`) to use the Plan's `versionedTemplateCustomizationId` instead of the current user's affiliation. Base section question counts now come from the published `versionedCustomQuestions` rather than the draft `customQuestions` table [#388]
 - Updated `VersionedCustomQuestion.findByVersionedSectionIdAndType`, `findByVersionedCustomSectionId` and `findByVersionedSectionIdsAndType`, and `VersionedCustomSection.findByPlanAndSectionId`, to look up custom questions and sections by the Plan's pinned customization instead of affiliation and `active` status [#388]
 - Updated `VersionedQuestionCustomization.findByVersionedCustomizationAndVersionedSectionIds` and `VersionedSectionCustomization.findByVersionedCustomizationAndVersionedSectionIds` (renamed from `findForActiveForAffiliationAndVersionSectionIds`) to look up guidance by the Plan's pinned customization [#388]

@@ -3,6 +3,10 @@
 ## v1.1.0
 
 ### Added
+- Added `versionedTemplateCustomizationId` column to the `plans` table via data migration, so a Plan stays tied to the version of the template customization that existed when it was created [#388]
+- Added `versionedTemplateCustomizationId` to the `Plan` model, and updated `Plan.create` to set it from the active customization for the creator's affiliation [#388]
+- Added `findActiveByTemplateAndAffiliation` to the `VersionedTemplateCustomization` model [#388]
+- Added optional `planId` argument to the `publishedQuestion` query so question customizations come from the Plan's pinned customization [#388]
 - Added local data migration to reset the default user passwords using the new default pepper for the auth service
 - Added new `PORT`, `TOKEN_ISSUER`, `TOKEN_AUDIENCES` and `ACCESS_TOKEN_NAME` env variables and updated `generalConfig` to expose them
 - Added a new `maDMP` types file with shortcuts to nested maDMP types.
@@ -149,6 +153,12 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `PlanSectionProgress.findByPlanId` and its helpers (`fetchCustomSections`, `fetchExtraQuestionsForBaseSections`, `fetchAnsweredCustomQuestions`) to use the Plan's `versionedTemplateCustomizationId` instead of the current user's affiliation. Base section question counts now come from the published `versionedCustomQuestions` rather than the draft `customQuestions` table [#388]
+- Updated `VersionedCustomQuestion.findByVersionedSectionIdAndType`, `findByVersionedCustomSectionId` and `findByVersionedSectionIdsAndType`, and `VersionedCustomSection.findByPlanAndSectionId`, to look up custom questions and sections by the Plan's pinned customization instead of affiliation and `active` status [#388]
+- Updated `VersionedQuestionCustomization.findByVersionedCustomizationAndVersionedSectionIds` and `VersionedSectionCustomization.findByVersionedCustomizationAndVersionedSectionIds` (renamed from `findForActiveForAffiliationAndVersionSectionIds`) to look up guidance by the Plan's pinned customization [#388]
+- Updated `publishedQuestion`, `publishedQuestions` and `publishedCustomSection` resolvers, `guidanceService.getGuidanceSourcesForPlan` and `planService.getPlanSectionsAndQuestions` to use the Plan's pinned customization instead of the current user's or plan owner's affiliation [#388]
+- Updated `publishedQuestion` to return the affiliation that published the customization as `customizationAffiliationId`, instead of the viewer's affiliation [#388]
+- Removed the unused `versionedTemplateId` parameter from `PlanSectionProgress.findByPlanId` and `PlanProgress.findByPlanId` [#388]
 - Updated the `auth` middleware to work with the new external Auth service 
 - Updated `ProjectSearchResult.search` sql query to include relatedWorksCount, and updated the schema [#378]
 - Made updates to help the backend check whether a `section` or `question` can be moved when there is associated `conditional display logic` [#986]:
@@ -324,6 +334,8 @@
 - Updates to appease newer version of eslint
 
 ### Removed
+- Removed `VersionedQuestionCustomization.findActiveByTemplateAffiliationAndQuestion` and `VersionedSectionCustomization.findActiveByTemplateAffiliationAndSection`, which have been replaced by the existing `findByVersionedCustomizationAndVersionedQuestion` and `findByVersionedCustomizationAndVersionedSection` [#388]
+- Removed the private `findTemplateCustomizationId` helper from `PlanSectionProgress` [#388]
 - Removed the reset password logic as this will now be handled by the external Auth service
 - Removed the resolver/schema for changing a user's password, since that is now handled by the external Auth service
 - Removed `register`, `login` and supporting functions from the `User` model

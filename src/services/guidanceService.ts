@@ -407,21 +407,21 @@ export async function getGuidanceSourcesForPlan(
     }
 
 
-    // Fetch any active customization guidance for this section/question for the user's affiliation.
-    // This is displayed alongside the template owner's guidance.
+    // Fetch any customization guidance for this section/question from the customization the plan
+    // was created with. This is displayed alongside the template owner's guidance.
     let customizationGuidanceText: string | null = null;
-    if (userAffiliationUri) {
+    if (plan.versionedTemplateCustomizationId) {
       if (versionedQuestionId) {
         const questionCustomization = await VersionedQuestionCustomization
-          .findActiveByTemplateAffiliationAndQuestion(
-            reference, context, userAffiliationUri, versionedQuestionId
+          .findByVersionedCustomizationAndVersionedQuestion(
+            reference, context, plan.versionedTemplateCustomizationId, versionedQuestionId
           );
         customizationGuidanceText = questionCustomization?.guidanceText || null;
 
       } else if (versionedSectionId) {
         const sectionCustomization = await VersionedSectionCustomization
-          .findActiveByTemplateAffiliationAndSection(
-            reference, context, userAffiliationUri, versionedSectionId
+          .findByVersionedCustomizationAndVersionedSection(
+            reference, context, plan.versionedTemplateCustomizationId, versionedSectionId
           );
 
         customizationGuidanceText = sectionCustomization?.guidance || null;
@@ -1197,7 +1197,7 @@ export function getRelevantGuidanceForVersionedQuestion(
   // new GuidanceSource for the plan owner's affiliation
   if (guidanceText.length > 0) {
     const sourceId = `customization-${affiliation.uri}`;
-    gSources.set(sourceId,{
+    gSources.set(sourceId, {
       id: sourceId,
       type: 'USER_AFFILIATION',
       label: affiliation.displayName || affiliation.name,

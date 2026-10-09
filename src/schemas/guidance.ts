@@ -158,13 +158,13 @@ export const typeDefs = gql`
   enum GuidanceSourceType {
     "Best practice guidance from DMP Tool"
     BEST_PRACTICE
-    "Guidance from the template owner organization"
+    "Guidance from the template owner affiliation"
     TEMPLATE_OWNER
     "Guidance from the user's affiliation"
     USER_AFFILIATION
-    "Guidance from user-selected organizations"
+    "Guidance from user-selected affiliations"
     USER_SELECTED
-    "Guidance from another organization that has not yet been selected by the user"
-    OTHER_ORGANIZATION
+    "Guidance from another affiliation that has not yet been selected by the user"
+    OTHER_AFFILIATION
   }
 `;

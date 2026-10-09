@@ -1414,13 +1414,13 @@ export type GuidanceSource = {
 export type GuidanceSourceType =
   /** Best practice guidance from DMP Tool */
   | 'BEST_PRACTICE'
-  /** Guidance from another organization that has not yet been selected by the user */
-  | 'OTHER_ORGANIZATION'
-  /** Guidance from the template owner organization */
+  /** Guidance from another affiliation that has not yet been selected by the user */
+  | 'OTHER_AFFILIATION'
+  /** Guidance from the template owner affiliation */
   | 'TEMPLATE_OWNER'
   /** Guidance from the user's affiliation */
   | 'USER_AFFILIATION'
-  /** Guidance from user-selected organizations */
+  /** Guidance from user-selected affiliations */
   | 'USER_SELECTED';
 
 /** An institution of an author of a work */

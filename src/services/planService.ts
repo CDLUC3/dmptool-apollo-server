@@ -1145,6 +1145,16 @@ export async function getPlanSectionsAndQuestions (
         }
       }
 
+      // Clean up the hasGuidance flag for each guidance source based on whether
+      // it has any guidance items
+      for (const q of ordered) {
+        for (const gs of q.guidanceSources) {
+          gs.hasGuidance = gs.items.some((item: GuidanceItem): boolean => {
+            return Boolean(item.guidanceText || item.sampleText)
+          });
+        }
+      }
+
       sections.push({
         sectionType: progress.sectionType,
         versionedSectionId: progress.versionedSectionId,

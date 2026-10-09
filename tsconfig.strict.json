@@ -6,6 +6,13 @@
     "strict": true
   },
   "include": [
+    "src/index.ts",
+    "src/context.ts",
+    "src/router.ts",
+    "src/middleware/auth.ts",
+    "src/middleware/cors.ts",
+    "src/middleware/csrf.ts",
+    "src/middleware/express.ts",
     "src/resolvers/versionedQuestion.ts",
     "src/models/VersionedCustomQuestion.ts",
     "src/models/__tests__/VersionedCustomQuestion.test.ts"

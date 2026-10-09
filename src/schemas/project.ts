@@ -84,6 +84,8 @@ export const projectTypeDefs = gql`
     errors: ProjectErrors
     "The plans in the project"
     plans: [PlanSearchResult!]
+    "The number of accepted related works across all plans for the project"
+    relatedWorksCount: Int
   }
 
   type ProjectSearchResults implements PaginatedQueryResults {

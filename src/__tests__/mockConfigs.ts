@@ -108,7 +108,6 @@ export function mockAppConfigs() {
       jwtTTL: 30,
       jwtRefreshSecret: 'testJwtRefreshSecret',
       jwtRefreshTTL: 500,
-      hashTokenSecret: 'testTokenSecret',
     },
     envAsEnumValue: () => 'dev',
   }));

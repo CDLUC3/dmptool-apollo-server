@@ -405,21 +405,18 @@ export class VersionedCustomQuestion extends MySqlModel {
     planId: number,
     versionedSectionId: number,
     sectionType: 'BASE' | 'CUSTOM',
-    affiliationId: string
   ): Promise<VersionedCustomQuestion[]> {
     const sql = `SELECT vcq.* FROM versionedCustomQuestions as vcq
     JOIN versionedTemplateCustomizations as vtc
       ON vcq.versionedTemplateCustomizationId = vtc.id
     JOIN plans as p
-      ON vtc.currentVersionedTemplateId = p.versionedTemplateId
+      ON p.versionedTemplateCustomizationId = vcq.versionedTemplateCustomizationId
     WHERE p.id = ?
       AND vcq.versionedSectionType = ?
       AND vcq.versionedSectionId = ?
-      AND vtc.affiliationId = ?
-      AND vtc.active = 1
     ORDER BY vcq.pinnedVersionedQuestionType ASC, vcq.pinnedVersionedQuestionId ASC`;
     const results = await VersionedCustomQuestion.query(
-      context, sql, [planId.toString(), sectionType, versionedSectionId.toString(), affiliationId], reference
+      context, sql, [planId.toString(), sectionType, versionedSectionId.toString()], reference
     );
     return Array.isArray(results) ? results.map(r => new VersionedCustomQuestion(r)) : [];
   }

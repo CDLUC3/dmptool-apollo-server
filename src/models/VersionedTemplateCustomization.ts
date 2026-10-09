@@ -207,4 +207,33 @@ export class VersionedTemplateCustomization extends MySqlModel {
       ? new VersionedTemplateCustomization(results[0])
       : undefined;
   }
+
+  /**
+   * Find the active (published) customization of a published template for an affiliation
+   *
+   * @param reference The reference to use for logging errors.
+   * @param context The Apollo context.
+   * @param versionedTemplateId The published version of the template id.
+   * @param affiliationId The affiliation that customized the template.
+   * @returns The active version of the customization, or undefined if there isn't one.
+   */
+  static async findActiveByTemplateAndAffiliation(
+    reference: string,
+    context: MyContext,
+    versionedTemplateId: number,
+    affiliationId: string
+  ): Promise<VersionedTemplateCustomization> {
+    const results = await VersionedTemplateCustomization.query(
+      context,
+      `SELECT * FROM ${VersionedTemplateCustomization.tableName}
+         WHERE currentVersionedTemplateId = ? AND affiliationId = ?
+         AND active = 1
+         LIMIT 1`,
+      [versionedTemplateId.toString(), affiliationId],
+      reference
+    );
+    return Array.isArray(results) && results.length > 0
+      ? new VersionedTemplateCustomization(results[0])
+      : undefined;
+  }
 }

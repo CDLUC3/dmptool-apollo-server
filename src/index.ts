@@ -100,6 +100,16 @@ const shutdown = async (): Promise<never> => {
   }
 };
 
+// Catch unhandled promise rejections (e.g., failed fetch, dropped socket)
+process.on('unhandledRejection', (reason: unknown, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+// Catch uncaught synchronous exceptions
+process.on('uncaughtException', (error: Error) => {
+  console.error('Uncaught Exception thrown:', error);
+});
+
 // Attach the shutdown function to SIGINT and SIGTERM signals
 if (!process.listeners('SIGINT').includes(shutdown)) {
   process.on('SIGINT', shutdown);

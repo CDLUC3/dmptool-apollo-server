@@ -43,6 +43,10 @@ const isRevokedCallback: IsRevoked = async (
  * @returns the JWT token string if found, or null if not found
  */
 const getToken = (req: JWTRequest) => {
+
+console.log('getToken cookies:', req.cookies);
+console.log('getToken headers:', req.headers);
+
   // Check for the token in the cookie first
   if (req.cookies && req.cookies[generalConfig.accessTokenName]) {
     return req.cookies[generalConfig.accessTokenName];
@@ -74,6 +78,9 @@ export const validateClaims = (
   next: NextFunction
 ) => {
   const payload: JwtPayload | undefined = req.auth;
+
+console.log('validateClaims:', payload);
+
   if (
     payload && (
       (typeof payload.id !== 'string' && typeof payload.id !== 'number')

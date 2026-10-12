@@ -17,9 +17,6 @@ export async function csrfMiddleware(req: Request, res: ExpressResponse, next: N
   if (req.method !== 'GET' && req.method !== 'HEAD' && req.method !== 'OPTIONS') {
     // The CSRF is only needed if this is a mutation operation
     const isMutation: boolean = req.body && 'mutation' in req.body;
-
-console.log('CSRF middleware: isMutation:', isMutation, 'method:', req.method, 'body:', req.body);
-
     if (isMutation) {
       const token = req.headers['x-csrf-token'] as string;
       if (!token) {
@@ -37,9 +34,6 @@ console.log('CSRF middleware: isMutation:', isMutation, 'method:', req.method, '
       });
 
       const responseBody: { valid: boolean } = await response.json();
-
-console.log('CSRF verify response body:', responseBody);
-
       if (response.status !== 200 && !responseBody.valid) {
         return res.status(403).json({error: 'Invalid CSRF token'});
       }

@@ -3,6 +3,8 @@
 ## v1.1.0
 
 ### Added
+- Added a `isPlanReadOnlyForCurrentUser` function to the `planService` to determine if the current user has read-only access to a given plan. [#430]
+- Added a `getAllAvailableGuidanceForVersionedTemplate` function to the `guidanceService` to return all available tagged guidance for a given versioned template [#430]
 - Added `versionedTemplateCustomizationId` column to the `plans` table via data migration, so a Plan stays tied to the version of the template customization that existed when it was created [#388]
 - Added `versionedTemplateCustomizationId` to the `Plan` model, and updated `Plan.create` to set it from the active customization for the creator's affiliation [#388]
 - Added `findActiveByTemplateAndAffiliation` to the `VersionedTemplateCustomization` model [#388]
@@ -153,8 +155,10 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Fixed some broken tests for the `planService` 
+- Updated `getPlanSectionsAndQuestions` to no longer return guidance sources for a question if they have no guidance text [#430]
+- Updated `getPlanSectionsAndQuestions` to return `guidanceText` and `sampleText` for all questions and to include any section level `guidance` [#430]
 - Updated `@dmptool/utils` to `v2.2.0` to get the new conditional display logic [#510]
-
 - Updated `PlanSectionProgress.findByPlanId` and its helpers (`fetchCustomSections`, `fetchExtraQuestionsForBaseSections`, `fetchAnsweredCustomQuestions`) to use the Plan's `versionedTemplateCustomizationId` instead of the current user's affiliation. Base section question counts now come from the published `versionedCustomQuestions` rather than the draft `customQuestions` table [#388]
 - Updated `VersionedCustomQuestion.findByVersionedSectionIdAndType`, `findByVersionedCustomSectionId` and `findByVersionedSectionIdsAndType`, and `VersionedCustomSection.findByPlanAndSectionId`, to look up custom questions and sections by the Plan's pinned customization instead of affiliation and `active` status [#388]
 - Updated `VersionedQuestionCustomization.findByVersionedCustomizationAndVersionedSectionIds` and `VersionedSectionCustomization.findByVersionedCustomizationAndVersionedSectionIds` (renamed from `findForActiveForAffiliationAndVersionSectionIds`) to look up guidance by the Plan's pinned customization [#388]

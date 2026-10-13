@@ -40,6 +40,7 @@ jest.unstable_mockModule('../../services/guidanceService.js', () => ({
   getQuestionTagsMap: jest.fn(),
   getQuestionTagsForSection: jest.fn(),
   getRelevantGuidanceForPlan: jest.fn(),
+  getAllAvailableGuidanceForVersionedTemplate: jest.fn(),
   getRelevantGuidanceForVersionedQuestion: jest.fn(),
   addPlanGuidance: jest.fn(),
   getAffiliationsWithGuidanceForTemplate: mockGetAffiliationsWithGuidanceForTemplate,

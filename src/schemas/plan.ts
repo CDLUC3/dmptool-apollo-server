@@ -335,6 +335,8 @@ export const typeDefs = gql`
     versionedSections: [PlanSectionProgress!]
     "The sections of the plan (full detail for each section)"
     sections: [PlanSection!]
+    "The current user's access level for the plan"
+    myAccessLevel: ProjectCollaboratorAccessLevel
 
     "The progress the user has made within the plan"
     progress: PlanProgress
@@ -416,10 +418,6 @@ export const typeDefs = gql`
     questionText: String
     "Requirements associated with the Question"
     requirementText: String
-    "Guidance to complete the question"
-    guidanceText: String
-    "Sample text to possibly provide a starting point or example to answer question"
-    sampleText: String
     "Whether or not the sample text should be used as the default answer for this question"
     useSampleTextAsDefault: Boolean
     "To indicate whether the question is required to be completed"

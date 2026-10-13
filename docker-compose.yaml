@@ -126,6 +126,7 @@ services:
       - "AWS_SECRET_ACCESS_KEY=DUMMYEXAMPLEKEY"
       - "REGION=us-west-2"
       - "NODE_ENV=development"
+      - "PORT=4000"
 
       # Local MySQL database
       - "MYSQL_CONNECTION_LIMIT=5"
@@ -153,6 +154,12 @@ services:
 
       # LocalStack Port
       - "LOCALSTACK_PORT=4566"
+
+      # The host and port of the Auth service
+      - "AUTH_HOST=http://auth:4646"
+      # The issuer of the access token (can be different from the AUTH_HOST, this
+      # is typically just the URL of you UI).
+      - "TOKEN_ISSUER=http://auth:4646"
 
       # DynamoDB table used to store maDMP versions
       - "DYNAMO_ENDPOINT=http://localstack:4566"

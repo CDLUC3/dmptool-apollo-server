@@ -86,7 +86,6 @@ export const resolvers: Resolvers = {
           context,
           planId,
           customSectionId,
-          affiliationId
         );
 
         if (!result) {

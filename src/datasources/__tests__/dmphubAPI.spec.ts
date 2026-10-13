@@ -21,7 +21,7 @@ mockAppLogger();
 // needs to be spying on the exact class instance DMPHubAPI/Authorizer
 // extend, not a separately-evaluated copy.
 // ---------------------------------------------------------------------------
-import type { JWTAccessToken } from '../../services/tokenService.js';
+import type { JWTAccessToken } from "../../types/general.js"
 import type { KeyvAdapter } from '@apollo/utils.keyvadapter';
 
 const { DMPHubAPI, Authorizer } = await import('../dmphubAPI.js');

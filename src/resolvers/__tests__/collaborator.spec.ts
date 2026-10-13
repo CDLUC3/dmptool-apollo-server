@@ -56,7 +56,7 @@ jest.unstable_mockModule('../../services/openSearchService.js', () => ({
 
 
 import type { ApolloServer as ApolloServerType } from "@apollo/server";
-import type { JWTAccessToken } from "../../services/tokenService.js";
+import type { JWTAccessToken } from "../../types/general.js";
 
 // Dynamic imports AFTER all mocks are registered
 const { ApolloServer } = await import("@apollo/server");

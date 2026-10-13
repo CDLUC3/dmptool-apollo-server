@@ -894,19 +894,19 @@ describe("VersionedCustomQuestion", () => {
         5,
         300,
         "BASE",
-        "https://ror.org/abc123"
       );
 
       expect(mockQuery).toHaveBeenCalledWith(
         mockContext,
         expect.stringContaining("SELECT vcq.* FROM versionedCustomQuestions as vcq"),
-        ["5", "BASE", "300", "https://ror.org/abc123"],
+        ["5", "BASE", "300"],
         "test.ref"
       );
+      // Custom questions come from the customization the plan was pinned to, not the user's affiliation
       expect(mockQuery).toHaveBeenCalledWith(
         mockContext,
-        expect.stringContaining("vtc.affiliationId = ?"),
-        ["5", "BASE", "300", "https://ror.org/abc123"],
+        expect.stringContaining("ON p.versionedTemplateCustomizationId = vcq.versionedTemplateCustomizationId"),
+        ["5", "BASE", "300"],
         "test.ref"
       );
       expect(Array.isArray(result)).toBe(true);
@@ -925,7 +925,6 @@ describe("VersionedCustomQuestion", () => {
         5,
         999,
         "CUSTOM",
-        "https://ror.org/abc123"
       );
 
       expect(result).toEqual([]);

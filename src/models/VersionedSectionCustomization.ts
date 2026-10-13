@@ -232,54 +232,20 @@ export class VersionedSectionCustomization extends MySqlModel {
     return Array.isArray(results) && results.length > 0 ? results.map(r => new VersionedSectionCustomization(r)) : [];
   }
 
-
   /**
- * Find the active versioned section customization for a given affiliation and section.
- * Used to surface customization guidance in the plan guidance panel.
- *
- * @param reference The reference to use for logging errors.
- * @param context The Apollo context.
- * @param affiliationId The affiliation id.
- * @param versionedSectionId The versioned section id.
- * @returns The active versioned section customization, or undefined if none exists.
- */
-  static async findActiveByTemplateAffiliationAndSection(
-    reference: string,
-    context: MyContext,
-    affiliationId: string,
-    versionedSectionId: number
-  ): Promise<VersionedSectionCustomization | undefined> {
-    const results = await VersionedSectionCustomization.query(
-      context,
-      `SELECT vsc.* FROM ${VersionedSectionCustomization.tableName} AS vsc
-     JOIN versionedTemplateCustomizations AS vtc
-       ON vsc.versionedTemplateCustomizationId = vtc.id
-     WHERE vtc.active = 1
-       AND vtc.affiliationId = ?
-       AND vsc.versionedSectionId = ?
-     LIMIT 1`,
-      [affiliationId, versionedSectionId.toString()],
-      reference
-    );
-    return Array.isArray(results) && results.length > 0
-      ? new VersionedSectionCustomization(results[0])
-      : undefined;
-  }
-
-  /**
-   * Find all the active versioned section customizations for a given template and affiliation.
-   * Used to surface customization guidance in the plan guidance panel.
+   * Find all the versioned section customizations for the given versioned template customization
+   * in the given sections. Used to surface customization guidance in the plan's JSON.
    *
    * @param reference the reference to use for logging errors
    * @param context the Apollo context
-   * @param affiliationId the affiliation id
+   * @param versionedTemplateCustomizationId the versioned template customization id the plan was pinned to
    * @param versionedSectionIds the versioned section ids to search for
-   * @returns an array of active versioned section customizations, or an empty array if none exist
+   * @returns an array of versioned section customizations, or an empty array if none exist
    */
-  static async findForActiveForAffiliationAndVersionSectionIds(
+  static async findByVersionedCustomizationAndVersionedSectionIds(
     reference: string,
     context: MyContext,
-    affiliationId: string,
+    versionedTemplateCustomizationId: number,
     versionedSectionIds: number[]
   ): Promise<VersionedSectionCustomization[]> {
     if (versionedSectionIds.length === 0) return [];
@@ -287,13 +253,13 @@ export class VersionedSectionCustomization extends MySqlModel {
     const sql = `
       SELECT vsc.*
       FROM ${VersionedSectionCustomization.tableName} AS vsc
-      JOIN versionedTemplateCustomizations AS vtc
-        ON vsc.versionedTemplateCustomizationId = vtc.id
-      WHERE vtc.active = 1
-        AND vtc.affiliationId = ?
-        AND vsc.id IN (${placeholders})
+      WHERE vsc.versionedTemplateCustomizationId = ?
+        AND vsc.versionedSectionId IN (${placeholders})
     `;
-    const vals: string[] = [affiliationId, ...versionedSectionIds.map((id: number): string => id.toString())];
+    const vals: string[] = [
+      versionedTemplateCustomizationId.toString(),
+      ...versionedSectionIds.map((id: number): string => id.toString())
+    ];
     const results: unknown[] = await VersionedSectionCustomization.query(context, sql, vals, reference);
     return Array.isArray(results) ? results.map((entry: unknown): VersionedSectionCustomization => new VersionedSectionCustomization(entry)) : [];
   }

@@ -88,6 +88,9 @@ import {findConditionalLogicForPlan} from "./conditionalLogicService.js";
 import {
   VersionedSectionCustomization
 } from "../models/VersionedSectionCustomization.js";
+import {
+  VersionedTemplateCustomization
+} from "../models/VersionedTemplateCustomization.js";
 
 export interface PublishedQuestionResult {
   id: number;
@@ -910,7 +913,7 @@ export async function mapDMPToolDMPToSnapshot(
  * @returns A promise that resolves to an array of PlanSection objects, each
  * containing its question and answer
  */
-export async function getPlanSectionsAndQuestions (
+export async function getPlanSectionsAndQuestions(
   reference: string,
   context: MyContext,
   plan: Plan,
@@ -918,14 +921,14 @@ export async function getPlanSectionsAndQuestions (
   const sections: PlanSection[] = [];
 
   if (plan.id) {
-    // Get the current user's affiliation (needed to load the appropriate guidance for the plan)
+    // Get the current user's affiliation (needed to load the user's selected guidance for the plan)
     const affiliation: Affiliation = await Affiliation.findByURI(reference, context, context.token.affiliationId);
-    // Get the plan owner and their affiliation (needed to load the appropriate customizations for the plan)
-    const planOwner: ProjectCollaborator | null = await ProjectCollaborator.findOwnerByProjectId(reference, context, plan.projectId);
-    const owner: User | null = planOwner ? await User.findById(reference, context, planOwner.userId) : null;
-    const ownerAffiliation: Affiliation = owner
-      ? await Affiliation.findByURI(reference, context, owner.affiliationId) || affiliation
-      : affiliation;
+    // Get the versionedTemplateCustomization for the plan (needed to load any customizations for the plan)
+    const versionedCustomization: VersionedTemplateCustomization | null = await VersionedTemplateCustomization.findById(reference, context, plan.versionedTemplateCustomizationId);
+    // get the plan owner's affiliation (needed to load any customized guidance for the plan)
+    const ownerAffiliation: Affiliation = await Affiliation.findByURI(reference, context, versionedCustomization.affiliationId);
+    // Customizations come from the plan's versionedTemplateCustomizationId (pinned when the plan was
+    // created), so we don't need the plan owner's current affiliation here
     const vTemplate: VersionedTemplate = await VersionedTemplate.findById(reference, context, plan.versionedTemplateId);
     if (!affiliation || !vTemplate) return [];
 
@@ -935,8 +938,7 @@ export async function getPlanSectionsAndQuestions (
     const sectionProgress: PlanSectionProgress[] = await PlanSectionProgress.findByPlanId(
       reference,
       context,
-      plan.id,
-      plan?.versionedTemplateId
+      plan.id
     );
     if (!Array.isArray(sectionProgress) || sectionProgress.length === 0) return [];
 
@@ -958,10 +960,18 @@ export async function getPlanSectionsAndQuestions (
         Answer.findFilledAnswersByPlanId(reference, context, plan.id),
         // Get all conditional logic for the plan's questions
         findConditionalLogicForPlan(reference, context, baseSectionIds),
-        // get any custom guidance set on Base sections (using the plan owner's affiliation!)
-        VersionedSectionCustomization.findForActiveForAffiliationAndVersionSectionIds(reference, context, ownerAffiliation.uri, baseSectionIds),
-        // Get any custom guidance set on Base questions (using the plan owner's affiliation!)
-        VersionedQuestionCustomization.findForActiveForAffiliationAndVersionSectionIds(reference, context, ownerAffiliation.uri, baseSectionIds),
+        // Get any custom guidance set on Base sections (from the customization the plan was created with)
+        plan.versionedTemplateCustomizationId
+          ? VersionedSectionCustomization.findByVersionedCustomizationAndVersionedSectionIds(
+            reference, context, plan.versionedTemplateCustomizationId, baseSectionIds
+          )
+          : [],
+        // Get any custom guidance set on Base questions (from the customization the plan was created with)
+        plan.versionedTemplateCustomizationId
+          ? VersionedQuestionCustomization.findByVersionedCustomizationAndVersionedSectionIds(
+            reference, context, plan.versionedTemplateCustomizationId, baseSectionIds
+          )
+          : [],
         // Guidance sources for the plan
         getRelevantGuidanceForPlan(reference, context, plan.id, vTemplate, relevantTags),
       ]);

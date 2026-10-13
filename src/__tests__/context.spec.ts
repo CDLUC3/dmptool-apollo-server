@@ -8,21 +8,56 @@ mockAppConfigs();
 import type { DMPHubAPI } from '../datasources/dmphubAPI.js';
 import type { MySQLConnection } from '../datasources/mysql.js';
 import type { Logger } from 'pino';
-import type { JWTAccessToken } from '../services/tokenService.js';
+import type { JWTAccessToken } from '../types/general.js';
+import type { KeyvAdapter } from '@apollo/utils.keyvadapter';
 
 const mockRandomHex = jest.fn<(...args: any[]) => string>();
-const actualHelpers = await import('../utils/helpers.js');
 jest.unstable_mockModule('../utils/helpers.js', () => ({
-  ...actualHelpers,
   randomHex: mockRandomHex,
+}));
+jest.unstable_mockModule('@dmptool/utils', () => ({
+  toErrorMessage: (error: unknown) =>
+    error instanceof Error ? error.message : String(error),
+}));
+
+jest.unstable_mockModule('../datasources/dmphubAPI.js', () => ({
+  DMPHubAPI: jest.fn(),
+}));
+jest.unstable_mockModule('../datasources/EZIDAPI.js', () => ({
+  EZIDAPI: jest.fn(),
+}));
+jest.unstable_mockModule('../datasources/openSearch.js', () => ({
+  OpenSearch: jest.fn(),
+}));
+jest.unstable_mockModule('../datasources/mysql.js', () => ({
+  MySQLConnection: jest.fn(),
+  TransactionClient: jest.fn(),
+}));
+
+const mockChildLogger = {
+  debug: jest.fn(),
+  info: jest.fn(),
+  error: jest.fn(),
+  fatal: jest.fn(),
+  warn: jest.fn(),
+  trace: jest.fn(),
+  level: 'info',
+  silent: jest.fn(),
+  child: jest.fn(),
+};
+mockChildLogger.child.mockReturnValue(mockChildLogger);
+jest.unstable_mockModule('../logger.js', () => ({
+  initLogger: jest.fn().mockImplementation((logger: Logger, fields: object) =>
+    logger.child(fields),
+  ),
+  prepareObjectForLogs: jest.fn((object: unknown) => object),
 }));
 
 const { buildContext } = await import('../context.js');
-const { REDACTION_MESSAGE } = await import('../logger.js');
 
 describe('buildContext', () => {
   let loggerMock: Logger;
-  let cacheMock: { adapter: { get: jest.Mock; set: jest.Mock; delete: jest.Mock } };
+  let cacheMock: KeyvAdapter<string>;
   let tokenMock: JWTAccessToken;
   let dataSourcesMock: {
     sqlDataSource: MySQLConnection;
@@ -30,47 +65,33 @@ describe('buildContext', () => {
   };
 
   beforeEach(() => {
-    loggerMock = {
-      debug: jest.fn(),
-      info: jest.fn(),
-      error: jest.fn(),
-      fatal: jest.fn(),
-      warn: jest.fn(),
-      trace: jest.fn(),
-      level: 'info',
-      silent: jest.fn(),
-      child: jest.fn(),
-    } as unknown as Logger;
-    (loggerMock.child as jest.Mock).mockReturnValue(loggerMock);
+    loggerMock = mockChildLogger as unknown as Logger;
 
     cacheMock = {
-      adapter: {
-        get: jest.fn(),
-        set: jest.fn(),
-        delete: jest.fn(),
-      },
-    };
+      get: jest.fn(),
+      set: jest.fn(),
+      delete: jest.fn(),
+    } as unknown as KeyvAdapter<string>;
     tokenMock = { token: 'test-token' } as unknown as JWTAccessToken;
     dataSourcesMock = {
       sqlDataSource: {} as MySQLConnection,
       dmphubAPIDataSource: {} as DMPHubAPI,
     };
-    mockRandomHex.mockReturnValue('abcdef1234567890abcdef1234567890');
-
     // Clear all mocks before each test
     jest.clearAllMocks();
+    mockRandomHex.mockReturnValue('abcdef1234567890abcdef1234567890');
   });
 
   it('should return a valid context with provided cache and token', async () => {
     const context = buildContext(
       loggerMock,
-      cacheMock.adapter,
+      cacheMock,
       tokenMock,
       dataSourcesMock.sqlDataSource,
       dataSourcesMock.dmphubAPIDataSource,
     );
 
-    expect(context.cache).toEqual(cacheMock.adapter);
+    expect(context.cache).toEqual(cacheMock);
     expect(context.requestId).toBeTruthy();
     expect(context.token).toBe(tokenMock);
     expect(context.logger.debug).toBeDefined();
@@ -79,7 +100,7 @@ describe('buildContext', () => {
     expect(loggerMock.child).toHaveBeenCalled();
   });
 
-  it('should return a valid context with default cache when cache is null', async () => {
+  it('should return a context with null cache when cache is null', () => {
     const context = buildContext(
       loggerMock,
       null,
@@ -88,13 +109,13 @@ describe('buildContext', () => {
       dataSourcesMock.dmphubAPIDataSource,
     ); // Passing null for cache
 
-    expect(context.cache).toBeTruthy();
+    expect(context.cache).toBeNull();
     expect(context.requestId).toBeTruthy();
     expect(context.token).toBe(tokenMock);
     expect(context.logger.error).toBeDefined();
     expect(context.dataSources.dmphubAPIDataSource).toEqual(dataSourcesMock.dmphubAPIDataSource);
     expect(context.dataSources.sqlDataSource).toEqual(dataSourcesMock.sqlDataSource);
-    expect(context.cache).toEqual({ skipCache: true });
+    expect(context.cache).toBeNull();
   });
 
   it('should return a valid context with null token when token is null', async () => {
@@ -114,44 +135,34 @@ describe('buildContext', () => {
     expect(context.dataSources.sqlDataSource).toEqual(dataSourcesMock.sqlDataSource);
   });
 
-  it('should log and return null when an error occurs', async () => {
+  it('should log and rethrow when an error occurs', () => {
     const err = new Error('testing error');
-    // Simulate an error when generating the requestId
     mockRandomHex.mockImplementationOnce(() => {
       throw err;
     });
 
-    const context = buildContext(loggerMock, cacheMock, tokenMock);
+    expect(() => buildContext(loggerMock, cacheMock, tokenMock)).toThrow(err);
 
-    expect(context).toBeNull();
-
-    // Ensure the error is logged with the expected message
     expect(loggerMock.error).toHaveBeenCalledWith(
       expect.objectContaining({
-        err: {},
+        err,
         logger: loggerMock,
         cache: cacheMock,
-        token: REDACTION_MESSAGE,
+        token: tokenMock,
       }),
       'Unable to buildContext - testing error'
     );
   });
 
-  it('should log to console when logger is null and an error occurs', async () => {
-    const originalConsoleLog = console.log;
-    console.log = jest.fn();
-
-    // Simulate an error when generating the requestId
+  it('should log to console when logger is null and an error occurs', () => {
+    const consoleLog = jest.spyOn(console, 'log').mockImplementation(() => undefined);
     mockRandomHex.mockImplementationOnce(() => {
       throw new Error('testing error');
     });
 
-    const context = buildContext(null, cacheMock, tokenMock); // Passing null for logger
+    expect(() => buildContext(null, cacheMock, tokenMock)).toThrow('testing error');
 
-    expect(context).toBeNull();
-
-    // Ensure the error is logged to console when logger is null
-    expect(console.log).toHaveBeenCalledWith('Unable to buildContext - testing error');
-    console.log = originalConsoleLog;
+    expect(consoleLog).toHaveBeenCalledWith('Unable to buildContext - testing error');
+    consoleLog.mockRestore();
   });
 });

@@ -63,7 +63,7 @@ jest.unstable_mockModule('../datasources/dmphubAPI.js', () => ({
 
 import casual from "casual";
 import { Logger } from "pino";
-import { JWTAccessToken } from "../services/tokenService.js";
+import { JWTAccessToken } from "../types/general.js";
 import { MyContext } from "../context.js";
 const { DMPHubAPI } = await import('../datasources/dmphubAPI.js');
 const { EZIDAPI } = await import('../datasources/EZIDAPI.js');
@@ -140,7 +140,6 @@ export const mockUser = (
 
   // Mock getEmail to avoid real DB calls
   user.getEmail = jest.fn<typeof user.getEmail>().mockResolvedValue(casual.email);
-  user.register = jest.fn<typeof user.register>();
   return user;
 };
 

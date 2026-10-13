@@ -5,7 +5,7 @@ import {
 } from "@apollo/datasource-rest";
 import { logger, prepareObjectForLogs } from '../logger.js';
 import { DMPHubConfig } from '../config/dmpHubConfig.js';
-import { JWTAccessToken } from '../services/tokenService.js';
+import { JWTAccessToken } from "../types/general.js";
 import { MyContext } from "../context.js";
 import { RDACommonStandardContact, RDACommonStandardContributor } from "@dmptool/utils";
 import { isNullOrUndefined } from "../utils/helpers.js";
@@ -107,7 +107,7 @@ export class DMPHubAPI extends RESTDataSource {
 
   private authorizer: Authorizer;
 
-  constructor(options: { cache: KeyvAdapter, token: JWTAccessToken }) {
+  constructor(options: { cache: KeyvAdapter, token?: JWTAccessToken }) {
     super(options);
 
     this.authorizer = Authorizer.instance;

@@ -213,7 +213,7 @@ export class VersionedCustomSection extends MySqlModel {
 
     const results = await VersionedCustomSection.query(
       context,
-      `SELECT * FROM ${VersionedCustomSection.tableName} WHERE id IN (${ids.map(():string => '?').join(',')})`,
+      `SELECT * FROM ${VersionedCustomSection.tableName} WHERE id IN (${ids.map((): string => '?').join(',')})`,
       ids.map((id: number): string => id.toString()),
       reference
     );
@@ -261,7 +261,6 @@ export class VersionedCustomSection extends MySqlModel {
     context: MyContext,
     planId: number,
     customSectionId: number,
-    affiliationId: string
   ): Promise<VersionedCustomSection> {
     const sql = `
     SELECT vcs.*
@@ -269,18 +268,16 @@ export class VersionedCustomSection extends MySqlModel {
     INNER JOIN versionedTemplateCustomizations vtc
       ON vcs.versionedTemplateCustomizationId = vtc.id
     INNER JOIN plans p
-      ON vtc.currentVersionedTemplateId = p.versionedTemplateId
+      ON p.versionedTemplateCustomizationId = vcs.versionedTemplateCustomizationId
     WHERE p.id = ?
       AND vcs.customSectionId = ?
-      AND vtc.affiliationId = ?
-      AND vtc.active = 1
     ORDER BY vtc.modified DESC
     LIMIT 1
   `;
     const results = await VersionedCustomSection.query(
       context,
       sql,
-      [planId.toString(), customSectionId.toString(), affiliationId],
+      [planId.toString(), customSectionId.toString()],
       reference
     );
     return Array.isArray(results) && results.length > 0

@@ -34,6 +34,7 @@ export class ProjectSearchResult {
   public members: { name: string, role: string, orcid: string }[];
   public fundingsData: string;
   public fundings: { name: string, grantId: string }[];
+  public relatedWorksCount: number;
 
   constructor(options) {
     this.id = options.id;
@@ -56,6 +57,7 @@ export class ProjectSearchResult {
     this.members = options.members;
     this.fundingsData = options.fundingsData;
     this.fundings = options.fundings;
+    this.relatedWorksCount = options.relatedWorksCount;
   }
 
   static async search(
@@ -155,7 +157,8 @@ export class ProjectSearchResult {
       'ORDER BY fundings.name SEPARATOR \',\') fundingsData, ' +
       '(SELECT COUNT(*) FROM plans WHERE projectId = p.id AND status = \'DRAFT\') as draftPlans, ' +
       '(SELECT COUNT(*) FROM plans WHERE projectId = p.id AND status = \'COMPLETE\') as completePlans, ' +
-      '(SELECT COUNT(*) FROM plans WHERE projectId = p.id AND status = \'ARCHIVED\') as archivedPlans ' +
+      '(SELECT COUNT(*) FROM plans WHERE projectId = p.id AND status = \'ARCHIVED\') as archivedPlans, ' +
+      '(SELECT COUNT(*) FROM relatedWorks rw JOIN plans pl ON pl.id = rw.planId WHERE pl.projectId = p.id AND rw.status = \'ACCEPTED\') as relatedWorksCount ' +
       'FROM projects p ' +
       'LEFT JOIN researchDomains ON p.researchDomainId = researchDomains.id ' +
       'LEFT JOIN users cu ON cu.id = p.createdById ' +

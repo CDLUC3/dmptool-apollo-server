@@ -11,6 +11,7 @@ import {
 import { MySqlModel } from "./MySqlModel.js";
 import { PlanGuidance } from "./Guidance.js";
 import { VersionedTemplate } from "./VersionedTemplate.js";
+import { VersionedTemplateCustomization } from "./VersionedTemplateCustomization.js";
 import { Project } from "./Project.js";
 import { Tag } from "./Tag.js";
 import {
@@ -267,32 +268,18 @@ export class PlanSectionProgress {
   }
 
   /**
-  * Look up the templateCustomizationId for a given versionedTemplateId, if one exists.
-  * A template may not have been customized, in which case this returns undefined.
-  */
-  private static async findTemplateCustomizationId(
+   * Look up the versionedTemplateCustomizationId the plan was pinned to at creation, if any.
+   * A template may not have been customized, in which case this returns undefined.
+   */
+  private static async findVersionedTemplateCustomizationId(
     reference: string,
     context: MyContext,
-    versionedTemplateId: number,
-    affiliationId: string,
+    planId: number,
   ): Promise<number | undefined> {
-    // Join via templateId so the lookup works regardless of which specific
-    // versioned template the customization was published against (e.g. after
-    // a funder re-publishes their template the versionedTemplateId changes
-    // but the base templateId stays the same).
-    const sql = `
-      SELECT vtc.templateCustomizationId
-      FROM versionedTemplateCustomizations vtc
-      JOIN templateCustomizations tc ON tc.id = vtc.templateCustomizationId
-      JOIN versionedTemplates vt ON vt.templateId = tc.templateId
-      WHERE vt.id = ?
-        AND vtc.affiliationId = ?
-        AND vtc.active = 1
-      LIMIT 1
-    `;
-    const rows = await Plan.query(context, sql, [versionedTemplateId.toString(), affiliationId], reference);
+    const sql = `SELECT versionedTemplateCustomizationId FROM plans WHERE id = ?`;
+    const rows = await Plan.query(context, sql, [planId.toString()], reference);
     return Array.isArray(rows) && rows.length > 0
-      ? rows[0].templateCustomizationId
+      ? rows[0].versionedTemplateCustomizationId ?? undefined
       : undefined;
   }
 
@@ -303,7 +290,7 @@ export class PlanSectionProgress {
   private static async fetchCustomSections(
     reference: string,
     context: MyContext,
-    templateCustomizationId: number,
+    versionedTemplateCustomizationId: number,
   ): Promise<{ id: number; name: string; pinnedSectionType: string; pinnedSectionId: number; totalQuestions: number; totalRequiredQuestions: number }[]> {
     const sql = `
     SELECT
@@ -319,11 +306,10 @@ export class PlanSectionProgress {
       ON vcq.versionedSectionId = vcs.customSectionId
       AND vcq.versionedSectionType = 'CUSTOM'
       AND vcq.versionedTemplateCustomizationId = vtc.id
-    WHERE vtc.templateCustomizationId = ?
-    AND vtc.active = 1
+    WHERE vtc.id = ?
     GROUP BY vcs.customSectionId, vcs.name, vcs.pinnedVersionedSectionType, vcs.pinnedVersionedSectionId
   `;
-    const rows = await Plan.query(context, sql, [templateCustomizationId.toString()], reference);
+    const rows = await Plan.query(context, sql, [versionedTemplateCustomizationId.toString()], reference);
     return Array.isArray(rows) ? rows : [];
   }
 
@@ -334,23 +320,23 @@ export class PlanSectionProgress {
   private static async fetchExtraQuestionsForBaseSections(
     reference: string,
     context: MyContext,
-    templateCustomizationId: number
+    versionedTemplateCustomizationId: number
   ): Promise<{ versionedSectionId: number; extraCount: number; requiredCount: number }[]> {
-    // sectionId on a BASE custom question points directly to versionedSections.id
+    // versionedSectionId on a BASE custom question points directly to versionedSections.id
     const sql = `
       SELECT
-        cq.sectionId AS versionedSectionId,
-        COUNT(cq.id) AS extraCount,
-        COUNT(CASE WHEN cq.required = 1 THEN cq.id END) AS requiredCount
-      FROM customQuestions cq
-      JOIN versionedSections vs ON vs.id = cq.sectionId
-      WHERE cq.templateCustomizationId = ?
-      GROUP BY cq.sectionId
+        vcq.versionedSectionId AS versionedSectionId,
+        COUNT(vcq.id) AS extraCount,
+        COUNT(CASE WHEN vcq.required = 1 THEN vcq.id END) AS requiredCount
+      FROM versionedCustomQuestions vcq
+      WHERE vcq.versionedTemplateCustomizationId = ?
+        AND vcq.versionedSectionType = 'BASE'
+      GROUP BY vcq.versionedSectionId
   `;
     const rows = await Plan.query(
       context,
       sql,
-      [templateCustomizationId.toString()],
+      [versionedTemplateCustomizationId.toString()],
       reference
     );
     return Array.isArray(rows) ? rows : [];
@@ -362,14 +348,14 @@ export class PlanSectionProgress {
    * @param reference
    * @param context
    * @param planId
-   * @param templateCustomizationId
+   * @param versionedTemplateCustomizationId
    * @returns
    */
   private static async fetchAnsweredCustomQuestions(
     reference: string,
     context: MyContext,
     planId: number,
-    templateCustomizationId: number,
+    versionedTemplateCustomizationId: number,
   ): Promise<{ sectionId: number; sectionType: string; answeredCount: number; answeredRequiredCount: number }[]> {
     const sql = `
     SELECT
@@ -383,13 +369,13 @@ export class PlanSectionProgress {
     JOIN versionedTemplateCustomizations vtc
       ON vtc.id = vcq.versionedTemplateCustomizationId
     WHERE a.planId = ?
-      AND vtc.templateCustomizationId = ?
+      AND vtc.id = ?
       AND ${FILLED_ANSWER_CHECK}
     GROUP BY vcq.versionedSectionId, vcq.versionedSectionType
   `;
     const rows = await Plan.query(
       context, sql,
-      [planId.toString(), templateCustomizationId.toString()],
+      [planId.toString(), versionedTemplateCustomizationId.toString()],
       reference
     );
     return Array.isArray(rows) ? rows : [];
@@ -404,7 +390,7 @@ export class PlanSectionProgress {
    * @param planId The ID of the plan to return progress information for
    * @returns The progress information for the section or an empty array if the section does not exist
    */
-  static async findByPlanId(reference: string, context: MyContext, planId: number, versionedTemplateId?: number): Promise<PlanSectionProgress[]> {
+  static async findByPlanId(reference: string, context: MyContext, planId: number): Promise<PlanSectionProgress[]> {
     // First fetch base sections and their question counts, which we will use as the foundation to build out the full section list with custom sections
     // and adjusted question counts.
     // COALESCE(questionTagAgg.tags, sectionTagAgg.tags, JSON_ARRAY()) ensures that we try and use question tags first, then section tags, and
@@ -480,25 +466,18 @@ export class PlanSectionProgress {
     // If there are no base sections the plan is in a bad state — return early
     if (!baseSections.length) return baseSections;
 
-    const affiliationId = context.token?.affiliationId;
-    if (!affiliationId) return baseSections;
-
-    const templateCustomizationId = await this.findTemplateCustomizationId(
-      reference,
-      context,
-      versionedTemplateId,
-      affiliationId
+    const versionedTemplateCustomizationId = await this.findVersionedTemplateCustomizationId(
+      reference, context, planId
     );
 
-    // No customization exists for this template — return base sections as-is
-    // totalQuestions and answeredQuestions will reflect only the base questions in this case
-    if (!templateCustomizationId) return baseSections;
+    // The plan was not created from a customized template — return base sections as-is
+    if (!versionedTemplateCustomizationId) return baseSections;
 
     // Fetch custom sections and extra question counts in parallel
     const [customSectionTotals, baseCustomQuestionTotals, answeredCustomTotals] = await Promise.all([
-      this.fetchCustomSections(reference, context, templateCustomizationId),
-      this.fetchExtraQuestionsForBaseSections(reference, context, templateCustomizationId),
-      this.fetchAnsweredCustomQuestions(reference, context, planId, templateCustomizationId),
+      this.fetchCustomSections(reference, context, versionedTemplateCustomizationId),
+      this.fetchExtraQuestionsForBaseSections(reference, context, versionedTemplateCustomizationId),
+      this.fetchAnsweredCustomQuestions(reference, context, planId, versionedTemplateCustomizationId),
     ]);
 
     // Build answered-count maps keyed by sectionId, split by section type ("Base" vs "Custom") since they have different sectionId spaces
@@ -619,15 +598,13 @@ export class PlanProgress {
   static async findByPlanId(
     reference: string,
     context: MyContext,
-    planId: number,
-    versionedTemplateId?: number
+    planId: number
   ): Promise<PlanProgress> {
     // Reuse PlanSectionProgress which already handles custom questions correctly
     const sections = await PlanSectionProgress.findByPlanId(
       reference,
       context,
-      planId,
-      versionedTemplateId
+      planId
     );
 
     if (!sections.length) return null;
@@ -646,6 +623,7 @@ export class Plan extends MySqlModel {
   public projectId: number;
   public dmpId: string;
   public versionedTemplateId: number;
+  public versionedTemplateCustomizationId: number;
   public title: string;
   public status: PlanStatus;
   public visibility: PlanVisibility;
@@ -663,6 +641,7 @@ export class Plan extends MySqlModel {
 
     this.projectId = options.projectId;
     this.versionedTemplateId = options.versionedTemplateId;
+    this.versionedTemplateCustomizationId = options.versionedTemplateCustomizationId;
 
     this.title = options.title;
     this.status = options.status ?? PlanStatus.DRAFT;
@@ -873,6 +852,17 @@ export class Plan extends MySqlModel {
           .filter((title: string | undefined): title is string => typeof title === 'string');
 
         this.title = resolveNamingCollision(this.title, existingPlanTitles);
+
+        // Pin the plan to the customization that applies to the creator's affiliation at creation time,
+        // so custom questions/sections/guidance stay with the plan even if affiliations change later
+        const affiliationId = context.token?.affiliationId;
+        if (affiliationId && this.versionedTemplateId) {
+          const customization = await VersionedTemplateCustomization.findActiveByTemplateAndAffiliation(
+            reference, context, this.versionedTemplateId, affiliationId
+          );
+          this.versionedTemplateCustomizationId = customization?.id ?? null;
+        }
+
 
         // Create the new Plan
         const newId = await Plan.insert(context, Plan.tableName, this, reference);

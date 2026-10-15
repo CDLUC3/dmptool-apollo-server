@@ -155,6 +155,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `@dmptool/utils` to `v2.2.3`
 - Updated `dmptool-utils` to `v2.2.2` to get updates related to customizations and a research output bug [#388]
 - Fixed some broken tests for the `planService` 
 - Updated `getPlanSectionsAndQuestions` to no longer return guidance sources for a question if they have no guidance text [#430]

@@ -234,7 +234,7 @@ export const resolvers: Resolvers = {
               json ?? currentQuestionData.json
             );
             if (conflicts.length > 0) {
-              question.addError('json', 'Your changes were not saved. One or more of this question\'s options are used in the display logic of another question. Remove that display logic condition before removing or renaming the option, or changing the question type.');
+              question.addError('json', 'Your changes could not be saved because you have edited or deleted options used in Display Logic of another question. You must remove all Display Logic that uses those option(s) before editing or deleting them.');
               updatedQuestion = question;
               return;
             }
@@ -434,7 +434,7 @@ export const resolvers: Resolvers = {
               // allow it until that display logic is removed
               const conflicts = await findQuestionRemoveConflicts(context, questionId);
               if (conflicts.length > 0) {
-                question.addError('general', 'This question is a trigger question in the display logic of another question. Remove that display logic condition before deleting this question.');
+                question.addError('general', 'This question is used in the Display Logic of one or more other questions. You must remove all Display Logic that uses this question before deleting it.');
                 return question;
               }
 

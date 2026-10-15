@@ -411,7 +411,7 @@ describe('question resolvers', () => {
       expect(mockLockQuestionTemplate).toHaveBeenCalled();
       expect(updateSpy).not.toHaveBeenCalled();
       expect(Template.markTemplateAsDirty).not.toHaveBeenCalled();
-      expect(result.body.singleResult.data.updateQuestion.errors.json).toContain('display logic');
+      expect(result.body.singleResult.data.updateQuestion.errors.json).toContain('Your changes could not be saved because you have edited or deleted options used in Display Logic of another question. You must remove all Display Logic that uses those option(s) before editing or deleting them.');
     });
 
     it('should update an existing question successfully', async () => {
@@ -706,7 +706,7 @@ describe('question resolvers', () => {
       expect(mockLockQuestionTemplate).toHaveBeenCalled();
       expect(deleteSpy).not.toHaveBeenCalled();
       expect(Template.markTemplateAsDirty).not.toHaveBeenCalled();
-      expect(result.body.singleResult.data.removeQuestion.errors.general).toContain('display logic');
+      expect(result.body.singleResult.data.removeQuestion.errors.general).toContain('This question is used in the Display Logic of one or more other questions. You must remove all Display Logic that uses this question before deleting it.');
     });
 
     it('should delete the question successfully', async () => {

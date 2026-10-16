@@ -1,29 +1,41 @@
-import casual from 'casual';
-import { MySqlModel } from "../MySqlModel";
-import {
-  buildMockContextWithToken
-} from '../../__mocks__/context';
-import { getCurrentDate } from '../../utils/helpers';
-import { generalConfig } from '../../config/generalConfig';
-import {
+import { jest } from '@jest/globals';
+import casual from "casual";
+import { formatISO9075 } from 'date-fns';
+
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+jest.unstable_mockModule('../../datasources/mysql.js', () => ({
+  MySQLConnection: {
+    getInstance: jest.fn().mockReturnValue({
+      query: jest.fn(),
+    }),
+  },
+}));
+
+
+
+import type { MyContext } from '../../context.js';
+import type {
   PaginationOptionsForCursors,
   PaginationOptionsForOffsets,
-  PaginationType
-} from '../../types/general';
-import { MyContext } from '../../context';
-import { formatISO9075 } from 'date-fns';
-import { logger } from "../../logger";
+} from '../../types/general.js';
 
-jest.mock('../../datasources/mysql', () => {
-  return {
-    __esModule: true,
-    MySQLConnection: {
-      getInstance: jest.fn().mockReturnValue({
-        query: jest.fn(), // Initialize the query mock function
-      }),
-    },
-  };
-});
+
+//Dynamic imports AFTER all mocks are registered
+const { MySqlModel } = await import('../MySqlModel.js');
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
+const { generalConfig } = await import('../../config/generalConfig.js');
+const { getCurrentDate } = await import('../../utils/helpers.js');
+const { PaginationType } = await import('../../types/general.js');
 
 class TestImplementation extends MySqlModel {
   public name: string;
@@ -528,7 +540,7 @@ describe('propertyInfo', () => {
 
 describe('query function', () => {
   const originalQuery = MySqlModel.query;
-  let mockQuery: jest.Mock;
+  let mockQuery: jest.Mock<() => Promise<unknown[]>>;
   let context: MyContext;
 
   beforeEach(async () => {
@@ -536,7 +548,8 @@ describe('query function', () => {
 
     context = await buildMockContextWithToken(logger);
 
-    mockQuery = jest.fn();
+    mockQuery = jest.fn<() => Promise<unknown[]>>();
+
     // Create a mock datasource with the query function
     context.dataSources.sqlDataSource = {
       query: mockQuery
@@ -567,7 +580,7 @@ describe('query function', () => {
   });
 
   it('query uses the active transaction connection when one is present', async () => {
-    const transactionQuery = jest.fn().mockResolvedValueOnce([
+    const transactionQuery = jest.fn<() => Promise<[unknown[], unknown[]]>>().mockResolvedValueOnce([
       ['inside transaction'],
       [{ name: 'field' }],
     ]);
@@ -622,7 +635,7 @@ describe('query function', () => {
     expect(context.logger.debug).toHaveBeenCalledTimes(1);
     expect(context.logger.error).toHaveBeenCalledTimes(1);
     expect(context.logger.debug).toHaveBeenCalledWith({ sql, usingTransaction: false, values: ["123"] }, "testing failure");
-    expect(context.logger.error).toHaveBeenCalledWith({}, "testing failure, ERROR: Testing error handler");
+    expect(context.logger.error).toHaveBeenCalledWith(mockError, "testing failure, ERROR: Testing error handler");
     expect(result).toEqual([]);
   });
 

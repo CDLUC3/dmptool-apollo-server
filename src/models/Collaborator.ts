@@ -1,20 +1,20 @@
-import { MyContext } from '../context';
-import { sendProjectCollaborationEmail, sendTemplateCollaborationEmail } from '../services/emailService';
+import { MyContext } from '../context.js';
+import { sendProjectCollaborationEmail, sendTemplateCollaborationEmail } from '../services/emailService.js';
 import {
   formatORCID,
   isNullOrUndefined,
   stripORCIDIdentifierBaseURL,
   validateEmail,
   valueIsEmpty
-} from '../utils/helpers';
-import { MySqlModel } from './MySqlModel';
-import { Project } from './Project';
-import { Template } from './Template';
-import { User } from './User';
-import { PaginatedQueryResults, PaginationOptionsForCursors } from "../types/general";
-import { CollaboratorSearchResult } from "../types";
-import { Affiliation } from "./Affiliation";
-import { OrcidAPI, OrcidPerson } from "../datasources/OrcidAPI";
+} from '../utils/helpers.js';
+import { MySqlModel } from './MySqlModel.js';
+import { Project } from './Project.js';
+import { Template } from './Template.js';
+import { User } from './User.js';
+import { PaginatedQueryResults, PaginationOptionsForCursors } from "../types/general.js";
+import { CollaboratorSearchResult } from "../types.js";
+import { Affiliation } from "./Affiliation.js";
+import { OrcidAPI, OrcidPerson } from "../datasources/OrcidAPI.js";
 
 export interface ProjectCollaboratorSearchResult {
   cursorId?: string;

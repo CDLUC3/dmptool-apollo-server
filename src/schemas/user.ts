@@ -1,4 +1,4 @@
-import gql from "graphql-tag";
+import { gql } from 'graphql-tag';
 
 export const typeDefs = gql`
   extend type Query {
@@ -30,9 +30,6 @@ export const typeDefs = gql`
     removeUserEmail(email: String!): UserEmail
     "Designate the email as the current user's primary email address"
     setPrimaryUserEmail(email: String!): [UserEmail]
-
-    "Change the current user's password"
-    updatePassword(oldPassword: String!, newPassword: String!, email: String!): User
 
     "Deactivate the specified user Account (Admin only)"
     deactivateUser(userId: Int!): User

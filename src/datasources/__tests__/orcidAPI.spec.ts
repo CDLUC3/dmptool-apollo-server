@@ -1,11 +1,18 @@
+import { jest } from '@jest/globals';
 import nock from "nock";
-import { Authorizer } from "../OrcidAPI";
-import { logger } from "../../logger";
-import { OrcidConfig } from "../../config/orcidConfig";
-import { RESTDataSource } from "@apollo/datasource-rest";
 import { KeyvAdapter } from "@apollo/utils.keyvadapter";
-import { buildContext, buildMockContextWithToken } from "../../__mocks__/context";
-import { OrcidAPI } from "../OrcidAPI";
+import { RESTDataSource } from "@apollo/datasource-rest";
+
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+mockAppConfigs();
+mockAppLogger();
+
+
+const { logger } = await import('../../logger.js');
+const { buildContext, buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { Authorizer, OrcidAPI } = await import("../OrcidAPI.js");
+const { OrcidConfig } = await import("../../config/orcidConfig.js");
 
 // Mock RESTDataSource methods
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -28,7 +35,7 @@ afterEach(() => {
 });
 
 describe('Authorizer', () => {
-  let authorizer: Authorizer;
+  let authorizer: InstanceType<typeof Authorizer>;
 
   beforeEach(() => {
     mockPost.mockClear();
@@ -71,8 +78,8 @@ describe('Authorizer', () => {
 });
 
 describe('OrcidAPI', () => {
-  let orcidAPI: OrcidAPI;
-  let mockAuthorizer: Authorizer;
+  let orcidAPI: InstanceType<typeof OrcidAPI>;
+  let mockAuthorizer: InstanceType<typeof Authorizer>;
 
   beforeEach(() => {
     mockGet.mockClear();
@@ -131,7 +138,7 @@ describe('OrcidAPI', () => {
                 name: "Old University",
                 "disambiguated-organization": "https://ror.org/98765"
               },
-              url: {value: "https://old.example.com"},
+              url: { value: "https://old.example.com" },
             }
           }, {
             "employment-summary": {
@@ -142,7 +149,7 @@ describe('OrcidAPI', () => {
                   "disambiguated-organization-identifier": "https://ror.org/12345"
                 }
               },
-              url: {value: "https://test.example.com"},
+              url: { value: "https://test.example.com" },
             }
           }]
         }]

@@ -1,6 +1,6 @@
-import { MyContext } from "../context";
-import { isNullOrUndefined } from "../utils/helpers";
-import { MySqlModel } from "./MySqlModel";
+import { MyContext } from "../context.js";
+import { isNullOrUndefined } from "../utils/helpers.js";
+import { MySqlModel } from "./MySqlModel.js";
 
 // Our current default research output types were derived from a subset of
 // the DataCite resourceType definitions.

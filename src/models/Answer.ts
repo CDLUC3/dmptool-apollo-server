@@ -1,9 +1,9 @@
-import { MyContext } from "../context";
-import { MySqlModel } from "./MySqlModel";
+import { MyContext } from "../context.js";
+import { MySqlModel } from "./MySqlModel.js";
 import {
   isNullOrUndefined,
   removeNullAndUndefinedFromJSON,
-} from "../utils/helpers";
+} from "../utils/helpers.js";
 import {
   AnswerSchemaMap,
   AnyResearchOutputTableColumnAnswerType,
@@ -259,6 +259,27 @@ export class Answer extends MySqlModel {
     const sql = `SELECT * FROM answers WHERE planId = ?`;
     const results = await Answer.query(context, sql, [planId.toString()], reference);
     return Array.isArray(results) && results.length > 0 ? results.map((ans) => new Answer(ans)) : [];
+  }
+
+  /**
+   * Find all filled answers for a given plan
+   *
+   * @param reference the reference to use for logging
+   * @param context the Apollo context
+   * @param planId the ID of the plan
+   * @returns an array of filled answers for the given plan
+   */
+  static async findFilledAnswersByPlanId(
+    reference: string,
+    context: MyContext,
+    planId: number
+  ): Promise<Answer[]> {
+    const sql = `SELECT *
+                 FROM answers
+                 WHERE planId = ?
+                   AND ${FILLED_ANSWER_CHECK}`;
+    const results: unknown[] = await Answer.query(context, sql, [String(planId)], reference);
+    return Array.isArray(results) && results.length > 0 ? results.map((ans: unknown): Answer => new Answer(ans)) : [];
   }
 
   // given a list of question ids, return all filled answers, flexible to handle different groupings of question ids

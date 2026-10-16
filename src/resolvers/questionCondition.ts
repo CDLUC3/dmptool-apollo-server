@@ -1,6 +1,6 @@
-import { Resolvers } from "../types";
-import { MyContext } from "../context";
-import { QuestionCondition } from "../models/QuestionCondition";
+import { Resolvers } from "../types.js";
+import { MyContext } from "../context.js";
+import { QuestionCondition } from "../models/QuestionCondition.js";
 import {
   NotFoundError,
   ForbiddenError,
@@ -8,15 +8,19 @@ import {
   InternalServerError,
   BadRequestError,
   BAD_REQUEST_ERROR_CODE,
-} from "../utils/graphQLErrors";
-import { isAdmin } from "../services/authService";
-import { hasPermissionOnQuestion } from "../services/questionService";
-import { QuestionConditionGroup } from "../models/QuestionConditionGroup";
-import { Question } from "../models/Question";
-import { Template } from "../models/Template";
-import { prepareObjectForLogs } from "../logger";
+} from "../utils/graphQLErrors.js";
+import { isAdmin } from "../services/authService.js";
+import {
+  hasPermissionOnQuestion,
+  extractTriggerQuestionOptionValues,
+  lockQuestionTemplate
+} from "../services/questionService.js";
+import { QuestionConditionGroup } from "../models/QuestionConditionGroup.js";
+import { Question } from "../models/Question.js";
+import { Template } from "../models/Template.js";
+import { prepareObjectForLogs } from "../logger.js";
 import { GraphQLError } from "graphql";
-import { normaliseDateTime } from "../utils/helpers";
+import { normaliseDateTime } from "../utils/helpers.js";
 
 
 export const resolvers: Resolvers = {
@@ -54,16 +58,84 @@ export const resolvers: Resolvers = {
 
       let updatedQuestion: Question = question;
 
+      // Wrap the entire operation in a transaction so that either all changes are persisted or none are.
       try {
         return await context.dataSources.sqlDataSource.withTransaction(context, async (): Promise<Question> => {
-          question.displayLogicAction = action;
-          question.displayLogicMatchType = matchType;
-          question.isDirty = true;
-          updatedQuestion = await question.update(context);
+          await lockQuestionTemplate(context, question.templateId);
+
+          // Re-read the question now that we hold the lock, so the update below doesn't overwrite changes
+          // another request made after the permission check  above (or act on a question that was deleted)
+          const currentQuestion = await Question.findById(reference, context, questionId);
+          if (!currentQuestion) {
+            throw NotFoundError('Question not found');
+          }
+
+          const priorQuestions = await Question.findPriorQuestionsForQuestion(
+            `${reference}.priorQuestions`,
+            context,
+            questionId
+          );
+          const priorQuestionMap = new Map<number, Question>(
+            priorQuestions.map((entry) => [entry.id, entry])
+          );
+
+          const addGeneralValidationError = (message: string): void => {
+            const existingMessage = currentQuestion.errors.general;
+            currentQuestion.addError(
+              'general',
+              existingMessage ? `${existingMessage}; ${message}` : message
+            );
+          };
+
+          groups.forEach((groupInput, groupIndex) => {
+            const groupNumber = groupIndex + 1;
+
+            if (!Array.isArray(groupInput.conditions) || groupInput.conditions.length < 1) {
+              addGeneralValidationError(
+                `Group ${groupNumber} must include at least one condition.`
+              );
+              return;
+            }
+
+            const triggerQuestion = priorQuestionMap.get(groupInput.triggerQuestionId);
+            if (!triggerQuestion) {
+              addGeneralValidationError(
+                `Group ${groupNumber} trigger question must be a prior template question.`
+              );
+              return;
+            }
+
+            const optionValues = extractTriggerQuestionOptionValues(triggerQuestion);
+            if (optionValues.size < 1) {
+              addGeneralValidationError(
+                `Group ${groupNumber} trigger question has no selectable options.`
+              );
+              return;
+            }
+
+            groupInput.conditions.forEach((conditionInput, conditionIndex) => {
+              const conditionNumber = conditionIndex + 1;
+              if (!conditionInput.conditionMatch || !optionValues.has(conditionInput.conditionMatch)) {
+                addGeneralValidationError(
+                  `Group ${groupNumber} condition ${conditionNumber} must match one of the trigger question options.`
+                );
+              }
+            });
+          });
+
+          if (currentQuestion.hasErrors()) {
+            return currentQuestion;
+          }
+
+          currentQuestion.displayLogicAction = action;
+          currentQuestion.displayLogicMatchType = matchType;
+          currentQuestion.isDirty = true;
+          updatedQuestion = await currentQuestion.update(context);
           if (updatedQuestion.hasErrors()) {
             throw BadRequestError();
           }
 
+          // Delete any existing groups (cascades to conditions) for the question
           const existingGroups = await QuestionConditionGroup.findByQuestionId(reference, context, questionId);
           for (const existing of existingGroups) {
             const toDelete = new QuestionConditionGroup({ ...existing });

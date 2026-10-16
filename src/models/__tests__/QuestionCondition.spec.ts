@@ -1,9 +1,20 @@
+import { jest } from '@jest/globals';
 import casual from "casual";
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { QuestionCondition } from "../QuestionCondition";
-import { logger } from "../../logger";
 
-jest.mock('../../context.ts');
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+//Dynamic imports AFTER all mocks are registered
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
+const { QuestionCondition } = await import('../QuestionCondition.js');
 
 describe('QuestionCondition', () => {
   let questionCondition;
@@ -88,6 +99,26 @@ describe('findBy Queries', () => {
     const result = await QuestionCondition.findByGroupId('testing', context, groupId);
     expect(result).toEqual([]);
   });
+
+  it('findByTriggerQuestionId should call query with the trigger question id and return the conditions', async () => {
+    localQuery.mockResolvedValueOnce([questionCondition]);
+    const triggerQuestionId = casual.integer(1, 999);
+    const result = await QuestionCondition.findByTriggerQuestionId('testing', context, triggerQuestionId);
+    expect(localQuery).toHaveBeenCalledTimes(1);
+    expect(localQuery).toHaveBeenLastCalledWith(
+      context,
+      expect.stringContaining('WHERE qcg.triggerQuestionId = ? AND qcg.questionId <> ?'),
+      [triggerQuestionId.toString(), triggerQuestionId.toString()],
+      'testing'
+    );
+    expect(result).toEqual([questionCondition]);
+  });
+
+  it('findByTriggerQuestionId should return an empty array if it finds no records', async () => {
+    localQuery.mockResolvedValueOnce([]);
+    const result = await QuestionCondition.findByTriggerQuestionId('testing', context, casual.integer(1, 999));
+    expect(result).toEqual([]);
+  });
 });
 
 describe('create', () => {
@@ -120,7 +151,7 @@ describe('create', () => {
   });
 
   it('returns the QuestionCondition without errors if it is valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (questionCondition.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
     findByIdQuery.mockResolvedValueOnce(questionCondition);
@@ -144,11 +175,11 @@ describe('create', () => {
   });
 
   it('returns the newly added QuestionCondition', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (questionCondition.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof QuestionCondition>>>();
     (QuestionCondition.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(questionCondition);
 
@@ -193,7 +224,7 @@ describe('update', () => {
   });
 
   it('returns an error if the QuestionCondition has no id', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (questionCondition.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
@@ -207,7 +238,7 @@ describe('update', () => {
     updateQuery.mockResolvedValueOnce(questionCondition);
     findByIdQuery.mockResolvedValueOnce(questionCondition);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof QuestionCondition>>>();
     (QuestionCondition.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(questionCondition);
 
@@ -239,7 +270,7 @@ describe('delete', () => {
   });
 
   it('returns null if it was not able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<null>>();
     (QuestionCondition.delete as jest.Mock) = deleteQuery;
 
     deleteQuery.mockResolvedValueOnce(null);
@@ -247,11 +278,11 @@ describe('delete', () => {
   });
 
   it('returns the QuestionCondition if it was able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<boolean>>();
     (QuestionCondition.delete as jest.Mock) = deleteQuery;
     deleteQuery.mockResolvedValueOnce(questionCondition);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof QuestionCondition>>>();
     (QuestionCondition.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(questionCondition);
 

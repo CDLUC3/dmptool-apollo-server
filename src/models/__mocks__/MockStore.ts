@@ -1,6 +1,6 @@
 import casual from "casual";
-import { getCurrentDate, isNullOrUndefined } from "../../utils/helpers";
-import { PaginationOptionsForOffsets, PaginationOptionsForCursors } from '../../types/general';
+import { getCurrentDate, isNullOrUndefined } from "../../utils/helpers.js";
+import { PaginationOptionsForOffsets, PaginationOptionsForCursors } from '../../types/general.js';
 
 const mockTableStores = {};
 
@@ -141,7 +141,7 @@ export const paginate = (results, paginationOptions: PaginationOptionsForCursors
     totalCount,
     limit: paginationOptions.limit,
     currentOffset: ('offset' in paginationOptions) ? paginationOptions.offset : null,
-    nextCursor: ('cursor' in paginationOptions) && finalId!== lastId ? lastId.toString() : null,
+    nextCursor: ('cursor' in paginationOptions) && finalId !== lastId ? lastId.toString() : null,
     hasNextPage: paginatedResults.length === paginationOptions.limit,
     hasPreviousPage,
     availableSortFields: [],

@@ -1,8 +1,8 @@
-import { MyContext } from "../context";
-import { Affiliation } from "../models/Affiliation";
-import { AffiliationEmailDomain } from "../models/AffiliationEmailDomain";
-import { isNullOrUndefined } from "../utils/helpers";
-import { AffiliationLink } from "../models/AffiliationLink";
+import { MyContext } from "../context.js";
+import { Affiliation } from "../models/Affiliation.js";
+import { AffiliationEmailDomain } from "../models/AffiliationEmailDomain.js";
+import { isNullOrUndefined } from "../utils/helpers.js";
+import { AffiliationLink } from "../models/AffiliationLink.js";
 
 export interface ResolveAffiliationInput {
   affiliationId?: string | null;

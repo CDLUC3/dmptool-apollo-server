@@ -1,6 +1,6 @@
-import { MySqlModel } from "./MySqlModel";
-import { MyContext } from "../context";
-import {isNullOrUndefined} from "../utils/helpers";
+import { MySqlModel } from "./MySqlModel.js";
+import { MyContext } from "../context.js";
+import { isNullOrUndefined } from "../utils/helpers.js";
 
 /**
  * A snapshot version of the affiliation's customizations to a funder template
@@ -42,7 +42,7 @@ export class VersionedTemplateCustomization extends MySqlModel {
       this.addError('affiliationId', 'Affiliation can\'t be blank');
     }
     if (isNullOrUndefined(this.templateCustomizationId)) {
-      this.addError('templateCustomizationId','Template customization can\'t be blank');
+      this.addError('templateCustomizationId', 'Template customization can\'t be blank');
     }
     if (isNullOrUndefined(this.currentVersionedTemplateId)) {
       this.addError('currentVersionedTemplateId', 'Funder template can\'t be blank');
@@ -120,7 +120,7 @@ export class VersionedTemplateCustomization extends MySqlModel {
           ref,
           [],
           noTouch
-        ) as unknown as {affectedRows:number} | null;
+        ) as unknown as { affectedRows: number } | null;
 
         if (result && result.affectedRows > 0) {
           return await VersionedTemplateCustomization.findById(ref, context, this.id);
@@ -201,6 +201,35 @@ export class VersionedTemplateCustomization extends MySqlModel {
          WHERE templateCustomizationId = ? AND currentVersionedTemplateId = ?
          AND active = 1`,
       [templateCustomizationId.toString(), versionedTemplateId.toString()],
+      reference
+    );
+    return Array.isArray(results) && results.length > 0
+      ? new VersionedTemplateCustomization(results[0])
+      : undefined;
+  }
+
+  /**
+   * Find the active (published) customization of a published template for an affiliation
+   *
+   * @param reference The reference to use for logging errors.
+   * @param context The Apollo context.
+   * @param versionedTemplateId The published version of the template id.
+   * @param affiliationId The affiliation that customized the template.
+   * @returns The active version of the customization, or undefined if there isn't one.
+   */
+  static async findActiveByTemplateAndAffiliation(
+    reference: string,
+    context: MyContext,
+    versionedTemplateId: number,
+    affiliationId: string
+  ): Promise<VersionedTemplateCustomization> {
+    const results = await VersionedTemplateCustomization.query(
+      context,
+      `SELECT * FROM ${VersionedTemplateCustomization.tableName}
+         WHERE currentVersionedTemplateId = ? AND affiliationId = ?
+         AND active = 1
+         LIMIT 1`,
+      [versionedTemplateId.toString(), affiliationId],
       reference
     );
     return Array.isArray(results) && results.length > 0

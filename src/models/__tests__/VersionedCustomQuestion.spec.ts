@@ -1,16 +1,23 @@
-import { MyContext } from "../../context";
-import { PinnedSectionTypeEnum } from "../CustomSection";
-import { PinnedQuestionTypeEnum } from "../CustomQuestion";
-import { VersionedCustomQuestion } from "../VersionedCustomQuestion";
-import { MySqlModel } from "../MySqlModel";
 
-jest.mock("../MySqlModel", () => ({
-  ...jest.requireActual("../MySqlModel"),
-  query: jest.fn(),
-  insert: jest.fn(),
-  update: jest.fn(),
-  delete: jest.fn(),
+import { jest } from '@jest/globals';
+
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
 }));
+
+import type { MyContext } from '../../context.js';
+
+// Dynamic imports AFTER all mocks are registered
+const { PinnedSectionTypeEnum } = await import("../CustomSection.js");
+const { PinnedQuestionTypeEnum } = await import("../CustomQuestion.js");
+const { VersionedCustomQuestion } = await import("../VersionedCustomQuestion.js");
+const { MySqlModel } = await import("../MySqlModel.js");
 
 describe("VersionedCustomQuestion", () => {
   let mockContext: MyContext;
@@ -22,7 +29,7 @@ describe("VersionedCustomQuestion", () => {
 
   describe("constructor", () => {
     it("should create a VersionedCustomQuestion with all properties", () => {
-      const options: VersionedCustomQuestion = new VersionedCustomQuestion({
+      const options: InstanceType<typeof VersionedCustomQuestion> = new VersionedCustomQuestion({
         id: 1,
         created: new Date().toISOString(),
         createdById: 10,
@@ -381,7 +388,7 @@ describe("VersionedCustomQuestion", () => {
         questionText: "Updated question",
       });
 
-      const mockUpdate = jest.spyOn(MySqlModel, "update").mockResolvedValue(undefined);
+      const mockUpdate = jest.spyOn(MySqlModel, "update").mockResolvedValue(null);
       jest.spyOn(MySqlModel, "query").mockResolvedValue([
         {
           id: 1,
@@ -431,7 +438,7 @@ describe("VersionedCustomQuestion", () => {
         questionText: "  Test Question ",
       });
 
-      const mockUpdate = jest.spyOn(MySqlModel, "update").mockResolvedValue(undefined);
+      const mockUpdate = jest.spyOn(MySqlModel, "update").mockResolvedValue(null);
       jest.spyOn(MySqlModel, "query").mockResolvedValue([
         {
           id: 1,
@@ -630,6 +637,7 @@ describe("VersionedCustomQuestion", () => {
         "test.ref"
       );
       expect(result).toBeInstanceOf(VersionedCustomQuestion);
+      if (!result) throw new Error("expected result to be defined");
       expect(result.id).toBe(1);
       expect(result.versionedTemplateCustomizationId).toBe(100);
     });
@@ -645,7 +653,11 @@ describe("VersionedCustomQuestion", () => {
     it("should handle null id", async () => {
       const mockQuery = jest.spyOn(MySqlModel, "query").mockResolvedValue([]);
 
-      const result = await VersionedCustomQuestion.findById("test.ref", mockContext, null);
+      const result = await VersionedCustomQuestion.findById(
+        "test.ref",
+        mockContext,
+        null as unknown as number
+      );
 
       expect(mockQuery).toHaveBeenCalledWith(
         mockContext,
@@ -749,6 +761,7 @@ describe("VersionedCustomQuestion", () => {
         "test.ref"
       );
       expect(result).toBeInstanceOf(VersionedCustomQuestion);
+      if (!result) throw new Error("expected result to be defined");
       expect(result.id).toBe(1);
       expect(result.versionedTemplateCustomizationId).toBe(100);
     });
@@ -780,8 +793,8 @@ describe("VersionedCustomQuestion", () => {
         200,
         PinnedSectionTypeEnum.BASE,
         300,
-        null,
-        null
+        undefined,
+        undefined
       );
 
       expect(mockQuery).toHaveBeenCalledWith(
@@ -878,20 +891,22 @@ describe("VersionedCustomQuestion", () => {
       const result = await VersionedCustomQuestion.findByVersionedSectionIdAndType(
         "test.ref",
         mockContext,
+        5,
         300,
-        "BASE"
+        "BASE",
       );
 
       expect(mockQuery).toHaveBeenCalledWith(
         mockContext,
         expect.stringContaining("SELECT vcq.* FROM versionedCustomQuestions as vcq"),
-        ["BASE", "300"],
+        ["5", "BASE", "300"],
         "test.ref"
       );
+      // Custom questions come from the customization the plan was pinned to, not the user's affiliation
       expect(mockQuery).toHaveBeenCalledWith(
         mockContext,
-        expect.stringContaining("vtc.active = 1"),
-        ["BASE", "300"],
+        expect.stringContaining("ON p.versionedTemplateCustomizationId = vcq.versionedTemplateCustomizationId"),
+        ["5", "BASE", "300"],
         "test.ref"
       );
       expect(Array.isArray(result)).toBe(true);
@@ -907,10 +922,57 @@ describe("VersionedCustomQuestion", () => {
       const result = await VersionedCustomQuestion.findByVersionedSectionIdAndType(
         "test.ref",
         mockContext,
+        5,
         999,
-        "CUSTOM"
+        "CUSTOM",
       );
 
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe("findByVersionedSectionIdsAndType", () => {
+    it("should find VersionedCustomQuestions by section ids and type", async () => {
+      const sectionIds = [300, 301];
+      const mockQuery = jest.spyOn(MySqlModel, "query").mockResolvedValue([
+        {
+          id: 1,
+          versionedTemplateCustomizationId: 100,
+          customQuestionId: 200,
+          versionedSectionType: PinnedSectionTypeEnum.BASE,
+          versionedSectionId: sectionIds[0],
+          questionText: "Test Question",
+        },
+      ]);
+
+      const result = await VersionedCustomQuestion.findByVersionedSectionIdsAndType(
+        "test.ref",
+        mockContext,
+        sectionIds,
+        "BASE"
+      );
+
+      expect(mockQuery).toHaveBeenCalledWith(
+        mockContext,
+        expect.stringContaining("vcq.versionedSectionId IN (?,?)"),
+        ["BASE", "300", "301"],
+        "test.ref"
+      );
+      expect(result[0]).toBeInstanceOf(VersionedCustomQuestion);
+      expect(result[0].versionedSectionId).toBe(sectionIds[0]);
+    });
+
+    it("should return an empty array without querying when no section ids are provided", async () => {
+      const mockQuery = jest.spyOn(MySqlModel, "query");
+
+      const result = await VersionedCustomQuestion.findByVersionedSectionIdsAndType(
+        "test.ref",
+        mockContext,
+        [],
+        "BASE"
+      );
+
+      expect(mockQuery).not.toHaveBeenCalled();
       expect(result).toEqual([]);
     });
   });

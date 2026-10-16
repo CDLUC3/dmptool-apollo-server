@@ -1,5 +1,5 @@
 import casual from 'casual';
-import { Affiliation, AffiliationSearch } from '../models/Affiliation';
+import { Affiliation, AffiliationSearch } from '../models/Affiliation.js';
 
 const names = [casual.title, casual.title, casual.title, casual.title, casual.title]
 const urls = [casual.url, casual.url, casual.url, casual.url, casual.url]

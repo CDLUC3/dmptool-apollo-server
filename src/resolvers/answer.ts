@@ -1,30 +1,30 @@
 import { GraphQLError } from "graphql";
-import { MyContext } from "../context";
-import { Plan } from "../models/Plan";
-import { prepareObjectForLogs } from "../logger";
+import { MyContext } from "../context.js";
+import { Plan } from "../models/Plan.js";
+import { prepareObjectForLogs } from "../logger.js";
 import {
   AuthenticationError,
   ForbiddenError,
   InternalServerError,
   NotFoundError
-} from "../utils/graphQLErrors";
-import { isAuthorized } from "../services/authService";
-import { sendProjectCollaboratorsCommentsAddedEmail } from '../services/emailService';
-import { canDeleteComment } from "../services/commentPermissions";
-import { Resolvers } from "../types";
-import { VersionedCustomQuestion } from "../models/VersionedCustomQuestion";
-import { VersionedCustomSection } from "../models/VersionedCustomSection";
-import { Answer } from "../models/Answer";
-import { VersionedQuestion } from "../models/VersionedQuestion";
-import { VersionedSection } from "../models/VersionedSection";
-import { AnswerComment } from "../models/AnswerComment";
-import { ProjectCollaborator, ProjectCollaboratorAccessLevel } from "../models/Collaborator";
-import { User } from "../models/User";
-import { PlanFeedbackComment } from "../models/PlanFeedbackComment";
-import { normaliseDateTime } from "../utils/helpers";
-import { hasPermissionOnProject } from "../services/projectService";
-import { Project } from "../models/Project";
-import { handleAsyncUpdates } from "../services/planService";
+} from "../utils/graphQLErrors.js";
+import { isAuthorized } from "../services/authService.js";
+import { sendProjectCollaboratorsCommentsAddedEmail } from '../services/emailService.js';
+import { canDeleteComment } from "../services/commentPermissions.js";
+import { Resolvers } from "../types.js";
+import { VersionedCustomQuestion } from "../models/VersionedCustomQuestion.js";
+import { VersionedCustomSection } from "../models/VersionedCustomSection.js";
+import { Answer } from "../models/Answer.js";
+import { VersionedQuestion } from "../models/VersionedQuestion.js";
+import { VersionedSection } from "../models/VersionedSection.js";
+import { AnswerComment } from "../models/AnswerComment.js";
+import { ProjectCollaborator, ProjectCollaboratorAccessLevel } from "../models/Collaborator.js";
+import { User } from "../models/User.js";
+import { PlanFeedbackComment } from "../models/PlanFeedbackComment.js";
+import { normaliseDateTime } from "../utils/helpers.js";
+import { hasPermissionOnProject } from "../services/projectService.js";
+import { Project } from "../models/Project.js";
+import { handleAsyncUpdates } from "../services/planService.js";
 
 export const resolvers: Resolvers = {
   Query: {

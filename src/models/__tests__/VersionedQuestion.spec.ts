@@ -1,12 +1,25 @@
+import { jest } from '@jest/globals';
 import casual from "casual";
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { VersionedQuestion } from "../VersionedQuestion";
-import { CURRENT_SCHEMA_VERSION } from "@dmptool/types";
-import { removeNullAndUndefinedFromJSON } from "../../utils/helpers";
-import { logger } from "../../logger";
-import { DefaultTextAreaQuestion } from '@dmptool/types'
+import {
+  CURRENT_SCHEMA_VERSION,
+  DefaultTextAreaQuestion
+} from "@dmptool/types";
 
-jest.mock('../../context.ts');
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+//Dynamic imports AFTER all mocks are registered
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
+const { VersionedQuestion } = await import('../VersionedQuestion.js');
+const { removeNullAndUndefinedFromJSON } = await import("../../utils/helpers.js");
 
 let context;
 
@@ -205,7 +218,7 @@ describe('create', () => {
   });
 
   it('returns the VersionedQuestion with errors if it is not valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (versionedQuestion.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -215,11 +228,11 @@ describe('create', () => {
   });
 
   it('returns the newly added VersionedQuestion', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (versionedQuestion.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
-    const mockFindBy = jest.fn();
+    const mockFindBy = jest.fn<() => Promise<InstanceType<typeof VersionedQuestion> | null>>();
     (VersionedQuestion.findById as jest.Mock) = mockFindBy;
     mockFindBy.mockResolvedValue(versionedQuestion);
 
@@ -269,6 +282,58 @@ describe('findByVersionedSectionId', () => {
     expect(localQuery).toHaveBeenCalledTimes(1);
     expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'testing');
     expect(result[0]).toBeInstanceOf(VersionedQuestion);
+  });
+});
+
+describe('findByVersionedSectionIds', () => {
+  const originalQuery = VersionedQuestion.query;
+  let localQuery;
+
+  beforeEach(async () => {
+    localQuery = jest.fn();
+    (VersionedQuestion.query as jest.Mock) = localQuery;
+    context = await buildMockContextWithToken(logger);
+  });
+
+  afterEach(() => {
+    VersionedQuestion.query = originalQuery;
+  });
+
+  it('should find questions for the specified section ids', async () => {
+    const sectionIds = [1, 2];
+    localQuery.mockResolvedValueOnce([{
+      id: 1,
+      versionedTemplateId: 3,
+      versionedSectionId: sectionIds[0],
+      questionId: 4,
+      questionText: 'Question',
+      displayOrder: 1,
+    }]);
+
+    const result = await VersionedQuestion.findByVersionedSectionIds(
+      'testing',
+      context,
+      sectionIds
+    );
+
+    expect(localQuery).toHaveBeenCalledWith(
+      context,
+      'SELECT * FROM versionedQuestions WHERE versionedSectionId IN (?,?)',
+      ['1', '2'],
+      'testing'
+    );
+    expect(result[0]).toBeInstanceOf(VersionedQuestion);
+  });
+
+  it('should return an empty array without querying when no section ids are provided', async () => {
+    const result = await VersionedQuestion.findByVersionedSectionIds(
+      'testing',
+      context,
+      []
+    );
+
+    expect(localQuery).not.toHaveBeenCalled();
+    expect(result).toEqual([]);
   });
 });
 

@@ -1,5 +1,5 @@
-import { MyContext } from "../context";
-import { MySqlModel } from "./MySqlModel";
+import { MyContext } from "../context.js";
+import { MySqlModel } from "./MySqlModel.js";
 
 export class VersionedGuidance extends MySqlModel {
   public versionedGuidanceGroupId: number;
@@ -67,6 +67,27 @@ export class VersionedGuidance extends MySqlModel {
     const sql = `SELECT * FROM ${VersionedGuidance.tableName} WHERE versionedGuidanceGroupId = ? ORDER BY tagId ASC`;
     const results = await VersionedGuidance.query(context, sql, [versionedGuidanceGroupId?.toString()], reference);
     return Array.isArray(results) && results.length > 0 ? results.map((entry) => new VersionedGuidance(entry)) : [];
+  }
+
+  /**
+   * Find all VersionedGuidance for the specified VersionedGuidanceGroup ids
+   *
+   * @param reference the reference to use for logging errors
+   * @param context the Apollo context
+   * @param versionedGuidanceGroupIds the VersionedGuidanceGroup ids to search for
+   * @returns an array of VersionedGuidance or an empty array if none were found
+   */
+  static async findByVersionedGuidanceGroupIds(
+    reference: string,
+    context: MyContext,
+    versionedGuidanceGroupIds: number[]
+  ): Promise<VersionedGuidance[]> {
+    if (versionedGuidanceGroupIds.length === 0) return [];
+    const placeholders: string = versionedGuidanceGroupIds.map((): string => '?').join(', ');
+    const sql = `SELECT * FROM ${VersionedGuidance.tableName} WHERE versionedGuidanceGroupId IN (${placeholders}) ORDER BY tagId ASC`;
+    const vals: string[] = versionedGuidanceGroupIds.map((id: number): string => id.toString());
+    const results: unknown[] = await VersionedGuidance.query(context, sql, vals, reference);
+    return Array.isArray(results) ? results.map((entry: unknown): VersionedGuidance => new VersionedGuidance(entry)) : [];
   }
 
   // Find best practice VersionedGuidance for specific tags

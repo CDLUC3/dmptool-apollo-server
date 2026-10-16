@@ -1,4 +1,4 @@
-import { verifyCriticalEnvVariable } from "../utils/helpers";
+import { verifyCriticalEnvVariable } from "../utils/helpers.js";
 
 // Verify these critical variables on startup!
 verifyCriticalEnvVariable('DMPHUB_AUTH_URL');

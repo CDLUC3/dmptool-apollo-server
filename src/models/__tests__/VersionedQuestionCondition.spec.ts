@@ -1,9 +1,20 @@
+import { jest } from '@jest/globals';
 import casual from "casual";
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { VersionedQuestionCondition } from "../VersionedQuestionCondition";
-import { logger } from "../../logger";
 
-jest.mock('../../context.ts');
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+//Dynamic imports AFTER all mocks are registered
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
+const { VersionedQuestionCondition } = await import('../VersionedQuestionCondition.js');
 
 let context;
 
@@ -116,7 +127,7 @@ describe('create', () => {
   });
 
   it('returns the VersionedQuestionCondition with errors if it is not valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (versionedQuestionCondition.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -127,11 +138,11 @@ describe('create', () => {
   });
 
   it('returns the newly added VersionedQuestionCondition', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (versionedQuestionCondition.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
-    const mockFindBy = jest.fn();
+    const mockFindBy = jest.fn<() => Promise<InstanceType<typeof VersionedQuestionCondition> | null>>();
     (VersionedQuestionCondition.findById as jest.Mock) = mockFindBy;
     mockFindBy.mockResolvedValue(versionedQuestionCondition);
 

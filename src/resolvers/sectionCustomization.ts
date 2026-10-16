@@ -4,23 +4,23 @@ import {
   MoveCustomSectionInput,
   Resolvers,
   UpdateCustomSectionInput, UpdateSectionCustomizationInput
-} from "../types";
-import { MyContext } from "../context";
+} from "../types.js";
+import { MyContext } from "../context.js";
 import {
   TemplateCustomization,
   TemplateCustomizationMigrationStatus
-} from "../models/TemplateCustomization";
-import { authenticatedResolver } from "../services/authService";
-import { NotFoundError } from "../utils/graphQLErrors";
+} from "../models/TemplateCustomization.js";
+import { authenticatedResolver } from "../services/authService.js";
+import { NotFoundError } from "../utils/graphQLErrors.js";
 import {
   getValidatedCustomization,
   markTemplateCustomizationAsDirty
-} from "../services/templateCustomizationService";
-import { SectionCustomization } from "../models/SectionCustomization";
-import { VersionedSection } from "../models/VersionedSection";
-import { CustomSection, PinnedSectionTypeEnum } from "../models/CustomSection";
-import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
-import { UserRole } from "../models/User";
+} from "../services/templateCustomizationService.js";
+import { SectionCustomization } from "../models/SectionCustomization.js";
+import { VersionedSection } from "../models/VersionedSection.js";
+import { CustomSection, PinnedSectionTypeEnum } from "../models/CustomSection.js";
+import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers.js";
+import { UserRole } from "../models/User.js";
 
 export const resolvers: Resolvers = {
   Query: {

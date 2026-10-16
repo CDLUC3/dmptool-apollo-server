@@ -1,12 +1,12 @@
-import { Resolvers } from "../types";
-import { MyContext } from "../context";
-import { VersionedQuestionCondition } from "../models/VersionedQuestionCondition";
-import { VersionedQuestionConditionGroup } from "../models/VersionedQuestionConditionGroups";
-import { AuthenticationError, ForbiddenError, InternalServerError } from "../utils/graphQLErrors";
-import { prepareObjectForLogs } from "../logger";
-import { isAuthorized } from "../services/authService";
+import { Resolvers } from "../types.js";
+import { MyContext } from "../context.js";
+import { VersionedQuestionCondition } from "../models/VersionedQuestionCondition.js";
+import { VersionedQuestionConditionGroup } from "../models/VersionedQuestionConditionGroups.js";
+import { AuthenticationError, ForbiddenError, InternalServerError } from "../utils/graphQLErrors.js";
+import { prepareObjectForLogs } from "../logger.js";
+import { isAuthorized } from "../services/authService.js";
 import { GraphQLError } from "graphql";
-import { normaliseDateTime } from "../utils/helpers";
+import { normaliseDateTime } from "../utils/helpers.js";
 
 export const resolvers: Resolvers = {
   Query: {

@@ -1,8 +1,8 @@
 import { QuestionSchemaMap } from "@dmptool/types";
-import { MyContext } from "../context";
-import { MySqlModel } from "./MySqlModel";
-import { QuestionConditionActionType, QuestionConditionMatchType } from "./QuestionCondition";
-import { isNullOrUndefined, removeNullAndUndefinedFromJSON } from "../utils/helpers";
+import { MyContext } from "../context.js";
+import { MySqlModel } from "./MySqlModel.js";
+import { QuestionConditionActionType, QuestionConditionMatchType } from "./QuestionCondition.js";
+import { isNullOrUndefined, removeNullAndUndefinedFromJSON } from "../utils/helpers.js";
 
 export class VersionedQuestion extends MySqlModel {
   public versionedTemplateId: number;
@@ -105,6 +105,27 @@ export class VersionedQuestion extends MySqlModel {
     const sql = 'SELECT * FROM versionedQuestions WHERE versionedSectionId = ?';
     const results = await VersionedQuestion.query(context, sql, [versionedSectionId?.toString()], reference);
     return Array.isArray(results) ? results.map((entry) => new VersionedQuestion(entry)) : [];
+  }
+
+  /**
+   * Find all the VersionedQuestions by their VersionedSectionId
+   *
+   * @param reference The reference to use for logging
+   * @param context The Apollo context
+   * @param versionedSectionIds The versionedSectionIds to search for
+   * @returns An array of VersionedQuestions or an empty array if none were found.
+   */
+  static async findByVersionedSectionIds(
+    reference: string,
+    context: MyContext,
+    versionedSectionIds: number[]
+  ): Promise<VersionedQuestion[]> {
+    if (versionedSectionIds.length === 0) return [];
+    const placeholders: string = versionedSectionIds.map((): string => '?').join(',');
+    const sql = `SELECT * FROM versionedQuestions WHERE versionedSectionId IN (${placeholders})`;
+    const vals: string[] = versionedSectionIds.map((id: number): string => id.toString());
+    const results: unknown[] = await VersionedQuestion.query(context, sql, vals, reference);
+    return Array.isArray(results) ? results.map((entry: unknown): VersionedQuestion => new VersionedQuestion(entry)) : [];
   }
 
   /**

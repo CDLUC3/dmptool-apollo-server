@@ -1,69 +1,90 @@
-import { GraphQLError } from 'graphql';
-import { logger } from '../../logger';
-import { Project } from '../../models/Project';
-import { Plan } from '../../models/Plan';
-import { Affiliation } from '../../models/Affiliation';
-import { MemberRole } from '../../models/MemberRole';
-import { PlanMember, ProjectMember } from '../../models/Member';
-import {
-  PlanFunding,
-  ProjectFunding,
-} from '../../models/Funding';
-import { AlternateIdentifier } from '../../models/AlternateIdentifier';
-import { ResearchDomain } from '../../models/ResearchDomain';
-import { VersionedTemplate } from '../../models/VersionedTemplate';
-import { buildMockContextWithToken } from '../../__mocks__/context';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+import { jest } from '@jest/globals';
+
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+mockAppConfigs();
+mockAppLogger();
+
+import { GraphQLError } from "graphql";
 import {
   BAD_REQUEST_ERROR_CODE,
   INTERNAL_SERVER_ERROR_CODE,
-} from '../../utils/graphQLErrors';
-import {
+} from '../../utils/graphQLErrors.js';
+
+const mockDefaultProjectContact = jest.fn<() => Promise<boolean>>().mockResolvedValue(true);
+const mockCurrentUserAsProjectOwner = jest.fn<() => Promise<boolean>>().mockResolvedValue(true);
+const actualProjectService = await import('../projectService.js');
+jest.unstable_mockModule('../projectService.js', () => ({
+  ...actualProjectService,
+  ensureDefaultProjectContact: mockDefaultProjectContact,
+  setCurrentUserAsProjectOwner: mockCurrentUserAsProjectOwner,
+}));
+
+const mockDefaultPlanContact = jest.fn<() => Promise<boolean>>().mockResolvedValue(true);
+const mockUpdateMemberRoles = jest.fn<() => Promise<{ updatedRoleIds: string[]; errors: string[] }>>().mockResolvedValue({ updatedRoleIds: [], errors: [] });
+const actualPlan = await import('../planService.js');
+jest.unstable_mockModule('../planService.js', () => ({
+  ...actualPlan,
+  ensureDefaultPlanContact: mockDefaultPlanContact,
+  updateMemberRoles: mockUpdateMemberRoles,
+}));
+
+const mockOpenSearchFindWorkByIdentifier = jest.fn<() => Promise<any[]>>().mockResolvedValue([]);
+const actualOpenSearchService = await import('../openSearchService.js');
+jest.unstable_mockModule('../openSearchService.js', () => ({
+  ...actualOpenSearchService,
+  openSearchFindWorkByIdentifier: mockOpenSearchFindWorkByIdentifier,
+}));
+
+const { buildMockContextWithToken } = await import("../../__mocks__/context.js");
+const { logger } = await import("../../logger.js");
+const { Project } = await import('../../models/Project.js');
+const { Plan } = await import('../../models/Plan.js');
+const { Affiliation } = await import('../../models/Affiliation.js');
+const { MemberRole } = await import('../../models/MemberRole.js');
+const { PlanMember, ProjectMember } = await import('../../models/Member.js');
+const {
+  PlanFunding,
+  ProjectFunding,
+} = await import('../../models/Funding.js');
+const { AlternateIdentifier } = await import('../../models/AlternateIdentifier.js');
+const { ResearchDomain } = await import('../../models/ResearchDomain.js');
+const { VersionedTemplate } = await import('../../models/VersionedTemplate.js');
+const {
   addEntirePlan,
   processFundingAssociations,
   processMemberAssociations,
   removeEntirePlan,
   replaceEntirePlan,
-} from '../entirePlanService';
-import {
+} = await import('../entirePlanService.js');
+const {
   ensureDefaultProjectContact,
   setCurrentUserAsProjectOwner,
-} from '../projectService';
-import { ensureDefaultPlanContact } from '../planService';
+} = await import('../projectService.js');
+const { ensureDefaultPlanContact } = await import('../planService.js');
 
-jest.mock('../projectService', () => ({
-  ensureDefaultProjectContact: jest.fn().mockResolvedValue(true),
-  setCurrentUserAsProjectOwner: jest.fn().mockResolvedValue(true),
-}));
-
-jest.mock('../planService', () => ({
-  ensureDefaultPlanContact: jest.fn().mockResolvedValue(true),
-  updateMemberRoles: jest.fn().mockResolvedValue({ updatedRoleIds: [], errors: [] }),
-}));
-
-
-jest.mock('../openSearchService', () => ({
-  openSearchFindWorkByIdentifier: jest.fn().mockResolvedValue([]),
-}));
 
 describe('entirePlanService', () => {
   let context;
-  let project: Project;
-  let plan: Plan;
+  let project: InstanceType<typeof Project>;
+  let plan: InstanceType<typeof Plan>;
 
   const makeRole = (id: number, label = `Role ${id}`) => {
     return {
       id,
       label,
-      addToProjectMember: jest.fn().mockResolvedValue(true),
-      addToPlanMember: jest.fn().mockResolvedValue(true),
-      removeFromProjectMember: jest.fn().mockResolvedValue(true),
-    } as unknown as MemberRole;
+      addToProjectMember: jest.fn<() => Promise<boolean>>().mockResolvedValue(true),
+      addToPlanMember: jest.fn<() => Promise<boolean>>().mockResolvedValue(true),
+      removeFromProjectMember: jest.fn<() => Promise<boolean>>().mockResolvedValue(true),
+    } as unknown as InstanceType<typeof MemberRole>;
   };
 
   const setupAssociationDefaults = () => {
     jest.spyOn(Affiliation, 'findByURI').mockResolvedValue({
       uri: 'https://ror.example.org/abc',
-    } as Affiliation);
+    } as InstanceType<typeof Affiliation>);
 
     jest.spyOn(PlanMember, 'findByPlanId').mockResolvedValue([]);
     jest.spyOn(ProjectMember, 'findById').mockResolvedValue(null);
@@ -84,7 +105,8 @@ describe('entirePlanService', () => {
     const defaultRole = new MemberRole({
       id: 999,
       label: 'Default Role',
-      url: 'http://example.com/role/default' }
+      url: 'http://example.com/role/default'
+    }
     );
     jest.spyOn(MemberRole, 'defaultRole').mockResolvedValue(defaultRole);
     jest.spyOn(MemberRole, 'findByURL').mockResolvedValue(null);
@@ -167,10 +189,10 @@ describe('entirePlanService', () => {
       const roleOne = makeRole(1, 'One');
       const roleTwo = makeRole(2, 'Two');
 
-      jest.spyOn(roleOne,'addToProjectMember').mockResolvedValue(true);
-      jest.spyOn(roleOne,'addToPlanMember').mockResolvedValue(true);
-      jest.spyOn(roleTwo,'addToProjectMember').mockResolvedValue(true);
-      jest.spyOn(roleTwo,'addToPlanMember').mockResolvedValue(true);
+      jest.spyOn(roleOne, 'addToProjectMember').mockResolvedValue(true);
+      jest.spyOn(roleOne, 'addToPlanMember').mockResolvedValue(true);
+      jest.spyOn(roleTwo, 'addToProjectMember').mockResolvedValue(true);
+      jest.spyOn(roleTwo, 'addToPlanMember').mockResolvedValue(true);
       jest.spyOn(ProjectMember, 'findPrimaryContact').mockResolvedValue(null);
       jest
         .spyOn(MemberRole, 'findByURL')
@@ -245,10 +267,10 @@ describe('entirePlanService', () => {
     it('returns all update-related errors for non-shared members', async () => {
       setupAssociationDefaults();
       const legacyRole = makeRole(99, 'Legacy');
-      legacyRole.removeFromProjectMember = jest.fn().mockResolvedValue(false);
+      legacyRole.removeFromProjectMember = jest.fn<() => Promise<boolean>>().mockResolvedValue(false);
       const newRole = makeRole(5, 'NewRole');
-      newRole.addToProjectMember = jest.fn().mockResolvedValue(false);
-      newRole.addToPlanMember = jest.fn().mockResolvedValue(false);
+      newRole.addToProjectMember = jest.fn<() => Promise<boolean>>().mockResolvedValue(false);
+      newRole.addToPlanMember = jest.fn<() => Promise<boolean>>().mockResolvedValue(false);
 
       const currentProjectMember = new ProjectMember({
         id: 321,
@@ -460,7 +482,7 @@ describe('entirePlanService', () => {
       jest.spyOn(Project, 'findByOwnerAndTitle').mockResolvedValue(existingProject);
       jest
         .spyOn(ResearchDomain, 'findByURI')
-        .mockResolvedValue({ id: 202 } as ResearchDomain);
+        .mockResolvedValue({ id: 202 } as InstanceType<typeof ResearchDomain>);
       jest
         .spyOn(Project.prototype, 'update')
         .mockImplementation(async function projectUpdate() {
@@ -714,7 +736,7 @@ describe('entirePlanService', () => {
       setupAssociationDefaults();
       jest
         .spyOn(ResearchDomain, 'findByURI')
-        .mockResolvedValue({ id: 202 } as ResearchDomain);
+        .mockResolvedValue({ id: 202 } as InstanceType<typeof ResearchDomain>);
       jest
         .spyOn(Project.prototype, 'update')
         .mockImplementation(async function projectUpdate() {

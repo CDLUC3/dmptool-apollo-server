@@ -1,40 +1,96 @@
-import { DatabaseError, MySQLConnection, TransactionClient } from '../mysql';
-import * as mysql2 from 'mysql2/promise';
-import { buildMockContextWithToken } from '../../__mocks__/context';
-import { MyContext } from '../../context';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { jest } from '@jest/globals';
 import { GraphQLError } from 'graphql';
-import { logger } from "../../logger";
 
-jest.mock('mysql2/promise');
-jest.mock('../../context');
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+mockAppConfigs();
+mockAppLogger();
+
+// ---------------------------------------------------------------------------
+// mysql2/promise: only imported for TYPES below (mysql2.Pool,
+// mysql2.PoolConnection, mysql2.QueryResult) — never for its runtime value.
+// A real (non-type) `import * as mysql2 from 'mysql2/promise'` here would be
+// hoisted and fully evaluated before jest.unstable_mockModule ever
+// registers, giving the test its own separate, unmocked mysql2 reference —
+// completely disconnected from what mysql.js (dynamically imported below)
+// actually resolves the specifier to. Every runtime interaction with
+// createPool goes through the named mockMySQL2 mock directly instead.
+// ---------------------------------------------------------------------------
+import type * as mysql2 from 'mysql2/promise';
+import type { ResultSetHeader, RowDataPacket } from 'mysql2';
+import type { MyContext } from '../../context.js';
+import type { TransactionClient as TransactionClientType } from '../mysql.js';
+
+const mockMySQL2 = jest.fn<(...args: any[]) => any>();
+const actualMySQL2 = await import('mysql2/promise');
+jest.unstable_mockModule('mysql2/promise', () => ({
+  ...actualMySQL2,
+  createPool: mockMySQL2,
+}));
+
+interface MockRow extends RowDataPacket {
+  id: number;
+  name: string;
+}
+
+const { logger } = await import('../../logger.js');
+const { DatabaseError, MySQLConnection } = await import('../mysql.js');
+
+// ---------------------------------------------------------------------------
+// Context is built locally rather than via `__mocks__/context.js`'s
+// `buildMockContextWithToken` — that shared helper itself calls
+// jest.unstable_mockModule('../datasources/mysql.js', ...), which would
+// replace the real MySQLConnection (the very class under test here) with a
+// stub before this file's own dynamic import of it ever runs.
+// ---------------------------------------------------------------------------
+const buildTestContext = (): MyContext => ({
+  cache: {} as unknown as MyContext['cache'],
+  token: null,
+  logger,
+  requestId: 'test-request-id',
+  dataSources: {} as unknown as MyContext['dataSources'],
+});
 
 describe('MySQLConnection', () => {
   let context: MyContext
   let mockPool: mysql2.Pool;
   let mockConnection: mysql2.PoolConnection;
+  let mockExecute: jest.Mock<(...args: any[]) => Promise<mysql2.QueryResult>>;
+  let mockGetConnection: jest.Mock<() => Promise<mysql2.PoolConnection>>;
 
   beforeEach(async () => {
     jest.resetAllMocks();
 
-    context = await buildMockContextWithToken(logger);
+    context = buildTestContext();
+    const queryRows: MockRow[] = [{ id: 1, name: 'Test' } as MockRow];
+    const queryResult: [MockRow[], ResultSetHeader] = [
+      queryRows,
+      {} as ResultSetHeader,
+    ];
+    mockExecute = jest.fn<(...args: any[]) => Promise<mysql2.QueryResult>>()
+      .mockResolvedValue(queryResult);
+    mockGetConnection = jest
+      .fn<() => Promise<mysql2.PoolConnection>>();
 
     // Mock MySQL pool and connection
     mockConnection = {
-      beginTransaction: jest.fn().mockResolvedValue(undefined),
-      commit: jest.fn().mockResolvedValue(undefined),
-      rollback: jest.fn().mockResolvedValue(undefined),
-      release: jest.fn().mockResolvedValue(true),
-      execute: jest.fn().mockResolvedValue([[{ id: 1, name: 'Test' }], []]),
+      beginTransaction: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
+      commit: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
+      rollback: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
+      release: jest.fn<() => Promise<boolean>>().mockResolvedValue(true),
+      execute: mockExecute,
     } as unknown as mysql2.PoolConnection;
+    mockGetConnection.mockResolvedValue(mockConnection);
 
     mockPool = {
-      getConnection: jest.fn().mockResolvedValue(mockConnection),
-      execute: jest.fn().mockResolvedValue([[{ id: 1, name: 'Test' }], []]),
+      getConnection: mockGetConnection,
+      execute: mockExecute,
       on: jest.fn(),
       end: jest.fn(),
     } as unknown as mysql2.Pool;
 
-    (mysql2.createPool as jest.Mock).mockReturnValue(mockPool);
+    mockMySQL2.mockReturnValue(mockPool);
   });
 
   afterEach(() => {
@@ -43,7 +99,7 @@ describe('MySQLConnection', () => {
 
   describe('getInstance', () => {
     it('should log an error and throw if pool creation fails', async () => {
-      jest.spyOn(mysql2, 'createPool').mockImplementationOnce(() => {
+      mockMySQL2.mockImplementationOnce(() => {
         throw new Error('Failed to create pool');
       });
       jest.spyOn(logger, 'error');
@@ -97,7 +153,7 @@ describe('MySQLConnection', () => {
       const sql = 'SELECT * FROM users WHERE id = ?';
       const values = ['1'];
 
-      (mockConnection.execute as jest.Mock).mockRejectedValueOnce(
+      mockExecute.mockRejectedValueOnce(
         new Error('Testing query failure - this is ok. We expect to see this in the test output!')
       );
       jest.spyOn(console, 'log');
@@ -112,7 +168,7 @@ describe('MySQLConnection', () => {
     it('should begin, commit, and release the connection when the action succeeds', async () => {
       const sqlDataSource = new MySQLConnection();
       const expected = { id: 1, name: 'Test' };
-      const action = jest.fn(async (txClient: TransactionClient) => {
+      const action = jest.fn(async (txClient: TransactionClientType) => {
         expect(context.activeTransaction).toBe(txClient);
         expect(txClient.connection).toBe(mockConnection);
         return expected;
@@ -168,7 +224,7 @@ describe('MySQLConnection', () => {
 
     it('should wrap connection acquisition failures in a DatabaseError', async () => {
       const sqlDataSource = new MySQLConnection();
-      (mockPool.getConnection as jest.Mock).mockRejectedValueOnce(new Error('No connection'));
+      mockGetConnection.mockRejectedValueOnce(new Error('No connection'));
 
       await expect(
         sqlDataSource.withTransaction(context, async () => 'should not run')

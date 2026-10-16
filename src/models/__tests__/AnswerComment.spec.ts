@@ -1,9 +1,22 @@
-import casual from "casual";
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { AnswerComment } from "../AnswerComment";
-import { logger } from "../../logger";
+import { jest } from '@jest/globals';
+import casual from 'casual';
 
-jest.mock('../../context.ts');
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+
+// Dynamic imports AFTER all mocks are registered
+const { AnswerComment } = await import("../AnswerComment.js");
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
+
 
 let context;
 
@@ -66,7 +79,7 @@ describe('findBy Queries', () => {
     context = await buildMockContextWithToken(logger);
 
     answerComment = new AnswerComment({
-      id: casual.integer(1,9999),
+      id: casual.integer(1, 9999),
       answerId: casual.integer(1, 9999),
       commentText: casual.sentences(3),
     });
@@ -128,7 +141,7 @@ describe('update', () => {
   });
 
   it('returns the AnswerComment with errors if it is not valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (answerComment.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -138,7 +151,7 @@ describe('update', () => {
   });
 
   it('returns an error if the AnswerComment has no id', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (answerComment.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
@@ -149,13 +162,13 @@ describe('update', () => {
   });
 
   it('returns the updated AnswerComment', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (answerComment.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
     updateQuery.mockResolvedValueOnce(answerComment);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof AnswerComment> | null>>();
     (AnswerComment.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(answerComment);
 
@@ -187,7 +200,7 @@ describe('create', () => {
   });
 
   it('returns the AnswerComment without errors if it is valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (answerComment.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -203,7 +216,7 @@ describe('create', () => {
   });
 
   it('returns the newly added AnswerComment', async () => {
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof AnswerComment> | null>>();
     (AnswerComment.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(answerComment);
 
@@ -232,7 +245,7 @@ describe('delete', () => {
   });
 
   it('returns null if it was not able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<boolean>>();
     (AnswerComment.delete as jest.Mock) = deleteQuery;
 
     deleteQuery.mockResolvedValueOnce(null);
@@ -240,11 +253,11 @@ describe('delete', () => {
   });
 
   it('returns the AnswerComment if it was able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<boolean>>();
     (AnswerComment.delete as jest.Mock) = deleteQuery;
     deleteQuery.mockResolvedValueOnce(answerComment);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof AnswerComment> | null>>();
     (AnswerComment.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(answerComment);
 

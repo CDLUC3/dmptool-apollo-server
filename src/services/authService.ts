@@ -1,15 +1,14 @@
 import { GraphQLError, GraphQLResolveInfo } from 'graphql';
-import { MyContext } from "../context";
-import { UserRole } from "../models/User";
-import { JWTAccessToken } from "./tokenService";
-import { prepareObjectForLogs } from "../logger";
-import { AuthenticatedResolverType } from "../types/general";
+import { MyContext } from "../context.js";
+import { UserRole } from "../models/User.js";
+import { prepareObjectForLogs } from "../logger.js";
+import { AuthenticatedResolverType, JWTAccessToken } from "../types/general.js";
 import {
   AuthenticationError,
   ForbiddenError,
   InternalServerError
-} from "../utils/graphQLErrors";
-import { isNullOrUndefined } from "../utils/helpers";
+} from "../utils/graphQLErrors.js";
+import { isNullOrUndefined } from "../utils/helpers.js";
 
 /**
  * Wraps an Apollo Server resolver to ensure that the user is authenticated and
@@ -55,8 +54,8 @@ export const authenticatedResolver = <TResult, TArgs, TParent = Record<PropertyK
  * @param token The JWT token to check
  * @returns true if the user is authenticated
  */
-export const isAuthorized = (token: JWTAccessToken): boolean => {
-    return !isNullOrUndefined(token) && !isNullOrUndefined(token.id);
+export const isAuthorized = (token: JWTAccessToken | null): boolean => {
+  return !isNullOrUndefined(token) && !isNullOrUndefined(token.id);
 }
 
 /**
@@ -65,8 +64,8 @@ export const isAuthorized = (token: JWTAccessToken): boolean => {
  * @param token The JWT token to check
  * @returns true if the user is an affiliation administrator
  */
-export const isAdmin = (token: JWTAccessToken): boolean => {
-  if(isAuthorized(token) && token.affiliationId) {
+export const isAdmin = (token: JWTAccessToken | null): boolean => {
+  if (isAuthorized(token) && token.affiliationId) {
     return [UserRole.ADMIN.toString(), UserRole.SUPERADMIN.toString()].includes(token?.role);
   }
   return false;
@@ -78,6 +77,6 @@ export const isAdmin = (token: JWTAccessToken): boolean => {
  * @param token The JWT token to check
  * @returns true if the user is a super admin
  */
-export const isSuperAdmin = (token: JWTAccessToken): boolean => {
+export const isSuperAdmin = (token: JWTAccessToken | null): boolean => {
   return isAuthorized(token) && token?.role === UserRole.SUPERADMIN;
 }

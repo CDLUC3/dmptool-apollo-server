@@ -1,4 +1,4 @@
-import gql from "graphql-tag";
+import { gql } from 'graphql-tag';
 
 export const typeDefs = gql`
   # Specialized scalars from graphql-tools: https://the-guild.dev/graphql/scalars/docs/scalars

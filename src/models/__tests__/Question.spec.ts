@@ -1,15 +1,26 @@
+import { jest } from '@jest/globals';
 import casual from "casual";
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { Question } from "../Question";
 import {
   CURRENT_SCHEMA_VERSION,
   DefaultResearchOutputTableQuestion,
   DefaultTextAreaQuestion
 } from "@dmptool/types";
-import { removeNullAndUndefinedFromJSON } from "../../utils/helpers";
-import { logger } from "../../logger";
 
-jest.mock('../../context.ts');
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+//Dynamic imports AFTER all mocks are registered
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
+const { Question } = await import('../Question.js');
+const { removeNullAndUndefinedFromJSON } = await import("../../utils/helpers.js");
 
 let context;
 
@@ -313,6 +324,36 @@ describe('findBy Queries', () => {
     const result = await Question.findBySectionId('testing', context, questionId);
     expect(result).toEqual([]);
   });
+
+  it('findPriorQuestionsForQuestion should call query with correct params and return questions', async () => {
+    localQuery.mockResolvedValueOnce([question]);
+    const questionId = casual.integer(1, 999);
+    const result = await Question.findPriorQuestionsForQuestion('testing', context, questionId);
+    const expectedSql = `SELECT q.* FROM questions q
+      INNER JOIN sections s ON s.id = q.sectionId
+      INNER JOIN questions target ON target.id = ?
+      INNER JOIN sections targetSection ON targetSection.id = target.sectionId
+      WHERE q.templateId = target.templateId
+      AND (
+        s.displayOrder < targetSection.displayOrder
+        OR (
+          s.displayOrder = targetSection.displayOrder
+          AND q.displayOrder < target.displayOrder
+        )
+      )
+      ORDER BY s.displayOrder ASC, q.displayOrder ASC`;
+
+    expect(localQuery).toHaveBeenCalledTimes(1);
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [questionId.toString()], 'testing');
+    expect(result).toEqual([question]);
+  });
+
+  it('findPriorQuestionsForQuestion should return empty array if it finds no questions', async () => {
+    localQuery.mockResolvedValueOnce([]);
+    const questionId = casual.integer(1, 999);
+    const result = await Question.findPriorQuestionsForQuestion('testing', context, questionId);
+    expect(result).toEqual([]);
+  });
 });
 
 describe('update', () => {
@@ -334,7 +375,7 @@ describe('update', () => {
   });
 
   it('returns the Question with errors if it is not valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (question.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -344,7 +385,7 @@ describe('update', () => {
   });
 
   it('returns an error if the Template has no id', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (question.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
@@ -355,13 +396,13 @@ describe('update', () => {
   });
 
   it('returns the updated Template', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (question.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
     updateQuery.mockResolvedValueOnce(question);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof Question>>>();
     (Question.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(question);
 
@@ -407,7 +448,7 @@ describe('create', () => {
   });
 
   it('returns the Question without errors if it is valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (question.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -435,7 +476,7 @@ describe('create', () => {
   });
 
   it('returns the newly added Question', async () => {
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof Question>>>();
     (Question.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(question);
 
@@ -467,7 +508,7 @@ describe('delete', () => {
   });
 
   it('returns null if it was not able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<null>>();
     (Question.delete as jest.Mock) = deleteQuery;
 
     deleteQuery.mockResolvedValueOnce(null);
@@ -475,11 +516,11 @@ describe('delete', () => {
   });
 
   it('returns the Question if it was able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<boolean>>();
     (Question.delete as jest.Mock) = deleteQuery;
     deleteQuery.mockResolvedValueOnce(question);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof Question>>>();
     (Question.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(question);
 

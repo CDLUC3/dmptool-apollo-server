@@ -1,11 +1,11 @@
-import { Resolvers } from "../types";
-import { ResearchDomain } from "../models/ResearchDomain";
-import { MyContext } from '../context';
-import { AuthenticationError, ForbiddenError, InternalServerError } from "../utils/graphQLErrors";
-import { prepareObjectForLogs } from "../logger";
-import { isAuthorized } from "../services/authService";
+import { Resolvers } from "../types.js";
+import { ResearchDomain } from "../models/ResearchDomain.js";
+import { MyContext } from '../context.js';
+import { AuthenticationError, ForbiddenError, InternalServerError } from "../utils/graphQLErrors.js";
+import { prepareObjectForLogs } from "../logger.js";
+import { isAuthorized } from "../services/authService.js";
 import { GraphQLError } from "graphql";
-import { normaliseDateTime } from "../utils/helpers";
+import { normaliseDateTime } from "../utils/helpers.js";
 
 export const resolvers: Resolvers = {
   Query: {

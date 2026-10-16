@@ -1,6 +1,6 @@
-import { MyContext } from "../context";
-import { MySqlModel } from "./MySqlModel";
-import { Tag } from "./Tag";
+import { MyContext } from "../context.js";
+import { MySqlModel } from "./MySqlModel.js";
+import { Tag } from "./Tag.js";
 
 // A Template for creating a DMP
 export class Section extends MySqlModel {

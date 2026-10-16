@@ -1,15 +1,21 @@
-import { Property } from "@opensearch-project/opensearch/api/_types/_common.mapping";
-import { OpenSearch, tokenizeText } from "../datasources/openSearch";
-import { stripIdentifierBaseURL, validateDate } from "../utils/helpers";
-import { Answer } from "../models/Answer";
-import { Plan } from "../models/Plan";
-import { Project } from "../models/Project";
-import { PlanFunding, ProjectFunding, ProjectFundingStatus } from "../models/Funding";
-import { PlanMember, ProjectMember } from "../models/Member";
-import { Affiliation } from "../models/Affiliation";
-import { AcceptedWork } from "../models/RelatedWork";
-import { AlternateIdentifier } from "../models/AlternateIdentifier";
-import { PlanVisibility } from "../models/Plan";
+import { Client } from "@opensearch-project/opensearch";
+type OpenSearchProperties = NonNullable<
+  Parameters<Client["indices"]["putMapping"]>[0]["body"]
+>["properties"];
+
+// Look up the index type to get the singular MappingProperty schema
+export type MappingProperty = NonNullable<OpenSearchProperties>[string];
+import { OpenSearch, tokenizeText } from "../datasources/openSearch.js";
+import { stripIdentifierBaseURL, validateDate } from "../utils/helpers.js";
+import { Answer } from "../models/Answer.js";
+import { Plan } from "../models/Plan.js";
+import { Project } from "../models/Project.js";
+import { PlanFunding, ProjectFunding, ProjectFundingStatus } from "../models/Funding.js";
+import { PlanMember, ProjectMember } from "../models/Member.js";
+import { Affiliation } from "../models/Affiliation.js";
+import { AcceptedWork } from "../models/RelatedWork.js";
+import { AlternateIdentifier } from "../models/AlternateIdentifier.js";
+import { PlanVisibility } from "../models/Plan.js";
 import {
   MetadataStandardSearchAnswerType,
   ResearchOutputDataFlagsColumnAnswerType,
@@ -19,7 +25,7 @@ import {
   ResearchOutputTableAnswerType,
   ResearchOutputTableRowAnswerType
 } from "@dmptool/types";
-import { MyContext } from "../context";
+import { MyContext } from "../context.js";
 
 export const INDEX_NAME = "dmp";
 export const DEFAULT_MAX_RESULTS = 100;
@@ -27,7 +33,7 @@ export const DEFAULT_MAX_RESULTS = 100;
 /**
  * OpenSearch Index Definition
  */
-export const PropertyDefinition: Record<string, Property> = {
+export const PropertyDefinition: Record<string, MappingProperty> = {
   dmp_id: { type: "keyword" },
   title: { type: "text", fields: { keyword: { type: "keyword", ignore_above: 256 } } },
   project_title: { type: "text", fields: { keyword: { type: "keyword", ignore_above: 256 } } },
@@ -461,8 +467,8 @@ const convertDataset = (
       case 'data_flags':
         displayObject.data_flags = column.answer
           ? (column as ResearchOutputDataFlagsColumnAnswerType).answer.map((entry: string): string => {
-              return cleanString(entry);
-            })
+            return cleanString(entry);
+          })
           : undefined;
         break;
       case 'byte_size':

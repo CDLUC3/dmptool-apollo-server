@@ -1,7 +1,7 @@
-import { prepareObjectForLogs } from "../logger";
-import { MyContext } from '../context';
-import { isNullOrUndefined, validateDate } from "../utils/helpers";
-import { getCurrentDate } from "../utils/helpers";
+import { prepareObjectForLogs } from "../logger.js";
+import { MyContext } from '../context.js';
+import { isNullOrUndefined, validateDate } from "../utils/helpers.js";
+import { getCurrentDate } from "../utils/helpers.js";
 import { formatISO9075, isDate } from "date-fns";
 import {
   PaginatedQueryResults,
@@ -10,8 +10,8 @@ import {
   PaginationOptionsForOffsets,
   PaginationType,
   SortDirection
-} from "../types/general";
-import { generalConfig } from "../config/generalConfig";
+} from "../types/general.js";
+import { generalConfig } from "../config/generalConfig.js";
 
 type MixedArray<T> = T[];
 

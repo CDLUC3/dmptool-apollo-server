@@ -1,16 +1,17 @@
-import { MyContext } from "../context";
-import { prepareObjectForLogs } from "../logger";
+import { MyContext } from "../context.js";
+import { prepareObjectForLogs } from "../logger.js";
 import {
   PaginatedQueryResults,
   PaginationOptions,
   PaginationOptionsForCursors,
   PaginationOptionsForOffsets,
   PaginationType
-} from "../types/general";
-import { isNullOrUndefined, validateDate } from "../utils/helpers";
-import { MySqlModel } from "./MySqlModel";
-import { PlanStatus } from "./Plan";
-import { ProjectFilterOptions } from "../types";
+} from "../types/general.js";
+import { isNullOrUndefined, validateDate } from "../utils/helpers.js";
+import { MySqlModel } from "./MySqlModel.js";
+import { PlanStatus } from "./Plan.js";
+import { ProjectFilterOptions } from "../types.js";
+import type { ProjectCollaboratorAccessLevel } from "./Collaborator.js";
 
 export class ProjectSearchResult {
   public id: number;
@@ -28,10 +29,12 @@ export class ProjectSearchResult {
   public modifiedByName: string;
   public collaboratorsData: string;
   public collaborators: { name: string, accessLevel: string, orcid: string }[];
+  public myAccessLevel?: ProjectCollaboratorAccessLevel;
   public membersData: string;
   public members: { name: string, role: string, orcid: string }[];
   public fundingsData: string;
   public fundings: { name: string, grantId: string }[];
+  public relatedWorksCount: number;
 
   constructor(options) {
     this.id = options.id;
@@ -49,10 +52,12 @@ export class ProjectSearchResult {
     this.modifiedByName = options.modifiedByName;
     this.collaboratorsData = options.collaboratorsData;
     this.collaborators = options.collaborators;
+    this.myAccessLevel = options.myAccessLevel;
     this.membersData = options.membersData;
     this.members = options.members;
     this.fundingsData = options.fundingsData;
     this.fundings = options.fundings;
+    this.relatedWorksCount = options.relatedWorksCount;
   }
 
   static async search(
@@ -91,6 +96,12 @@ export class ProjectSearchResult {
         break;
     }
 
+    // Handle the current user's access level filter
+    if (!isNullOrUndefined(filterOptions.accessLevel) && !isNullOrUndefined(context.token?.id)) {
+      whereFilters.push('(p.id IN (SELECT projectId FROM projectCollaborators WHERE userId = ? AND accessLevel = ?))');
+      values.push(context.token.id.toString(), filterOptions.accessLevel);
+    }
+
     // Specify the fields available for sorting
     options.availableSortFields = ['p.title', 'p.created', 'p.modified', 'p.startDate', 'p.endDate', 'p.isTestProject'];
     // Specify the field we want to use for the totalCount
@@ -118,47 +129,50 @@ export class ProjectSearchResult {
       whereFilters.push('(cu.affiliationId = ?)');
       values.push(affiliationId);
     }
-
-  const sqlStatement = 'SELECT p.id, p.title, p.abstractText, p.startDate, p.endDate, p.isTestProject, ' +
-                          'researchDomains.description as researchDomain, ' +
-                          'p.createdById, p.created, TRIM(CONCAT(cu.givenName, CONCAT(\' \', cu.surName))) as createdByName, ' +
-                          'p.modifiedById, p.modified, TRIM(CONCAT(mu.givenName, CONCAT(\' \', mu.surName))) as modifiedByName, ' +
-                          'GROUP_CONCAT(DISTINCT CONCAT_WS(\'|\', ' +
-                            'CASE ' +
-                              'WHEN collab.surName IS NOT NULL THEN TRIM(CONCAT(collab.givenName, CONCAT(\' \', collab.surName))) ' +
-                              'ELSE (SELECT collabE.email FROM userEmails collabE WHERE collabE.userId = collab.id LIMIT 1) ' +
-                            'END, ' +
-                            'CONCAT(UPPER(SUBSTRING(pcol.accessLevel, 1, 1)), LOWER(SUBSTRING(pcol.accessLevel FROM 2))), ' +
-                            'collab.orcid ' +
-                          ') ORDER BY collab.created) collaboratorsData, ' +
-                          'GROUP_CONCAT(DISTINCT ' +
-                            'CONCAT_WS(\'|\', ' +
-                              'CASE ' +
-                                'WHEN pm.surName IS NOT NULL THEN TRIM(CONCAT(pm.givenName, CONCAT(\' \', pm.surName))) ' +
-                                'ELSE (SELECT pmE.email FROM userEmails pmE WHERE pmE.userId = pm.id AND pmE.isPrimary = 1 LIMIT 1) ' +
-                              'END, ' +
-                              'r.label, ' +
-                              'pm.orcid ' +
-                          ') ORDER BY pm.created) as membersData, ' +
-                          'GROUP_CONCAT(DISTINCT CONCAT_WS(\'|\', fundings.name, pf.grantId) ' +
-                            'ORDER BY fundings.name SEPARATOR \',\') fundingsData, ' +
-                          '(SELECT COUNT(*) FROM plans WHERE projectId = p.id AND status = \'DRAFT\') as draftPlans, ' +
-                          '(SELECT COUNT(*) FROM plans WHERE projectId = p.id AND status = \'COMPLETE\') as completePlans, ' +
-                          '(SELECT COUNT(*) FROM plans WHERE projectId = p.id AND status = \'ARCHIVED\') as archivedPlans ' +
-                        'FROM projects p ' +
-                          'LEFT JOIN researchDomains ON p.researchDomainId = researchDomains.id ' +
-                          'LEFT JOIN users cu ON cu.id = p.createdById ' +
-                          'LEFT JOIN users mu ON mu.id = p.modifiedById ' +
-                          'LEFT JOIN projectCollaborators pcol ON pcol.projectId = p.id ' +
-                            'LEFT JOIN users collab ON pcol.userId = collab.id ' +
-                          'LEFT JOIN projectMembers pm ON pm.projectId = p.id ' +
-                            'LEFT JOIN projectMemberRoles pmr ON pm.id = pmr.projectMemberId ' +
-                            'LEFT JOIN memberRoles r ON pmr.memberRoleId = r.id ' +
-                          'LEFT JOIN projectFundings pf ON pf.projectId = p.id ' +
-                            'LEFT JOIN affiliations fundings ON pf.affiliationId = fundings.uri ';
+    // Have to COALESCE the userId in the subquery because it can be null for collaborators that are not registered users
+    // Also we have to wrap collab.orcid in COALESCE because without it, a null ORCID would be dropped and the userId would slide into the ORCID slot
+    const sqlStatement = 'SELECT p.id, p.title, p.abstractText, p.startDate, p.endDate, p.isTestProject, ' +
+      'researchDomains.description as researchDomain, ' +
+      'p.createdById, p.created, TRIM(CONCAT(cu.givenName, CONCAT(\' \', cu.surName))) as createdByName, ' +
+      'p.modifiedById, p.modified, TRIM(CONCAT(mu.givenName, CONCAT(\' \', mu.surName))) as modifiedByName, ' +
+      'GROUP_CONCAT(DISTINCT CONCAT_WS(\'|\', ' +
+      'CASE ' +
+      'WHEN collab.surName IS NOT NULL THEN TRIM(CONCAT(collab.givenName, CONCAT(\' \', collab.surName))) ' +
+      'ELSE (SELECT collabE.email FROM userEmails collabE WHERE collabE.userId = collab.id LIMIT 1) ' +
+      'END, ' +
+      'CONCAT(UPPER(SUBSTRING(pcol.accessLevel, 1, 1)), LOWER(SUBSTRING(pcol.accessLevel FROM 2))), ' +
+      'COALESCE(collab.orcid, \'\'), ' +
+      'COALESCE(pcol.userId, \'\') ' +
+      ') ORDER BY collab.created) collaboratorsData, ' +
+      'GROUP_CONCAT(DISTINCT ' +
+      'CONCAT_WS(\'|\', ' +
+      'CASE ' +
+      'WHEN pm.surName IS NOT NULL THEN TRIM(CONCAT(pm.givenName, CONCAT(\' \', pm.surName))) ' +
+      'ELSE (SELECT pmE.email FROM userEmails pmE WHERE pmE.userId = pm.id AND pmE.isPrimary = 1 LIMIT 1) ' +
+      'END, ' +
+      'r.label, ' +
+      'pm.orcid ' +
+      ') ORDER BY pm.created) as membersData, ' +
+      'GROUP_CONCAT(DISTINCT CONCAT_WS(\'|\', fundings.name, pf.grantId) ' +
+      'ORDER BY fundings.name SEPARATOR \',\') fundingsData, ' +
+      '(SELECT COUNT(*) FROM plans WHERE projectId = p.id AND status = \'DRAFT\') as draftPlans, ' +
+      '(SELECT COUNT(*) FROM plans WHERE projectId = p.id AND status = \'COMPLETE\') as completePlans, ' +
+      '(SELECT COUNT(*) FROM plans WHERE projectId = p.id AND status = \'ARCHIVED\') as archivedPlans, ' +
+      '(SELECT COUNT(*) FROM relatedWorks rw JOIN plans pl ON pl.id = rw.planId WHERE pl.projectId = p.id AND rw.status = \'ACCEPTED\') as relatedWorksCount ' +
+      'FROM projects p ' +
+      'LEFT JOIN researchDomains ON p.researchDomainId = researchDomains.id ' +
+      'LEFT JOIN users cu ON cu.id = p.createdById ' +
+      'LEFT JOIN users mu ON mu.id = p.modifiedById ' +
+      'LEFT JOIN projectCollaborators pcol ON pcol.projectId = p.id ' +
+      'LEFT JOIN users collab ON pcol.userId = collab.id ' +
+      'LEFT JOIN projectMembers pm ON pm.projectId = p.id ' +
+      'LEFT JOIN projectMemberRoles pmr ON pm.id = pmr.projectMemberId ' +
+      'LEFT JOIN memberRoles r ON pmr.memberRoleId = r.id ' +
+      'LEFT JOIN projectFundings pf ON pf.projectId = p.id ' +
+      'LEFT JOIN affiliations fundings ON pf.affiliationId = fundings.uri ';
 
     const groupByClause = 'GROUP BY p.id, p.title, p.abstractText, p.startDate, p.endDate, p.isTestProject, ' +
-                          'p.createdById, p.created, p.modifiedById, p.modified, researchDomains.description';
+      'p.createdById, p.created, p.modifiedById, p.modified, researchDomains.description';
 
     const response: PaginatedQueryResults<ProjectSearchResult> = await Project.queryWithPagination(
       context,
@@ -176,10 +190,15 @@ export class ProjectSearchResult {
       const contribs = item.membersData?.split(',') ?? [];
       const funds = item.fundingsData?.split(',') ?? [];
 
-      // Translate the string data into collaborator objects
+      // Translate the string data into collaborator objects and pick out the current user's access level
+      item.myAccessLevel = null;
       item.collaborators = collabs.map((collab) => {
-        const [name, accessLevel, orcid] = collab.split('|');
-        return { name, accessLevel, orcid };
+        const [name, accessLevel, orcid, collabUserId] = collab.split('|');
+        // Set the current user's access level if they are a collaborator on this project
+        if (!isNullOrUndefined(context.token?.id) && collabUserId === context.token.id.toString()) {
+          item.myAccessLevel = accessLevel?.toUpperCase() as ProjectCollaboratorAccessLevel;
+        }
+        return { name, accessLevel, orcid: orcid || null };
       });
       // Translate the string data into member objects.
       item.members = contribs.map((contrib) => {

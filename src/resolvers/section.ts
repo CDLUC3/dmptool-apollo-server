@@ -1,17 +1,23 @@
-import { ReorderSectionsResult, Resolvers } from "../types";
-import { MyContext } from "../context";
-import { Section } from "../models/Section";
-import { VersionedSection } from "../models/VersionedSection";
-import { Tag } from "../models/Tag";
-import { Template } from "../models/Template";
-import { cloneSection, hasPermissionOnSection, updateDisplayOrders } from "../services/sectionService";
-import { ForbiddenError, NotFoundError, AuthenticationError, InternalServerError, BadRequestError } from "../utils/graphQLErrors";
-import { Question } from "../models/Question";
-import { isAdmin, isAuthorized, isSuperAdmin } from "../services/authService";
-import { prepareObjectForLogs } from "../logger";
+import { ReorderSectionsResult, Resolvers } from "../types.js";
+import { MyContext } from "../context.js";
+import { Section } from "../models/Section.js";
+import { VersionedSection } from "../models/VersionedSection.js";
+import { Tag } from "../models/Tag.js";
+import { Template } from "../models/Template.js";
+import {
+  cloneSection,
+  findSectionMoveConflicts,
+  findSectionRemoveConflicts,
+  hasPermissionOnSection,
+  updateDisplayOrders
+} from "../services/sectionService.js";
+import { ForbiddenError, NotFoundError, AuthenticationError, InternalServerError, BadRequestError } from "../utils/graphQLErrors.js";
+import { Question } from "../models/Question.js";
+import { isAdmin, isAuthorized, isSuperAdmin } from "../services/authService.js";
+import { prepareObjectForLogs } from "../logger.js";
 import { GraphQLError } from "graphql";
-import { VersionedQuestion } from "../models/VersionedQuestion";
-import { normaliseDateTime } from "../utils/helpers";
+import { VersionedQuestion } from "../models/VersionedQuestion.js";
+import { normaliseDateTime } from "../utils/helpers.js";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -246,6 +252,18 @@ export const resolvers: Resolvers = {
           // Check that user has permission to update this section
           if (await hasPermissionOnSection(context, section.templateId)) {
             try {
+              // Display logic can only be triggered by prior questions, so don't allow a move that would
+              // put a question above one of its trigger questions
+              const conflicts = await findSectionMoveConflicts(context, section.templateId, sectionId, newDisplayOrder);
+              if (conflicts.length > 0) {
+                return {
+                  sections: [],
+                  errors: {
+                    general: 'This section contains questions used in display logic. Remove the display logic condition before moving the section so that each trigger question stays before the question it controls.'
+                  }
+                };
+              }
+
               // Reorder the sections
               const reorderedSections = await updateDisplayOrders(
                 context,
@@ -288,6 +306,14 @@ export const resolvers: Resolvers = {
         if (isAdmin(context?.token) && await hasPermissionOnSection(context, sectionData.templateId)) {
           //Need to create a new instance of Section so that it recognizes the 'delete' function of that instance
           const section = new Section({ ...sectionData, id: sectionId });
+
+          // Deleting the section would also delete the display logic of any questions in other sections that
+          // its questions trigger, so don't allow it until that display logic is removed
+          const conflicts = await findSectionRemoveConflicts(context, sectionId);
+          if (conflicts.length > 0) {
+            section.addError('general', 'This section contains trigger questions used in the display logic of questions in other sections. Remove those display logic conditions before deleting this section.');
+            return section;
+          }
 
           const deleted = await section.delete(context);
 

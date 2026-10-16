@@ -3,9 +3,9 @@ import {
   GetParameterCommandOutput,
   SSMClient
 } from '@aws-sdk/client-ssm';
-import { MyContext } from "../context";
-import {prepareObjectForLogs} from "../logger";
-import { awsConfig } from "../config/awsConfig";
+import { MyContext } from "../context.js";
+import { prepareObjectForLogs } from "../logger.js";
+import { awsConfig } from "../config/awsConfig.js";
 
 let client: SSMClient;
 

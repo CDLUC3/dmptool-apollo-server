@@ -1,13 +1,13 @@
-import { validateDmspId } from './resolvers/scalars/dmspId';
-import { validateOrcid } from './resolvers/scalars/orcid';
-import { validateRor } from './resolvers/scalars/ror';
-import { generalConfig } from './config/generalConfig';
+import { validateDmspId } from './resolvers/scalars/dmspId.js';
+import { validateOrcid } from './resolvers/scalars/orcid.js';
+import { validateRor } from './resolvers/scalars/ror.js';
+import { generalConfig } from './config/generalConfig.js';
 import {
   getCurrentDate,
   randomFloatInRange,
   randomHex,
   randomIntInRange
-} from "./utils/helpers";
+} from "./utils/helpers.js";
 
 // Mock resolvers for our custom Scalars
 function mockOrcid() {

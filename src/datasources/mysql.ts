@@ -1,7 +1,7 @@
 import * as mysql2 from 'mysql2/promise';
-import { mysqlGeneralConfig, mysqlPoolConfig } from "../config/mysqlConfig";
-import { logger, prepareObjectForLogs } from '../logger';
-import { MyContext } from '../context';
+import { mysqlGeneralConfig, mysqlPoolConfig } from "../config/mysqlConfig.js";
+import { logger, prepareObjectForLogs } from '../logger.js';
+import { MyContext } from '../context.js';
 import { toErrorMessage } from "@dmptool/utils";
 
 export interface DatabaseConnection {

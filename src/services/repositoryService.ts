@@ -1,16 +1,16 @@
-import { MyContext } from '../context';
-import { prepareObjectForLogs } from '../logger';
-import { Repository } from '../models/Repository';
+import { MyContext } from '../context.js';
+import { prepareObjectForLogs } from '../logger.js';
+import { Repository } from '../models/Repository.js';
 import {
   Re3DataRepositoryRecord,
-} from '../types/repository';
+} from '../types/repository.js';
 import {
   PaginatedQueryResults,
   PaginationOptions,
   PaginationType,
   PaginationOptionsForOffsets,
-} from '../types/general';
-import { openSearchFindRe3Data, openSearchFindRe3DataByURIs } from './openSearchService';
+} from '../types/general.js';
+import { openSearchFindRe3Data, openSearchFindRe3DataByURIs } from './openSearchService.js';
 
 /**
  * RepositoryService

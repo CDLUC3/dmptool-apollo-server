@@ -1,16 +1,34 @@
-import { GraphQLError } from 'graphql';
-import { MyContext } from '../../context';
-import { buildMockContextWithToken } from '../../__mocks__/context';
-import { validateProjectCollaboratorAccessChange, demoteExistingPrimaryCollaborator } from '../collaboratorService';
-import { ProjectCollaborator, ProjectCollaboratorAccessLevel } from '../../models/Collaborator';
-import { isSuperAdmin } from '../authService';
-import { logger } from '../../logger';
-import casual from 'casual';
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
-jest.mock('../../models/Collaborator', () => ({
+import { jest } from '@jest/globals';
+import casual from "casual";
+
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+mockAppConfigs();
+mockAppLogger();
+
+import { GraphQLError } from "graphql";
+import { MyContext } from "../../context.js";
+
+jest.unstable_mockModule('../../datasources/cache.js', () => ({
+  Cache: jest.fn().mockImplementation(() => ({
+    get: jest.fn(),
+    set: jest.fn(),
+    delete: jest.fn(),
+    clear: jest.fn(),
+  })),
+}));
+
+const mockFindByProjectId = jest.fn<(...args: any[]) => Promise<any>>();
+const mockFindByUserIdAndProjectId = jest.fn<(...args: any[]) => Promise<any>>();
+
+const actualCollaborator = await import('../../models/Collaborator.js');
+jest.unstable_mockModule('../../models/Collaborator.js', () => ({
+  ...actualCollaborator,
   ProjectCollaborator: {
-    findByProjectId: jest.fn(),
-    findByUserIdAndProjectId: jest.fn(),
+    findByProjectId: mockFindByProjectId,
+    findByUserIdAndProjectId: mockFindByUserIdAndProjectId,
   },
   ProjectCollaboratorAccessLevel: {
     PRIMARY: 'PRIMARY',
@@ -20,7 +38,26 @@ jest.mock('../../models/Collaborator', () => ({
   },
 }));
 
-jest.mock('../authService');
+const mockIsSuperAdmin = jest.fn<(...args: any[]) => boolean>();
+
+const actualAuthService = await import('../authService.js');
+jest.unstable_mockModule('../authService.js', () => {
+  const mocked: Record<string, any> = {};
+  for (const [key, value] of Object.entries(actualAuthService)) {
+    mocked[key] = typeof value === 'function' ? jest.fn() : value;
+  }
+  return {
+    ...mocked,
+    isSuperAdmin: mockIsSuperAdmin,
+  };
+});
+
+const { buildMockContextWithToken } = await import("../../__mocks__/context.js");
+const { logger } = await import("../../logger.js");
+const { validateProjectCollaboratorAccessChange, demoteExistingPrimaryCollaborator } = await import('../collaboratorService.js');
+const { ProjectCollaboratorAccessLevel } = await import('../../models/Collaborator.js');
+const { isSuperAdmin, } = await import("../authService.js");
+
 
 describe('collaboratorService', () => {
   let context: MyContext;
@@ -62,7 +99,7 @@ describe('collaboratorService', () => {
 
     describe('when assigning PRIMARY as a SuperAdmin', () => {
       it('should resolve without throwing', async () => {
-        (isSuperAdmin as jest.Mock).mockReturnValue(true);
+        mockIsSuperAdmin.mockReturnValue(true);
 
         await expect(
           validateProjectCollaboratorAccessChange(
@@ -77,9 +114,9 @@ describe('collaboratorService', () => {
 
     describe('when assigning PRIMARY as an existing PRIMARY collaborator', () => {
       it('should resolve without throwing', async () => {
-        (isSuperAdmin as jest.Mock).mockReturnValue(false);
+        mockIsSuperAdmin.mockReturnValue(false);
 
-        (ProjectCollaborator.findByUserIdAndProjectId as jest.Mock).mockResolvedValue({
+        mockFindByUserIdAndProjectId.mockResolvedValue({
           accessLevel: ProjectCollaboratorAccessLevel.PRIMARY,
         });
 
@@ -98,7 +135,7 @@ describe('collaboratorService', () => {
       it('should throw a GraphQLError with FORBIDDEN code', async () => {
         (isSuperAdmin as jest.Mock).mockReturnValue(false);
 
-        (ProjectCollaborator.findByUserIdAndProjectId as jest.Mock).mockResolvedValue({
+        mockFindByUserIdAndProjectId.mockResolvedValue({
           accessLevel: ProjectCollaboratorAccessLevel.OWN,
         });
 
@@ -134,14 +171,14 @@ describe('collaboratorService', () => {
 
     describe('when an existing PRIMARY collaborator is found', () => {
       it('should demote them to OWN and call update', async () => {
-        const mockUpdate = jest.fn().mockResolvedValue(undefined);
+        const mockUpdate = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
         const mockPrimary = {
           id: casual.integer(1, 1000),
           accessLevel: ProjectCollaboratorAccessLevel.PRIMARY,
           update: mockUpdate,
         };
 
-        (ProjectCollaborator.findByProjectId as jest.Mock).mockResolvedValue([mockPrimary]);
+        mockFindByProjectId.mockResolvedValue([mockPrimary]);
 
         await demoteExistingPrimaryCollaborator(context, projectId, excludeCollaboratorId);
 
@@ -152,8 +189,8 @@ describe('collaboratorService', () => {
 
     describe('when no PRIMARY collaborator exists', () => {
       it('should resolve without calling update', async () => {
-        const mockUpdate = jest.fn();
-        (ProjectCollaborator.findByProjectId as jest.Mock).mockResolvedValue([
+        const mockUpdate = jest.fn<() => Promise<void>>();
+        mockFindByProjectId.mockResolvedValue([
           { id: excludeCollaboratorId, accessLevel: ProjectCollaboratorAccessLevel.OWN, update: mockUpdate }
         ]);
 
@@ -167,8 +204,8 @@ describe('collaboratorService', () => {
 
     describe('when the only PRIMARY is the excluded collaborator', () => {
       it('should not demote them', async () => {
-        const mockUpdate = jest.fn();
-        (ProjectCollaborator.findByProjectId as jest.Mock).mockResolvedValue([
+        const mockUpdate = jest.fn<() => Promise<void>>();
+        mockFindByProjectId.mockResolvedValue([
           { id: excludeCollaboratorId, accessLevel: ProjectCollaboratorAccessLevel.PRIMARY, update: mockUpdate }
         ]);
 

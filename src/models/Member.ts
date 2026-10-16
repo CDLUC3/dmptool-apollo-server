@@ -1,8 +1,8 @@
-import { MyContext } from "../context";
-import { validateOrcid } from "../resolvers/scalars/orcid";
-import { capitalizeFirstLetter, formatORCID, validateEmail } from "../utils/helpers";
-import { MemberRole } from "./MemberRole";
-import { MySqlModel } from "./MySqlModel";
+import { MyContext } from "../context.js";
+import { validateOrcid } from "../resolvers/scalars/orcid.js";
+import { capitalizeFirstLetter, formatORCID, validateEmail } from "../utils/helpers.js";
+import { MemberRole } from "./MemberRole.js";
+import { MySqlModel } from "./MySqlModel.js";
 
 export class ProjectMember extends MySqlModel {
   public projectId: number;

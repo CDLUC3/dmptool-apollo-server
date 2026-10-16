@@ -1,13 +1,25 @@
-import casual from "casual";
-import { Affiliation, AffiliationSearch, PopularFunder } from "../Affiliation";
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { DMPHubConfig } from "../../config/dmpHubConfig";
-import { generalConfig } from "../../config/generalConfig";
-import { logger } from "../../logger";
-import { PaginationType } from "../../types/general";
+import { jest } from '@jest/globals';
+import casual from 'casual';
+
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+// Dynamic imports AFTER all mocks are registered
+const { Affiliation, AffiliationSearch, PopularFunder } = await import('../Affiliation.js');
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { DMPHubConfig } = await import('../../config/dmpHubConfig.js');
+const { generalConfig } = await import('../../config/generalConfig.js');
+const { logger } = await import('../../logger.js');
+const { PaginationType } = await import('../../types/general.js');
 
 let context;
-jest.mock('../../context.ts');
 
 describe('Affiliation', () => {
   let affiliation;
@@ -96,7 +108,7 @@ describe('findById', () => {
   let context;
   let affiliation;
 
-  beforeEach(async() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
 
     context = await buildMockContextWithToken(logger);
@@ -110,7 +122,7 @@ describe('findById', () => {
     })
 
     localQuery = jest.fn();
-    (Affiliation.query as jest.Mock) = localQuery;
+    (Affiliation.query as unknown as jest.Mock) = localQuery;
   });
 
   afterEach(() => {
@@ -141,7 +153,9 @@ describe('create', () => {
   const originalInsert = Affiliation.insert;
   const originalFindById = Affiliation.findById;
   const originalFindByURI = Affiliation.findByURI;
-  let insertQuery;
+  const originalFindByName = Affiliation.findByName;
+
+  let insertQuery: jest.Mock<() => Promise<number>>;
   let affiliation;
 
   beforeEach(async () => {
@@ -149,8 +163,10 @@ describe('create', () => {
 
     context = await buildMockContextWithToken(logger);
 
-    insertQuery = jest.fn();
-    (Affiliation.insert as jest.Mock) = insertQuery;
+    insertQuery = jest.fn<() => Promise<number>>();
+    (Affiliation.insert as unknown as jest.Mock) = insertQuery;
+
+
 
     affiliation = new Affiliation({
       uri: 'https://ror.org/01234',
@@ -182,16 +198,21 @@ describe('create', () => {
     Affiliation.insert = originalInsert;
     Affiliation.findById = originalFindById;
     Affiliation.findByURI = originalFindByURI;
+    Affiliation.findByName = originalFindByName;
   });
 
   it('should return the newly added Affiliation', async () => {
-    const mockFindByURI = jest.fn();
-    (Affiliation.findByURI as jest.Mock) = mockFindByURI;
-    mockFindByURI.mockResolvedValue(false);
+    const mockFindByURI = jest.fn<() => Promise<InstanceType<typeof Affiliation> | null>>();
+    (Affiliation.findByURI as unknown as jest.Mock) = mockFindByURI;
+    mockFindByURI.mockResolvedValue(null);
 
-    const mockFindById = jest.fn();
-    (Affiliation.findById as jest.Mock) = mockFindById;
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof Affiliation> | null>>();
+    (Affiliation.findById as unknown as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(affiliation);
+
+    const mockFindByName = jest.fn<() => Promise<InstanceType<typeof Affiliation> | null>>();
+    (Affiliation.findByName as unknown as jest.Mock) = mockFindByName;
+    mockFindByName.mockResolvedValueOnce(null);
 
     const result = await affiliation.create(context);
     expect(mockFindByURI).toHaveBeenCalledTimes(1);
@@ -201,12 +222,12 @@ describe('create', () => {
   });
 
   it('should add an error if affiliation already exists', async () => {
-    const mockFindByURI = jest.fn();
-    (Affiliation.findByURI as jest.Mock) = mockFindByURI;
-    mockFindByURI.mockResolvedValue(true);
+    const mockFindByURI = jest.fn<() => Promise<InstanceType<typeof Affiliation> | null>>();
+    (Affiliation.findByURI as unknown as jest.Mock) = mockFindByURI;
+    mockFindByURI.mockResolvedValue(affiliation);
 
-    const mockFindById = jest.fn();
-    (Affiliation.findById as jest.Mock) = mockFindById;
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof Affiliation> | null>>();
+    (Affiliation.findById as unknown as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(affiliation);
 
     await affiliation.create(context);
@@ -216,10 +237,10 @@ describe('create', () => {
 
 describe('update', () => {
   const originalUpdate = Affiliation.update;
-  let updateQuery;
+  let updateQuery: jest.Mock<() => Promise<InstanceType<typeof Affiliation>>>;
   let affiliation;
 
-  beforeEach(async() => {
+  beforeEach(async () => {
     jest.resetAllMocks();
 
     context = await buildMockContextWithToken(logger);
@@ -250,8 +271,8 @@ describe('update', () => {
       createdById: casual.integer(1, 999),
       modifiedById: casual.integer(1, 999),
     })
-    updateQuery = jest.fn().mockResolvedValue(affiliation);
-    (Affiliation.update as jest.Mock) = updateQuery;
+    updateQuery = jest.fn<() => Promise<InstanceType<typeof Affiliation>>>().mockResolvedValue(affiliation);
+    (Affiliation.update as unknown as jest.Mock) = updateQuery;
   });
 
   afterEach(() => {
@@ -260,11 +281,11 @@ describe('update', () => {
   });
 
   it('should return Affiliation with no errors if affiliation is valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (affiliation.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
-    const findByQuery = jest.fn().mockResolvedValue(affiliation);
-    (Affiliation.findById as jest.Mock) = findByQuery;
+    const findByQuery = jest.fn<() => Promise<InstanceType<typeof Affiliation> | null>>().mockResolvedValue(affiliation);
+    (Affiliation.findById as unknown as jest.Mock) = findByQuery;
     const result = await affiliation.update(context);
     expect(localValidator).toHaveBeenCalledTimes(1);
     expect(Object.keys(result.errors).length).toBe(0);
@@ -288,8 +309,8 @@ describe('delete', () => {
       ownerId: casual.url,
       name: casual.sentence,
     });
-    deleteQuery = jest.fn().mockResolvedValue(affiliation);
-    (Affiliation.delete as jest.Mock) = deleteQuery;
+    deleteQuery = jest.fn<() => Promise<InstanceType<typeof Affiliation> | null>>().mockResolvedValue(affiliation);
+    (Affiliation.delete as unknown as jest.Mock) = deleteQuery;
   });
 
   afterEach(() => {
@@ -334,8 +355,8 @@ describe('findByURI', () => {
       ownerId: casual.url,
     })
 
-    localQuery = jest.fn();
-    (Affiliation.query as jest.Mock) = localQuery;
+    localQuery = jest.fn<() => Promise<InstanceType<typeof Affiliation> | null>>();
+    (Affiliation.query as unknown as jest.Mock) = localQuery;
   });
 
   afterEach(() => {
@@ -382,8 +403,8 @@ describe('findByName', () => {
       ssoEntityId: casual.url
     })
 
-    localQuery = jest.fn();
-    (Affiliation.query as jest.Mock) = localQuery;
+    localQuery = jest.fn<() => Promise<InstanceType<typeof Affiliation> | null>>();
+    (Affiliation.query as unknown as jest.Mock) = localQuery;
   });
 
   afterEach(() => {
@@ -463,7 +484,7 @@ describe('search', () => {
     jest.resetAllMocks();
 
     localQuery = jest.fn();
-    (Affiliation.queryWithPagination as jest.Mock) = localQuery;
+    (Affiliation.queryWithPagination as unknown as jest.Mock) = localQuery;
 
     context = await buildMockContextWithToken(logger);
 
@@ -488,7 +509,7 @@ describe('search', () => {
     const sql = 'SELECT a.* FROM affiliations a';
     const whereFilters = ['a.active = 1', '(LOWER(a.searchName) LIKE ?)', 'a.funder = 1'];
     const vals = [`%${term.toLowerCase().trim()}%`];
-    const sortFields =  ["a.displayName", "a.created"];
+    const sortFields = ["a.displayName", "a.created"];
     const opts = {
       cursor: null,
       limit: generalConfig.defaultSearchLimit,
@@ -510,7 +531,7 @@ describe('search', () => {
     const sql = 'SELECT a.* FROM affiliations a';
     const whereFilters = ['a.active = 1', '(LOWER(a.searchName) LIKE ?)'];
     const vals = [`%${term.toLowerCase().trim()}%`];
-    const sortFields =  ["a.displayName", "a.created"];
+    const sortFields = ["a.displayName", "a.created"];
     const opts = {
       cursor: null,
       limit: generalConfig.defaultSearchLimit,
@@ -558,8 +579,8 @@ describe('PopularFunder', () => {
 describe('top5', () => {
   it('should call query with correct params and return the popular funders', async () => {
     const context = await buildMockContextWithToken(logger);
-    const localQuery = jest.fn();
-    (Affiliation.query as jest.Mock) = localQuery;
+    const localQuery = jest.fn<() => Promise<InstanceType<typeof PopularFunder>[]>>();
+    (Affiliation.query as unknown as jest.Mock) = localQuery;
 
     const popularFunder = new PopularFunder({
       id: casual.integer(1, 9),
@@ -572,10 +593,10 @@ describe('top5', () => {
     localQuery.mockResolvedValueOnce([popularFunder]);
     const result = await PopularFunder.top5(context);
     const expectedSql = 'SELECT a.id, a.uri, a.displayName, a.apiTarget, COUNT(p.id) AS nbrPlans ' +
-                        'FROM affiliations a LEFT JOIN projectFundings pf ON pf.affiliationId = a.uri ' +
-                        'LEFT JOIN projects p ON p.id = pf.projectId WHERE a.active = 1 AND a.funder = 1 ' +
-                        'AND p.isTestProject = 0 AND p.created BETWEEN ? AND ? GROUP BY a.id, a.uri, ' +
-                        'a.displayName ORDER BY nbrPlans DESC LIMIT 5';
+      'FROM affiliations a LEFT JOIN projectFundings pf ON pf.affiliationId = a.uri ' +
+      'LEFT JOIN projects p ON p.id = pf.projectId WHERE a.active = 1 AND a.funder = 1 ' +
+      'AND p.isTestProject = 0 AND p.created BETWEEN ? AND ? GROUP BY a.id, a.uri, ' +
+      'a.displayName ORDER BY nbrPlans DESC LIMIT 5';
     // Get the date range for the past year
     const today = new Date();
     const lastYear = new Date();
@@ -595,7 +616,7 @@ describe('top5', () => {
 
   it('should return an empty array if it finds no popular funders', async () => {
     const context = await buildMockContextWithToken(logger);
-    const localQuery = jest.fn();
+    const localQuery = jest.fn<() => Promise<InstanceType<typeof PopularFunder>[]>>();
     (Affiliation.query as jest.Mock) = localQuery;
 
     localQuery.mockResolvedValueOnce([]);
@@ -605,7 +626,7 @@ describe('top5', () => {
 
   it('should throw an error if the query fails', async () => {
     const context = await buildMockContextWithToken(logger);
-    const localQuery = jest.fn();
+    const localQuery = jest.fn<() => Promise<InstanceType<typeof PopularFunder>[]>>();
     (Affiliation.query as jest.Mock) = localQuery;
 
     localQuery.mockRejectedValueOnce(new Error('Query failed'));

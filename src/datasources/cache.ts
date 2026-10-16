@@ -1,8 +1,8 @@
 import Keyv from "keyv";
 import KeyvRedis from "@keyv/redis";
 import { KeyvAdapter } from "@apollo/utils.keyvadapter";
-import { cacheConfig } from "../config/cacheConfig";
-import { logger } from '../logger';
+import { cacheConfig } from "../config/cacheConfig.js";
+import { logger } from '../logger.js';
 
 // Note that Redis cache clusters require you to wrap keys in `{}` to ensure that they are stored
 // near one another and are able to be set and fetched.
@@ -33,7 +33,7 @@ export class Cache {
     });
 
     keyv.on('close', () => {
-      logger.info( {}, `Redis connection closed`);
+      logger.info({}, `Redis connection closed`);
     });
 
     // Set the Adapter which will be used to interact with the cache

@@ -1,5 +1,5 @@
 import { GraphQLScalarType, Kind } from 'graphql';
-import { generalConfig } from '../../config/generalConfig';
+import { generalConfig } from '../../config/generalConfig.js';
 
 const ROR_ID_REGEX = /^[0-9a-zA-Z]+$/;
 const ROR_URL_REGEX = /^https?:\/\/ror.org\/[0-9a-zA-Z]+/

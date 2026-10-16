@@ -1,12 +1,22 @@
-import casual from "casual";
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { Answer } from "../Answer";
-import { logger } from "../../logger";
+import { jest } from '@jest/globals';
+import casual from 'casual';
 import { CURRENT_SCHEMA_VERSION, DefaultResearchOutputTableAnswer } from "@dmptool/types";
-import { Question } from "../Question";
-import { removeNullAndUndefinedFromJSON } from "../../utils/helpers";
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
 
-jest.mock('../../context.ts');
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+// Dynamic imports AFTER all mocks are registered
+const { Answer } = await import("../Answer.js");
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
+const { Question } = await import("../Question.js");
+const { removeNullAndUndefinedFromJSON } = await import("../../utils/helpers.js");
 
 let context;
 
@@ -390,6 +400,40 @@ describe('findBy Queries', () => {
     const result = await Answer.findByPlanId('testing', context, planId);
     expect(result).toEqual([]);
   });
+
+  it('findFilledAnswersByPlanId should query filled answers and return Answer instances', async () => {
+    const planId = casual.integer(1, 9999);
+    localQuery.mockResolvedValueOnce([answer]);
+
+    const result = await Answer.findFilledAnswersByPlanId(
+      'testing',
+      context,
+      planId
+    );
+
+    const sql = localQuery.mock.calls[0][1].replace(/\s+/g, ' ').trim();
+    expect(sql).toContain('SELECT * FROM answers WHERE planId = ?');
+    expect(sql).toContain("JSON_TYPE(json) = 'OBJECT'");
+    expect(localQuery).toHaveBeenLastCalledWith(
+      context,
+      expect.any(String),
+      [planId.toString()],
+      'testing'
+    );
+    expect(result[0]).toBeInstanceOf(Answer);
+  });
+
+  it('findFilledAnswersByPlanId should return an empty array when no answers are filled', async () => {
+    localQuery.mockResolvedValueOnce([]);
+
+    const result = await Answer.findFilledAnswersByPlanId(
+      'testing',
+      context,
+      casual.integer(1, 9999)
+    );
+
+    expect(result).toEqual([]);
+  });
 });
 
 describe('update', () => {
@@ -410,7 +454,7 @@ describe('update', () => {
   });
 
   it('returns the Answer with errors if it is not valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (answer.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -420,7 +464,7 @@ describe('update', () => {
   });
 
   it('returns an error if the Answer has no id', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (answer.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
@@ -431,13 +475,13 @@ describe('update', () => {
   });
 
   it('returns the updated Answer', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (answer.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
     updateQuery.mockResolvedValueOnce(answer);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof Answer> | null>>();
     (Answer.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(answer);
 
@@ -471,7 +515,7 @@ describe('create', () => {
   });
 
   it('returns the Answer without errors if it is valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (answer.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -487,7 +531,7 @@ describe('create', () => {
   });
 
   it('returns the Answer with an error if the object already exists', async () => {
-    const mockFindByPlanIdAndVersionedQuestionId = jest.fn();
+    const mockFindByPlanIdAndVersionedQuestionId = jest.fn<() => Promise<InstanceType<typeof Answer> | null>>();
     (Answer.findByPlanIdAndVersionedQuestionId as jest.Mock) = mockFindByPlanIdAndVersionedQuestionId;
     mockFindByPlanIdAndVersionedQuestionId.mockResolvedValueOnce(answer);
 
@@ -498,13 +542,13 @@ describe('create', () => {
   });
 
   it('returns the newly added Answer', async () => {
-    const mockFindByPlanIdAndVersionedQuestionId = jest.fn();
+    const mockFindByPlanIdAndVersionedQuestionId = jest.fn<() => Promise<InstanceType<typeof Answer> | null>>();
     (Answer.findByPlanIdAndVersionedQuestionId as jest.Mock) = mockFindByPlanIdAndVersionedQuestionId;
     mockFindByPlanIdAndVersionedQuestionId.mockResolvedValueOnce(null);
 
     insertQuery.mockResolvedValueOnce(casual.integer(1, 9999));
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof Answer> | null>>();
     (Answer.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(answer);
 
@@ -536,7 +580,7 @@ describe('delete', () => {
   });
 
   it('returns null if it was not able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<boolean>>();
     (Answer.delete as jest.Mock) = deleteQuery;
 
     deleteQuery.mockResolvedValueOnce(null);
@@ -544,11 +588,11 @@ describe('delete', () => {
   });
 
   it('returns the Answer if it was able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<boolean>>();
     (Answer.delete as jest.Mock) = deleteQuery;
     deleteQuery.mockResolvedValueOnce(answer);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof Answer> | null>>();
     (Answer.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(answer);
 

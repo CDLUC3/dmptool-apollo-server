@@ -1,10 +1,22 @@
+import { jest } from '@jest/globals';
 import casual from "casual";
-import { Section } from "../Section";
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { logger } from "../../logger";
+
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+//Dynamic imports AFTER all mocks are registered
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
+const { Section } = await import("../Section.js");
 
 let context;
-jest.mock('../../context.ts');
 
 describe('Section', () => {
   let section;
@@ -208,7 +220,7 @@ describe('create', () => {
   });
 
   it('returns the Section without errors if it is valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (section.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -217,11 +229,11 @@ describe('create', () => {
     expect(localValidator).toHaveBeenCalledTimes(1);
   });
   it('returns the newly added Section', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (section.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof Section> | null>>();
     (Section.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(section);
 
@@ -251,7 +263,7 @@ describe('update', () => {
   });
 
   it('returns the Section without errors if it is valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (section.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -261,7 +273,7 @@ describe('update', () => {
   });
 
   it('returns an error if the Section has no id', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (section.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
@@ -272,11 +284,11 @@ describe('update', () => {
   });
 
   it('returns the updated Section', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (section.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof Section> | null>>();
     (Section.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(section);
 
@@ -306,7 +318,7 @@ describe('delete', () => {
   });
 
   it('returns null if it was not able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<null>>();
     (Section.delete as jest.Mock) = deleteQuery;
 
     deleteQuery.mockResolvedValueOnce(null);
@@ -314,12 +326,12 @@ describe('delete', () => {
   });
 
   it('returns the Section if it was able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<boolean>>();
     (Section.delete as jest.Mock) = deleteQuery;
 
     deleteQuery.mockResolvedValueOnce(section);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof Section> | null>>();
     (Section.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(section);
 

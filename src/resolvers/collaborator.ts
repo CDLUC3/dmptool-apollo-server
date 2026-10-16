@@ -1,32 +1,32 @@
-import { CollaboratorSearchResult, CollaboratorSearchResults, Resolvers } from "../types";
+import { CollaboratorSearchResult, CollaboratorSearchResults, Resolvers } from "../types.js";
 import {
   TemplateCollaborator,
   ProjectCollaborator,
   ProjectCollaboratorAccessLevel
-} from "../models/Collaborator";
-import { User } from '../models/User';
-import { MyContext } from "../context";
-import { Template } from "../models/Template";
-import { Project } from "../models/Project";
-import { isAdmin, isAuthorized, isSuperAdmin } from "../services/authService";
+} from "../models/Collaborator.js";
+import { User } from '../models/User.js';
+import { MyContext } from "../context.js";
+import { Template } from "../models/Template.js";
+import { Project } from "../models/Project.js";
+import { isAdmin, isAuthorized, isSuperAdmin } from "../services/authService.js";
 import {
   AuthenticationError,
   BadRequestError,
   ForbiddenError,
   InternalServerError,
   NotFoundError
-} from "../utils/graphQLErrors";
-import { hasPermissionOnTemplate } from "../services/templateService";
-import { hasPermissionOnProject } from "../services/projectService";
+} from "../utils/graphQLErrors.js";
+import { hasPermissionOnTemplate } from "../services/templateService.js";
+import { hasPermissionOnProject } from "../services/projectService.js";
 import {
   validateProjectCollaboratorAccessChange,
   demoteExistingPrimaryCollaborator,
-} from "../services/collaboratorService";
-import { sendProjectCollaborationEmail } from '../services/emailService';
-import { prepareObjectForLogs } from "../logger";
+} from "../services/collaboratorService.js";
+import { sendProjectCollaborationEmail } from '../services/emailService.js';
+import { prepareObjectForLogs } from "../logger.js";
 import { GraphQLError } from "graphql";
-import { isNullOrUndefined, normaliseDateTime, ORCID_REGEX } from "../utils/helpers";
-import { PaginationOptionsForCursors } from "../types/general";
+import { isNullOrUndefined, normaliseDateTime, ORCID_REGEX } from "../utils/helpers.js";
+import { PaginationOptionsForCursors } from "../types/general.js";
 
 export const resolvers: Resolvers = {
   Query: {

@@ -1,6 +1,6 @@
-import { MyContext } from "../context";
-import { valueIsEmpty } from "../utils/helpers";
-import { MySqlModel } from "./MySqlModel";
+import { MyContext } from "../context.js";
+import { valueIsEmpty } from "../utils/helpers.js";
+import { MySqlModel } from "./MySqlModel.js";
 
 export class PlanFeedbackComment extends MySqlModel {
   public answerId: number;

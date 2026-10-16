@@ -1,10 +1,10 @@
-import { MyContext } from "../context";
-import { MySqlModel } from "./MySqlModel";
-import {
+import { MyContext } from "../context.js";
+import { MySqlModel } from "./MySqlModel.js";
+import type { // Tell Node.js to compeltely ignore this. line at runtime
   QuestionConditionActionType,
   QuestionConditionMatchType,
   QuestionConditionCondition
-} from "../types";
+} from "../types.js";
 
 export { QuestionConditionActionType, QuestionConditionMatchType, QuestionConditionCondition };
 
@@ -98,4 +98,22 @@ export class QuestionCondition extends MySqlModel {
     return Array.isArray(results) ? results.map((entry) => new QuestionCondition(entry)) : [];
   }
 
+  // Fetch all of the QuestionConditions that use the specified Question as their trigger question, excluding
+  // any in the Question's own display logic
+  static async findByTriggerQuestionId(
+    reference: string,
+    context: MyContext,
+    triggerQuestionId: number
+  ): Promise<QuestionCondition[]> {
+    const sql = `SELECT qc.* FROM questionConditions qc
+      INNER JOIN questionConditionGroups qcg ON qcg.id = qc.groupId
+      WHERE qcg.triggerQuestionId = ? AND qcg.questionId <> ?`;
+    const results = await QuestionCondition.query(
+      context,
+      sql,
+      [triggerQuestionId?.toString(), triggerQuestionId?.toString()],
+      reference
+    );
+    return Array.isArray(results) ? results.map((entry) => new QuestionCondition(entry)) : [];
+  }
 }

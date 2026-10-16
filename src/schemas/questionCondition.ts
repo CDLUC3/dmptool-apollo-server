@@ -1,4 +1,4 @@
-import gql from 'graphql-tag';
+import { gql } from 'graphql-tag';
 
 export const typeDefs = gql`
 
@@ -55,7 +55,7 @@ export const typeDefs = gql`
     "The type of condition/operator to evaluate"
     conditionType: QuestionConditionCondition!
     "The value(s) to match on"
-    conditionMatch: String
+    conditionMatch: String!
   }
 
 `

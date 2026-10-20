@@ -64,6 +64,7 @@ import {
   getPlanSectionsAndQuestions,
   isPlanReadOnlyForCurrentUser
 } from "../services/planService.js";
+import { findHiddenVersionedQuestionIdsForPlan } from "../services/conditionalLogicService.js";
 import {
   getProjectAndCheckAuthorization,
   hasPermissionOnProject,
@@ -971,6 +972,12 @@ export const resolvers: Resolvers = {
       const ref = 'plan.sections resolver';
       const sections: PlanSection[] = await getPlanSectionsAndQuestions(ref, context, parent);
       return Array.isArray(sections) ? sections : [];
+    },
+    hiddenVersionedQuestionIds: async (parent: Plan, _, context: MyContext): Promise<number[]> => {
+      if (parent?.id) {
+        return await findHiddenVersionedQuestionIdsForPlan('plan hiddenVersionedQuestionIds resolver', context, parent);
+      }
+      return [];
     },
     progress: async (parent: Plan, _, context: MyContext): Promise<PlanProgress> => {
       if (parent?.id) {

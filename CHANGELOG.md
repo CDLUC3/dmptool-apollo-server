@@ -3,6 +3,10 @@
 ## v1.1.0
 
 ### Added
+- Added `isHidden` to `PlanQuestion`, so the plan's questions report whether their display logic hides them based on the plan's saved answers. Visibility is decided by `findHiddenQuestionIds` from `@dmptool/utils`, so it follows the same rules as the other services [#366]
+- Added `hiddenVersionedQuestionIds` chained resolver to `Plan`, a lightweight way to get the hidden questions after an answer is saved (e.g. via `addAnswer`/`updateAnswer { plan { hiddenVersionedQuestionIds } }`). It only loads the template's display logic and the saved answers to its trigger questions [#366]
+- Added `findHiddenVersionedQuestionIds` and `findHiddenVersionedQuestionIdsForPlan` to `conditionalLogicService` [#366]
+- Added the `@dmptool/utils` display logic functions to the `@dmptool/utils` Jest mock, using the real implementations [#366]
 - Added a `isPlanReadOnlyForCurrentUser` function to the `planService` to determine if the current user has read-only access to a given plan. [#430]
 - Added a `getAllAvailableGuidanceForVersionedTemplate` function to the `guidanceService` to return all available tagged guidance for a given versioned template [#430]
 - Added `versionedTemplateCustomizationId` column to the `plans` table via data migration, so a Plan stays tied to the version of the template customization that existed when it was created [#388]
@@ -155,6 +159,8 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `findConditionalLogicForPlan` to return each question's display logic grouped by condition group, and to map each group's trigger question to its `versionedQuestionId` within the plan's versioned template. Trigger questions outside that versioned template are returned as `null` and treated as unanswered [#366]
+- Updated `conditionalLogicService.ts` so that `findConditionalLogicForPlan` returns grouped logic. Updated `planService.ts` so that the backend figures out which questions are hidden in the plan and returns `isHidden` for the questions that should not be displayed. Added `isHidden` to `PlanQuestion` model.
 - Updated error messages related to mutations that conflict with existing display logic [#1472]
 - Updated `@dmptool/utils` to `v2.2.3`
 - Updated `dmptool-utils` to `v2.2.2` to get updates related to customizations and a research output bug [#388]
@@ -343,6 +349,7 @@
 - Updates to appease newer version of eslint
 
 ### Removed
+- Removed `conditionalLogic` and its `VersionedQuestionConditionalLogic` type from `PlanQuestion`, since the plan's display logic is now applied on the server through `isHidden` [#366]
 - Removed `VersionedQuestionCustomization.findActiveByTemplateAffiliationAndQuestion` and `VersionedSectionCustomization.findActiveByTemplateAffiliationAndSection`, which have been replaced by the existing `findByVersionedCustomizationAndVersionedQuestion` and `findByVersionedCustomizationAndVersionedSection` [#388]
 - Removed the private `findTemplateCustomizationId` helper from `PlanSectionProgress` [#388]
 - Removed the reset password logic as this will now be handled by the external Auth service

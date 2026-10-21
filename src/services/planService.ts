@@ -1,16 +1,16 @@
-import {MyContext} from "../context.js";
-import {MemberRole} from "../models/MemberRole.js";
-import {isNullOrUndefined} from "../utils/helpers.js";
-import {PlanMember, ProjectMember} from "../models/Member.js";
-import {Plan, PlanSectionProgress, PlanVisibility} from "../models/Plan.js";
-import {Project} from "../models/Project.js";
+import { MyContext } from "../context.js";
+import { MemberRole } from "../models/MemberRole.js";
+import { isNullOrUndefined } from "../utils/helpers.js";
+import { PlanMember, ProjectMember } from "../models/Member.js";
+import { Plan, PlanSectionProgress, PlanVisibility } from "../models/Plan.js";
+import { Project } from "../models/Project.js";
 import {
   PlanFunding,
   ProjectFunding,
   ProjectFundingStatus
 } from "../models/Funding.js";
-import {AlternateIdentifier} from "../models/AlternateIdentifier.js";
-import {AcceptedWork} from "../models/RelatedWork.js";
+import { AlternateIdentifier } from "../models/AlternateIdentifier.js";
+import { AcceptedWork } from "../models/RelatedWork.js";
 import {
   createDMP,
   deleteDMP,
@@ -24,10 +24,10 @@ import {
   tombstoneDMP,
   updateDMP,
 } from "@dmptool/utils";
-import {getDynamoConnectionParams} from "../config/awsConfig.js";
-import {generalConfig} from "../config/generalConfig.js";
-import {DMPToolDMPType} from "@dmptool/types";
-import {getRDSConnectionParams} from "../config/mysqlConfig.js";
+import { getDynamoConnectionParams } from "../config/awsConfig.js";
+import { generalConfig } from "../config/generalConfig.js";
+import { DMPToolDMPType } from "@dmptool/types";
+import { getRDSConnectionParams } from "../config/mysqlConfig.js";
 import {
   buildDataCiteXML,
   DataCiteMetadataInput,
@@ -38,7 +38,7 @@ import {
   DataCiteSourceMember,
   planToDataCiteMetadata
 } from "./dataciteXMLService.js";
-import {removeIndexItem, updateIndexItem} from "./indexDMPService.js";
+import { removeIndexItem, updateIndexItem } from "./indexDMPService.js";
 import {
   CustomizableObjectOwnership,
   PlanQuestion,
@@ -46,8 +46,8 @@ import {
   PlanVersionSnapshot,
   PlanVersionSnapshotRelatedWork,
 } from "../types.js";
-import {NotFoundError} from "../utils/graphQLErrors.js";
-import {getProjectAndCheckAuthorization} from "./projectService.js";
+import { NotFoundError } from "../utils/graphQLErrors.js";
+import { getProjectAndCheckAuthorization } from "./projectService.js";
 import {
   maDMPAffiliationType,
   maDMPContributorType,
@@ -66,25 +66,25 @@ import {
   ProjectCollaborator,
   ProjectCollaboratorAccessLevel
 } from "../models/Collaborator.js";
-import {User} from "../models/User.js";
-import {Affiliation} from "../models/Affiliation.js";
-import {VersionedQuestion} from "../models/VersionedQuestion.js";
-import {VersionedCustomQuestion} from "../models/VersionedCustomQuestion.js";
-import {Answer} from "../models/Answer.js";
-import {VersionedSection} from "../models/VersionedSection.js";
-import {VersionedCustomSection} from "../models/VersionedCustomSection.js";
-import {VersionedTemplate} from "../models/VersionedTemplate.js";
+import { User } from "../models/User.js";
+import { Affiliation } from "../models/Affiliation.js";
+import { VersionedQuestion } from "../models/VersionedQuestion.js";
+import { VersionedCustomQuestion } from "../models/VersionedCustomQuestion.js";
+import { Answer } from "../models/Answer.js";
+import { VersionedSection } from "../models/VersionedSection.js";
+import { VersionedCustomSection } from "../models/VersionedCustomSection.js";
+import { VersionedTemplate } from "../models/VersionedTemplate.js";
 import {
   getRelevantGuidanceForPlan,
   getRelevantGuidanceForVersionedQuestion,
   GuidanceItem,
   GuidanceSource
 } from "./guidanceService.js";
-import {RelevantTag, Tag} from "../models/Tag.js";
+import { RelevantTag, Tag } from "../models/Tag.js";
 import {
   VersionedQuestionCustomization
 } from "../models/VersionedQuestionCustomization.js";
-import {findConditionalLogicForPlan} from "./conditionalLogicService.js";
+import { findConditionalLogicForPlan } from "./conditionalLogicService.js";
 import {
   VersionedSectionCustomization
 } from "../models/VersionedSectionCustomization.js";
@@ -1025,9 +1025,15 @@ export async function getPlanSectionsAndQuestions(
         );
 
         // See if there's already a guidance source for the plan owner's affiliation — if so,
-        // we don't need to add it again
+        // we don't need to add it again. Match on the `affiliation-` id rather than on
+        // type + orgURI: a question customization adds a `customization-<uri>` source with the
+        // same type and orgURI, and if the question's own guidance/sample were pushed into it,
+        // the UI (which reads one sample per source) would drop the template's sample text.
+        // Matching on id also finds the template owner's source (type TEMPLATE_OWNER) when the
+        // plan owner's org owns the template, rather than creating a second source with this id
+        const ownerSourceId = `affiliation-${ownerAffiliation.uri}`;
         let questionGSource: GuidanceSource | undefined = gSources.find((gs: GuidanceSource): boolean => {
-          return gs.type === 'USER_AFFILIATION' && gs.orgURI === ownerAffiliation.uri
+          return gs.id === ownerSourceId;
         });
 
         // See if the question's parent section has guidance
@@ -1042,7 +1048,7 @@ export async function getPlanSectionsAndQuestions(
         if (!questionGSource) {
           // If not, add a guidance source for the plan owner's affiliation, even if it has no guidance items
           questionGSource = {
-            id: `affiliation-${ownerAffiliation.uri}`,
+            id: ownerSourceId,
             label: ownerAffiliation.displayName || ownerAffiliation.name,
             shortName: ownerAffiliation.acronyms?.[0] || ownerAffiliation.displayName || ownerAffiliation.name,
             orgURI: ownerAffiliation.uri,

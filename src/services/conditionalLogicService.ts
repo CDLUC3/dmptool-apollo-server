@@ -165,6 +165,9 @@ export async function findHiddenVersionedQuestionIdsForPlan(
 ): Promise<number[]> {
   if (!plan?.id || !plan.versionedTemplateId) return [];
 
+  // vq is the question that owns the display logic. vqcg.triggerQuestionId references the base
+  // questions.id, so versionedQuestions is joined again (tvq) to get the trigger question's
+  // versionedQuestionId within the same versioned template (plan answers are keyed by that id)
   const sql = `
     SELECT vqcg.id AS groupId, vq.id AS versionedQuestionId, tvq.id AS triggerVersionedQuestionId,
       vqc.conditionType, vqc.conditionMatch, vq.versionedSectionId, vq.displayOrder,

@@ -55,6 +55,7 @@ import { AcceptedWork } from "../models/RelatedWork.js";
 // Services
 import {
   buildDataCiteXMLForPlan,
+  createDefaultAnswersForPlan,
   ensureDefaultPlanContact,
   handleAsyncDeletes,
   handleAsyncUpdates,
@@ -339,6 +340,9 @@ export const resolvers: Resolvers = {
           if (!contactWasSet) {
             created.addError('general', 'Unable to set the default contact');
           }
+
+          // Save the default options of option questions as their answers (before the maDMP is versioned)
+          await createDefaultAnswersForPlan(reference, context, created);
 
           // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
           await handleAsyncUpdates(reference, context, created);

@@ -2803,6 +2803,8 @@ export type Plan = {
   feedbackStatus?: Maybe<PlanFeedbackStatus>;
   /** The funding for the plan */
   fundings?: Maybe<Array<PlanFunding>>;
+  /** The versionedQuestionIds of the questions hidden by their display logic, based on the plan's saved answers */
+  hiddenVersionedQuestionIds?: Maybe<Array<Scalars['Int']['output']>>;
   /** The unique identifier for the Object */
   id?: Maybe<Scalars['Int']['output']>;
   /** The language of the plan */
@@ -3092,8 +3094,6 @@ export type PlanQuestion = {
   __typename?: 'PlanQuestion';
   /** The answer to the question */
   answer?: Maybe<Answer>;
-  /** The conditional logic for the versioned question */
-  conditionalLogic?: Maybe<Array<VersionedQuestionConditionalLogic>>;
   /** The unique identifier for the Custom Question (if applicable) */
   customQuestionId?: Maybe<Scalars['Int']['output']>;
   /** The type of action to take when the display logic matches (e.g. show, hide, send email, etc.) */
@@ -3106,6 +3106,8 @@ export type PlanQuestion = {
   guidanceSources?: Maybe<Array<GuidanceSource>>;
   /** Whether or not the question has been answered */
   hasAnswer?: Maybe<Scalars['Boolean']['output']>;
+  /** Whether the question is hidden by its display logic, based on the plan's saved answers */
+  isHidden?: Maybe<Scalars['Boolean']['output']>;
   /** The JSON representation of the question type */
   json?: Maybe<Scalars['String']['output']>;
   /** This will be used as a sort of title for the Question */
@@ -6378,18 +6380,6 @@ export type VersionedQuestionConditionGroupErrors = {
   versionedQuestionId?: Maybe<Scalars['String']['output']>;
 };
 
-export type VersionedQuestionConditionalLogic = {
-  __typename?: 'VersionedQuestionConditionalLogic';
-  /** The value that the trigger question must match for the conditional logic to be applied */
-  conditionMatch: Scalars['String']['output'];
-  /** The type of condition (e.g. equals, not equals, greater than, less than, etc.) */
-  conditionType: Scalars['String']['output'];
-  /** The id of the versioned question that triggers the conditional logic */
-  triggerQuestionId: Scalars['Int']['output'];
-  /** The id of the versioned question that has conditional logic */
-  versionedQuestionId: Scalars['Int']['output'];
-};
-
 /** A collection of errors related to the VersionedQuestion */
 export type VersionedQuestionErrors = {
   __typename?: 'VersionedQuestionErrors';
@@ -7068,7 +7058,6 @@ export type ResolversTypes = {
   VersionedQuestionConditionErrors: ResolverTypeWrapper<VersionedQuestionConditionErrors>;
   VersionedQuestionConditionGroup: ResolverTypeWrapper<VersionedQuestionConditionGroup>;
   VersionedQuestionConditionGroupErrors: ResolverTypeWrapper<VersionedQuestionConditionGroupErrors>;
-  VersionedQuestionConditionalLogic: ResolverTypeWrapper<VersionedQuestionConditionalLogic>;
   VersionedQuestionErrors: ResolverTypeWrapper<VersionedQuestionErrors>;
   VersionedSection: ResolverTypeWrapper<VersionedSection>;
   VersionedSectionErrors: ResolverTypeWrapper<VersionedSectionErrors>;
@@ -7332,7 +7321,6 @@ export type ResolversParentTypes = {
   VersionedQuestionConditionErrors: VersionedQuestionConditionErrors;
   VersionedQuestionConditionGroup: VersionedQuestionConditionGroup;
   VersionedQuestionConditionGroupErrors: VersionedQuestionConditionGroupErrors;
-  VersionedQuestionConditionalLogic: VersionedQuestionConditionalLogic;
   VersionedQuestionErrors: VersionedQuestionErrors;
   VersionedSection: VersionedSection;
   VersionedSectionErrors: VersionedSectionErrors;
@@ -8157,6 +8145,7 @@ export type PlanResolvers<ContextType = MyContext, ParentType extends ResolversP
   feedback?: Resolver<Maybe<Array<ResolversTypes['PlanFeedback']>>, ParentType, ContextType>;
   feedbackStatus?: Resolver<Maybe<ResolversTypes['PlanFeedbackStatus']>, ParentType, ContextType>;
   fundings?: Resolver<Maybe<Array<ResolversTypes['PlanFunding']>>, ParentType, ContextType>;
+  hiddenVersionedQuestionIds?: Resolver<Maybe<Array<ResolversTypes['Int']>>, ParentType, ContextType>;
   id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   languageId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   members?: Resolver<Maybe<Array<ResolversTypes['PlanMember']>>, ParentType, ContextType>;
@@ -8317,13 +8306,13 @@ export type PlanProgressResolvers<ContextType = MyContext, ParentType extends Re
 
 export type PlanQuestionResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PlanQuestion'] = ResolversParentTypes['PlanQuestion']> = {
   answer?: Resolver<Maybe<ResolversTypes['Answer']>, ParentType, ContextType>;
-  conditionalLogic?: Resolver<Maybe<Array<ResolversTypes['VersionedQuestionConditionalLogic']>>, ParentType, ContextType>;
   customQuestionId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   displayLogicAction?: Resolver<Maybe<ResolversTypes['QuestionConditionActionType']>, ParentType, ContextType>;
   displayLogicMatchType?: Resolver<Maybe<ResolversTypes['QuestionConditionMatchType']>, ParentType, ContextType>;
   displayOrder?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   guidanceSources?: Resolver<Maybe<Array<ResolversTypes['GuidanceSource']>>, ParentType, ContextType>;
   hasAnswer?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
+  isHidden?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
   json?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   questionText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   questionType?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
@@ -9568,13 +9557,6 @@ export type VersionedQuestionConditionGroupErrorsResolvers<ContextType = MyConte
   versionedQuestionId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 };
 
-export type VersionedQuestionConditionalLogicResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['VersionedQuestionConditionalLogic'] = ResolversParentTypes['VersionedQuestionConditionalLogic']> = {
-  conditionMatch?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  conditionType?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  triggerQuestionId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  versionedQuestionId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-};
-
 export type VersionedQuestionErrorsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['VersionedQuestionErrors'] = ResolversParentTypes['VersionedQuestionErrors']> = {
   displayOrder?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   general?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -9907,7 +9889,6 @@ export type Resolvers<ContextType = MyContext> = {
   VersionedQuestionConditionErrors?: VersionedQuestionConditionErrorsResolvers<ContextType>;
   VersionedQuestionConditionGroup?: VersionedQuestionConditionGroupResolvers<ContextType>;
   VersionedQuestionConditionGroupErrors?: VersionedQuestionConditionGroupErrorsResolvers<ContextType>;
-  VersionedQuestionConditionalLogic?: VersionedQuestionConditionalLogicResolvers<ContextType>;
   VersionedQuestionErrors?: VersionedQuestionErrorsResolvers<ContextType>;
   VersionedSection?: VersionedSectionResolvers<ContextType>;
   VersionedSectionErrors?: VersionedSectionErrorsResolvers<ContextType>;

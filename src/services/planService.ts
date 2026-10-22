@@ -26,7 +26,7 @@ import {
 } from "@dmptool/utils";
 import { getDynamoConnectionParams } from "../config/awsConfig.js";
 import { generalConfig } from "../config/generalConfig.js";
-import { DMPToolDMPType } from "@dmptool/types";
+import { CURRENT_SCHEMA_VERSION, DMPToolDMPType } from "@dmptool/types";
 import { getRDSConnectionParams } from "../config/mysqlConfig.js";
 import {
   buildDataCiteXML,
@@ -84,7 +84,7 @@ import { RelevantTag, Tag } from "../models/Tag.js";
 import {
   VersionedQuestionCustomization
 } from "../models/VersionedQuestionCustomization.js";
-import { findConditionalLogicForPlan } from "./conditionalLogicService.js";
+import { findConditionalLogicForPlan, findHiddenVersionedQuestionIds } from "./conditionalLogicService.js";
 import {
   VersionedSectionCustomization
 } from "../models/VersionedSectionCustomization.js";
@@ -337,6 +337,90 @@ export const ensureDefaultPlanContact = async (
     }
   }
   return false
+}
+
+const SINGLE_CHOICE_QUESTION_TYPES = ['radioButtons', 'selectBox'];
+const MULTI_CHOICE_QUESTION_TYPES = ['checkBoxes', 'multiselectBox'];
+
+/**
+ * The answer an option question displays before it is answered: the options marked `selected` in its
+ * question JSON. Returns null if the question has no default options.
+ *
+ * @param questionJson The question's JSON (raw query rows return JSON columns already parsed)
+ * @returns The default answer JSON ({ type, answer }), or null
+ */
+export function defaultAnswerForQuestion(
+  questionJson: string | object | null | undefined
+): { type: string, answer: string | string[] } | null {
+  let parsed: { type?: string, options?: { value?: unknown, selected?: unknown }[] };
+  try {
+    parsed = typeof questionJson === 'string' ? JSON.parse(questionJson) : questionJson;
+  } catch {
+    return null;
+  }
+  if (!parsed || !Array.isArray(parsed.options)) return null;
+
+  const selected: string[] = parsed.options
+    .filter((option) => option?.selected === true && typeof option.value === 'string')
+    .map((option) => option.value as string);
+  if (selected.length === 0) return null;
+
+  if (SINGLE_CHOICE_QUESTION_TYPES.includes(parsed.type)) {
+    return { type: parsed.type, answer: selected[0] };
+  }
+  if (MULTI_CHOICE_QUESTION_TYPES.includes(parsed.type)) {
+    return { type: parsed.type, answer: selected };
+  }
+  return null;
+}
+
+/**
+ * Saves the default options of the plan's option questions (radioButtons, selectBox, checkBoxes,
+ * multiselectBox) as their answers. The UI displays these defaults as selected, so the user
+ * expects them to already be their answer.
+ *
+ * Note this function makes changes to the database!
+ *
+ * @param reference The reference to use for logging errors
+ * @param context The apollo context object
+ * @param plan The newly created plan
+ * @returns The number of default answers that were saved
+ */
+export const createDefaultAnswersForPlan = async (
+  reference: string,
+  context: MyContext,
+  plan: Plan
+): Promise<number> => {
+  if (!plan?.id || !plan.versionedTemplateId) return 0;
+
+  // Raw query rows return the json column already parsed
+  const sql = 'SELECT id, versionedSectionId, json FROM versionedQuestions WHERE versionedTemplateId = ?';
+  const rows: { id: number, versionedSectionId: number, json: object | null }[] = await VersionedQuestion.query(
+    context, sql, [plan.versionedTemplateId.toString()], reference
+  );
+
+  let saved = 0;
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const defaultAnswer = defaultAnswerForQuestion(row.json);
+    if (!defaultAnswer) continue;
+
+    const answer = new Answer({
+      planId: plan.id,
+      versionedSectionId: row.versionedSectionId,
+      versionedQuestionId: row.id,
+      json: { ...defaultAnswer, meta: { schemaVersion: CURRENT_SCHEMA_VERSION } },
+    });
+    const created: Answer = await answer.create(context);
+    if (created && !created.hasErrors()) {
+      saved++;
+    } else {
+      context.logger.error(
+        { planId: plan.id, versionedQuestionId: row.id, errors: created?.errors },
+        `${reference}: unable to save the default answer`
+      );
+    }
+  }
+  return saved;
 }
 
 /**
@@ -1001,6 +1085,10 @@ export async function getPlanSectionsAndQuestions(
     const baseAnswersMap: Map<number, Answer> = new Map<number, Answer>(filledAnswers.map((a: Answer): [number, Answer] => [a.versionedQuestionId, a]).filter(([id]): boolean => Boolean(id)));
     const customAnswersMap: Map<number, Answer> = new Map<number, Answer>(filledAnswers.map((a: Answer): [number, Answer] => [a.versionedCustomQuestionId, a]).filter(([id]): boolean => Boolean(id)));
 
+    // Determine which base questions are hidden by their display logic, based on the plan's saved answers
+    const sectionDisplayOrder = new Map<number, number>(baseSections.map((s: VersionedSection): [number, number] => [s.id, s.displayOrder]));
+    const hiddenQuestionIds: Set<number> = findHiddenVersionedQuestionIds(allBaseQuestions, sectionDisplayOrder, conditionalLogic, baseAnswersMap);
+
     // Third, iterate through each section progress record and build the PlanSection
     // object from the pre-fetched data
     for (const progress of sectionProgress) {
@@ -1090,7 +1178,7 @@ export async function getPlanSectionsAndQuestions(
           guidanceSources: gSources.filter((gs: GuidanceSource): boolean => {
             return gs.hasGuidance;
           }),
-          conditionalLogic: conditionalLogic.get(q.id) || []
+          isHidden: hiddenQuestionIds.has(q.id)
         };
       });
 
@@ -1132,6 +1220,8 @@ export async function getPlanSectionsAndQuestions(
           hasAnswer: customAnswersMap.has(q.id),
           answer: customAnswersMap.get(q.id) || undefined,
           json: q.json,
+          // Custom questions don't have display logic
+          isHidden: false,
           guidanceSources: [{
             id: `affiliation-${ownerAffiliation.uri}`,
             label: ownerAffiliation.displayName || ownerAffiliation.name,

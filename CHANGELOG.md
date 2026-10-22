@@ -160,8 +160,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
-- Updated `findConditionalLogicForPlan` to return each question's display logic grouped by condition group, and to map each group's trigger question to its `versionedQuestionId` within the plan's versioned template. Trigger questions outside that versioned template are returned as `null` and treated as unanswered [#366]
-- Updated `conditionalLogicService.ts` so that `findConditionalLogicForPlan` returns grouped logic. Updated `planService.ts` so that the backend figures out which questions are hidden in the plan and returns `isHidden` for the questions that should not be displayed. Added `isHidden` to `PlanQuestion` model.
+- Updated `findConditionalLogicForPlan` to return each question's display logic grouped by condition group, and to map each group's trigger question to its `versionedQuestionId` within the plan's versioned template [#366]
 - Updated error messages related to mutations that conflict with existing display logic [#1472]
 - Updated `@dmptool/utils` to `v2.2.3`
 - Updated `dmptool-utils` to `v2.2.2` to get updates related to customizations and a research output bug [#388]

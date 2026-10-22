@@ -1116,9 +1116,15 @@ export async function getPlanSectionsAndQuestions(
         );
 
         // See if there's already a guidance source for the plan owner's affiliation — if so,
-        // we don't need to add it again
+        // we don't need to add it again. Match on the `affiliation-` id rather than on
+        // type + orgURI: a question customization adds a `customization-<uri>` source with the
+        // same type and orgURI, and if the question's own guidance/sample were pushed into it,
+        // the UI (which reads one sample per source) would drop the template's sample text.
+        // Matching on id also finds the template owner's source (type TEMPLATE_OWNER) when the
+        // plan owner's org owns the template, rather than creating a second source with this id
+        const ownerSourceId = `affiliation-${ownerAffiliation.uri}`;
         let questionGSource: GuidanceSource | undefined = gSources.find((gs: GuidanceSource): boolean => {
-          return gs.type === 'USER_AFFILIATION' && gs.orgURI === ownerAffiliation.uri
+          return gs.id === ownerSourceId;
         });
 
         // See if the question's parent section has guidance
@@ -1133,7 +1139,7 @@ export async function getPlanSectionsAndQuestions(
         if (!questionGSource) {
           // If not, add a guidance source for the plan owner's affiliation, even if it has no guidance items
           questionGSource = {
-            id: `affiliation-${ownerAffiliation.uri}`,
+            id: ownerSourceId,
             label: ownerAffiliation.displayName || ownerAffiliation.name,
             shortName: ownerAffiliation.acronyms?.[0] || ownerAffiliation.displayName || ownerAffiliation.name,
             orgURI: ownerAffiliation.uri,

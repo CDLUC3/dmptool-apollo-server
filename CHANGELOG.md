@@ -381,6 +381,7 @@
 - Removed `ioredis` package
 
 ### Fixed
+- Fixed bug where `ownerAffiliation` was being set in `getPlanSectionsAndQuestions` using `versionedCustomization` even though it could be `null` [#863]
 - Fixed `@graphql-tools/utils` high vulnerability by updating `@graphql-tools/schema` to `v10.1.3`, `@graphql-tools/mock` to `v9.1.16` and `@graphql-tools/merge` to `v9.2.6`. Also, ran `npm audit fix` to address `proxy-addr` vulnerability which comes from `express@5.2.1`.
 - Fixed `@fastify/busboy` (`v3.2.2`) and `http-cache-semantics` (`v4.3.0`) by funning `npm audit fix`. The other high vulnerabilities listed are `development-only` tools, so they don't affect build or production. Updated `buildspec.yaml` to remove the `echo "production=false" >> .npmrc` which was overriding the `npm audit --omit=dev` [#458]
 - Fixed `npm ci` failure on `development` by restoring an in-sync `package-lock.json` (it was out of sync after #838 was merged)
@@ -404,6 +405,7 @@
 - In `preparePaginationOptions` function, wrapped each cursorField with `COALESCE` to handle `NULL` values in SQL `CONCAT`, otherwise if any cursorField is NULL, it would just return a null value due to the way `CONCAT` works [#107]
 - Fixed breaking cloning of template. The `addTemplate` was updated to accept a `copyFromVersionedTemplateId` so that we copy from versioned template, section and questions, when it's not a template from the user's org. Otherwise we check for `copyFromTemplateId` to copy/clone from templates, sections and questions, and if neither are present, we continue to create a new record for `templates` table [#1006]
 - Fixed issue with templates not cloning with sections and questions by updating the `addTemplate` mutation to clone from non-versioned template, section and question [#1006]
+- Fixed a bug in `getPlanSectionsAndQuestions` in `planService` where a template question's own sample text went missing from the Plan one-page design when the plan owner's org had also customized that question. The question's guidance and sample were being added to the `customization-<uri>` guidance source, because the lookup matched any `USER_AFFILIATION` source for the owner's org. The UI reads one sample per guidance source, so only the customization sample was shown. The lookup now matches the `affiliation-<uri>` source by id, so the template and customization samples come back on separate sources and both display. This also stops a second source with a duplicate `affiliation-<uri>` id being created when the plan owner's org is also the template owner
 
 ### Chore
 - Updated `typescript` to `v6.0.3` and fixed high vulnerabilities in `js-yaml` and `nodemailer` [#257]

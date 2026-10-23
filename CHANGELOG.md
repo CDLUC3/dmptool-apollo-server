@@ -381,6 +381,7 @@
 - Removed `ioredis` package
 
 ### Fixed
+- Fixed issues with `projectImport`: 1. Incorrect permission check due to missing `await`; 2. Made sure to merge existing data with the updates in the input, so we don't set values for missing fields to NULL; 3. Added checks that `funding` or `members` data was provided in the input before trying to iterate over them, which was causing an error; 4. Made sure to include `projectId` in `ProjectFunding.create` and `ProjectMember.create`, because the data wasn't being saved in certain instances [#576]
 - Fixed bug where `ownerAffiliation` was being set in `getPlanSectionsAndQuestions` using `versionedCustomization` even though it could be `null` [#863]
 - Fixed `@graphql-tools/utils` high vulnerability by updating `@graphql-tools/schema` to `v10.1.3`, `@graphql-tools/mock` to `v9.1.16` and `@graphql-tools/merge` to `v9.2.6`. Also, ran `npm audit fix` to address `proxy-addr` vulnerability which comes from `express@5.2.1`.
 - Fixed `@fastify/busboy` (`v3.2.2`) and `http-cache-semantics` (`v4.3.0`) by funning `npm audit fix`. The other high vulnerabilities listed are `development-only` tools, so they don't affect build or production. Updated `buildspec.yaml` to remove the `echo "production=false" >> .npmrc` which was overriding the `npm audit --omit=dev` [#458]

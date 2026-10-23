@@ -44,6 +44,8 @@ export class ProjectFunding extends MySqlModel {
   async create(context: MyContext, projectId: number): Promise<ProjectFunding> {
     const reference = 'ProjectFunding.create';
 
+    this.projectId = projectId ?? this.projectId;
+
     // First make sure the record is valid
     if (await this.isValid()) {
       const current = await ProjectFunding.findByProjectAndAffiliation(

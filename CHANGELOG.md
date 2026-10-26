@@ -3,6 +3,8 @@
 ## v1.1.0
 
 ### Added
+- Added `disconnectSSO` mutation to the `users` schema
+- Added `hasSSO` boolean and `ssoEntityId` to the `User` type in the schema
 - Added `isHidden` to `PlanQuestion`, so the plan's questions report whether their display logic hides them based on the plan's saved answers. Visibility is decided by `findHiddenQuestionIds` from `@dmptool/utils`, so it follows the same rules as the other services [#366]
 - Added `hiddenVersionedQuestionIds` chained resolver to `Plan`, a lightweight way to get the hidden questions after an answer is saved (e.g. via `addAnswer`/`updateAnswer { plan { hiddenVersionedQuestionIds } }`). It only loads the template's display logic and the saved answers to its trigger questions [#366]
 - Added `findHiddenVersionedQuestionIds` and `findHiddenVersionedQuestionIdsForPlan` to `conditionalLogicService` [#366]

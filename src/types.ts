@@ -1715,6 +1715,8 @@ export type Mutation = {
   createTemplateVersion?: Maybe<Template>;
   /** Deactivate the specified user Account (Admin only) */
   deactivateUser?: Maybe<User>;
+  /** Disconnect the current user from their affiliation's SSO */
+  disconnectSSO?: Maybe<User>;
   /** Finalizes the upload of an affiliation logo to the CloudFront CDN S3 bucket. The logoName should equal the 'key' from the fields returned by the generateLogoUploadURL mutation. */
   finalizeLogoUpload: Affiliation;
   /** Generate a presigned URL to upload an affiliation logo to the CloudFront CDN S3 bucket. The URL and fields returned are used to upload the logo to S3. */
@@ -5935,6 +5937,8 @@ export type User = {
   failed_sign_in_attempts?: Maybe<Scalars['Int']['output']>;
   /** The user's first/given name */
   givenName?: Maybe<Scalars['String']['output']>;
+  /** Whether the user has an SSO account connected to their account */
+  hasSSO?: Maybe<Scalars['Boolean']['output']>;
   /** The unique identifier for the Object */
   id?: Maybe<Scalars['Int']['output']>;
   /** Whether or not account is archived */
@@ -5969,8 +5973,8 @@ export type User = {
   plans?: Maybe<Array<Maybe<Plan>>>;
   /** The user's role within the DMPTool */
   role: UserRole;
-  /** The user's SSO ID */
-  ssoId?: Maybe<Scalars['String']['output']>;
+  /** The SSO entityID for the user's affiliation */
+  ssoEntityId?: Maybe<Scalars['String']['output']>;
   /** The user's last/family name */
   surName?: Maybe<Scalars['String']['output']>;
 };
@@ -6018,12 +6022,12 @@ export type UserErrors = {
   /** General error messages such as the object already exists */
   general?: Maybe<Scalars['String']['output']>;
   givenName?: Maybe<Scalars['String']['output']>;
+  hasSSO?: Maybe<Scalars['String']['output']>;
   languageId?: Maybe<Scalars['String']['output']>;
   orcid?: Maybe<Scalars['String']['output']>;
   otherAffiliationName?: Maybe<Scalars['String']['output']>;
   password?: Maybe<Scalars['String']['output']>;
   role?: Maybe<Scalars['String']['output']>;
-  ssoId?: Maybe<Scalars['String']['output']>;
   surName?: Maybe<Scalars['String']['output']>;
 };
 
@@ -7990,6 +7994,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   completeFeedback?: Resolver<Maybe<ResolversTypes['PlanFeedback']>, ParentType, ContextType, RequireFields<MutationCompleteFeedbackArgs, 'planFeedbackId' | 'planId'>>;
   createTemplateVersion?: Resolver<Maybe<ResolversTypes['Template']>, ParentType, ContextType, RequireFields<MutationCreateTemplateVersionArgs, 'latestPublishVisibility' | 'templateId'>>;
   deactivateUser?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationDeactivateUserArgs, 'userId'>>;
+  disconnectSSO?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType>;
   finalizeLogoUpload?: Resolver<ResolversTypes['Affiliation'], ParentType, ContextType, RequireFields<MutationFinalizeLogoUploadArgs, 'affiliationURI' | 'logoName'>>;
   generateLogoUploadURL?: Resolver<Maybe<ResolversTypes['AffiliationLogoUpload']>, ParentType, ContextType, RequireFields<MutationGenerateLogoUploadUrlArgs, 'affiliationURI' | 'contentType' | 'fileName'>>;
   guidance?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -9316,6 +9321,7 @@ export type UserResolvers<ContextType = MyContext, ParentType extends ResolversP
   errors?: Resolver<Maybe<ResolversTypes['UserErrors']>, ParentType, ContextType>;
   failed_sign_in_attempts?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   givenName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  hasSSO?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
   id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   isArchived?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
   languageId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
@@ -9333,7 +9339,7 @@ export type UserResolvers<ContextType = MyContext, ParentType extends ResolversP
   passwordChangedAt?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   plans?: Resolver<Maybe<Array<Maybe<ResolversTypes['Plan']>>>, ParentType, ContextType>;
   role?: Resolver<ResolversTypes['UserRole'], ParentType, ContextType>;
-  ssoId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  ssoEntityId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   surName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 };
 
@@ -9363,12 +9369,12 @@ export type UserErrorsResolvers<ContextType = MyContext, ParentType extends Reso
   emailIds?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   general?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   givenName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  hasSSO?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   languageId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   orcid?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   otherAffiliationName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   password?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   role?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  ssoId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   surName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 };
 

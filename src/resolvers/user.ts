@@ -326,6 +326,31 @@ export const resolvers: Resolvers = {
       }
     },
 
+    disconnectSSO: async (_, __, context: MyContext): Promise<User> => {
+      const reference = 'disconnectSSO resolver';
+      try {
+        if (isAuthorized(context?.token)) {
+          const user = await User.findById(reference, context, context.token.id);
+          // Only continue if the user is active and not locked
+          if (!user || !user.active || user.locked) {
+            throw ForbiddenError();
+          }
+
+          user.ssoId = null;
+          const updated = await new User(user).update(context);
+          if (!updated || updated.hasErrors()) {
+            user.addError('general', 'Unable to disconnect from SSO at this time');
+          }
+          return user.hasErrors() ? user : updated;
+        }
+        // Unauthenticated
+        throw AuthenticationError();
+      } catch (err) {
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    },
+
     // Add an email address for the current user
     addUserEmail: async (_, { email, isPrimary }, context: MyContext): Promise<UserEmail> => {
       const reference = 'addUserEmail resolver';
@@ -571,6 +596,16 @@ export const resolvers: Resolvers = {
     email: async (parent: User, _, context): Promise<string | null> => {
       const primaryEmail = await UserEmail.findPrimaryByUserId('Chained User.email', context, parent.id);
       return primaryEmail ? primaryEmail.email : null;
+    },
+    hasSSO: async (parent: User): Promise<boolean> => {
+      return Boolean(parent?.ssoId);
+    },
+    ssoEntityId: async (parent: User, _, context): Promise<string | null> => {
+      if (!parent.affiliationId) {
+        return null;
+      }
+      const affiliation = await Affiliation.findByURI('Chained User.affiliationAllowsSSO', context, parent.affiliationId);
+      return affiliation.ssoEntityId;
     },
     // Chained resolver to fetch plans associated with the user
     plans: async (parent: User, _, context): Promise<Plan[]> => {

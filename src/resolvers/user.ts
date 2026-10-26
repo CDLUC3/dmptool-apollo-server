@@ -161,6 +161,7 @@ export const resolvers: Resolvers = {
         const reference = 'updateUserInfo resolver';
         try {
           const user = await User.findById(reference, context, userId);
+          const originalAffiliationId = user?.affiliationId;
           if (!user || !user.active || user.locked) {
             throw ForbiddenError();
           }
@@ -175,6 +176,11 @@ export const resolvers: Resolvers = {
             user.affiliationId = affiliation.uri;
           } else {
             user.affiliationId = affiliationId;
+          }
+
+          // If the user has changed their affiliation, we need to remove their SSO connection
+          if (originalAffiliationId !== user.affiliationId && user.ssoId) {
+            user.ssoId = null;
           }
 
           // Update the email
@@ -194,8 +200,7 @@ export const resolvers: Resolvers = {
             });
             await newEmail.create(context);
           }
-
-
+          
           // Update the user fields
           user.givenName = givenName;
           user.surName = surName;

@@ -381,6 +381,7 @@
 - Removed `ioredis` package
 
 ### Fixed
+- I was not able to start the app locally because the latest version of `localstack` image no longer uses `curl`. So I switched `docker-compose.yaml` and `localstack-setup/init.aws.sh` to use `python3` in place of `curl` which should be backwards compatible. Also, addressed `zod` and `body-parser` vulnerabilities.
 - Fixed bug where `ownerAffiliation` was being set in `getPlanSectionsAndQuestions` using `versionedCustomization` even though it could be `null` [#863]
 - Fixed `@graphql-tools/utils` high vulnerability by updating `@graphql-tools/schema` to `v10.1.3`, `@graphql-tools/mock` to `v9.1.16` and `@graphql-tools/merge` to `v9.2.6`. Also, ran `npm audit fix` to address `proxy-addr` vulnerability which comes from `express@5.2.1`.
 - Fixed `@fastify/busboy` (`v3.2.2`) and `http-cache-semantics` (`v4.3.0`) by funning `npm audit fix`. The other high vulnerabilities listed are `development-only` tools, so they don't affect build or production. Updated `buildspec.yaml` to remove the `echo "production=false" >> .npmrc` which was overriding the `npm audit --omit=dev` [#458]

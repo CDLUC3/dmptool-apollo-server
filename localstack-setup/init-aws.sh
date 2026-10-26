@@ -69,8 +69,9 @@ DOMAIN_ENDPOINT="http://aoss.${AWS_REGION}.opensearch.localhost.localstack.cloud
 
 echo "Waiting for OpenSearch engine startup at ${DOMAIN_ENDPOINT}..."
 
-# Wait for node response
-until [ "$(curl -s -o /dev/null -w "%{http_code}" "${DOMAIN_ENDPOINT}/_cluster/health")" -eq 200 ]; do
+# Wait for node response (the LocalStack image no longer ships curl, so use python3;
+# urlopen raises on connection errors and non-2xx responses)
+until python3 -c 'import sys, urllib.request; urllib.request.urlopen(sys.argv[1], timeout=5)' "${DOMAIN_ENDPOINT}/_cluster/health" 2>/dev/null; do
   sleep 3
 done
 

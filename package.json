@@ -1,6 +1,6 @@
 {
   "name": "dmptool-apollo-server",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Apollo GraphQL server for the DMP Tool system",
   "main": "dist/index.js",
   "type": "module",
@@ -109,7 +109,7 @@
     "typescript-eslint": "^8.62.1"
   },
   "overrides": {
-    "@fastify/busboy": "3.2.2",
+    "@fastify/busboy": "3.2.4",
     "brace-expansion": "5.0.12",
     "chokidar": "5.0.0",
     "minimatch": "10.2.6"

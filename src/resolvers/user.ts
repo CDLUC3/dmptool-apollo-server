@@ -161,6 +161,7 @@ export const resolvers: Resolvers = {
         const reference = 'updateUserInfo resolver';
         try {
           const user = await User.findById(reference, context, userId);
+          const originalAffiliationId = user?.affiliationId;
           if (!user || !user.active || user.locked) {
             throw ForbiddenError();
           }
@@ -175,6 +176,11 @@ export const resolvers: Resolvers = {
             user.affiliationId = affiliation.uri;
           } else {
             user.affiliationId = affiliationId;
+          }
+
+          // If the user has changed their affiliation, we need to remove their SSO connection
+          if (originalAffiliationId !== user.affiliationId && user.ssoId) {
+            user.ssoId = null;
           }
 
           // Update the email
@@ -194,8 +200,7 @@ export const resolvers: Resolvers = {
             });
             await newEmail.create(context);
           }
-
-
+          
           // Update the user fields
           user.givenName = givenName;
           user.surName = surName;
@@ -315,6 +320,31 @@ export const resolvers: Resolvers = {
           const updated = await new User(user).update(context);
           if (!updated || updated.hasErrors()) {
             user.addError('general', 'Unable to save the ORCID at this time');
+          }
+          return user.hasErrors() ? user : updated;
+        }
+        // Unauthenticated
+        throw AuthenticationError();
+      } catch (err) {
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    },
+
+    disconnectSSO: async (_, __, context: MyContext): Promise<User> => {
+      const reference = 'disconnectSSO resolver';
+      try {
+        if (isAuthorized(context?.token)) {
+          const user = await User.findById(reference, context, context.token.id);
+          // Only continue if the user is active and not locked
+          if (!user || !user.active || user.locked) {
+            throw ForbiddenError();
+          }
+
+          user.ssoId = null;
+          const updated = await new User(user).update(context);
+          if (!updated || updated.hasErrors()) {
+            user.addError('general', 'Unable to disconnect from SSO at this time');
           }
           return user.hasErrors() ? user : updated;
         }
@@ -571,6 +601,16 @@ export const resolvers: Resolvers = {
     email: async (parent: User, _, context): Promise<string | null> => {
       const primaryEmail = await UserEmail.findPrimaryByUserId('Chained User.email', context, parent.id);
       return primaryEmail ? primaryEmail.email : null;
+    },
+    hasSSO: async (parent: User): Promise<boolean> => {
+      return Boolean(parent?.ssoId);
+    },
+    ssoEntityId: async (parent: User, _, context): Promise<string | null> => {
+      if (!parent.affiliationId) {
+        return null;
+      }
+      const affiliation = await Affiliation.findByURI('Chained User.affiliationAllowsSSO', context, parent.affiliationId);
+      return affiliation.ssoEntityId;
     },
     // Chained resolver to fetch plans associated with the user
     plans: async (parent: User, _, context): Promise<Plan[]> => {

@@ -142,3 +142,18 @@ Never claim something works without evidence. "Should work", "looks correct" and
 - **CHANGELOG:** every PR adds a line under the right heading (`Added`, `Updated`, `Fixed`, `Removed`, `Chore`) at the top of `CHANGELOG.md`, ending with the issue number, e.g. `[#366]`.
 - **PR description:** Be explicit about the changes that were made. Always highlight any GraphQL schema changes, database migrations that should be run, and any new environment variables that were added. Include information on how to test the changes.
 - **PR review:** at least one other engineer must approve, and the PR author must address all comments before merging. If you disagree with a comment, explain why in the PR discussion.
+
+## Dependencies & External Repositories
+
+This project relies on microservices and shared schemas located in external repositories:
+
+* **Authentication Service:** [dmptool-auth](https://github.com/CDLUC3/dmptool-auth)
+  * *Agent Instruction:* If you need to inspect the access token structures or workflows or CSRF tokens. Be sure to match branches when using this repository. For example if your feature branch is based off of the development branch in this repo then you should use the development branch in the `dmptool-auth` repo
+* **@dmptool/types package:** [dmptool-auth](https://github.com/CDLUC3/dmptool-types)
+  * *Agent Instruction:* The `dmptool-types` repository contains shared types used to define maDMP JSON structures along with the JSON structures for plans and answers. Before adding a new type, check to see if this repository already provides a suitable type. If you need to inspect or modify any types, be sure to match branches when using this repository. For example if your feature branch is based off of the development branch in this repo then you should use the development branch in the `dmptool-types` repo
+* **@dmptool/utils package:** [dmptool-auth](https://github.com/CDLUC3/dmptool-utils)
+  * *Agent Instruction:* The `dmptool-utils` repository contains shared utility functions and types used across the DMP Tool microservices. Before adding a new helper function, check to see if this repository already provides a suitable function. If you need to inspect or modify any utility functions or types, be sure to match branches when using this repository. For example if your feature branch is based off of the development branch in this repo then you should use the development branch in the `dmptool-utils` repo
+* **UI:** [dmptool-auth](https://github.com/CDLUC3/dmptool-ui)
+  * *Agent Instruction:* If you need modify the GraphQL schema or change the way errors are thrown in a resolver, inspect the `/graphql` directory in this repository so that you can highlight any breaking changes or impacts to the UI that your changes will make. Be sure to match branches when using this repository. For example if your feature branch is based off of the development branch in this repo then you should use the development branch in the `dmptool-ui` repo
+* **Rest API:** [dmptool-auth](https://github.com/CDLUC3/dmptool-api)
+  * *Agent Instruction:* If you need modify the GraphQL schema or change the way errors are thrown in a resolver that starts with the `entirePlan` prefix, inspect the `/graphql` directory in this repository so that you can highlight any breaking changes or impacts to the UI that your changes will make. Be sure to match branches when using this repository. For example if your feature branch is based off of the development branch in this repo then you should use the development branch in the `dmptool-api` repo

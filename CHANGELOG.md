@@ -384,6 +384,7 @@
 - Removed `ioredis` package
 
 ### Fixed
+- I was not able to start the app locally because the latest version of `localstack` image no longer uses `curl`. So I switched `docker-compose.yaml` and `localstack-setup/init.aws.sh` to use `python3` in place of `curl` which should be backwards compatible. Also, addressed `zod` and `body-parser` vulnerabilities.
 - Fixed issues with `projectImport`: 1. Incorrect permission check due to missing `await`; 2. Made sure to merge existing data with the updates in the input, so we don't set values for missing fields to NULL; 3. Added checks that `funding` or `members` data was provided in the input before trying to iterate over them, which was causing an error; 4. Made sure to include `projectId` in `ProjectFunding.create` and `ProjectMember.create`, because the data wasn't being saved in certain instances [#576]
 - Fixed bug where `ownerAffiliation` was being set in `getPlanSectionsAndQuestions` using `versionedCustomization` even though it could be `null` [#863]
 - Fixed `@graphql-tools/utils` high vulnerability by updating `@graphql-tools/schema` to `v10.1.3`, `@graphql-tools/mock` to `v9.1.16` and `@graphql-tools/merge` to `v9.2.6`. Also, ran `npm audit fix` to address `proxy-addr` vulnerability which comes from `express@5.2.1`.

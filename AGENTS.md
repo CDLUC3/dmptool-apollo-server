@@ -46,6 +46,7 @@ Node **22** (see `.nvmrc`) and **npm**. Don't use yarn or pnpm, and don't create
 
 - Configuration is in `.env` files, `docker-compose.yaml`, `config/*.json`, and `config/*.yaml`. Don't hardcode config values in code. Use `process.env` or the `config` package to access them.
 - When making changes, keep in mind that when this application is deployed into our production environment, it will be running in a Docker container with a read-only filesystem. The ENV variables from both the `docker-compose.yaml` and the `config/*.json` files will be fed into the container via ENV variables by our CI/CD pipeline. If you add or change any of these variables please note it in the PR so that they can be updated accordingly.
+- This app requires the `dmptool-auth` service to be running on port `4646` in order for it to validate CSRF and access tokens. You can check if the service is running by visiting `http://localhost:4646/healthz` in your browser. If you see a 404 error, the service is not running. If it is not running you may start it by navigating to the `dmptool-auth` directory (which should be adjacent to this project) and run `docker compose up`. If you do not have access to the directory you should notify the development team so that they can either provide you with access or start it for you.
 
 ## Apollo context
 

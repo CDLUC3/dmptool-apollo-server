@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added `AGENTS.md` and `CLAUDE.md` files
 - Added `disconnectSSO` mutation to the `users` schema
 - Added `hasSSO` boolean and `ssoEntityId` to the `User` type in the schema
 - Added `isHidden` to `PlanQuestion`, so the plan's questions report whether their display logic hides them based on the plan's saved answers. Visibility is decided by `findHiddenQuestionIds` from `@dmptool/utils`, so it follows the same rules as the other services [#366]

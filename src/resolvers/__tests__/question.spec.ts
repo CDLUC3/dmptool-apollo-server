@@ -446,6 +446,34 @@ describe('question resolvers', () => {
       );
     });
 
+    it('should preserve the existing display logic action and match type', async () => {
+      const input = { questionId: 1, questionText: 'Updated text' };
+      const existingQuestion = {
+        id: 1,
+        sectionId: 5,
+        templateId: 100,
+        createdById: 2,
+        displayOrder: 1,
+        json: '{}',
+        isDirty: false,
+        displayLogicAction: 'HIDE_QUESTION',
+        displayLogicMatchType: 'ALL',
+      };
+      const mockUpdated = { id: 1, hasErrors: jest.fn<() => boolean>().mockReturnValue(false) };
+
+      jest.spyOn(Question, 'findById').mockResolvedValue(existingQuestion as any);
+      const updateSpy = jest.spyOn(Question.prototype, 'update').mockResolvedValue(mockUpdated as any);
+      jest.spyOn(Template, 'markTemplateAsDirty').mockResolvedValue(undefined as any);
+      jest.spyOn(Tag, 'findByQuestionId').mockResolvedValue([] as any);
+
+      await executeQuery(query, { input }, adminToken);
+
+      // The Question instance that update() was called on
+      const updatedQuestion = updateSpy.mock.contexts[0] as InstanceType<typeof Question> | undefined;
+      expect(updatedQuestion?.displayLogicAction).toEqual('HIDE_QUESTION');
+      expect(updatedQuestion?.displayLogicMatchType).toEqual('ALL');
+    });
+
     it('should return NotFoundError when the question does not exist', async () => {
       jest.spyOn(Question, 'findById').mockResolvedValue(null as any);
 

@@ -352,6 +352,7 @@
 - Updates to appease newer version of eslint
 
 ### Removed
+- Added `displayLogicAction` and `displayLogicMatchType` to `updateQuestion` resolver so that it doesn't fall back to default settings whenever a question is edited [#586]
 - Removed `conditionalLogic` and its `VersionedQuestionConditionalLogic` type from `PlanQuestion`, since the plan's display logic is now applied on the server through `isHidden` [#366]
 - Removed `VersionedQuestionCustomization.findActiveByTemplateAffiliationAndQuestion` and `VersionedSectionCustomization.findActiveByTemplateAffiliationAndSection`, which have been replaced by the existing `findByVersionedCustomizationAndVersionedQuestion` and `findByVersionedCustomizationAndVersionedSection` [#388]
 - Removed the private `findTemplateCustomizationId` helper from `PlanSectionProgress` [#388]

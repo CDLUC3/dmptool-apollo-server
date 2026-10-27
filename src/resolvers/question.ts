@@ -223,7 +223,11 @@ export const resolvers: Resolvers = {
               sampleText: sampleText,
               useSampleTextAsDefault: useSampleTextAsDefault,
               required: required,
-              isDirty: currentQuestionData.isDirty
+              isDirty: currentQuestionData.isDirty,
+              // Display logic settings are managed by saveQuestionDisplayLogic, so preserve them here. Otherwise the
+              // Question constructor would reset them to their defaults (SHOW_QUESTION / ANY) on every update.
+              displayLogicAction: currentQuestionData.displayLogicAction,
+              displayLogicMatchType: currentQuestionData.displayLogicMatchType
             });
 
             // Removing or renaming an option that another question's display logic matches, or changing to a

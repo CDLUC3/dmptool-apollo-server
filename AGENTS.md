@@ -111,7 +111,7 @@ Before you call a task done, run these and make sure they pass (they're the same
 ```bash
 npm run lint
 npm run build
-npm test            # fails if coverage drops below the thresholds in jest.config.ts
+npm test
 ```
 
 - Put unit tests in a `__tests__/` folder next to the code, named `*.spec.tsx` or `*.spec.ts`.

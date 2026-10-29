@@ -4,6 +4,9 @@
 
 ### Added
 - Added `AGENTS.md` and `CLAUDE.md` files
+- Added data migration for the `oauthClientPermissions` table to store the permissions/grants associated with an Oauth client.
+- Added `.npmrc` and `.prettierrc` files
+- Added `prettier` dependency, pegged all dependencies and rebuilt the `package-lock.json` file to remove vulnerabilities
 - Added `disconnectSSO` mutation to the `users` schema
 - Added `hasSSO` boolean and `ssoEntityId` to the `User` type in the schema
 - Added `isHidden` to `PlanQuestion`, so the plan's questions report whether their display logic hides them based on the plan's saved answers. Visibility is decided by `findHiddenQuestionIds` from `@dmptool/utils`, so it follows the same rules as the other services [#366]
@@ -164,6 +167,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated the `sendContactUsEmail` and `sendEmail` functions in `emailService.ts` so that Contact Us emails will not include the env prefix or "Contact Us form submissions" [#346]
 - Updated `findConditionalLogicForPlan` to return each question's display logic grouped by condition group, and to map each group's trigger question to its `versionedQuestionId` within the plan's versioned template [#366]
 - Updated error messages related to mutations that conflict with existing display logic [#1472]
 - Updated `@dmptool/utils` to `v2.2.3`
@@ -385,6 +389,7 @@
 - Removed `ioredis` package
 
 ### Fixed
+- I was not able to start the app locally because the latest version of `localstack` image no longer uses `curl`. So I switched `docker-compose.yaml` and `localstack-setup/init.aws.sh` to use `python3` in place of `curl` which should be backwards compatible. Also, addressed `zod` and `body-parser` vulnerabilities.
 - Fixed issues with `projectImport`: 1. Incorrect permission check due to missing `await`; 2. Made sure to merge existing data with the updates in the input, so we don't set values for missing fields to NULL; 3. Added checks that `funding` or `members` data was provided in the input before trying to iterate over them, which was causing an error; 4. Made sure to include `projectId` in `ProjectFunding.create` and `ProjectMember.create`, because the data wasn't being saved in certain instances [#576]
 - Fixed bug where `ownerAffiliation` was being set in `getPlanSectionsAndQuestions` using `versionedCustomization` even though it could be `null` [#863]
 - Fixed `@graphql-tools/utils` high vulnerability by updating `@graphql-tools/schema` to `v10.1.3`, `@graphql-tools/mock` to `v9.1.16` and `@graphql-tools/merge` to `v9.2.6`. Also, ran `npm audit fix` to address `proxy-addr` vulnerability which comes from `express@5.2.1`.

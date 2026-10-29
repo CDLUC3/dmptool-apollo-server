@@ -359,90 +359,100 @@ export const resolvers: Resolvers = {
               throw NotFoundError();
             }
 
-            if (!hasPermissionOnProject(context, existingProject)) {
+            if (!(await hasPermissionOnProject(context, existingProject))) {
               throw ForbiddenError();
             }
 
+            // Merge the existing project data with the new input data, giving precedence to the 
+            // input data, so we don't set any fields to null that are not provided in the input.
+            const mergedInput = {
+              ...existingProject,
+              ...input
+            }
+
             // Update project
-            const toUpdateProject = new Project(input.project);
+            const toUpdateProject = new Project(mergedInput);
             const updatedProject = await toUpdateProject.update(context);
 
             // Add project funding and project members
             if (updatedProject && !updatedProject.hasErrors()) {
-              // Update project funding
-              const addFundingErrors = [];
-              for (const fund of input.funding) {
-                const newFunding = new ProjectFunding(fund);
+              // Update project funding if it was provided, since it's optional
+              if (input.funding) {
+                const addFundingErrors = [];
+                for (const fund of input.funding) {
+                  const newFunding = new ProjectFunding(fund);
 
-                // Check if a funding record already exists for this affiliation on the project. If so,
-                // update it instead of creating a new one to avoid duplicates.
-                const existingFunding = await ProjectFunding.findByProjectAndAffiliation(
-                  reference,
-                  context,
-                  projectId,
-                  newFunding.affiliationId
-                );
+                  // Check if a funding record already exists for this affiliation on the project. If so,
+                  // update it instead of creating a new one to avoid duplicates.
+                  const existingFunding = await ProjectFunding.findByProjectAndAffiliation(
+                    reference,
+                    context,
+                    projectId,
+                    newFunding.affiliationId
+                  );
 
-                if (existingFunding) {
-                  // Merge the new data into the existing record and update
-                  existingFunding.funderProjectNumber = newFunding.funderProjectNumber;
-                  existingFunding.grantId = newFunding.grantId;
-                  existingFunding.funderOpportunityNumber = newFunding.funderOpportunityNumber;
-                  const fundingResult = await existingFunding.update(context);
-                  if (!fundingResult || fundingResult.hasErrors()) {
-                    addFundingErrors.push(`Funding(affiliationId=${newFunding.affiliationId})`);
-                  }
-                } else {
-                  const fundingResult = await newFunding.create(context, projectId);
-                  if (!fundingResult || fundingResult.hasErrors()) {
-                    addFundingErrors.push(`Funding(affiliationId=${newFunding.affiliationId})`);
-                  }
-                }
-              }
-              if (addFundingErrors.length > 0) {
-                const msg = `Unable to add fundings to project: ${addFundingErrors.join(', ')}`;
-                context.logger.error(prepareObjectForLogs({ projectId }), msg);
-                updatedProject.addError('fundings', msg)
-              }
-
-              // Update project members
-              const addMemberErrors = [];
-              const addMemberRoleErrors = [];
-              for (const contrib of input.members) {
-                // Add project member
-                const newMember = new ProjectMember(contrib);
-                context.logger.debug(`${reference}: add project member`);
-                const memberAdded = await newMember.create(context, projectId);
-                if (!memberAdded) {
-                  addMemberErrors.push(`Member(affiliationId=${newMember.affiliationId}, givenName=${newMember.givenName}, surName=${newMember.surName}, orcid=${newMember.orcid}, email=${newMember.email})`);
-                } else {
-                  // Add member role
-                  context.logger.debug(`${reference}: add member role`);
-                  const role = await MemberRole.defaultRole(context, reference);
-                  if (!role) {
-                    context.logger.error(`${reference}: could not find default role`);
+                  if (existingFunding) {
+                    // Merge the new data into the existing record and update
+                    existingFunding.funderProjectNumber = newFunding.funderProjectNumber;
+                    existingFunding.grantId = newFunding.grantId;
+                    existingFunding.funderOpportunityNumber = newFunding.funderOpportunityNumber;
+                    const fundingResult = await existingFunding.update(context);
+                    if (!fundingResult || fundingResult.hasErrors()) {
+                      addFundingErrors.push(`Funding(affiliationId=${newFunding.affiliationId})`);
+                    }
                   } else {
-                    context.logger.debug(`${reference}: add ${role.label} to member ${memberAdded.id}`);
-                    const wasAdded = await role.addToProjectMember(context, memberAdded.id);
-                    if (!wasAdded) {
-                      addMemberRoleErrors.push(`MemberRole(memberId=${memberAdded.id}, role=${role.label})`);
+                    const fundingResult = await newFunding.create(context, projectId);
+                    if (!fundingResult || fundingResult.hasErrors()) {
+                      addFundingErrors.push(`Funding(affiliationId=${newFunding.affiliationId})`);
                     }
                   }
                 }
+                if (addFundingErrors.length > 0) {
+                  const msg = `Unable to add fundings to project: ${addFundingErrors.join(', ')}`;
+                  context.logger.error(prepareObjectForLogs({ projectId }), msg);
+                  updatedProject.addError('fundings', msg)
+                }
               }
 
-              if (addMemberErrors.length > 0) {
-                const msg = `Unable to add members to project: ${addMemberErrors.join(', ')}`;
-                context.logger.error(prepareObjectForLogs({ projectId }), msg);
-                updatedProject.addError('members', msg)
-              }
-              if (addMemberRoleErrors.length > 0) {
-                const msg = `Unable to add default member roles: ${addMemberRoleErrors.join(', ')}`
-                context.logger.error(prepareObjectForLogs({ projectId }), msg);
-                updatedProject.addError('memberRoles', msg)
+              // Update project members if it was provided, since it's optional
+              if (input.members) {
+                const addMemberErrors = [];
+                const addMemberRoleErrors = [];
+                for (const contrib of input.members) {
+                  // Add project member
+                  const newMember = new ProjectMember(contrib);
+                  context.logger.debug(`${reference}: add project member`);
+                  const memberAdded = await newMember.create(context, projectId);
+                  if (!memberAdded) {
+                    addMemberErrors.push(`Member(affiliationId=${newMember.affiliationId}, givenName=${newMember.givenName}, surName=${newMember.surName}, orcid=${newMember.orcid}, email=${newMember.email})`);
+                  } else {
+                    // Add member role
+                    context.logger.debug(`${reference}: add member role`);
+                    const role = await MemberRole.defaultRole(context, reference);
+                    if (!role) {
+                      context.logger.error(`${reference}: could not find default role`);
+                    } else {
+                      context.logger.debug(`${reference}: add ${role.label} to member ${memberAdded.id}`);
+                      const wasAdded = await role.addToProjectMember(context, memberAdded.id);
+                      if (!wasAdded) {
+                        addMemberRoleErrors.push(`MemberRole(memberId=${memberAdded.id}, role=${role.label})`);
+                      }
+                    }
+                  }
+                }
+
+                if (addMemberErrors.length > 0) {
+                  const msg = `Unable to add members to project: ${addMemberErrors.join(', ')}`;
+                  context.logger.error(prepareObjectForLogs({ projectId }), msg);
+                  updatedProject.addError('members', msg)
+                }
+                if (addMemberRoleErrors.length > 0) {
+                  const msg = `Unable to add default member roles: ${addMemberRoleErrors.join(', ')}`
+                  context.logger.error(prepareObjectForLogs({ projectId }), msg);
+                  updatedProject.addError('memberRoles', msg)
+                }
               }
             }
-
             return updatedProject;
           } catch (err) {
             context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);

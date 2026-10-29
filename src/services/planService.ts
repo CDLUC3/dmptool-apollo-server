@@ -1,16 +1,16 @@
-import {MyContext} from "../context.js";
-import {MemberRole} from "../models/MemberRole.js";
-import {isNullOrUndefined} from "../utils/helpers.js";
-import {PlanMember, ProjectMember} from "../models/Member.js";
-import {Plan, PlanSectionProgress, PlanVisibility} from "../models/Plan.js";
-import {Project} from "../models/Project.js";
+import { MyContext } from "../context.js";
+import { MemberRole } from "../models/MemberRole.js";
+import { isNullOrUndefined } from "../utils/helpers.js";
+import { PlanMember, ProjectMember } from "../models/Member.js";
+import { Plan, PlanSectionProgress, PlanVisibility } from "../models/Plan.js";
+import { Project } from "../models/Project.js";
 import {
   PlanFunding,
   ProjectFunding,
   ProjectFundingStatus
 } from "../models/Funding.js";
-import {AlternateIdentifier} from "../models/AlternateIdentifier.js";
-import {AcceptedWork} from "../models/RelatedWork.js";
+import { AlternateIdentifier } from "../models/AlternateIdentifier.js";
+import { AcceptedWork } from "../models/RelatedWork.js";
 import {
   createDMP,
   deleteDMP,
@@ -24,10 +24,10 @@ import {
   tombstoneDMP,
   updateDMP,
 } from "@dmptool/utils";
-import {getDynamoConnectionParams} from "../config/awsConfig.js";
-import {generalConfig} from "../config/generalConfig.js";
-import {DMPToolDMPType} from "@dmptool/types";
-import {getRDSConnectionParams} from "../config/mysqlConfig.js";
+import { getDynamoConnectionParams } from "../config/awsConfig.js";
+import { generalConfig } from "../config/generalConfig.js";
+import { CURRENT_SCHEMA_VERSION, DMPToolDMPType } from "@dmptool/types";
+import { getRDSConnectionParams } from "../config/mysqlConfig.js";
 import {
   buildDataCiteXML,
   DataCiteMetadataInput,
@@ -38,7 +38,7 @@ import {
   DataCiteSourceMember,
   planToDataCiteMetadata
 } from "./dataciteXMLService.js";
-import {removeIndexItem, updateIndexItem} from "./indexDMPService.js";
+import { removeIndexItem, updateIndexItem } from "./indexDMPService.js";
 import {
   CustomizableObjectOwnership,
   PlanQuestion,
@@ -46,8 +46,8 @@ import {
   PlanVersionSnapshot,
   PlanVersionSnapshotRelatedWork,
 } from "../types.js";
-import {NotFoundError} from "../utils/graphQLErrors.js";
-import {getProjectAndCheckAuthorization} from "./projectService.js";
+import { NotFoundError } from "../utils/graphQLErrors.js";
+import { getProjectAndCheckAuthorization } from "./projectService.js";
 import {
   maDMPAffiliationType,
   maDMPContributorType,
@@ -66,25 +66,25 @@ import {
   ProjectCollaborator,
   ProjectCollaboratorAccessLevel
 } from "../models/Collaborator.js";
-import {User} from "../models/User.js";
-import {Affiliation} from "../models/Affiliation.js";
-import {VersionedQuestion} from "../models/VersionedQuestion.js";
-import {VersionedCustomQuestion} from "../models/VersionedCustomQuestion.js";
-import {Answer} from "../models/Answer.js";
-import {VersionedSection} from "../models/VersionedSection.js";
-import {VersionedCustomSection} from "../models/VersionedCustomSection.js";
-import {VersionedTemplate} from "../models/VersionedTemplate.js";
+import { User } from "../models/User.js";
+import { Affiliation } from "../models/Affiliation.js";
+import { VersionedQuestion } from "../models/VersionedQuestion.js";
+import { VersionedCustomQuestion } from "../models/VersionedCustomQuestion.js";
+import { Answer } from "../models/Answer.js";
+import { VersionedSection } from "../models/VersionedSection.js";
+import { VersionedCustomSection } from "../models/VersionedCustomSection.js";
+import { VersionedTemplate } from "../models/VersionedTemplate.js";
 import {
   getRelevantGuidanceForPlan,
   getRelevantGuidanceForVersionedQuestion,
   GuidanceItem,
   GuidanceSource
 } from "./guidanceService.js";
-import {RelevantTag, Tag} from "../models/Tag.js";
+import { RelevantTag, Tag } from "../models/Tag.js";
 import {
   VersionedQuestionCustomization
 } from "../models/VersionedQuestionCustomization.js";
-import {findConditionalLogicForPlan} from "./conditionalLogicService.js";
+import { findConditionalLogicForPlan, findHiddenVersionedQuestionIds } from "./conditionalLogicService.js";
 import {
   VersionedSectionCustomization
 } from "../models/VersionedSectionCustomization.js";
@@ -337,6 +337,90 @@ export const ensureDefaultPlanContact = async (
     }
   }
   return false
+}
+
+const SINGLE_CHOICE_QUESTION_TYPES = ['radioButtons', 'selectBox'];
+const MULTI_CHOICE_QUESTION_TYPES = ['checkBoxes', 'multiselectBox'];
+
+/**
+ * The answer an option question displays before it is answered: the options marked `selected` in its
+ * question JSON. Returns null if the question has no default options.
+ *
+ * @param questionJson The question's JSON (raw query rows return JSON columns already parsed)
+ * @returns The default answer JSON ({ type, answer }), or null
+ */
+export function defaultAnswerForQuestion(
+  questionJson: string | object | null | undefined
+): { type: string, answer: string | string[] } | null {
+  let parsed: { type?: string, options?: { value?: unknown, selected?: unknown }[] };
+  try {
+    parsed = typeof questionJson === 'string' ? JSON.parse(questionJson) : questionJson;
+  } catch {
+    return null;
+  }
+  if (!parsed || !Array.isArray(parsed.options)) return null;
+
+  const selected: string[] = parsed.options
+    .filter((option) => option?.selected === true && typeof option.value === 'string')
+    .map((option) => option.value as string);
+  if (selected.length === 0) return null;
+
+  if (SINGLE_CHOICE_QUESTION_TYPES.includes(parsed.type)) {
+    return { type: parsed.type, answer: selected[0] };
+  }
+  if (MULTI_CHOICE_QUESTION_TYPES.includes(parsed.type)) {
+    return { type: parsed.type, answer: selected };
+  }
+  return null;
+}
+
+/**
+ * Saves the default options of the plan's option questions (radioButtons, selectBox, checkBoxes,
+ * multiselectBox) as their answers. The UI displays these defaults as selected, so the user
+ * expects them to already be their answer.
+ *
+ * Note this function makes changes to the database!
+ *
+ * @param reference The reference to use for logging errors
+ * @param context The apollo context object
+ * @param plan The newly created plan
+ * @returns The number of default answers that were saved
+ */
+export const createDefaultAnswersForPlan = async (
+  reference: string,
+  context: MyContext,
+  plan: Plan
+): Promise<number> => {
+  if (!plan?.id || !plan.versionedTemplateId) return 0;
+
+  // Raw query rows return the json column already parsed
+  const sql = 'SELECT id, versionedSectionId, json FROM versionedQuestions WHERE versionedTemplateId = ?';
+  const rows: { id: number, versionedSectionId: number, json: object | null }[] = await VersionedQuestion.query(
+    context, sql, [plan.versionedTemplateId.toString()], reference
+  );
+
+  let saved = 0;
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const defaultAnswer = defaultAnswerForQuestion(row.json);
+    if (!defaultAnswer) continue;
+
+    const answer = new Answer({
+      planId: plan.id,
+      versionedSectionId: row.versionedSectionId,
+      versionedQuestionId: row.id,
+      json: { ...defaultAnswer, meta: { schemaVersion: CURRENT_SCHEMA_VERSION } },
+    });
+    const created: Answer = await answer.create(context);
+    if (created && !created.hasErrors()) {
+      saved++;
+    } else {
+      context.logger.error(
+        { planId: plan.id, versionedQuestionId: row.id, errors: created?.errors },
+        `${reference}: unable to save the default answer`
+      );
+    }
+  }
+  return saved;
 }
 
 /**
@@ -925,8 +1009,11 @@ export async function getPlanSectionsAndQuestions(
     const affiliation: Affiliation = await Affiliation.findByURI(reference, context, context.token.affiliationId);
     // Get the versionedTemplateCustomization for the plan (needed to load any customizations for the plan)
     const versionedCustomization: VersionedTemplateCustomization | null = await VersionedTemplateCustomization.findById(reference, context, plan.versionedTemplateCustomizationId);
-    // get the plan owner's affiliation (needed to load any customized guidance for the plan)
-    const ownerAffiliation: Affiliation = await Affiliation.findByURI(reference, context, versionedCustomization.affiliationId);
+    // get the plan owner's affiliation (needed to load any customized guidance for the plan).
+    // Plans created without a customization have no versionedCustomization, so fall back to the user's affiliation
+    const ownerAffiliation: Affiliation = versionedCustomization?.affiliationId
+      ? await Affiliation.findByURI(reference, context, versionedCustomization.affiliationId) || affiliation
+      : affiliation;
     // Customizations come from the plan's versionedTemplateCustomizationId (pinned when the plan was
     // created), so we don't need the plan owner's current affiliation here
     const vTemplate: VersionedTemplate = await VersionedTemplate.findById(reference, context, plan.versionedTemplateId);
@@ -998,6 +1085,10 @@ export async function getPlanSectionsAndQuestions(
     const baseAnswersMap: Map<number, Answer> = new Map<number, Answer>(filledAnswers.map((a: Answer): [number, Answer] => [a.versionedQuestionId, a]).filter(([id]): boolean => Boolean(id)));
     const customAnswersMap: Map<number, Answer> = new Map<number, Answer>(filledAnswers.map((a: Answer): [number, Answer] => [a.versionedCustomQuestionId, a]).filter(([id]): boolean => Boolean(id)));
 
+    // Determine which base questions are hidden by their display logic, based on the plan's saved answers
+    const sectionDisplayOrder = new Map<number, number>(baseSections.map((s: VersionedSection): [number, number] => [s.id, s.displayOrder]));
+    const hiddenQuestionIds: Set<number> = findHiddenVersionedQuestionIds(allBaseQuestions, sectionDisplayOrder, conditionalLogic, baseAnswersMap);
+
     // Third, iterate through each section progress record and build the PlanSection
     // object from the pre-fetched data
     for (const progress of sectionProgress) {
@@ -1025,9 +1116,15 @@ export async function getPlanSectionsAndQuestions(
         );
 
         // See if there's already a guidance source for the plan owner's affiliation — if so,
-        // we don't need to add it again
+        // we don't need to add it again. Match on the `affiliation-` id rather than on
+        // type + orgURI: a question customization adds a `customization-<uri>` source with the
+        // same type and orgURI, and if the question's own guidance/sample were pushed into it,
+        // the UI (which reads one sample per source) would drop the template's sample text.
+        // Matching on id also finds the template owner's source (type TEMPLATE_OWNER) when the
+        // plan owner's org owns the template, rather than creating a second source with this id
+        const ownerSourceId = `affiliation-${ownerAffiliation.uri}`;
         let questionGSource: GuidanceSource | undefined = gSources.find((gs: GuidanceSource): boolean => {
-          return gs.type === 'USER_AFFILIATION' && gs.orgURI === ownerAffiliation.uri
+          return gs.id === ownerSourceId;
         });
 
         // See if the question's parent section has guidance
@@ -1042,7 +1139,7 @@ export async function getPlanSectionsAndQuestions(
         if (!questionGSource) {
           // If not, add a guidance source for the plan owner's affiliation, even if it has no guidance items
           questionGSource = {
-            id: `affiliation-${ownerAffiliation.uri}`,
+            id: ownerSourceId,
             label: ownerAffiliation.displayName || ownerAffiliation.name,
             shortName: ownerAffiliation.acronyms?.[0] || ownerAffiliation.displayName || ownerAffiliation.name,
             orgURI: ownerAffiliation.uri,
@@ -1081,7 +1178,7 @@ export async function getPlanSectionsAndQuestions(
           guidanceSources: gSources.filter((gs: GuidanceSource): boolean => {
             return gs.hasGuidance;
           }),
-          conditionalLogic: conditionalLogic.get(q.id) || []
+          isHidden: hiddenQuestionIds.has(q.id)
         };
       });
 
@@ -1123,6 +1220,8 @@ export async function getPlanSectionsAndQuestions(
           hasAnswer: customAnswersMap.has(q.id),
           answer: customAnswersMap.get(q.id) || undefined,
           json: q.json,
+          // Custom questions don't have display logic
+          isHidden: false,
           guidanceSources: [{
             id: `affiliation-${ownerAffiliation.uri}`,
             label: ownerAffiliation.displayName || ownerAffiliation.name,

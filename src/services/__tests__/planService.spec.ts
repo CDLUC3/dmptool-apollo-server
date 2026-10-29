@@ -33,7 +33,11 @@ jest.unstable_mockModule('../../datasources/openSearch.js', () => ({
 
 import type { MyContext } from '../../context.js';
 const { logger } = await import("../../logger.js");
-import { isPlanReadOnlyForCurrentUser } from "../planService.js";
+import {
+  createDefaultAnswersForPlan,
+  defaultAnswerForQuestion,
+  isPlanReadOnlyForCurrentUser
+} from "../planService.js";
 import { buildMockContextWithToken } from "../../__mocks__/context.js";
 import {
   ProjectCollaborator,
@@ -84,6 +88,7 @@ const {
 const { Plan, PlanVisibility } = await import('../../models/Plan.js');
 const { Project } = await import('../../models/Project.js');
 const { Answer } = await import('../../models/Answer.js');
+const { VersionedQuestion } = await import('../../models/VersionedQuestion.js');
 const { ProjectMember, PlanMember } = await import('../../models/Member.js');
 const { PlanFunding, ProjectFunding, ProjectFundingStatus } = await import('../../models/Funding.js');
 const { Affiliation } = await import('../../models/Affiliation.js');
@@ -542,5 +547,86 @@ describe('isPlanReadOnlyForCurrentUser', () => {
 
     expect(result).toBe(true);
     expect(mockFindByUserIdAndProjectId).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('createDefaultAnswersForPlan', () => {
+  let mockQuery: ReturnType<typeof jest.spyOn>;
+  let mockCreate: ReturnType<typeof jest.spyOn>;
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    context = await buildMockContextWithToken(logger);
+
+    mockQuery = jest.spyOn(VersionedQuestion, 'query');
+    mockCreate = jest.spyOn(Answer.prototype, 'create').mockImplementation(async function (this: AnswerInstance) {
+      return this;
+    });
+  });
+
+  afterEach(() => {
+    mockQuery.mockRestore();
+    mockCreate.mockRestore();
+  });
+
+  it('does not query when the plan has no versionedTemplateId', async () => {
+    const result = await createDefaultAnswersForPlan('test', context, new Plan({ id: 1 }));
+
+    expect(result).toBe(0);
+    expect(mockQuery).not.toHaveBeenCalled();
+  });
+
+  it('saves the default options of option questions as their answers', async () => {
+    // mysql2 returns the json column already parsed
+    mockQuery.mockResolvedValueOnce([
+      {
+        id: 10,
+        versionedSectionId: 5,
+        json: { type: 'radioButtons', options: [{ label: 'Yes', value: 'Yes', selected: true }, { label: 'No', value: 'No' }] },
+      },
+      {
+        id: 11,
+        versionedSectionId: 5,
+        json: { type: 'checkBoxes', options: [{ label: 'A', value: 'A', selected: true }, { label: 'B', value: 'B', selected: true }] },
+      },
+      { id: 12, versionedSectionId: 5, json: { type: 'selectBox', options: [{ label: 'A', value: 'A' }] } },
+      { id: 13, versionedSectionId: 6, json: { type: 'textArea' } },
+    ]);
+
+    const result = await createDefaultAnswersForPlan('test', context, new Plan({ id: 1, versionedTemplateId: 7 }));
+
+    expect(result).toBe(2);
+    expect(mockQuery).toHaveBeenCalledWith(context, expect.stringContaining('WHERE versionedTemplateId = ?'), ['7'], 'test');
+    const saved = mockCreate.mock.contexts.map((answer: AnswerInstance) => ({
+      versionedQuestionId: answer.versionedQuestionId,
+      json: JSON.parse(answer.json),
+    }));
+    expect(saved).toEqual([
+      { versionedQuestionId: 10, json: { type: 'radioButtons', answer: 'Yes', meta: { schemaVersion: '1.0' } } },
+      { versionedQuestionId: 11, json: { type: 'checkBoxes', answer: ['A', 'B'], meta: { schemaVersion: '1.0' } } },
+    ]);
+  });
+});
+
+describe('defaultAnswerForQuestion', () => {
+  const options = [
+    { label: 'A', value: 'a', selected: true },
+    { label: 'B', value: 'b', selected: true },
+    { label: 'C', value: 'c', selected: false },
+  ];
+
+  it.each(['radioButtons', 'selectBox'])('returns the first selected option for %s', (type) => {
+    expect(defaultAnswerForQuestion({ type, options })).toEqual({ type, answer: 'a' });
+  });
+
+  it.each(['checkBoxes', 'multiselectBox'])('returns every selected option for %s', (type) => {
+    expect(defaultAnswerForQuestion(JSON.stringify({ type, options }))).toEqual({ type, answer: ['a', 'b'] });
+  });
+
+  it('returns null for non-option questions, no selected options, or invalid JSON', () => {
+    expect(defaultAnswerForQuestion({ type: 'text' })).toBeNull();
+    expect(defaultAnswerForQuestion({ type: 'radioButtons', options: [{ value: 'a' }] })).toBeNull();
+    expect(defaultAnswerForQuestion('{not json')).toBeNull();
+    expect(defaultAnswerForQuestion(null)).toBeNull();
   });
 });

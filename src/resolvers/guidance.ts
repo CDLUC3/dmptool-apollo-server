@@ -1,27 +1,26 @@
-import { Resolvers } from "../types";
-import { MyContext } from "../context";
-import { Guidance } from "../models/Guidance";
-import { GuidanceGroup } from "../models/GuidanceGroup";
-import { PlanGuidance } from "../models/Guidance";
-import { Affiliation } from "../models/Affiliation";
-import { User } from "../models/User";
-import { Tag } from "../models/Tag";
-import { Project } from "../models/Project";
+import { Resolvers } from "../types.js";
+import { MyContext } from "../context.js";
+import { Guidance, PlanGuidance } from "../models/Guidance.js";
+import { GuidanceGroup } from "../models/GuidanceGroup.js";
+import { Affiliation } from "../models/Affiliation.js";
+import { User } from "../models/User.js";
+import { Tag } from "../models/Tag.js";
+import { Project } from "../models/Project.js";
 import {
   hasPermissionOnGuidanceGroup,
   markGuidanceGroupAsDirty,
   getGuidanceSourcesForPlan,
   GuidanceSource
-} from "../services/guidanceService";
-import { hasPermissionOnProject } from "../services/projectService";
-import { ForbiddenError, NotFoundError, AuthenticationError, InternalServerError } from "../utils/graphQLErrors";
-import { isAdmin, isAuthorized } from "../services/authService";
-import { prepareObjectForLogs } from "../logger";
+} from "../services/guidanceService.js";
+import { hasPermissionOnProject } from "../services/projectService.js";
+import { ForbiddenError, NotFoundError, AuthenticationError, InternalServerError } from "../utils/graphQLErrors.js";
+import { isAdmin, isAuthorized } from "../services/authService.js";
+import { prepareObjectForLogs } from "../logger.js";
 import { GraphQLError } from "graphql";
-import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
-import { hasPublishedFlag } from "./guidanceGroup";
-import { Plan } from "../models/Plan";
-import { ProjectCollaboratorAccessLevel } from "../models/Collaborator";
+import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers.js";
+import { hasPublishedFlag } from "./guidanceGroup.js";
+import { Plan } from "../models/Plan.js";
+import { ProjectCollaboratorAccessLevel } from "../models/Collaborator.js";
 
 export const resolvers: Resolvers = {
   Query: {

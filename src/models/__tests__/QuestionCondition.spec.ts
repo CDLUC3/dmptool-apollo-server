@@ -1,29 +1,37 @@
+import { jest } from '@jest/globals';
 import casual from "casual";
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { QuestionCondition, QuestionConditionActionType, QuestionConditionCondition } from "../QuestionCondition";
-import { getRandomEnumValue } from "../../__tests__/helpers";
-import { logger } from "../../logger";
 
-jest.mock('../../context.ts');
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+//Dynamic imports AFTER all mocks are registered
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
+const { QuestionCondition } = await import('../QuestionCondition.js');
 
 describe('QuestionCondition', () => {
   let questionCondition;
 
   const questionConditionData = {
-    questionId: casual.integer(1, 999),
-    conditionMatch: casual.words(3),
-    target: casual.word,
-  }
+    conditionType: "EQUAL",
+    conditionMatch: "Apples",
+    groupId: 1
+  };
   beforeEach(() => {
     questionCondition = new QuestionCondition(questionConditionData);
   });
 
   it('should initialize options as expected', () => {
-    expect(questionCondition.questionId).toEqual(questionConditionData.questionId);
-    expect(questionCondition.action).toEqual(QuestionConditionActionType.SHOW_QUESTION);
-    expect(questionCondition.conditionType).toEqual(QuestionConditionCondition.EQUAL);
+    expect(questionCondition.conditionType).toEqual("EQUAL");
     expect(questionCondition.conditionMatch).toEqual(questionConditionData.conditionMatch);
-    expect(questionCondition.target).toEqual(questionConditionData.target);
+    expect(questionCondition.groupId).toEqual(questionConditionData.groupId);
   });
 
   it('should return true when calling isValid with a name field', async () => {
@@ -47,13 +55,10 @@ describe('findBy Queries', () => {
     context = await buildMockContextWithToken(logger);
 
     questionCondition = new QuestionCondition({
-      id: casual.integer(1, 9),
-      questionId: casual.integer(1, 999),
-      action: getRandomEnumValue(QuestionConditionActionType),
-      conditionType: getRandomEnumValue(QuestionConditionCondition),
+      conditionType: "EQUAL",
       conditionMatch: casual.words(5),
-      target: casual.integer(1, 9999).toString(),
-    })
+      groupId: casual.integer(1, 9999),
+    });
   });
 
   afterEach(() => {
@@ -78,20 +83,40 @@ describe('findBy Queries', () => {
     expect(result).toEqual(null);
   });
 
-  it('findByQuestionId should call query with correct params and return the default', async () => {
+  it('findByGroupId should call query with correct params and return the default', async () => {
     localQuery.mockResolvedValueOnce([questionCondition]);
-    const questionId = casual.integer(1, 999);
-    const result = await QuestionCondition.findByQuestionId('testing', context, questionId);
-    const expectedSql = 'SELECT * FROM questionConditions WHERE questionId = ?';
+    const groupId = casual.integer(1, 999);
+    const result = await QuestionCondition.findByGroupId('testing', context, groupId);
+    const expectedSql = 'SELECT * FROM questionConditions WHERE groupId = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [questionId.toString()], 'testing');
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [groupId.toString()], 'testing');
     expect(result).toEqual([questionCondition]);
   });
 
-  it('findByQuestionId should return null if it finds no default', async () => {
+  it('findByGroupId should return an empty array if it finds no records', async () => {
     localQuery.mockResolvedValueOnce([]);
-    const questionId = casual.integer(1, 999);
-    const result = await QuestionCondition.findByQuestionId('testing', context, questionId);
+    const groupId = casual.integer(1, 999);
+    const result = await QuestionCondition.findByGroupId('testing', context, groupId);
+    expect(result).toEqual([]);
+  });
+
+  it('findByTriggerQuestionId should call query with the trigger question id and return the conditions', async () => {
+    localQuery.mockResolvedValueOnce([questionCondition]);
+    const triggerQuestionId = casual.integer(1, 999);
+    const result = await QuestionCondition.findByTriggerQuestionId('testing', context, triggerQuestionId);
+    expect(localQuery).toHaveBeenCalledTimes(1);
+    expect(localQuery).toHaveBeenLastCalledWith(
+      context,
+      expect.stringContaining('WHERE qcg.triggerQuestionId = ? AND qcg.questionId <> ?'),
+      [triggerQuestionId.toString(), triggerQuestionId.toString()],
+      'testing'
+    );
+    expect(result).toEqual([questionCondition]);
+  });
+
+  it('findByTriggerQuestionId should return an empty array if it finds no records', async () => {
+    localQuery.mockResolvedValueOnce([]);
+    const result = await QuestionCondition.findByTriggerQuestionId('testing', context, casual.integer(1, 999));
     expect(result).toEqual([]);
   });
 });
@@ -114,12 +139,10 @@ describe('create', () => {
     context = await buildMockContextWithToken(logger);
 
     questionCondition = new QuestionCondition({
-      questionId: casual.integer(1, 999),
-      action: getRandomEnumValue(QuestionConditionActionType),
-      conditionType: getRandomEnumValue(QuestionConditionCondition),
+      conditionType: "EQUAL",
       conditionMatch: casual.words(5),
-      target: casual.integer(1, 9999).toString(),
-    })
+      groupId: casual.integer(1, 9999),
+    });
   });
 
   afterEach(() => {
@@ -128,7 +151,7 @@ describe('create', () => {
   });
 
   it('returns the QuestionCondition without errors if it is valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (questionCondition.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
     findByIdQuery.mockResolvedValueOnce(questionCondition);
@@ -140,15 +163,9 @@ describe('create', () => {
   });
 
   it('returns the QuestionCondition with an error if questionId is undefined', async () => {
-    questionCondition.questionId = undefined;
+    questionCondition.groupId = undefined;
     const response = await questionCondition.create(context);
-    expect(response.errors['questionId']).toBe('Question Id can\'t be blank');
-  });
-
-  it('returns the QuestionCondition with an error if action is undefined', async () => {
-    questionCondition.action = undefined;
-    const response = await questionCondition.create(context);
-    expect(response.errors['action']).toBe('Action can\'t be blank');
+    expect(response.errors['groupId']).toBe('Group Id can\'t be blank');
   });
 
   it('returns the QuestionCondition with an error if conditionType is undefined', async () => {
@@ -157,18 +174,12 @@ describe('create', () => {
     expect(response.errors['conditionType']).toBe('Condition Type can\'t be blank');
   });
 
-  it('returns the QuestionCondition with an error if target is undefined', async () => {
-    questionCondition.target = undefined;
-    const response = await questionCondition.create(context);
-    expect(response.errors['target']).toBe('Target can\'t be blank');
-  });
-
   it('returns the newly added QuestionCondition', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (questionCondition.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof QuestionCondition>>>();
     (QuestionCondition.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(questionCondition);
 
@@ -197,25 +208,23 @@ describe('update', () => {
 
     questionCondition = new QuestionCondition({
       id: casual.integer(1, 9),
-      questionId: casual.integer(1, 999),
-      action: getRandomEnumValue(QuestionConditionActionType),
-      conditionType: getRandomEnumValue(QuestionConditionCondition),
+      conditionType: "EQUAL",
       conditionMatch: casual.words(5),
-      target: casual.integer(1, 9999).toString(),
-    })
+      groupId: casual.integer(1, 9999),
+    });
   });
 
   it('returns the QuestionCondition with errors if it is not valid', async () => {
-    questionCondition.questionId = null;
+    questionCondition.groupId = null;
 
     const result = await questionCondition.update(context);
-    expect(result.errors['questionId']).toEqual('Question Id can\'t be blank');
+    expect(result.errors['groupId']).toEqual('Group Id can\'t be blank');
     expect(updateQuery).toHaveBeenCalledTimes(0);
     expect(findByIdQuery).toHaveBeenCalledTimes(0);
   });
 
   it('returns an error if the QuestionCondition has no id', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (questionCondition.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
@@ -229,7 +238,7 @@ describe('update', () => {
     updateQuery.mockResolvedValueOnce(questionCondition);
     findByIdQuery.mockResolvedValueOnce(questionCondition);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof QuestionCondition>>>();
     (QuestionCondition.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(questionCondition);
 
@@ -249,13 +258,11 @@ describe('delete', () => {
 
     questionCondition = new QuestionCondition({
       id: casual.integer(1, 9),
-      questionId: casual.integer(1, 999),
-      action: getRandomEnumValue(QuestionConditionActionType),
-      conditionType: getRandomEnumValue(QuestionConditionCondition),
+      conditionType: "EQUAL",
       conditionMatch: casual.words(5),
-      target: casual.integer(1, 9999).toString(),
-    })
-  })
+      groupId: casual.integer(1, 9999),
+    });
+  });
 
   it('returns null if the QuestionCondition has no id', async () => {
     questionCondition.id = null;
@@ -263,7 +270,7 @@ describe('delete', () => {
   });
 
   it('returns null if it was not able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<null>>();
     (QuestionCondition.delete as jest.Mock) = deleteQuery;
 
     deleteQuery.mockResolvedValueOnce(null);
@@ -271,11 +278,11 @@ describe('delete', () => {
   });
 
   it('returns the QuestionCondition if it was able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<boolean>>();
     (QuestionCondition.delete as jest.Mock) = deleteQuery;
     deleteQuery.mockResolvedValueOnce(questionCondition);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof QuestionCondition>>>();
     (QuestionCondition.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(questionCondition);
 

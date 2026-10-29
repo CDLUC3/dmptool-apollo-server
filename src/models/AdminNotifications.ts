@@ -1,19 +1,20 @@
-import { MyContext } from "../context";
+import { MyContext } from "../context.js";
 import {
   PaginationOptionsForCursors,
   PaginationOptionsForOffsets,
   PaginatedQueryResults,
   PaginationType,
   PaginationOptions
-} from "../types/general";
-import { AdminNotificationType } from "../types";
-import { MySqlModel } from "./MySqlModel";
-import { isNullOrUndefined } from "../utils/helpers";
+} from "../types/general.js";
+import { AdminNotificationType } from "../types.js";
+import { MySqlModel } from "./MySqlModel.js";
+import { isNullOrUndefined } from "../utils/helpers.js";
 
 export interface AdminNotificationMetadata {
   planId?: number;
   templateId?: number;
   templateCustomizationId?: number;
+  feedbackId?: number;
 }
 export class AdminNotificationResults extends MySqlModel {
   public notificationType: AdminNotificationType;

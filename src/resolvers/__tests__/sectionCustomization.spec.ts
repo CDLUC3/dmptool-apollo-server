@@ -1,52 +1,104 @@
-import casual from "casual";
-
-// Mock the authenticatedResolver function because it is a Highest Order Function (HOF)
-// and gets loaded when we import resolvers.ts below
-jest.mock('../../services/authService', () => ({
-  ...jest.requireActual('../../services/authService'),
-  // This mocks the HOF itself to be a simple pass-through
-  authenticatedResolver: jest.fn((ref, level, resolver) => resolver),
-}));
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { ApolloServer } from "@apollo/server";
-import { typeDefs } from "../../schema";
-import { resolvers } from '../../resolver';
+import casual from "casual";
+import { jest } from '@jest/globals';
 
-import { logger } from "../../logger";
-import { JWTAccessToken } from "../../services/tokenService";
-import { SectionCustomization } from '../../models/SectionCustomization';
-import { CustomSection } from '../../models/CustomSection';
-import { VersionedSection } from '../../models/VersionedSection';
-import { PinnedSectionTypeEnum } from '../../models/CustomSection';
-import { User, UserRole } from "../../models/User";
-import {
-  getValidatedCustomization,
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+mockAppConfigs();
+mockAppLogger();
+
+
+jest.unstable_mockModule('../../datasources/cache.js', () => ({
+  Cache: jest.fn().mockImplementation(() => ({
+    get: jest.fn(),
+    set: jest.fn(),
+    delete: jest.fn(),
+    clear: jest.fn(),
+  })),
+}));
+
+jest.unstable_mockModule('../../services/openSearchService.js', () => ({
+  openSearchFindWorkByIdentifier: jest.fn(),
+  openSearchFindRe3Data: jest.fn(),
+  openSearchFindRe3DataByURIs: jest.fn(),
+  openSearchFindRe3DataSubjects: jest.fn(),
+  openSearchFindRe3DataRepositoryTypes: jest.fn(),
+}));
+
+jest.unstable_mockModule('../../services/authService.js', () => ({
+  authenticatedResolver: jest.fn((ref, level, resolver) => resolver),
+  isAuthorized: (token) => {
+    return token != null && token.id != null;
+  },
+  isAdmin: (token) => {
+    if (token != null && token.id != null && token.affiliationId) {
+      return ['ADMIN', 'SUPERADMIN'].includes(token?.role);
+    }
+    return false;
+  },
+  isSuperAdmin: (token) => {
+    return token != null && token.id != null && token?.role === 'SUPERADMIN';
+  },
+}));
+
+const mockGetValidatedCustomization = jest.fn<(...args: any[]) => Promise<any>>();
+const mockMarkTemplateCustomizationAsDirty = jest.fn<(...args: any[]) => Promise<any>>();
+
+const actualTemplateCustomizationService = await import('../../services/templateCustomizationService.js');
+jest.unstable_mockModule('../../services/templateCustomizationService.js', () => ({
+  ...actualTemplateCustomizationService,
+  getValidatedCustomization: mockGetValidatedCustomization,
+  markTemplateCustomizationAsDirty: mockMarkTemplateCustomizationAsDirty,
+}));
+
+type SectionCustomizationInstance = InstanceType<typeof SectionCustomization>;
+function asSectionCustomization(value: any): SectionCustomizationInstance {
+  return value as SectionCustomizationInstance;
+}
+
+type CustomSectionInstance = InstanceType<typeof CustomSection>;
+function asCustomSection(value: any): CustomSectionInstance {
+  return value as CustomSectionInstance;
+}
+
+type VersionedSectionInstance = InstanceType<typeof VersionedSection>;
+function asVersionedSection(value: any): VersionedSectionInstance {
+  return value as VersionedSectionInstance;
+}
+
+type AffiliationInstance = InstanceType<typeof Affiliation>;
+function asAffiliation(value: any): AffiliationInstance {
+  return value as AffiliationInstance;
+}
+import type { MyContext } from "../../context.js";
+
+// Dynamic imports AFTER mocks are set up
+const { typeDefs } = await import("../../schema.js");
+const { resolvers } = await import("../../resolver.js");
+const { logger } = await import("../../logger.js");
+const { buildContext, mockToken } = await import("../../__mocks__/context.js");
+const { User, UserRole } = await import("../../models/User.js");
+const { SectionCustomization } = await import('../../models/SectionCustomization.js');
+const { CustomSection } = await import('../../models/CustomSection.js');
+const { VersionedSection } = await import('../../models/VersionedSection.js');
+const { PinnedSectionTypeEnum } = await import('../../models/CustomSection.js');
+const {
   markTemplateCustomizationAsDirty
-} from '../../services/templateCustomizationService';
-import { buildContext, mockToken } from "../../__mocks__/context";
-import { Affiliation } from "../../models/Affiliation";
-
-jest.mock('../../context.ts');
-jest.mock('../../datasources/cache');
-
-jest.mock('../../models/SectionCustomization');
-jest.mock('../../models/CustomSection');
-jest.mock('../../models/TemplateCustomization');
-jest.mock('../../models/VersionedSection');
-jest.mock('../../services/templateCustomizationService');
+} = await import('../../services/templateCustomizationService.js');
+const { Affiliation } = await import("../../models/Affiliation.js");
 
 let testServer: ApolloServer;
 let affiliationId: string;
-let adminToken: JWTAccessToken;
+let adminToken: MyContext['token'];
 let query: string;
 
 // Proxy call to the Apollo server test server
 async function executeQuery(
   query: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   variables: any,
-  token: JWTAccessToken
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  token: MyContext['token']
 ): Promise<any> {
   const context = buildContext(logger, token, null);
 
@@ -73,7 +125,7 @@ afterEach(() => {
 });
 
 describe('sectionCustomization resolver', () => {
-  let user: User;
+  let user: InstanceType<typeof User>;
 
   beforeEach(async () => {
     user = new User({
@@ -84,7 +136,7 @@ describe('sectionCustomization resolver', () => {
       affiliationId: casual.url,
     });
 
-    (user.getEmail as jest.Mock) = jest.fn().mockResolvedValue(casual.email);
+    (user.getEmail as jest.Mock) = jest.fn<() => Promise<string>>().mockResolvedValue(casual.email);
   });
 
   describe('Query.sectionCustomization', () => {
@@ -119,8 +171,8 @@ describe('sectionCustomization resolver', () => {
       };
       const mockParent = { id: 10, isDirty: false };
 
-      (SectionCustomization.findById as jest.Mock).mockResolvedValue(mockCustomization);
-      (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
+      jest.spyOn(SectionCustomization, 'findById').mockResolvedValue(mockCustomization as InstanceType<typeof SectionCustomization>);
+      mockGetValidatedCustomization.mockResolvedValue(mockParent);
 
       const vars = { sectionCustomizationId: 1 };
       const result = await executeQuery(query, vars, adminToken);
@@ -138,7 +190,7 @@ describe('sectionCustomization resolver', () => {
     });
 
     it('should return NotFound error when section customization is not found', async () => {
-      (SectionCustomization.findById as jest.Mock).mockResolvedValue(null);
+      jest.spyOn(SectionCustomization, 'findById').mockResolvedValue(null);
 
       const vars = { sectionCustomizationId: 999 };
       const result = await executeQuery(query, vars, adminToken);
@@ -154,8 +206,8 @@ describe('sectionCustomization resolver', () => {
         templateCustomizationId: 10
       };
 
-      (SectionCustomization.findById as jest.Mock).mockResolvedValue(mockCustomization);
-      (getValidatedCustomization as jest.Mock).mockResolvedValue(null);
+      jest.spyOn(SectionCustomization, 'findById').mockResolvedValue(mockCustomization as InstanceType<typeof SectionCustomization>);
+      mockGetValidatedCustomization.mockResolvedValue(null);
 
       const vars = { sectionCustomizationId: 1 };
       const result = await executeQuery(query, vars, adminToken);
@@ -198,8 +250,8 @@ describe('sectionCustomization resolver', () => {
       };
       const mockParent = { id: 10, isDirty: false };
 
-      (SectionCustomization.findByCustomizationAndVersionedSection as jest.Mock).mockResolvedValue(mockCustomization);
-      (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
+      jest.spyOn(SectionCustomization, 'findByCustomizationAndVersionedSection').mockResolvedValue(mockCustomization as InstanceType<typeof SectionCustomization>);
+      mockGetValidatedCustomization.mockResolvedValue(mockParent);
 
       const vars = { templateCustomizationId: 10, versionedSectionId: 5 };
       const result = await executeQuery(query, vars, adminToken);
@@ -218,7 +270,7 @@ describe('sectionCustomization resolver', () => {
     });
 
     it('should return NotFound error when section customization is not found', async () => {
-      (SectionCustomization.findByCustomizationAndVersionedSection as jest.Mock).mockResolvedValue(null);
+      jest.spyOn(SectionCustomization, 'findByCustomizationAndVersionedSection').mockResolvedValue(null);
 
       const vars = { templateCustomizationId: 10, versionedSectionId: 999 };
       const result = await executeQuery(query, vars, adminToken);
@@ -234,8 +286,8 @@ describe('sectionCustomization resolver', () => {
         templateCustomizationId: 10
       };
 
-      (SectionCustomization.findByCustomizationAndVersionedSection as jest.Mock).mockResolvedValue(mockCustomization);
-      (getValidatedCustomization as jest.Mock).mockResolvedValue(null);
+      jest.spyOn(SectionCustomization, 'findByCustomizationAndVersionedSection').mockResolvedValue(mockCustomization as InstanceType<typeof SectionCustomization>);
+      mockGetValidatedCustomization.mockResolvedValue(null);
 
       const vars = { templateCustomizationId: 10, versionedSectionId: 5 };
       const result = await executeQuery(query, vars, adminToken);
@@ -276,8 +328,8 @@ describe('sectionCustomization resolver', () => {
       };
       const mockParent = { id: 10, isDirty: false };
 
-      (CustomSection.findById as jest.Mock).mockResolvedValue(mockCustomSection);
-      (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
+      jest.spyOn(CustomSection, 'findById').mockResolvedValue(mockCustomSection as InstanceType<typeof CustomSection>);
+      mockGetValidatedCustomization.mockResolvedValue(mockParent);
 
       const vars = { customSectionId: 1 };
       const result = await executeQuery(query, vars, adminToken);
@@ -293,7 +345,7 @@ describe('sectionCustomization resolver', () => {
     });
 
     it('should return NotFound when custom section is not found', async () => {
-      (CustomSection.findById as jest.Mock).mockResolvedValue(null);
+      jest.spyOn(CustomSection, 'findById').mockResolvedValue(null);
 
       const vars = { customSectionId: 999 };
       const result = await executeQuery(query, vars, adminToken);
@@ -309,8 +361,8 @@ describe('sectionCustomization resolver', () => {
         templateCustomizationId: 10
       };
 
-      (CustomSection.findById as jest.Mock).mockResolvedValue(mockCustomSection);
-      (getValidatedCustomization as jest.Mock).mockResolvedValue(null);
+      jest.spyOn(CustomSection, 'findById').mockResolvedValue(mockCustomSection as InstanceType<typeof CustomSection>);
+      mockGetValidatedCustomization.mockResolvedValue(null);
 
       const vars = { customSectionId: 1 };
       const result = await executeQuery(query, vars, adminToken)
@@ -347,15 +399,15 @@ describe('sectionCustomization resolver', () => {
       };
       const mockSection = { id: 5, name: 'Section' };
       const mockParent = { id: 10, isDirty: false };
-      const mockCreated = {
+      const mockCreated = asSectionCustomization({
         id: 1,
         sectionId: 5,
         ...input,
         hasErrors: jest.fn().mockReturnValue(false)
-      } as undefined as SectionCustomization;
+      });
 
-      (VersionedSection.findById as jest.Mock).mockResolvedValue(mockSection);
-      (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
+      jest.spyOn(VersionedSection, 'findById').mockResolvedValue(mockSection as InstanceType<typeof VersionedSection>);
+      mockGetValidatedCustomization.mockResolvedValue(mockParent);
       jest.spyOn(SectionCustomization.prototype, 'create').mockResolvedValue(mockCreated);
 
       const result = await executeQuery(query, { input }, adminToken);
@@ -377,7 +429,7 @@ describe('sectionCustomization resolver', () => {
         versionedSectionId: 999
       };
 
-      (VersionedSection.findById as jest.Mock).mockResolvedValue(null);
+      jest.spyOn(VersionedSection, 'findById').mockResolvedValue(asVersionedSection(null));
 
       const result = await executeQuery(query, { input }, adminToken);
 
@@ -393,14 +445,13 @@ describe('sectionCustomization resolver', () => {
       };
       const mockSection = { id: 5 };
       const mockParent = { id: 10, isDirty: false };
-      const mockCreated = {
+      const mockCreated = asSectionCustomization({
         id: 1,
         sectionId: 5,
         hasErrors: jest.fn().mockReturnValue(true)
-      } as undefined as SectionCustomization;
-
-      (VersionedSection.findById as jest.Mock).mockResolvedValue(mockSection);
-      (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
+      });
+      jest.spyOn(VersionedSection, 'findById').mockResolvedValue(asVersionedSection(mockSection));
+      mockGetValidatedCustomization.mockResolvedValue(mockParent);
       jest.spyOn(SectionCustomization.prototype, 'create').mockResolvedValue(mockCreated);
 
       await executeQuery(query, { input }, adminToken);
@@ -439,14 +490,14 @@ describe('sectionCustomization resolver', () => {
         templateCustomizationId: 10,
         sectionId: 5,
         guidance: 'Old guidance',
-        hasErrors: jest.fn().mockReturnValue(false),
-        update: jest.fn()
+        hasErrors: jest.fn<() => boolean>().mockReturnValue(false),
+        update: jest.fn<() => Promise<any>>()
       };
       const mockParent = { id: 10, isDirty: false };
       const mockUpdated = { ...mockCustomization, guidance: 'Updated guidance' };
 
-      (SectionCustomization.findById as jest.Mock).mockResolvedValue(mockCustomization);
-      (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
+      jest.spyOn(SectionCustomization, 'findById').mockResolvedValue(asSectionCustomization(mockCustomization));
+      mockGetValidatedCustomization.mockResolvedValue(mockParent);
       mockCustomization.update.mockResolvedValue(mockUpdated);
 
       const result = await executeQuery(query, { input }, adminToken);
@@ -461,7 +512,7 @@ describe('sectionCustomization resolver', () => {
         guidance: 'New guidance'
       };
 
-      (SectionCustomization.findById as jest.Mock).mockResolvedValue(null);
+      jest.spyOn(SectionCustomization, 'findById').mockResolvedValue(null);
 
       const result = await executeQuery(query, { input }, adminToken);
 
@@ -478,14 +529,14 @@ describe('sectionCustomization resolver', () => {
       const mockCustomization = {
         id: 1,
         templateCustomizationId: 10,
-        hasErrors: jest.fn().mockReturnValue(false),
-        update: jest.fn()
+        hasErrors: jest.fn<() => boolean>().mockReturnValue(false),
+        update: jest.fn<() => Promise<any>>()
       };
       const mockParent = { id: 10, isDirty: true };
       const mockUpdated = { ...mockCustomization };
 
-      (SectionCustomization.findById as jest.Mock).mockResolvedValue(mockCustomization);
-      (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
+      jest.spyOn(SectionCustomization, 'findById').mockResolvedValue(asSectionCustomization(mockCustomization));
+      mockGetValidatedCustomization.mockResolvedValue(mockParent);
       mockCustomization.update.mockResolvedValue(mockUpdated);
 
       await executeQuery(query, { input }, adminToken);
@@ -516,14 +567,14 @@ describe('sectionCustomization resolver', () => {
       const mockCustomization = {
         id: 1,
         templateCustomizationId: 10,
-        hasErrors: jest.fn().mockReturnValue(false),
-        delete: jest.fn()
+        hasErrors: jest.fn<() => boolean>().mockReturnValue(false),
+        delete: jest.fn<() => Promise<any>>()
       };
       const mockParent = { id: 10, isDirty: false };
       const mockDeleted = { ...mockCustomization };
 
-      (SectionCustomization.findById as jest.Mock).mockResolvedValue(mockCustomization);
-      (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
+      jest.spyOn(SectionCustomization, 'findById').mockResolvedValue(asSectionCustomization(mockCustomization));
+      mockGetValidatedCustomization.mockResolvedValue(mockParent);
       mockCustomization.delete.mockResolvedValue(mockDeleted);
 
       const args = { sectionCustomizationId: 1 };
@@ -535,7 +586,7 @@ describe('sectionCustomization resolver', () => {
     });
 
     it('should throw NotFoundError when section customization is not found', async () => {
-      (SectionCustomization.findById as jest.Mock).mockResolvedValue(null);
+      jest.spyOn(SectionCustomization, 'findById').mockResolvedValue(null);
 
       const args = { sectionCustomizationId: 999 };
       const result = await executeQuery(query, args, adminToken);
@@ -588,13 +639,12 @@ describe('sectionCustomization resolver', () => {
         ...input,
         name: 'Test Affiliation',
         hasErrors: jest.fn().mockReturnValue(false)
-      } as undefined as CustomSection;
-      const mockAffiliation = { id: 5, name: 'Test Affiliation' } as undefined as Affiliation;
+      };
+      const mockAffiliation = { id: 5, name: 'Test Affiliation' };
 
-      (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
-      jest.spyOn(Affiliation, 'findByURI').mockResolvedValue(mockAffiliation);
-
-      jest.spyOn(CustomSection.prototype, 'create').mockResolvedValue(mockCreated);
+      mockGetValidatedCustomization.mockResolvedValue(mockParent);
+      jest.spyOn(Affiliation, 'findByURI').mockResolvedValue(asAffiliation(mockAffiliation));
+      jest.spyOn(CustomSection.prototype, 'create').mockResolvedValue(asCustomSection(mockCreated));
 
       const result = await executeQuery(query, { input }, adminToken);
 
@@ -619,11 +669,11 @@ describe('sectionCustomization resolver', () => {
       const mockCreated = {
         id: 1,
         hasErrors: jest.fn().mockReturnValue(true)
-      } as undefined as CustomSection;
+      };
 
-      (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
+      mockGetValidatedCustomization.mockResolvedValue(mockParent);
 
-      jest.spyOn(CustomSection.prototype, 'create').mockResolvedValue(mockCreated);
+      jest.spyOn(CustomSection.prototype, 'create').mockResolvedValue(asCustomSection(mockCreated));
 
       await executeQuery(query, { input }, adminToken);
 
@@ -668,15 +718,15 @@ describe('sectionCustomization resolver', () => {
         id: 1,
         templateCustomizationId: 10,
         name: 'Old Name',
-        hasErrors: jest.fn().mockReturnValue(false),
-        update: jest.fn()
+        hasErrors: jest.fn<() => boolean>().mockReturnValue(false),
+        update: jest.fn<() => Promise<any>>()
       };
       const mockParent = { id: 10, isDirty: false };
       const mockUpdated = { ...mockCustomization, ...input };
 
-      (CustomSection.findById as jest.Mock).mockResolvedValue(mockCustomization);
-      (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
-      mockCustomization.update.mockResolvedValue(mockUpdated);
+      jest.spyOn(CustomSection, 'findById').mockResolvedValue(asCustomSection(mockCustomization));
+      mockGetValidatedCustomization.mockResolvedValue(asSectionCustomization(mockParent));
+      mockCustomization.update.mockResolvedValue(asCustomSection(mockUpdated));
 
       const result = await executeQuery(query, { input }, adminToken);
 
@@ -693,7 +743,7 @@ describe('sectionCustomization resolver', () => {
         guidance: 'Guide'
       };
 
-      (CustomSection.findById as jest.Mock).mockResolvedValue(null);
+      jest.spyOn(CustomSection, 'findById').mockResolvedValue(null);
 
       const result = await executeQuery(query, { input }, adminToken);
 
@@ -729,15 +779,15 @@ describe('sectionCustomization resolver', () => {
       const mockCustomization = {
         id: 1,
         templateCustomizationId: 10,
-        hasErrors: jest.fn().mockReturnValue(false),
-        delete: jest.fn()
+        hasErrors: jest.fn<() => boolean>().mockReturnValue(false),
+        delete: jest.fn<() => Promise<any>>()
       };
       const mockParent = { id: 10, isDirty: false };
       const mockDeleted = { ...mockCustomization };
 
-      (CustomSection.findById as jest.Mock).mockResolvedValue(mockCustomization);
-      (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
-      mockCustomization.delete.mockResolvedValue(mockDeleted);
+      jest.spyOn(CustomSection, 'findById').mockResolvedValue(asCustomSection(mockCustomization));
+      mockGetValidatedCustomization.mockResolvedValue(asSectionCustomization(mockParent));
+      mockCustomization.delete.mockResolvedValue(asCustomSection(mockDeleted));
 
       const input = { customSectionId: 1 };
       const result = await executeQuery(query, input, adminToken);
@@ -748,7 +798,7 @@ describe('sectionCustomization resolver', () => {
     });
 
     it('should throw NotFoundError when custom section is not found', async () => {
-      (CustomSection.findById as jest.Mock).mockResolvedValue(null);
+      jest.spyOn(CustomSection, 'findById').mockResolvedValue(asCustomSection(null));
 
       const input = { customSectionId: 999 };
       const result = await executeQuery(query, input, adminToken);
@@ -792,8 +842,8 @@ describe('sectionCustomization resolver', () => {
         templateCustomizationId: 10,
         pinnedSectionType: null,
         pinnedSectionId: null,
-        hasErrors: jest.fn().mockReturnValue(false),
-        update: jest.fn()
+        hasErrors: jest.fn<() => boolean>().mockReturnValue(false),
+        update: jest.fn<() => Promise<any>>()
       };
       const mockParent = { id: 10, isDirty: false };
       const mockMoved = {
@@ -801,10 +851,9 @@ describe('sectionCustomization resolver', () => {
         pinnedSectionType: PinnedSectionTypeEnum.BASE,
         pinnedSectionId: 10
       };
-
-      (CustomSection.findById as jest.Mock).mockResolvedValue(mockCustomization);
-      (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
-      mockCustomization.update.mockResolvedValue(mockMoved);
+      jest.spyOn(CustomSection, 'findById').mockResolvedValue(asCustomSection(mockCustomization));
+      mockGetValidatedCustomization.mockResolvedValue(asSectionCustomization(mockParent));
+      mockCustomization.update.mockResolvedValue(asCustomSection(mockMoved));
 
       const result = await executeQuery(query, { input }, adminToken);
 
@@ -819,7 +868,7 @@ describe('sectionCustomization resolver', () => {
         newSectionId: 10
       };
 
-      (CustomSection.findById as jest.Mock).mockResolvedValue(null);
+      jest.spyOn(CustomSection, 'findById').mockResolvedValue(null);
 
       const result = await executeQuery(query, { input }, adminToken);
 
@@ -837,19 +886,21 @@ describe('sectionCustomization resolver', () => {
       const mockCustomization = {
         id: 1,
         templateCustomizationId: 10,
-        hasErrors: jest.fn().mockReturnValue(false),
-        update: jest.fn()
-      } as undefined as CustomSection;
+        pinnedSectionType: null,
+        pinnedSectionId: null,
+        hasErrors: jest.fn<() => boolean>().mockReturnValue(false),
+        update: jest.fn<() => Promise<any>>()
+      };
       const mockParent = { id: 10, isDirty: false };
       const mockMoved = {
         ...mockCustomization,
         pinnedSectionType: null,
         pinnedSectionId: null
-      } as undefined as CustomSection;
+      };
 
-      (CustomSection.findById as jest.Mock).mockResolvedValue(mockCustomization);
-      (getValidatedCustomization as jest.Mock).mockResolvedValue(mockParent);
-      jest.spyOn(mockCustomization, 'update').mockResolvedValue(mockMoved);
+      jest.spyOn(CustomSection, 'findById').mockResolvedValue(asCustomSection(mockCustomization));
+      mockGetValidatedCustomization.mockResolvedValue(asSectionCustomization(mockParent));
+      jest.spyOn(mockCustomization, 'update').mockResolvedValue(asCustomSection(mockMoved));
 
       await executeQuery(query, { input }, adminToken);
 

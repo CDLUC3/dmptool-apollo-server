@@ -1,7 +1,20 @@
+import { jest } from '@jest/globals';
 import casual from 'casual';
-import { AlternateIdentifier } from '../AlternateIdentifier';
-import { buildMockContextWithToken } from '../../__mocks__/context';
-import { logger } from "../../logger";
+
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+// Dynamic imports AFTER all mocks are registered
+const { AlternateIdentifier } = await import('../AlternateIdentifier.js');
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
 
 describe('AlternateIdentifier', () => {
   it('constructor should initialize as expected', () => {
@@ -124,11 +137,11 @@ describe('create', () => {
   });
 
   it('returns the AlternateIdentifier without errors if it is valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (alternateIdentifier.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
-    const mockFindBy = jest.fn();
+    const mockFindBy = jest.fn<() => Promise<InstanceType<typeof AlternateIdentifier> | null>>();
     (AlternateIdentifier.findByAlternateIdentifier as jest.Mock) = mockFindBy;
     mockFindBy.mockResolvedValueOnce(undefined);
 
@@ -144,7 +157,7 @@ describe('create', () => {
   });
 
   it('returns the AlternateIdentifier with an error if the identifier already exists', async () => {
-    const mockFindBy = jest.fn();
+    const mockFindBy = jest.fn<() => Promise<InstanceType<typeof AlternateIdentifier> | null>>();
     (AlternateIdentifier.findByAlternateIdentifier as jest.Mock) = mockFindBy;
     mockFindBy.mockResolvedValueOnce(alternateIdentifier);
 
@@ -155,12 +168,12 @@ describe('create', () => {
   });
 
   it('returns the newly added AlternateIdentifier', async () => {
-    const mockFindBy = jest.fn();
+    const mockFindBy = jest.fn<() => Promise<InstanceType<typeof AlternateIdentifier> | null>>();
     (AlternateIdentifier.findByAlternateIdentifier as jest.Mock) = mockFindBy;
     mockFindBy.mockResolvedValueOnce(null);
     insertQuery.mockResolvedValueOnce(123);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof AlternateIdentifier> | null>>();
     (AlternateIdentifier.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(alternateIdentifier);
 
@@ -195,7 +208,7 @@ describe('delete', () => {
   });
 
   it('returns the AlternateIdentifier if it was able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<boolean>>();
     (AlternateIdentifier.delete as jest.Mock) = deleteQuery;
     deleteQuery.mockResolvedValueOnce(alternateIdentifier);
 

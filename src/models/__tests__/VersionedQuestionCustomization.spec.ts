@@ -1,14 +1,20 @@
-import { MyContext } from "../../context";
-import { VersionedQuestionCustomization } from "../VersionedQuestionCustomization";
-import { MySqlModel } from "../MySqlModel";
+import { jest } from '@jest/globals';
 
-jest.mock("../MySqlModel", () => ({
-  ...jest.requireActual("../MySqlModel"),
-  query: jest.fn(),
-  insert: jest.fn(),
-  update: jest.fn(),
-  delete: jest.fn(),
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
 }));
+
+import type { MyContext } from '../../context.js';
+
+// Dynamic imports AFTER all mocks are registered
+const { MySqlModel } = await import("../MySqlModel.js");
+const { VersionedQuestionCustomization } = await import("../VersionedQuestionCustomization.js");
 
 describe("VersionedQuestionCustomization", () => {
   let mockContext: MyContext;
@@ -511,71 +517,48 @@ describe("VersionedQuestionCustomization", () => {
     });
   });
 
-  describe("findActiveByTemplateAffiliationAndQuestion", () => {
-    const expectedSql = `SELECT vqc.*, vtc.affiliationId as customizationAffiliationId
-      FROM versionedQuestionCustomizations AS vqc
-     JOIN versionedTemplateCustomizations AS vtc
-       ON vqc.versionedTemplateCustomizationId = vtc.id
-     WHERE vtc.active = 1
-       AND vtc.affiliationId = ?
-       AND vqc.versionedQuestionId = ?
-     LIMIT 1`;
-
-    it("should find the active VersionedQuestionCustomization by affiliation and question", async () => {
+  describe("findByVersionedCustomizationAndVersionedSectionIds", () => {
+    it("should find customizations for the versioned template customization and section ids", async () => {
+      const sectionIds = [300, 301];
       const mockQuery = jest.spyOn(MySqlModel, "query").mockResolvedValue([
         {
           id: 1,
           versionedTemplateCustomizationId: 100,
           questionCustomizationId: 200,
-          versionedQuestionId: 300,
-          guidanceText: "Test guidance",
+          versionedQuestionId: 400,
         },
       ]);
 
-      const result = await VersionedQuestionCustomization.findActiveByTemplateAffiliationAndQuestion(
-        "test.ref",
-        mockContext,
-        "affil-123",
-        300
-      );
+      const result =
+        await VersionedQuestionCustomization.findByVersionedCustomizationAndVersionedSectionIds(
+          "test.ref",
+          mockContext,
+          5,
+          sectionIds
+        );
 
       expect(mockQuery).toHaveBeenCalledWith(
         mockContext,
-        expectedSql,
-        ["affil-123", "300"],
+        expect.stringContaining("vq.versionedSectionId IN (?, ?)"),
+        ["5", "300", "301"],
         "test.ref"
       );
-      expect(result).toBeInstanceOf(VersionedQuestionCustomization);
-      expect(result.id).toBe(1);
-      expect(result.versionedTemplateCustomizationId).toBe(100);
-      expect(result.versionedQuestionId).toBe(300);
-      expect(result.guidanceText).toBe("Test guidance");
+      expect(result[0]).toBeInstanceOf(VersionedQuestionCustomization);
     });
 
-    it("should return undefined when not found", async () => {
-      jest.spyOn(MySqlModel, "query").mockResolvedValue([]);
+    it("should return an empty array without querying when no section ids are provided", async () => {
+      const mockQuery = jest.spyOn(MySqlModel, "query");
 
-      const result = await VersionedQuestionCustomization.findActiveByTemplateAffiliationAndQuestion(
-        "test.ref",
-        mockContext,
-        "affil-123",
-        300
-      );
+      const result =
+        await VersionedQuestionCustomization.findByVersionedCustomizationAndVersionedSectionIds(
+          "test.ref",
+          mockContext,
+          5,
+          []
+        );
 
-      expect(result).toBeUndefined();
-    });
-
-    it("should return undefined when query result is not an array", async () => {
-      jest.spyOn(MySqlModel, "query").mockResolvedValue(null);
-
-      const result = await VersionedQuestionCustomization.findActiveByTemplateAffiliationAndQuestion(
-        "test.ref",
-        mockContext,
-        "affil-123",
-        300
-      );
-
-      expect(result).toBeUndefined();
+      expect(mockQuery).not.toHaveBeenCalled();
+      expect(result).toEqual([]);
     });
   });
 });

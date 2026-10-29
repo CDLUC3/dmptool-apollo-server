@@ -1,20 +1,22 @@
 import { Logger } from 'pino';
-import { DMPHubAPI } from './datasources/dmphubAPI'
-import { EZIDAPI } from './datasources/EZIDAPI';
-import { MySQLConnection, TransactionClient } from './datasources/mysql';
-import { JWTAccessToken } from './services/tokenService';
-import { randomHex } from './utils/helpers';
+import { DMPHubAPI } from './datasources/dmphubAPI.js';
+import { EZIDAPI } from './datasources/EZIDAPI.js';
+import { OpenSearch } from "./datasources/openSearch.js";
+import { MySQLConnection, TransactionClient } from './datasources/mysql.js';
+import { JWTAccessToken } from "./types/general.js"
+import { randomHex } from './utils/helpers.js';
 import { BaseContext } from "@apollo/server";
 import { KeyvAdapter } from "@apollo/utils.keyvadapter";
-import { initLogger, prepareObjectForLogs } from "./logger";
-import { generalConfig } from "./config/generalConfig";
+import { initLogger, prepareObjectForLogs } from "./logger.js";
+import { generalConfig } from "./config/generalConfig.js";
+import {toErrorMessage} from "@dmptool/utils";
 
 // The Apollo Server Context object passed in to the Resolver on each request
 export interface MyContext extends BaseContext {
   // The cache
   cache: KeyvAdapter;
   // The caller's JSON Web Token
-  token: JWTAccessToken;
+  token: JWTAccessToken | null;
   // An instance of the Logger
   logger: Logger;
   // A unique id that can be used to track all the log output for a single request
@@ -23,35 +25,32 @@ export interface MyContext extends BaseContext {
   activeTransaction?: TransactionClient;
   // Instances of the data sources the system uses to access information
   dataSources: {
-    dmphubAPIDataSource: DMPHubAPI;
-    ezidAPIDataSource: EZIDAPI;
-    sqlDataSource: MySQLConnection;
+    dmphubAPIDataSource: DMPHubAPI | null;
+    ezidAPIDataSource: EZIDAPI | null;
+    sqlDataSource: MySQLConnection | null;
+    openSearchServerlessDataSource: OpenSearch | null;
   };
 }
 
 // This function should only be used when the caller is running a query from outside the
 // Apollo Server GraphQL context. e.g. when calling signup or register
 export function buildContext(
-  logger: Logger | null = null,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  cache: any | null = null,
+  logger: Logger,
+  cache: KeyvAdapter,
   token: JWTAccessToken | null = null,
   sqlDataSource: MySQLConnection | null = null,
   dmphubAPIDataSource: DMPHubAPI | null = null,
   ezidAPIDataSource: EZIDAPI | null = null,
+  openSearchServerlessDataSource: OpenSearch | null = null
 ): MyContext {
-  if (!cache) {
-    // If calling from outside the Apollo server context setup an HttpCache.
-    cache = { skipCache: true };
-  }
 
   try {
     const requestId: string = randomHex(32);
     const requestLogger: Logger = initLogger(
       logger,                                 // Base logger
       {
-        app: generalConfig.applicationName,   // Help identify entries for this application
-        env: generalConfig.env,               // The current environment (not necessarily the Node env)
+        app: generalConfig.applicationName || 'dmp',  // Help identify entries for this application
+        env: generalConfig.env || 'dev',      // The current environment (not necessarily the Node env)
         requestId,                            // Unique id for the incoming GraphQL request
         jti: token?.jti,                      // The id of the JWT
         userId: token?.id,                    // The current user's id
@@ -67,10 +66,11 @@ export function buildContext(
         dmphubAPIDataSource: dmphubAPIDataSource,
         ezidAPIDataSource: ezidAPIDataSource,
         sqlDataSource: sqlDataSource,
+        openSearchServerlessDataSource: openSearchServerlessDataSource,
       }
     }
-  } catch(err) {
-    const msg = `Unable to buildContext - ${err.message}`;
+  } catch (err) {
+    const msg = `Unable to buildContext - ${toErrorMessage(err)}`;
     if (logger) {
       logger.error(prepareObjectForLogs({
         err,
@@ -80,10 +80,10 @@ export function buildContext(
         cache,
         token
       }),
-      msg);
+        msg);
     } else {
       console.log(msg);
     }
-    return null;
+    throw err;
   }
 }

@@ -1,23 +1,23 @@
-import { prepareObjectForLogs } from '../logger';
-import { RepositorySearchResults, Resolvers } from "../types";
-import { DEFAULT_DMPTOOL_REPOSITORY_URL, Repository } from "../models/Repository";
-import { MyContext } from '../context';
-import { isAdmin, isAuthorized, isSuperAdmin } from '../services/authService';
-import { AuthenticationError, ForbiddenError, InternalServerError, NotFoundError } from '../utils/graphQLErrors';
-import { ResearchDomain } from '../models/ResearchDomain';
+import { prepareObjectForLogs } from '../logger.js';
+import { RepositorySearchResults, Resolvers } from "../types.js";
+import { DEFAULT_DMPTOOL_REPOSITORY_URL, Repository } from "../models/Repository.js";
+import { MyContext } from '../context.js';
+import { isAdmin, isAuthorized, isSuperAdmin } from '../services/authService.js';
+import { AuthenticationError, ForbiddenError, InternalServerError, NotFoundError } from '../utils/graphQLErrors.js';
+import { ResearchDomain } from '../models/ResearchDomain.js';
 import {
   isNullOrUndefined,
   normaliseDateTime,
-} from '../utils/helpers';
+} from '../utils/helpers.js';
 import { GraphQLError } from 'graphql';
-import { PaginationOptionsForCursors, PaginationOptionsForOffsets, PaginationType } from '../types/general';
-import { RepositoryService } from '../services/repositoryService';
+import { PaginationOptionsForCursors, PaginationOptionsForOffsets, PaginationType } from '../types/general.js';
+import { RepositoryService } from '../services/repositoryService.js';
 import {
   isCustomRepository,
   isRe3DataRepository,
   RepositorySourceType,
-} from '../types/repository';
-import { openSearchFindRe3DataSubjects, openSearchFindRe3DataRepositoryTypes } from '../services/openSearchService';
+} from '../types/repository.js';
+import { openSearchFindRe3DataSubjects, openSearchFindRe3DataRepositoryTypes } from '../services/openSearchService.js';
 
 export const resolvers: Resolvers = {
   Query: {

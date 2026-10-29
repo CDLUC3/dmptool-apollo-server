@@ -1,3 +1,5 @@
+import { jest } from '@jest/globals';
+
 /**
  * Manual Jest mock for @dmptool/utils.
  *

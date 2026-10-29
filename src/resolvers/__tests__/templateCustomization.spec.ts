@@ -1,54 +1,96 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import casual from "casual";
 import { ApolloServer } from "@apollo/server";
-import { typeDefs } from "../../schema";
-import { resolvers } from '../../resolver';
+import casual from "casual";
+import { jest } from '@jest/globals';
 
-import { buildContext, mockToken } from "../../__mocks__/context";
-import { VersionedTemplate } from '../../models/VersionedTemplate';
-import { logger } from "../../logger";
-import { JWTAccessToken } from "../../services/tokenService";
-import { UserRole } from "../../models/User";
-import { Affiliation } from '../../models/Affiliation';
-import { AdminNotification } from '../../models/AdminNotifications';
-import {
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+mockAppConfigs();
+mockAppLogger();
+
+
+jest.unstable_mockModule('../../datasources/cache.js', () => ({
+  Cache: jest.fn().mockImplementation(() => ({
+    get: jest.fn(),
+    set: jest.fn(),
+    delete: jest.fn(),
+    clear: jest.fn(),
+  })),
+}));
+
+jest.unstable_mockModule('../../services/openSearchService.js', () => ({
+  openSearchFindWorkByIdentifier: jest.fn(),
+  openSearchFindRe3Data: jest.fn(),
+  openSearchFindRe3DataByURIs: jest.fn(),
+  openSearchFindRe3DataSubjects: jest.fn(),
+  openSearchFindRe3DataRepositoryTypes: jest.fn(),
+}));
+
+jest.unstable_mockModule('../../services/authService.js', () => ({
+  authenticatedResolver: jest.fn((ref, level, resolver) => resolver),
+  isAuthorized: (token) => {
+    return token != null && token.id != null;
+  },
+  isAdmin: (token) => {
+    if (token != null && token.id != null && token.affiliationId) {
+      return ['ADMIN', 'SUPERADMIN'].includes(token?.role);
+    }
+    return false;
+  },
+  isSuperAdmin: (token) => {
+    return token != null && token.id != null && token?.role === 'SUPERADMIN';
+  },
+}));
+
+const mockGetValidatedCustomization = jest.fn<(...args: any[]) => Promise<any>>();
+const mockHasPermissionOnTemplateCustomization = jest.fn<(...args: boolean[]) => Promise<boolean>>();
+
+const actualTemplateCustomizationService = await import('../../services/templateCustomizationService.js');
+jest.unstable_mockModule('../../services/templateCustomizationService.js', () => ({
+  ...actualTemplateCustomizationService,
+  getValidatedCustomization: mockGetValidatedCustomization,
+  hasPermissionOnTemplateCustomization: mockHasPermissionOnTemplateCustomization,
+}));
+
+type TemplateCustomizationInstance = InstanceType<typeof TemplateCustomization>;
+function asTemplateCustomization(value: any): TemplateCustomizationInstance {
+  return value as TemplateCustomizationInstance;
+}
+
+type VersionedTemplateInstance = InstanceType<typeof VersionedTemplate>;
+function asVersionedTemplate(value: any): VersionedTemplateInstance {
+  return value as VersionedTemplateInstance;
+}
+
+import type { MyContext } from "../../context.js";
+
+// Dynamic imports AFTER mocks are set up
+const { typeDefs } = await import("../../schema.js");
+const { resolvers } = await import("../../resolver.js");
+const { logger } = await import("../../logger.js");
+const { buildContext, mockToken } = await import("../../__mocks__/context.js");
+const { UserRole } = await import("../../models/User.js");
+const { Affiliation } = await import("../../models/Affiliation.js");
+const { VersionedTemplate } = await import('../../models/VersionedTemplate.js');
+const { AdminNotification } = await import('../../models/AdminNotifications.js');
+const {
   TemplateCustomization,
   TemplateCustomizationMigrationStatus,
   TemplateCustomizationOverview,
   TemplateCustomizationStatus
-} from '../../models/TemplateCustomization';
-import {
-  getValidatedCustomization,
-  hasPermissionOnTemplateCustomization
-} from '../../services/templateCustomizationService';
+} = await import('../../models/TemplateCustomization.js');
 
-// Mock the authenticatedResolver function because it is a Highest Order Function (HOF)
-// and gets loaded when we import resolvers.ts below
-jest.mock('../../services/authService', () => ({
-  ...jest.requireActual('../../services/authService'),
-  // This mocks the HOF itself to be a simple pass-through
-  authenticatedResolver: jest.fn((ref, level, resolver) => resolver),
-}));
-
-jest.mock('../../context.ts');
-jest.mock('../../datasources/cache');
-jest.mock('../../services/openSearchService');
-
-jest.mock('../../models/TemplateCustomization');
-jest.mock('../../services/templateCustomizationService');
-
-const mockHasPermissionOnTemplateCustomization = hasPermissionOnTemplateCustomization as jest.MockedFunction<typeof hasPermissionOnTemplateCustomization>;
 
 let testServer: ApolloServer;
 let affiliationId: string;
-let adminToken: JWTAccessToken;
+let adminToken: MyContext['token'];
 let query: string;
 
 // Proxy call to the Apollo server test server
 async function executeQuery(
   query: string,
   variables: any,
-  token: JWTAccessToken
+  token: MyContext['token'],
 ): Promise<any> {
   const context = buildContext(logger, token, null);
 
@@ -76,14 +118,13 @@ afterEach(() => {
 });
 
 describe('templateCustomization resolvers', () => {
-  let mockCustomization: TemplateCustomization;
-  let mockCustomizationOverview: TemplateCustomizationOverview;
-  let mockVersionedTemplate: VersionedTemplate;
+  let mockCustomization: ReturnType<typeof makeMockCustomization>;
+  let mockCustomizationOverview: any;
+  let mockVersionedTemplate: any;
 
-  beforeEach(() => {
-    jest.clearAllMocks();
 
-    mockCustomization = {
+  function makeMockCustomization(overrides: Record<string, any> = {}) {
+    return {
       id: 1,
       affiliationId: 'http://example.com/univerity',
       templateId: 25,
@@ -97,13 +138,20 @@ describe('templateCustomization resolvers', () => {
       createdById: 12,
       modified: '2023-09-10T04:05:06.000Z',
       modifiedById: 12,
-      create: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-      publish: jest.fn(),
-      unpublish: jest.fn(),
-      addError: jest.fn(),
-    } as undefined as TemplateCustomization;
+      create: jest.fn<(...args: any[]) => Promise<any>>(),
+      update: jest.fn<(...args: any[]) => Promise<any>>(),
+      delete: jest.fn<(...args: any[]) => Promise<any>>(),
+      publish: jest.fn<(...args: any[]) => Promise<any>>(),
+      unpublish: jest.fn<(...args: any[]) => Promise<any>>(),
+      addError: jest.fn<(...args: any[]) => void>(),
+      ...overrides,
+    };
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+
+    mockCustomization = makeMockCustomization();
 
     mockCustomizationOverview = {
       versionedTemplateId: 100,
@@ -123,10 +171,10 @@ describe('templateCustomization resolvers', () => {
       errors: {}
     };
 
-    mockVersionedTemplate = {
+    mockVersionedTemplate = asVersionedTemplate({
       id: 200,
       templateId: 100,
-    } as undefined as VersionedTemplate;
+    });
   });
 
   describe('Query.templateCustomizationOverview', () => {
@@ -147,9 +195,10 @@ describe('templateCustomization resolvers', () => {
     });
 
     it('should return template customization when user is admin and has permission', async () => {
-      (TemplateCustomizationOverview.generateOverview as jest.Mock) = jest.fn().mockResolvedValue(mockCustomizationOverview);
-      mockHasPermissionOnTemplateCustomization.mockReturnValue(true);
-      (getValidatedCustomization as jest.Mock).mockResolvedValue(mockCustomizationOverview);
+      jest.spyOn(TemplateCustomizationOverview, 'generateOverview').mockResolvedValue(mockCustomizationOverview as InstanceType<typeof TemplateCustomizationOverview>);
+
+      mockHasPermissionOnTemplateCustomization.mockResolvedValue(true);
+      mockGetValidatedCustomization.mockResolvedValue(mockCustomizationOverview);
 
       const vars = { templateCustomizationId: mockCustomizationOverview.customizationId };
       const result = await executeQuery(query, vars, adminToken);
@@ -159,7 +208,7 @@ describe('templateCustomization resolvers', () => {
         expect.any(Object),
         1
       );
-      expect(getValidatedCustomization).toHaveBeenCalledWith(
+      expect(mockGetValidatedCustomization).toHaveBeenCalledWith(
         'templateCustomization resolver',
         expect.any(Object),
         mockCustomizationOverview.customizationId
@@ -172,7 +221,7 @@ describe('templateCustomization resolvers', () => {
     });
 
     it('should throw NotFoundError when customization does not exist', async () => {
-      (TemplateCustomizationOverview.generateOverview as jest.Mock) = jest.fn().mockResolvedValue(null);
+      jest.spyOn(TemplateCustomizationOverview, 'generateOverview').mockResolvedValue(null);
 
       const vars = { templateCustomizationId: mockCustomizationOverview.customizationId };
       const result = await executeQuery(query, vars, adminToken);
@@ -184,7 +233,7 @@ describe('templateCustomization resolvers', () => {
 
     it('should throw InternalServerError on unexpected error', async () => {
       const unexpectedError = new Error('Unexpected');
-      (TemplateCustomizationOverview.generateOverview as jest.Mock) = jest.fn().mockRejectedValue(unexpectedError);
+      jest.spyOn(TemplateCustomizationOverview, 'generateOverview').mockRejectedValue(unexpectedError);
 
       const vars = { templateCustomizationId: mockCustomizationOverview.customizationId };
       const result = await executeQuery(query, vars, adminToken);
@@ -223,9 +272,9 @@ describe('templateCustomization resolvers', () => {
     });
 
     it('should create template customization successfully', async () => {
-      (VersionedTemplate.findById as jest.Mock) = jest.fn().mockResolvedValue(mockVersionedTemplate);
-      jest.spyOn(TemplateCustomization.prototype, 'create').mockResolvedValue(mockCustomization);
-      (TemplateCustomizationOverview.generateOverview as jest.Mock).mockResolvedValue(mockCustomizationOverview);
+      jest.spyOn(VersionedTemplate, 'findById').mockResolvedValue(mockVersionedTemplate);
+      jest.spyOn(TemplateCustomization.prototype, 'create').mockResolvedValue(asTemplateCustomization(mockCustomization));
+      jest.spyOn(TemplateCustomizationOverview, 'generateOverview').mockResolvedValue(mockCustomizationOverview);
 
       const result = await executeQuery(query, input, adminToken);
 
@@ -236,7 +285,7 @@ describe('templateCustomization resolvers', () => {
     });
 
     it('should throw NotFoundError when versioned template does not exist', async () => {
-      (VersionedTemplate.findById as jest.Mock) = jest.fn().mockResolvedValue(null);
+      jest.spyOn(VersionedTemplate, 'findById').mockResolvedValue(null);
 
       const result = await executeQuery(query, input, adminToken);
 
@@ -247,7 +296,7 @@ describe('templateCustomization resolvers', () => {
 
     it('should throw InternalServerError on unexpected error', async () => {
       const unexpectedError = new Error('Unexpected');
-      (VersionedTemplate.findById as jest.Mock) = jest.fn().mockRejectedValue(unexpectedError);
+      jest.spyOn(VersionedTemplate, 'findById').mockRejectedValue(unexpectedError);
 
       const result = await executeQuery(query, input, adminToken);
 
@@ -285,9 +334,9 @@ describe('templateCustomization resolvers', () => {
     });
 
     it('should update template customization successfully', async () => {
-      (getValidatedCustomization as jest.Mock) = jest.fn().mockResolvedValue(mockCustomization);
-      (mockCustomization.update as jest.Mock).mockResolvedValue(mockCustomization);
-      (TemplateCustomizationOverview.generateOverview as jest.Mock).mockResolvedValue(mockCustomizationOverview);
+      mockGetValidatedCustomization.mockResolvedValue(mockCustomization);
+      mockCustomization.update.mockResolvedValue(mockCustomization as any);
+      jest.spyOn(TemplateCustomizationOverview, 'generateOverview').mockResolvedValue(mockCustomizationOverview);
 
       const result = await executeQuery(query, input, adminToken);
 
@@ -301,10 +350,10 @@ describe('templateCustomization resolvers', () => {
       const customizationWithDifferentTemplate = {
         ...mockCustomization,
         currentVersionedTemplateId: 300,
-      } as unknown as TemplateCustomization;
-      (getValidatedCustomization as jest.Mock) = jest.fn().mockResolvedValue(customizationWithDifferentTemplate);
-      (customizationWithDifferentTemplate.update as jest.Mock).mockResolvedValue(customizationWithDifferentTemplate);
-      (TemplateCustomizationOverview.generateOverview as jest.Mock).mockResolvedValue(mockCustomizationOverview);
+      };
+      mockGetValidatedCustomization.mockResolvedValue(customizationWithDifferentTemplate);
+      customizationWithDifferentTemplate.update.mockResolvedValue(customizationWithDifferentTemplate);
+      jest.spyOn(TemplateCustomizationOverview, 'generateOverview').mockResolvedValue(mockCustomizationOverview);
 
       const result = await executeQuery(query, input, adminToken);
 
@@ -315,7 +364,7 @@ describe('templateCustomization resolvers', () => {
     });
 
     it('should throw NotFoundError when customization does not exist', async () => {
-      (getValidatedCustomization as jest.Mock) = jest.fn().mockResolvedValue(null);
+      mockGetValidatedCustomization.mockResolvedValue(null);
 
       const result = await executeQuery(query, input, adminToken);
 
@@ -326,7 +375,7 @@ describe('templateCustomization resolvers', () => {
 
     it('should throw InternalServerError on unexpected error', async () => {
       const unexpectedError = new Error('Unexpected');
-      (getValidatedCustomization as jest.Mock) = jest.fn().mockRejectedValue(unexpectedError);
+      mockGetValidatedCustomization.mockRejectedValue(unexpectedError);
 
       const result = await executeQuery(query, input, adminToken);
 
@@ -351,9 +400,9 @@ describe('templateCustomization resolvers', () => {
     });
 
     it('should delete template customization successfully', async () => {
-      (getValidatedCustomization as jest.Mock) = jest.fn().mockResolvedValue(mockCustomization);
-      (mockCustomization.delete as jest.Mock).mockResolvedValue(mockCustomization);
-      (TemplateCustomizationOverview.generateOverview as jest.Mock).mockResolvedValue(mockCustomizationOverview);
+      mockGetValidatedCustomization.mockResolvedValue(mockCustomization);
+      mockCustomization.delete.mockResolvedValue(mockCustomization as any);
+      jest.spyOn(TemplateCustomizationOverview, 'generateOverview').mockResolvedValue(mockCustomizationOverview as InstanceType<typeof TemplateCustomizationOverview>);
 
       const input = { templateCustomizationId: 1 };
       const result = await executeQuery(query, input, adminToken);
@@ -365,7 +414,7 @@ describe('templateCustomization resolvers', () => {
     });
 
     it('should throw NotFoundError when customization does not exist', async () => {
-      (getValidatedCustomization as jest.Mock) = jest.fn().mockResolvedValue(null);
+      mockGetValidatedCustomization.mockResolvedValue(null);
 
       const input = { templateCustomizationId: 1 };
       const result = await executeQuery(query, input, adminToken);
@@ -377,7 +426,7 @@ describe('templateCustomization resolvers', () => {
 
     it('should throw InternalServerError on unexpected error', async () => {
       const unexpectedError = new Error('Unexpected');
-      (getValidatedCustomization as jest.Mock) = jest.fn().mockRejectedValue(unexpectedError);
+      mockGetValidatedCustomization.mockRejectedValue(unexpectedError);
 
       const vars = { templateCustomizationId: 1 };
       const result = await executeQuery(query, vars, adminToken);
@@ -409,16 +458,17 @@ describe('templateCustomization resolvers', () => {
       const draftCustomization = {
         ...mockCustomization,
         status: TemplateCustomizationStatus.DRAFT,
-        publish: jest.fn().mockResolvedValue(mockCustomization),
-      } as unknown as TemplateCustomization;
+        publish: jest.fn<(...args: any[]) => Promise<any>>().mockResolvedValue(mockCustomization),
+      };
 
-      (getValidatedCustomization as jest.Mock).mockResolvedValue(draftCustomization);
-      (TemplateCustomizationOverview.generateOverview as jest.Mock).mockResolvedValue(mockCustomizationOverview);
+      mockGetValidatedCustomization.mockResolvedValue(draftCustomization);
+      jest.spyOn(TemplateCustomizationOverview, 'generateOverview').mockResolvedValue(mockCustomizationOverview);
 
       jest.spyOn(Affiliation, 'findByURI').mockResolvedValue({ uri: affiliationId } as any);
 
-      const mockCreate = jest.fn().mockResolvedValue({ id: 1 });
+      const mockCreate = jest.fn<(...args: any[]) => Promise<any>>().mockResolvedValue({ id: 1 });
       jest.spyOn(AdminNotification.prototype, 'create').mockImplementation(mockCreate);
+
 
       const input = { templateCustomizationId: 1 };
       const result = await executeQuery(query, input, adminToken);
@@ -430,7 +480,7 @@ describe('templateCustomization resolvers', () => {
     });
 
     it('should throw NotFoundError when customization does not exist', async () => {
-      (getValidatedCustomization as jest.Mock) = jest.fn().mockResolvedValue(null);
+      mockGetValidatedCustomization.mockResolvedValue(null);
 
       const input = { templateCustomizationId: 1 };
       const result = await executeQuery(query, input, adminToken);
@@ -442,7 +492,7 @@ describe('templateCustomization resolvers', () => {
 
     it('should throw InternalServerError on unexpected error', async () => {
       const unexpectedError = new Error('Unexpected');
-      (getValidatedCustomization as jest.Mock) = jest.fn().mockRejectedValue(unexpectedError);
+      mockGetValidatedCustomization.mockRejectedValue(unexpectedError);
 
       const vars = { templateCustomizationId: 1 };
       const result = await executeQuery(query, vars, adminToken);
@@ -476,9 +526,9 @@ describe('templateCustomization resolvers', () => {
         customizationStatus: TemplateCustomizationStatus.PUBLISHED,
         customizationLastCustomized: mockCustomization.id
       };
-      (getValidatedCustomization as jest.Mock).mockResolvedValue(mockCustomization);
-      (mockCustomization.unpublish as jest.Mock).mockResolvedValue(mockCustomization);
-      (TemplateCustomizationOverview.generateOverview as jest.Mock).mockResolvedValue(unpublishedCustomizationOverview);
+      mockGetValidatedCustomization.mockResolvedValue(mockCustomization);
+      mockCustomization.unpublish.mockResolvedValue(mockCustomization);
+      jest.spyOn(TemplateCustomizationOverview, 'generateOverview').mockResolvedValue(unpublishedCustomizationOverview);
 
       const input = { templateCustomizationId: 1 };
       const result = await executeQuery(query, input, adminToken);
@@ -491,7 +541,7 @@ describe('templateCustomization resolvers', () => {
     });
 
     it('should throw NotFoundError when customization does not exist', async () => {
-      (getValidatedCustomization as jest.Mock) = jest.fn().mockResolvedValue(null);
+      mockGetValidatedCustomization.mockResolvedValue(null);
 
       const input = { templateCustomizationId: 1 };
       const result = await executeQuery(query, input, adminToken);
@@ -503,7 +553,7 @@ describe('templateCustomization resolvers', () => {
 
     it('should throw InternalServerError on unexpected error', async () => {
       const unexpectedError = new Error('Unexpected');
-      (getValidatedCustomization as jest.Mock) = jest.fn().mockRejectedValue(unexpectedError);
+      mockGetValidatedCustomization.mockRejectedValue(unexpectedError);
 
       const vars = { templateCustomizationId: 1 };
       const result = await executeQuery(query, vars, adminToken);

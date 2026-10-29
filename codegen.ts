@@ -6,7 +6,7 @@ const config: CodegenConfig = {
     "./src/types.ts": {
       plugins: ["typescript", "typescript-resolvers"],
       config: {
-        contextType: "./context#MyContext",
+        contextType: "./context.js#MyContext",
         enumsAsTypes: true,
         scalars: {
           URL: "string",

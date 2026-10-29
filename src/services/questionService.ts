@@ -1,14 +1,16 @@
-import { MyContext } from "../context";
-import { Template } from "../models/Template";
-import { hasPermissionOnTemplate } from "./templateService";
-import { Question } from "../models/Question";
-import { Tag } from "../models/Tag";
-import { VersionedQuestion } from "../models/VersionedQuestion";
-import { NotFoundError } from "../utils/graphQLErrors";
-import { QuestionCondition } from "../models/QuestionCondition";
-import { VersionedQuestionCondition } from "../models/VersionedQuestionCondition";
-import { prepareObjectForLogs } from "../logger";
-import { reorderDisplayOrder } from "../utils/helpers";
+import { MyContext } from "../context.js";
+import { Template } from "../models/Template.js";
+import { hasPermissionOnTemplate } from "./templateService.js";
+import { Question } from "../models/Question.js";
+import { Tag } from "../models/Tag.js";
+import { VersionedQuestion } from "../models/VersionedQuestion.js";
+import { NotFoundError } from "../utils/graphQLErrors.js";
+import { QuestionCondition } from "../models/QuestionCondition.js";
+import { QuestionConditionGroup } from "../models/QuestionConditionGroup.js";
+import { VersionedQuestionCondition } from "../models/VersionedQuestionCondition.js";
+import { VersionedQuestionConditionGroup } from "../models/VersionedQuestionConditionGroups.js";
+import { prepareObjectForLogs } from "../logger.js";
+import { reorderDisplayOrder } from "../utils/helpers.js";
 
 // Determine whether the specified user has permission to access the Section
 export const hasPermissionOnQuestion = async (context: MyContext, templateId: number): Promise<boolean> => {
@@ -23,6 +25,77 @@ export const hasPermissionOnQuestion = async (context: MyContext, templateId: nu
 
   // Offload permission checks to the Template
   return await hasPermissionOnTemplate(context, template);
+}
+
+/**
+ * "FOR UPDATE" locks the row in the database so that no other 
+ * transaction can modify it until the current transaction is complete. 
+ * This is used to prevent race conditions when multiple users are 
+ * trying to modify the same template at the same time.
+ * Note: This only works inside a "withTransaction" block and has to be the 
+ * first query in the transaction.
+ */
+/**
+ * 
+ * @param context The Apollo context (must have activeTransation)
+ * @param templateId the template to lock
+ * @throws Error if the template does not exist
+ */
+export const lockQuestionTemplate = async (
+  context: MyContext,
+  templateId: number
+): Promise<void> => {
+  const templates = await Template.query(
+    context,
+    'SELECT id FROM templates WHERE id = ? FOR UPDATE',
+    [templateId.toString()],
+    'questionService.lockQuestionTemplate'
+  );
+
+  if (templates.length === 0) {
+    throw new Error(`Unable to lock template: ${templateId}`);
+  }
+}
+
+// Creates a new Version/Snapshot of the specified QuestionConditionGroup (as a point in
+// time snapshot), and versions each QuestionCondition that belongs to it.
+//    - creates a new VersionedQuestionConditionGroup
+export const generateQuestionConditionGroupVersion = async (
+  context: MyContext,
+  group: QuestionConditionGroup,
+  versionedQuestionId: number,
+): Promise<boolean> => {
+  // If the group has no id then it has not yet been saved so throw an error
+  if (!group.id) {
+    throw new Error('Cannot publish unsaved QuestionConditionGroup');
+  }
+
+  // Intialize the new Version
+  const versionedGroup = new VersionedQuestionConditionGroup({
+    versionedQuestionId,
+    triggerQuestionId: group.triggerQuestionId,
+  });
+
+  const savedGroup = await versionedGroup.create(context);
+  if (!savedGroup || savedGroup.hasErrors()) {
+    const msg = `Unable to generate a new version for questionConditionGroup: ${group.id}`;
+    context.logger.error(prepareObjectForLogs(savedGroup?.errors), msg);
+    throw new Error(msg);
+  }
+
+  const conditions = await QuestionCondition.findByGroupId('generateQuestionConditionGroupVersion', context, group.id);
+  for (const condition of conditions) {
+    const conditionInstance = new QuestionCondition({
+      ...condition
+    });
+
+    const passed = await generateQuestionConditionVersion(context, conditionInstance, savedGroup.id);
+    if (!passed) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 // Creates a new Version/Snapshot the specified Question (as a point in time snapshot)
@@ -52,6 +125,8 @@ export const generateQuestionVersion = async (
     useSampleTextAsDefault: question.useSampleTextAsDefault,
     displayOrder: question.displayOrder,
     required: question.required,
+    displayLogicAction: question.displayLogicAction,
+    displayLogicMatchType: question.displayLogicMatchType,
     createdById: question.createdById,
     created: question.created,
     modifiedById: question.modifiedById,
@@ -62,43 +137,38 @@ export const generateQuestionVersion = async (
     const saved = await versionedQuestion.create(context);
 
     if (saved && !saved.hasErrors()) {
-
-      // Get tags associated with question so we can add it to versionedQuestionTags table
+      // Get tags associated with the question so we can add them to the versionedQuestionTags table
       const addTagErrors = [];
       if (Array.isArray(question.tags) && question.tags.length > 0) {
         for (const item of question.tags) {
           const tag = await Tag.findById('generateQuestionVersion', context, item.id);
-
           if (!tag) {
             addTagErrors.push(`Tag ${item.id} not found`);
-            continue; // <-- Add this line to skip calling addToVersionedQuestionTags on null
+            continue;
           }
-
           const wasAdded = await tag.addToVersionedQuestionTags(context, saved.id);
           if (!wasAdded) {
             addTagErrors.push(tag.name);
           }
-
         }
       }
-
       if (addTagErrors.length > 0) {
         saved.addError('tags', `Saved but we were unable to assign tags: ${addTagErrors.join(', ')}`);
       }
 
-      // Version any QuestionConditions as well
-      const questionConditions = await QuestionCondition.findByQuestionId('generateQuestionVersion', context, saved.questionId);
+      // Version any QuestionConditionGroups (and their QuestionConditions) as well
+      const groups = await QuestionConditionGroup.findByQuestionId('generateQuestionVersion', context, saved.questionId);
       let allConditionsWereVersioned = true;
 
-      if (questionConditions.length > 0) {
-        for (const condition of questionConditions) {
-          const questionConditionInstance = new QuestionCondition({
-            ...condition
+      if (groups.length > 0) {
+        for (const group of groups) {
+          const groupInstance = new QuestionConditionGroup({
+            ...group
           });
 
-          const passed = await generateQuestionConditionVersion(context, questionConditionInstance, saved.id);
+          // generateQuestionConditionGroupVersion internally versions the group's QuestionConditions
+          const passed = await generateQuestionConditionGroupVersion(context, groupInstance, saved.id);
           if (!passed) {
-            // If one of the conditions failed to version
             allConditionsWereVersioned = false;
           }
         }
@@ -168,21 +238,18 @@ export const cloneQuestion = (
 export const generateQuestionConditionVersion = async (
   context: MyContext,
   questionCondition: QuestionCondition,
-  versionedQuestionId: number,
+  versionedQuestionConditionGroupId: number,
 ): Promise<boolean> => {
-  // If the section has no id then it has not yet been saved so throw an error
+  // If the condition has no id then it has not yet been saved so throw an error
   if (!questionCondition.id) {
     throw new Error('Cannot publish unsaved QuestionCondition');
   }
 
   // Intialize the new Version
   const versionedQuestionCondition = new VersionedQuestionCondition({
-    versionedQuestionId,
-    questionConditionId: questionCondition.id,
-    action: questionCondition.action,
+    versionedQuestionConditionGroupId,
     conditionType: questionCondition.conditionType,
     conditionMatch: questionCondition.conditionMatch,
-    target: questionCondition.target,
   });
 
   const created = await versionedQuestionCondition.create(context);
@@ -190,7 +257,6 @@ export const generateQuestionConditionVersion = async (
     return true;
   }
 
-  // There were errors on the object so report them
   const msg = `Unable to generate a new version for questionCondition: ${questionCondition.id}`;
   context.logger.error(prepareObjectForLogs(created.errors), msg);
   throw new Error(msg);
@@ -235,3 +301,132 @@ export const updateDisplayOrders = async (
   }
   return reorderedQuestions;
 }
+
+/**
+ * Display logic can only use trigger questions that come before the question being shown/hidden.
+ * Returns the display logic groups that would break if the specified question were moved to
+ * newDisplayOrder within its section, either because the question would move above one of its trigger
+ * questions, or because a trigger question would move below a question that depends on it. Trigger
+ * questions in other sections are unaffected by a move within the section, so they are ignored.
+ *
+ * @param context The Apollo context
+ * @param sectionId The section the question belongs to
+ * @param questionId The question being moved
+ * @param newDisplayOrder The display order the question is being moved to
+ * @returns The QuestionConditionGroups that would break (empty if the move is safe)
+ */
+export const findQuestionMoveConflicts = async (
+  context: MyContext,
+  sectionId: number,
+  questionId: number,
+  newDisplayOrder: number
+): Promise<QuestionConditionGroup[]> => {
+  const reference = 'questionService.findQuestionMoveConflicts';
+
+  const groups = await QuestionConditionGroup.findByQuestionOrTriggerQuestionId(reference, context, questionId);
+  if (groups.length === 0) return [];
+
+  // Simulate the move to get each question's new display order
+  const questions = await Question.findBySectionId(reference, context, sectionId);
+  const reorderedQuestions = reorderDisplayOrder(questionId, newDisplayOrder, questions ?? []);
+  const newDisplayOrders = new Map(reorderedQuestions.map((q) => [q.id, q.displayOrder]));
+
+  return groups.filter((group) => {
+    const questionDisplayOrder = newDisplayOrders.get(group.questionId);
+    const triggerDisplayOrder = newDisplayOrders.get(group.triggerQuestionId);
+    if (questionDisplayOrder === undefined || triggerDisplayOrder === undefined) return false;
+
+    return triggerDisplayOrder > questionDisplayOrder;
+  });
+}
+
+/**
+ * Returns the display logic groups that would break if the specified question were deleted, i.e. the
+ * groups where it is the trigger question for another question. Deleting a question also deletes these
+ * groups (via the foreign key cascade), which would silently change the other questions' display logic.
+ * The question's own display logic groups are deleted along with it, so they are not conflicts.
+ *
+ * @param context The Apollo context
+ * @param questionId The question being deleted
+ * @returns The QuestionConditionGroups that would break (empty if the delete is safe)
+ */
+export const findQuestionRemoveConflicts = async (
+  context: MyContext,
+  questionId: number
+): Promise<QuestionConditionGroup[]> => {
+  const reference = 'questionService.findQuestionRemoveConflicts';
+
+  const groups = await QuestionConditionGroup.findByQuestionOrTriggerQuestionId(reference, context, questionId);
+  return groups.filter((group) => group.triggerQuestionId === questionId && group.questionId !== questionId);
+}
+
+/**
+ * Returns the display logic conditions that would break if the specified question's JSON were updated to
+ * newJson, i.e. conditions that use the question as their trigger question and match an option value that
+ * newJson no longer has. This covers removing an option, renaming it (the option value follows its text),
+ * and changing the question to a type without options.
+ *
+ * @param context The Apollo context
+ * @param question The question being updated, with its current JSON
+ * @param newJson The question's new JSON
+ * @returns The QuestionConditions that would break (empty if the update is safe)
+ */
+export const findQuestionOptionConflicts = async (
+  context: MyContext,
+  question: Question,
+  newJson: string
+): Promise<QuestionCondition[]> => {
+  const reference = 'questionService.findQuestionOptionConflicts';
+
+  if (!newJson || newJson === question.json) return [];
+
+  const conditions = await QuestionCondition.findByTriggerQuestionId(reference, context, question.id);
+  if (conditions.length === 0) return [];
+
+  const newOptionValues = extractTriggerQuestionOptionValues(new Question({ ...question, json: newJson }));
+  return conditions.filter((condition) => !newOptionValues.has(condition.conditionMatch));
+}
+
+/**
+ * Extracts the option values from a question's JSON data.
+ * @param question The question to extract option values from.
+ * @returns A set of the extracted option values.
+ */
+export const extractTriggerQuestionOptionValues = (question: Question): Set<string> => {
+  try {
+    const parsed = JSON.parse(question.json);
+    const optionCandidates = [parsed?.options, parsed?.attributes?.options];
+
+    const values = optionCandidates
+      .filter((entry) => Array.isArray(entry))
+      .flatMap((entry) => entry as Record<string, unknown>[])
+      .map((option) => {
+        if (typeof option?.value === 'string') {
+          return option.value;
+        }
+        if (typeof option?.label === 'string') {
+          return option.label;
+        }
+        return undefined;
+      })
+      .filter((value): value is string => Boolean(value));
+
+    return new Set(values);
+  } catch {
+    return new Set();
+  }
+};
+
+
+
+// Returns true if the provided question supports selectable options by exposing an options array in its JSON data; otherwise false.
+export const questionSupportsSelectableOptions = (question: Question): boolean => {
+  try {
+    const parsed = JSON.parse(question.json);
+    const rootOptions = parsed?.options;
+    const attributeOptions = parsed?.attributes?.options;
+    return Array.isArray(rootOptions) || Array.isArray(attributeOptions);
+  } catch {
+    return false;
+  }
+};

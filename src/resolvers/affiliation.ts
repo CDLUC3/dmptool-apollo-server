@@ -5,49 +5,49 @@ import {
   AffiliationSearchResults,
   Resolvers,
   ResolversParentTypes
-} from "../types";
-import {MyContext} from '../context';
+} from "../types.js";
+import { MyContext } from '../context.js';
 import {
   Affiliation,
   AffiliationSearch,
   AffiliationType,
   PopularFunder
-} from '../models/Affiliation';
+} from '../models/Affiliation.js';
 import {
   authenticatedResolver,
   isAdmin,
   isSuperAdmin
-} from "../services/authService";
+} from "../services/authService.js";
 import {
   AuthenticationError,
   ForbiddenError,
   InternalServerError,
   NotFoundError
-} from "../utils/graphQLErrors";
-import { prepareObjectForLogs } from "../logger";
+} from "../utils/graphQLErrors.js";
+import { prepareObjectForLogs } from "../logger.js";
 import { GraphQLError } from "graphql";
 import {
   PaginationOptionsForCursors,
   PaginationOptionsForOffsets,
   PaginationType
-} from "../types/general";
-import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers";
-import { GuidanceGroup } from "../models/GuidanceGroup";
+} from "../types/general.js";
+import { isNullOrUndefined, normaliseDateTime } from "../utils/helpers.js";
+import { GuidanceGroup } from "../models/GuidanceGroup.js";
 import {
   getAffiliationsWithGuidanceForTemplate
-} from "../services/guidanceService";
+} from "../services/guidanceService.js";
 import {
   CDN_BASE_URL,
   deleteAffiliationLogoFile,
   getPresignedURLForAffiliationLogo
-} from "../datasources/s3";
-import { UserRole } from "../models/User";
+} from "../datasources/s3.js";
+import { UserRole } from "../models/User.js";
 import {
   reconcileAffiliationEmailDomains,
   reconcileAffiliationLinks
-} from "../services/affiliationService";
-import { AffiliationLink } from "../models/AffiliationLink";
-import { AffiliationEmailDomain } from "../models/AffiliationEmailDomain";
+} from "../services/affiliationService.js";
+import { AffiliationLink } from "../models/AffiliationLink.js";
+import { AffiliationEmailDomain } from "../models/AffiliationEmailDomain.js";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -163,7 +163,7 @@ export const resolvers: Resolvers = {
       UserRole.RESEARCHER,
       async (
         _: Record<PropertyKey, never>,
-        {input}: { input: AffiliationInput },
+        { input }: { input: AffiliationInput },
         context: MyContext
       ): Promise<Affiliation> => {
         const reference = 'addAffiliation resolver';
@@ -250,7 +250,7 @@ export const resolvers: Resolvers = {
       UserRole.ADMIN,
       async (
         _: Record<PropertyKey, never>,
-        {input}: { input: AffiliationInput },
+        { input }: { input: AffiliationInput },
         context: MyContext
       ): Promise<Affiliation> => {
         const reference = 'updateAffiliation resolver';
@@ -352,7 +352,7 @@ export const resolvers: Resolvers = {
       UserRole.SUPERADMIN,
       async (
         _: Record<PropertyKey, never>,
-        {affiliationId}: { affiliationId: number },
+        { affiliationId }: { affiliationId: number },
         context: MyContext
       ): Promise<Affiliation> => {
         const reference = 'removeAffiliation resolver';
@@ -396,7 +396,7 @@ export const resolvers: Resolvers = {
       UserRole.ADMIN,
       async (
         _: Record<PropertyKey, never>,
-        {affiliationURI, fileName, contentType}: {
+        { affiliationURI, fileName, contentType }: {
           affiliationURI: string,
           fileName: string,
           contentType: string

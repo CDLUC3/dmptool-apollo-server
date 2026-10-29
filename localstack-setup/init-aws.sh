@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# Check if DISABLE_LOCALSTACK is set to 1
+if [ "${DISABLE_LOCALSTACK:-0}" = "1" ]; then
+  echo "DISABLE_LOCALSTACK is set to 1. Skipping LocalStack resource initialization."
+  exit 0
+fi
+
 # Force LocalStack to use us-west-2
 export AWS_DEFAULT_REGION="us-west-2"
 
@@ -43,8 +49,8 @@ awslocal dynamodb create-table \
     --billing-mode PAY_PER_REQUEST \
     --stream-specification StreamEnabled=true,StreamViewType=NEW_IMAGE
 
-# Setup the SSM parameters for the lambda function
-echo 'Creating SSM parameters used by Lambda Functions'
+# Setup the SSM parameters
+echo 'Creating SSM parameters'
 awslocal ssm put-parameter --name "/uc3/dmp/tool/dev/RdsUsername" --value "${RDS_USERNAME}" --type "String" --overwrite
 awslocal ssm put-parameter --name "/uc3/dmp/tool/dev/RdsPassword" --value "${RDS_PASSWORD}" --type "String" --overwrite
 awslocal ssm put-parameter --name "/uc3/dmp/tool/dev/maDMPGenerationPaused" --value "false" --type "String" --overwrite
@@ -56,6 +62,19 @@ awslocal ssm put-parameter --cli-input-json "{
   \"Type\": \"String\",
   \"Overwrite\": true
 }"
+
+# Mimic our opensearch serverless collection
+awslocal opensearch create-domain --domain-name aoss
+DOMAIN_ENDPOINT="http://aoss.${AWS_REGION}.opensearch.localhost.localstack.cloud:4566"
+
+echo "Waiting for OpenSearch engine startup at ${DOMAIN_ENDPOINT}..."
+
+# Wait for node response
+until [ "$(curl -s -o /dev/null -w "%{http_code}" "${DOMAIN_ENDPOINT}/_cluster/health")" -eq 200 ]; do
+  sleep 3
+done
+
+echo "OpenSearch ready!"
 
 # Create an S3 bucket that we will use to store logos and other media assets for the DMPTool
 awslocal s3 mb s3://$S3_BUCKET_NAME

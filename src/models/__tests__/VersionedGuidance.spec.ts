@@ -1,9 +1,21 @@
+import { jest } from '@jest/globals';
 import casual from "casual";
-import { VersionedGuidance } from "../VersionedGuidance";
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { logger } from "../../logger";
 
-jest.mock('../../context.ts');
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+
+// Dynamic imports AFTER all mocks are registered
+const { VersionedGuidance } = await import("../VersionedGuidance.js");
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
 
 let context;
 
@@ -187,6 +199,56 @@ describe('VersionedGuidance.findByVersionedGuidanceGroupId', () => {
     const result = await VersionedGuidance.findByVersionedGuidanceGroupId('VersionedGuidance query', context, 999);
     expect(localQuery).toHaveBeenCalledTimes(1);
     expect(result.length).toBe(0);
+  });
+});
+
+describe('VersionedGuidance.findByVersionedGuidanceGroupIds', () => {
+  const originalQuery = VersionedGuidance.query;
+  let localQuery;
+
+  beforeEach(async () => {
+    localQuery = jest.fn();
+    (VersionedGuidance.query as jest.Mock) = localQuery;
+    context = await buildMockContextWithToken(logger);
+  });
+
+  afterEach(() => {
+    VersionedGuidance.query = originalQuery;
+  });
+
+  it('should find guidance for the specified group ids', async () => {
+    const groupIds = [1, 2];
+    localQuery.mockResolvedValueOnce([{
+      id: 1,
+      versionedGuidanceGroupId: groupIds[0],
+      guidanceId: 3,
+      guidanceText: 'Guidance',
+    }]);
+
+    const result = await VersionedGuidance.findByVersionedGuidanceGroupIds(
+      'VersionedGuidance query',
+      context,
+      groupIds
+    );
+
+    expect(localQuery).toHaveBeenCalledWith(
+      context,
+      'SELECT * FROM versionedGuidance WHERE versionedGuidanceGroupId IN (?, ?) ORDER BY tagId ASC',
+      ['1', '2'],
+      'VersionedGuidance query'
+    );
+    expect(result[0]).toBeInstanceOf(VersionedGuidance);
+  });
+
+  it('should return an empty array without querying when no group ids are provided', async () => {
+    const result = await VersionedGuidance.findByVersionedGuidanceGroupIds(
+      'VersionedGuidance query',
+      context,
+      []
+    );
+
+    expect(localQuery).not.toHaveBeenCalled();
+    expect(result).toEqual([]);
   });
 });
 

@@ -1,8 +1,9 @@
 import { QuestionSchemaMap } from "@dmptool/types";
-import { MyContext } from "../context";
-import { MySqlModel } from "./MySqlModel";
-import { Tag } from "./Tag";
-import { isNullOrUndefined, removeNullAndUndefinedFromJSON } from "../utils/helpers";
+import { MyContext } from "../context.js";
+import { MySqlModel } from "./MySqlModel.js";
+import { QuestionConditionActionType, QuestionConditionMatchType } from "./QuestionCondition.js";
+import { Tag } from "./Tag.js";
+import { isNullOrUndefined, removeNullAndUndefinedFromJSON } from "../utils/helpers.js";
 
 export class Question extends MySqlModel {
   public templateId: number;
@@ -18,6 +19,8 @@ export class Question extends MySqlModel {
   public displayOrder: number;
   public tags: Tag[];
   public isDirty: boolean;
+  public displayLogicAction: QuestionConditionActionType;
+  public displayLogicMatchType: QuestionConditionMatchType;
 
   private tableName = 'questions';
 
@@ -43,6 +46,8 @@ export class Question extends MySqlModel {
     this.displayOrder = options.displayOrder;
     this.tags = options.tags;
     this.isDirty = options.isDirty ?? false;
+    this.displayLogicAction = options.displayLogicAction ?? "SHOW_QUESTION";
+    this.displayLogicMatchType = options.displayLogicMatchType ?? "ANY";
   }
 
   // Validation to be used prior to saving the record
@@ -151,5 +156,38 @@ export class Question extends MySqlModel {
     const sql = 'SELECT * FROM questions WHERE sectionId = ? ORDER BY displayOrder ASC';
     const results = await Question.query(context, sql, [sectionId?.toString()], reference);
     return Array.isArray(results) ? results.map((entry) => new Question(entry)) : [];
+  }
+
+  // Fetch all prior questions in the same template, ordered by section/question
+  // display order and excluding the specified question itself.
+  static async findPriorQuestionsForQuestion(
+    reference: string,
+    context: MyContext,
+    questionId: number
+  ): Promise<Question[]> {
+    const sql = `SELECT q.* FROM questions q
+      INNER JOIN sections s ON s.id = q.sectionId
+      INNER JOIN questions target ON target.id = ?
+      INNER JOIN sections targetSection ON targetSection.id = target.sectionId
+      WHERE q.templateId = target.templateId
+      AND (
+        s.displayOrder < targetSection.displayOrder
+        OR (
+          s.displayOrder = targetSection.displayOrder
+          AND q.displayOrder < target.displayOrder
+        )
+      )
+      ORDER BY s.displayOrder ASC, q.displayOrder ASC`;
+
+    const results = await Question.query(
+      context,
+      sql,
+      [questionId?.toString()],
+      reference
+    );
+
+    return Array.isArray(results)
+      ? results.map((entry) => new Question(entry))
+      : [];
   }
 }

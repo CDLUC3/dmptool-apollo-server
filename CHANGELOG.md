@@ -3,6 +3,35 @@
 ## v1.1.0
 
 ### Added
+- Added a `isPlanReadOnlyForCurrentUser` function to the `planService` to determine if the current user has read-only access to a given plan. [#430]
+- Added a `getAllAvailableGuidanceForVersionedTemplate` function to the `guidanceService` to return all available tagged guidance for a given versioned template [#430]
+- Added `versionedTemplateCustomizationId` column to the `plans` table via data migration, so a Plan stays tied to the version of the template customization that existed when it was created [#388]
+- Added `versionedTemplateCustomizationId` to the `Plan` model, and updated `Plan.create` to set it from the active customization for the creator's affiliation [#388]
+- Added `findActiveByTemplateAndAffiliation` to the `VersionedTemplateCustomization` model [#388]
+- Added optional `planId` argument to the `publishedQuestion` query so question customizations come from the Plan's pinned customization [#388]
+- Added local data migration to reset the default user passwords using the new default pepper for the auth service
+- Added new `PORT`, `TOKEN_ISSUER`, `TOKEN_AUDIENCES` and `ACCESS_TOKEN_NAME` env variables and updated `generalConfig` to expose them
+- Added a new `maDMP` types file with shortcuts to nested maDMP types.
+- Added new helper functions to the `planService` and `projectService` which fetch the item and check permissions
+- Added new resolver to support the Plan one-page design [#371](https://github.com/CDLUC3/dmptool-doc/issues/371)
+- Added new script for checking type errors for files included in `tsconfig.strict.json` only
+- Added new `triggerQuestionsForQuestion` query to question resolver [#360]
+- Added two new methods to `questionService`: `extractTriggerQuestionOptionValues` and `questionSupportsSelectableOptions` [#360]
+- Add missing `relationType` column to the `relatedWorks` table
+- Added cascading delete logic to the `relatedWorks` table so that those entries are dropped when a plan is deleted.
+- Added chained resolver to `Plan` to return `acceptedWorks`
+- Added an OpenSearch domain to the LocalStack init script
+- Added an OpenSearchServerlessClient to the Apollo context object
+- Added new `OpenSearch` class to the openSearch data source file 
+- Added new `tokenizeText` `camelizeKeys` and `snakeizeKeys` helper functions to the openSearch data source file
+- Added new `AcceptedWork` model that includes the DOI and information necessary to display a related work that has been accepted for a project.
+- Added new `indexDMPService` to handle indexing of Plans in OpenSearch
+- Added new `handleAsyncUpdates` function to the `planService` that allows us to truly run DynamoDB and OpenSearch updates asynchronously.
+- Added missing call to generate the maDMP JSON after successful creation or update of the Plan.
+- Added `publicPlanbyDMPId` resolver, to query only plans that are registered for the landing page [#293]
+- Added `getPlanVersions` for the `publicPlanByDMPId` resolver [#293]
+- Added `questionConditionGroups` and `versionedQuestionConditionGroups` tables via data migration scripts [#508]
+- Added new models `QuestionConditionGroup` and `QuestionConditionGroups` models for question display logic [#508]
 - Added override for `minimatch`
 - Added versionedTemplate schema and resolver so we can fetch a versioned template by its id.
 - Added `questionTags` and `versionedQuestionTags` tables [#274]
@@ -126,6 +155,66 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated error messages related to mutations that conflict with existing display logic [#1472]
+- Updated `@dmptool/utils` to `v2.2.3`
+- Updated `dmptool-utils` to `v2.2.2` to get updates related to customizations and a research output bug [#388]
+- Fixed some broken tests for the `planService` 
+- Updated `getPlanSectionsAndQuestions` to no longer return guidance sources for a question if they have no guidance text [#430]
+- Updated `getPlanSectionsAndQuestions` to return `guidanceText` and `sampleText` for all questions and to include any section level `guidance` [#430]
+- Updated `@dmptool/utils` to `v2.2.0` to get the new conditional display logic [#510]
+- Updated `PlanSectionProgress.findByPlanId` and its helpers (`fetchCustomSections`, `fetchExtraQuestionsForBaseSections`, `fetchAnsweredCustomQuestions`) to use the Plan's `versionedTemplateCustomizationId` instead of the current user's affiliation. Base section question counts now come from the published `versionedCustomQuestions` rather than the draft `customQuestions` table [#388]
+- Updated `VersionedCustomQuestion.findByVersionedSectionIdAndType`, `findByVersionedCustomSectionId` and `findByVersionedSectionIdsAndType`, and `VersionedCustomSection.findByPlanAndSectionId`, to look up custom questions and sections by the Plan's pinned customization instead of affiliation and `active` status [#388]
+- Updated `VersionedQuestionCustomization.findByVersionedCustomizationAndVersionedSectionIds` and `VersionedSectionCustomization.findByVersionedCustomizationAndVersionedSectionIds` (renamed from `findForActiveForAffiliationAndVersionSectionIds`) to look up guidance by the Plan's pinned customization [#388]
+- Updated `publishedQuestion`, `publishedQuestions` and `publishedCustomSection` resolvers, `guidanceService.getGuidanceSourcesForPlan` and `planService.getPlanSectionsAndQuestions` to use the Plan's pinned customization instead of the current user's or plan owner's affiliation [#388]
+- Updated `publishedQuestion` to return the affiliation that published the customization as `customizationAffiliationId`, instead of the viewer's affiliation [#388]
+- Removed the unused `versionedTemplateId` parameter from `PlanSectionProgress.findByPlanId` and `PlanProgress.findByPlanId` [#388]
+- Updated the `auth` middleware to work with the new external Auth service 
+- Updated `ProjectSearchResult.search` sql query to include relatedWorksCount, and updated the schema [#378]
+- Made updates to help the backend check whether a `section` or `question` can be moved when there is associated `conditional display logic` [#986]:
+  - `updateSectionDisplayOrder` and `updateQuestionDisplayOrder` reject a move that would put a question above one of its trigger questions
+  - `removeSection` and `removeQuestion` reject deleting a section or question that contains a trigger question for display logic elsewhere in the template
+  - `updateQuestion` rejects removing or renaming an option that is used in a display logic condition, or changing the question to a type without options
+  - Added `findSectionMoveConflicts`, `findSectionRemoveConflicts`, `findQuestionMoveConflicts`, `findQuestionRemoveConflicts` and `findQuestionOptionConflicts` service functions, and new lookups on the `QuestionCondition` and `QuestionConditionGroup` models
+  - Fixed missing `await` on tag add/remove in `addQuestion` and `updateQuestion` so tag errors are reported
+- Added `myAccessLevel` to `ProjectSearchResult` so that the client can use that info on the Project Dashboard, and added `accessLevel` to `ProjectFilterOptions` [#379]
+- Added `feedbackId` to the `AdminNotificationMetadata` schema and `AdminNotificationMetadata` class so we are able to get the data for that specific feedback, including corresponding message [#344]
+- Updated `feedback` resolver to not only return the `open` round but the completed feedback rounds as well. Updated to sort results by id, and then by date [#344]
+- Updated `requestFeedback` in `requestFeedback` to add `feedbackId` to the admin notification metadata [#344]
+- Updated the Plan schema to provide more info needed for the plan authoring one-page [#371](https://github.com/CDLUC3/dmptool-doc/issues/371)
+- Refactored the plan resolver to make use of `authenticatedResolver` and plan and project service functions to check permissions 
+- Updated `Question` model with new `findPriorQuestionsForQuestion` function [#360]
+- Updated app to use Ecma Script Modules (ESM) [#259]
+- Updated `tsconfig.json` for `ESM`
+- Updated `dev` script to use `tsx` instead of `ts-node-dev` in `package.json` and updated `test` and `test-no-db` scripts because jest itself doesn't natively support ESM without the `--experimental-vm-modules` flag
+- Added use of `type: module` and `"main": "dist/index.js"` to package.json for ESM [#259]
+- Updated all unit tests to be compliant with `ESM` [#259]
+- Adjusted jest.config.js for `ESM` [#259]
+- Updated `jest.mock` everywhere to `jest.unstable_mockModule` for ESM [#259]
+- Updated docker compose so that LocalStack log level is now `WARN`.
+- Bumped versions of `@dmptool` packages to their latest versions
+- Updated `RelatedWork` model so that it does not always try to strip off the protocol and domain from the related work identifier. The DMP works matching deals with DOIs, but we are allowing users to manually add related works via the UI as well as through the REST API and sometimes the entries are URLs or other unique identetifiers that are NOT DOIs. These changes continue to strip off the `https://doi.org` if it is a DOI (for backward compatibility with the dmp works project) but otherwise preserve the entire value
+- Fixed issues with `entirePlanService` that was causing updates to fail.
+- Moved logic from the `relatedWork` resolver into the `relatedWorkService` and renamed to `addAcceptedWork` so that adding a new work manually through the UI or via the `entirePlan` resolvers use the same logic.
+- Updated updateAnswer resolver to update `plan.modified` to reflect that something had changed (for versioning) [#339]
+- Added `isPrimaryContact` to UpdateProjectMemberInput because the `isPrimaryContact` field value was being overwritten to false when the input didn’t include it [#339]
+- Added `owner` and `relatedWorks` to `PlanVersionSnapshot` schema [#339]
+- Updated getPlanVersions in `planService` to exclude the `VERSION#latest` used for the dropdown list.[#339]
+- Updated `getPlanVersionSnapshot to fetch the planId and projectId to pass to `mapDMPToolDMPToSnapshot`[#339]
+- Updated `maDMPToolDMPToSnapshot` to get `isPrimaryContact` from correct place, and added `owner` and `relatedWorks` to the response[#339]
+- Updated `projectFunding` query to return `readOnly` [#246]
+- Updated resolvers to use the new `handleAsyncUpdates` function instead of calling `saveMaDMPRecord` directly
+- Updated docker-compose.yaml to install OpenSearch for use with our search indices
+- Updated docker-compose.yaml to include a health check so we can wait to start Apollo server after LocalStack is ready
+- Updated README with updated info about LocalStack and interacting with the OpenSearch instance
+- Bumped `@dmptool/utils` to 2.1.7
+- Fixed bug with SQL query in `ProjectMember.findByProjectAndNameOrORCIDOrEmail`
+- Fixed some minor issues in the `entirePlanService`
+- Updated `versionedQuestion` resolver to use `findByVersionedQuestionConditionGroupId` in place of `findByVersionedQuestionId` [#508]
+- Updated `publishedConditionGroupsForQuestion` in `versionedQuestionCondition` resolver and added `conditions` chained resolver [#508]
+- Updated `question`, `questionCondition` and `versionedQuestionCondition` schemas [#508]
+- Updated `Question` model to include `displayLogicAction` and `displayLogicMatchType`. Updated `QuestionCondition` model to only include `conditionType`, `conditionMatch` and `groupId`, and replaced `findByQuestionId` with `findByGroupId`. Updated `VersionedQuestionCondition` model to use `versionedQuestionConditionGroupId instead of `versionedQuestionId` [#508]
+- Altered `questions`, `questionConditions`, `versionedQuestions` and `versionedQuestionConditions` tables via data migration scripts [#508]
+- Updated `questionService.ts` with `generateQuestionConditionGroupVersion` [#508]
 - Updated override for `brace-expansion`
 - Switched entirePlan schema, resolvers and service to use versionedXId instead of xId (e.g. use versionedTemplates instead of Templates)
 - Updated entirePlan service to use the default MemberRole when none is provided 
@@ -254,6 +343,13 @@
 - Updates to appease newer version of eslint
 
 ### Removed
+- Removed `VersionedQuestionCustomization.findActiveByTemplateAffiliationAndQuestion` and `VersionedSectionCustomization.findActiveByTemplateAffiliationAndSection`, which have been replaced by the existing `findByVersionedCustomizationAndVersionedQuestion` and `findByVersionedCustomizationAndVersionedSection` [#388]
+- Removed the private `findTemplateCustomizationId` helper from `PlanSectionProgress` [#388]
+- Removed the reset password logic as this will now be handled by the external Auth service
+- Removed the resolver/schema for changing a user's password, since that is now handled by the external Auth service
+- Removed `register`, `login` and supporting functions from the `User` model
+- Removed all the old express controllers and routes so we can begin using the new Auth service
+- Removed all the access, refresh and CSRF token logic from the `tokenService`
 - Removed unused `valueIsDate` function from the `MySQLModel`
 - Removed old `processResult` functions from the `Answer` and `Question` models. These functions were added to help add the `commonStandardId` to existing JSON records. It proved to be inadequate so we eneded up just deleting old data
 - Removed unused SQS env variable from example dotenv file
@@ -277,6 +373,14 @@
 - Removed `ioredis` package
 
 ### Fixed
+- Fixed `@graphql-tools/utils` high vulnerability by updating `@graphql-tools/schema` to `v10.1.3`, `@graphql-tools/mock` to `v9.1.16` and `@graphql-tools/merge` to `v9.2.6`. Also, ran `npm audit fix` to address `proxy-addr` vulnerability which comes from `express@5.2.1`.
+- Fixed `@fastify/busboy` (`v3.2.2`) and `http-cache-semantics` (`v4.3.0`) by funning `npm audit fix`. The other high vulnerabilities listed are `development-only` tools, so they don't affect build or production. Updated `buildspec.yaml` to remove the `echo "production=false" >> .npmrc` which was overriding the `npm audit --omit=dev` [#458]
+- Fixed `npm ci` failure on `development` by restoring an in-sync `package-lock.json` (it was out of sync after #838 was merged)
+- Updated `node-mailer` to `v10.0.13` and `brace-expansion` to `v5.0.12` to address high vulnerabilities [#451]
+- Fixed a bug where a plan was displaying all custom questions ever added for a given versionedSectionId. Updated `publishedQuestions` resolver to only return custom questions for the given user's affiliation. Updated `findByVersionedSectionIdAndType` in `VersionCustomQuestion` model to include `affililationId` in query and updated associated unit test [#253]
+- Fixed type errors for the files that were updated for this ticket: `resolvers/versionedQuestion.ts`, `models/VersionedCustomQuestion.ts`, `models/__tests__/VersionedCustomQuestion.spec.ts` and added those files to the `tsconfig.strict.json` file [#253]
+- Fixed incorrect `versionPlanAfter` value in `generalConfig.ts`. This was changed while testing versioning for landing page [#365]
+- Fixed an issue in `MySqlModel` where the `query` function was returning a tuple with fields along with the response [#508]
 - Added missing `fast-xml-parser` back so that `re3data-os-populate.ts` can run
 - Fixed `removeProjectFunding`. There were several issues, one of which was not being able to delete a `projectFundings` record without removing it's foreign key dependency in `planFundings` first [#303]
 - Updated `immutable` to `v5.1.9` to address HIGH security vulnerability [#304]
@@ -294,6 +398,11 @@
 - Fixed issue with templates not cloning with sections and questions by updating the `addTemplate` mutation to clone from non-versioned template, section and question [#1006]
 
 ### Chore
+- Updated `typescript` to `v6.0.3` and fixed high vulnerabilities in `js-yaml` and `nodemailer` [#257]
+- Updated `tsconfig.json` to have `strict: false` by default for now, since there were over 8,000 type errors after updating `typescript` to `v6.0.3`. We will gradually address the type errors by adding the paths to the new `tsconfig.strict.json` file [#257]
+
+- Updated `uuid` to `v14.0.2`, `@aws-sdk/client-dynamodb` to `v3.1127.0`, `@aws-sdk/client-ssm` to `v3.1127.0`, `@aws-sdk/credential-providers` to `3.1127.0`, `@aws-sdk/util-dynamodb` to `v3.996.9`, `eslint` to `v10.10.0`, `globals` to `v17.12.0`, and `nock` to `v14.0.17` [#369]
+- Fixed vulnerability issue with `js-yaml` [#293]
 - Added override for `brace-expansion` to `v5.0.8` [#314]
 - Addressed security vulnerability in `nodemailer` and `undici` packages, and added debugging to troubleshoot request feedback failure [#285]
 - Updated `nodemailer` to `v9.0.1` and `undici` to `v7.28.0` [#240]

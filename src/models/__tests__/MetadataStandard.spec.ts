@@ -1,10 +1,21 @@
+import { jest } from '@jest/globals';
 import casual from "casual";
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { MetadataStandard } from "../MetadataStandard";
-import { generalConfig } from "../../config/generalConfig";
-import { logger } from "../../logger";
 
-jest.mock('../../context.ts');
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+//Dynamic imports AFTER all mocks are registered
+const { MetadataStandard } = await import('../MetadataStandard.js');
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
+const { generalConfig } = await import('../../config/generalConfig.js');
 
 let context;
 
@@ -84,7 +95,7 @@ describe('findBy Queries', () => {
     context = await buildMockContextWithToken(logger);
 
     standard = new MetadataStandard({
-      id: casual.integer(1,9999),
+      id: casual.integer(1, 9999),
       name: casual.company_name,
       uri: casual.url,
       description: casual.sentences(3),
@@ -185,9 +196,9 @@ describe('findBy Queries', () => {
     const researchDomainId = casual.integer(1, 9);
     const result = await MetadataStandard.search('testing', context, term, researchDomainId);
     const sql = 'SELECT m.* FROM metadataStandards m ' +
-                'LEFT OUTER JOIN metadataStandardResearchDomains msrd ON m.id = msrd.metadataStandardId';
+      'LEFT OUTER JOIN metadataStandardResearchDomains msrd ON m.id = msrd.metadataStandardId';
     const whereFilters = ['(LOWER(m.name) LIKE ? OR LOWER(m.keywords) LIKE ?)',
-                          'msrd.researchDomainId = ?'];
+      'msrd.researchDomainId = ?'];
     const vals = [`%${term.toLowerCase().trim()}%`, `%${term.toLowerCase().trim()}%`, researchDomainId.toString()];
     const sortFields = ["m.name", "m.created"];
     const opts = {
@@ -209,7 +220,7 @@ describe('findBy Queries', () => {
     const researchDomainId = casual.integer(1, 9);
     const result = await MetadataStandard.search('testing', context, null, researchDomainId);
     const sql = 'SELECT m.* FROM metadataStandards m ' +
-                'LEFT OUTER JOIN metadataStandardResearchDomains msrd ON m.id = msrd.metadataStandardId';
+      'LEFT OUTER JOIN metadataStandardResearchDomains msrd ON m.id = msrd.metadataStandardId';
     const whereFilters = [
       "(LOWER(m.name) LIKE ? OR LOWER(m.keywords) LIKE ?)",
       'msrd.researchDomainId = ?'
@@ -235,7 +246,7 @@ describe('findBy Queries', () => {
     const term = casual.words(3);
     const result = await MetadataStandard.search('testing', context, term, null);
     const sql = 'SELECT m.* FROM metadataStandards m ' +
-                'LEFT OUTER JOIN metadataStandardResearchDomains msrd ON m.id = msrd.metadataStandardId';
+      'LEFT OUTER JOIN metadataStandardResearchDomains msrd ON m.id = msrd.metadataStandardId';
     const whereFilters = ['(LOWER(m.name) LIKE ? OR LOWER(m.keywords) LIKE ?)'];
     const vals = [`%${term.toLowerCase().trim()}%`, `%${term.toLowerCase().trim()}%`];
     const sortFields = ["m.name", "m.created"];
@@ -257,7 +268,7 @@ describe('findBy Queries', () => {
     localPaginationQuery.mockResolvedValueOnce([standard]);
     const result = await MetadataStandard.search('testing', context, null, null);
     const sql = 'SELECT m.* FROM metadataStandards m ' +
-                'LEFT OUTER JOIN metadataStandardResearchDomains msrd ON m.id = msrd.metadataStandardId';
+      'LEFT OUTER JOIN metadataStandardResearchDomains msrd ON m.id = msrd.metadataStandardId';
     const sortFields = ["m.name", "m.created"];
     const opts = {
       cursor: null,
@@ -303,7 +314,7 @@ describe('update', () => {
   });
 
   it('returns the MetadataStandard with errors if it is not valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (standard.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -313,7 +324,7 @@ describe('update', () => {
   });
 
   it('returns an error if the MetadataStandard has no id', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (standard.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
@@ -324,13 +335,13 @@ describe('update', () => {
   });
 
   it('returns the updated MetadataStandard', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (standard.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
     updateQuery.mockResolvedValueOnce(standard);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof MetadataStandard> | null>>();
     (MetadataStandard.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(standard);
 
@@ -365,7 +376,7 @@ describe('create', () => {
   });
 
   it('returns the MetadataStandard without errors if it is valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (standard.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -381,7 +392,7 @@ describe('create', () => {
   });
 
   it('returns the MetadataStandard with an error if the object already exists', async () => {
-    const mockFindBy = jest.fn();
+    const mockFindBy = jest.fn<() => Promise<InstanceType<typeof MetadataStandard> | null>>();
     (MetadataStandard.findByURI as jest.Mock) = mockFindBy;
     mockFindBy.mockResolvedValueOnce(standard);
 
@@ -392,15 +403,15 @@ describe('create', () => {
   });
 
   it('returns the newly added MetadataStandard', async () => {
-    const mockFindbyURI = jest.fn();
+    const mockFindbyURI = jest.fn<() => Promise<InstanceType<typeof MetadataStandard> | null>>();
     (MetadataStandard.findByURI as jest.Mock) = mockFindbyURI;
     mockFindbyURI.mockResolvedValueOnce(null);
 
-    const mockFindByName = jest.fn();
+    const mockFindByName = jest.fn<() => Promise<InstanceType<typeof MetadataStandard> | null>>();
     (MetadataStandard.findByName as jest.Mock) = mockFindByName;
     mockFindByName.mockResolvedValueOnce(null);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof MetadataStandard> | null>>();
     (MetadataStandard.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(standard);
 
@@ -434,7 +445,7 @@ describe('delete', () => {
   });
 
   it('returns null if it was not able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<boolean>>();
     (MetadataStandard.delete as jest.Mock) = deleteQuery;
 
     deleteQuery.mockResolvedValueOnce(null);
@@ -442,11 +453,11 @@ describe('delete', () => {
   });
 
   it('returns the MetadataStandard if it was able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<boolean>>();
     (MetadataStandard.delete as jest.Mock) = deleteQuery;
     deleteQuery.mockResolvedValueOnce(standard);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof MetadataStandard> | null>>();
     (MetadataStandard.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(standard);
 

@@ -1,8 +1,8 @@
 import { Logger } from "pino";
 import { DeleteObjectCommandOutput } from "@aws-sdk/client-s3";
 import { getPresignedURLForImageUpload, removeObject, toErrorMessage } from '@dmptool/utils';
-import { awsConfig } from "../config/awsConfig";
-import { generalConfig } from "../config/generalConfig";
+import { awsConfig } from "../config/awsConfig.js";
+import { generalConfig } from "../config/generalConfig.js";
 import { v4 as uuidv4 } from "uuid";
 
 /**
@@ -97,10 +97,10 @@ export const CDN_BASE_URL: string = process.env.NODE_ENV === 'development'
  * @param logoName the logoName (S3 key)
  * @returns true if successful
  */
-export const deleteAffiliationLogoFile = async(
+export const deleteAffiliationLogoFile = async (
   logger: Logger,
   logoName: string,
-) : Promise<boolean> => {
+): Promise<boolean> => {
   const bucket = awsConfig.s3.bucket;
 
   try {
@@ -135,7 +135,7 @@ export const deleteAffiliationLogoFile = async(
  * @param contentType the content type of the file being uploaded
  * @returns the presigned URL and the fields expected in the POST body when uploading the file
  */
-export const getPresignedURLForAffiliationLogo = async(
+export const getPresignedURLForAffiliationLogo = async (
   logger: Logger,
   affiliationURI: string,
   fileName: string,

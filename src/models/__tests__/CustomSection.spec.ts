@@ -1,15 +1,21 @@
-import {MyContext} from "../../context";
-import {CustomSection, PinnedSectionTypeEnum} from "../CustomSection";
-import {MySqlModel} from "../MySqlModel";
-import {TemplateCustomizationMigrationStatus} from "../TemplateCustomization";
+import { jest } from '@jest/globals';
 
-jest.mock("../MySqlModel", () => ({
-  ...jest.requireActual("../MySqlModel"),
-  query: jest.fn(),
-  insert: jest.fn(),
-  update: jest.fn(),
-  delete: jest.fn(),
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
 }));
+
+import { MyContext } from "../../context.js";
+
+// Dynamic imports AFTER all mocks are registered
+const { CustomSection, PinnedSectionTypeEnum } = await import("../CustomSection.js");
+const { MySqlModel } = await import("../MySqlModel.js");
+const { TemplateCustomizationMigrationStatus } = await import("../TemplateCustomization.js");
 
 describe("CustomSection", () => {
   let mockContext: MyContext;
@@ -21,7 +27,7 @@ describe("CustomSection", () => {
 
   describe("constructor", () => {
     it("should create a CustomSection with all properties", () => {
-      const options: CustomSection = new CustomSection({
+      const options: InstanceType<typeof CustomSection> = new CustomSection({
         id: 1,
         created: new Date().toISOString(),
         createdById: 10,

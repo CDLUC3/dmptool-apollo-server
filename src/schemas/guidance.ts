@@ -1,4 +1,4 @@
-import gql from "graphql-tag";
+import { gql } from 'graphql-tag';
 
 export const typeDefs = gql`
   extend type Query {
@@ -150,17 +150,21 @@ export const typeDefs = gql`
     title: String
     "The guidance text content (HTML)"
     guidanceText: String!
+    "The sample text content (HTML)"
+    sampleText: String
   }
 
   "Types of guidance sources"
   enum GuidanceSourceType {
     "Best practice guidance from DMP Tool"
     BEST_PRACTICE
-    "Guidance from the template owner organization"
+    "Guidance from the template owner affiliation"
     TEMPLATE_OWNER
     "Guidance from the user's affiliation"
     USER_AFFILIATION
-    "Guidance from user-selected organizations"
+    "Guidance from user-selected affiliations"
     USER_SELECTED
+    "Guidance from another affiliation that has not yet been selected by the user"
+    OTHER_AFFILIATION
   }
 `;

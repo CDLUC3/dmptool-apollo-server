@@ -2,12 +2,12 @@
 //       SuperAdmins to update them.
 //       Load the appropriate message and send it out
 import nodemailer, { TransportOptions } from 'nodemailer';
-import { MyContext } from "../context";
-import { User } from "../models/User";
-import { awsConfig } from "../config/awsConfig";
-import { emailConfig } from "../config/emailConfig";
-import { prepareObjectForLogs } from "../logger";
-import { generalConfig } from '../config/generalConfig';
+import { MyContext } from "../context.js";
+import { User } from "../models/User.js";
+import { awsConfig } from "../config/awsConfig.js";
+import { emailConfig } from "../config/emailConfig.js";
+import { prepareObjectForLogs } from "../logger.js";
+import { generalConfig } from '../config/generalConfig.js';
 
 export const emailSubjects = {
   emailConfirmation: 'Please confirm your email address',
@@ -55,16 +55,6 @@ Please do not reply to this email. If you have any questions or need help, pleas
 <p>%{message}</p>
 <p>-----------------------------------------------------------</p>
 <p>%{attribution}</p>
-`,
-  sendResetPassword: `
-<p>Hello %{userEmail},</p>
-<p>Someone has requested a link to change your DMP Tool password. You can do this through the link below.</p>
-<p><a href="%{resetPasswordUrl}">Change my password</a></p>
-<p>If you didn't request this, please ignore this email.</p>
-<p>Your password won't change until you access the link above and create a new one.</p>
-<p>All the best,<br>The DMP Tool team</p>
-<p><small>Please do not reply to this email. If you have any questions or need help, please contact us at
-<a href="mailto:%{helpDeskEmail}">%{helpDeskEmail}</a> or visit the <a href="%{helpUrl}">Help Page</a>.</small></p>
 `,
 }
 
@@ -354,37 +344,5 @@ export const sendContactUsEmail = async (
     body,
     true, // asHTML
     email, // replyTo
-  );
-}
-
-export const sendResetPasswordEmail = async (
-  context: MyContext,
-  user: User,
-  userEmail: string,
-  resetToken: string,
-): Promise<boolean> => {
-  if (!userEmail) {
-    context.logger.error(
-      prepareObjectForLogs({ userId: user.id }),
-      `User with ID ${user.id} does not have an email address and cannot be sent a reset password email`
-    );
-    return false;
-  }
-  const domain = generalConfig.domain;
-  const resetPasswordUrl = `${generalConfig.domain}/login/reset-password?token=${resetToken}`;
-  const message = emailMessages.sendResetPassword
-    .replace('%{userEmail}', userEmail)
-    .replace('%{resetPasswordUrl}', resetPasswordUrl)
-    .replaceAll('%{helpDeskEmail}', emailConfig.helpDeskAddress)
-    .replace('%{helpUrl}', `${domain}/help`);
-
-  return await sendEmail(
-    context,
-    'ResetPassword',
-    [userEmail],
-    [],
-    [],
-    'Reset Your Password',
-    message
   );
 }

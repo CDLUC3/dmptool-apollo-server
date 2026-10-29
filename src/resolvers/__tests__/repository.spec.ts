@@ -1,40 +1,76 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { ApolloServer } from "@apollo/server";
-import { typeDefs } from "../../schema";
-import { resolvers } from "../../resolver";
 import casual from "casual";
-import { MyContext } from "../../context";
+import { jest } from '@jest/globals';
+
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+mockAppConfigs();
+mockAppLogger();
+
+
+jest.unstable_mockModule('../../datasources/cache.js', () => ({
+  Cache: jest.fn().mockImplementation(() => ({
+    get: jest.fn(),
+    set: jest.fn(),
+    delete: jest.fn(),
+    clear: jest.fn(),
+  })),
+}));
+
+jest.unstable_mockModule('../../services/openSearchService.js', () => ({
+  openSearchFindWorkByIdentifier: jest.fn(),
+  openSearchFindRe3Data: jest.fn(),
+  openSearchFindRe3DataByURIs: jest.fn(),
+  openSearchFindRe3DataSubjects: jest.fn(),
+  openSearchFindRe3DataRepositoryTypes: jest.fn(),
+}));
+
+
+const actualRepositoryService = await import('../../services/repositoryService.js');
+jest.unstable_mockModule('../../services/repositoryService.js', () => ({
+  ...actualRepositoryService,
+}));
+
+import type { MyContext } from "../../context.js";
 import {
+  PaginationType,
+} from '../../types/general.js';
+
+// Dynamic import AFTER mocking the configs and logger
+const { typeDefs } = await import("../../schema.js");
+const { resolvers } = await import("../../resolver.js");
+const { logger } = await import("../../logger.js");
+const {
   buildContext,
   mockResearcherToken,
   mockAdminToken,
   mockSuperAdminToken,
-} from "../../__mocks__/context";
-import { logger } from "../../logger";
-import { JWTAccessToken } from "../../services/tokenService";
-import { getCurrentDate } from '../../utils/helpers'
-
-import {
+} = await import("../../__mocks__/context.js");
+const { getCurrentDate } = await import("../../utils/helpers.js");
+const {
   Repository,
   DEFAULT_DMPTOOL_REPOSITORY_URL,
-} from '../../models/Repository';
-import { ResearchDomain } from '../../models/ResearchDomain';
-import { RepositoryService } from '../../services/repositoryService';
-import {
-  PaginationType,
-} from '../../types/general';
+} = await import('../../models/Repository.js');
+const { ResearchDomain } = await import('../../models/ResearchDomain.js');
+const { RepositoryService } = await import('../../services/repositoryService.js');
 
-jest.mock('../../context.ts');
-jest.mock('../../datasources/cache');
-jest.mock('../../services/openSearchService');
-jest.mock('../../models/Repository');
-jest.mock('../../services/repositoryService');
+type RepositoryInstance = InstanceType<typeof Repository>;
+function asRepository(value: any): RepositoryInstance {
+  return value as RepositoryInstance;
+}
+
+type ResearchDomainInstance = InstanceType<typeof ResearchDomain>;
+function asResearchDomain(value: any): ResearchDomainInstance {
+  return value as ResearchDomainInstance;
+}
 
 let testServer: ApolloServer;
-let token: JWTAccessToken;
+let token: MyContext['token'];
 let context: MyContext;
 
 // Proxy call to the Apollo server test server
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function executeQuery(query: string, variables: any): Promise<any> {
   return await testServer.executeOperation(
     { query, variables },
@@ -60,13 +96,8 @@ afterEach(() => {
 });
 
 describe('Repository Resolvers', () => {
-  let mockRepository: Repository;
-  let mockRepositories: Repository[];
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-
-    mockRepository = {
+  function makeMockRepository(overrides: Record<string, any> = {}) {
+    return {
       id: casual.integer(1, 99),
       uri: `${DEFAULT_DMPTOOL_REPOSITORY_URL}test`,
       name: 'Test Repository',
@@ -81,36 +112,33 @@ describe('Repository Resolvers', () => {
       createdById: casual.integer(1, 9999),
       modifiedById: casual.integer(1, 9999),
       errors: {},
-      addError: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-      hasErrors: jest.fn(() => false),
-    } as unknown as Repository;
+      addError: jest.fn<(...args: any[]) => void>(),
+      create: jest.fn<(...args: any[]) => Promise<any>>(),
+      update: jest.fn<(...args: any[]) => Promise<any>>(),
+      delete: jest.fn<(...args: any[]) => Promise<any>>(),
+      hasErrors: jest.fn<() => boolean>(() => false),
+      ...overrides,
+    };
+  }
+
+  let mockRepository: ReturnType<typeof makeMockRepository>;
+  let mockRepositories: ReturnType<typeof makeMockRepository>[];
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+
+    mockRepository = makeMockRepository();
 
     mockRepositories = [
       mockRepository,
-      {
+      makeMockRepository({
         id: casual.integer(100, 199),
         uri: `${DEFAULT_DMPTOOL_REPOSITORY_URL}test-2`,
         name: 'Second Repository',
-        description: casual.description,
         website: 'https://example2.com',
-        re3dataId: casual.uuid,
-        researchDomains: [],
         repositoryTypes: ['disciplinary'],
         keywords: ['disciplinary'],
-        created: getCurrentDate(),
-        modified: getCurrentDate(),
-        createdById: casual.integer(1, 9999),
-        modifiedById: casual.integer(1, 9999),
-        errors: {},
-        addError: jest.fn(),
-        create: jest.fn(),
-        update: jest.fn(),
-        delete: jest.fn(),
-        hasErrors: jest.fn(() => false),
-      } as unknown as Repository,
+      }),
     ];
   });
 
@@ -143,7 +171,6 @@ describe('Repository Resolvers', () => {
 
         const repositoryServiceSpy = jest
           .spyOn(RepositoryService, 'searchCombined')
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .mockResolvedValue(mockResults as any);
 
         const result = await executeQuery(query, {
@@ -210,7 +237,6 @@ describe('Repository Resolvers', () => {
 
         const repositoryServiceSpy = jest
           .spyOn(RepositoryService, 'searchCombined')
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .mockResolvedValue(mockResults as any);
 
         // Test with lowercase hyphenated format like what comes from OpenSearch
@@ -250,7 +276,6 @@ describe('Repository Resolvers', () => {
 
         const repositoryServiceSpy = jest
           .spyOn(RepositoryService, 'searchCombined')
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .mockResolvedValue(mockResults as any);
 
         // Test with another format
@@ -295,7 +320,7 @@ describe('Repository Resolvers', () => {
         context.token = token;
         const querySpy = jest
           .spyOn(Repository, 'findByURI')
-          .mockResolvedValue(mockRepository);
+          .mockResolvedValue(asRepository(mockRepository));
 
         const result = await executeQuery(query, {
           uri: mockRepository.uri,
@@ -404,7 +429,7 @@ describe('Repository Resolvers', () => {
         const uris = [mockRepositories[0].uri, mockRepositories[1].uri];
         const querySpy = jest
           .spyOn(Repository, 'findByURIs')
-          .mockResolvedValue(mockRepositories);
+          .mockResolvedValue(mockRepositories.map(asRepository));
 
         const result = await executeQuery(query, { uris });
 
@@ -459,7 +484,6 @@ describe('Repository Resolvers', () => {
         const uris = [mockRepository.uri];
         const querySpy = jest
           .spyOn(RepositoryService, 'searchRe3DataByURIs')
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .mockResolvedValue([mockRepository] as any);
 
         const result = await executeQuery(query, { uris });
@@ -590,7 +614,6 @@ describe('Repository Resolvers', () => {
           }
         }`;
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let mockInput: any;
 
       beforeEach(() => {
@@ -608,11 +631,11 @@ describe('Repository Resolvers', () => {
 
         const createSpy = jest
           .spyOn(Repository.prototype, 'create')
-          .mockResolvedValue(mockRepository);
+          .mockResolvedValue(asRepository(mockRepository));
 
         jest
           .spyOn(Repository, 'findById')
-          .mockResolvedValue(mockRepository);
+          .mockResolvedValue(asRepository(mockRepository));
 
         const result = await executeQuery(query, { input: mockInput });
 
@@ -635,12 +658,15 @@ describe('Repository Resolvers', () => {
       it('should include errors when creation fails', async () => {
         context.token = token;
 
-        const failedRepo = { ...mockRepository, errors: { general: ['Creation failed'] } } as unknown as Repository;
+        const failedRepo = {
+          ...mockRepository,
+          errors: { general: ['Creation failed'] }
+        }
         jest.spyOn(Repository.prototype, 'hasErrors').mockReturnValue(true);
 
         const createSpy = jest
           .spyOn(Repository.prototype, 'create')
-          .mockResolvedValue(failedRepo);
+          .mockResolvedValue(asRepository(failedRepo));
 
         const result = await executeQuery(query, { input: mockInput });
 
@@ -656,23 +682,23 @@ describe('Repository Resolvers', () => {
           researchDomainIds: [1, 2],
         };
 
-        const mockDomain = {
+        const mockDomain = asRepository({
           id: 1,
           name: 'Test Domain',
-          addToRepository: jest.fn().mockResolvedValue(true),
-        } as unknown as ResearchDomain;
+          addToRepository: jest.fn<() => Promise<boolean>>().mockResolvedValue(true),
+        });
 
         jest
           .spyOn(Repository.prototype, 'create')
-          .mockResolvedValue(mockRepository);
+          .mockResolvedValue(asRepository(mockRepository));
 
         jest
           .spyOn(ResearchDomain, 'findById')
-          .mockResolvedValue(mockDomain);
+          .mockResolvedValue(asResearchDomain(mockDomain));
 
         jest
           .spyOn(Repository, 'findById')
-          .mockResolvedValue(mockRepository);
+          .mockResolvedValue(asRepository(mockRepository));
 
         const result = await executeQuery(query, {
           input: mockInputWithDomains,
@@ -710,7 +736,6 @@ describe('Repository Resolvers', () => {
           }
         }`;
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let mockInput: any;
 
       beforeEach(() => {
@@ -727,11 +752,11 @@ describe('Repository Resolvers', () => {
 
         jest
           .spyOn(Repository, 'findById')
-          .mockResolvedValue(mockRepository);
+          .mockResolvedValue(asRepository(mockRepository));
 
         jest
           .spyOn(Repository.prototype, 'update')
-          .mockResolvedValue(mockRepository);
+          .mockResolvedValue(asRepository(mockRepository));
 
         jest
           .spyOn(ResearchDomain, 'findByRepositoryId')
@@ -754,7 +779,7 @@ describe('Repository Resolvers', () => {
 
         jest
           .spyOn(Repository, 'findById')
-          .mockResolvedValue(mockRepository);
+          .mockResolvedValue(asRepository(mockRepository));
 
         const result = await executeQuery(query, { input: mockInput });
 
@@ -805,11 +830,11 @@ describe('Repository Resolvers', () => {
 
         jest
           .spyOn(Repository, 'findById')
-          .mockResolvedValue(mockRepository);
+          .mockResolvedValue(asRepository(mockRepository));
 
         jest
           .spyOn(Repository.prototype, 'delete')
-          .mockResolvedValue(mockRepository);
+          .mockResolvedValue(asRepository(mockRepository));
 
         const result = await executeQuery(query, {
           repositoryId: mockRepository.id,
@@ -823,7 +848,7 @@ describe('Repository Resolvers', () => {
 
         jest
           .spyOn(Repository, 'findById')
-          .mockResolvedValue(mockRepository);
+          .mockResolvedValue(asRepository(mockRepository));
 
         const result = await executeQuery(query, {
           repositoryId: mockRepository.id,
@@ -884,21 +909,21 @@ describe('Repository Resolvers', () => {
       it('should merge repositories when superadmin', async () => {
         context.token = await mockSuperAdminToken();
 
-        const toKeep = { ...mockRepository } as unknown as Repository;
-        const toRemove = { ...mockRepositories[1] } as unknown as Repository;
+        const toKeep = { ...mockRepository };
+        const toRemove = { ...mockRepositories[1] };
 
         jest
           .spyOn(Repository, 'findById')
-          .mockResolvedValueOnce(toKeep)
-          .mockResolvedValueOnce(toRemove);
+          .mockResolvedValueOnce(asRepository(toKeep))
+          .mockResolvedValueOnce(asRepository(toRemove));
 
         jest
           .spyOn(Repository.prototype, 'update')
-          .mockResolvedValue(toKeep);
+          .mockResolvedValue(asRepository(toKeep));
 
         jest
           .spyOn(Repository.prototype, 'delete')
-          .mockResolvedValue(toRemove);
+          .mockResolvedValue(asRepository(toRemove));
 
         const result = await executeQuery(query, {
           repositoryToKeepId: toKeep.id,
@@ -911,13 +936,13 @@ describe('Repository Resolvers', () => {
       it('should throw ForbiddenError when admin tries to merge', async () => {
         context.token = await mockAdminToken();
 
-        const toKeep = { ...mockRepository } as unknown as Repository;
-        const toRemove = { ...mockRepositories[1] } as unknown as Repository;
+        const toKeep = { ...mockRepository };
+        const toRemove = { ...mockRepositories[1] };
 
         jest
           .spyOn(Repository, 'findById')
-          .mockResolvedValueOnce(toKeep)
-          .mockResolvedValueOnce(toRemove);
+          .mockResolvedValueOnce(asRepository(toKeep))
+          .mockResolvedValueOnce(asRepository(toRemove));
 
         const result = await executeQuery(query, {
           repositoryToKeepId: toKeep.id,
@@ -945,16 +970,16 @@ describe('Repository Resolvers', () => {
       it('should throw ForbiddenError when trying to remove non-DMPTool repository', async () => {
         context.token = await mockSuperAdminToken();
 
-        const toKeep = { ...mockRepository } as unknown as Repository;
+        const toKeep = { ...mockRepository };
         const toRemove = {
           ...mockRepositories[1],
           uri: 'https://external.org/repo',
-        } as unknown as Repository;
+        };
 
         jest
           .spyOn(Repository, 'findById')
-          .mockResolvedValueOnce(toKeep)
-          .mockResolvedValueOnce(toRemove);
+          .mockResolvedValueOnce(asRepository(toKeep))
+          .mockResolvedValueOnce(asRepository(toRemove));
 
         const result = await executeQuery(query, {
           repositoryToKeepId: toKeep.id,

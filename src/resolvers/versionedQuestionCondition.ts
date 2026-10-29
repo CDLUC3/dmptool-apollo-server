@@ -1,20 +1,22 @@
-import { Resolvers } from "../types";
-import { MyContext } from "../context";
-import { VersionedQuestionCondition } from "../models/VersionedQuestionCondition";
-import { AuthenticationError, ForbiddenError, InternalServerError } from "../utils/graphQLErrors";
-import { prepareObjectForLogs } from "../logger";
-import { isAuthorized } from "../services/authService";
+import { Resolvers } from "../types.js";
+import { MyContext } from "../context.js";
+import { VersionedQuestionCondition } from "../models/VersionedQuestionCondition.js";
+import { VersionedQuestionConditionGroup } from "../models/VersionedQuestionConditionGroups.js";
+import { AuthenticationError, ForbiddenError, InternalServerError } from "../utils/graphQLErrors.js";
+import { prepareObjectForLogs } from "../logger.js";
+import { isAuthorized } from "../services/authService.js";
 import { GraphQLError } from "graphql";
-import { normaliseDateTime } from "../utils/helpers";
+import { normaliseDateTime } from "../utils/helpers.js";
 
 export const resolvers: Resolvers = {
   Query: {
-    // return all forcibly published conditions for the specified versioned question
-    publishedConditionsForQuestion: async (_, { versionedQuestionId }, context: MyContext): Promise<VersionedQuestionCondition[]> => {
-      const reference = 'publishedConditionsForQuestion resolver';
+    // return all published condition groups (and their nested
+    // conditions) for the specified versioned question
+    publishedConditionGroupsForQuestion: async (_, { versionedQuestionId }, context: MyContext): Promise<VersionedQuestionConditionGroup[]> => {
+      const reference = 'publishedConditionGroupsForQuestion resolver';
       try {
         if (isAuthorized(context.token)) {
-          return await VersionedQuestionCondition.findByVersionedQuestionId(reference, context, versionedQuestionId);
+          return await VersionedQuestionConditionGroup.findByVersionedQuestionId(reference, context, versionedQuestionId);
         }
         // Unauthorized!
         throw context?.token ? ForbiddenError() : AuthenticationError();
@@ -25,6 +27,22 @@ export const resolvers: Resolvers = {
         throw InternalServerError();
       }
     },
+  },
+
+  VersionedQuestionConditionGroup: {
+    conditions: async (parent: VersionedQuestionConditionGroup, _, context: MyContext) => {
+      return await VersionedQuestionCondition.findByVersionedQuestionConditionGroupId(
+        'VersionedQuestionConditionGroup.conditions resolver',
+        context,
+        parent.id
+      );
+    },
+    created: (parent: VersionedQuestionConditionGroup) => {
+      return normaliseDateTime(parent.created);
+    },
+    modified: (parent: VersionedQuestionConditionGroup) => {
+      return normaliseDateTime(parent.modified);
+    }
   },
 
   VersionedQuestionCondition: {

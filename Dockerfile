@@ -36,7 +36,7 @@ RUN pip install --no-cache-dir awscli-local
 COPY package*.json tsconfig.json codegen.ts .env dmptool-*.tgz ./
 
 # Install dependencies in /app
-RUN npm ci
+RUN npm install
 
 # Copy the rest of our Apollo Server folder into /app
 COPY . .

@@ -1,7 +1,7 @@
-import { MySqlModel } from "./MySqlModel";
-import { TemplateCustomizationMigrationStatus } from "./TemplateCustomization";
-import { isNullOrUndefined } from "../utils/helpers";
-import { MyContext } from "../context";
+import { MySqlModel } from "./MySqlModel.js";
+import { TemplateCustomizationMigrationStatus } from "./TemplateCustomization.js";
+import { isNullOrUndefined } from "../utils/helpers.js";
+import { MyContext } from "../context.js";
 
 /**
  * The type of section the custom section follows (is pinned to)

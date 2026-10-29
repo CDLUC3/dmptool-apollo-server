@@ -1,26 +1,26 @@
-import { Resolvers } from "../types";
-import { MyContext } from '../context';
+import { Resolvers } from "../types.js";
+import { MyContext } from '../context.js';
 import {
   AdminNotificationResults,
   AdminNotification,
-} from '../models/AdminNotifications';
-import { Plan } from '../models/Plan';
-import { Template } from '../models/Template';
-import { PlanFeedback } from '../models/PlanFeedback';
-import { User } from '../models/User';
+} from '../models/AdminNotifications.js';
+import { Plan } from '../models/Plan.js';
+import { Template } from '../models/Template.js';
+import { PlanFeedback } from '../models/PlanFeedback.js';
+import { User } from '../models/User.js';
 import {
   authenticatedResolver,
-} from "../services/authService";
+} from "../services/authService.js";
 import {
   ForbiddenError,
   InternalServerError,
   NotFoundError
-} from "../utils/graphQLErrors";
-import { prepareObjectForLogs } from "../logger";
+} from "../utils/graphQLErrors.js";
+import { prepareObjectForLogs } from "../logger.js";
 import { GraphQLError } from "graphql";
-import { UserRole } from "../models/User";
-import { PaginatedQueryResults, PaginationOptions } from "../types/general";
-import { TemplateCustomization } from "../models/TemplateCustomization";
+import { UserRole } from "../models/User.js";
+import { PaginatedQueryResults, PaginationOptions } from "../types/general.js";
+import { TemplateCustomization } from "../models/TemplateCustomization.js";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -162,12 +162,24 @@ export const resolvers: Resolvers = {
       return null;
     },
 
-    // Fetch the feedback associated with the plan if metadata contains a planId
+    // Fetch the feedback round this notification was created for. Each feedback request creates a
+    // new row in the feedback table, so pinning the notification to its round means read (older)
+    // notifications keep their original messageToOrg while new ones show the latest message.
     feedback: async (parent: AdminNotificationResults, _, context: MyContext): Promise<PlanFeedback | null> => {
+      const reference = 'Chained AdminNotificationResults.feedback';
+      if (parent.metadata?.feedbackId) {
+        return await PlanFeedback.findById(reference, context, parent.metadata.feedbackId);
+      }
+
+      // Legacy notifications (created before feedbackId was stored in metadata) only have a planId,
+      // so use the latest feedback round that was requested at or before the notification was created
       if (parent.metadata?.planId) {
-        const feedbackList = await PlanFeedback.findByPlanId('Chained AdminNotificationResults.feedback', context, parent.metadata.planId);
-        // Return the most recent open feedback round
-        return feedbackList.find(fb => fb.completed === null) ?? null;
+        const feedbackList = await PlanFeedback.findByPlanId(reference, context, parent.metadata.planId);
+        const sorted = [...feedbackList].sort((a, b) => b.id - a.id);// newest round first
+        const notificationCreated = new Date(parent.created).getTime();
+        return sorted.find((fb) => new Date(fb.requested).getTime() <= notificationCreated) // newest round requested at or before the notification was created
+          ?? sorted[0] // no matching round found, return the latest round
+          ?? null; // plan has no feedback rows at all
       }
       return null;
     },

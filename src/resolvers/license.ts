@@ -1,12 +1,12 @@
 
-import { prepareObjectForLogs } from '../logger';
-import { Resolvers } from "../types";
-import { DEFAULT_DMPTOOL_LICENSE_URL, License } from "../models/License";
-import { MyContext } from '../context';
-import { isAdmin, isSuperAdmin } from '../services/authService';
-import { AuthenticationError, ForbiddenError, InternalServerError, NotFoundError } from '../utils/graphQLErrors';
+import { prepareObjectForLogs } from '../logger.js';
+import { Resolvers } from "../types.js";
+import { DEFAULT_DMPTOOL_LICENSE_URL, License } from "../models/License.js";
+import { MyContext } from '../context.js';
+import { isAdmin, isSuperAdmin } from '../services/authService.js';
+import { AuthenticationError, ForbiddenError, InternalServerError, NotFoundError } from '../utils/graphQLErrors.js';
 import { GraphQLError } from 'graphql';
-import { isNullOrUndefined, normaliseDateTime } from '../utils/helpers';
+import { isNullOrUndefined, normaliseDateTime } from '../utils/helpers.js';
 
 export const resolvers: Resolvers = {
   Query: {
@@ -50,7 +50,7 @@ export const resolvers: Resolvers = {
       const reference = 'addLicense resolver';
       try {
         if (isAdmin(context.token)) {
-          const newLicense = new License({ name, uri, description, recommended});
+          const newLicense = new License({ name, uri, description, recommended });
 
           // Only a SuperAdmin can define a default recommended license
           if (!isSuperAdmin(context.token)) {

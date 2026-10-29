@@ -1,9 +1,9 @@
-import { MyContext } from "../context";
-import { PaginatedQueryResults, PaginationOptions, PaginationOptionsForCursors, PaginationOptionsForOffsets, PaginationType } from "../types/general";
-import { defaultLanguageId, supportedLanguages } from "./Language";
-import { MySqlModel } from "./MySqlModel";
-import { prepareObjectForLogs } from "../logger";
-import { isNullOrUndefined } from "../utils/helpers";
+import { MyContext } from "../context.js";
+import { PaginatedQueryResults, PaginationOptions, PaginationOptionsForCursors, PaginationOptionsForOffsets, PaginationType } from "../types/general.js";
+import { defaultLanguageId, supportedLanguages } from "./Language.js";
+import { MySqlModel } from "./MySqlModel.js";
+import { prepareObjectForLogs } from "../logger.js";
+import { isNullOrUndefined } from "../utils/helpers.js";
 
 export enum TemplateVisibility {
   ORGANIZATION = 'ORGANIZATION', // Template is only available to Researchers that belong to the same affiliation
@@ -87,13 +87,13 @@ export class TemplateSearchResult {
     }
 
     const sqlStatement = 'SELECT t.id, t.name, t.description, t.latestPublishVisibility, t.bestPractice, t.isDirty, ' +
-                                't.latestPublishVersion, t.latestPublishDate, t.ownerId, a.displayName, t.isDefault, ' +
-                                't.createdById, TRIM(CONCAT(cu.givenName, CONCAT(\' \', cu.surName))) as createdByName, t.created, ' +
-                                't.modifiedById, TRIM(CONCAT(mu.givenName, CONCAT(\' \', mu.surName))) as modifiedByName, t.modified ' +
-                          'FROM templates t ' +
-                            'INNER JOIN affiliations a ON a.uri = t.ownerId ' +
-                            'INNER JOIN users cu ON cu.id = t.createdById ' +
-                            'INNER JOIN users mu ON mu.id = t.modifiedById';
+      't.latestPublishVersion, t.latestPublishDate, t.ownerId, a.displayName, t.isDefault, ' +
+      't.createdById, TRIM(CONCAT(cu.givenName, CONCAT(\' \', cu.surName))) as createdByName, t.created, ' +
+      't.modifiedById, TRIM(CONCAT(mu.givenName, CONCAT(\' \', mu.surName))) as modifiedByName, t.modified ' +
+      'FROM templates t ' +
+      'INNER JOIN affiliations a ON a.uri = t.ownerId ' +
+      'INNER JOIN users cu ON cu.id = t.createdById ' +
+      'INNER JOIN users mu ON mu.id = t.modifiedById';
 
     const response: PaginatedQueryResults<TemplateSearchResult> = await Template.queryWithPagination(
       context,

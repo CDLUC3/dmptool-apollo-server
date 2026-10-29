@@ -1,7 +1,7 @@
-import { MyContext } from "../context";
-import { isNullOrUndefined, validateURL } from "../utils/helpers";
-import { MySqlModel } from "./MySqlModel";
-import { TemplateLinkType } from "./TemplateLink";
+import { MyContext } from "../context.js";
+import { isNullOrUndefined, validateURL } from "../utils/helpers.js";
+import { MySqlModel } from "./MySqlModel.js";
+import { TemplateLinkType } from "./TemplateLink.js";
 
 // A link that can be displayed for a template
 export class VersionedTemplateLink extends MySqlModel {
@@ -44,7 +44,7 @@ export class VersionedTemplateLink extends MySqlModel {
     );
 
     // Then make sure it doesn't already exist
-    if(await this.isValid()) {
+    if (await this.isValid()) {
       if (!isNullOrUndefined(current)) {
         this.addError('general', `That link is already associated with this Template`);
       } else {

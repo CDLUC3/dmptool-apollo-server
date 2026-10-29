@@ -1,6 +1,6 @@
-import { MyContext } from "../context";
-import { MySqlModel } from "./MySqlModel";
-import { PlanFeedbackStatus } from "../types";
+import { MyContext } from "../context.js";
+import { MySqlModel } from "./MySqlModel.js";
+import { PlanFeedbackStatus } from "../types.js";
 
 interface PlanFeedbackOptions {
   id?: number;

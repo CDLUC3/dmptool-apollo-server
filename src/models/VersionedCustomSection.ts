@@ -1,7 +1,7 @@
-import { MySqlModel } from "./MySqlModel";
-import { isNullOrUndefined } from "../utils/helpers";
-import { MyContext } from "../context";
-import { PinnedSectionTypeEnum } from "./CustomSection";
+import { MySqlModel } from "./MySqlModel.js";
+import { isNullOrUndefined } from "../utils/helpers.js";
+import { MyContext } from "../context.js";
+import { PinnedSectionTypeEnum } from "./CustomSection.js";
 
 /**
  * This object represents a versioned snapshot of a custom section that an
@@ -197,6 +197,30 @@ export class VersionedCustomSection extends MySqlModel {
   }
 
   /**
+   * Find the custom sections by their ids
+   *
+   * @param reference The reference to use for logging errors.
+   * @param context The Apollo context.
+   * @param ids The custom section version ids.
+   * @returns The custom section versions.
+   */
+  static async findByIds(
+    reference: string,
+    context: MyContext,
+    ids: number[]
+  ): Promise<VersionedCustomSection[]> {
+    if (!Array.isArray(ids) || ids.length === 0) return [];
+
+    const results = await VersionedCustomSection.query(
+      context,
+      `SELECT * FROM ${VersionedCustomSection.tableName} WHERE id IN (${ids.map((): string => '?').join(',')})`,
+      ids.map((id: number): string => id.toString()),
+      reference
+    );
+    return Array.isArray(results) && results.length > 0 ? results.map(r => new VersionedCustomSection(r)) : [];
+  }
+
+  /**
    * Find the custom section version by the customization, pinned section
    *
    * @param reference The reference to use for logging errors.
@@ -237,7 +261,6 @@ export class VersionedCustomSection extends MySqlModel {
     context: MyContext,
     planId: number,
     customSectionId: number,
-    affiliationId: string
   ): Promise<VersionedCustomSection> {
     const sql = `
     SELECT vcs.*
@@ -245,18 +268,16 @@ export class VersionedCustomSection extends MySqlModel {
     INNER JOIN versionedTemplateCustomizations vtc
       ON vcs.versionedTemplateCustomizationId = vtc.id
     INNER JOIN plans p
-      ON vtc.currentVersionedTemplateId = p.versionedTemplateId
+      ON p.versionedTemplateCustomizationId = vcs.versionedTemplateCustomizationId
     WHERE p.id = ?
       AND vcs.customSectionId = ?
-      AND vtc.affiliationId = ?
-      AND vtc.active = 1
     ORDER BY vtc.modified DESC
     LIMIT 1
   `;
     const results = await VersionedCustomSection.query(
       context,
       sql,
-      [planId.toString(), customSectionId.toString(), affiliationId],
+      [planId.toString(), customSectionId.toString()],
       reference
     );
     return Array.isArray(results) && results.length > 0

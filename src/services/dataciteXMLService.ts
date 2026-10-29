@@ -1,10 +1,34 @@
-import { ORCID_REGEX } from '../utils/helpers';
+import { ORCID_REGEX } from '../utils/helpers.js';
 export interface DataCitePerson {
   givenName?: string;
   familyName: string;
   orcid?: string;              // bare or full URL — normalized internally
   affiliationName?: string;
   affiliationIdentifier?: DataCiteAffiliationIdentifier;
+}
+
+export interface DataCiteSourceMember {
+  isPrimaryContact: boolean;
+  memberRoles: {
+    uri: string;
+  }[];
+  projectMember: {
+    givenName?: string;
+    surName?: string;
+    orcid?: string;
+    affiliation?: DataCiteSourceAffiliation;
+  },
+}
+
+export interface DataCiteSourceFunding {
+  projectFunding?: {
+    affiliation?: DataCiteSourceFundingAffiliation;
+    grantId?: string;
+  };
+}
+
+export interface DataCiteSourceAlternateIdentifier {
+  alternateIdentifier: string;
 }
 
 export interface DataCiteContributor extends DataCitePerson {
@@ -94,7 +118,7 @@ const CREDIT_TO_DATACITE_CONTRIBUTOR_TYPE: Record<string, string> = {
   'credit.niso.org/contributor-roles/supervision': 'Supervisor',
   'credit.niso.org/contributor-roles/writing-review-editing': 'Editor',
 
-  // Reasoned from DataCite's contributorType definitions 
+  // Reasoned from DataCite's contributorType definitions
   'credit.niso.org/contributor-roles/resources': 'Sponsor',
   'credit.niso.org/contributor-roles/funding-acquisition': 'ProjectLeader',
   'credit.niso.org/contributor-roles/conceptualization': 'Researcher',
@@ -321,7 +345,7 @@ export function planToDataCiteMetadata(input: {
     });
 
   // AlternateIdentifier holds another ID for *this* DMP,
-  // so it maps to DataCite's <alternateIdentifiers>, not <relatedIdentifiers>. 
+  // so it maps to DataCite's <alternateIdentifiers>, not <relatedIdentifiers>.
   const alternateIdentifiers: DataCiteAlternateIdentifier[] = input.alternateIdentifiers.map(a => ({
     identifier: a.alternateIdentifier,
     identifierType: /^10\.\d{4,9}\//.test(a.alternateIdentifier) ? 'DOI' : 'Local',

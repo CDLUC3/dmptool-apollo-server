@@ -1,4 +1,4 @@
-import { ProjectCollaborator } from "../models/Collaborator";
+import { ProjectCollaborator } from "../models/Collaborator.js";
 
 // Can delete a comment if comment creator or Primary-level collaborator
 export function canDeleteComment({

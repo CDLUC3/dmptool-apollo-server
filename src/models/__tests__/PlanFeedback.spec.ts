@@ -1,9 +1,20 @@
+import { jest } from '@jest/globals';
 import casual from "casual";
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { PlanFeedback } from "../PlanFeedback";
-import { logger } from "../../logger";
 
-jest.mock('../../context.ts');
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+//Dynamic imports AFTER all mocks are registered
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
+const { PlanFeedback } = await import('../PlanFeedback.js');
 
 let context;
 
@@ -173,7 +184,7 @@ describe('update', () => {
   });
 
   it('returns the PlanFeedback with errors if it is not valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (planFeedback.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -183,7 +194,7 @@ describe('update', () => {
   });
 
   it('returns an error if the Answer has no id', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (planFeedback.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
@@ -194,13 +205,13 @@ describe('update', () => {
   });
 
   it('returns the updated PlanFeedback', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (planFeedback.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
     updateQuery.mockResolvedValueOnce(planFeedback);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof PlanFeedback>>>();
     (PlanFeedback.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(planFeedback);
 
@@ -238,7 +249,7 @@ describe('create', () => {
   });
 
   it('returns the PlanFeedback without errors if it is valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (planFeedback.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -254,7 +265,7 @@ describe('create', () => {
   });
 
   it('returns the newly added PlanFeedback', async () => {
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof PlanFeedback>>>();
     (PlanFeedback.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(planFeedback);
     const result = await planFeedback.create(context);
@@ -286,7 +297,7 @@ describe('delete', () => {
   });
 
   it('returns null if it was not able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<null>>();
     (PlanFeedback.delete as jest.Mock) = deleteQuery;
 
     deleteQuery.mockResolvedValueOnce(null);
@@ -294,11 +305,11 @@ describe('delete', () => {
   });
 
   it('returns the PlanFeedback if it was able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<boolean>>();
     (PlanFeedback.delete as jest.Mock) = deleteQuery;
     deleteQuery.mockResolvedValueOnce(planFeedback);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof PlanFeedback>>>();
     (PlanFeedback.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(planFeedback);
 

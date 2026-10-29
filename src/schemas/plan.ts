@@ -1,9 +1,9 @@
-import gql from "graphql-tag";
+import { gql } from 'graphql-tag';
 
 export const typeDefs = gql`
   extend type Query {
     "Get all plans for the research project with pagination support"
-    plans(userId: Int!,term: String, paginationOptions: PaginationOptions): PaginatedPlanResults
+    plans(userId: Int!, term: String, paginationOptions: PaginationOptions): PaginatedPlanResults
     "Get all of the plans for a specific Project"
     plansByProjectId(projectId: Int!): [Plan]
 
@@ -11,6 +11,8 @@ export const typeDefs = gql`
     plan(planId: Int!): Plan
     "Lookup a plan by its DMP id"
     planByDMPId(dmpId: String!): Plan
+    "Get data for a specific version of a plan"
+    publicPlanVersionByDMPId(dmpId: String!, version: String!): PlanVersionSnapshot
     "Lookup a plan by an alternate identifier"
     planByAlternateIdentifier(alternateIdentifier: String!): Plan
   }
@@ -42,6 +44,130 @@ export const typeDefs = gql`
     updateEntirePlan(input: UpdateEntirePlanInput!): Plan
     "Delete/tomb-stone an entire plan (and project if applicable) in one shot"
     removeEntirePlanByDMPId(dmpId: String!): Boolean
+  }
+
+  type PlanVersionSnapshot {
+    isHistoricalVersion: Boolean!
+    versionTimestamp: String!
+    latestVersionTimestamp: String!
+
+    title: String
+    dmpId: String
+    created: String
+    modified: String
+    registered: String
+    visibility: PlanVisibility
+
+    owner: PlanVersionSnapshotOwner
+
+    versionedTemplate: PlanVersionSnapshotTemplate
+
+    project: PlanVersionSnapshotProject
+    members: [PlanVersionSnapshotMember!]
+    fundings: [PlanVersionSnapshotFunding!]
+    answers: [PlanVersionSnapshotAnswer!]
+    versions: [PlanVersionSnapshotVersion!]
+    relatedWorks: [PlanVersionSnapshotRelatedWork!]
+
+    "Bare related-work identifiers only — full citation metadata isn't preserved in archived snapshots"
+    relatedWorkIdentifiers: [String!]
+  }
+
+  type PlanVersionSnapshotOwner {
+    id: Int
+    name: String
+    displayName: String
+    uri: String
+    homepage: String
+  }
+
+  type PlanVersionSnapshotTemplate {
+    id: Int
+    title: String
+    version: String
+  }
+
+  type PlanVersionSnapshotVersion {
+    timestamp: String
+    url: String
+  }
+
+  type PlanVersionSnapshotProject {
+    title: String
+    abstractText: String
+    startDate: String
+    endDate: String
+    researchDomain: PlanVersionSnapshotResearchDomain
+  }
+
+  type PlanVersionSnapshotResearchDomain {
+    name: String
+  }
+
+  type PlanVersionSnapshotFunding {
+    funderName: String
+    funderUri: String
+    status: ProjectFundingStatus
+    grantId: String
+    funderOpportunityNumber: String
+    funderProjectNumber: String
+  }
+
+  type PlanVersionSnapshotMemberRole {
+    id: Int
+    label: String
+    uri: String
+  }
+
+  type PlanVersionSnapshotMember {
+    name: String
+    orcid: String
+    affiliationName: String
+    isPrimaryContact: Boolean
+    memberRoles: [PlanVersionSnapshotMemberRole!]
+  }
+
+  type PlanVersionSnapshotRelatedWork {
+    "The unique identifier for the Object"
+    id: Int
+    "The version of the work"
+    workVersion: PlanVersionSnapshotWorkVersion!
+  }
+
+  """
+  A lighter-weight view of a WorkVersion for use within a plan version snapshot —
+   only the fields needed for citation display, since full work-version metadata
+   (hash, institutions, funders, awards, timestamps) isn't preserved in archived snapshots.
+  """
+  type PlanVersionSnapshotWorkVersion {
+    "The type of the work"
+    workType: WorkType!
+    "The date that the work was published YYYY-MM-DD"
+    publicationDate: String
+    "The title of the work"
+    title: String
+    "The authors of the work"
+    authors: [Author!]!
+    "The venue where the work was published, e.g. IEEE Transactions on Software Engineering, Zenodo etc"
+    publicationVenue: String
+    "The name of the source where the work was found"
+    sourceName: String!
+    "The URL for the source of the work"
+    sourceUrl: String
+    "The work"
+    work: PlanVersionSnapshotWork!
+  }
+
+  "A lighter-weight view of a Work for use within a plan version snapshot."
+  type PlanVersionSnapshotWork {
+    "The Digital Object Identifier (DOI) of the work"
+    doi: String!
+  }
+
+  type PlanVersionSnapshotAnswer {
+    id: Int
+    questionText: String
+    json: String
   }
 
   type PlanSearchResult{
@@ -85,23 +211,23 @@ export const typeDefs = gql`
   }
 
   type PaginatedPlanResults implements PaginatedQueryResults {
-  "The plans that match the search criteria"
-  items: [PlanSearchResult]
-  "The total number of possible items"
-  totalCount: Int
-  "The number of items returned"
-  limit: Int
-  "The cursor to use for the next page of results (for infinite scroll/load more)"
-  nextCursor: String
-  "The current offset of the results (for standard offset pagination)"
-  currentOffset: Int
-  "Whether or not there is a next page"
-  hasNextPage: Boolean
-  "Whether or not there is a previous page"
-  hasPreviousPage: Boolean
-  "The sortFields that are available for this query (for standard offset pagination only!)"
-  availableSortFields: [String]
-}
+    "The plans that match the search criteria"
+    items: [PlanSearchResult]
+    "The total number of possible items"
+    totalCount: Int
+    "The number of items returned"
+    limit: Int
+    "The cursor to use for the next page of results (for infinite scroll/load more)"
+    nextCursor: String
+    "The current offset of the results (for standard offset pagination)"
+    currentOffset: Int
+    "Whether or not there is a next page"
+    hasNextPage: Boolean
+    "Whether or not there is a previous page"
+    hasPreviousPage: Boolean
+    "The sortFields that are available for this query (for standard offset pagination only!)"
+    availableSortFields: [String]
+  }
 
 
   "The progress the user has made within a section of the plan"
@@ -166,19 +292,21 @@ export const typeDefs = gql`
     COMPLETE
   }
 
-  "A Data Managament Plan (DMP)"
+  "A Data Management Plan (DMP)"
   type Plan {
-    "The unique identifer for the Object"
+    "The unique identifier for the Object"
     id: Int
     "The user who created the Object"
     createdById: Int
     "The user who created the plan"
     planCreator: User
+    "The affiliation that owns the plan"
+    owner: Affiliation
     "The timestamp when the Object was created"
     created: String
     "The user who last modified the Object"
     modifiedById: Int
-    "The timestamp when the Object was last modifed"
+    "The timestamp when the Object was last modified"
     modified: String
     "Errors associated with the Object"
     errors: PlanErrors
@@ -203,8 +331,13 @@ export const typeDefs = gql`
     languageId: String
     "Whether or not the plan is featured on the public plans page"
     featured: Boolean
-    "The section search results"
+    "The section search results (high level progress information for the section)"
     versionedSections: [PlanSectionProgress!]
+    "The sections of the plan (full detail for each section)"
+    sections: [PlanSection!]
+    "The current user's access level for the plan"
+    myAccessLevel: ProjectCollaboratorAccessLevel
+
     "The progress the user has made within the plan"
     progress: PlanProgress
 
@@ -228,8 +361,93 @@ export const typeDefs = gql`
     "Alternate identifiers for the plan"
     alternateIdentifiers: [AlternateIdentifier!]
 
+    "Related works that have been accepted/verified as associated with the plan"
+    acceptedWorks: [AcceptedWork!]
+
+    "The guidance sources available to the Plan"
+    availableGuidanceSources: [GuidanceSource!]
+
     "Indicates that the plan is not editable by the user (i.e. readOnly = true means the user cannot edit the plan)"
     readOnly: Boolean
+
+    "Other works related to this plan's project (e.g. publications, datasets)"
+    relatedWorks: [RelatedWorkSearchResult!]
+  }
+
+  "The view of a versioned section required by the EntirePlan type"
+  type PlanSection {
+    "The type of section (customization or template section)"
+    sectionType: String!
+    "The unique identifier for the Template Section (if applicable)"
+    versionedSectionId: Int
+    "The unique identifier for the Custom Section (if applicable)"
+    customSectionId: Int
+
+    "The VersionedSection name/title"
+    title: String!
+    "The displayOrder of this VersionedSection"
+    displayOrder: Int!
+    "The VersionedSection introduction"
+    introduction: String
+    "Requirements that a user must consider in this VersionedSection"
+    requirements: String
+
+    "The number of questions that have been answered in this VersionedSection"
+    answeredQuestions: Int!
+    "The total number of questions in this VersionedSection"
+    totalQuestions: Int!
+
+    "The VersionedQuestions and CustomQuestions associated with this VersionedSection"
+    questions: [PlanQuestion!]
+  }
+
+  "The versioned question view required by the EntirePlan type"
+  type PlanQuestion {
+    "The type of question (customization or template question)"
+    questionType: String!
+    "The unique identifier for the Template Question (if applicable)"
+    versionedQuestionId: Int
+    "The unique identifier for the Custom Question (if applicable)"
+    customQuestionId: Int
+
+    "The display order of the VersionedQuestion"
+    displayOrder: Int
+    "The JSON representation of the question type"
+    json: String
+    "This will be used as a sort of title for the Question"
+    questionText: String
+    "Requirements associated with the Question"
+    requirementText: String
+    "Whether or not the sample text should be used as the default answer for this question"
+    useSampleTextAsDefault: Boolean
+    "To indicate whether the question is required to be completed"
+    required: Boolean
+    "The type of action to take when the display logic matches (e.g. show, hide, send email, etc.)"
+    displayLogicAction: QuestionConditionActionType
+    "Whether ANY or ALL of the groups must match for the display logic to be applied"
+    displayLogicMatchType: QuestionConditionMatchType
+
+    "Whether or not the question has been answered"
+    hasAnswer: Boolean
+    "The answer to the question"
+    answer: Answer
+
+    "The guidance sources for the versioned question"
+    guidanceSources: [GuidanceSource!]
+
+    "The conditional logic for the versioned question"
+    conditionalLogic: [VersionedQuestionConditionalLogic!]
+  }
+
+  type VersionedQuestionConditionalLogic {
+    "The id of the versioned question that has conditional logic"
+    versionedQuestionId: Int!
+    "The id of the versioned question that triggers the conditional logic"
+    triggerQuestionId: Int!
+    "The type of condition (e.g. equals, not equals, greater than, less than, etc.)"
+    conditionType: String!
+    "The value that the trigger question must match for the conditional logic to be applied"
+    conditionMatch: String!
   }
 
   input UpdatePlanInput {
@@ -290,15 +508,15 @@ export const typeDefs = gql`
     members: String
     funding: String
     alternateIdentifiers: String
-    relatedWorks: String
+    acceptedWorks: String
   }
 
   "A version of the plan"
   type PlanVersion {
     "The timestamp of the version, equates to the plan's modified date"
-    timestamp: String
-    "The DMPHub URL for the version"
-    url: String
+    modified: String
+    "The DMP ID for the version"
+    dmpId: String
   }
 
   "Errors associated with the AlternateIdentifier"
@@ -349,6 +567,13 @@ export const typeDefs = gql`
     versionedCustomQuestion: Int
   }
 
+  "Input to create/replace an Accepted Work"
+  input EntirePlanAcceptedWorkFragment {
+    doi: String!
+    workType: WorkType!
+    relationType: RelationType!
+  }
+
   "Input to create an entire Plan (and Project if applicable)"
   input AddEntirePlanInput {
     "The title of the plan"
@@ -375,6 +600,9 @@ export const typeDefs = gql`
     funding: [EntirePlanFundingFragment!]
     "The answers to the questions in the plan's narrative"
     answers: [EntirePlanAnswerFragment!]
+
+    "Related Works associated with the plan"
+    acceptedWorks: [EntirePlanAcceptedWorkFragment!]
   }
 
   "Input to update an entire Project and Plan"
@@ -404,6 +632,8 @@ export const typeDefs = gql`
     funding: [EntirePlanFundingFragment!]
     "The answers to the questions in the plan's narrative"
     answers: [EntirePlanAnswerFragment!]
-  }
 
+    "Related Works associated with the plan"
+    acceptedWorks: [EntirePlanAcceptedWorkFragment!]
+  }
 `;

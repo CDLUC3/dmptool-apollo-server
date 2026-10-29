@@ -1,14 +1,21 @@
-import { MyContext } from "../../context";
-import { VersionedSectionCustomization } from "../VersionedSectionCustomization";
-import { MySqlModel } from "../MySqlModel";
+import { jest } from '@jest/globals';
 
-jest.mock("../MySqlModel", () => ({
-  ...jest.requireActual("../MySqlModel"),
-  query: jest.fn(),
-  insert: jest.fn(),
-  update: jest.fn(),
-  delete: jest.fn(),
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
 }));
+
+import type { MyContext } from "../../context.js";
+
+//Dynamic imports AFTER all mocks are registered
+const { VersionedSectionCustomization } = await import("../VersionedSectionCustomization.js");
+const { MySqlModel } = await import("../MySqlModel.js");
+
 
 describe("VersionedSectionCustomization", () => {
   let mockContext: MyContext;
@@ -497,73 +504,6 @@ describe("VersionedSectionCustomization", () => {
       );
 
       expect(result).toEqual([]);
-    });
-  });
-
-  describe("findActiveByTemplateAffiliationAndSection", () => {
-    const expectedSql = `SELECT vsc.* FROM versionedSectionCustomizations AS vsc
-     JOIN versionedTemplateCustomizations AS vtc
-       ON vsc.versionedTemplateCustomizationId = vtc.id
-     WHERE vtc.active = 1
-       AND vtc.affiliationId = ?
-       AND vsc.versionedSectionId = ?
-     LIMIT 1`;
-
-    it("should find the active VersionedSectionCustomization by affiliation and section", async () => {
-      const mockQuery = jest.spyOn(MySqlModel, "query").mockResolvedValue([
-        {
-          id: 1,
-          versionedTemplateCustomizationId: 100,
-          sectionCustomizationId: 200,
-          versionedSectionId: 300,
-          guidance: "Test guidance",
-        },
-      ]);
-
-      const result = await VersionedSectionCustomization.findActiveByTemplateAffiliationAndSection(
-        "test.ref",
-        mockContext,
-        "affil-123",
-        300
-      );
-
-      expect(mockQuery).toHaveBeenCalledWith(
-        mockContext,
-        expectedSql,
-        ["affil-123", "300"],
-        "test.ref"
-      );
-      expect(result).toBeInstanceOf(VersionedSectionCustomization);
-      expect(result.id).toBe(1);
-      expect(result.versionedTemplateCustomizationId).toBe(100);
-      expect(result.versionedSectionId).toBe(300);
-      expect(result.guidance).toBe("Test guidance");
-    });
-
-    it("should return undefined when not found", async () => {
-      jest.spyOn(MySqlModel, "query").mockResolvedValue([]);
-
-      const result = await VersionedSectionCustomization.findActiveByTemplateAffiliationAndSection(
-        "test.ref",
-        mockContext,
-        "affil-123",
-        300
-      );
-
-      expect(result).toBeUndefined();
-    });
-
-    it("should return undefined when query result is not an array", async () => {
-      jest.spyOn(MySqlModel, "query").mockResolvedValue(null);
-
-      const result = await VersionedSectionCustomization.findActiveByTemplateAffiliationAndSection(
-        "test.ref",
-        mockContext,
-        "affil-123",
-        300
-      );
-
-      expect(result).toBeUndefined();
     });
   });
 });

@@ -1,7 +1,8 @@
 import { QuestionSchemaMap } from "@dmptool/types";
-import { MyContext } from "../context";
-import { MySqlModel } from "./MySqlModel";
-import { isNullOrUndefined, removeNullAndUndefinedFromJSON } from "../utils/helpers";
+import { MyContext } from "../context.js";
+import { MySqlModel } from "./MySqlModel.js";
+import { QuestionConditionActionType, QuestionConditionMatchType } from "./QuestionCondition.js";
+import { isNullOrUndefined, removeNullAndUndefinedFromJSON } from "../utils/helpers.js";
 
 export class VersionedQuestion extends MySqlModel {
   public versionedTemplateId: number;
@@ -15,6 +16,8 @@ export class VersionedQuestion extends MySqlModel {
   public useSampleTextAsDefault?: boolean;
   public required: boolean;
   public displayOrder: number;
+  public displayLogicAction: QuestionConditionActionType;
+  public displayLogicMatchType: QuestionConditionMatchType;
 
   private tableName = 'versionedQuestions';
 
@@ -37,6 +40,8 @@ export class VersionedQuestion extends MySqlModel {
     this.required = options.required ?? false;
     this.useSampleTextAsDefault = options.useSampleTextAsDefault ?? false;
     this.displayOrder = options.displayOrder;
+    this.displayLogicAction = options.displayLogicAction ?? "SHOW_QUESTION";
+    this.displayLogicMatchType = options.displayLogicMatchType ?? "ANY";
   }
 
   // Validation to be used prior to saving the record
@@ -100,6 +105,27 @@ export class VersionedQuestion extends MySqlModel {
     const sql = 'SELECT * FROM versionedQuestions WHERE versionedSectionId = ?';
     const results = await VersionedQuestion.query(context, sql, [versionedSectionId?.toString()], reference);
     return Array.isArray(results) ? results.map((entry) => new VersionedQuestion(entry)) : [];
+  }
+
+  /**
+   * Find all the VersionedQuestions by their VersionedSectionId
+   *
+   * @param reference The reference to use for logging
+   * @param context The Apollo context
+   * @param versionedSectionIds The versionedSectionIds to search for
+   * @returns An array of VersionedQuestions or an empty array if none were found.
+   */
+  static async findByVersionedSectionIds(
+    reference: string,
+    context: MyContext,
+    versionedSectionIds: number[]
+  ): Promise<VersionedQuestion[]> {
+    if (versionedSectionIds.length === 0) return [];
+    const placeholders: string = versionedSectionIds.map((): string => '?').join(',');
+    const sql = `SELECT * FROM versionedQuestions WHERE versionedSectionId IN (${placeholders})`;
+    const vals: string[] = versionedSectionIds.map((id: number): string => id.toString());
+    const results: unknown[] = await VersionedQuestion.query(context, sql, vals, reference);
+    return Array.isArray(results) ? results.map((entry: unknown): VersionedQuestion => new VersionedQuestion(entry)) : [];
   }
 
   /**

@@ -1,5 +1,5 @@
-import { MyContext } from "../context";
-import { MySqlModel } from "./MySqlModel";
+import { MyContext } from "../context.js";
+import { MySqlModel } from "./MySqlModel.js";
 
 export class Guidance extends MySqlModel {
   public guidanceGroupId: number;
@@ -93,7 +93,6 @@ export class Guidance extends MySqlModel {
     return Array.isArray(result) && result.length > 0 ? new Guidance(result[0]) : null;
   }
 }
-
 
 // Represents guidance associated with a plan and user
 export class PlanGuidance extends MySqlModel {

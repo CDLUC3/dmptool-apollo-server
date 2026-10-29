@@ -1,10 +1,23 @@
-import casual from "casual";
-import { AdminNotification, AdminNotificationResults } from "../AdminNotifications";
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { logger } from "../../logger";
-import { AdminNotificationType } from "../../types";
+import { jest } from '@jest/globals';
+import casual from 'casual';
 
-jest.mock('../../context.ts');
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+// Dynamic imports AFTER all mocks are registered
+const { AdminNotification, AdminNotificationResults } = await import('../AdminNotifications.js');
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
+import type { AdminNotificationType } from '../../types.js';
+import type { MyContext } from '../../context.js';
+import type { PaginatedQueryResults, PaginationOptionsForCursors } from '../../types/general.js';
 
 // ─── Shared test data ────────────────────────────────────────────────────────
 
@@ -20,11 +33,29 @@ const validNotificationData = {
   modified: new Date().toISOString(),
 };
 
+type QueryWithPaginationFn = (
+  context: MyContext,
+  sqlStatement: string,
+  whereFilters: string[],
+  groupBy: string,
+  values: string[],
+  opts: unknown,
+  reference: string,
+  distinct?: boolean,
+) => Promise<PaginatedQueryResults<InstanceType<typeof AdminNotificationResults>>>;
+
+type FindByUserIdFn = (
+  reference: string,
+  context: MyContext,
+  userId: number | null,
+  options?: unknown,
+  isRead?: boolean,
+) => Promise<PaginatedQueryResults<InstanceType<typeof AdminNotificationResults>>>;
 // ─── AdminNotification ───────────────────────────────────────────────────────
 
 describe('AdminNotification', () => {
   let context;
-  let notification: AdminNotification;
+  let notification: InstanceType<typeof AdminNotification>;
 
   beforeEach(async () => {
     context = await buildMockContextWithToken(logger);
@@ -86,8 +117,10 @@ describe('AdminNotification', () => {
 
   describe('markAsRead', () => {
     it('should set isRead to true and call update', async () => {
-      const mockUpdate = jest.fn().mockResolvedValue({ ...notification, isRead: true });
+      const mockUpdate = jest.fn<(context: MyContext, noTouch?: boolean) => Promise<InstanceType<typeof AdminNotification>>>()
+        .mockResolvedValue({ ...notification, isRead: true } as InstanceType<typeof AdminNotification>);
       notification.update = mockUpdate;
+
 
       await notification.markAsRead(context);
 
@@ -105,8 +138,10 @@ describe('AdminNotification', () => {
   describe('markAsUnRead', () => {
     it('should set isRead to false and call update', async () => {
       notification.isRead = true;
-      const mockUpdate = jest.fn().mockResolvedValue({ ...notification, isRead: false });
+      const mockUpdate = jest.fn<(context: MyContext, noTouch?: boolean) => Promise<InstanceType<typeof AdminNotification>>>()
+        .mockResolvedValue({ ...notification, isRead: false } as InstanceType<typeof AdminNotification>);
       notification.update = mockUpdate;
+
 
       await notification.markAsUnRead(context);
 
@@ -124,15 +159,15 @@ describe('AdminNotification', () => {
   describe('create', () => {
     const originalInsert = AdminNotification.insert;
     const originalFindById = AdminNotification.findById;
-    let mockInsert: jest.Mock;
-    let mockFindById: jest.Mock;
+    let mockInsert: jest.Mock<() => Promise<number | null>>;
+    let mockFindById: jest.Mock<() => Promise<InstanceType<typeof AdminNotification> | null>>;
 
     beforeEach(() => {
-      mockInsert = jest.fn().mockResolvedValue(validNotificationData.id);
-      (AdminNotification.insert as jest.Mock) = mockInsert;
+      mockInsert = jest.fn<() => Promise<number | null>>().mockResolvedValue(validNotificationData.id);
+      (AdminNotification.insert as unknown as jest.Mock) = mockInsert;
 
-      mockFindById = jest.fn().mockResolvedValue(notification);
-      (AdminNotification.findById as jest.Mock) = mockFindById;
+      mockFindById = jest.fn<() => Promise<InstanceType<typeof AdminNotification> | null>>().mockResolvedValue(notification);
+      (AdminNotification.findById as unknown as jest.Mock) = mockFindById;
     });
 
     afterEach(() => {
@@ -166,15 +201,15 @@ describe('AdminNotification', () => {
   describe('update', () => {
     const originalUpdate = AdminNotification.update;
     const originalFindById = AdminNotification.findById;
-    let mockUpdate: jest.Mock;
-    let mockFindById: jest.Mock;
+    let mockUpdate: jest.Mock<() => Promise<InstanceType<typeof AdminNotification>>>;
+    let mockFindById: jest.Mock<() => Promise<InstanceType<typeof AdminNotification> | null>>;
 
     beforeEach(() => {
-      mockUpdate = jest.fn().mockResolvedValue(new AdminNotification(validNotificationData));
-      (AdminNotification.update as jest.Mock) = mockUpdate;
+      mockUpdate = jest.fn<() => Promise<InstanceType<typeof AdminNotification>>>().mockResolvedValue(new AdminNotification(validNotificationData));
+      (AdminNotification.update as unknown as jest.Mock) = mockUpdate;
 
-      mockFindById = jest.fn().mockResolvedValue(new AdminNotification(validNotificationData));
-      (AdminNotification.findById as jest.Mock) = mockFindById;
+      mockFindById = jest.fn<() => Promise<InstanceType<typeof AdminNotification> | null>>().mockResolvedValue(new AdminNotification(validNotificationData));
+      (AdminNotification.findById as unknown as jest.Mock) = mockFindById;
     });
 
     afterEach(() => {
@@ -206,11 +241,11 @@ describe('AdminNotification', () => {
 
   describe('findById', () => {
     const originalQuery = AdminNotification.query;
-    let mockQuery: jest.Mock;
+    let mockQuery: jest.Mock<() => Promise<Record<string, unknown>[]>>;
 
     beforeEach(() => {
-      mockQuery = jest.fn();
-      (AdminNotification.query as jest.Mock) = mockQuery;
+      mockQuery = jest.fn<() => Promise<Record<string, unknown>[]>>();
+      (AdminNotification.query as unknown as jest.Mock) = mockQuery;
     });
 
     afterEach(() => {
@@ -265,16 +300,19 @@ describe('AdminNotificationResults', () => {
 
   describe('findByUserId', () => {
     const originalQuery = AdminNotificationResults.queryWithPagination;
-    let mockQuery: jest.Mock;
+    let mockQuery: jest.Mock<QueryWithPaginationFn>;
 
     beforeEach(() => {
-      mockQuery = jest.fn().mockResolvedValue({ items: [], totalCount: 0 });
-      (AdminNotificationResults.queryWithPagination as jest.Mock) = mockQuery;
+      mockQuery = jest.fn<QueryWithPaginationFn>()
+        .mockResolvedValue({ items: [], totalCount: 0, limit: 25, hasNextPage: false });
+      (AdminNotificationResults.queryWithPagination as unknown as jest.Mock) = mockQuery;
     });
+
 
     afterEach(() => {
       AdminNotificationResults.queryWithPagination = originalQuery;
     });
+
 
     it('should filter by userId when provided', async () => {
       await AdminNotificationResults.findByUserId('Test', context, 123);
@@ -311,22 +349,25 @@ describe('AdminNotificationResults', () => {
     it('should use cursor pagination by default', async () => {
       await AdminNotificationResults.findByUserId('Test', context, null);
       const [, , , , , opts] = mockQuery.mock.calls[0];
-      expect(opts.cursorField).toBe('id');
+      expect((opts as PaginationOptionsForCursors).cursorField).toBe('id');
     });
 
     it('should sort by created DESC by default', async () => {
       await AdminNotificationResults.findByUserId('Test', context, null);
       const [, , , , , opts] = mockQuery.mock.calls[0];
-      expect(opts.sortField).toBe('created');
-      expect(opts.sortDir).toBe('DESC');
+      expect((opts as { sortField: string }).sortField).toBe('created');
+      expect((opts as { sortDir: string }).sortDir).toBe('DESC');
     });
   });
 
   describe('findReadByUserId', () => {
     it('should call findByUserId with isRead = true', async () => {
-      const mockFind = jest.fn().mockResolvedValue({ items: [], totalCount: 0 });
+      const mockFind = jest.fn<FindByUserIdFn>()
+        .mockResolvedValue({ items: [], totalCount: 0, limit: 25, hasNextPage: false });
       const original = AdminNotificationResults.findByUserId;
-      (AdminNotificationResults.findByUserId as jest.Mock) = mockFind;
+      (AdminNotificationResults.findByUserId as unknown as jest.Mock) = mockFind;
+
+
 
       await AdminNotificationResults.findReadByUserId('Test', context, 123);
 
@@ -338,9 +379,10 @@ describe('AdminNotificationResults', () => {
 
   describe('findUnreadByUserId', () => {
     it('should call findByUserId with isRead = false', async () => {
-      const mockFind = jest.fn().mockResolvedValue({ items: [], totalCount: 0 });
+      const mockFind = jest.fn<FindByUserIdFn>()
+        .mockResolvedValue({ items: [], totalCount: 0, limit: 25, hasNextPage: false });
       const original = AdminNotificationResults.findByUserId;
-      (AdminNotificationResults.findByUserId as jest.Mock) = mockFind;
+      (AdminNotificationResults.findByUserId as unknown as jest.Mock) = mockFind;
 
       await AdminNotificationResults.findUnreadByUserId('Test', context, 123);
 

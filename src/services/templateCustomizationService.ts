@@ -1,15 +1,15 @@
-import { MyContext } from "../context";
-import { isSuperAdmin } from "./authService";
-import { VersionedTemplate } from "../models/VersionedTemplate";
+import { MyContext } from "../context.js";
+import { isSuperAdmin } from "./authService.js";
+import { VersionedTemplate } from "../models/VersionedTemplate.js";
 import {
   TemplateCustomization,
   TemplateCustomizationMigrationStatus
-} from "../models/TemplateCustomization";
-import { CustomSection } from "../models/CustomSection";
-import { CustomQuestion } from "../models/CustomQuestion";
-import { SectionCustomization } from "../models/SectionCustomization";
-import { QuestionCustomization } from "../models/QuestionCustomization";
-import { ForbiddenError, NotFoundError } from "../utils/graphQLErrors";
+} from "../models/TemplateCustomization.js";
+import { CustomSection } from "../models/CustomSection.js";
+import { CustomQuestion } from "../models/CustomQuestion.js";
+import { SectionCustomization } from "../models/SectionCustomization.js";
+import { QuestionCustomization } from "../models/QuestionCustomization.js";
+import { ForbiddenError, NotFoundError } from "../utils/graphQLErrors.js";
 
 /**
  * Fetch the TemplateCustomization and make sure the current user has permission

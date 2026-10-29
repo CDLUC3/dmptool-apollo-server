@@ -1,11 +1,20 @@
+import { jest } from '@jest/globals';
 import casual from "casual";
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { QuestionConditionActionType, QuestionConditionCondition } from "../QuestionCondition";
-import { getRandomEnumValue } from "../../__tests__/helpers";
-import { VersionedQuestionCondition } from "../VersionedQuestionCondition";
-import { logger } from "../../logger";
 
-jest.mock('../../context.ts');
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+//Dynamic imports AFTER all mocks are registered
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
+const { VersionedQuestionCondition } = await import('../VersionedQuestionCondition.js');
 
 let context;
 
@@ -23,49 +32,29 @@ describe('QuestionCondition', () => {
   let versionedQuestionCondition;
 
   const versionedQuestionConditionData = {
-    versionedQuestionId: casual.integer(1, 9999),
-    questionConditionId: casual.integer(1, 999),
-    action: getRandomEnumValue(QuestionConditionActionType),
-    conditionType: getRandomEnumValue(QuestionConditionCondition),
+    versionedQuestionConditionGroupId: casual.integer(1, 9999),
+    conditionType: "EQUAL",
     conditionMatch: casual.words(3),
-    target: casual.word,
   }
   beforeEach(() => {
     versionedQuestionCondition = new VersionedQuestionCondition(versionedQuestionConditionData);
   });
 
   it('should initialize options as expected', () => {
-    expect(versionedQuestionCondition.versionedQuestionId).toEqual(versionedQuestionConditionData.versionedQuestionId);
-    expect(versionedQuestionCondition.questionConditionId).toEqual(versionedQuestionConditionData.questionConditionId);
-    expect(versionedQuestionCondition.action).toEqual(versionedQuestionConditionData.action);
+    expect(versionedQuestionCondition.versionedQuestionConditionGroupId).toEqual(versionedQuestionConditionData.versionedQuestionConditionGroupId);
     expect(versionedQuestionCondition.conditionType).toEqual(versionedQuestionConditionData.conditionType);
     expect(versionedQuestionCondition.conditionMatch).toEqual(versionedQuestionConditionData.conditionMatch);
-    expect(versionedQuestionCondition.target).toEqual(versionedQuestionConditionData.target);
   });
 
   it('isValid returns true when the record is valid', async () => {
     expect(await versionedQuestionCondition.isValid()).toBe(true);
   });
 
-  it('isValid returns false if the versioneQuestionId is null', async () => {
-    versionedQuestionCondition.versionedQuestionId = null;
+  it('isValid returns false if the versionedQuestionConditionGroupId is null', async () => {
+    versionedQuestionCondition.versionedQuestionConditionGroupId = null;
     expect(await versionedQuestionCondition.isValid()).toBe(false);
     expect(Object.keys(versionedQuestionCondition.errors).length).toBe(1);
-    expect(versionedQuestionCondition.errors['versionedQuestionId'].includes('Versioned Question')).toBe(true);
-  });
-
-  it('isValid returns false if the questionConditionId is null', async () => {
-    versionedQuestionCondition.questionConditionId = null;
-    expect(await versionedQuestionCondition.isValid()).toBe(false);
-    expect(Object.keys(versionedQuestionCondition.errors).length).toBe(1);
-    expect(versionedQuestionCondition.errors['questionConditionId'].includes('Question Condition')).toBe(true);
-  });
-
-  it('isValid returns false if the action is null', async () => {
-    versionedQuestionCondition.action = null;
-    expect(await versionedQuestionCondition.isValid()).toBe(false);
-    expect(Object.keys(versionedQuestionCondition.errors).length).toBe(1);
-    expect(versionedQuestionCondition.errors['action'].includes('Action')).toBe(true);
+    expect(versionedQuestionCondition.errors['versionedQuestionConditionGroupId'].includes('Versioned Question Condition Group')).toBe(true);
   });
 
   it('isValid returns false if the conditionType is null', async () => {
@@ -73,13 +62,6 @@ describe('QuestionCondition', () => {
     expect(await versionedQuestionCondition.isValid()).toBe(false);
     expect(Object.keys(versionedQuestionCondition.errors).length).toBe(1);
     expect(versionedQuestionCondition.errors['conditionType'].includes('Condition Type')).toBe(true);
-  });
-
-  it('isValid returns false if the target is null', async () => {
-    versionedQuestionCondition.target = null;
-    expect(await versionedQuestionCondition.isValid()).toBe(false);
-    expect(Object.keys(versionedQuestionCondition.errors).length).toBe(1);
-    expect(versionedQuestionCondition.errors['target'].includes('Target')).toBe(true);
   });
 });
 
@@ -100,11 +82,9 @@ describe('findBy Queries', () => {
 
     versionedQuestionCondition = new VersionedQuestionCondition({
       id: casual.integer(1, 9),
-      questionId: casual.integer(1, 999),
-      action: getRandomEnumValue(QuestionConditionActionType),
-      condition: getRandomEnumValue(QuestionConditionCondition),
+      versionedQuestionConditionGroupId: casual.integer(1, 999),
+      conditionType: "EQUAL",
       conditionMatch: casual.words(5),
-      target: casual.integer(1, 9999).toString(),
     })
   });
 
@@ -140,17 +120,14 @@ describe('create', () => {
     (VersionedQuestionCondition.insert as jest.Mock) = insertQuery;
 
     versionedQuestionCondition = new VersionedQuestionCondition({
-      versionedQuestionId: casual.integer(1, 999),
-      questionConditionId: casual.integer(1, 99),
-      action: getRandomEnumValue(QuestionConditionActionType),
-      condition: getRandomEnumValue(QuestionConditionCondition),
+      versionedQuestionConditionGroupId: casual.integer(1, 999),
+      conditionType: "EQUAL",
       conditionMatch: casual.words(3),
-      target: casual.word,
     })
   });
 
   it('returns the VersionedQuestionCondition with errors if it is not valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (versionedQuestionCondition.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -161,11 +138,11 @@ describe('create', () => {
   });
 
   it('returns the newly added VersionedQuestionCondition', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (versionedQuestionCondition.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
-    const mockFindBy = jest.fn();
+    const mockFindBy = jest.fn<() => Promise<InstanceType<typeof VersionedQuestionCondition> | null>>();
     (VersionedQuestionCondition.findById as jest.Mock) = mockFindBy;
     mockFindBy.mockResolvedValue(versionedQuestionCondition);
 
@@ -178,7 +155,7 @@ describe('create', () => {
   });
 });
 
-describe('findByVersionedQuestionId', () => {
+describe('findByVersionedQuestionConditionGroupId', () => {
   const originalQuery = VersionedQuestionCondition.query;
 
   let localQuery;
@@ -194,12 +171,9 @@ describe('findByVersionedQuestionId', () => {
     context = await buildMockContextWithToken(logger);
 
     versionedQuestionCondition = new VersionedQuestionCondition({
-      versionedQuestionId: casual.integer(1, 999),
-      questionConditionId: casual.integer(1, 99),
-      action: getRandomEnumValue(QuestionConditionActionType),
-      condition: getRandomEnumValue(QuestionConditionCondition),
+      versionedQuestionConditionGroupId: casual.integer(1, 999),
+      conditionType: "EQUAL",
       conditionMatch: casual.words(3),
-      target: casual.word,
     })
   });
 
@@ -208,11 +182,11 @@ describe('findByVersionedQuestionId', () => {
     VersionedQuestionCondition.query = originalQuery;
   });
 
-  it('should call query with correct params and return the default when findByVersionedQuestionId called', async () => {
+  it('should call query with correct params and return the default when findByVersionedQuestionConditionGroupId called', async () => {
     localQuery.mockResolvedValueOnce([versionedQuestionCondition]);
     const id = casual.integer(1, 999);
-    const result = await VersionedQuestionCondition.findByVersionedQuestionId('testing', context, id);
-    const expectedSql = 'SELECT * FROM versionedQuestionConditions WHERE versionedQuestionId = ?';
+    const result = await VersionedQuestionCondition.findByVersionedQuestionConditionGroupId('testing', context, id);
+    const expectedSql = 'SELECT * FROM versionedQuestionConditions WHERE versionedQuestionConditionGroupId = ?';
     expect(localQuery).toHaveBeenCalledTimes(1);
     expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [id.toString()], 'testing');
     expect(result[0]).toBeInstanceOf(VersionedQuestionCondition);

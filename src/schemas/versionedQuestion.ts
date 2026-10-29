@@ -1,4 +1,4 @@
-import gql from 'graphql-tag';
+import { gql } from 'graphql-tag';
 
 export const typeDefs = gql`
   extend type Query {
@@ -7,7 +7,7 @@ export const typeDefs = gql`
     "Fetch all published custom questions for the specified versioned section"
     publishedCustomQuestions(versionedCustomSectionId: Int!, planId: Int!): [PublishedQuestion]
     "Get a specific VersionedQuestion based on versionedQuestionId"
-    publishedQuestion(versionedQuestionId: Int!): VersionedQuestion
+    publishedQuestion(versionedQuestionId: Int!, planId: Int): VersionedQuestion
     "Get a specific published custom question based on versionedCustomQuestionId"
     publishedCustomQuestion(versionedCustomQuestionId: Int!): VersionedCustomQuestion
   }
@@ -49,6 +49,11 @@ export const typeDefs = gql`
     useSampleTextAsDefault: Boolean
     "To indicate whether the question is required to be completed"
     required: Boolean
+    
+    "Whether to show or hide the question (or send an email) when its display logic conditions match"
+    displayLogicAction: QuestionConditionActionType
+    "Whether ANY or ALL of the question's condition groups must match"
+    displayLogicMatchType: QuestionConditionMatchType
 
     "For question customization info"
     customizationId: Int

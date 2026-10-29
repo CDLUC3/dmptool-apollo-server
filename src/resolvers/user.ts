@@ -1,25 +1,24 @@
-import { Resolvers, UserSearchResults } from "../types";
-import { MyContext } from '../context';
-import { User, UserRole } from '../models/User';
-import { UserEmail } from "../models/UserEmail";
-import { Affiliation } from '../models/Affiliation';
-import { Plan } from '../models/Plan';
-import { isAdmin, isAuthorized, isSuperAdmin } from "../services/authService";
-import { AuthenticationError, ForbiddenError, InternalServerError, NotFoundError } from "../utils/graphQLErrors";
-import { defaultLanguageId } from "../models/Language";
-import { anonymizeUser, mergeUsers } from "../services/userService";
-import { processOtherAffiliationName } from "../services/affiliationService";
-import { prepareObjectForLogs } from "../logger";
+import { Resolvers, UserSearchResults } from "../types.js";
+import { MyContext } from '../context.js';
+import { User, UserRole } from '../models/User.js';
+import { UserEmail } from "../models/UserEmail.js";
+import { Affiliation } from '../models/Affiliation.js';
+import { Plan } from '../models/Plan.js';
+import { isAdmin, isAuthorized, isSuperAdmin } from "../services/authService.js";
+import { AuthenticationError, ForbiddenError, InternalServerError, NotFoundError } from "../utils/graphQLErrors.js";
+import { defaultLanguageId } from "../models/Language.js";
+import { anonymizeUser, mergeUsers } from "../services/userService.js";
+import { processOtherAffiliationName } from "../services/affiliationService.js";
+import { prepareObjectForLogs } from "../logger.js";
 import { GraphQLError } from "graphql";
-import { PaginationOptionsForCursors, PaginationOptionsForOffsets, PaginationType } from "../types/general";
+import { PaginationOptionsForCursors, PaginationOptionsForOffsets, PaginationType } from "../types/general.js";
 import {
   isNullOrUndefined,
   normaliseDateTime
-} from "../utils/helpers";
+} from "../utils/helpers.js";
 import {
   authenticatedResolver,
-} from "../services/authService";
-
+} from "../services/authService.js";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -431,31 +430,6 @@ export const resolvers: Resolvers = {
         throw AuthenticationError();
       } catch (err) {
         context.logger.error(prepareObjectForLogs(err), `Failure in ${ref}`);
-        throw InternalServerError();
-      }
-    },
-
-    // Change the current user's password
-    updatePassword: async (_, { oldPassword, newPassword, email }, context: MyContext): Promise<User> => {
-      const reference = 'updatePassword resolver';
-      try {
-        if (isAuthorized(context?.token)) {
-          const user = await User.findById(reference, context, context.token.id);
-          // Only continue if the user is active and not locked
-          if (!user || !user.active || user.locked) {
-            throw ForbiddenError();
-          }
-
-          const updated = await new User(user).updatePassword(context, oldPassword, newPassword, email);
-          if (!updated || updated.hasErrors()) {
-            user.addError('general', 'Unable to update the password at this time');
-          }
-          return user.hasErrors() ? user : User.findById(reference, context, context.token.id);
-        }
-        // Unauthenticated
-        throw AuthenticationError();
-      } catch (err) {
-        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
         throw InternalServerError();
       }
     },

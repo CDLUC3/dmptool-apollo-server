@@ -1,7 +1,7 @@
 import * as dotenv from 'dotenv';
-import { verifyCriticalEnvVariable } from '../utils/helpers';
-import {DynamoConnectionParams} from "@dmptool/utils";
-import {Logger} from "pino";
+import { verifyCriticalEnvVariable } from '../utils/helpers.js';
+import { DynamoConnectionParams } from "@dmptool/utils";
+import { Logger } from "pino";
 
 dotenv.config();
 

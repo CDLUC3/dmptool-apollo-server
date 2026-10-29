@@ -1,20 +1,20 @@
-import { MyContext } from '../context';
-import { sendProjectCollaborationEmail, sendTemplateCollaborationEmail } from '../services/emailService';
+import { MyContext } from '../context.js';
+import { sendProjectCollaborationEmail, sendTemplateCollaborationEmail } from '../services/emailService.js';
 import {
   formatORCID,
   isNullOrUndefined,
   stripORCIDIdentifierBaseURL,
   validateEmail,
   valueIsEmpty
-} from '../utils/helpers';
-import { MySqlModel } from './MySqlModel';
-import { Project } from './Project';
-import { Template } from './Template';
-import { User } from './User';
-import { PaginatedQueryResults, PaginationOptionsForCursors } from "../types/general";
-import { CollaboratorSearchResult } from "../types";
-import { Affiliation } from "./Affiliation";
-import { OrcidAPI, OrcidPerson } from "../datasources/OrcidAPI";
+} from '../utils/helpers.js';
+import { MySqlModel } from './MySqlModel.js';
+import { Project } from './Project.js';
+import { Template } from './Template.js';
+import { User } from './User.js';
+import { PaginatedQueryResults, PaginationOptionsForCursors } from "../types/general.js";
+import { CollaboratorSearchResult } from "../types.js";
+import { Affiliation } from "./Affiliation.js";
+import { OrcidAPI, OrcidPerson } from "../datasources/OrcidAPI.js";
 
 export interface ProjectCollaboratorSearchResult {
   cursorId?: string;
@@ -594,6 +594,25 @@ export class ProjectCollaborator extends Collaborator {
     INNER JOIN users u ON pc.userId = u.id
     WHERE pc.projectId = ?
     AND pc.accessLevel = "PRIMARY"
+    `;
+    const vals = [projectId?.toString()];
+    const results = await ProjectCollaborator.query(context, sql, vals, reference);
+    if (!Array.isArray(results) || results.length === 0) return null;
+    return Object.assign(new ProjectCollaborator(results[0]), { affiliationId: results[0].affiliationId ?? null }) as ProjectCollaboratorWithUser;
+  }
+
+  // Get owner user for project
+  static async findOwnerByProjectId(
+    reference: string,
+    context: MyContext,
+    projectId: number,
+  ): Promise<ProjectCollaboratorWithUser | null> {
+    const sql = `SELECT  pc.id AS collaboratorId, pc.projectId, pc.email, pc.accessLevel, pc.created AS collaboratorCreated,
+    u.id AS userId, u.affiliationId, u.active
+    FROM projectCollaborators pc
+    INNER JOIN users u ON pc.userId = u.id
+    WHERE pc.projectId = ?
+    AND pc.accessLevel = "OWN"
     `;
     const vals = [projectId?.toString()];
     const results = await ProjectCollaborator.query(context, sql, vals, reference);

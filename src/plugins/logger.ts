@@ -7,7 +7,7 @@ import {
   GraphQLRequestContext,
   GraphQLResponse
 } from "@apollo/server";
-import { prepareObjectForLogs } from "../logger";
+import { prepareObjectForLogs } from "../logger.js";
 
 // Extract the inmportant information from the incoming request so that it is logged
 function setupLogger(loggerInstance: Logger, context = null, errors = null) {

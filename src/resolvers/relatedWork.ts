@@ -1,32 +1,39 @@
-import {prepareObjectForLogs} from '../logger';
-import {OpenSearchWork, RelatedWorkStatsResults, Resolvers} from '../types';
-import {MyContext} from '../context';
-import {isAuthorized} from '../services/authService';
+import { prepareObjectForLogs } from '../logger.js';
+import {
+  OpenSearchWork,
+  RelatedWorkStatsResults,
+  Resolvers
+} from '../types.js';
+import { MyContext } from '../context.js';
+import { isAuthorized } from '../services/authService.js';
 import {
   AuthenticationError,
   ForbiddenError,
   InternalServerError,
   NotFoundError
-} from '../utils/graphQLErrors';
+} from '../utils/graphQLErrors.js';
 import {
   RelatedWork,
   RelatedWorkSearchResult,
   RelatedWorkSearchResults,
   Work,
   WorkVersion
-} from '../models/RelatedWork';
-import {GraphQLError} from 'graphql';
-import {Project} from '../models/Project';
-import {hasPermissionOnProject} from '../services/projectService';
-import {Plan} from '../models/Plan';
-import {isNullOrUndefined, normaliseDateTime} from '../utils/helpers';
+} from '../models/RelatedWork.js';
+import { GraphQLError } from 'graphql';
+import { Project } from '../models/Project.js';
+import { AcceptedWork } from "../models/RelatedWork.js";
+import { hasPermissionOnProject } from '../services/projectService.js';
+import { Plan } from '../models/Plan.js';
+import { isNullOrUndefined, normaliseDateTime } from '../utils/helpers.js';
 import {
   PaginationOptionsForCursors,
   PaginationOptionsForOffsets,
   PaginationType
-} from '../types/general';
-import {openSearchFindWorkByIdentifier} from "../services/openSearchService";
-import {generalConfig} from "../config/generalConfig";
+} from '../types/general.js';
+import { openSearchFindWorkByIdentifier } from "../services/openSearchService.js";
+import { generalConfig } from "../config/generalConfig.js";
+import { handleAsyncUpdates } from "../services/planService.js";
+import { addAcceptedWork } from "../services/relatedWorkService.js";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -45,7 +52,7 @@ export const resolvers: Resolvers = {
         let projectId = undefined;
         let planId = undefined;
 
-        if(idType === "PLAN_ID"){
+        if (idType === "PLAN_ID") {
           const plan = await Plan.findById(reference, context, id);
           if (!plan) throw NotFoundError();
           planId = id;
@@ -59,11 +66,11 @@ export const resolvers: Resolvers = {
         }
 
         const project = await Project.findById(reference, context, projectId);
-        if(!project) {
+        if (!project) {
           throw NotFoundError();
         }
 
-        if(!(await hasPermissionOnProject(context, project))) {
+        if (!(await hasPermissionOnProject(context, project))) {
           throw ForbiddenError();
         }
 
@@ -73,14 +80,14 @@ export const resolvers: Resolvers = {
             : ({ ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors);
 
         return await RelatedWorkSearchResult.search(
-            reference,
-            context,
-            projectId,
-            planId,
-            undefined,
-            filterOptions,
-            pagOpts,
-          );
+          reference,
+          context,
+          projectId,
+          planId,
+          undefined,
+          filterOptions,
+          pagOpts,
+        );
       } catch (err) {
         if (err instanceof GraphQLError) throw err;
 
@@ -108,7 +115,7 @@ export const resolvers: Resolvers = {
             const project = await Project.findById(reference, context, plan.projectId);
             const limit = Math.min(pagOpts.limit ?? generalConfig.defaultSearchLimit, generalConfig.maximumSearchLimit);
             if (project && (await hasPermissionOnProject(context, project))) {
-              if(!planId || !doi){
+              if (!planId || !doi) {
                 return {
                   items: [],
                   limit: limit,
@@ -130,7 +137,7 @@ export const resolvers: Resolvers = {
               }
 
               // Otherwise lookup the work in OpenSearch
-              const openSearchWorks =  await openSearchFindWorkByIdentifier(
+              const openSearchWorks = await openSearchFindWorkByIdentifier(
                 reference,
                 context,
                 doi,
@@ -139,7 +146,7 @@ export const resolvers: Resolvers = {
 
               // Convert OpenSearch results to related works
               return {
-                items: openSearchWorks.map((os: OpenSearchWork)=> {
+                items: openSearchWorks.map((os: OpenSearchWork) => {
                   const osHash: string = os.hash ? os.hash.toString() : "";
 
                   return {
@@ -268,11 +275,11 @@ export const resolvers: Resolvers = {
             if (project && (await hasPermissionOnProject(context, project))) {
               // Check if user has already added a related work with this DOI, and just update status
               let relatedWork = await RelatedWork.findByDOI(reference, context, input.planId, input.doi);
-              if(relatedWork){
+              if (relatedWork) {
                 let toUpdate = new RelatedWork({ ...relatedWork, status: input.status });
                 toUpdate = await toUpdate.update(context);
                 relatedWorkId = toUpdate.id;
-              } else  {
+              } else {
                 // Fetch or create work
                 let work = await Work.findByDoi(reference, context, input.doi);
                 if (!work) {
@@ -285,17 +292,15 @@ export const resolvers: Resolvers = {
                 let workVersion = await WorkVersion.findByDoiAndHash(reference, context, input.doi, Buffer.from(osHash, 'hex'));
                 if (!workVersion) {
                   // Lookup work in OpenSearch
-                  const openSearchWorks =  await openSearchFindWorkByIdentifier(
+                  const openSearchWorks = await openSearchFindWorkByIdentifier(
                     reference,
                     context,
                     input.doi,
                     2, // We should currently only be getting 1 result
                   );
-                  if (openSearchWorks.length == 0)
-                  {
+                  if (openSearchWorks.length == 0) {
                     throw InternalServerError(`Could not create workVersion because could not find DOI ${input.doi} in OpenSearch`);
-                  } else if (openSearchWorks.length > 1)
-                  {
+                  } else if (openSearchWorks.length > 1) {
                     throw InternalServerError(`Could not create workVersion because multiple works were found for DOI ${input.doi} in OpenSearch`);
                   }
 
@@ -319,8 +324,7 @@ export const resolvers: Resolvers = {
                   workVersion.workId = work.id;
                   workVersion = await workVersion.create(context, work.doi);
                 }
-                if (isNullOrUndefined(workVersion) || workVersion.hasErrors())
-                {
+                if (isNullOrUndefined(workVersion) || workVersion.hasErrors()) {
                   throw InternalServerError('Unable to create or find workVersion');
                 }
 
@@ -332,8 +336,8 @@ export const resolvers: Resolvers = {
                   score: 1.0,
                   scoreMax: 1.0,
                   status: input.status,
-                  doiMatch: {found: false, score: 0.0, sources: []},
-                  contentMatch: {score: 0.0, titleHighlight: null, abstractHighlights: []},
+                  doiMatch: { found: false, score: 0.0, sources: [] },
+                  contentMatch: { score: 0.0, titleHighlight: null, abstractHighlights: [] },
                   authorMatches: [],
                   institutionMatches: [],
                   funderMatches: [],
@@ -344,6 +348,11 @@ export const resolvers: Resolvers = {
                   throw InternalServerError('Unable to create related work');
                 }
                 relatedWorkId = relatedWork.id
+              }
+
+              if (relatedWork && !relatedWork.hasErrors()) {
+                // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+                await handleAsyncUpdates(reference, context, plan, project);
               }
 
               // Fetch and return RelatedWorkSearchResult
@@ -366,48 +375,27 @@ export const resolvers: Resolvers = {
       try {
         if (isAuthorized(context.token)) {
           // Check if user has permission to modify project
-          const plan = await Plan.findById(reference, context, input.planId);
+          const plan: Plan = await Plan.findById(reference, context, input.planId);
           if (plan) {
-            const project = await Project.findById(reference, context, plan.projectId);
+            const project: Project = await Project.findById(reference, context, plan.projectId);
             if (project && (await hasPermissionOnProject(context, project))) {
-              // Fetch or create work
-              let work = await Work.findByDoi(reference, context, input.doi);
-              if (!work) {
-                work = new Work({ doi: input.doi });
-                work = await work.create(context);
-              }
-
-              // Fetch or create work version
-              const osHash: string = input.hash ? input.hash.toString() : "";
-              let workVersion = await WorkVersion.findByDoiAndHash(reference, context, input.doi, Buffer.from(osHash, 'hex'));
-              if (!workVersion) {
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                const { planId, doi, ...options } = input;
-                workVersion = new WorkVersion({ ...options, hash: Buffer.from(osHash, 'hex') });
-                workVersion.workId = work.id;
-                workVersion = await workVersion.create(context, work.doi);
-              }
-              if (isNullOrUndefined(workVersion) || workVersion.hasErrors())
-              {
-                throw InternalServerError('Unable to create or find workVersion');
-              }
-
-              // Create related work
-              let relatedWork = new RelatedWork({
-                planId: input.planId,
-                workVersionId: workVersion.id,
-                status: 'ACCEPTED',
-                score: 1.0,
-                scoreMax: 1.0,
-                sourceType: 'USER_ADDED',
+              return await context.dataSources.sqlDataSource.withTransaction(context, async (): Promise<RelatedWorkSearchResult> => {
+                const acceptedWork: AcceptedWork = await addAcceptedWork(
+                  reference,
+                  context,
+                  plan,
+                  input
+                );
+                if (acceptedWork && !acceptedWork.hasErrors()) {
+                  // If successful, update the OpenSearch index in the background
+                  await handleAsyncUpdates(reference, context, plan, project);
+                }
+                return await RelatedWorkSearchResult.findById(
+                  reference,
+                  context,
+                  acceptedWork.relatedWorkId
+                );
               });
-              relatedWork = await relatedWork.create(context);
-              if (isNullOrUndefined(relatedWork.id)) {
-                throw InternalServerError('Unable to create related work');
-              }
-
-              // Fetch and return RelatedWorkSearchResult
-              return await RelatedWorkSearchResult.findById(reference, context, relatedWork.id);
             }
           }
         }
@@ -439,6 +427,11 @@ export const resolvers: Resolvers = {
           if (project && (await hasPermissionOnProject(context, project))) {
             let toUpdate = new RelatedWork({ ...relatedWork, ...input });
             toUpdate = await toUpdate.update(context);
+
+            if (toUpdate && !toUpdate.hasErrors()) {
+              // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+              await handleAsyncUpdates(reference, context, plan, project);
+            }
 
             // Fetch and return RelatedWorkSearchResult
             return await RelatedWorkSearchResult.findById(reference, context, toUpdate.id);

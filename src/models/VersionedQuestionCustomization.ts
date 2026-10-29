@@ -1,6 +1,6 @@
-import { MyContext } from "../context";
-import { MySqlModel } from "./MySqlModel";
-import { isNullOrUndefined } from "../utils/helpers";
+import { MyContext } from "../context.js";
+import { MySqlModel } from "./MySqlModel.js";
+import { isNullOrUndefined } from "../utils/helpers.js";
 
 /**
  * This object represents a snapshot of custom requirements, guidance, and
@@ -42,10 +42,10 @@ export class VersionedQuestionCustomization extends MySqlModel {
       );
     }
     if (isNullOrUndefined(this.questionCustomizationId)) {
-      this.addError('questionCustomizationId','Versioned question customization can\'t be blank');
+      this.addError('questionCustomizationId', 'Versioned question customization can\'t be blank');
     }
     if (isNullOrUndefined(this.versionedQuestionId)) {
-      this.addError('versionedQuestionId','Versioned question can\'t be blank');
+      this.addError('versionedQuestionId', 'Versioned question can\'t be blank');
     }
 
     return Object.keys(this.errors).length === 0;
@@ -236,38 +236,36 @@ export class VersionedQuestionCustomization extends MySqlModel {
   }
 
   /**
-   * Find the active versioned question customization for a given template and affiliation.
-   * Used to surface customization guidance in the plan guidance panel.
+   * Find all the versioned question customizations for the given versioned template customization
+   * in the given sections. Used to surface customization guidance in the plan's JSON.
    *
-   *
-   * @param reference The reference to use for logging errors.
-   * @param context The Apollo context.
-   * @param affiliationId The affiliation id.
-   * @param versionedQuestionId The versioned question id.
-   * @returns The active versioned question customization, or undefined if none exists.
+   * @param reference the reference to use for logging errors
+   * @param context the Apollo context
+   * @param versionedTemplateCustomizationId the versioned template customization id the plan was pinned to
+   * @param versionedSectionIds the versioned section ids to search for
+   * @returns an array of versioned question customizations, or an empty array if none exist
    */
-  static async findActiveByTemplateAffiliationAndQuestion(
+  static async findByVersionedCustomizationAndVersionedSectionIds(
     reference: string,
     context: MyContext,
-    affiliationId: string,
-    versionedQuestionId: number
-  ): Promise<VersionedQuestionCustomization | undefined> {
-    const results = await VersionedQuestionCustomization.query(
-      context,
-      `SELECT vqc.*, vtc.affiliationId as customizationAffiliationId
+    versionedTemplateCustomizationId: number,
+    versionedSectionIds: number[]
+  ): Promise<VersionedQuestionCustomization[]> {
+    if (versionedSectionIds.length === 0) return [];
+    const placeholders: string = versionedSectionIds.map((): string => '?').join(', ');
+    const sql = `
+      SELECT vqc.*
       FROM ${VersionedQuestionCustomization.tableName} AS vqc
-     JOIN versionedTemplateCustomizations AS vtc
-       ON vqc.versionedTemplateCustomizationId = vtc.id
-     WHERE vtc.active = 1
-       AND vtc.affiliationId = ?
-       AND vqc.versionedQuestionId = ?
-     LIMIT 1`,
-      [affiliationId, versionedQuestionId.toString()],
-      reference
-    );
-    return Array.isArray(results) && results.length > 0
-      ? new VersionedQuestionCustomization(results[0])
-      : undefined;
+      JOIN versionedQuestions AS vq
+        ON vqc.versionedQuestionId = vq.id
+      WHERE vqc.versionedTemplateCustomizationId = ?
+        AND vq.versionedSectionId IN (${placeholders})
+    `;
+    const vals: string[] = [
+      versionedTemplateCustomizationId.toString(),
+      ...versionedSectionIds.map((id: number): string => id.toString())
+    ];
+    const results: unknown[] = await VersionedQuestionCustomization.query(context, sql, vals, reference);
+    return Array.isArray(results) ? results.map((entry: unknown): VersionedQuestionCustomization => new VersionedQuestionCustomization(entry)) : [];
   }
-
 }

@@ -1,7 +1,7 @@
-import gql from "graphql-tag";
+import { gql } from 'graphql-tag';
 import { mergeTypeDefs } from "@graphql-tools/merge";
-import { typeDefs as memberTypeDefs } from "./member"
-import { typeDefs as funderTypeDefs } from "./funding"
+import { typeDefs as memberTypeDefs } from "./member.js"
+import { typeDefs as funderTypeDefs } from "./funding.js"
 
 export const projectTypeDefs = gql`
   extend type Query {
@@ -74,6 +74,8 @@ export const projectTypeDefs = gql`
     modified: String
     "The names and access levels of the collaborators"
     collaborators: [ProjectSearchResultCollaborator!]
+    "The current user's access level on the project (null if they are not a collaborator)"
+    myAccessLevel: ProjectCollaboratorAccessLevel
     "The names and roles of the members"
     members: [ProjectSearchResultMember!]
     "The names of the funders"
@@ -82,6 +84,8 @@ export const projectTypeDefs = gql`
     errors: ProjectErrors
     "The plans in the project"
     plans: [PlanSearchResult!]
+    "The number of accepted related works across all plans for the project"
+    relatedWorksCount: Int
   }
 
   type ProjectSearchResults implements PaginatedQueryResults {
@@ -186,6 +190,8 @@ export const projectTypeDefs = gql`
   input ProjectFilterOptions {
     "Filter results by the plan's status"
     status: PlanStatus
+    "Filter results by the current user's access level on the project"
+    accessLevel: ProjectCollaboratorAccessLevel
   }
 
   input AddProjectInput {

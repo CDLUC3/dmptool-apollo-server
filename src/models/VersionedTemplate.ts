@@ -1,7 +1,7 @@
-import { TemplateVisibility } from "./Template";
-import { MySqlModel } from './MySqlModel';
-import { MyContext } from '../context';
-import { defaultLanguageId } from "./Language";
+import { TemplateVisibility } from "./Template.js";
+import { MySqlModel } from './MySqlModel.js';
+import { MyContext } from '../context.js';
+import { defaultLanguageId } from "./Language.js";
 import {
   PaginationOptions,
   PaginatedQueryResults,
@@ -9,13 +9,13 @@ import {
   PaginationOptionsForCursors,
   PaginationOptionsForOffsets,
   PaginationType
-} from "../types/general";
-import { prepareObjectForLogs } from "../logger";
-import { isNullOrUndefined } from "../utils/helpers";
+} from "../types/general.js";
+import { prepareObjectForLogs } from "../logger.js";
+import { isNullOrUndefined } from "../utils/helpers.js";
 import {
   TemplateCustomizationStatus,
   TemplateCustomizationMigrationStatus
-} from "./TemplateCustomization";
+} from "./TemplateCustomization.js";
 
 export enum TemplateVersionType {
   DRAFT = 'DRAFT',
@@ -146,14 +146,14 @@ export class VersionedTemplateSearchResult {
     affiliationId: string
   ): Promise<VersionedTemplateSearchResult[]> {
     const sql = 'SELECT vt.id, vt.templateId, vt.name, vt.description, vt.version, vt.visibility, vt.bestPractice, ' +
-                'vt.modified, vt.modifiedById, TRIM(CONCAT(u.givenName, CONCAT(\' \', u.surName))) as modifiedByName, ' +
-                'a.id as ownerId, vt.ownerId as ownerURI, a.displayName as ownerDisplayName, ' +
-                'a.searchName as ownerSearchName, vt.isDefault ' +
-              'FROM versionedTemplates vt ' +
-                'LEFT JOIN users u ON u.id = vt.modifiedById ' +
-                'LEFT JOIN affiliations a ON a.uri = vt.ownerId ' +
-              'WHERE vt.ownerId = affiliationId AND vt.active = 1 AND vt.versionType = ? ' +
-              'ORDER BY vt.modified DESC;';
+      'vt.modified, vt.modifiedById, TRIM(CONCAT(u.givenName, CONCAT(\' \', u.surName))) as modifiedByName, ' +
+      'a.id as ownerId, vt.ownerId as ownerURI, a.displayName as ownerDisplayName, ' +
+      'a.searchName as ownerSearchName, vt.isDefault ' +
+      'FROM versionedTemplates vt ' +
+      'LEFT JOIN users u ON u.id = vt.modifiedById ' +
+      'LEFT JOIN affiliations a ON a.uri = vt.ownerId ' +
+      'WHERE vt.ownerId = affiliationId AND vt.active = 1 AND vt.versionType = ? ' +
+      'ORDER BY vt.modified DESC;';
     const vals = [affiliationId, TemplateVersionType.PUBLISHED];
     const results = await VersionedTemplate.query(context, sql, vals, reference);
     return Array.isArray(results) ? results.map((entry) => new VersionedTemplateSearchResult(entry)) : [];
@@ -544,8 +544,8 @@ export class VersionedTemplate extends MySqlModel {
   // Check if any plans exist that are associated with any versionedTemplate for the given template
   static async hasAssociatedPlans(reference: string, context: MyContext, templateId: number): Promise<boolean> {
     const sql = 'SELECT p.id FROM plans AS p ' +
-                'JOIN versionedTemplates AS vt ON p.versionedTemplateId = vt.id ' +
-                'WHERE vt.templateId = ? LIMIT 1';
+      'JOIN versionedTemplates AS vt ON p.versionedTemplateId = vt.id ' +
+      'WHERE vt.templateId = ? LIMIT 1';
     const results = await VersionedTemplate.query(context, sql, [templateId.toString()], reference);
     // Explicitly handle null or non-array results
     if (!results || !Array.isArray(results)) {

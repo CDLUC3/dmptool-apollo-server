@@ -1,5 +1,5 @@
-import { Language, Resolvers } from "../types";
-import { defaultLanguageId, supportedLanguages } from "../models/Language";
+import { Language, Resolvers } from "../types.js";
+import { defaultLanguageId, supportedLanguages } from "../models/Language.js";
 
 export const resolvers: Resolvers = {
   Query: {

@@ -1,23 +1,54 @@
-import casual from "casual";
-import { Template } from "../../models/Template";
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { logger } from "../../logger";
-import { cloneQuestion, generateQuestionConditionVersion, generateQuestionVersion, hasPermissionOnQuestion, updateDisplayOrders } from "../questionService";
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { hasPermissionOnTemplate } from "../templateService";
-import { NotFoundError } from "../../utils/graphQLErrors";
-import { Question } from "../../models/Question";
-import { VersionedQuestion } from "../../models/VersionedQuestion";
-import { QuestionCondition, QuestionConditionActionType, QuestionConditionCondition } from "../../models/QuestionCondition";
-import { VersionedQuestionCondition } from "../../models/VersionedQuestionCondition";
-import { Tag } from "../../models/Tag";
-import { getRandomEnumValue } from "../../__tests__/helpers";
-import { getCurrentDate } from "../../utils/helpers";
-import { CURRENT_SCHEMA_VERSION } from "@dmptool/types";
-import { MyContext } from "../../context";
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
-// Pulling context in here so that the mysql gets mocked
-jest.mock('../../context.ts');
+import { jest } from '@jest/globals';
+import casual from "casual";
+import { CURRENT_SCHEMA_VERSION } from "@dmptool/types";
+
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+mockAppConfigs();
+mockAppLogger();
+
+const mockHasPermissionOnTemplate = jest.fn<(...args: any[]) => Promise<any>>();
+jest.unstable_mockModule('../templateService.js', () => ({
+  hasPermissionOnTemplate: mockHasPermissionOnTemplate,
+}));
+
+import type { MyContext } from "../../context.js";
+
+// A bare jest.fn() resolves its parameters to `unknown` in this project's
+// jest typings, breaking property access inside .mockImplementation
+// callbacks. This helper gives every one of them a real
+// (...args: any[]) => Promise<any> signature instead.
+function mockAsyncFn() {
+  return jest.fn<(...args: any[]) => Promise<any>>();
+}
+
+const { buildMockContextWithToken } = await import("../../__mocks__/context.js");
+const { logger } = await import("../../logger.js");
+const { Template } = await import("../../models/Template.js");
+const {
+  cloneQuestion,
+  findQuestionMoveConflicts,
+  findQuestionOptionConflicts,
+  findQuestionRemoveConflicts,
+  generateQuestionConditionGroupVersion,
+  generateQuestionConditionVersion,
+  generateQuestionVersion,
+  hasPermissionOnQuestion,
+  updateDisplayOrders,
+  extractTriggerQuestionOptionValues,
+  questionSupportsSelectableOptions
+} = await import("../questionService.js");
+const { NotFoundError } = await import("../../utils/graphQLErrors.js");
+const { Question } = await import("../../models/Question.js");
+const { VersionedQuestion } = await import("../../models/VersionedQuestion.js");
+const { QuestionCondition } = await import("../../models/QuestionCondition.js");
+const { QuestionConditionGroup } = await import("../../models/QuestionConditionGroup.js");
+const { VersionedQuestionCondition } = await import("../../models/VersionedQuestionCondition.js");
+const { VersionedQuestionConditionGroup } = await import("../../models/VersionedQuestionConditionGroups.js");
+const { Tag } = await import("../../models/Tag.js");
+const { getCurrentDate } = await import("../../utils/helpers.js");
 
 let context: MyContext;
 
@@ -32,21 +63,16 @@ afterEach(() => {
 });
 
 describe('hasPermissionOnQuestion', () => {
-  let template;
-  let mockFindById;
-  let mockHashPermissionOnTemplate;
-  let context;
+  let template: InstanceType<typeof Template>;
+  let mockFindById: ReturnType<typeof jest.spyOn>;
+  let context: MyContext;
 
   beforeEach(async () => {
     jest.resetAllMocks();
 
     context = await buildMockContextWithToken(logger);
 
-    mockFindById = jest.fn();
-    (Template.findById as jest.Mock) = mockFindById;
-
-    mockHashPermissionOnTemplate = jest.fn();
-    (hasPermissionOnTemplate as jest.Mock) = mockHashPermissionOnTemplate;
+    mockFindById = jest.spyOn(Template, 'findById');
 
     template = new Template({
       id: casual.integer(1, 999),
@@ -66,38 +92,38 @@ describe('hasPermissionOnQuestion', () => {
 
   it('returns true if the current user has permission on the Template', async () => {
     mockFindById.mockResolvedValueOnce(template);
-    mockHashPermissionOnTemplate.mockResolvedValueOnce(true);
+    mockHasPermissionOnTemplate.mockResolvedValueOnce(true);
 
     expect(await hasPermissionOnQuestion(context, template.id)).toBe(true)
     expect(Template.findById).toHaveBeenCalledTimes(1);
-    expect(mockHashPermissionOnTemplate).toHaveBeenCalledTimes(1);
+    expect(mockHasPermissionOnTemplate).toHaveBeenCalledTimes(1);
   });
 
   it('returns false if the current user does NOT have permission on the Template', async () => {
     mockFindById.mockResolvedValueOnce(template);
-    mockHashPermissionOnTemplate.mockResolvedValueOnce(false);
+    mockHasPermissionOnTemplate.mockResolvedValueOnce(false);
 
     expect(await hasPermissionOnQuestion(context, template.id)).toBe(false)
     expect(Template.findById).toHaveBeenCalledTimes(1);
-    expect(mockHashPermissionOnTemplate).toHaveBeenCalledTimes(1);
+    expect(mockHasPermissionOnTemplate).toHaveBeenCalledTimes(1);
   });
 });
 
 describe('cloneQuestion', () => {
-  let question;
+  let question: InstanceType<typeof Question>;
 
-  let id;
-  let templateId;
-  let sectionId;
-  let json;
-  let questionText;
-  let sampleText;
-  let requirementText;
-  let guidanceText;
-  let displayOrder;
-  let required;
-  let isDirty;
-  let createdById;
+  let id: number;
+  let templateId: number;
+  let sectionId: number;
+  let json: string;
+  let questionText: string;
+  let sampleText: string;
+  let requirementText: string;
+  let guidanceText: string;
+  let displayOrder: number;
+  let required: boolean;
+  let isDirty: boolean;
+  let createdById: number;
 
   beforeEach(() => {
     templateId = casual.integer(1, 999);
@@ -179,19 +205,35 @@ describe('cloneQuestion', () => {
 });
 
 describe('generateQuestionVersion', () => {
-  let questionStore;
-  let versionedQuestionStore;
-  let mockInsert;
-  let mockUpdate;
-  let mockFindQuestionById;
-  let mockFindVersionedQuestionById;
-  let mockFindTagById;
-  let mockAddToVersionedQuestionTags;
+  const originalGroupCreate = VersionedQuestionConditionGroup.prototype.create;
+
+  let questionStore: any[];
+  let versionedQuestionStore: any[];
+  let mockInsert: ReturnType<typeof mockAsyncFn>;
+  let mockUpdate: ReturnType<typeof mockAsyncFn>;
+  let mockFindQuestionById: ReturnType<typeof mockAsyncFn>;
+  let mockFindVersionedQuestionById: ReturnType<typeof mockAsyncFn>;
+  let mockFindGroupsByQuestionId: ReturnType<typeof mockAsyncFn>;
+  let mockFindTagById: ReturnType<typeof mockAsyncFn>;
+  let mockAddToVersionedQuestionTags: ReturnType<typeof mockAsyncFn>;
+
+  afterEach(() => {
+    VersionedQuestionConditionGroup.prototype.create = originalGroupCreate;
+  });
 
   beforeEach(() => {
-    // Mock the QuestionConditions
-    const mockQuestionConditionFindByQuestionId = jest.fn().mockResolvedValue([]);
-    (QuestionCondition.findByQuestionId as jest.Mock) = mockQuestionConditionFindByQuestionId;
+    // By default there are no QuestionConditionGroups for the question. Individual
+    // tests override this to exercise the group-versioning branch.
+    mockFindGroupsByQuestionId = mockAsyncFn().mockResolvedValue([]);
+    jest.spyOn(QuestionConditionGroup, 'findByQuestionId').mockImplementation(mockFindGroupsByQuestionId);
+
+    mockAddToVersionedQuestionTags = mockAsyncFn().mockResolvedValue(true);
+    jest.spyOn(Tag.prototype, 'addToVersionedQuestionTags').mockImplementation(mockAddToVersionedQuestionTags);
+
+    mockFindTagById = mockAsyncFn().mockImplementation(async (_, __, id) => {
+      return new Tag({ id, name: `tag-${id}`, description: casual.sentence });
+    });
+    jest.spyOn(Tag, 'findById').mockImplementation(mockFindTagById);
 
     const tstamp = getCurrentDate();
 
@@ -239,17 +281,17 @@ describe('generateQuestionVersion', () => {
     versionedQuestionStore = [];
 
     // Fetch an item from the questionStore
-    mockFindQuestionById = jest.fn().mockImplementation((_, __, id) => {
+    mockFindQuestionById = mockAsyncFn().mockImplementation(async (_, __, id) => {
       return questionStore.find((entry) => { return entry.id === id });
     });
 
     // Fetch an item from the versionedQuestionStore
-    mockFindVersionedQuestionById = jest.fn().mockImplementation((_, __, id) => {
+    mockFindVersionedQuestionById = mockAsyncFn().mockImplementation(async (_, __, id) => {
       return versionedQuestionStore.find((entry) => { return entry.id === id });
     });
 
     // Add the entry to the appropriate store
-    mockInsert = jest.fn().mockImplementation((context, table, obj) => {
+    mockInsert = mockAsyncFn().mockImplementation(async (context, table, obj) => {
       const tstamp = getCurrentDate();
       const userId = context.token.id;
       obj.id = casual.integer(1, 9999);
@@ -273,7 +315,7 @@ describe('generateQuestionVersion', () => {
     });
 
     // Update the entry in the store
-    mockUpdate = jest.fn().mockImplementation((context, table, obj, _ref, _keys, noTouch) => {
+    mockUpdate = mockAsyncFn().mockImplementation(async (context, table, obj, _ref, _keys, noTouch) => {
       const tstamp = getCurrentDate();
       const userId = context.token.id;
       if (!noTouch) {
@@ -301,14 +343,6 @@ describe('generateQuestionVersion', () => {
       }
       return obj;
     });
-
-    mockAddToVersionedQuestionTags = jest.fn().mockResolvedValue(true);
-    (Tag.prototype.addToVersionedQuestionTags as jest.Mock) = mockAddToVersionedQuestionTags;
-
-    mockFindTagById = jest.fn().mockImplementation((_, __, id) => {
-      return new Tag({ id, name: `tag-${id}`, description: casual.sentence });
-    });
-
   });
 
   it('does not allow an unsaved question to be versioned', async () => {
@@ -324,10 +358,9 @@ describe('generateQuestionVersion', () => {
     const versioned = new VersionedQuestion({ questionId: question.id });
     versioned.errors = { general: 'Test failure' };
 
-    // (context.dataSources.sqlDataSource.query as jest.Mock).mockResolvedValueOnce(null);
-    (VersionedQuestion.insert as jest.Mock) = mockInsert;
-    const mockFindByFailure = jest.fn().mockImplementation(() => { return versioned; });
-    (VersionedQuestion.findById as jest.Mock) = mockFindByFailure;
+    jest.spyOn(VersionedQuestion, 'insert').mockImplementation(mockInsert);
+    const mockFindByFailure = mockAsyncFn().mockImplementation(async () => { return versioned; });
+    jest.spyOn(VersionedQuestion, 'findById').mockImplementation(mockFindByFailure);
 
     const err = `Unable to create new version for question: ${question.id}`;
     expect(async () => {
@@ -340,11 +373,11 @@ describe('generateQuestionVersion', () => {
     const updated = new Question({ id: question.id });
     updated.errors = { general: 'Test failure' };
 
-    (VersionedQuestion.insert as jest.Mock) = mockInsert;
-    (VersionedQuestion.findById as jest.Mock) = mockFindVersionedQuestionById;
-    const mockUpdateFailure = jest.fn().mockImplementation(() => { return updated; });
-    (Question.update as jest.Mock) = mockUpdate;
-    (Question.findById as jest.Mock) = mockUpdateFailure;
+    jest.spyOn(VersionedQuestion, 'insert').mockImplementation(mockInsert);
+    jest.spyOn(VersionedQuestion, 'findById').mockImplementation(mockFindVersionedQuestionById);
+    const mockUpdateFailure = mockAsyncFn().mockImplementation(async () => { return updated; });
+    jest.spyOn(Question, 'update').mockImplementation(mockUpdate);
+    jest.spyOn(Question, 'findById').mockImplementation(mockUpdateFailure);
 
     const err = `Unable to set isDirty flag on question: ${question.id}`;
     expect(async () => {
@@ -352,13 +385,13 @@ describe('generateQuestionVersion', () => {
     }).rejects.toThrow(Error(err));
   });
 
-  it('versions the Question', async () => {
+  it('versions the Question when it has no QuestionConditionGroups', async () => {
     const question = new Question(questionStore[0]);
 
-    (VersionedQuestion.insert as jest.Mock) = mockInsert;
-    (VersionedQuestion.findById as jest.Mock) = mockFindVersionedQuestionById;
-    (Question.update as jest.Mock) = mockUpdate;
-    (Question.findById as jest.Mock) = mockFindQuestionById;
+    jest.spyOn(VersionedQuestion, 'insert').mockImplementation(mockInsert);
+    jest.spyOn(VersionedQuestion, 'findById').mockImplementation(mockFindVersionedQuestionById);
+    jest.spyOn(Question, 'update').mockImplementation(mockUpdate);
+    jest.spyOn(Question, 'findById').mockImplementation(mockFindQuestionById);
 
     const versionedTemplateId = casual.integer(1, 999);
     const versionedSectionId = casual.integer(1, 999);
@@ -368,6 +401,7 @@ describe('generateQuestionVersion', () => {
 
     // Verify that the Version was created as expected
     const newVersion = versionedQuestionStore[0];
+    expect(mockFindGroupsByQuestionId).toHaveBeenCalledWith('generateQuestionVersion', context, newVersion.questionId);
     expect(mockInsert).toHaveBeenCalled();
     expect(newVersion.id).toBeTruthy();
     expect(newVersion.created).toBeTruthy();
@@ -392,16 +426,16 @@ describe('generateQuestionVersion', () => {
     expect(updated.modified).toEqual(question.modified);
     expect(updated.isDirty).toEqual(false);
   });
+
   it('versions the Question and assigns its tags', async () => {
     const tag1 = { id: casual.integer(1, 99), name: casual.word };
     const tag2 = { id: casual.integer(1, 99), name: casual.word };
     const question = new Question({ ...questionStore[0], tags: [tag1, tag2] });
 
-    (VersionedQuestion.insert as jest.Mock) = mockInsert;
-    (VersionedQuestion.findById as jest.Mock) = mockFindVersionedQuestionById;
-    (Question.update as jest.Mock) = mockUpdate;
-    (Question.findById as jest.Mock) = mockFindQuestionById;
-    (Tag.findById as jest.Mock) = mockFindTagById;
+    jest.spyOn(VersionedQuestion, 'insert').mockImplementation(mockInsert);
+    jest.spyOn(VersionedQuestion, 'findById').mockImplementation(mockFindVersionedQuestionById);
+    jest.spyOn(Question, 'update').mockImplementation(mockUpdate);
+    jest.spyOn(Question, 'findById').mockImplementation(mockFindQuestionById);
 
     const versionedTemplateId = casual.integer(1, 999);
     const versionedSectionId = casual.integer(1, 999);
@@ -419,16 +453,15 @@ describe('generateQuestionVersion', () => {
     expect(newVersion.errors?.tags).toBeUndefined();
   });
 
-  it('adds a tags error when a tag fails to be assigned', async () => {
-    const tagName = `tag-10`;
-    const question = new Question({ ...questionStore[0], tags: [{ id: 10, name: tagName }] });
+  it('adds a tags error when a tag cannot be found', async () => {
+    const missingTagId = 10;
+    const question = new Question({ ...questionStore[0], tags: [{ id: missingTagId, name: 'ghost-tag' }] });
 
-    (VersionedQuestion.insert as jest.Mock) = mockInsert;
-    (VersionedQuestion.findById as jest.Mock) = mockFindVersionedQuestionById;
-    (Question.update as jest.Mock) = mockUpdate;
-    (Question.findById as jest.Mock) = mockFindQuestionById;
-    (Tag.findById as jest.Mock) = mockFindTagById; // now returns id + matching name
-    (Tag.prototype.addToVersionedQuestionTags as jest.Mock) = jest.fn().mockResolvedValue(false);
+    jest.spyOn(VersionedQuestion, 'insert').mockImplementation(mockInsert);
+    jest.spyOn(VersionedQuestion, 'findById').mockImplementation(mockFindVersionedQuestionById);
+    jest.spyOn(Question, 'update').mockImplementation(mockUpdate);
+    jest.spyOn(Question, 'findById').mockImplementation(mockFindQuestionById);
+    jest.spyOn(Tag, 'findById').mockResolvedValue(null);
 
     const versionedTemplateId = casual.integer(1, 999);
     const versionedSectionId = casual.integer(1, 999);
@@ -438,19 +471,20 @@ describe('generateQuestionVersion', () => {
     ).toEqual(true);
 
     const newVersion = versionedQuestionStore[0];
-    expect(newVersion.errors.tags).toContain("Saved but we were unable to assign tags: tag-10");
+    expect(mockAddToVersionedQuestionTags).not.toHaveBeenCalled();
+    expect(newVersion.errors.tags).toContain(`Tag ${missingTagId} not found`);
   });
 
   it('adds a tags error when a tag fails to be assigned', async () => {
     const tag = { id: 10, name: 'Data Formatting' };
     const question = new Question({ ...questionStore[0], tags: [tag] });
 
-    (VersionedQuestion.insert as jest.Mock) = mockInsert;
-    (VersionedQuestion.findById as jest.Mock) = mockFindVersionedQuestionById;
-    (Question.update as jest.Mock) = mockUpdate;
-    (Question.findById as jest.Mock) = mockFindQuestionById;
-    (Tag.findById as jest.Mock) = mockFindTagById;
-    (Tag.prototype.addToVersionedQuestionTags as jest.Mock) = jest.fn().mockResolvedValue(false);
+    jest.spyOn(VersionedQuestion, 'insert').mockImplementation(mockInsert);
+    jest.spyOn(VersionedQuestion, 'findById').mockImplementation(mockFindVersionedQuestionById);
+    jest.spyOn(Question, 'update').mockImplementation(mockUpdate);
+    jest.spyOn(Question, 'findById').mockImplementation(mockFindQuestionById);
+    jest.spyOn(Tag, 'findById').mockImplementation(mockFindTagById);
+    jest.spyOn(Tag.prototype, 'addToVersionedQuestionTags').mockResolvedValue(false);
 
     const versionedTemplateId = casual.integer(1, 999);
     const versionedSectionId = casual.integer(1, 999);
@@ -466,11 +500,10 @@ describe('generateQuestionVersion', () => {
   it('skips tag assignment when the question has no tags', async () => {
     const question = new Question({ ...questionStore[0], tags: [] });
 
-    (VersionedQuestion.insert as jest.Mock) = mockInsert;
-    (VersionedQuestion.findById as jest.Mock) = mockFindVersionedQuestionById;
-    (Question.update as jest.Mock) = mockUpdate;
-    (Question.findById as jest.Mock) = mockFindQuestionById;
-    (Tag.findById as jest.Mock) = mockFindTagById;
+    jest.spyOn(VersionedQuestion, 'insert').mockImplementation(mockInsert);
+    jest.spyOn(VersionedQuestion, 'findById').mockImplementation(mockFindVersionedQuestionById);
+    jest.spyOn(Question, 'update').mockImplementation(mockUpdate);
+    jest.spyOn(Question, 'findById').mockImplementation(mockFindQuestionById);
 
     const versionedTemplateId = casual.integer(1, 999);
     const versionedSectionId = casual.integer(1, 999);
@@ -481,15 +514,189 @@ describe('generateQuestionVersion', () => {
 
     expect(mockFindTagById).not.toHaveBeenCalled();
   });
+
+  it('versions the Question and its QuestionConditionGroups', async () => {
+    const question = new Question(questionStore[0]);
+    const group = new QuestionConditionGroup({
+      id: casual.integer(1, 99),
+      questionId: question.id,
+      triggerQuestionId: casual.integer(1, 99),
+    });
+
+    mockFindGroupsByQuestionId.mockResolvedValueOnce([group]);
+
+    const mockFindConditionsByGroupId = mockAsyncFn().mockResolvedValue([]);
+    jest.spyOn(QuestionCondition, 'findByGroupId').mockImplementation(mockFindConditionsByGroupId);
+
+    const mockCreateVersionedGroup = mockAsyncFn().mockImplementation(async function (this: any) {
+      return new VersionedQuestionConditionGroup({
+        id: casual.integer(1, 999),
+        versionedQuestionId: this.versionedQuestionId,
+
+        triggerQuestionId: this.triggerQuestionId,
+      });
+    });
+    jest.spyOn(VersionedQuestionConditionGroup.prototype, 'create').mockImplementation(mockCreateVersionedGroup);
+
+    jest.spyOn(VersionedQuestion, 'insert').mockImplementation(mockInsert);
+    jest.spyOn(VersionedQuestion, 'findById').mockImplementation(mockFindVersionedQuestionById);
+    jest.spyOn(Question, 'update').mockImplementation(mockUpdate);
+    jest.spyOn(Question, 'findById').mockImplementation(mockFindQuestionById);
+
+    const versionedTemplateId = casual.integer(1, 999);
+    const versionedSectionId = casual.integer(1, 999);
+    expect(
+      await generateQuestionVersion(context, question, versionedTemplateId, versionedSectionId)
+    ).toEqual(true);
+
+    const newVersion = versionedQuestionStore[0];
+    expect(mockCreateVersionedGroup).toHaveBeenCalledTimes(1);
+    expect(mockFindConditionsByGroupId).toHaveBeenCalledWith('generateQuestionConditionGroupVersion', context, group.id);
+    // The question was still marked clean since group versioning succeeded
+    const updated = questionStore.find((entry) => { return entry.id === question.id; });
+    expect(updated.isDirty).toEqual(false);
+    expect(newVersion.errors).toEqual({});
+  });
+
+  it('does not mark the Question clean if a QuestionConditionGroup fails to version', async () => {
+    const question = new Question(questionStore[0]);
+    const group = new QuestionConditionGroup({
+      id: casual.integer(1, 99),
+      questionId: question.id,
+      triggerQuestionId: casual.integer(1, 99),
+    });
+
+    mockFindGroupsByQuestionId.mockResolvedValueOnce([group]);
+
+    const mockCreateVersionedGroup = mockAsyncFn().mockImplementation(async () => {
+      const failed = new VersionedQuestionConditionGroup({ versionedQuestionId: casual.integer(1, 999) });
+      failed.errors = { general: 'Test failure' };
+      return failed;
+    });
+    jest.spyOn(VersionedQuestionConditionGroup.prototype, 'create').mockImplementation(mockCreateVersionedGroup);
+
+    jest.spyOn(VersionedQuestion, 'insert').mockImplementation(mockInsert);
+    jest.spyOn(VersionedQuestion, 'findById').mockImplementation(mockFindVersionedQuestionById);
+    jest.spyOn(Question, 'update').mockImplementation(mockUpdate);
+    jest.spyOn(Question, 'findById').mockImplementation(mockFindQuestionById);
+
+    const err = `Unable to generate a new version for questionConditionGroup: ${group.id}`;
+    await expect(
+      generateQuestionVersion(context, question, casual.integer(1, 999), casual.integer(1, 999))
+    ).rejects.toThrow(Error(err));
+
+    // The Question should not have been marked as clean since versioning failed
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+});
+
+describe('generateQuestionConditionGroupVersion', () => {
+  const originalGroupCreate = VersionedQuestionConditionGroup.prototype.create;
+  const originalConditionCreate = VersionedQuestionCondition.prototype.create;
+
+  let mockCreateVersionedGroup: ReturnType<typeof mockAsyncFn>;
+  let mockFindConditionsByGroupId: ReturnType<typeof mockAsyncFn>;
+  let group: InstanceType<typeof QuestionConditionGroup>;
+
+  beforeEach(() => {
+    group = new QuestionConditionGroup({
+      id: casual.integer(1, 99),
+      questionId: casual.integer(1, 999),
+      triggerQuestionId: casual.integer(1, 999),
+    });
+
+    mockFindConditionsByGroupId = mockAsyncFn().mockResolvedValue([]);
+    jest.spyOn(QuestionCondition, 'findByGroupId').mockImplementation(mockFindConditionsByGroupId);
+  });
+
+  afterEach(() => {
+    VersionedQuestionConditionGroup.prototype.create = originalGroupCreate;
+    VersionedQuestionCondition.prototype.create = originalConditionCreate;
+  });
+
+  it('does not allow an unsaved QuestionConditionGroup to be versioned', async () => {
+    const unsavedGroup = new QuestionConditionGroup({ questionId: casual.integer(1, 9) });
+
+    expect(async () => {
+      await generateQuestionConditionGroupVersion(context, unsavedGroup, casual.integer(1, 999));
+    }).rejects.toThrow(Error('Cannot publish unsaved QuestionConditionGroup'));
+  });
+
+  it('does not version if the VersionedQuestionConditionGroup could not be created', async () => {
+    mockCreateVersionedGroup = mockAsyncFn().mockImplementation(async () => {
+      const failed = new VersionedQuestionConditionGroup({ versionedQuestionId: casual.integer(1, 999) });
+      failed.errors = { general: 'Test failure' };
+      return failed;
+    });
+    jest.spyOn(VersionedQuestionConditionGroup.prototype, 'create').mockImplementation(mockCreateVersionedGroup);
+
+    const err = `Unable to generate a new version for questionConditionGroup: ${group.id}`;
+    expect(async () => {
+      await generateQuestionConditionGroupVersion(context, group, casual.integer(1, 999));
+    }).rejects.toThrow(Error(err));
+  });
+
+  it('versions the QuestionConditionGroup when it has no QuestionConditions', async () => {
+    const versionedQuestionId = casual.integer(1, 999);
+    const savedGroupId = casual.integer(1, 9999);
+
+    mockCreateVersionedGroup = mockAsyncFn().mockImplementation(async function (this: any) {
+      return new VersionedQuestionConditionGroup({
+        id: savedGroupId,
+        versionedQuestionId: this.versionedQuestionId,
+        triggerQuestionId: this.triggerQuestionId,
+      });
+    });
+    jest.spyOn(VersionedQuestionConditionGroup.prototype, 'create').mockImplementation(mockCreateVersionedGroup);
+
+    expect(await generateQuestionConditionGroupVersion(context, group, versionedQuestionId)).toEqual(true);
+    expect(mockCreateVersionedGroup).toHaveBeenCalledTimes(1);
+    expect(mockFindConditionsByGroupId).toHaveBeenCalledWith('generateQuestionConditionGroupVersion', context, group.id);
+  });
+
+  it('versions each QuestionCondition that belongs to the group', async () => {
+    const versionedQuestionId = casual.integer(1, 999);
+    const savedGroupId = casual.integer(1, 9999);
+
+    mockCreateVersionedGroup = mockAsyncFn().mockImplementation(async function (this: any) {
+      return new VersionedQuestionConditionGroup({
+        id: savedGroupId,
+        versionedQuestionId: this.versionedQuestionId,
+        triggerQuestionId: this.triggerQuestionId,
+      });
+    });
+    jest.spyOn(VersionedQuestionConditionGroup.prototype, 'create').mockImplementation(mockCreateVersionedGroup);
+
+    const condition = new QuestionCondition({
+      id: casual.integer(1, 99),
+      groupId: group.id,
+      conditionType: "EQUALS",
+      conditionMatch: casual.words(2),
+    });
+    mockFindConditionsByGroupId.mockResolvedValueOnce([condition]);
+
+    const mockCreateVersionedCondition = mockAsyncFn().mockImplementation(async function (this: any) {
+      return new VersionedQuestionCondition({
+        id: casual.integer(1, 9999),
+        versionedQuestionConditionGroupId: this.versionedQuestionConditionGroupId,
+        conditionType: this.conditionType,
+        conditionMatch: this.conditionMatch,
+      });
+    });
+    jest.spyOn(VersionedQuestionCondition.prototype, 'create').mockImplementation(mockCreateVersionedCondition);
+
+    expect(await generateQuestionConditionGroupVersion(context, group, versionedQuestionId)).toEqual(true);
+    expect(mockCreateVersionedCondition).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('generateQuestionConditionVersion', () => {
-  let questionConditionStore;
-  let versionedQuestionConditionStore;
-  let mockInsert;
-  let mockUpdate;
-  let mockFindQuestionConditionById;
-  let mockFindVersionedQuestionConditionById;
+  let questionConditionStore: any[];
+  let versionedQuestionConditionStore: any[];
+  let mockInsert: ReturnType<typeof mockAsyncFn>;
+  let mockUpdate: ReturnType<typeof mockAsyncFn>;
+  let mockFindQuestionConditionById: ReturnType<typeof mockAsyncFn>;
+  let mockFindVersionedQuestionConditionById: ReturnType<typeof mockAsyncFn>;
 
   beforeEach(() => {
     const tstamp = getCurrentDate();
@@ -498,11 +705,9 @@ describe('generateQuestionConditionVersion', () => {
     questionConditionStore = [
       new QuestionCondition({
         id: casual.integer(1, 99),
-        questionId: casual.integer(1, 99),
-        action: getRandomEnumValue(QuestionConditionActionType),
-        conditionType: getRandomEnumValue(QuestionConditionCondition),
+        groupId: casual.integer(1, 99),
+        conditionType: "EQUALS",
         conditionMatch: casual.words(2),
-        target: casual.words(3),
         createdById: casual.integer(1, 999),
         created: tstamp,
         modifiedById: casual.integer(1, 999),
@@ -512,17 +717,18 @@ describe('generateQuestionConditionVersion', () => {
     versionedQuestionConditionStore = [];
 
     // Fetch an item from the questionConditionStore
-    mockFindQuestionConditionById = jest.fn().mockImplementation((_, __, id) => {
+    mockFindQuestionConditionById = mockAsyncFn().mockImplementation(async (_, __, id) => {
       return questionConditionStore.find((entry) => { return entry.id === id });
     });
 
     // Fetch an item from the versionedQuestionConditionStore
-    mockFindVersionedQuestionConditionById = jest.fn().mockImplementation((_, __, id) => {
-      return versionedQuestionConditionStore.find((entry) => { return entry.id === id });
+    mockFindVersionedQuestionConditionById = mockAsyncFn().mockImplementation(async (_, __, id) => {
+      const entry = versionedQuestionConditionStore.find((e) => { return e.id === id });
+      return entry ? new VersionedQuestionCondition(entry) : null;
     });
 
     // Add the entry to the appropriate store
-    mockInsert = jest.fn().mockImplementation((context, table, obj) => {
+    mockInsert = mockAsyncFn().mockImplementation(async (context, table, obj) => {
       const tstamp = getCurrentDate();
       const userId = context.token.id;
       obj.id = casual.integer(1, 9999);
@@ -546,7 +752,7 @@ describe('generateQuestionConditionVersion', () => {
     });
 
     // Update the entry in the store
-    mockUpdate = jest.fn().mockImplementation((context, table, obj, _ref, _keys, noTouch) => {
+    mockUpdate = mockAsyncFn().mockImplementation(async (context, table, obj, _ref, _keys, noTouch) => {
       const tstamp = getCurrentDate();
       const userId = context.token.id;
       if (!noTouch) {
@@ -577,7 +783,7 @@ describe('generateQuestionConditionVersion', () => {
   });
 
   it('does not allow an unsaved QuestionCondition to be versioned', async () => {
-    const questionCondition = new QuestionCondition({ questionId: casual.integer(1, 9) });
+    const questionCondition = new QuestionCondition({ groupId: casual.integer(1, 9) });
 
     expect(async () => {
       await generateQuestionConditionVersion(context, questionCondition, casual.integer(1, 999));
@@ -586,17 +792,12 @@ describe('generateQuestionConditionVersion', () => {
 
   it('does not version if the VersionedQuestionCondition could not be created', async () => {
     const questionCondition = questionConditionStore[0];
-    const versioned = new VersionedQuestionCondition({ questionId: questionCondition.id });
+    const versioned = new VersionedQuestionCondition({ versionedQuestionConditionGroupId: casual.integer(1, 999) });
     versioned.errors = { general: 'Test failure' };
 
-    // const mockQuery = jest.fn().mockResolvedValueOnce(null);
-    // context.dataSources.sqlDataSource = {
-    //   query: mockQuery
-    // };
-
-    (VersionedQuestionCondition.insert as jest.Mock) = mockInsert;
-    const mockFindByFailure = jest.fn().mockImplementation(() => { return versioned; });
-    (VersionedQuestionCondition.findById as jest.Mock) = mockFindByFailure;
+    jest.spyOn(VersionedQuestionCondition, 'insert').mockImplementation(mockInsert);
+    const mockFindByFailure = mockAsyncFn().mockImplementation(async () => { return versioned; });
+    jest.spyOn(VersionedQuestionCondition, 'findById').mockImplementation(mockFindByFailure);
 
     const err = `Unable to generate a new version for questionCondition: ${questionCondition.id}`;
     expect(async () => {
@@ -607,14 +808,14 @@ describe('generateQuestionConditionVersion', () => {
   it('versions the QuestionCondition', async () => {
     const questionCondition = new QuestionCondition(questionConditionStore[0]);
 
-    (VersionedQuestionCondition.insert as jest.Mock) = mockInsert;
-    (VersionedQuestionCondition.findById as jest.Mock) = mockFindVersionedQuestionConditionById;
-    (QuestionCondition.update as jest.Mock) = mockUpdate;
-    (QuestionCondition.findById as jest.Mock) = mockFindQuestionConditionById;
+    jest.spyOn(VersionedQuestionCondition, 'insert').mockImplementation(mockInsert);
+    jest.spyOn(VersionedQuestionCondition, 'findById').mockImplementation(mockFindVersionedQuestionConditionById);
+    jest.spyOn(QuestionCondition, 'update').mockImplementation(mockUpdate);
+    jest.spyOn(QuestionCondition, 'findById').mockImplementation(mockFindQuestionConditionById);
 
-    const versionedQuestionId = casual.integer(1, 999);
+    const versionedQuestionConditionGroupId = casual.integer(1, 999);
     expect(
-      await generateQuestionConditionVersion(context, questionCondition, versionedQuestionId)
+      await generateQuestionConditionVersion(context, questionCondition, versionedQuestionConditionGroupId)
     ).toEqual(true);
 
     // Verify that the Version was created as expected
@@ -625,20 +826,18 @@ describe('generateQuestionConditionVersion', () => {
     expect(newVersion.modified).toBeTruthy();
     expect(newVersion.createdById).toEqual(context.token.id);
     expect(newVersion.modifiedById).toEqual(context.token.id);
-    expect(newVersion.versionedQuestionId).toEqual(versionedQuestionId);
-    expect(newVersion.action).toEqual(questionCondition.action);
+    expect(newVersion.versionedQuestionConditionGroupId).toEqual(versionedQuestionConditionGroupId);
     expect(newVersion.conditionType).toEqual(questionCondition.conditionType);
     expect(newVersion.conditionMatch).toEqual(questionCondition.conditionMatch);
-    expect(newVersion.target).toEqual(questionCondition.target);
   });
 });
 
 describe('updateDisplayOrders', () => {
   describe('updateDisplayOrders', () => {
-    let questionStore;
-    let sectionId;
-    let mockFindByTemplateId;
-    let mockUpdate;
+    let questionStore: any[];
+    let sectionId: number;
+    let mockFindByTemplateId: ReturnType<typeof mockAsyncFn>;
+    let mockUpdate: ReturnType<typeof mockAsyncFn>;
 
     beforeEach(() => {
       jest.resetAllMocks();
@@ -692,11 +891,11 @@ describe('updateDisplayOrders', () => {
       ];
 
       // Mock the findByTemplateId method
-      mockFindByTemplateId = jest.fn().mockResolvedValue(questionStore);
-      (Question.findBySectionId as jest.Mock) = mockFindByTemplateId;
+      mockFindByTemplateId = mockAsyncFn().mockResolvedValue(questionStore);
+      jest.spyOn(Question, 'findBySectionId').mockImplementation(mockFindByTemplateId);
 
       // Mock the update method
-      mockUpdate = jest.fn().mockImplementation((context) => {
+      mockUpdate = mockAsyncFn().mockImplementation(async (context: any) => {
         const tstamp = getCurrentDate();
         const userId = context.token.id;
         return new Question({
@@ -705,7 +904,7 @@ describe('updateDisplayOrders', () => {
           modifiedById: userId,
         });
       });
-      (Question.prototype.update as jest.Mock) = mockUpdate;
+      jest.spyOn(Question.prototype, 'update').mockImplementation(mockUpdate);
     });
 
     afterEach(() => {
@@ -766,5 +965,317 @@ describe('updateDisplayOrders', () => {
       expect(mockFindByTemplateId).toHaveBeenCalledTimes(1);
       expect(mockUpdate).toHaveBeenCalledTimes(1);
     });
+  });
+});
+
+describe('extractTriggerQuestionOptionValues', () => {
+  const buildQuestion = (json: string): InstanceType<typeof Question> =>
+    new Question({
+      id: casual.integer(1, 999),
+      templateId: casual.integer(1, 999),
+      sectionId: casual.integer(1, 999),
+      json,
+      questionText: casual.sentence,
+    });
+
+  it('extracts values from root-level options', () => {
+    const question = buildQuestion(JSON.stringify({
+      type: 'radioButtons',
+      options: [
+        { label: 'Yes', value: 'yes' },
+        { label: 'No', value: 'no' },
+      ],
+    }));
+
+    const result = extractTriggerQuestionOptionValues(question);
+
+    expect(result).toEqual(new Set(['yes', 'no']));
+  });
+
+  it('extracts values from attributes.options', () => {
+    const question = buildQuestion(JSON.stringify({
+      type: 'selectBox',
+      attributes: {
+        options: [
+          { label: 'Apples', value: 'apples' },
+          { label: 'Oranges', value: 'oranges' },
+        ],
+      },
+    }));
+
+    const result = extractTriggerQuestionOptionValues(question);
+
+    expect(result).toEqual(new Set(['apples', 'oranges']));
+  });
+
+  it('combines root options and attributes.options when both are present', () => {
+    const question = buildQuestion(JSON.stringify({
+      type: 'radioButtons',
+      options: [{ label: 'A', value: 'a' }],
+      attributes: {
+        options: [{ label: 'B', value: 'b' }],
+      },
+    }));
+
+    const result = extractTriggerQuestionOptionValues(question);
+
+    expect(result).toEqual(new Set(['a', 'b']));
+  });
+
+  it('falls back to label when value is not a string', () => {
+    const question = buildQuestion(JSON.stringify({
+      type: 'radioButtons',
+      options: [
+        { label: 'Yes' }, // no value field
+        { value: 42, label: 'Forty Two' }, // value is not a string
+      ],
+    }));
+
+    const result = extractTriggerQuestionOptionValues(question);
+
+    expect(result).toEqual(new Set(['Yes', 'Forty Two']));
+  });
+
+  it('filters out options with neither a usable value nor label', () => {
+    const question = buildQuestion(JSON.stringify({
+      type: 'radioButtons',
+      options: [
+        { value: 'keep-me' },
+        { value: 42, label: 99 }, // neither is a string
+        {},
+      ],
+    }));
+
+    const result = extractTriggerQuestionOptionValues(question);
+
+    expect(result).toEqual(new Set(['keep-me']));
+  });
+
+  it('deduplicates repeated values', () => {
+    const question = buildQuestion(JSON.stringify({
+      type: 'radioButtons',
+      options: [
+        { value: 'dup' },
+        { value: 'dup' },
+        { value: 'unique' },
+      ],
+    }));
+
+    const result = extractTriggerQuestionOptionValues(question);
+
+    expect(result).toEqual(new Set(['dup', 'unique']));
+    expect(result.size).toEqual(2);
+  });
+
+  it('returns an empty set when no options are present', () => {
+    const question = buildQuestion(JSON.stringify({ type: 'textArea' }));
+
+    expect(extractTriggerQuestionOptionValues(question)).toEqual(new Set());
+  });
+
+  it('returns an empty set when options is not an array', () => {
+    const question = buildQuestion(JSON.stringify({
+      type: 'radioButtons',
+      options: { not: 'an array' },
+    }));
+
+    expect(extractTriggerQuestionOptionValues(question)).toEqual(new Set());
+  });
+
+  it('returns an empty set when the JSON cannot be parsed', () => {
+    const question = buildQuestion('{not valid json');
+
+    expect(extractTriggerQuestionOptionValues(question)).toEqual(new Set());
+  });
+});
+
+describe('questionSupportsSelectableOptions', () => {
+  const buildQuestion = (json: string): InstanceType<typeof Question> =>
+    new Question({
+      id: casual.integer(1, 999),
+      templateId: casual.integer(1, 999),
+      sectionId: casual.integer(1, 999),
+      json,
+      questionText: casual.sentence,
+    });
+
+  it('returns true when root-level options is an array', () => {
+    const question = buildQuestion(JSON.stringify({
+      type: 'radioButtons',
+      options: [{ label: 'Yes', value: 'yes' }],
+    }));
+
+    expect(questionSupportsSelectableOptions(question)).toBe(true);
+  });
+
+  it('returns true when attributes.options is an array', () => {
+    const question = buildQuestion(JSON.stringify({
+      type: 'selectBox',
+      attributes: { options: [{ label: 'Apples', value: 'apples' }] },
+    }));
+
+    expect(questionSupportsSelectableOptions(question)).toBe(true);
+  });
+
+  it('returns true when options is an empty array', () => {
+    const question = buildQuestion(JSON.stringify({
+      type: 'radioButtons',
+      options: [],
+    }));
+
+    expect(questionSupportsSelectableOptions(question)).toBe(true);
+  });
+
+  it('returns false when there are no options fields at all', () => {
+    const question = buildQuestion(JSON.stringify({ type: 'textArea' }));
+
+    expect(questionSupportsSelectableOptions(question)).toBe(false);
+  });
+
+  it('returns false when options is present but not an array', () => {
+    const question = buildQuestion(JSON.stringify({
+      type: 'radioButtons',
+      options: { not: 'an array' },
+    }));
+
+    expect(questionSupportsSelectableOptions(question)).toBe(false);
+  });
+
+  it('returns false when the JSON cannot be parsed', () => {
+    const question = buildQuestion('{not valid json');
+
+    expect(questionSupportsSelectableOptions(question)).toBe(false);
+  });
+});
+
+describe('findQuestionMoveConflicts', () => {
+  const sectionId = 5;
+  let mockFindGroups: ReturnType<typeof mockAsyncFn>;
+  let mockFindBySectionId: ReturnType<typeof mockAsyncFn>;
+
+  // Q1 (trigger question) -> Q2 -> Q3 (shows only when Q1 matches)
+  const dependentGroup = new QuestionConditionGroup({ id: 1, questionId: 3, triggerQuestionId: 1 });
+
+  beforeEach(() => {
+    mockFindGroups = mockAsyncFn().mockResolvedValue([dependentGroup]);
+    jest.spyOn(QuestionConditionGroup, 'findByQuestionOrTriggerQuestionId').mockImplementation(mockFindGroups);
+
+    mockFindBySectionId = mockAsyncFn().mockResolvedValue([
+      new Question({ id: 1, sectionId, displayOrder: 1 }),
+      new Question({ id: 2, sectionId, displayOrder: 2 }),
+      new Question({ id: 3, sectionId, displayOrder: 3 }),
+    ]);
+    jest.spyOn(Question, 'findBySectionId').mockImplementation(mockFindBySectionId);
+  });
+
+  it('returns the group when a question would move above its trigger question', async () => {
+    const conflicts = await findQuestionMoveConflicts(context, sectionId, 3, 1);
+    expect(mockFindGroups).toHaveBeenCalledWith(expect.any(String), context, 3);
+    expect(mockFindBySectionId).toHaveBeenCalledWith(expect.any(String), context, sectionId);
+    expect(conflicts).toEqual([dependentGroup]);
+  });
+
+  it('returns the group when a trigger question would move below a question that depends on it', async () => {
+    const conflicts = await findQuestionMoveConflicts(context, sectionId, 1, 3);
+    expect(conflicts).toEqual([dependentGroup]);
+  });
+
+  it('returns an empty array when the question stays after its trigger question', async () => {
+    const conflicts = await findQuestionMoveConflicts(context, sectionId, 3, 2);
+    expect(conflicts).toEqual([]);
+  });
+
+  it('ignores trigger questions that are in another section', async () => {
+    mockFindGroups.mockResolvedValueOnce([
+      new QuestionConditionGroup({ id: 2, questionId: 1, triggerQuestionId: 99 }),
+    ]);
+    const conflicts = await findQuestionMoveConflicts(context, sectionId, 1, 3);
+    expect(conflicts).toEqual([]);
+  });
+
+  it('does not load the section questions when the question has no display logic', async () => {
+    mockFindGroups.mockResolvedValueOnce([]);
+    const conflicts = await findQuestionMoveConflicts(context, sectionId, 2, 1);
+    expect(conflicts).toEqual([]);
+    expect(mockFindBySectionId).not.toHaveBeenCalled();
+  });
+});
+
+describe('findQuestionRemoveConflicts', () => {
+  let mockFindGroups: ReturnType<typeof mockAsyncFn>;
+
+  beforeEach(() => {
+    mockFindGroups = mockAsyncFn();
+    jest.spyOn(QuestionConditionGroup, 'findByQuestionOrTriggerQuestionId').mockImplementation(mockFindGroups);
+  });
+
+  it('returns the groups where the question is the trigger question for another question', async () => {
+    const triggeredGroup = new QuestionConditionGroup({ id: 1, questionId: 3, triggerQuestionId: 1 });
+    mockFindGroups.mockResolvedValueOnce([triggeredGroup]);
+
+    const conflicts = await findQuestionRemoveConflicts(context, 1);
+    expect(mockFindGroups).toHaveBeenCalledWith(expect.any(String), context, 1);
+    expect(conflicts).toEqual([triggeredGroup]);
+  });
+
+  it('ignores the question\'s own display logic groups, which are deleted along with it', async () => {
+    mockFindGroups.mockResolvedValueOnce([
+      new QuestionConditionGroup({ id: 2, questionId: 1, triggerQuestionId: 5 }),
+    ]);
+
+    const conflicts = await findQuestionRemoveConflicts(context, 1);
+    expect(conflicts).toEqual([]);
+  });
+
+  it('returns an empty array when the question has no display logic', async () => {
+    mockFindGroups.mockResolvedValueOnce([]);
+    expect(await findQuestionRemoveConflicts(context, 1)).toEqual([]);
+  });
+});
+
+describe('findQuestionOptionConflicts', () => {
+  let mockFindByTriggerQuestionId: ReturnType<typeof mockAsyncFn>;
+
+  const optionsJson = (type: string, values: string[]) => JSON.stringify({
+    type,
+    meta: { schemaVersion: CURRENT_SCHEMA_VERSION },
+    options: values.map((value) => ({ label: value, value, selected: false })),
+  });
+
+  // Question 1 is a radio button question with "Yes" and "No" options; another question shows when it is "Yes"
+  const triggerQuestion = new Question({ id: 1, json: optionsJson('radioButtons', ['Yes', 'No']) });
+  const yesCondition = new QuestionCondition({ id: 1, groupId: 1, conditionType: 'EQUAL', conditionMatch: 'Yes' });
+
+  beforeEach(() => {
+    mockFindByTriggerQuestionId = mockAsyncFn().mockResolvedValue([yesCondition]);
+    jest.spyOn(QuestionCondition, 'findByTriggerQuestionId').mockImplementation(mockFindByTriggerQuestionId);
+  });
+
+  it('returns the conditions that match an option that was removed', async () => {
+    const conflicts = await findQuestionOptionConflicts(context, triggerQuestion, optionsJson('radioButtons', ['No']));
+    expect(mockFindByTriggerQuestionId).toHaveBeenCalledWith(expect.any(String), context, 1);
+    expect(conflicts).toEqual([yesCondition]);
+  });
+
+  it('returns the conditions that match an option that was renamed', async () => {
+    const conflicts = await findQuestionOptionConflicts(context, triggerQuestion, optionsJson('radioButtons', ['Yes!', 'No']));
+    expect(conflicts).toEqual([yesCondition]);
+  });
+
+  it('returns the conditions when the question changes to a type without options', async () => {
+    const textJson = JSON.stringify({ type: 'text', meta: { schemaVersion: CURRENT_SCHEMA_VERSION } });
+    const conflicts = await findQuestionOptionConflicts(context, triggerQuestion, textJson);
+    expect(conflicts).toEqual([yesCondition]);
+  });
+
+  it('returns an empty array when the matched options are kept', async () => {
+    const conflicts = await findQuestionOptionConflicts(context, triggerQuestion, optionsJson('radioButtons', ['Yes', 'No', 'Maybe']));
+    expect(conflicts).toEqual([]);
+  });
+
+  it('does not look up conditions when the JSON is not being changed', async () => {
+    expect(await findQuestionOptionConflicts(context, triggerQuestion, undefined)).toEqual([]);
+    expect(await findQuestionOptionConflicts(context, triggerQuestion, triggerQuestion.json)).toEqual([]);
+    expect(mockFindByTriggerQuestionId).not.toHaveBeenCalled();
   });
 });

@@ -1,11 +1,11 @@
-import { Resolvers } from "../types";
-import { MyContext } from "../context";
-import { ForbiddenError, NotFoundError, InternalServerError } from "../utils/graphQLErrors";
-import { isSuperAdmin } from "../services/authService";
-import { prepareObjectForLogs } from "../logger";
-import { isNullOrUndefined } from "../utils/helpers";
-import { Plan } from "../models/Plan";
-import { saveMaDMPVersion } from "../services/planService";
+import { Resolvers } from "../types.js";
+import { MyContext } from "../context.js";
+import { ForbiddenError, NotFoundError, InternalServerError } from "../utils/graphQLErrors.js";
+import { isSuperAdmin } from "../services/authService.js";
+import { prepareObjectForLogs } from "../logger.js";
+import { isNullOrUndefined } from "../utils/helpers.js";
+import { Plan } from "../models/Plan.js";
+import { handleAsyncUpdates } from "../services/planService.js";
 
 export const resolvers: Resolvers = {
   Mutation: {
@@ -20,12 +20,10 @@ export const resolvers: Resolvers = {
 
         if (isNullOrUndefined(plan)) throw NotFoundError();
 
-        // Synchronize the Plan with its latest maDMP version in the DynamoDB table
-        if (await saveMaDMPVersion(reference, context, plan.id, plan.dmpId)) {
-          return true;
-        }
+        // Handle OpenSearch index update and maDMP JSON versioning in Dynamo
+        await handleAsyncUpdates(reference, context, plan);
 
-        return false;
+        return true;
       } catch (err) {
         context.logger.error(prepareObjectForLogs(err), `${reference} error initializing maDMP record`);
         throw InternalServerError();

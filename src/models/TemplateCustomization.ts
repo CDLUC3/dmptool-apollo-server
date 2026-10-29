@@ -1,17 +1,17 @@
-import { MySqlModel } from "./MySqlModel";
-import { VersionedTemplateCustomization } from "./VersionedTemplateCustomization";
-import { MyContext } from "../context";
+import { MySqlModel } from "./MySqlModel.js";
+import { VersionedTemplateCustomization } from "./VersionedTemplateCustomization.js";
+import { MyContext } from "../context.js";
 import {
   isNullOrUndefined,
   normaliseDateTime,
   valueIsEmpty
-} from "../utils/helpers";
-import { PinnedSectionTypeEnum } from "./CustomSection";
-import { PinnedQuestionTypeEnum } from "./CustomQuestion";
+} from "../utils/helpers.js";
+import { PinnedSectionTypeEnum } from "./CustomSection.js";
+import { PinnedQuestionTypeEnum } from "./CustomQuestion.js";
 import {
   snapshotCustomizationChildren,
   rollbackPublishedSnapshot,
-} from "../services/templateCustomizationPublishHelpers";
+} from "../services/templateCustomizationPublishHelpers.js";
 
 /**
  * The status of the customization.

@@ -1,8 +1,41 @@
+import { jest } from '@jest/globals';
 import casual from "casual";
-import { buildMockContextWithToken } from "../../__mocks__/context";
-import { logger } from "../../logger";
-import { getMockDMPId, getRandomEnumValue } from "../../__tests__/helpers";
-import {
+
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+// Register config + logger mocks FIRST — before anything that transitively imports them
+mockAppConfigs();
+mockAppLogger();
+
+jest.unstable_mockModule('../../context.js', () => ({
+  buildContext: jest.fn(),
+}));
+
+import type { MyContext } from '../../context.js';
+type QueryWithPaginationFn = (
+  context: MyContext,
+  sql: string,
+  whereFilters: string[],
+  groupBy: string,
+  values: string[],
+  opts: unknown,
+  reference: string,
+  calculateTotalCount?: boolean
+) => Promise<{
+  items: InstanceType<typeof PlanSearchResult>[];
+  totalCount: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+  currentOffset: number;
+}>;
+
+//Dynamic imports AFTER all mocks are registered
+const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
+const { logger } = await import('../../logger.js');
+const { generalConfig } = await import('../../config/generalConfig.js');
+const { getMockDMPId, getRandomEnumValue } = await import("../../__tests__/helpers.js");
+
+const {
   DEFAULT_TEMPORARY_DMP_ID_PREFIX,
   Plan,
   PlanSearchResult,
@@ -10,16 +43,14 @@ import {
   PlanProgress,
   PlanStatus,
   PlanVisibility
-} from "../Plan";
-import { defaultLanguageId } from "../Language";
-import { generalConfig } from "../../config/generalConfig";
-import { getCurrentDate } from "../../utils/helpers";
-import { PlanGuidance } from "../Guidance";
-import { Project } from "../Project";
-import { VersionedTemplate } from "../VersionedTemplate";
-import { PaginationType } from "../../types/general";
-
-jest.mock('../../context.ts');
+} = await import("../Plan.js");
+const { defaultLanguageId } = await import("../Language.js");
+const { getCurrentDate } = await import("../../utils/helpers.js");
+const { PlanGuidance } = await import("../Guidance.js");
+const { Project } = await import("../Project.js");
+const { VersionedTemplate } = await import("../VersionedTemplate.js");
+const { VersionedTemplateCustomization } = await import("../VersionedTemplateCustomization.js");
+const { PaginationType } = await import("../../types/general.js");
 
 let context;
 
@@ -154,12 +185,13 @@ describe('PlanSearchResult.findByProjectIdWithPagination', () => {
   const originalQuery = Plan.query;
   const originalQueryWithPagination = Plan.queryWithPagination;
 
-  let localQuery: jest.Mock;
-  let localQueryWithPagination: jest.Mock;
+  let localQuery: jest.Mock<() => Promise<unknown[]>>;
+  let localQueryWithPagination: jest.Mock<QueryWithPaginationFn>;
 
   beforeEach(() => {
-    localQuery = jest.fn();
-    localQueryWithPagination = jest.fn();
+    localQuery = jest.fn<() => Promise<unknown[]>>();
+    localQueryWithPagination = jest.fn<QueryWithPaginationFn>();
+
     (Plan.query as jest.Mock) = localQuery;
     (Plan.queryWithPagination as jest.Mock) = localQueryWithPagination;
   });
@@ -178,7 +210,7 @@ describe('PlanSearchResult.findByProjectIdWithPagination', () => {
     ...overrides,
   });
 
-  const makePaginatedResult = (items: PlanSearchResult[]) => ({
+  const makePaginatedResult = (items: InstanceType<typeof PlanSearchResult>[]) => ({
     items,
     totalCount: items.length,
     hasNextPage: false,
@@ -240,8 +272,8 @@ describe('PlanSearchResult.findByProjectIdWithPagination', () => {
     await PlanSearchResult.findByUserIdWithPagination('testing', context, userId, options);
 
     const [, , , , , opts] = localQueryWithPagination.mock.calls[0];
-    expect(opts.sortField).toBe('p.created');
-    expect(opts.sortDir).toBe('DESC');
+    expect((opts as { sortField: string; sortDir: string }).sortField).toBe('p.created');
+    expect((opts as { sortField: string; sortDir: string }).sortDir).toBe('DESC');
   });
 
   it('should return paginated results', async () => {
@@ -337,13 +369,12 @@ describe('PlanSectionProgress.findByPlanId', () => {
 
   it('should call the correct SQL query', async () => {
     const planId = casual.integer(1, 99);
-    const versionedTemplateId = casual.integer(1, 99);
 
     localQuery
       .mockResolvedValueOnce([progress])
       .mockResolvedValueOnce([]);
 
-    const result = await PlanSectionProgress.findByPlanId('testing', context, planId, versionedTemplateId);
+    const result = await PlanSectionProgress.findByPlanId('testing', context, planId);
 
     expect(localQuery).toHaveBeenCalledTimes(2);
 
@@ -365,9 +396,11 @@ describe('PlanSectionProgress.findByPlanId', () => {
     // Verify params
     expect(localQuery.mock.calls[0][2]).toEqual([planId.toString()]);
 
-    // Verify second call
-    expect(normalizeSQL(localQuery.mock.calls[1][1])).toContain(normalizeSQL('SELECT vtc.templateCustomizationId'));
-    expect(localQuery.mock.calls[1][2]).toEqual([versionedTemplateId.toString(), context.token.affiliationId]);
+    // Verify second call looks up the customization the plan was pinned to (not the user's affiliation)
+    expect(normalizeSQL(localQuery.mock.calls[1][1])).toContain(
+      normalizeSQL('SELECT versionedTemplateCustomizationId FROM plans WHERE id = ?')
+    );
+    expect(localQuery.mock.calls[1][2]).toEqual([planId.toString()]);
 
     expect(result).toHaveLength(1);
   });
@@ -392,8 +425,8 @@ describe('PlanSectionProgress.findByPlanId', () => {
     };
     localQuery
       .mockResolvedValueOnce([baseSection]) // base sections
-      .mockResolvedValueOnce(undefined);    // findTemplateCustomizationId returns undefined
-    const result = await PlanSectionProgress.findByPlanId('ref', context, 123, 456);
+      .mockResolvedValueOnce(undefined);    // findVersionedTemplateCustomizationId returns undefined
+    const result = await PlanSectionProgress.findByPlanId('ref', context, 123);
     expect(result).toHaveLength(1);
     expect(result[0].versionedSectionId).toBe(1);
   });
@@ -413,12 +446,12 @@ describe('PlanSectionProgress.findByPlanId', () => {
 
     // Mock the static methods
     /*eslint-disable @typescript-eslint/no-explicit-any */
-    jest.spyOn(PlanSectionProgress as any, 'findTemplateCustomizationId').mockResolvedValue(99);
+    jest.spyOn(PlanSectionProgress as any, 'findVersionedTemplateCustomizationId').mockResolvedValue(99);
     jest.spyOn(PlanSectionProgress as any, 'fetchCustomSections').mockResolvedValue([]);
     jest.spyOn(PlanSectionProgress as any, 'fetchExtraQuestionsForBaseSections').mockResolvedValue([{ versionedSectionId: 1, extraCount: 3, requiredCount: 1 }]);
     jest.spyOn(PlanSectionProgress as any, 'fetchAnsweredCustomQuestions').mockResolvedValue([]);
 
-    const result = await PlanSectionProgress.findByPlanId('ref', context, 123, 456);
+    const result = await PlanSectionProgress.findByPlanId('ref', context, 123);
     expect(result[0].totalQuestions).toBe(5);
 
     // Clean up
@@ -439,12 +472,12 @@ describe('PlanSectionProgress.findByPlanId', () => {
     localQuery.mockResolvedValueOnce([baseSection]);
 
     /*eslint-disable @typescript-eslint/no-explicit-any */
-    jest.spyOn(PlanSectionProgress as any, 'findTemplateCustomizationId').mockResolvedValue(99);
+    jest.spyOn(PlanSectionProgress as any, 'findVersionedTemplateCustomizationId').mockResolvedValue(99);
     jest.spyOn(PlanSectionProgress as any, 'fetchCustomSections').mockResolvedValue([]);
     jest.spyOn(PlanSectionProgress as any, 'fetchExtraQuestionsForBaseSections').mockResolvedValue([]);
     jest.spyOn(PlanSectionProgress as any, 'fetchAnsweredCustomQuestions').mockResolvedValue([]);
 
-    const result = await PlanSectionProgress.findByPlanId('ref', context, 123, 456);
+    const result = await PlanSectionProgress.findByPlanId('ref', context, 123);
     expect(result[0].totalQuestions).toBe(2);
   });
 
@@ -470,12 +503,12 @@ describe('PlanSectionProgress.findByPlanId', () => {
     localQuery.mockResolvedValueOnce([baseSection]);
 
     /*eslint-disable @typescript-eslint/no-explicit-any */
-    jest.spyOn(PlanSectionProgress as any, 'findTemplateCustomizationId').mockResolvedValue(99);
+    jest.spyOn(PlanSectionProgress as any, 'findVersionedTemplateCustomizationId').mockResolvedValue(99);
     jest.spyOn(PlanSectionProgress as any, 'fetchCustomSections').mockResolvedValue([customSection]);
     jest.spyOn(PlanSectionProgress as any, 'fetchExtraQuestionsForBaseSections').mockResolvedValue([]);
     jest.spyOn(PlanSectionProgress as any, 'fetchAnsweredCustomQuestions').mockResolvedValue([]);
 
-    const result = await PlanSectionProgress.findByPlanId('ref', context, 123, 456);
+    const result = await PlanSectionProgress.findByPlanId('ref', context, 123);
     expect(result).toHaveLength(2);
     expect(result[1].sectionType).toBeDefined();
     expect(result[1].customSectionId).toBe(10);
@@ -512,12 +545,12 @@ describe('PlanSectionProgress.findByPlanId', () => {
     localQuery.mockResolvedValueOnce([baseSection]); // base sections
 
     /*eslint-disable @typescript-eslint/no-explicit-any */
-    jest.spyOn(PlanSectionProgress as any, 'findTemplateCustomizationId').mockResolvedValue(99);
+    jest.spyOn(PlanSectionProgress as any, 'findVersionedTemplateCustomizationId').mockResolvedValue(99);
     jest.spyOn(PlanSectionProgress as any, 'fetchCustomSections').mockResolvedValue([customSection1, customSection2]);
     jest.spyOn(PlanSectionProgress as any, 'fetchExtraQuestionsForBaseSections').mockResolvedValue([]);
     jest.spyOn(PlanSectionProgress as any, 'fetchAnsweredCustomQuestions').mockResolvedValue([]);
 
-    const result = await PlanSectionProgress.findByPlanId('ref', context, 123, 456);
+    const result = await PlanSectionProgress.findByPlanId('ref', context, 123);
     expect(result).toHaveLength(3);
     expect(result[1].customSectionId).toBe(10);
     expect(result[2].customSectionId).toBe(11);
@@ -538,14 +571,14 @@ describe('PlanSectionProgress.findByPlanId', () => {
     localQuery.mockResolvedValueOnce([baseSection]);
 
     /*eslint-disable @typescript-eslint/no-explicit-any */
-    jest.spyOn(PlanSectionProgress as any, 'findTemplateCustomizationId').mockResolvedValue(99);
+    jest.spyOn(PlanSectionProgress as any, 'findVersionedTemplateCustomizationId').mockResolvedValue(99);
     jest.spyOn(PlanSectionProgress as any, 'fetchCustomSections').mockResolvedValue([]);
     jest.spyOn(PlanSectionProgress as any, 'fetchExtraQuestionsForBaseSections').mockResolvedValue([{ versionedSectionId: 1, extraCount: 2, requiredCount: 1 }]);
     jest.spyOn(PlanSectionProgress as any, 'fetchAnsweredCustomQuestions').mockResolvedValue([
       { sectionId: 1, sectionType: 'BASE', answeredCount: 2, answeredRequiredCount: 1 },
     ]);
 
-    const result = await PlanSectionProgress.findByPlanId('ref', context, 123, 456);
+    const result = await PlanSectionProgress.findByPlanId('ref', context, 123);
     expect(result[0].answeredQuestions).toBe(3); // 1 base + 2 custom answered
     expect(result[0].answeredRequiredQuestions).toBe(2); // 1 base + 1 required custom answered
   });
@@ -564,12 +597,12 @@ describe('PlanSectionProgress.findByPlanId', () => {
     localQuery.mockResolvedValueOnce([baseSection]);
 
     /*eslint-disable @typescript-eslint/no-explicit-any */
-    jest.spyOn(PlanSectionProgress as any, 'findTemplateCustomizationId').mockResolvedValue(99);
+    jest.spyOn(PlanSectionProgress as any, 'findVersionedTemplateCustomizationId').mockResolvedValue(99);
     jest.spyOn(PlanSectionProgress as any, 'fetchCustomSections').mockResolvedValue([]);
     jest.spyOn(PlanSectionProgress as any, 'fetchExtraQuestionsForBaseSections').mockResolvedValue([{ versionedSectionId: 1, extraCount: 3, requiredCount: 2 }]);
     jest.spyOn(PlanSectionProgress as any, 'fetchAnsweredCustomQuestions').mockResolvedValue([]);
 
-    const result = await PlanSectionProgress.findByPlanId('ref', context, 123, 456);
+    const result = await PlanSectionProgress.findByPlanId('ref', context, 123);
     expect(result[0].totalRequiredQuestions).toBe(3); // 1 base + 2 required custom
   });
 
@@ -595,14 +628,14 @@ describe('PlanSectionProgress.findByPlanId', () => {
     localQuery.mockResolvedValueOnce([baseSection]);
 
     /*eslint-disable @typescript-eslint/no-explicit-any */
-    jest.spyOn(PlanSectionProgress as any, 'findTemplateCustomizationId').mockResolvedValue(99);
+    jest.spyOn(PlanSectionProgress as any, 'findVersionedTemplateCustomizationId').mockResolvedValue(99);
     jest.spyOn(PlanSectionProgress as any, 'fetchCustomSections').mockResolvedValue([customSection]);
     jest.spyOn(PlanSectionProgress as any, 'fetchExtraQuestionsForBaseSections').mockResolvedValue([]);
     jest.spyOn(PlanSectionProgress as any, 'fetchAnsweredCustomQuestions').mockResolvedValue([
       { sectionId: 10, sectionType: 'CUSTOM', answeredCount: 2, answeredRequiredCount: 1 },
     ]);
 
-    const result = await PlanSectionProgress.findByPlanId('ref', context, 123, 456);
+    const result = await PlanSectionProgress.findByPlanId('ref', context, 123);
     const customResult = result.find(s => s.customSectionId === 10);
     expect(customResult.answeredQuestions).toBe(2);
     expect(customResult.answeredRequiredQuestions).toBe(1);
@@ -631,14 +664,14 @@ describe('PlanSectionProgress.findByPlanId', () => {
     localQuery.mockResolvedValueOnce([baseSection]);
 
     /*eslint-disable @typescript-eslint/no-explicit-any */
-    jest.spyOn(PlanSectionProgress as any, 'findTemplateCustomizationId').mockResolvedValue(99);
+    jest.spyOn(PlanSectionProgress as any, 'findVersionedTemplateCustomizationId').mockResolvedValue(99);
     jest.spyOn(PlanSectionProgress as any, 'fetchCustomSections').mockResolvedValue([customSection]);
     jest.spyOn(PlanSectionProgress as any, 'fetchExtraQuestionsForBaseSections').mockResolvedValue([]);
     jest.spyOn(PlanSectionProgress as any, 'fetchAnsweredCustomQuestions').mockResolvedValue([
       { sectionId: 10, sectionType: 'CUSTOM', answeredCount: 2, answeredRequiredCount: 1 },
     ]);
 
-    const result = await PlanSectionProgress.findByPlanId('ref', context, 123, 456);
+    const result = await PlanSectionProgress.findByPlanId('ref', context, 123);
     const baseResult = result.find(s => s.versionedSectionId === 1);
     expect(baseResult.answeredQuestions).toBe(1); // unchanged — credits belong to the custom section
     expect(baseResult.answeredRequiredQuestions).toBe(1); // unchanged — required credits belong to the custom section
@@ -658,12 +691,12 @@ describe('PlanSectionProgress.findByPlanId', () => {
     localQuery.mockResolvedValueOnce([baseSection]);
 
     /*eslint-disable @typescript-eslint/no-explicit-any */
-    jest.spyOn(PlanSectionProgress as any, 'findTemplateCustomizationId').mockResolvedValue(99);
+    jest.spyOn(PlanSectionProgress as any, 'findVersionedTemplateCustomizationId').mockResolvedValue(99);
     jest.spyOn(PlanSectionProgress as any, 'fetchCustomSections').mockResolvedValue([]);
     jest.spyOn(PlanSectionProgress as any, 'fetchExtraQuestionsForBaseSections').mockResolvedValue([]);
     jest.spyOn(PlanSectionProgress as any, 'fetchAnsweredCustomQuestions').mockResolvedValue([]);
 
-    const result = await PlanSectionProgress.findByPlanId('ref', context, 123, 456);
+    const result = await PlanSectionProgress.findByPlanId('ref', context, 123);
     expect(result[0].answeredQuestions).toBe(1); // unchanged
     expect(result[0].answeredRequiredQuestions).toBe(1); // unchanged
   });
@@ -680,7 +713,7 @@ describe('PlanSectionProgress.findByPlanId', () => {
       tags: '[{"id":1,"slug":"foo","name":"Foo","description":"desc"}]'
     };
     localQuery.mockResolvedValueOnce([baseSection]);
-    const result = await PlanSectionProgress.findByPlanId('ref', context, 123, 456);
+    const result = await PlanSectionProgress.findByPlanId('ref', context, 123);
     expect(Array.isArray(result[0].tags)).toBe(true);
     expect(result[0].tags[0].slug).toBe('foo');
   });
@@ -697,7 +730,7 @@ describe('PlanSectionProgress.findByPlanId', () => {
       tags: 'not-json'
     };
     localQuery.mockResolvedValueOnce([baseSection]);
-    const result = await PlanSectionProgress.findByPlanId('ref', context, 123, 456);
+    const result = await PlanSectionProgress.findByPlanId('ref', context, 123);
     expect(Array.isArray(result[0].tags)).toBe(true);
     expect(result[0].tags.length).toBe(0);
   });
@@ -730,12 +763,12 @@ describe('PlanSectionProgress.findByPlanId', () => {
     localQuery.mockResolvedValueOnce([baseSection]); // base sections
 
     /*eslint-disable @typescript-eslint/no-explicit-any */
-    jest.spyOn(PlanSectionProgress as any, 'findTemplateCustomizationId').mockResolvedValue(99);
+    jest.spyOn(PlanSectionProgress as any, 'findVersionedTemplateCustomizationId').mockResolvedValue(99);
     jest.spyOn(PlanSectionProgress as any, 'fetchCustomSections').mockResolvedValue([customSection]);
     jest.spyOn(PlanSectionProgress as any, 'fetchExtraQuestionsForBaseSections').mockResolvedValue([]);
     jest.spyOn(PlanSectionProgress as any, 'fetchAnsweredCustomQuestions').mockResolvedValue([]);
 
-    const result = await PlanSectionProgress.findByPlanId('ref', context, 123, 456);
+    const result = await PlanSectionProgress.findByPlanId('ref', context, 123);
     expect(result[0].sectionType).toBeDefined();
     expect(result[0].versionedSectionId).toBe(1);
     expect(result[1].sectionType).toBeDefined();
@@ -775,12 +808,12 @@ describe('PlanSectionProgress.findByPlanId', () => {
     localQuery.mockResolvedValueOnce([baseSection]); // base sections
 
     /*eslint-disable @typescript-eslint/no-explicit-any */
-    jest.spyOn(PlanSectionProgress as any, 'findTemplateCustomizationId').mockResolvedValue(99);
+    jest.spyOn(PlanSectionProgress as any, 'findVersionedTemplateCustomizationId').mockResolvedValue(99);
     jest.spyOn(PlanSectionProgress as any, 'fetchCustomSections').mockResolvedValue([customSection1, customSection2]);
     jest.spyOn(PlanSectionProgress as any, 'fetchExtraQuestionsForBaseSections').mockResolvedValue([]);
     jest.spyOn(PlanSectionProgress as any, 'fetchAnsweredCustomQuestions').mockResolvedValue([]);
 
-    const result = await PlanSectionProgress.findByPlanId('ref', context, 123, 456);
+    const result = await PlanSectionProgress.findByPlanId('ref', context, 123);
     // Should not hang, should return base + both customs at most
     expect(result.length).toBeGreaterThanOrEqual(1);
     expect(result.length).toBeLessThanOrEqual(3);
@@ -810,7 +843,7 @@ describe('PlanProgress', () => {
 });
 
 describe('PlanProgress.findByPlanId', () => {
-  let mockFindSectionProgress: jest.SpyInstance;
+  let mockFindSectionProgress: ReturnType<typeof jest.spyOn>;
 
   beforeEach(() => {
     mockFindSectionProgress = jest.spyOn(PlanSectionProgress, 'findByPlanId');
@@ -823,12 +856,11 @@ describe('PlanProgress.findByPlanId', () => {
   it('should delegate to PlanSectionProgress.findByPlanId with the correct arguments', async () => {
     mockFindSectionProgress.mockResolvedValueOnce([]);
     const planId = casual.integer(1, 99);
-    const versionedTemplateId = casual.integer(1, 99);
 
-    await PlanProgress.findByPlanId('testing', context, planId, versionedTemplateId);
+    await PlanProgress.findByPlanId('testing', context, planId);
 
     expect(mockFindSectionProgress).toHaveBeenCalledTimes(1);
-    expect(mockFindSectionProgress).toHaveBeenCalledWith('testing', context, planId, versionedTemplateId);
+    expect(mockFindSectionProgress).toHaveBeenCalledWith('testing', context, planId);
   });
 
   it('should return null if no sections are found', async () => {
@@ -1172,9 +1204,9 @@ describe('publish', () => {
   let plan;
   let mockFindById;
   let updateQuery;
-  let mockRegisterIdentifier: jest.Mock;
 
   const mockDataciteXML = '<?xml version="1.0" encoding="UTF-8"?><resource>mock</resource>';
+  let mockRegisterIdentifier: jest.Mock<(context: MyContext, identifier: string, metadata: Record<string, unknown>) => Promise<unknown>>;
 
   beforeEach(async () => {
     mockFindById = jest.fn();
@@ -1200,7 +1232,7 @@ describe('publish', () => {
     // Mock the EZID registerIdentifier call on the context datasource
     context = await buildMockContextWithToken(logger);
 
-    mockRegisterIdentifier = jest.fn();
+    mockRegisterIdentifier = jest.fn<(context: MyContext, identifier: string, metadata: Record<string, unknown>) => Promise<unknown>>();
     // Create a mock datasource with the query function
     context.dataSources.ezidAPIDataSource = {
       registerIdentifier: mockRegisterIdentifier
@@ -1250,7 +1282,7 @@ describe('publish', () => {
   });
 
   it('returns an error if the Plan is not valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (plan.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -1306,6 +1338,9 @@ describe('create', () => {
     insertQuery = jest.fn();
     (Plan.insert as jest.Mock) = insertQuery;
 
+    // By default, the template has not been customized for the user's affiliation
+    jest.spyOn(VersionedTemplateCustomization, 'findActiveByTemplateAndAffiliation').mockResolvedValue(undefined);
+
     plan = new Plan({
       ...planData
     });
@@ -1313,6 +1348,41 @@ describe('create', () => {
 
   afterEach(() => {
     Plan.insert = originalInsert;
+  });
+
+  it('pins the plan to the active customization for the creator\'s affiliation', async () => {
+    jest.spyOn(VersionedTemplateCustomization, 'findActiveByTemplateAndAffiliation')
+      .mockResolvedValue({ id: 12 } as InstanceType<typeof VersionedTemplateCustomization>);
+    jest.spyOn(PlanGuidance.prototype, 'create').mockResolvedValue(undefined);
+    jest.spyOn(VersionedTemplate, 'findById').mockResolvedValue(undefined);
+    insertQuery.mockResolvedValueOnce(123);
+    (Plan.findById as jest.Mock) = jest.fn<() => Promise<InstanceType<typeof Plan>>>()
+      .mockResolvedValueOnce(new Plan({ ...planData, id: 123, versionedTemplateCustomizationId: 12 }));
+
+    await plan.create(context);
+
+    expect(VersionedTemplateCustomization.findActiveByTemplateAndAffiliation).toHaveBeenCalledWith(
+      'Plan.create', context, planData.versionedTemplateId, context.token.affiliationId
+    );
+    expect(insertQuery).toHaveBeenCalledWith(
+      context,
+      'plans',
+      expect.objectContaining({ versionedTemplateCustomizationId: 12 }),
+      'Plan.create'
+    );
+  });
+
+  it('leaves versionedTemplateCustomizationId empty when the template has no customization', async () => {
+    jest.spyOn(PlanGuidance.prototype, 'create').mockResolvedValue(undefined);
+    jest.spyOn(VersionedTemplate, 'findById').mockResolvedValue(undefined);
+    insertQuery.mockResolvedValueOnce(123);
+    (Plan.findById as jest.Mock) = jest.fn<() => Promise<InstanceType<typeof Plan>>>()
+      .mockResolvedValueOnce(new Plan({ ...planData, id: 123 }));
+
+    await plan.create(context);
+
+    const insertedPlan = insertQuery.mock.calls[0][2];
+    expect(insertedPlan.versionedTemplateCustomizationId ?? null).toBeNull();
   });
 
   it('returns the Plan with errors if it is invalid', async () => {
@@ -1324,7 +1394,7 @@ describe('create', () => {
   it('returns the newly added Plan', async () => {
     const createdPlan = new Plan({ ...plan, id: 123 });
     insertQuery.mockResolvedValueOnce(createdPlan.id);
-    const mockFindById = jest.fn().mockResolvedValueOnce(createdPlan);
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof Plan>>>().mockResolvedValueOnce(createdPlan);
     (Plan.findById as jest.Mock) = mockFindById;
 
     const result = await plan.create(context);
@@ -1340,12 +1410,11 @@ describe('create', () => {
 
     // Mock VersionedTemplate to return an owner
     const mockVersionedTemplate = { ownerId: 'https://ror.org/template-owner' };
-    (VersionedTemplate.findById as jest.Mock) = jest.fn().mockResolvedValue(mockVersionedTemplate);
-
+    (VersionedTemplate.findById as jest.Mock) = jest.fn<() => Promise<{ ownerId: string }>>().mockResolvedValue(mockVersionedTemplate);
     // Mock successful insert and findById
     insertQuery.mockResolvedValueOnce(123);
     const createdPlan = new Plan({ ...planData, id: 123 });
-    (Plan.findById as jest.Mock) = jest.fn().mockResolvedValueOnce(createdPlan);
+    (Plan.findById as jest.Mock) = jest.fn<() => Promise<InstanceType<typeof Plan>>>().mockResolvedValueOnce(createdPlan);
 
     const plan = new Plan(planData);
     await plan.create(context);
@@ -1362,7 +1431,7 @@ describe('create', () => {
       .mockResolvedValue(undefined);
     const projectFindById = jest
       .spyOn(Project, 'findById')
-      .mockResolvedValue({ title: 'My Project' } as Project);
+      .mockResolvedValue({ title: 'My Project' } as InstanceType<typeof Project>);
     const planFindByProjectId = jest
       .spyOn(Plan, 'findByProjectId')
       .mockResolvedValue([
@@ -1431,7 +1500,7 @@ describe('update', () => {
   });
 
   it('returns the Plan with errors if it is not valid', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (plan.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(false);
 
@@ -1441,7 +1510,7 @@ describe('update', () => {
   });
 
   it('returns an error if the Plan has no id', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (plan.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValueOnce(true);
 
@@ -1452,7 +1521,7 @@ describe('update', () => {
   });
 
   it('returns the updated Plan', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (plan.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValue(true);
 
@@ -1469,7 +1538,7 @@ describe('update', () => {
   });
 
   it('does not do any versioning if noTouch is true', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (plan.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValue(true);
 
@@ -1485,7 +1554,7 @@ describe('update', () => {
   });
 
   it('does not do any versioning if the Plan update failed', async () => {
-    const localValidator = jest.fn();
+    const localValidator = jest.fn<() => Promise<boolean>>();
     (plan.isValid as jest.Mock) = localValidator;
     localValidator.mockResolvedValue(true);
 
@@ -1519,7 +1588,7 @@ describe('delete', () => {
   });
 
   it('returns null if it was not able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<null>>();
     (Plan.delete as jest.Mock) = deleteQuery;
 
     deleteQuery.mockResolvedValueOnce(null);
@@ -1527,11 +1596,11 @@ describe('delete', () => {
   });
 
   it('returns the Plan if it was able to delete the record', async () => {
-    const deleteQuery = jest.fn();
+    const deleteQuery = jest.fn<() => Promise<boolean>>();
     (Plan.delete as jest.Mock) = deleteQuery;
     deleteQuery.mockResolvedValueOnce(plan);
 
-    const mockFindById = jest.fn();
+    const mockFindById = jest.fn<() => Promise<InstanceType<typeof Plan>>>();
     (Plan.findById as jest.Mock) = mockFindById;
     mockFindById.mockResolvedValueOnce(plan);
 

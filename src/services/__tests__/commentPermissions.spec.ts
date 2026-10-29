@@ -1,8 +1,13 @@
-import { canDeleteComment } from '../commentPermissions';
+import { mockAppConfigs, mockAppLogger } from '../../__tests__/mockConfigs.js';
+
+mockAppConfigs();
+mockAppLogger();
+
+import { canDeleteComment } from '../commentPermissions.js';
 import {
   ProjectCollaborator,
   ProjectCollaboratorAccessLevel,
-} from '../../models/Collaborator';
+} from '../../models/Collaborator.js';
 
 describe('canDeleteComment', () => {
   it('returns true when the user is the comment creator', () => {

@@ -1,4 +1,4 @@
-import gql from "graphql-tag";
+import { gql } from 'graphql-tag';
 
 // This schema file contains queries and mutations that are meant to assist Super Admins with
 // maintenance tasks

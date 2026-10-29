@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added test users for e2e testing via a data-migration script [#559]
 - Added `disconnectSSO` mutation to the `users` schema
 - Added `hasSSO` boolean and `ssoEntityId` to the `User` type in the schema
 - Added `isHidden` to `PlanQuestion`, so the plan's questions report whether their display logic hides them based on the plan's saved answers. Visibility is decided by `findHiddenQuestionIds` from `@dmptool/utils`, so it follows the same rules as the other services [#366]
@@ -163,6 +164,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `resolvers/user.ts` `ssoEntityId` chained resolver to use optional chaining just in case the affiliation doesn't exist [#559]
 - Updated the `sendContactUsEmail` and `sendEmail` functions in `emailService.ts` so that Contact Us emails will not include the env prefix or "Contact Us form submissions" [#346]
 - Updated `findConditionalLogicForPlan` to return each question's display logic grouped by condition group, and to map each group's trigger question to its `versionedQuestionId` within the plan's versioned template [#366]
 - Updated error messages related to mutations that conflict with existing display logic [#1472]

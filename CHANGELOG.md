@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added `AGENTS.md` and `CLAUDE.md` files
 - Added data migration for the `oauthClientPermissions` table to store the permissions/grants associated with an Oauth client.
 - Added `.npmrc` and `.prettierrc` files
 - Added `prettier` dependency, pegged all dependencies and rebuilt the `package-lock.json` file to remove vulnerabilities

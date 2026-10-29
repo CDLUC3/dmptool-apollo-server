@@ -3,6 +3,9 @@
 ## v1.1.0
 
 ### Added
+- Added data migration for the `oauthClientPermissions` table to store the permissions/grants associated with an Oauth client.
+- Added `.npmrc` and `.prettierrc` files
+- Added `prettier` dependency, pegged all dependencies and rebuilt the `package-lock.json` file to remove vulnerabilities
 - Added `disconnectSSO` mutation to the `users` schema
 - Added `hasSSO` boolean and `ssoEntityId` to the `User` type in the schema
 - Added `isHidden` to `PlanQuestion`, so the plan's questions report whether their display logic hides them based on the plan's saved answers. Visibility is decided by `findHiddenQuestionIds` from `@dmptool/utils`, so it follows the same rules as the other services [#366]

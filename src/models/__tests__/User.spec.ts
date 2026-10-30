@@ -592,6 +592,53 @@ describe('findById', () => {
   });
 });
 
+describe('findByServiceAccountId', () => {
+  const originalQuery = User.query;
+
+  let localQuery;
+  let context;
+  let user;
+
+  beforeEach(async () => {
+    jest.resetAllMocks();
+
+    localQuery = jest.fn();
+    (User.query as jest.Mock) = localQuery;
+
+    context = await buildMockContextWithToken(logger);
+
+    user = new User({
+      id: casual.integer(1, 9),
+      createdById: casual.integer(1, 999),
+      givenName: casual.first_name,
+      surName: casual.last_name,
+    })
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+    User.query = originalQuery;
+  });
+
+  it('should call query with correct params and return the user', async () => {
+    localQuery.mockResolvedValueOnce([user]);
+    const clientId = casual.uuid;
+    const result = await User.findByServiceAccountId('Testing', context, clientId);
+    const expectedSql = 'SELECT u.* FROM users u JOIN oauthClients oa ON u.id = oa.userId  ' +
+      'WHERE oa.clientId = ? AND u.active = 1 AND u.locked = 0 AND u.isServiceAccount = 1 AND oa.active = 1';
+    expect(localQuery).toHaveBeenCalledTimes(1);
+    expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [clientId], 'Testing');
+    expect(result).toEqual(user);
+  });
+
+  it('should return null if it finds no users', async () => {
+    localQuery.mockResolvedValueOnce(null);
+    const clientId = casual.uuid;
+    const result = await User.findByServiceAccountId('Testing', context, clientId);
+    expect(result).toEqual(null);
+  });
+});
+
 describe('findByOrcid', () => {
   const originalQuery = User.query;
 

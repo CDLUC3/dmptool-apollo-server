@@ -143,6 +143,14 @@ export class User extends MySqlModel {
     return await User.findById(reference, context, emails[0].userId);
   }
 
+  // Find the User by their service account id (REST API clientId)
+  static async findByServiceAccountId(reference: string, context: MyContext, clientId: string): Promise<User | null> {
+    const sql = 'SELECT u.* FROM users u JOIN oauthClients oa ON u.id = oa.userId  ' +
+      'WHERE oa.clientId = ? AND u.active = 1 AND u.locked = 0';
+    const results = await User.query(context, sql, [clientId], reference);
+    return Array.isArray(results) && results.length > 0 ? new User(results[0]) : null;
+  }
+
   // Return all the Users associated with the specified affiliationId that match the search term
   static async findByAffiliationId(
     reference: string,

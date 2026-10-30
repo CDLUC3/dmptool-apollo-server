@@ -12,6 +12,7 @@ export interface JWTAccessToken extends JwtPayload {
   languageId: string,
   jti: string,
   tokenVersion: number,
+  client_id?: string // service client id when token was generated for REST API
 }
 
 export type AuthenticatedResolverType<TResult, TArgs = Record<string, unknown>, TParent = Record<string, unknown>> = (

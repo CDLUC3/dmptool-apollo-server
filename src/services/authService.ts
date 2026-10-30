@@ -1,6 +1,6 @@
 import { GraphQLError, GraphQLResolveInfo } from 'graphql';
 import { MyContext } from "../context.js";
-import { UserRole } from "../models/User.js";
+import {User, UserRole} from "../models/User.js";
 import { prepareObjectForLogs } from "../logger.js";
 import { AuthenticatedResolverType, JWTAccessToken } from "../types/general.js";
 import {
@@ -26,6 +26,11 @@ export const authenticatedResolver = <TResult, TArgs, TParent = Record<PropertyK
 ): AuthenticatedResolverType<TResult, TArgs, TParent> => {
   return async (parent: TParent, args: TArgs, context: MyContext, info: GraphQLResolveInfo): Promise<TResult> => {
     try {
+      if (context.token && context.token.client_id) {
+        // This is a service account token, resolve the service account into user information
+        await resolveServiceClient(context);
+      }
+
       if ((isNullOrUndefined(context.token)
         || authLevel === UserRole.ADMIN && !isAdmin(context.token))
         || (authLevel === UserRole.SUPERADMIN && !isSuperAdmin(context.token))
@@ -45,6 +50,36 @@ export const authenticatedResolver = <TResult, TArgs, TParent = Record<PropertyK
     }
   };
 };
+
+/**
+ * Resolves the service account into user information for the JWT token.
+ * This is used for REST API calls that are made using a service account.
+ *
+ * @param context the Apollo context
+ */
+const resolveServiceClient = async (context: MyContext): Promise<void> => {
+  if (!context.token || !context.token.client_id) {
+    return null;
+  }
+
+  // Fetch the User by the service account id
+  const user: User | null = await User.findByServiceAccountId(
+    'resolveServiceClient',
+    context,
+    context.token.client_id
+  );
+  if (user) {
+    // Attach the user information to the context token for use in resolvers
+    context.token.id = user.id;
+    context.token.affiliationId = user.affiliationId;
+    context.token.email = await user.getEmail(context);
+    context.token.givenName = user.givenName;
+    context.token.surName = user.surName;
+    context.token.role = user.role;
+    context.token.languageId = user.languageId;
+  }
+  return;
+}
 
 /**
  * Checks the JWT token to see if it contains a user id. Note that the Apollo

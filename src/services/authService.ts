@@ -26,9 +26,6 @@ export const authenticatedResolver = <TResult, TArgs, TParent = Record<PropertyK
 ): AuthenticatedResolverType<TResult, TArgs, TParent> => {
   return async (parent: TParent, args: TArgs, context: MyContext, info: GraphQLResolveInfo): Promise<TResult> => {
     try {
-
-console.log(context.token)
-
       if (context.token && context.token.client_id) {
         // This is a service account token, resolve the service account into user information
         await resolveServiceClient(context);

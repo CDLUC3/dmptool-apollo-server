@@ -146,7 +146,7 @@ export class User extends MySqlModel {
   // Find the User by their service account id (REST API clientId)
   static async findByServiceAccountId(reference: string, context: MyContext, clientId: string): Promise<User | null> {
     const sql = 'SELECT u.* FROM users u JOIN oauthClients oa ON u.id = oa.userId  ' +
-      'WHERE oa.clientId = ? AND u.active = 1 AND u.locked = 0';
+      'WHERE oa.clientId = ? AND u.active = 1 AND u.locked = 0 AND u.isServiceAccount = 1 AND oa.active = 1';
     const results = await User.query(context, sql, [clientId], reference);
     return Array.isArray(results) && results.length > 0 ? new User(results[0]) : null;
   }

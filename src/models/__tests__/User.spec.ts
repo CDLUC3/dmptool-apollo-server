@@ -625,7 +625,7 @@ describe('findByServiceAccountId', () => {
     const clientId = casual.uuid;
     const result = await User.findByServiceAccountId('Testing', context, clientId);
     const expectedSql = 'SELECT u.* FROM users u JOIN oauthClients oa ON u.id = oa.userId  ' +
-      'WHERE oa.clientId = ? AND u.active = 1 AND u.locked = 0';
+      'WHERE oa.clientId = ? AND u.active = 1 AND u.locked = 0 AND u.isServiceAccount = 1 AND oa.active = 1';
     expect(localQuery).toHaveBeenCalledTimes(1);
     expect(localQuery).toHaveBeenLastCalledWith(context, expectedSql, [clientId], 'Testing');
     expect(result).toEqual(user);

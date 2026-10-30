@@ -1035,7 +1035,7 @@ export async function getPlanSectionsAndQuestions(
     const customSectionIds: number[] = customProgress.map((p: PlanSectionProgress): number => p.customSectionId);
 
     // Second, fetch everything for the whole plan at once
-    const [baseSections, customSections, allBaseQuestions, allBaseCustomQuestions, allCustomQuestions, filledAnswers, conditionalLogic, sectionCustomizations, questionCustomizations, guidanceSources] =
+    const [baseSections, customSections, allBaseQuestions, allBaseCustomQuestions, allCustomQuestions, filledAnswers, allAnswers, conditionalLogic, sectionCustomizations, questionCustomizations, guidanceSources] =
       await Promise.all([
         VersionedSection.findByIds(reference, context, baseSectionIds),
         VersionedCustomSection.findByIds(reference, context, customSectionIds),
@@ -1045,6 +1045,8 @@ export async function getPlanSectionsAndQuestions(
         // CustomSections only contain CustomQuestions, so we don't need to fetch base questions for them
         VersionedCustomQuestion.findByVersionedSectionIdsAndType(reference, context, customSectionIds, 'CUSTOM'),
         Answer.findFilledAnswersByPlanId(reference, context, plan.id),
+        // Blank answers are not "filled" but still exist, so the UI needs them to update rather than re-add
+        Answer.findByPlanId(reference, context, plan.id),
         // Get all conditional logic for the plan's questions
         findConditionalLogicForPlan(reference, context, baseSectionIds),
         // Get any custom guidance set on Base sections (from the customization the plan was created with)
@@ -1084,6 +1086,8 @@ export async function getPlanSectionsAndQuestions(
 
     const baseAnswersMap: Map<number, Answer> = new Map<number, Answer>(filledAnswers.map((a: Answer): [number, Answer] => [a.versionedQuestionId, a]).filter(([id]): boolean => Boolean(id)));
     const customAnswersMap: Map<number, Answer> = new Map<number, Answer>(filledAnswers.map((a: Answer): [number, Answer] => [a.versionedCustomQuestionId, a]).filter(([id]): boolean => Boolean(id)));
+    const allBaseAnswersMap: Map<number, Answer> = new Map<number, Answer>(allAnswers.map((a: Answer): [number, Answer] => [a.versionedQuestionId, a]).filter(([id]): boolean => Boolean(id)));
+    const allCustomAnswersMap: Map<number, Answer> = new Map<number, Answer>(allAnswers.map((a: Answer): [number, Answer] => [a.versionedCustomQuestionId, a]).filter(([id]): boolean => Boolean(id)));
 
     // Determine which base questions are hidden by their display logic, based on the plan's saved answers
     const sectionDisplayOrder = new Map<number, number>(baseSections.map((s: VersionedSection): [number, number] => [s.id, s.displayOrder]));
@@ -1168,12 +1172,13 @@ export async function getPlanSectionsAndQuestions(
           customQuestionId: undefined,
           questionText: q.questionText,
           requirementText: q.requirementText,
+          useSampleTextAsDefault: q.useSampleTextAsDefault,
           required: q.required,
           displayOrder: idx + 1,
           displayLogicAction: q.displayLogicAction,
           displayLogicMatchType: q.displayLogicMatchType,
           hasAnswer: baseAnswersMap.has(q.id),
-          answer: baseAnswersMap.get(q.id) || undefined,
+          answer: allBaseAnswersMap.get(q.id) || undefined,
           json: q.json,
           guidanceSources: gSources.filter((gs: GuidanceSource): boolean => {
             return gs.hasGuidance;
@@ -1216,9 +1221,10 @@ export async function getPlanSectionsAndQuestions(
           customQuestionId: q.id,
           questionText: q.questionText,
           requirementText: q.requirementText,
+          useSampleTextAsDefault: q.useSampleTextAsDefault,
           required: q.required,
           hasAnswer: customAnswersMap.has(q.id),
-          answer: customAnswersMap.get(q.id) || undefined,
+          answer: allCustomAnswersMap.get(q.id) || undefined,
           json: q.json,
           // Custom questions don't have display logic
           isHidden: false,

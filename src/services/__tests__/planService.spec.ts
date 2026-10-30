@@ -36,6 +36,7 @@ const { logger } = await import("../../logger.js");
 import {
   createDefaultAnswersForPlan,
   defaultAnswerForQuestion,
+  getPlanSectionsAndQuestions,
   isPlanReadOnlyForCurrentUser
 } from "../planService.js";
 import { buildMockContextWithToken } from "../../__mocks__/context.js";
@@ -85,7 +86,7 @@ const {
   updateIndexItem,
   removeIndexItem,
 } = await import('../indexDMPService.js');
-const { Plan, PlanVisibility } = await import('../../models/Plan.js');
+const { Plan, PlanSectionProgress, PlanVisibility } = await import('../../models/Plan.js');
 const { Project } = await import('../../models/Project.js');
 const { Answer } = await import('../../models/Answer.js');
 const { VersionedQuestion } = await import('../../models/VersionedQuestion.js');
@@ -94,6 +95,14 @@ const { PlanFunding, ProjectFunding, ProjectFundingStatus } = await import('../.
 const { Affiliation } = await import('../../models/Affiliation.js');
 const { AlternateIdentifier } = await import('../../models/AlternateIdentifier.js');
 const { AcceptedWork } = await import('../../models/RelatedWork.js');
+const { VersionedSection } = await import('../../models/VersionedSection.js');
+const { VersionedCustomSection } = await import('../../models/VersionedCustomSection.js');
+const { VersionedCustomQuestion } = await import('../../models/VersionedCustomQuestion.js');
+const { VersionedTemplate } = await import('../../models/VersionedTemplate.js');
+const { VersionedTemplateCustomization } = await import('../../models/VersionedTemplateCustomization.js');
+const { Tag } = await import('../../models/Tag.js');
+const { PlanGuidance } = await import('../../models/Guidance.js');
+const { VersionedQuestionConditionGroup } = await import('../../models/VersionedQuestionConditionGroups.js');
 
 const TEST_DMP_ID_BASE = 'http://dmsp.com/';
 const TEST_ROR_BASE = 'http://ror.example.com/';
@@ -628,5 +637,60 @@ describe('defaultAnswerForQuestion', () => {
     expect(defaultAnswerForQuestion({ type: 'radioButtons', options: [{ value: 'a' }] })).toBeNull();
     expect(defaultAnswerForQuestion('{not json')).toBeNull();
     expect(defaultAnswerForQuestion(null)).toBeNull();
+  });
+});
+
+describe('getPlanSectionsAndQuestions', () => {
+  const sectionId = 10;
+  const blankAnswer = { id: 100, versionedSectionId: sectionId, versionedQuestionId: 1, json: '{"type":"textArea","answer":""}' };
+  const filledCustomAnswer = { id: 101, versionedSectionId: sectionId, versionedCustomQuestionId: 30, json: '{"type":"textArea","answer":"<p>Hi</p>"}' };
+  const blankCustomAnswer = { id: 102, versionedSectionId: sectionId, versionedCustomQuestionId: 31, json: '{"type":"textArea","answer":""}' };
+
+  beforeEach(async () => {
+    context = await buildMockContextWithToken(logger);
+
+    jest.spyOn(Affiliation, 'findByURI').mockResolvedValue(buildAffiliation(context.token.affiliationId));
+    jest.spyOn(VersionedTemplateCustomization, 'findById').mockResolvedValue(null);
+    jest.spyOn(VersionedTemplate, 'findById').mockResolvedValue(new VersionedTemplate({ id: 7, ownerId: 'https://ror.org/owner' }));
+    jest.spyOn(Tag, 'findTagIdsForVersionedTemplateId').mockResolvedValue(new Set());
+    jest.spyOn(PlanSectionProgress, 'findByPlanId').mockResolvedValue([
+      new PlanSectionProgress({ sectionType: 'BASE', versionedSectionId: sectionId, title: 'Data', displayOrder: 1, totalQuestions: 3, answeredQuestions: 1 }),
+    ]);
+    jest.spyOn(VersionedSection, 'findByIds').mockResolvedValue([new VersionedSection({ id: sectionId, displayOrder: 1 })]);
+    jest.spyOn(VersionedCustomSection, 'findByIds').mockResolvedValue([]);
+    jest.spyOn(VersionedQuestion, 'findByVersionedSectionIds').mockResolvedValue([
+      new VersionedQuestion({ id: 1, versionedSectionId: sectionId, displayOrder: 1, questionText: 'Q1', json: '{"type":"textArea"}', sampleText: '<p>Sample</p>', useSampleTextAsDefault: true }),
+      new VersionedQuestion({ id: 2, versionedSectionId: sectionId, displayOrder: 2, questionText: 'Q2', json: '{"type":"textArea"}' }),
+    ]);
+    jest.spyOn(VersionedCustomQuestion, 'findByVersionedSectionIdsAndType').mockImplementation(async (_ref, _context, _ids, type) => (
+      type === 'BASE'
+        ? [
+          new VersionedCustomQuestion({ id: 30, versionedSectionId: sectionId, versionedSectionType: 'BASE', questionText: 'Custom', json: '{"type":"textArea"}', sampleText: '<p>Custom sample</p>', useSampleTextAsDefault: true }),
+          new VersionedCustomQuestion({ id: 31, versionedSectionId: sectionId, versionedSectionType: 'BASE', questionText: 'Custom blank', json: '{"type":"textArea"}', sampleText: '<p>Custom sample</p>', useSampleTextAsDefault: true }),
+        ]
+        : []
+    ));
+    jest.spyOn(Answer, 'findFilledAnswersByPlanId').mockResolvedValue(asAnswerList([filledCustomAnswer]));
+    jest.spyOn(Answer, 'findByPlanId').mockResolvedValue(asAnswerList([blankAnswer, filledCustomAnswer, blankCustomAnswer]));
+    jest.spyOn(VersionedQuestionConditionGroup, 'query').mockResolvedValue([]);
+    jest.spyOn(PlanGuidance, 'query').mockResolvedValue([]);
+  });
+
+  it('returns useSampleTextAsDefault and blank answers, while hasAnswer only counts filled answers', async () => {
+    const sections = await getPlanSectionsAndQuestions('test', context, new Plan({ id: 5, versionedTemplateId: 7 }));
+
+    expect(sections).toHaveLength(1);
+    expect(sections[0].questions.map((q) => ({
+      versionedQuestionId: q.versionedQuestionId,
+      customQuestionId: q.customQuestionId,
+      useSampleTextAsDefault: q.useSampleTextAsDefault,
+      hasAnswer: q.hasAnswer,
+      answerId: q.answer?.id,
+    }))).toEqual([
+      { versionedQuestionId: 1, customQuestionId: undefined, useSampleTextAsDefault: true, hasAnswer: false, answerId: 100 },
+      { versionedQuestionId: 2, customQuestionId: undefined, useSampleTextAsDefault: false, hasAnswer: false, answerId: undefined },
+      { versionedQuestionId: undefined, customQuestionId: 30, useSampleTextAsDefault: true, hasAnswer: true, answerId: 101 },
+      { versionedQuestionId: undefined, customQuestionId: 31, useSampleTextAsDefault: true, hasAnswer: false, answerId: 102 },
+    ]);
   });
 });

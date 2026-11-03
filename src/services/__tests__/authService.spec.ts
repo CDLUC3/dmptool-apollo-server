@@ -10,6 +10,8 @@ mockAppLogger();
 
 import { GraphQLResolveInfo, GraphQLError } from "graphql";
 import { MyContext } from "../../context.js";
+import {resolveServiceClient} from "../authService.js";
+import {buildContext} from "../../__mocks__/context.js";
 
 jest.unstable_mockModule('../../datasources/cache.js', () => ({
   Cache: jest.fn().mockImplementation(() => ({
@@ -88,6 +90,52 @@ describe('isSuperAdmin', () => {
   });
 });
 
+describe('resolveServiceClient', () => {
+  let mockContext: MyContext;
+
+  beforeEach(() => {
+    mockContext = {} as MyContext;
+  });
+
+  it('resolves a valid service client token', async () => {
+    mockContext.token = { jti: 'test-jti', client_id: 'test-client-id', sub: 'test-client-id' };
+    const mockUser = new User({
+      id: casual.integer(1, 999),
+      givenName: casual.first_name,
+      surName: casual.last_name,
+      role: UserRole.RESEARCHER,
+      affiliationId: casual.url
+    });
+    const email = casual.email;
+    jest.spyOn(mockUser, 'getEmail').mockResolvedValue(email);
+    jest.spyOn(User, 'findByServiceAccountId').mockResolvedValue(mockUser);
+
+    await resolveServiceClient(mockContext);
+    expect(mockContext.token.id).toEqual(mockUser.id);
+    expect(mockContext.token.affiliationId).toEqual(mockUser.affiliationId);
+    expect(mockContext.token.email).toEqual(email);
+    expect(mockContext.token.givenName).toEqual(mockUser.givenName);
+    expect(mockContext.token.surName).toEqual(mockUser.surName);
+    expect(mockContext.token.role).toEqual(mockUser.role);
+    expect(mockContext.token.languageId).toEqual(mockUser.languageId);
+  });
+
+  it('rejects a missing service client token', async () => {
+    mockContext.token = { jti: 'test-jti', sub: 'test-client-id' };
+
+    await resolveServiceClient(mockContext);
+    expect(mockContext.token.id).toBeUndefined();
+  });
+
+  it('rejects a client that has no matching user', async () => {
+    mockContext.token = { jti: 'test-jti', client_id: 'test-client-id', sub: 'different-sub' };
+    jest.spyOn(User, 'findByServiceAccountId').mockResolvedValue(null);
+
+    await resolveServiceClient(mockContext);
+    expect(mockContext.token.id).toBeUndefined();
+  });
+});
+
 describe('authenticatedResolver', () => {
   let mockResolver: jest.Mock<(...args: any[]) => Promise<any>>;
   let mockContext: MyContext;
@@ -110,6 +158,33 @@ describe('authenticatedResolver', () => {
     token = mockContext.token;
 
     mockInfo = {} as GraphQLResolveInfo;
+  });
+
+  describe('REST API Service account', () => {
+    let mockServiceAccountContext: MyContext;
+
+    beforeEach(async () => {
+      const clientId = casual.uuid;
+      const serviceAccountToken = { sub: clientId, client_id: clientId, jti: 'test-jti' };
+      mockServiceAccountContext = buildContext(logger, serviceAccountToken);
+    });
+
+    it('allows access with valid token', async () => {
+      jest.spyOn(User, 'findByServiceAccountId').mockResolvedValue(user);
+      const wrapped = authenticatedResolver('test', UserRole.RESEARCHER, mockResolver);
+      const result = await wrapped({}, { arg1: 'value' }, mockServiceAccountContext, mockInfo);
+
+      expect(result).toEqual({ success: true });
+      expect(mockResolver).toHaveBeenCalledTimes(1);
+    });
+
+    it('throws AuthenticationError when token is null', async () => {
+      mockServiceAccountContext.token = null;
+      const wrapped = authenticatedResolver('test', UserRole.RESEARCHER, mockResolver);
+
+      await expect(wrapped({}, {}, mockServiceAccountContext, mockInfo)).rejects.toThrow('Unauthorized');
+      expect(mockResolver).not.toHaveBeenCalled();
+    });
   });
 
   describe('RESEARCHER auth level (default)', () => {

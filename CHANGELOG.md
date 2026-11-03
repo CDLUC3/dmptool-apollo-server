@@ -3,6 +3,9 @@
 ## v1.1.0
 
 ### Added
+- Added `findByServiceAccount` to `User` model to find a user by their `isServiceAccount` flag
+- Added data migration to seed API test service account
+- Added data migrations to add `isServiceAccount` flag to `users` and `userId` to `oauthClients`
 - Added `AGENTS.md` and `CLAUDE.md` files
 - Added data migration for the `oauthClientPermissions` table to store the permissions/grants associated with an Oauth client.
 - Added `.npmrc` and `.prettierrc` files
@@ -167,6 +170,8 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated `authService` by adding a `resolveServiceClient` function that is called by the `authenticatedResolver` to check for a valid service account token and to set the `user` in the context to the service account user
+- Updated `validateClaims` in the `auth` middleware to support validation of service account tokens
 - Updated the `sendContactUsEmail` and `sendEmail` functions in `emailService.ts` so that Contact Us emails will not include the env prefix or "Contact Us form submissions" [#346]
 - Updated `findConditionalLogicForPlan` to return each question's display logic grouped by condition group, and to map each group's trigger question to its `versionedQuestionId` within the plan's versioned template [#366]
 - Updated error messages related to mutations that conflict with existing display logic [#1472]

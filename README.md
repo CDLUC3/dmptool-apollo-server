@@ -198,6 +198,7 @@ If you will use the AWS infrastructure to generate maDMP metadata through Lambda
 
 The Docker container includes a local MySQL database, Redis cache, DynamoDB table and the nodeJS Apollo server application.
 
+**IMPORTANT**: The SQL scripts located in the `data-migrations/local` folder create several test users to help you get started. These include a super admin, several admins and several researchers. Be sure to **RESET THESE PASSWORDS** after you have completed your initial setup. The default passwords are all `Password123$9` and are not secure.
 
 ### Running the app
 

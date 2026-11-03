@@ -73,10 +73,18 @@ export const validateClaims = (
   res: ExpressResponse,
   next: NextFunction
 ) => {
-  const payload: JwtPayload | undefined = req.auth;
-  if (
-    payload && (
-      (typeof payload.id !== 'string' && typeof payload.id !== 'number')
+  const payload: JwtPayload = req.auth;
+
+  if (payload) {
+    // If the token is a client credentials token, validate that the `sub` claim
+    // matches the `client_id`. Otherwise, it is a user token and we validate the
+    // custom claims.
+    if (typeof payload.client_id === 'string') {
+      if (payload.sub !== payload.client_id) {
+        return res.status(401).json({error: 'Access token has invalid client'});
+      }
+
+    } else if ((typeof payload.id !== 'string' && typeof payload.id !== 'number')
       || typeof payload.email !== 'string'
       || typeof payload.givenName !== 'string'
       || typeof payload.surName !== 'string'
@@ -84,14 +92,14 @@ export const validateClaims = (
       || typeof payload.languageId !== 'string'
       || typeof payload.role !== 'string'
       || (typeof payload.jti !== 'string' && typeof payload.jti !== 'number')
-      || typeof payload.tokenVersion !== 'number')
-  ) {
-
-    return res.status(401).json({ error: 'Access token has invalid custom claims' });
+      || typeof payload.tokenVersion !== 'number'
+    ) {
+      return res.status(401).json({error: 'Access token has invalid custom claims'});
+    }
   }
 
   next();
-};
+}
 
 /**
  * Express middleware to require authentication using JWT tokens.

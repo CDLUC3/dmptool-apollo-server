@@ -200,7 +200,7 @@ export const resolvers: Resolvers = {
             });
             await newEmail.create(context);
           }
-          
+
           // Update the user fields
           user.givenName = givenName;
           user.surName = surName;
@@ -610,7 +610,7 @@ export const resolvers: Resolvers = {
         return null;
       }
       const affiliation = await Affiliation.findByURI('Chained User.affiliationAllowsSSO', context, parent.affiliationId);
-      return affiliation.ssoEntityId;
+      return affiliation?.ssoEntityId ?? null;
     },
     // Chained resolver to fetch plans associated with the user
     plans: async (parent: User, _, context): Promise<Plan[]> => {

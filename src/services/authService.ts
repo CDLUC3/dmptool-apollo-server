@@ -68,6 +68,7 @@ export const resolveServiceClient = async (context: MyContext): Promise<void> =>
     context,
     context.token.client_id
   );
+
   if (user) {
     // Attach the user information to the context token for use in resolvers
     context.token.id = user.id;

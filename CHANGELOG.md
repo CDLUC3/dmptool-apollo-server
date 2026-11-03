@@ -3,6 +3,8 @@
 ## v1.1.0
 
 ### Added
+- Added migration to make e2e test accounts Oauth service accounts
+- Added migration to rename `pkce` and `extraClientMetadata` columns on `oauthClients` table
 - Added `findByServiceAccount` to `User` model to find a user by their `isServiceAccount` flag
 - Added data migration to seed API test service account
 - Added data migrations to add `isServiceAccount` flag to `users` and `userId` to `oauthClients`

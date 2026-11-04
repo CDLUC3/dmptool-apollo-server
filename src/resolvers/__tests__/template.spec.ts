@@ -281,3 +281,50 @@ describe('archiveTemplate mutation', () => {
     // The error could be "Not found" or "Something went wrong" depending on how hasPermissionOnTemplate handles null
   });
 });
+
+describe('templateNameAvailable query', () => {
+  beforeEach(() => {
+    query = `
+      query TemplateNameAvailable($name: String!) {
+        templateNameAvailable(name: $name)
+      }
+    `;
+  });
+
+  it('returns true when no template with that name exists for the affiliation', async () => {
+    const findSpy = jest.spyOn(Template, 'findByNameAndOwnerId').mockResolvedValue(null);
+
+    const result = await executeQuery(query, { name: 'Brand New Template' }, adminToken);
+
+    expect(result.body.kind).toEqual('single');
+    expect(result.body.singleResult.errors).toBeUndefined();
+    expect(result.body.singleResult.data.templateNameAvailable).toBe(true);
+    expect(findSpy).toHaveBeenCalledWith(
+      'templateNameAvailable resolver',
+      expect.anything(),
+      'Brand New Template',
+    );
+  });
+
+  it('returns false when a template with that name already exists for the affiliation', async () => {
+    const existing = new Template({ id: templateId, name: 'Existing Template', ownerId: affiliationId });
+    jest.spyOn(Template, 'findByNameAndOwnerId').mockResolvedValue(existing);
+
+    const result = await executeQuery(query, { name: 'existing template' }, adminToken);
+
+    expect(result.body.kind).toEqual('single');
+    expect(result.body.singleResult.errors).toBeUndefined();
+    expect(result.body.singleResult.data.templateNameAvailable).toBe(false);
+  });
+
+  it('returns false without querying when the name is blank', async () => {
+    const findSpy = jest.spyOn(Template, 'findByNameAndOwnerId');
+
+    const result = await executeQuery(query, { name: '   ' }, adminToken);
+
+    expect(result.body.kind).toEqual('single');
+    expect(result.body.singleResult.errors).toBeUndefined();
+    expect(result.body.singleResult.data.templateNameAvailable).toBe(false);
+    expect(findSpy).not.toHaveBeenCalled();
+  });
+});

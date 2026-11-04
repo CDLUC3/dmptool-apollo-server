@@ -17,7 +17,7 @@ import {
 } from "../services/templateService.js";
 import { cloneSection } from "../services/sectionService.js";
 import { cloneQuestion } from "../services/questionService.js";
-import { isAdmin, isSuperAdmin } from "../services/authService.js";
+import { authenticatedResolver, isAdmin, isSuperAdmin } from "../services/authService.js";
 import { AuthenticationError, ForbiddenError, InternalServerError, NotFoundError } from "../utils/graphQLErrors.js";
 import { VersionedTemplate, TemplateVersionType } from "../models/VersionedTemplate.js";
 import { prepareObjectForLogs } from "../logger.js";
@@ -84,6 +84,23 @@ export const resolvers: Resolvers = {
         throw InternalServerError();
       }
     },
+
+    // Check whether a Template name is available for the current user's affiliation (user must be an Admin)
+    //    - called by the Template Builder - initial page (Create Template)
+    templateNameAvailable: authenticatedResolver(
+      'templateNameAvailable resolver',
+      UserRole.ADMIN,
+      async (_, { name }, context: MyContext): Promise<boolean> => {
+        if (!name?.trim()) return false;
+
+        const existing = await Template.findByNameAndOwnerId(
+          'templateNameAvailable resolver',
+          context,
+          name,
+        );
+        return !existing;
+      }
+    ),
   },
 
   Mutation: {

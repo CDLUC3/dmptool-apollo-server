@@ -6,6 +6,8 @@ export const typeDefs = gql`
     myTemplates(term: String, paginationOptions: PaginationOptions): TemplateSearchResults
     "Get the specified Template (user must be an Admin)"
     template(templateId: Int!): Template
+    "Check whether a Template name is available for the current user's affiliation (user must be an Admin)"
+    templateNameAvailable(name: String!): Boolean!
   }
 
   extend type Mutation {

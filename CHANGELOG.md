@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added `templateNameAvailable` query to the `template` schema and resolver, so the UI can check whether a template name is already taken by the user's affiliation before creating it [#561]
 - Added migration to make e2e test accounts Oauth service accounts
 - Added migration to rename `pkce` and `extraClientMetadata` columns on `oauthClients` table
 - Added `findByServiceAccount` to `User` model to find a user by their `isServiceAccount` flag

@@ -3941,6 +3941,8 @@ export type Query = {
   templateCollaborators?: Maybe<Array<Maybe<TemplateCollaborator>>>;
   /** Get the overview of the template customization (user must be an Admin) */
   templateCustomizationOverview?: Maybe<TemplateCustomizationOverview>;
+  /** Check whether a Template name is available for the current user's affiliation (user must be an Admin) */
+  templateNameAvailable: Scalars['Boolean']['output'];
   /** Get all of the VersionedTemplate for the specified Template (a.k. the Template history) */
   templateVersions?: Maybe<Array<Maybe<VersionedTemplate>>>;
   /** Get all of the top level research domains (the most generic ones) */
@@ -4432,6 +4434,11 @@ export type QueryTemplateCollaboratorsArgs = {
 
 export type QueryTemplateCustomizationOverviewArgs = {
   templateCustomizationId: Scalars['Int']['input'];
+};
+
+
+export type QueryTemplateNameAvailableArgs = {
+  name: Scalars['String']['input'];
 };
 
 
@@ -8772,6 +8779,7 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   template?: Resolver<Maybe<ResolversTypes['Template']>, ParentType, ContextType, RequireFields<QueryTemplateArgs, 'templateId'>>;
   templateCollaborators?: Resolver<Maybe<Array<Maybe<ResolversTypes['TemplateCollaborator']>>>, ParentType, ContextType, RequireFields<QueryTemplateCollaboratorsArgs, 'templateId'>>;
   templateCustomizationOverview?: Resolver<Maybe<ResolversTypes['TemplateCustomizationOverview']>, ParentType, ContextType, RequireFields<QueryTemplateCustomizationOverviewArgs, 'templateCustomizationId'>>;
+  templateNameAvailable?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<QueryTemplateNameAvailableArgs, 'name'>>;
   templateVersions?: Resolver<Maybe<Array<Maybe<ResolversTypes['VersionedTemplate']>>>, ParentType, ContextType, RequireFields<QueryTemplateVersionsArgs, 'templateId'>>;
   topLevelResearchDomains?: Resolver<Maybe<Array<Maybe<ResolversTypes['ResearchDomain']>>>, ParentType, ContextType>;
   triggerQuestionsForQuestion?: Resolver<Maybe<Array<Maybe<ResolversTypes['Question']>>>, ParentType, ContextType, RequireFields<QueryTriggerQuestionsForQuestionArgs, 'questionId'>>;

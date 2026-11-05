@@ -1,6 +1,6 @@
 {
   "name": "dmptool-apollo-server",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Apollo GraphQL server for the DMP Tool system",
   "main": "dist/index.js",
   "type": "module",
@@ -88,7 +88,7 @@
     "@types/express": "5.0.6",
     "@types/express-oauth-server": "2.0.10",
     "@types/jest": "30.0.0",
-    "@types/nodemailer": "8.0.1",
+    "@types/nodemailer": "8.0.2",
     "@types/oauth2-server": "3.0.18",
     "@types/supertest": "7.2.0",
     "assert": "2.1.0",

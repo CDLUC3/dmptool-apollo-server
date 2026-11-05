@@ -3,6 +3,11 @@
 ## v1.1.0
 
 ### Added
+- Added data migration to add a `plans.affiliationId` column to the DB.
+- Added local data migration to seed the new `plans.affiliationId` to the `affiliationId` of the user who created the plan
+- Added new `affiliationId` property to the `Plan` model. This will retain the original affiliation that the plan was created for and helps us determine which plans an admin has access to.
+- Added new `planSearch` query (schema and resolver) that accepts the following search, filter, pagination and sort options.
+- Added an override for `minimatch`
 - Added `templateNameAvailable` query to the `template` schema and resolver, so the UI can check whether a template name is already taken by the user's affiliation before creating it [#561]
 - Added migration to make e2e test accounts Oauth service accounts
 - Added migration to rename `pkce` and `extraClientMetadata` columns on `oauthClients` table
@@ -173,6 +178,8 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated the `plan.create` function to set the `affiliationId`
+- Updated the `indexDMPsService` to include additional metadata about the plan's research outputs, contacts, etc.
 - Updated `authService` by adding a `resolveServiceClient` function that is called by the `authenticatedResolver` to check for a valid service account token and to set the `user` in the context to the service account user
 - Updated `validateClaims` in the `auth` middleware to support validation of service account tokens
 - Updated the `sendContactUsEmail` and `sendEmail` functions in `emailService.ts` so that Contact Us emails will not include the env prefix or "Contact Us form submissions" [#346]

@@ -4,6 +4,8 @@ export const typeDefs = gql`
   extend type Query {
     "Get all plans for the research project with pagination support"
     plans(userId: Int!, term: String, paginationOptions: PaginationOptions): PaginatedPlanResults
+    "Search/filter plans"
+    planSearch(options: PlanSearchOptions!): PlanSearchResults!
     "Get all of the plans for a specific Project"
     plansByProjectId(projectId: Int!): [Plan]
 
@@ -179,7 +181,7 @@ export const typeDefs = gql`
     created: String
     "The user who last modified the Object"
     modifiedBy: String
-    "The timestamp when the Object was last modifed"
+    "The timestamp when the Object was last modified"
     modified: String
 
     "The title of the plan"
@@ -315,6 +317,8 @@ export const typeDefs = gql`
     project: Project
     "The template the plan is based on"
     versionedTemplate: VersionedTemplate
+    "The affiliation that owns the plan"
+    affiliationId: String
     "The title of the plan"
     title: String
     "The DMP ID/DOI for the plan"
@@ -500,6 +504,66 @@ export const typeDefs = gql`
     funding: String
     alternateIdentifiers: String
     acceptedWorks: String
+  }
+
+  "The options for searching/filtering/sorting plans"
+  input PlanSearchOptions {
+    scope: PlanSearchScope
+    offset: Int = 0
+    count: Int = 20
+    sort: [String!]
+    createdBefore: String
+    createdAfter: String
+    modifiedBefore: String
+    modifiedAfter: String
+    alternateIdentifier: [String!]
+    languages: [String!]
+    contactIds: [String!]
+    contributorIds: [String!]
+    datasetIds: [String!]
+    datasetPersonalData: [String!]
+    datasetSensitiveData: [String!]
+    metadataStandardIds: [String!]
+    distributionFormats: [String!]
+    distributionDataAccess: [String!]
+    hostIds: [String!]
+    hostTitles: [String!]
+    dmpIds: [String!]
+    licenseRefs: [String!]
+    affiliationIds: [String!]
+    funderIds: [String!]
+    grantIds: [String!]
+    fundingStatus: [String!]
+    ethicalIssuesExist: [String!]
+    query: [String!]
+  }
+
+  enum PlanSearchScope {
+    public
+    private
+  }
+
+  "The results of a plan search"
+  type PlanSearchResults {
+    items: [PlanIndexResult!]!
+    totalCount: Int!
+    offset: Int!
+    count: Int!
+  }
+
+  "A plan index result is a summary of a plan's data for use in search results"
+  type PlanIndexResult {
+    dmpId: String
+    planId: Int
+    projectId: Int
+    affiliationId: String
+    title: String
+    projectTitle: String
+    visibility: String
+    created: String
+    modified: String
+    registered: String
+    language: String
   }
 
   "A version of the plan"

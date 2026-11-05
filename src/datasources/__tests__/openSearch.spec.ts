@@ -585,6 +585,24 @@ describe('OpenSearch class', () => {
       ]);
     });
 
+    it('camelizes the default _source document content', async () => {
+      mockClientInstance.indices.get.mockResolvedValueOnce({ body: { [INDEX_NAME]: {} }, statusCode: 200 });
+      mockClientInstance.search.mockResolvedValueOnce({
+        body: {
+          hits: {
+            total: { value: 1 },
+            hits: [{ _id: 'doc-source', _source: { dmp_id: '10.1234/example', project_title: 'Indexed project' } }],
+          },
+        },
+      });
+
+      const os = new OpenSearch(serverlessConfig);
+      await expect(os.search(INDEX_NAME, QUERY)).resolves.toEqual({
+        total: 1,
+        items: [{ _id: 'doc-source', fields: { dmpId: '10.1234/example', projectTitle: 'Indexed project' } }],
+      });
+    });
+
     it('returns an empty array for a 404 during search', async () => {
       mockClientInstance.indices.get.mockResolvedValueOnce({ body: { [INDEX_NAME]: {} }, statusCode: 200 });
       mockClientInstance.search.mockRejectedValueOnce({ meta: { statusCode: 404 }, message: 'not found' });

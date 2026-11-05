@@ -190,6 +190,9 @@ const buildResearchOutputAnswerJson = (): string => JSON.stringify({
         commonStandardId: 'host',
         answer: [{ repositoryId: 're3data.r3d100000001', repositoryName: 'GenBank' }],
       },
+      { commonStandardId: 'license_ref', answer: [{ licenseId: 'https://creativecommons.org/licenses/by/4.0/', licenseName: 'CC BY 4.0' }] },
+      { commonStandardId: 'metadata', answer: [{ metadataStandardId: 'https://example.org/standard', metadataStandardName: 'Example Standard' }] },
+      { commonStandardId: 'data_flags', answer: ['personalDataYes', 'sensitiveDataNo'] },
     ],
   }],
 });
@@ -292,12 +295,17 @@ describe('getIndexItem', () => {
 
 describe('searchIndex', () => {
   it('returns the items from the response when matches exist', async () => {
-    const items = [{ dmp_id: '11.22222/demo' }, { dmp_id: '11.22222/other' }];
+    const items = [
+      { _id: '11.22222/demo', fields: { dmpId: '11.22222/demo' } },
+      { _id: '11.22222/other', fields: { dmpId: '11.22222/other' } },
+    ];
+    const documents = items.map(({ fields }) => fields);
     mockOpenSearch.search.mockResolvedValue({ total: 2, items });
 
-    await expect(searchIndex('ref', context, { match_all: {} }, [], 25)).resolves.toEqual(items);
+    await expect(searchIndex('ref', context, { match_all: {} }, [], 25)).resolves.toEqual({ items: documents, total: 2 });
     expect(mockOpenSearch.search).toHaveBeenCalledWith(INDEX_NAME, {
       size: 25,
+      from: 0,
       query: { match_all: {} },
       sort: [],
     });
@@ -306,7 +314,17 @@ describe('searchIndex', () => {
   it('returns an empty array when there are no hits', async () => {
     mockOpenSearch.search.mockResolvedValue({ total: 0, items: [] });
 
-    await expect(searchIndex('ref', context, { match_all: {} })).resolves.toEqual([]);
+    await expect(searchIndex('ref', context, { match_all: {} })).resolves.toEqual({ items: [], total: 0 });
+  });
+
+  it('passes an offset to OpenSearch and preserves the total count', async () => {
+    const items = [{ _id: '11.22222/second-page', fields: { dmpId: '11.22222/second-page' } }];
+    mockOpenSearch.search.mockResolvedValue({ total: 21, items });
+    await expect(searchIndex('ref', context, { match_all: {} }, [{ created: 'desc' }], 20, 20))
+      .resolves.toEqual({ items: [items[0].fields], total: 21 });
+    expect(mockOpenSearch.search).toHaveBeenCalledWith(INDEX_NAME, {
+      size: 20, from: 20, query: { match_all: {} }, sort: [{ created: 'desc' }],
+    });
   });
 
   it('throws when search returns no response', async () => {
@@ -345,6 +363,7 @@ describe('updateIndexItem', () => {
       projectId: project.id,
       givenName: 'Jane',
       surName: 'Smith',
+      isPrimaryContact: true,
       orcid: `${TEST_ORCID_BASE}0000-0001-2345-6789`,
       affiliationId: `${TEST_ROR_BASE}abcd1234`,
     });
@@ -405,6 +424,16 @@ describe('updateIndexItem', () => {
     expect(doc.funding_facets).toContain('National Science Foundation');
     expect(doc.repository_ids).toContain('re3data.r3d100000001');
     expect(doc.repositories_facets).toContain('GenBank');
+    expect(doc.contact_ids).toEqual(['0000-0001-2345-6789']);
+    expect(doc.dataset_ids).toEqual([]);
+    expect(doc.output_formats).toEqual([]);
+    expect(doc.metadata_standard_ids).toEqual(['https://example.org/standard']);
+    expect(doc.license_refs).toEqual(['https://creativecommons.org/licenses/by/4.0/']);
+    expect(doc.host_ids).toEqual(['re3data.r3d100000001']);
+    expect(doc.host_names).toEqual(['GenBank']);
+    expect(doc.personal_data).toEqual(['yes']);
+    expect(doc.sensitive_data).toEqual(['no']);
+    expect(doc.ethical_issues_exist).toBe('yes');
   });
 
   it('fetches the project automatically when one is not provided', async () => {
@@ -443,6 +472,10 @@ describe('updateIndexItem', () => {
     expect(doc.contributor_ids).toEqual([]);
     expect(doc.funder_ids).toEqual([]);
     expect(doc.repository_ids).toEqual([]);
+    expect(doc.contact_ids).toEqual([]);
+    expect(doc.dataset_ids).toEqual([]);
+    expect(doc.output_formats).toEqual([]);
+    expect(doc.ethical_issues_exist).toBe('unknown');
   });
 });
 

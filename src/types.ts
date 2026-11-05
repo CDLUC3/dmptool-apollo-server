@@ -2783,6 +2783,8 @@ export type Plan = {
   __typename?: 'Plan';
   /** Related works that have been accepted/verified as associated with the plan */
   acceptedWorks?: Maybe<Array<AcceptedWork>>;
+  /** The affiliation that owns the plan */
+  affiliationId?: Maybe<Scalars['String']['output']>;
   /** Alternate identifiers for the plan */
   alternateIdentifiers?: Maybe<Array<AlternateIdentifier>>;
   /** Answers associated with the plan */
@@ -3041,6 +3043,22 @@ export type PlanGuidanceErrors = {
   userId?: Maybe<Scalars['String']['output']>;
 };
 
+/** A plan index result is a summary of a plan's data for use in search results */
+export type PlanIndexResult = {
+  __typename?: 'PlanIndexResult';
+  affiliationId?: Maybe<Scalars['String']['output']>;
+  created?: Maybe<Scalars['String']['output']>;
+  dmpId?: Maybe<Scalars['String']['output']>;
+  language?: Maybe<Scalars['String']['output']>;
+  modified?: Maybe<Scalars['String']['output']>;
+  planId?: Maybe<Scalars['Int']['output']>;
+  projectId?: Maybe<Scalars['Int']['output']>;
+  projectTitle?: Maybe<Scalars['String']['output']>;
+  registered?: Maybe<Scalars['String']['output']>;
+  title?: Maybe<Scalars['String']['output']>;
+  visibility?: Maybe<Scalars['String']['output']>;
+};
+
 /** A Member associated with a plan */
 export type PlanMember = {
   __typename?: 'PlanMember';
@@ -3126,6 +3144,38 @@ export type PlanQuestion = {
   versionedQuestionId?: Maybe<Scalars['Int']['output']>;
 };
 
+/** The options for searching/filtering/sorting plans */
+export type PlanSearchOptions = {
+  affiliationIds?: InputMaybe<Array<Scalars['String']['input']>>;
+  alternateIdentifier?: InputMaybe<Array<Scalars['String']['input']>>;
+  contactIds?: InputMaybe<Array<Scalars['String']['input']>>;
+  contributorIds?: InputMaybe<Array<Scalars['String']['input']>>;
+  count?: InputMaybe<Scalars['Int']['input']>;
+  createdAfter?: InputMaybe<Scalars['String']['input']>;
+  createdBefore?: InputMaybe<Scalars['String']['input']>;
+  datasetIds?: InputMaybe<Array<Scalars['String']['input']>>;
+  datasetPersonalData?: InputMaybe<Array<Scalars['String']['input']>>;
+  datasetSensitiveData?: InputMaybe<Array<Scalars['String']['input']>>;
+  distributionDataAccess?: InputMaybe<Array<Scalars['String']['input']>>;
+  distributionFormats?: InputMaybe<Array<Scalars['String']['input']>>;
+  dmpIds?: InputMaybe<Array<Scalars['String']['input']>>;
+  ethicalIssuesExist?: InputMaybe<Array<Scalars['String']['input']>>;
+  funderIds?: InputMaybe<Array<Scalars['String']['input']>>;
+  fundingStatus?: InputMaybe<Array<Scalars['String']['input']>>;
+  grantIds?: InputMaybe<Array<Scalars['String']['input']>>;
+  hostIds?: InputMaybe<Array<Scalars['String']['input']>>;
+  hostTitles?: InputMaybe<Array<Scalars['String']['input']>>;
+  languages?: InputMaybe<Array<Scalars['String']['input']>>;
+  licenseRefs?: InputMaybe<Array<Scalars['String']['input']>>;
+  metadataStandardIds?: InputMaybe<Array<Scalars['String']['input']>>;
+  modifiedAfter?: InputMaybe<Scalars['String']['input']>;
+  modifiedBefore?: InputMaybe<Scalars['String']['input']>;
+  offset?: InputMaybe<Scalars['Int']['input']>;
+  query?: InputMaybe<Array<Scalars['String']['input']>>;
+  scope?: InputMaybe<PlanSearchScope>;
+  sort?: InputMaybe<Array<Scalars['String']['input']>>;
+};
+
 export type PlanSearchResult = {
   __typename?: 'PlanSearchResult';
   /** The timestamp when the Object was created */
@@ -3140,7 +3190,7 @@ export type PlanSearchResult = {
   id?: Maybe<Scalars['Int']['output']>;
   /** The names of the members */
   members?: Maybe<Scalars['String']['output']>;
-  /** The timestamp when the Object was last modifed */
+  /** The timestamp when the Object was last modified */
   modified?: Maybe<Scalars['String']['output']>;
   /** The user who last modified the Object */
   modifiedBy?: Maybe<Scalars['String']['output']>;
@@ -3165,6 +3215,19 @@ export type PlanSearchResult = {
   /** The visibility/permission setting */
   visibility?: Maybe<PlanVisibility>;
 };
+
+/** The results of a plan search */
+export type PlanSearchResults = {
+  __typename?: 'PlanSearchResults';
+  count: Scalars['Int']['output'];
+  items: Array<PlanIndexResult>;
+  offset: Scalars['Int']['output'];
+  totalCount: Scalars['Int']['output'];
+};
+
+export type PlanSearchScope =
+  | 'private'
+  | 'public';
 
 /** The view of a versioned section required by the EntirePlan type */
 export type PlanSection = {
@@ -3842,6 +3905,8 @@ export type Query = {
   planFundings?: Maybe<Array<Maybe<PlanFunding>>>;
   /** Get all of the Users that are Members for the specific Plan */
   planMembers?: Maybe<Array<Maybe<PlanMember>>>;
+  /** Search/filter plans */
+  planSearch: PlanSearchResults;
   /** Get all plans for the research project with pagination support */
   plans?: Maybe<PaginatedPlanResults>;
   /** Get all of the plans for a specific Project */
@@ -4184,6 +4249,11 @@ export type QueryPlanFundingsArgs = {
 
 export type QueryPlanMembersArgs = {
   planId: Scalars['Int']['input'];
+};
+
+
+export type QueryPlanSearchArgs = {
+  options: PlanSearchOptions;
 };
 
 
@@ -6912,11 +6982,15 @@ export type ResolversTypes = {
   PlanFundingErrors: ResolverTypeWrapper<PlanFundingErrors>;
   PlanGuidance: ResolverTypeWrapper<PlanGuidance>;
   PlanGuidanceErrors: ResolverTypeWrapper<PlanGuidanceErrors>;
+  PlanIndexResult: ResolverTypeWrapper<PlanIndexResult>;
   PlanMember: ResolverTypeWrapper<PlanMember>;
   PlanMemberErrors: ResolverTypeWrapper<PlanMemberErrors>;
   PlanProgress: ResolverTypeWrapper<PlanProgress>;
   PlanQuestion: ResolverTypeWrapper<PlanQuestion>;
+  PlanSearchOptions: PlanSearchOptions;
   PlanSearchResult: ResolverTypeWrapper<PlanSearchResult>;
+  PlanSearchResults: ResolverTypeWrapper<PlanSearchResults>;
+  PlanSearchScope: PlanSearchScope;
   PlanSection: ResolverTypeWrapper<PlanSection>;
   PlanSectionProgress: ResolverTypeWrapper<PlanSectionProgress>;
   PlanStatus: PlanStatus;
@@ -7195,11 +7269,14 @@ export type ResolversParentTypes = {
   PlanFundingErrors: PlanFundingErrors;
   PlanGuidance: PlanGuidance;
   PlanGuidanceErrors: PlanGuidanceErrors;
+  PlanIndexResult: PlanIndexResult;
   PlanMember: PlanMember;
   PlanMemberErrors: PlanMemberErrors;
   PlanProgress: PlanProgress;
   PlanQuestion: PlanQuestion;
+  PlanSearchOptions: PlanSearchOptions;
   PlanSearchResult: PlanSearchResult;
+  PlanSearchResults: PlanSearchResults;
   PlanSection: PlanSection;
   PlanSectionProgress: PlanSectionProgress;
   PlanVersion: PlanVersion;
@@ -8146,6 +8223,7 @@ export type PaginatedQueryResultsResolvers<ContextType = MyContext, ParentType e
 
 export type PlanResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['Plan'] = ResolversParentTypes['Plan']> = {
   acceptedWorks?: Resolver<Maybe<Array<ResolversTypes['AcceptedWork']>>, ParentType, ContextType>;
+  affiliationId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   alternateIdentifiers?: Resolver<Maybe<Array<ResolversTypes['AlternateIdentifier']>>, ParentType, ContextType>;
   answers?: Resolver<Maybe<Array<ResolversTypes['Answer']>>, ParentType, ContextType>;
   availableGuidanceSources?: Resolver<Maybe<Array<ResolversTypes['GuidanceSource']>>, ParentType, ContextType>;
@@ -8289,6 +8367,20 @@ export type PlanGuidanceErrorsResolvers<ContextType = MyContext, ParentType exte
   userId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 };
 
+export type PlanIndexResultResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PlanIndexResult'] = ResolversParentTypes['PlanIndexResult']> = {
+  affiliationId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  dmpId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  language?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  planId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  projectId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  projectTitle?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  registered?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  title?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  visibility?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+};
+
 export type PlanMemberResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PlanMember'] = ResolversParentTypes['PlanMember']> = {
   created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   createdById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
@@ -8353,6 +8445,13 @@ export type PlanSearchResultResolvers<ContextType = MyContext, ParentType extend
   versionedSections?: Resolver<Maybe<Array<ResolversTypes['PlanSectionProgress']>>, ParentType, ContextType>;
   versionedTemplateId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   visibility?: Resolver<Maybe<ResolversTypes['PlanVisibility']>, ParentType, ContextType>;
+};
+
+export type PlanSearchResultsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PlanSearchResults'] = ResolversParentTypes['PlanSearchResults']> = {
+  count?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  items?: Resolver<Array<ResolversTypes['PlanIndexResult']>, ParentType, ContextType>;
+  offset?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  totalCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
 };
 
 export type PlanSectionResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PlanSection'] = ResolversParentTypes['PlanSection']> = {
@@ -8729,6 +8828,7 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   planFeedbackStatus?: Resolver<Maybe<ResolversTypes['PlanFeedbackStatus']>, ParentType, ContextType, RequireFields<QueryPlanFeedbackStatusArgs, 'planId'>>;
   planFundings?: Resolver<Maybe<Array<Maybe<ResolversTypes['PlanFunding']>>>, ParentType, ContextType, RequireFields<QueryPlanFundingsArgs, 'planId'>>;
   planMembers?: Resolver<Maybe<Array<Maybe<ResolversTypes['PlanMember']>>>, ParentType, ContextType, RequireFields<QueryPlanMembersArgs, 'planId'>>;
+  planSearch?: Resolver<ResolversTypes['PlanSearchResults'], ParentType, ContextType, RequireFields<QueryPlanSearchArgs, 'options'>>;
   plans?: Resolver<Maybe<ResolversTypes['PaginatedPlanResults']>, ParentType, ContextType, RequireFields<QueryPlansArgs, 'userId'>>;
   plansByProjectId?: Resolver<Maybe<Array<Maybe<ResolversTypes['Plan']>>>, ParentType, ContextType, RequireFields<QueryPlansByProjectIdArgs, 'projectId'>>;
   popularFunders?: Resolver<Maybe<Array<Maybe<ResolversTypes['FunderPopularityResult']>>>, ParentType, ContextType>;
@@ -9800,11 +9900,13 @@ export type Resolvers<ContextType = MyContext> = {
   PlanFundingErrors?: PlanFundingErrorsResolvers<ContextType>;
   PlanGuidance?: PlanGuidanceResolvers<ContextType>;
   PlanGuidanceErrors?: PlanGuidanceErrorsResolvers<ContextType>;
+  PlanIndexResult?: PlanIndexResultResolvers<ContextType>;
   PlanMember?: PlanMemberResolvers<ContextType>;
   PlanMemberErrors?: PlanMemberErrorsResolvers<ContextType>;
   PlanProgress?: PlanProgressResolvers<ContextType>;
   PlanQuestion?: PlanQuestionResolvers<ContextType>;
   PlanSearchResult?: PlanSearchResultResolvers<ContextType>;
+  PlanSearchResults?: PlanSearchResultsResolvers<ContextType>;
   PlanSection?: PlanSectionResolvers<ContextType>;
   PlanSectionProgress?: PlanSectionProgressResolvers<ContextType>;
   PlanVersion?: PlanVersionResolvers<ContextType>;

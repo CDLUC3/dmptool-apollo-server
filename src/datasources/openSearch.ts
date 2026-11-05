@@ -444,7 +444,9 @@ export class OpenSearch {
         : (response.body.hits.total as { value: number }).value;
 
       const items: IndexSearchItemInterface[] = response.body.hits.hits.map((hit: SearchHit): IndexSearchItemInterface => {
-        return { _id: hit._id, fields: camelizeKeys(hit.fields) };
+        // OpenSearch returns document content in `_source` by default. `fields`
+        // is only populated when explicitly requested in the search body.
+        return { _id: hit._id, fields: camelizeKeys(hit._source ?? hit.fields) };
       }) || [];
 
       return {

@@ -5,7 +5,11 @@ type OpenSearchProperties = NonNullable<
 
 // Look up the index type to get the singular MappingProperty schema
 export type MappingProperty = NonNullable<OpenSearchProperties>[string];
-import { OpenSearch, tokenizeText } from "../datasources/openSearch.js";
+import {
+  IndexSearchResponseInterface,
+  OpenSearch,
+  tokenizeText
+} from "../datasources/openSearch.js";
 import { stripIdentifierBaseURL, validateDate } from "../utils/helpers.js";
 import { Answer } from "../models/Answer.js";
 import { Plan } from "../models/Plan.js";
@@ -26,6 +30,7 @@ import {
   ResearchOutputTableRowAnswerType
 } from "@dmptool/types";
 import { MyContext } from "../context.js";
+import {defaultLanguageId} from "../models/Language.js";
 
 export const INDEX_NAME = "dmp";
 export const DEFAULT_MAX_RESULTS = 100;
@@ -35,6 +40,7 @@ export const DEFAULT_MAX_RESULTS = 100;
  */
 export const PropertyDefinition: Record<string, MappingProperty> = {
   dmp_id: { type: "keyword" },
+  affiliationId: { type: "keyword" },
   project_id: { type: "keyword" },
   plan_id: { type: "keyword" },
   title: { type: "text", fields: { keyword: { type: "keyword", ignore_above: 256 } } },
@@ -68,7 +74,6 @@ export const PropertyDefinition: Record<string, MappingProperty> = {
   institutions_facets: { type: "keyword" },
   repositories_facets: { type: "keyword" },
   language: { type: "keyword" },
-  // TODO: populate owner affiliation and project collaborator user IDs for authorization-aware search.
   status: { type: "keyword" },
   is_test: { type: "boolean" },
   featured: { type: "boolean" },
@@ -180,6 +185,7 @@ interface PlanIndexDocumentInterface {
   plan_id: number;
   affiliation_id: string;
   title?: string;
+  language?: string;
   project_title?: string | null;
   visibility: string;
   project_start?: string | null;
@@ -746,7 +752,7 @@ export const searchIndex = async (
     { reference, INDEX_NAME, query, sort, maxResults },
     'Searching Plan index'
   );
-  const response = await openSearch.search<PlanIndexDocumentInterface>(
+  const response: IndexSearchResponseInterface<PlanIndexDocumentInterface> = await openSearch.search<PlanIndexDocumentInterface>(
     INDEX_NAME,
     {
       size: maxResults,
@@ -760,7 +766,11 @@ export const searchIndex = async (
     throw new Error(`Failed to search index for query: ${JSON.stringify(query)}`);
   }
 
-  return { items: response.items as PlanIndexDocumentInterface[], total: response.total };
+  const items = response.items
+    .filter(item => 'fields' in item)
+    .map(item => item.fields) as PlanIndexDocumentInterface[];
+
+  return { items, total: response.total };
 };
 
 /**
@@ -842,6 +852,7 @@ export const updateIndexItem = async (
     created: new Date(plan.created).toISOString(),
     modified: new Date(plan.modified).toISOString(),
     title: plan.title?.trim().slice(0, 256),
+    language: plan.languageId?.trim() || defaultLanguageId,
 
     project_title: project.title?.trim().slice(0, 256) || undefined,
     abstract: project.abstractText?.trim().slice(0, 512) || undefined,

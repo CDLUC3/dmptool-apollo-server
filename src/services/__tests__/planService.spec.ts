@@ -311,10 +311,14 @@ describe('getIndexItem', () => {
 
 describe('searchIndex', () => {
   it('returns the items from the response when matches exist', async () => {
-    const items = [{ dmp_id: '11.22222/demo' }, { dmp_id: '11.22222/other' }];
+    const items = [
+      { _id: '11.22222/demo', fields: { dmpId: '11.22222/demo' } },
+      { _id: '11.22222/other', fields: { dmpId: '11.22222/other' } },
+    ];
+    const documents = items.map(({ fields }) => fields);
     mockOpenSearch.search.mockResolvedValue({ total: 2, items });
 
-    await expect(searchIndex('ref', context, { match_all: {} }, [], 25)).resolves.toEqual({ items, total: items.length });
+    await expect(searchIndex('ref', context, { match_all: {} }, [], 25)).resolves.toEqual({ items: documents, total: items.length });
     expect(mockOpenSearch.search).toHaveBeenCalledWith(INDEX_NAME, {
       size: 25,
       from: 0,

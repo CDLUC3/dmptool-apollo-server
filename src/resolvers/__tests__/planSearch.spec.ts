@@ -27,7 +27,7 @@ const run = (options = {}, token = null) => search({}, { options }, {
 beforeEach(() => {
   jest.clearAllMocks();
   (searchIndex as jest.Mock).mockImplementation(async () => ({ items: [{ dmp_id: 'dmp-1' }], total: 9 }));
-  (ProjectCollaborator.query as jest.Mock).mockImplementation(async () => ['dmp-12']);
+  (ProjectCollaborator.query as jest.Mock).mockImplementation(async () => [{ dmpId: 'https://doi.org/10.1234/dmp-12' }]);
 });
 
 describe('searchDMPs resolver', () => {
@@ -64,7 +64,7 @@ describe('searchDMPs resolver', () => {
       ['7'], 'Plan search resolver');
     const filter = ((searchIndex as jest.Mock).mock.calls[0][2] as any).bool.filter[0];
     expect(filter.bool.should).toEqual(expect.arrayContaining([
-      { term: { visibility: 'public' } }, { terms: { dmp_id: ['dmp-12'] } },
+      { term: { visibility: 'public' } }, { terms: { dmp_id: ['10.1234/dmp-12'] } },
     ]));
   });
 
@@ -86,7 +86,7 @@ describe('searchDMPs resolver', () => {
   it('private scope returns only collaborator DMPs for researchers', async () => {
     await run({ scope: 'private' }, { role: 'RESEARCHER', id: 7 });
     const filters = ((searchIndex as jest.Mock).mock.calls[0][2] as any).bool.filter;
-    expect(filters).toEqual([{ terms: { dmp_id: ['dmp-12'] } }]);
+    expect(filters).toEqual([{ terms: { dmp_id: ['10.1234/dmp-12'] } }]);
   });
 
   it('private scope returns only affiliation plans for admins', async () => {

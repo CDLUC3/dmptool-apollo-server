@@ -295,10 +295,14 @@ describe('getIndexItem', () => {
 
 describe('searchIndex', () => {
   it('returns the items from the response when matches exist', async () => {
-    const items = [{ dmp_id: '11.22222/demo' }, { dmp_id: '11.22222/other' }];
+    const items = [
+      { _id: '11.22222/demo', fields: { dmpId: '11.22222/demo' } },
+      { _id: '11.22222/other', fields: { dmpId: '11.22222/other' } },
+    ];
+    const documents = items.map(({ fields }) => fields);
     mockOpenSearch.search.mockResolvedValue({ total: 2, items });
 
-    await expect(searchIndex('ref', context, { match_all: {} }, [], 25)).resolves.toEqual({ items, total: 2 });
+    await expect(searchIndex('ref', context, { match_all: {} }, [], 25)).resolves.toEqual({ items: documents, total: 2 });
     expect(mockOpenSearch.search).toHaveBeenCalledWith(INDEX_NAME, {
       size: 25,
       from: 0,
@@ -314,10 +318,10 @@ describe('searchIndex', () => {
   });
 
   it('passes an offset to OpenSearch and preserves the total count', async () => {
-    const items = [{ dmp_id: '11.22222/second-page' }];
+    const items = [{ _id: '11.22222/second-page', fields: { dmpId: '11.22222/second-page' } }];
     mockOpenSearch.search.mockResolvedValue({ total: 21, items });
     await expect(searchIndex('ref', context, { match_all: {} }, [{ created: 'desc' }], 20, 20))
-      .resolves.toEqual({ items, total: 21 });
+      .resolves.toEqual({ items: [items[0].fields], total: 21 });
     expect(mockOpenSearch.search).toHaveBeenCalledWith(INDEX_NAME, {
       size: 20, from: 20, query: { match_all: {} }, sort: [{ created: 'desc' }],
     });

@@ -389,6 +389,9 @@ export class OpenSearchService {
         index: 're3data',
         body,
       });
+
+
+
     } catch (err) {
       context.logger.error(prepareObjectForLogs(err), `Error fetching re3data subjects from OpenSearch`);
 

@@ -1,5 +1,5 @@
 -- Add the OAuth account for the dmptool-api-tester
-SET @default_super_id := (SELECT id FROM userEmails WHERE email = 'super@example.com');
+SET @default_super_id := (SELECT userId FROM userEmails WHERE email = 'super@example.com');
 SET @test_password = '$2b$10$IUEu4c.5FkQ.xVayI1IrKunPoSk3B4Wq3Cs5fPwjpM44lDXFTpaw6';
 SET @affiliation_ror := (SELECT CONCAT('https://dmptool.org/', LEFT(REPLACE(UUID(), '-', ''), 12)) FROM dual);
 SET @test_email_domain = 'example.com';
@@ -52,7 +52,7 @@ VALUES
 -- Add the OAuth Client account
 INSERT INTO `oauthClients`
   (clientId, clientSecret, clientName, userId, applicationType, grantTypes,
-   responseTypes, requirePkce, active, created, modified)
+   responseTypes, pkce, active, created, modified)
 VALUES
   (UUID(), UUID(), 'dmptool-api-tester',
    @service_account_admin, 'web', '["client_credentials"]', '[]',

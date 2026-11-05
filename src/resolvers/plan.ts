@@ -21,7 +21,7 @@ import {
   ProjectCollaboratorAccessLevel
 } from "../models/Collaborator.js";
 import { AlternateIdentifier } from "../models/AlternateIdentifier.js";
-import { normaliseDateTime } from "../utils/helpers.js";
+import {normaliseDateTime, stripIdentifierBaseURL} from "../utils/helpers.js";
 import {
   AuthenticationError,
   BadUserInputError,
@@ -120,7 +120,12 @@ export const resolvers: Resolvers = {
         // Helper functions to add filters based on the provided options
         const addTerms = (arg: string, field: string) => {
           const list = options[arg] as string[] | undefined;
-          if (list?.length) filters.push({ terms: { [field]: list } });
+          if (list?.length) {
+            const items = arg === 'dmpIds'
+              ? list.map((id) => stripIdentifierBaseURL(id).trim())
+              : list;
+            filters.push({ terms: { [field]: items } });
+          }
         };
         const addRange = (arg: string, field: string, op: 'gt' | 'lte') => {
           const value = options[arg] as string | undefined;
@@ -159,22 +164,35 @@ export const resolvers: Resolvers = {
         const token: JWTAccessToken = context.token;
         const role: string | undefined = token?.role;
         const scope = options.scope;
+
+        // Helper to fetch and clean researcher dmpIds
+        async function getResearcherDmpIds(): Promise<string[]> {
+          if (!token?.id) return [];
+
+          const rows = await ProjectCollaborator.query(
+            context,
+            'SELECT DISTINCT p.dmpId ' +
+            'FROM projectCollaborators pc ' +
+            'JOIN projects prj ON pc.projectId = prj.id ' +
+            'JOIN plans p ON prj.id = p.projectId ' +
+            'WHERE pc.userId = ?',
+            [String(token.id)],
+            reference
+          );
+
+          return rows
+            .map((r) => r.dmpId)
+            .filter(Boolean)
+            .map((id) => stripIdentifierBaseURL(id).trim());
+        }
+
         if (scope === 'public') {
           filters.push({ term: { visibility: 'public' } });
         } else if (scope === 'private') {
           if (role === TokenRole.SUPERADMIN) {
-            // Superadmins retain their unrestricted access.
-          } else if (role === TokenRole.RESEARCHER && token?.id) {
-            const dmpIds: string[] = await ProjectCollaborator.query(
-              context,
-              'SELECT DISTINCT p.dmpId ' +
-              'FROM projectCollaborators pc ' +
-              'JOIN projects prj ON pc.projectId = prj.id ' +
-              'JOIN plans p ON prj.id = p.projectId ' +
-              'WHERE pc.userId = ?',
-              [String(token.id)],
-              reference
-            );
+            // Superadmins retain unrestricted access
+          } else if (role === TokenRole.RESEARCHER) {
+            const dmpIds = await getResearcherDmpIds();
             filters.push(dmpIds.length ? { terms: { dmp_id: dmpIds } } : { match_none: {} });
           } else if (role === TokenRole.ADMIN && token.affiliationId) {
             filters.push({ terms: { affiliation_id: [token.affiliationId] } });
@@ -182,20 +200,13 @@ export const resolvers: Resolvers = {
             filters.push({ match_none: {} });
           }
         } else if (role !== TokenRole.SUPERADMIN) {
-          // Preserve the existing default behavior when no scope is specified.
+          // Default behavior when no scope is specified
           const visibility = [{ term: { visibility: 'public' } }];
-          if (role === TokenRole.RESEARCHER && token?.id) {
-            const dmpIds: string[] = await ProjectCollaborator.query(
-              context,
-              'SELECT DISTINCT p.dmpId ' +
-              'FROM projectCollaborators pc ' +
-              'JOIN projects prj ON pc.projectId = prj.id ' +
-              'JOIN plans p ON prj.id = p.projectId ' +
-              'WHERE pc.userId = ?',
-              [String(token.id)],
-              reference
-            );
-            filters.push({ bool: { should: [...visibility, ...(dmpIds.length ? [{ terms: { dmp_id: dmpIds } }] : [])], minimum_should_match: 1 } });
+
+          if (role === TokenRole.RESEARCHER) {
+            const dmpIds = await getResearcherDmpIds();
+            const shouldFilters = [...visibility, ...(dmpIds.length ? [{ terms: { dmp_id: dmpIds } }] : [])];
+            filters.push({ bool: { should: shouldFilters, minimum_should_match: 1 } });
           } else if (role === TokenRole.ADMIN && token.affiliationId) {
             filters.push({ bool: { should: [...visibility, { terms: { affiliation_id: [token.affiliationId] } }], minimum_should_match: 1 } });
           } else {

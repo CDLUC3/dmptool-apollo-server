@@ -5,7 +5,7 @@ export const typeDefs = gql`
     "Get all plans for the research project with pagination support"
     plans(userId: Int!, term: String, paginationOptions: PaginationOptions): PaginatedPlanResults
     "Search/filter plans"
-    search(options: PlanSearchOptions!): PlanSearchResults!
+    planSearch(options: PlanSearchOptions!): PlanSearchResults!
     "Get all of the plans for a specific Project"
     plansByProjectId(projectId: Int!): [Plan]
 
@@ -508,6 +508,7 @@ export const typeDefs = gql`
 
   "The options for searching/filtering/sorting plans"
   input PlanSearchOptions {
+    scope: PlanSearchScope
     offset: Int = 0
     count: Int = 20
     sort: [String!]
@@ -529,11 +530,17 @@ export const typeDefs = gql`
     hostTitles: [String!]
     dmpIds: [String!]
     licenseRefs: [String!]
+    affiliationIds: [String!]
     funderIds: [String!]
     grantIds: [String!]
     fundingStatus: [String!]
     ethicalIssuesExist: [String!]
     query: [String!]
+  }
+
+  enum PlanSearchScope {
+    public
+    private
   }
 
   "The results of a plan search"

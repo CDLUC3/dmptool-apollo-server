@@ -18,7 +18,7 @@ const { resolvers } = await import('../plan.js');
 const { searchIndex } = await import('../../services/indexDMPService.js');
 const { ProjectCollaborator } = await import('../../models/Collaborator.js');
 
-const search = resolvers.Query.search as Function;
+const search = resolvers.Query.planSearch as Function;
 const run = (options = {}, token = null) => search({}, { options }, {
   token,
   logger: { error: jest.fn() },
@@ -73,6 +73,61 @@ describe('searchDMPs resolver', () => {
     const filter = ((searchIndex as jest.Mock).mock.calls[0][2] as any).bool.filter[0];
     expect(filter.bool.should).toEqual(expect.arrayContaining([
       { term: { visibility: 'public' } }, { terms: { affiliation_id: ['ror-1'] } },
+    ]));
+  });
+
+  it('public scope returns only public plans for authenticated callers', async () => {
+    await run({ scope: 'public' }, { role: 'RESEARCHER', id: 7 });
+    const filters = ((searchIndex as jest.Mock).mock.calls[0][2] as any).bool.filter;
+    expect(filters).toEqual([{ term: { visibility: 'public' } }]);
+    expect(ProjectCollaborator.query).not.toHaveBeenCalled();
+  });
+
+  it('private scope returns only collaborator DMPs for researchers', async () => {
+    await run({ scope: 'private' }, { role: 'RESEARCHER', id: 7 });
+    const filters = ((searchIndex as jest.Mock).mock.calls[0][2] as any).bool.filter;
+    expect(filters).toEqual([{ terms: { dmp_id: ['dmp-12'] } }]);
+  });
+
+  it('private scope returns only affiliation plans for admins', async () => {
+    await run({ scope: 'private' }, { role: 'ADMIN', affiliationId: 'ror-1' });
+    const filters = ((searchIndex as jest.Mock).mock.calls[0][2] as any).bool.filter;
+    expect(filters).toEqual([{ terms: { affiliation_id: ['ror-1'] } }]);
+  });
+
+  it('private scope matches no plans for unauthenticated callers', async () => {
+    await run({ scope: 'private' });
+    const filters = ((searchIndex as jest.Mock).mock.calls[0][2] as any).bool.filter;
+    expect(filters).toEqual([{ match_none: {} }]);
+  });
+
+  it('filters by explicitly requested affiliation IDs', async () => {
+    await run({ affiliationIds: ['ror-1', 'ror-2'] }, { role: 'SUPERADMIN' });
+    const filters = ((searchIndex as jest.Mock).mock.calls[0][2] as any).bool.filter;
+    expect(filters).toContainEqual({ terms: { affiliation_id: ['ror-1', 'ror-2'] } });
+  });
+
+  it('maps available indexed filters to their current OpenSearch field names', async () => {
+    await run({
+      languages: ['eng'], ethicalIssuesExist: ['yes'], contactIds: ['orcid-1'],
+      hostIds: ['repo-1'], hostTitles: ['Zenodo'], licenseRefs: ['https://example.org/license'],
+      datasetPersonalData: ['yes'], datasetSensitiveData: ['no'], metadataStandardIds: ['std-1'],
+      distributionDataAccess: ['open'], distributionFormats: ['text/csv'], datasetIds: ['dataset-1'],
+    }, { role: 'SUPERADMIN' });
+    const filters = ((searchIndex as jest.Mock).mock.calls[0][2] as any).bool.filter;
+    expect(filters).toEqual(expect.arrayContaining([
+      { terms: { language: ['eng'] } },
+      { terms: { ethical_issues_exist: ['yes'] } },
+      { terms: { contact_ids: ['orcid-1'] } },
+      { terms: { host_ids: ['repo-1'] } },
+      { terms: { host_names: ['Zenodo'] } },
+      { terms: { license_refs: ['https://example.org/license'] } },
+      { terms: { personal_data: ['yes'] } },
+      { terms: { sensitive_data: ['no'] } },
+      { terms: { metadata_standard_ids: ['std-1'] } },
+      { terms: { data_access: ['open'] } },
+      { terms: { output_formats: ['text/csv'] } },
+      { terms: { dataset_ids: ['dataset-1'] } },
     ]));
   });
 

@@ -3146,6 +3146,7 @@ export type PlanQuestion = {
 
 /** The options for searching/filtering/sorting plans */
 export type PlanSearchOptions = {
+  affiliationIds?: InputMaybe<Array<Scalars['String']['input']>>;
   alternateIdentifier?: InputMaybe<Array<Scalars['String']['input']>>;
   contactIds?: InputMaybe<Array<Scalars['String']['input']>>;
   contributorIds?: InputMaybe<Array<Scalars['String']['input']>>;
@@ -3171,6 +3172,7 @@ export type PlanSearchOptions = {
   modifiedBefore?: InputMaybe<Scalars['String']['input']>;
   offset?: InputMaybe<Scalars['Int']['input']>;
   query?: InputMaybe<Array<Scalars['String']['input']>>;
+  scope?: InputMaybe<PlanSearchScope>;
   sort?: InputMaybe<Array<Scalars['String']['input']>>;
 };
 
@@ -3222,6 +3224,10 @@ export type PlanSearchResults = {
   offset: Scalars['Int']['output'];
   totalCount: Scalars['Int']['output'];
 };
+
+export type PlanSearchScope =
+  | 'private'
+  | 'public';
 
 /** The view of a versioned section required by the EntirePlan type */
 export type PlanSection = {
@@ -3899,6 +3905,8 @@ export type Query = {
   planFundings?: Maybe<Array<Maybe<PlanFunding>>>;
   /** Get all of the Users that are Members for the specific Plan */
   planMembers?: Maybe<Array<Maybe<PlanMember>>>;
+  /** Search/filter plans */
+  planSearch: PlanSearchResults;
   /** Get all plans for the research project with pagination support */
   plans?: Maybe<PaginatedPlanResults>;
   /** Get all of the plans for a specific Project */
@@ -3977,8 +3985,6 @@ export type Query = {
   researchOutputType?: Maybe<ResearchOutputType>;
   /** Get the research output type by it's name */
   researchOutputTypeByName?: Maybe<ResearchOutputType>;
-  /** Search/filter plans */
-  search: PlanSearchResults;
   /** Search for projects within external APIs */
   searchExternalProjects?: Maybe<Array<Maybe<ExternalProject>>>;
   /** Get the specified section */
@@ -4246,6 +4252,11 @@ export type QueryPlanMembersArgs = {
 };
 
 
+export type QueryPlanSearchArgs = {
+  options: PlanSearchOptions;
+};
+
+
 export type QueryPlansArgs = {
   paginationOptions?: InputMaybe<PaginationOptions>;
   term?: InputMaybe<Scalars['String']['input']>;
@@ -4442,11 +4453,6 @@ export type QueryResearchOutputTypeArgs = {
 
 export type QueryResearchOutputTypeByNameArgs = {
   name: Scalars['String']['input'];
-};
-
-
-export type QuerySearchArgs = {
-  options: PlanSearchOptions;
 };
 
 
@@ -6984,6 +6990,7 @@ export type ResolversTypes = {
   PlanSearchOptions: PlanSearchOptions;
   PlanSearchResult: ResolverTypeWrapper<PlanSearchResult>;
   PlanSearchResults: ResolverTypeWrapper<PlanSearchResults>;
+  PlanSearchScope: PlanSearchScope;
   PlanSection: ResolverTypeWrapper<PlanSection>;
   PlanSectionProgress: ResolverTypeWrapper<PlanSectionProgress>;
   PlanStatus: PlanStatus;
@@ -8821,6 +8828,7 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   planFeedbackStatus?: Resolver<Maybe<ResolversTypes['PlanFeedbackStatus']>, ParentType, ContextType, RequireFields<QueryPlanFeedbackStatusArgs, 'planId'>>;
   planFundings?: Resolver<Maybe<Array<Maybe<ResolversTypes['PlanFunding']>>>, ParentType, ContextType, RequireFields<QueryPlanFundingsArgs, 'planId'>>;
   planMembers?: Resolver<Maybe<Array<Maybe<ResolversTypes['PlanMember']>>>, ParentType, ContextType, RequireFields<QueryPlanMembersArgs, 'planId'>>;
+  planSearch?: Resolver<ResolversTypes['PlanSearchResults'], ParentType, ContextType, RequireFields<QueryPlanSearchArgs, 'options'>>;
   plans?: Resolver<Maybe<ResolversTypes['PaginatedPlanResults']>, ParentType, ContextType, RequireFields<QueryPlansArgs, 'userId'>>;
   plansByProjectId?: Resolver<Maybe<Array<Maybe<ResolversTypes['Plan']>>>, ParentType, ContextType, RequireFields<QueryPlansByProjectIdArgs, 'projectId'>>;
   popularFunders?: Resolver<Maybe<Array<Maybe<ResolversTypes['FunderPopularityResult']>>>, ParentType, ContextType>;
@@ -8860,7 +8868,6 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   researchDomainByURI?: Resolver<Maybe<ResolversTypes['ResearchDomain']>, ParentType, ContextType, RequireFields<QueryResearchDomainByUriArgs, 'uri'>>;
   researchOutputType?: Resolver<Maybe<ResolversTypes['ResearchOutputType']>, ParentType, ContextType, RequireFields<QueryResearchOutputTypeArgs, 'id'>>;
   researchOutputTypeByName?: Resolver<Maybe<ResolversTypes['ResearchOutputType']>, ParentType, ContextType, RequireFields<QueryResearchOutputTypeByNameArgs, 'name'>>;
-  search?: Resolver<ResolversTypes['PlanSearchResults'], ParentType, ContextType, RequireFields<QuerySearchArgs, 'options'>>;
   searchExternalProjects?: Resolver<Maybe<Array<Maybe<ResolversTypes['ExternalProject']>>>, ParentType, ContextType, RequireFields<QuerySearchExternalProjectsArgs, 'input'>>;
   section?: Resolver<Maybe<ResolversTypes['Section']>, ParentType, ContextType, RequireFields<QuerySectionArgs, 'sectionId'>>;
   sectionCustomization?: Resolver<Maybe<ResolversTypes['SectionCustomization']>, ParentType, ContextType, RequireFields<QuerySectionCustomizationArgs, 'sectionCustomizationId'>>;

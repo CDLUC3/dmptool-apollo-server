@@ -97,7 +97,7 @@ export const resolvers: Resolvers = {
      * @throws BadUserInputError when the search, filter or sort options are invalid
      * @throws InternalServerError when a fatal error has occurred
      */
-    search: async (_: Record<PropertyKey, never>, { options }: { options: PlanSearchOptions }, context: MyContext): Promise<PlanSearchResults> => {
+    planSearch: async (_: Record<PropertyKey, never>, { options }: { options: PlanSearchOptions }, context: MyContext): Promise<PlanSearchResults> => {
       const reference = 'Plan search resolver';
 
       try {
@@ -131,27 +131,60 @@ export const resolvers: Resolvers = {
         };
 
         // Add filters based on the provided options
-        addRange('createdAfter', 'created', 'gt'); addRange('createdBefore', 'created', 'lte');
-        addRange('modifiedAfter', 'modified', 'gt'); addRange('modifiedBefore', 'modified', 'lte');
-        addTerms('alternateIdentifier', 'alternate_identifier_ids'); addTerms('contactIds', 'contact_ids');
-        addTerms('contributorIds', 'contributor_ids'); addTerms('datasetIds', 'dataset_ids');
-        addTerms('datasetPersonalData', 'personal_data'); addTerms('datasetSensitiveData', 'sensitive_data');
-        addTerms('metadataStandardIds', 'metadata_standard_ids'); addTerms('distributionFormats', 'output_formats');
-        addTerms('distributionDataAccess', 'data_access'); addTerms('hostIds', 'repository_ids');
-        addTerms('hostTitles', 'repositories_facets'); addTerms('dmpIds', 'dmp_id'); addTerms('licenseRefs', 'license_ids');
-        addTerms('funderIds', 'funder_ids'); addTerms('grantIds', 'grant_ids'); addTerms('fundingStatus', 'funding_status');
-        // TODO: ethical_issues_exist is not currently stored in the OpenSearch index.
-        // TODO: dataset_ids, contact_ids, output_formats, metadata_standard_ids, license_ids, personal_data and sensitive_data are not populated consistently yet.
+        addRange('createdAfter', 'created', 'gt');
+        addRange('createdBefore', 'created', 'lte');
+        addRange('modifiedAfter', 'modified', 'gt');
+        addRange('modifiedBefore', 'modified', 'lte');
+        addTerms('alternateIdentifier', 'alternate_identifier_ids');
+        addTerms('contactIds', 'contact_ids');
+        addTerms('languages', 'language');
+        addTerms('contributorIds', 'contributor_ids');
+        addTerms('datasetIds', 'dataset_ids');
+        addTerms('datasetPersonalData', 'personal_data');
+        addTerms('datasetSensitiveData', 'sensitive_data');
+        addTerms('metadataStandardIds', 'metadata_standard_ids');
+        addTerms('distributionFormats', 'output_formats');
+        addTerms('distributionDataAccess', 'data_access');
+        addTerms('hostIds', 'host_ids');
+        addTerms('hostTitles', 'host_names');
+        addTerms('dmpIds', 'dmp_id');
+        addTerms('licenseRefs', 'license_refs');
+        addTerms('affiliationIds', 'affiliation_id');
+        addTerms('funderIds', 'funder_ids');
+        addTerms('grantIds', 'grant_ids');
+        addTerms('fundingStatus', 'funding_status');
+        addTerms('ethicalIssuesExist', 'ethical_issues_exist');
 
-        // Manage what the results can be returned based on the current caller's role
+        // Scope the result set according to the requested visibility scope and caller role.
         const token: JWTAccessToken = context.token;
         const role: string | undefined = token?.role;
-        // If the caller is not a super admin
-        if (role !== TokenRole.SUPERADMIN) {
+        const scope = options.scope;
+        if (scope === 'public') {
+          filters.push({ term: { visibility: 'public' } });
+        } else if (scope === 'private') {
+          if (role === TokenRole.SUPERADMIN) {
+            // Superadmins retain their unrestricted access.
+          } else if (role === TokenRole.RESEARCHER && token?.id) {
+            const dmpIds: string[] = await ProjectCollaborator.query(
+              context,
+              'SELECT DISTINCT p.dmpId ' +
+              'FROM projectCollaborators pc ' +
+              'JOIN projects prj ON pc.projectId = prj.id ' +
+              'JOIN plans p ON prj.id = p.projectId ' +
+              'WHERE pc.userId = ?',
+              [String(token.id)],
+              reference
+            );
+            filters.push(dmpIds.length ? { terms: { dmp_id: dmpIds } } : { match_none: {} });
+          } else if (role === TokenRole.ADMIN && token.affiliationId) {
+            filters.push({ terms: { affiliation_id: [token.affiliationId] } });
+          } else {
+            filters.push({ match_none: {} });
+          }
+        } else if (role !== TokenRole.SUPERADMIN) {
+          // Preserve the existing default behavior when no scope is specified.
           const visibility = [{ term: { visibility: 'public' } }];
           if (role === TokenRole.RESEARCHER && token?.id) {
-            // If the caller is a researcher let them see public plans and plans they have
-            // access to via project collaboration
             const dmpIds: string[] = await ProjectCollaborator.query(
               context,
               'SELECT DISTINCT p.dmpId ' +
@@ -163,13 +196,9 @@ export const resolvers: Resolvers = {
               reference
             );
             filters.push({ bool: { should: [...visibility, ...(dmpIds.length ? [{ terms: { dmp_id: dmpIds } }] : [])], minimum_should_match: 1 } });
-
           } else if (role === TokenRole.ADMIN && token.affiliationId) {
-            // If the caller is an admin let them see public plans and plans owned by their affiliation
             filters.push({ bool: { should: [...visibility, { terms: { affiliation_id: [token.affiliationId] } }], minimum_should_match: 1 } });
-
           } else {
-            // Otherwise, the caller is not authorized to see any plans except public ones
             filters.push({ term: { visibility: 'public' } });
           }
         }

@@ -178,6 +178,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Commented out validation check for `affiliationId` in the `Plan` model, since we have existing plans that are missing this value. Once the data migration is complete we can add it back
 - Updated the `plan.create` function to set the `affiliationId`
 - Updated the `indexDMPsService` to include additional metadata about the plan's research outputs, contacts, etc.
 - Updated `authService` by adding a `resolveServiceClient` function that is called by the `authenticatedResolver` to check for a valid service account token and to set the `user` in the context to the service account user

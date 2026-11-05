@@ -698,7 +698,8 @@ export class Plan extends MySqlModel {
     await super.isValid();
 
     if (!this.projectId) this.addError('projectId', 'Project can\'t be blank');
-    if (!this.affiliationId) this.addError('affiliationId', 'Affiliation can\'t be blank');
+    // TODO: Uncomment this after we migrate, the current data has missing affiliations
+    // if (!this.affiliationId) this.addError('affiliationId', 'Affiliation can\'t be blank');
     if (!this.versionedTemplateId) this.addError('versionedTemplateId', 'Versioned template can\'t be blank');
     if (valueIsEmpty(this.title)) this.addError('title', 'Title can\'t be blank');
     if (valueIsEmpty(this.dmpId)) {

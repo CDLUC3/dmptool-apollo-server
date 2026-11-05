@@ -381,7 +381,7 @@ export class ProjectCollaborator extends Collaborator {
     return Array.isArray(results) ? results.map((entry) => new ProjectCollaborator(entry)) : [];
   }
 
-  // Get all of the ProjectCollaborator records for the specified email
+  // Get all the ProjectCollaborator records for the specified email
   static async findByEmail(
     reference: string,
     context: MyContext,
@@ -391,7 +391,6 @@ export class ProjectCollaborator extends Collaborator {
     const results = await ProjectCollaborator.query(context, sql, [email], reference);
     return Array.isArray(results) ? results.map((entry) => new ProjectCollaborator(entry)) : [];
   }
-
 
   // Get collaborator by userId and projectId
   static async findByUserIdAndProjectId(

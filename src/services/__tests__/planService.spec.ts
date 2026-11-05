@@ -314,9 +314,10 @@ describe('searchIndex', () => {
     const items = [{ dmp_id: '11.22222/demo' }, { dmp_id: '11.22222/other' }];
     mockOpenSearch.search.mockResolvedValue({ total: 2, items });
 
-    await expect(searchIndex('ref', context, { match_all: {} }, [], 25)).resolves.toEqual(items);
+    await expect(searchIndex('ref', context, { match_all: {} }, [], 25)).resolves.toEqual({ items, total: items.length });
     expect(mockOpenSearch.search).toHaveBeenCalledWith(INDEX_NAME, {
       size: 25,
+      from: 0,
       query: { match_all: {} },
       sort: [],
     });
@@ -325,7 +326,7 @@ describe('searchIndex', () => {
   it('returns an empty array when there are no hits', async () => {
     mockOpenSearch.search.mockResolvedValue({ total: 0, items: [] });
 
-    await expect(searchIndex('ref', context, { match_all: {} })).resolves.toEqual([]);
+    await expect(searchIndex('ref', context, { match_all: {} })).resolves.toEqual({ items: [], total: 0 });
   });
 
   it('throws when search returns no response', async () => {

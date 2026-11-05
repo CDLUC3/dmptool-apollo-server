@@ -35,6 +35,8 @@ export const DEFAULT_MAX_RESULTS = 100;
  */
 export const PropertyDefinition: Record<string, MappingProperty> = {
   dmp_id: { type: "keyword" },
+  project_id: { type: "keyword" },
+  plan_id: { type: "keyword" },
   title: { type: "text", fields: { keyword: { type: "keyword", ignore_above: 256 } } },
   project_title: { type: "text", fields: { keyword: { type: "keyword", ignore_above: 256 } } },
   visibility: { type: "keyword" },
@@ -54,9 +56,11 @@ export const PropertyDefinition: Record<string, MappingProperty> = {
   opportunity_ids: { type: "keyword" },
   funder_project_ids: { type: "keyword" },
   dataset_ids: { type: "keyword" },
+  host_ids: { type: "keyword" },
+  host_names: { type: "keyword" },
   repository_ids: { type: "keyword" },
   metadata_standard_ids: { type: "keyword" },
-  license_ids: { type: "keyword" },
+  license_refs: { type: "keyword" },
   alternate_identifier_ids: { type: "keyword" },
   related_identifier_ids: { type: "keyword" },
 
@@ -64,6 +68,7 @@ export const PropertyDefinition: Record<string, MappingProperty> = {
   institutions_facets: { type: "keyword" },
   repositories_facets: { type: "keyword" },
   language: { type: "keyword" },
+  // TODO: populate owner affiliation and project collaborator user IDs for authorization-aware search.
   status: { type: "keyword" },
   is_test: { type: "boolean" },
   featured: { type: "boolean" },
@@ -72,6 +77,7 @@ export const PropertyDefinition: Record<string, MappingProperty> = {
   personal_data: { type: "keyword" },
   sensitive_data: { type: "keyword" },
   data_access: { type: "keyword" },
+  ethical_issues_exist: { type: "keyword" },
 
   titles: { type: "keyword" },
   abstract: { type: "text", fields: { keyword: { type: "keyword", ignore_above: 512 } } },
@@ -129,6 +135,8 @@ interface DatasetDocumentFragment {
   metadata_standard_ids?: string[];
   repository_ids?: string[];
   repositories_display?: RepositoryDocumentFragment[];
+  license_ref?: string;
+  host_names?: string[];
 }
 
 interface ConversionOutput<T> {
@@ -156,18 +164,27 @@ interface ReconciledFragments {
   institutions: ReconciledFragment<InstitutionDocumentFragment>;
   funding: ReconciledFundingFragment;
   datasets: ReconciledFragment<DatasetDocumentFragment>;
+  contactIds: string[];
+  metadataStandardIds: string[];
+  licenseRefs: string[];
+  hostIds: string[];
+  hostNames: string[];
+  personalData: string[];
+  sensitiveData: string[];
+  ethicalIssuesExist: string;
 }
 
 interface PlanIndexDocumentInterface {
   dmp_id: string;
   project_id: number;
   plan_id: number;
+  affiliation_id: string;
   title?: string;
   project_title?: string | null;
   visibility: string;
   project_start?: string | null;
   project_end?: string | null;
-  output_formats?: string[]; // We don't capture this info yet, but it's part of the REST API spec
+  output_formats: string[];
   is_test: boolean;
   featured: boolean;
   abstract?: string | null;
@@ -185,6 +202,15 @@ interface PlanIndexDocumentInterface {
   alternate_identifier_ids: string[];
   repository_ids: string[];
   related_identifier_ids: string[];
+  contact_ids: string[];
+  dataset_ids: string[];
+  metadata_standard_ids: string[];
+  license_refs: string[];
+  host_ids: string[];
+  host_names: string[];
+  personal_data: string[];
+  sensitive_data: string[];
+  ethical_issues_exist: string;
 
   funding_facets: string[];
   institutions_facets: string[];
@@ -459,7 +485,7 @@ const convertDataset = (
   for (const column of researchOutputAnswerRow.columns) {
     switch (column.commonStandardId) {
       case 'license_ref':
-        displayObject.license = cleanString((column as ResearchOutputLicenseColumnAnswerType).answer[0].licenseId) || undefined;
+        displayObject.license_ref = cleanString((column as ResearchOutputLicenseColumnAnswerType).answer?.[0]?.licenseId) || undefined;
         break;
       case 'issued':
         displayObject.issued = validateDate(column.answer) ? new Date(column.answer).toISOString() : undefined;
@@ -497,6 +523,11 @@ const convertDataset = (
                 name: cleanString(entry.repositoryName) || undefined,
               };
             })
+          : [];
+        displayObject.host_names = Array.isArray(column.answer)
+          ? (column as ResearchOutputRepositoryColumnAnswerType).answer
+            .map((entry) => cleanString(entry.repositoryName))
+            .filter((name): name is string => !!name)
           : [];
         break;
       default:
@@ -554,6 +585,13 @@ const reconcileAssociatedObjects = (
     opportunityIds: [],
     funderProjectIds: [],
   };
+  const contactIds: string[] = [];
+  const metadataStandardIds: string[] = [];
+  const licenseRefs: string[] = [];
+  const hostIds: string[] = [];
+  const hostNames: string[] = [];
+  const personalData = new Set<string>();
+  const sensitiveData = new Set<string>();
 
   // Process Members
   for (const member of projectMembers) {
@@ -565,6 +603,7 @@ const reconcileAssociatedObjects = (
     membersResult.ids.push(...converted.ids);
     membersResult.search_terms.push(...converted.search_terms);
     membersResult.displayObjects.push(converted.displayObject);
+    if (member.isPrimaryContact) contactIds.push(...converted.ids);
   }
 
   // Process Affiliations
@@ -616,14 +655,41 @@ const reconcileAssociatedObjects = (
       if (dataset.facet_value) datasetResult.facets.push(dataset.facet_value);
       datasetResult.search_terms.push(...dataset.search_terms);
       datasetResult.displayObjects.push(dataset.displayObject);
+      if (dataset.displayObject.license_ref) licenseRefs.push(dataset.displayObject.license_ref);
+      metadataStandardIds.push(...(dataset.displayObject.metadata_standard_ids ?? []));
+      hostIds.push(...(dataset.displayObject.repository_ids ?? []));
+      hostNames.push(...(dataset.displayObject.host_names ?? []));
+      for (const flag of dataset.displayObject.data_flags ?? []) {
+        const normalized = flag.toLowerCase().replace(/[^a-z]/g, '');
+        const value = normalized.endsWith('yes') ? 'yes' : normalized.endsWith('no') ? 'no' : 'unknown';
+        if (normalized.startsWith('personal')) personalData.add(value);
+        if (normalized.startsWith('sensitive')) sensitiveData.add(value);
+      }
     }
   }
+
+  // Dataset IDs and output formats are not captured in the current answer model.
+  // Ethical issue status follows the dataset personal/sensitive flags.
+  const ethicalIssuesExist = [...personalData, ...sensitiveData].includes('yes')
+    ? 'yes'
+    : personalData.size > 0 && sensitiveData.size > 0 &&
+      [...personalData].every((value) => value === 'no') && [...sensitiveData].every((value) => value === 'no')
+      ? 'no'
+      : 'unknown';
 
   return {
     members: membersResult,
     institutions: instResult,
     funding: fundingResult,
-    datasets: datasetResult
+    datasets: datasetResult,
+    contactIds: [...new Set(contactIds)],
+    metadataStandardIds: [...new Set(metadataStandardIds)],
+    licenseRefs: [...new Set(licenseRefs)],
+    hostIds: [...new Set(hostIds)],
+    hostNames: [...new Set(hostNames)],
+    personalData: [...personalData],
+    sensitiveData: [...sensitiveData],
+    ethicalIssuesExist,
   };
 };
 
@@ -663,6 +729,7 @@ export const getIndexItem = async (
  * @param query the OpenSearch query
  * @param sort the OpenSearch sort (defaults to an empty array)
  * @param maxResults the total number of results to return (defaults to 100)
+ * @param offset the offset for pagination (defaults to 0)
  * @returns the index record or undefined if not found
  */
 export const searchIndex = async (
@@ -671,17 +738,19 @@ export const searchIndex = async (
   query: Record<string, unknown>,
   sort: Record<string, unknown>[] = [],
   maxResults: number = DEFAULT_MAX_RESULTS,
-): Promise<PlanIndexDocumentInterface[]> => {
+  offset = 0,
+): Promise<{ items: PlanIndexDocumentInterface[]; total: number }> => {
   const openSearch: OpenSearch = context.dataSources.openSearchServerlessDataSource;
 
   context.logger.debug(
     { reference, INDEX_NAME, query, sort, maxResults },
-    'Serching Plan index'
+    'Searching Plan index'
   );
   const response = await openSearch.search<PlanIndexDocumentInterface>(
     INDEX_NAME,
     {
       size: maxResults,
+      from: offset,
       query,
       sort
     }
@@ -691,7 +760,7 @@ export const searchIndex = async (
     throw new Error(`Failed to search index for query: ${JSON.stringify(query)}`);
   }
 
-  return response.total > 0 ? response.items : [];
+  return { items: response.items as PlanIndexDocumentInterface[], total: response.total };
 };
 
 /**
@@ -715,7 +784,20 @@ export const updateIndexItem = async (
 
   const associatedObjects: AssociatedObjectInterface = await fetchAssociatedObjects(reference, context, plan);
 
-  const { members, institutions, funding, datasets } = reconcileAssociatedObjects(
+  const {
+    members,
+    institutions,
+    funding,
+    datasets,
+    contactIds,
+    metadataStandardIds,
+    licenseRefs,
+    hostIds,
+    hostNames,
+    personalData,
+    sensitiveData,
+    ethicalIssuesExist
+  } = reconcileAssociatedObjects(
     associatedObjects.affiliations,
     associatedObjects.projectMembers,
     associatedObjects.projectFunding,
@@ -756,6 +838,7 @@ export const updateIndexItem = async (
     dmp_id: dmpId,
     project_id: project.id,
     plan_id: plan.id,
+    affiliation_id: plan.affiliationId,
     created: new Date(plan.created).toISOString(),
     modified: new Date(plan.modified).toISOString(),
     title: plan.title?.trim().slice(0, 256),
@@ -779,6 +862,16 @@ export const updateIndexItem = async (
     funder_project_ids: funding.funderProjectIds,
     repository_ids: repositoryIds,
     related_identifier_ids: associatedObjects.relatedWorks,
+    contact_ids: contactIds,
+    dataset_ids: [],
+    output_formats: [],
+    metadata_standard_ids: metadataStandardIds,
+    license_refs: licenseRefs,
+    host_ids: hostIds,
+    host_names: hostNames,
+    personal_data: personalData,
+    sensitive_data: sensitiveData,
+    ethical_issues_exist: ethicalIssuesExist,
 
     funding_facets: funding.facets,
     institutions_facets: institutions.facets,

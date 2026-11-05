@@ -621,6 +621,7 @@ export class PlanProgress {
  */
 export class Plan extends MySqlModel {
   public projectId: number;
+  public affiliationId: string;
   public dmpId: string;
   public versionedTemplateId: number;
   public versionedTemplateCustomizationId: number;
@@ -639,6 +640,7 @@ export class Plan extends MySqlModel {
   constructor(options) {
     super(options.id, options.created, options.createdById, options.modified, options.modifiedById, options.errors);
 
+    this.affiliationId = options.affiliationId;
     this.projectId = options.projectId;
     this.versionedTemplateId = options.versionedTemplateId;
     this.versionedTemplateCustomizationId = options.versionedTemplateCustomizationId;
@@ -696,6 +698,7 @@ export class Plan extends MySqlModel {
     await super.isValid();
 
     if (!this.projectId) this.addError('projectId', 'Project can\'t be blank');
+    if (!this.affiliationId) this.addError('affiliationId', 'Affiliation can\'t be blank');
     if (!this.versionedTemplateId) this.addError('versionedTemplateId', 'Versioned template can\'t be blank');
     if (valueIsEmpty(this.title)) this.addError('title', 'Title can\'t be blank');
     if (valueIsEmpty(this.dmpId)) {
@@ -831,6 +834,11 @@ export class Plan extends MySqlModel {
     if (!this.id) {
       // Generate a new DMP ID
       this.dmpId = await this.generateDMPId(context);
+
+      // Use the affiliation of the user creating the plan as the plan's affiliation
+      // If it is missing for some reason this will fail the validation check later on,
+      // which is fine since we don't want to create a plan without an affiliation
+      this.affiliationId = context.token?.affiliationId ?? null;
 
       // If the title is blank, use the title of the associated Project
       if (isNullOrUndefined(this.title)) {

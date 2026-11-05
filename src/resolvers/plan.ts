@@ -30,6 +30,7 @@ import {
   NotFoundError,
 } from "../utils/graphQLErrors.js";
 import {
+  JWTAccessToken,
   PaginationOptions,
   PaginationOptionsForCursors,
   PaginationOptionsForOffsets,
@@ -46,7 +47,7 @@ import {
   PlanVersionSnapshot,
   UpdatePlanInput,
   GuidanceSource,
-  PlanSection
+  PlanSection, PlanSearchOptions, PlanSearchResults
 } from "../types.js";
 import { prepareObjectForLogs } from "../logger.js";
 import { toErrorMessage } from "@dmptool/utils";
@@ -81,9 +82,126 @@ import {
   replaceEntirePlan
 } from "../services/entirePlanService.js";
 import { getAllAvailableGuidanceForVersionedTemplate } from "../services/guidanceService.js";
+import { searchIndex } from "../services/indexDMPService.js";
+import { UserRole as TokenRole } from "../models/User.js";
 
 export const resolvers: Resolvers = {
   Query: {
+    /**
+     * Search for plans based on the provided search, filter and sort options.
+     *
+     * @param _ Ignored, this is the entrypoint for the Apollo resolver
+     * @param args the search, filter and sort options
+     * @param context The Apollo context
+     * @returns The Plans
+     * @throws BadUserInputError when the search, filter or sort options are invalid
+     * @throws InternalServerError when a fatal error has occurred
+     */
+    search: async (_: Record<PropertyKey, never>, { options }: { options: PlanSearchOptions }, context: MyContext): Promise<PlanSearchResults> => {
+      const reference = 'Plan search resolver';
+
+      try {
+        // Validate the pagination options
+        const count = Number(options.count ?? 20);
+        const offset = Number(options.offset ?? 0);
+        if (!Number.isInteger(count) || count < 1 || count > 100 || !Number.isInteger(offset) || offset < 0) {
+          throw BadUserInputError('Invalid pagination values');
+        }
+
+        // Build the filters for the search query
+        const filters: Record<string, unknown>[] = [];
+        const termFields = ['title^3', 'abstract', 'project_title'];
+        const queryTerms = (options.query as string[] | undefined) ?? [];
+        for (const term of queryTerms) {
+          if (term.length > 500) throw BadUserInputError('Search terms must be 500 characters or fewer');
+          if (term.trim()) filters.push({ multi_match: { query: term, fields: termFields, type: 'best_fields' } });
+        }
+
+        // Helper functions to add filters based on the provided options
+        const addTerms = (arg: string, field: string) => {
+          const list = options[arg] as string[] | undefined;
+          if (list?.length) filters.push({ terms: { [field]: list } });
+        };
+        const addRange = (arg: string, field: string, op: 'gt' | 'lte') => {
+          const value = options[arg] as string | undefined;
+          if (value) {
+            if (Number.isNaN(Date.parse(value))) throw BadUserInputError(`Invalid date: ${arg}`);
+            filters.push({ range: { [field]: { [op]: value } } });
+          }
+        };
+
+        // Add filters based on the provided options
+        addRange('createdAfter', 'created', 'gt'); addRange('createdBefore', 'created', 'lte');
+        addRange('modifiedAfter', 'modified', 'gt'); addRange('modifiedBefore', 'modified', 'lte');
+        addTerms('alternateIdentifier', 'alternate_identifier_ids'); addTerms('contactIds', 'contact_ids');
+        addTerms('contributorIds', 'contributor_ids'); addTerms('datasetIds', 'dataset_ids');
+        addTerms('datasetPersonalData', 'personal_data'); addTerms('datasetSensitiveData', 'sensitive_data');
+        addTerms('metadataStandardIds', 'metadata_standard_ids'); addTerms('distributionFormats', 'output_formats');
+        addTerms('distributionDataAccess', 'data_access'); addTerms('hostIds', 'repository_ids');
+        addTerms('hostTitles', 'repositories_facets'); addTerms('dmpIds', 'dmp_id'); addTerms('licenseRefs', 'license_ids');
+        addTerms('funderIds', 'funder_ids'); addTerms('grantIds', 'grant_ids'); addTerms('fundingStatus', 'funding_status');
+        // TODO: ethical_issues_exist is not currently stored in the OpenSearch index.
+        // TODO: dataset_ids, contact_ids, output_formats, metadata_standard_ids, license_ids, personal_data and sensitive_data are not populated consistently yet.
+
+        // Manage what the results can be returned based on the current caller's role
+        const token: JWTAccessToken = context.token;
+        const role: string | undefined = token?.role;
+        // If the caller is not a super admin
+        if (role !== TokenRole.SUPERADMIN) {
+          const visibility = [{ term: { visibility: 'public' } }];
+          if (role === TokenRole.RESEARCHER && token?.id) {
+            // If the caller is a researcher let them see public plans and plans they have
+            // access to via project collaboration
+            const dmpIds: string[] = await ProjectCollaborator.query(
+              context,
+              'SELECT DISTINCT p.dmpId ' +
+              'FROM projectCollaborators pc ' +
+              'JOIN projects prj ON pc.projectId = prj.id ' +
+              'JOIN plans p ON prj.id = p.projectId ' +
+              'WHERE pc.userId = ?',
+              [String(token.id)],
+              reference
+            );
+            filters.push({ bool: { should: [...visibility, ...(dmpIds.length ? [{ terms: { dmp_id: dmpIds } }] : [])], minimum_should_match: 1 } });
+
+          } else if (role === TokenRole.ADMIN && token.affiliationId) {
+            // If the caller is an admin let them see public plans and plans owned by their affiliation
+            filters.push({ bool: { should: [...visibility, { terms: { affiliation_id: [token.affiliationId] } }], minimum_should_match: 1 } });
+
+          } else {
+            // Otherwise, the caller is not authorized to see any plans except public ones
+            filters.push({ term: { visibility: 'public' } });
+          }
+        }
+
+        // Build the sort order for the search query
+        const sortMap: Record<string, string> = { title: 'title.keyword', created: 'created', modified: 'modified', language: 'language' };
+        const requestedSort = (options.sort as string[] | undefined) ?? ['created,desc'];
+        const sort = requestedSort.map((value) => {
+          const match = /^(title|created|modified|language),(asc|desc)$/.exec(value);
+          if (!match) throw BadUserInputError(`Unsupported sort value: ${value}`);
+          return { [sortMap[match[1]]]: { order: match[2] } };
+        });
+        if (!sort.length) sort.push({ created: { order: 'desc' } });
+        sort.push({ dmp_id: { order: 'asc' } });
+
+        // Perform the search query and return the results
+        const result = await searchIndex(
+          reference,
+          context,
+          { bool: { filter: filters } },
+          sort,
+          count,
+          offset
+        );
+        return { items: result.items, totalCount: result.total, offset, count };
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    },
+
     /**
      * ADMINS ONLY: Find all the plans for a specified userId, with pagination
      * and optional search term filtering

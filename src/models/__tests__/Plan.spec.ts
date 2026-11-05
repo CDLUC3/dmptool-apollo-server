@@ -914,6 +914,7 @@ describe('Plan', () => {
   const planData = {
     projectId: casual.integer(1, 99),
     versionedTemplateId: casual.integer(1, 99),
+    affiliationId: casual.url,
     title: casual.sentence,
     dmpId: casual.uuid,
     registeredById: casual.integer(1, 99),
@@ -927,6 +928,7 @@ describe('Plan', () => {
   it('should initialize options as expected', () => {
     expect(plan.projectId).toEqual(planData.projectId);
     expect(plan.versionedTemplateId).toEqual(planData.versionedTemplateId);
+    expect(plan.affiliationId).toEqual(planData.affiliationId);
     expect(plan.title).toEqual(planData.title);
     expect(plan.dmpId).toEqual(planData.dmpId);
     expect(plan.registeredById).toEqual(planData.registeredById);
@@ -1026,6 +1028,7 @@ describe('Plan.processResult', () => {
     plan = new Plan({
       id: casual.integer(1, 999),
       projectId: casual.integer(1, 99),
+      affiliationId: casual.url,
       versionedTemplateId: casual.integer(1, 99),
       title: casual.sentence,
       status: getRandomEnumValue(PlanStatus),
@@ -1110,6 +1113,7 @@ describe('findBy Queries', () => {
 
     plan = new Plan({
       projectId: casual.integer(1, 99),
+      affiliationId: casual.url,
       versionedTemplateId: casual.integer(1, 99),
       dmpId: casual.uuid,
       registeredById: casual.integer(1, 99),
@@ -1217,6 +1221,7 @@ describe('publish', () => {
     plan = new Plan({
       id: casual.integer(1, 999),
       dmpId: getMockDMPId(),
+      affiliationId: casual.url,
       createdById: casual.integer(1, 99),
       created: casual.date('YYYY-MM-DDTHH:mm:ssZ'),
       modifiedById: casual.integer(1, 99),
@@ -1348,6 +1353,14 @@ describe('create', () => {
 
   afterEach(() => {
     Plan.insert = originalInsert;
+  });
+
+  it('sets the affiliationId to current user\'s affiliationId', async () => {
+    const url = casual.url;
+    context.token.affiliationId = url;
+    await plan.create(context);
+
+    expect(plan.affiliationId).toEqual(url);
   });
 
   it('pins the plan to the active customization for the creator\'s affiliation', async () => {

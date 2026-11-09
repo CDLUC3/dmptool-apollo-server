@@ -214,6 +214,9 @@ export const resolvers: Resolvers = {
           }
         }
 
+console.log('SEARCH OPTIONS', options);
+console.log('FILTERS', { filters });
+
         // Build the sort order for the search query
         const sortMap: Record<string, string> = { title: 'title.keyword', created: 'created', modified: 'modified', language: 'language' };
         const requestedSort = (options.sort as string[] | undefined) ?? ['created,desc'];

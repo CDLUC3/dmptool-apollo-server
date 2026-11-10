@@ -752,25 +752,31 @@ export const searchIndex = async (
     { reference, INDEX_NAME, query, sort, maxResults },
     'Searching Plan index'
   );
-  const response: IndexSearchResponseInterface<PlanIndexDocumentInterface> = await openSearch.search<PlanIndexDocumentInterface>(
-    INDEX_NAME,
-    {
-      size: maxResults,
-      from: offset,
-      query,
-      sort
+  try {
+    const response: IndexSearchResponseInterface<PlanIndexDocumentInterface> = await openSearch.search<PlanIndexDocumentInterface>(
+      INDEX_NAME,
+      {
+        size: maxResults,
+        from: offset,
+        query,
+        sort
+      }
+    );
+
+    if (!response) {
+      throw new Error(`Failed to search index for query: ${JSON.stringify(query)}`);
     }
-  );
 
-  if (!response) {
-    throw new Error(`Failed to search index for query: ${JSON.stringify(query)}`);
+    context.logger.debug({itemCount: response.items.length}, 'Index search results');
+    const items = response.items
+      .filter(item => 'fields' in item)
+      .map(item => item.fields) as PlanIndexDocumentInterface[];
+
+    return {items, total: response.total};
+  } catch (error) {
+    context.logger.error({ reference, error, query }, 'Error searching Plan index');
+    throw error;
   }
-
-  const items = response.items
-    .filter(item => 'fields' in item)
-    .map(item => item.fields) as PlanIndexDocumentInterface[];
-
-  return { items, total: response.total };
 };
 
 /**

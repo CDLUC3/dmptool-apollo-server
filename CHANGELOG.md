@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added try catch block to `indexDMPService.searchIndex` because the root error was getting lost. It now logs it appropriately 
 - Added local data migration to set `createdById` and `modifiedById` on the existing E2E test accounts (`testadmin@example.com`, `testresearcher@example.com`), since records copied from a user fail validation when they're `NULL` [#561]
 - Added local data migration to add an E2E funder organization ("DMP Tool API Testing Funder") and its `ADMIN` account (`testfunderadmin@example.com`), used by the E2E template customization tests [#561]
 - Added data migration to add a `plans.affiliationId` column to the DB.

@@ -1038,7 +1038,11 @@ export async function getPlanSectionsAndQuestions(
     const [baseSections, customSections, allBaseQuestions, allBaseCustomQuestions, allCustomQuestions, filledAnswers, allAnswers, conditionalLogic, sectionCustomizations, questionCustomizations, guidanceSources] =
       await Promise.all([
         VersionedSection.findByIds(reference, context, baseSectionIds),
-        VersionedCustomSection.findByIds(reference, context, customSectionIds),
+        // Custom sections from the customization version the plan was created with. Matched later on
+        // customSectionId (not the versioned id), since that's what the section progress and custom questions use
+        plan.versionedTemplateCustomizationId
+          ? VersionedCustomSection.findByCustomizationId(reference, context, plan.versionedTemplateCustomizationId)
+          : [],
         // Base sections can contain both base and custom questions, so we need to fetch both
         VersionedQuestion.findByVersionedSectionIds(reference, context, baseSectionIds),
         VersionedCustomQuestion.findByVersionedSectionIdsAndType(reference, context, baseSectionIds, 'BASE'),
@@ -1067,7 +1071,7 @@ export async function getPlanSectionsAndQuestions(
 
     const baseSectionById = new Map<number, VersionedSection>(baseSections.map((s: VersionedSection) => [s.id, s]));
     const customSectionById: Map<number, VersionedCustomSection> = customSections.length > 0
-      ? new Map<number, VersionedCustomSection>(customSections.map((s: VersionedCustomSection) => [s.id, s]))
+      ? new Map<number, VersionedCustomSection>(customSections.map((s: VersionedCustomSection): [number, VersionedCustomSection] => [s.customSectionId, s]))
       : new Map<number, VersionedCustomSection>();
 
     // Group the questions into their respective sections for easier lookup later
@@ -1278,9 +1282,9 @@ export async function getPlanSectionsAndQuestions(
         displayOrder: progress.displayOrder,
         answeredQuestions: progress.answeredQuestions,
         totalQuestions: progress.totalQuestions,
-
-        introduction: sec.introduction,
-        requirements: sec.requirements,
+        // So one missing section returns undefined instead of breaking the whole plan page when missing, optional chaining was added
+        introduction: sec?.introduction,
+        requirements: sec?.requirements,
 
         questions: ordered
       });

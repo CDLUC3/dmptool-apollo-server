@@ -103,6 +103,8 @@ const { VersionedTemplateCustomization } = await import('../../models/VersionedT
 const { Tag } = await import('../../models/Tag.js');
 const { PlanGuidance } = await import('../../models/Guidance.js');
 const { VersionedQuestionConditionGroup } = await import('../../models/VersionedQuestionConditionGroups.js');
+const { VersionedSectionCustomization } = await import('../../models/VersionedSectionCustomization.js');
+const { VersionedQuestionCustomization } = await import('../../models/VersionedQuestionCustomization.js');
 
 const TEST_DMP_ID_BASE = 'http://dmsp.com/';
 const TEST_ROR_BASE = 'http://ror.example.com/';
@@ -697,5 +699,69 @@ describe('getPlanSectionsAndQuestions', () => {
       { versionedQuestionId: undefined, customQuestionId: 30, useSampleTextAsDefault: true, hasAnswer: true, answerId: 101 },
       { versionedQuestionId: undefined, customQuestionId: 31, useSampleTextAsDefault: true, hasAnswer: false, answerId: 102 },
     ]);
+  });
+
+  it('matches custom sections by customSectionId, not by the versioned custom section id', async () => {
+    const customSectionId = 12;
+    const versionedCustomizationId = 55;
+
+    jest.spyOn(PlanSectionProgress, 'findByPlanId').mockResolvedValue([
+      new PlanSectionProgress({ sectionType: 'CUSTOM', customSectionId, title: 'Custom', displayOrder: 1, totalQuestions: 1, answeredQuestions: 0 }),
+    ]);
+    jest.spyOn(VersionedSection, 'findByIds').mockResolvedValue([]);
+    const findByIdsSpy = jest.spyOn(VersionedCustomSection, 'findByIds');
+    // The published copy's primary key (900) differs from the id of the section it was published from (12)
+    const findByCustomizationSpy = jest.spyOn(VersionedCustomSection, 'findByCustomizationId').mockResolvedValue([
+      new VersionedCustomSection({
+        id: 900,
+        customSectionId,
+        versionedTemplateCustomizationId: versionedCustomizationId,
+        name: 'Custom',
+        introduction: '<p>Intro</p>',
+        requirements: '<p>Reqs</p>',
+        guidance: 'Section guidance',
+      }),
+    ]);
+    jest.spyOn(VersionedQuestion, 'findByVersionedSectionIds').mockResolvedValue([]);
+    jest.spyOn(VersionedCustomQuestion, 'findByVersionedSectionIdsAndType').mockImplementation(async (_ref, _context, _ids, type) => (
+      type === 'CUSTOM'
+        ? [new VersionedCustomQuestion({ id: 40, customQuestionId: 4, versionedSectionId: customSectionId, versionedSectionType: 'CUSTOM', questionText: 'Custom Q', json: '{"type":"textArea"}', guidanceText: 'Question guidance' })]
+        : []
+    ));
+    jest.spyOn(Answer, 'findFilledAnswersByPlanId').mockResolvedValue([]);
+    jest.spyOn(Answer, 'findByPlanId').mockResolvedValue([]);
+    jest.spyOn(VersionedSectionCustomization, 'findByVersionedCustomizationAndVersionedSectionIds').mockResolvedValue([]);
+    jest.spyOn(VersionedQuestionCustomization, 'findByVersionedCustomizationAndVersionedSectionIds').mockResolvedValue([]);
+
+    const sections = await getPlanSectionsAndQuestions(
+      'test',
+      context,
+      new Plan({ id: 5, versionedTemplateId: 7, versionedTemplateCustomizationId: versionedCustomizationId }),
+    );
+
+    expect(findByCustomizationSpy).toHaveBeenCalledWith('test', context, versionedCustomizationId);
+    expect(findByIdsSpy).not.toHaveBeenCalled();
+    expect(sections).toHaveLength(1);
+    expect(sections[0].customSectionId).toEqual(customSectionId);
+    expect(sections[0].introduction).toEqual('<p>Intro</p>');
+    expect(sections[0].requirements).toEqual('<p>Reqs</p>');
+    expect(sections[0].questions).toHaveLength(1);
+    expect(sections[0].questions[0].guidanceSources[0].items[0].guidanceText).toEqual('Section guidance\n\nQuestion guidance');
+  });
+
+  it('does not throw when a custom section cannot be found', async () => {
+    jest.spyOn(PlanSectionProgress, 'findByPlanId').mockResolvedValue([
+      new PlanSectionProgress({ sectionType: 'CUSTOM', customSectionId: 12, title: 'Custom', displayOrder: 1, totalQuestions: 0, answeredQuestions: 0 }),
+    ]);
+    jest.spyOn(VersionedSection, 'findByIds').mockResolvedValue([]);
+    jest.spyOn(VersionedQuestion, 'findByVersionedSectionIds').mockResolvedValue([]);
+    jest.spyOn(VersionedCustomQuestion, 'findByVersionedSectionIdsAndType').mockResolvedValue([]);
+
+    // The plan has no customization, so there are no custom sections to match
+    const sections = await getPlanSectionsAndQuestions('test', context, new Plan({ id: 5, versionedTemplateId: 7 }));
+
+    expect(sections).toHaveLength(1);
+    expect(sections[0].introduction).toBeUndefined();
+    expect(sections[0].requirements).toBeUndefined();
   });
 });

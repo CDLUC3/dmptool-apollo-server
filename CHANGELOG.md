@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added try catch block to `indexDMPService.searchIndex` because the root error was getting lost. It now logs it appropriately 
 - Added data migration to add a `plans.affiliationId` column to the DB.
 - Added local data migration to seed the new `plans.affiliationId` to the `affiliationId` of the user who created the plan
 - Added new `affiliationId` property to the `Plan` model. This will retain the original affiliation that the plan was created for and helps us determine which plans an admin has access to.

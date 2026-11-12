@@ -229,13 +229,13 @@ beforeEach(() => {
     requestId: 'test-request-id',
   } as unknown as MyContext;
 
-  jest.spyOn(AlternateIdentifier, 'findByPlanId').mockResolvedValue([]);
-  jest.spyOn(AcceptedWork, 'findByPlanId').mockResolvedValue([]);
-  jest.spyOn(Answer, 'findByPlanId').mockResolvedValue([]);
-  jest.spyOn(ProjectMember, 'findByProjectId').mockResolvedValue([]);
-  jest.spyOn(ProjectFunding, 'findByProjectId').mockResolvedValue([]);
-  jest.spyOn(PlanMember, 'findByPlanId').mockResolvedValue([]);
-  jest.spyOn(PlanFunding, 'findByPlanId').mockResolvedValue([]);
+  jest.spyOn(AlternateIdentifier, 'findByPlanIds').mockResolvedValue([]);
+  jest.spyOn(AcceptedWork, 'findByPlanIds').mockResolvedValue([]);
+  jest.spyOn(Answer, 'findByPlanIds').mockResolvedValue([]);
+  jest.spyOn(ProjectMember, 'findByProjectIds').mockResolvedValue([]);
+  jest.spyOn(ProjectFunding, 'findByProjectIds').mockResolvedValue([]);
+  jest.spyOn(PlanMember, 'findByPlanIds').mockResolvedValue([]);
+  jest.spyOn(PlanFunding, 'findByPlanIds').mockResolvedValue([]);
   jest.spyOn(Affiliation, 'findByURI').mockResolvedValue(null);
   jest.spyOn(Project, 'findById').mockResolvedValue(null);
 });
@@ -389,18 +389,18 @@ describe('updateIndexItem', () => {
       funder: true,
     });
 
-    jest.spyOn(ProjectMember, 'findByProjectId').mockResolvedValue([member]);
-    jest.spyOn(PlanMember, 'findByPlanId').mockResolvedValue(asPlanMemberList([{ ...planMember, id: planMemberId, projectMemberId: memberId }]));
-    jest.spyOn(ProjectFunding, 'findByProjectId').mockResolvedValue([funding]);
-    jest.spyOn(PlanFunding, 'findByPlanId').mockResolvedValue(asPlanFundingList([{ ...planFunding, projectFundingId: fundingId }]));
+    jest.spyOn(ProjectMember, 'findByProjectIds').mockResolvedValue([member]);
+    jest.spyOn(PlanMember, 'findByPlanIds').mockResolvedValue(asPlanMemberList([{ ...planMember, id: planMemberId, projectMemberId: memberId }]));
+    jest.spyOn(ProjectFunding, 'findByProjectIds').mockResolvedValue([funding]);
+    jest.spyOn(PlanFunding, 'findByPlanIds').mockResolvedValue(asPlanFundingList([{ ...planFunding, projectFundingId: fundingId }]));
     jest.spyOn(Affiliation, 'findByURI').mockImplementation(async (_ref: string, _context: MyContext, uri: string) => {
       if (uri === `${TEST_ROR_BASE}abcd1234`) return memberAffiliation;
       if (uri === funderUri) return funderAffiliation;
       return null;
     });
-    jest.spyOn(AlternateIdentifier, 'findByPlanId').mockResolvedValue(asAlternateIdentifierList([{ alternateIdentifier: '10.1234/demo' }]));
-    jest.spyOn(AcceptedWork, 'findByPlanId').mockResolvedValue(asAcceptedWorkList([{ doi: '10.9999/related' }]));
-    jest.spyOn(Answer, 'findByPlanId').mockResolvedValue(asAnswerList([{ json: buildResearchOutputAnswerJson() }]));
+    jest.spyOn(AlternateIdentifier, 'findByPlanIds').mockResolvedValue(asAlternateIdentifierList([{ alternateIdentifier: '10.1234/demo' }]));
+    jest.spyOn(AcceptedWork, 'findByPlanIds').mockResolvedValue(asAcceptedWorkList([{ doi: '10.9999/related' }]));
+    jest.spyOn(Answer, 'findByPlanIds').mockResolvedValue(asAnswerList([{ json: buildResearchOutputAnswerJson() }]));
 
     await updateIndexItem(ref, context, plan, project);
 
@@ -441,7 +441,7 @@ describe('updateIndexItem', () => {
     const plan = buildPlan({ projectId: project.id, dmpId: `${TEST_DMP_ID_BASE}11.22222/auto` });
 
     jest.spyOn(Project, 'findById').mockResolvedValue(project);
-    jest.spyOn(Answer, 'findByPlanId').mockResolvedValue([]);
+    jest.spyOn(Answer, 'findByPlanIds').mockResolvedValue([]);
 
     await updateIndexItem(ref, context, plan);
 

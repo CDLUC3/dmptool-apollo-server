@@ -37,20 +37,21 @@ type DataSyncItem = PlanIndexDocumentInterface;
 export abstract class DataSyncJob extends MySqlModel {
   public jobName: string;
   public status: DataSyncJobStatus;
-  public cursorTimestamp?: string;
+  public cursorTimestamp: string;
   public cursorId?: number;
   public lockedAt?: string;
   public lastRunAt?: string;
   public lastSuccessAt?: string;
   public failureCount: number;
-  public errorMessage?: string;
+  public errorMessage?: string | null;
 
   private static tableName = 'syncJobStatus';
 
   constructor(options: Partial<DataSyncJob> = {}) {
     super(options.id, options.created, options.createdById, options.modified, options.modifiedById, options.errors);
-    this.jobName = options.jobName;
-    this.cursorTimestamp = options.cursorTimestamp;
+    this.jobName = options.jobName ?? '';
+    this.status = options.status ?? DataSyncJobStatus.IDLE;
+    this.cursorTimestamp = options.cursorTimestamp ?? '1900-01-01 00:00:00.000';
     this.cursorId = options.cursorId;
     this.lockedAt = options.lockedAt;
     this.lastRunAt = options.lastRunAt;
@@ -66,7 +67,7 @@ export abstract class DataSyncJob extends MySqlModel {
   async isValid(): Promise<boolean> {
     await super.isValid()
 
-    if (this.jobName === null) this.addError('jobName', 'Job name can\'t be blank');
+    if (!this.jobName) this.addError('jobName', 'Job name can\'t be blank');
 
     return Object.keys(this.errors).length === 0;
   }
@@ -87,12 +88,13 @@ export abstract class DataSyncJob extends MySqlModel {
    * @returns void
    */
   async create(reference: string, context: MyContext): Promise<boolean> {
+    this.prepForSave();
+
     if (!await this.isValid()) {
       context.logger.error({ jobName: this.jobName, errors: this.errors }, 'Data sync job is not valid');
       return false;
     }
 
-    this.prepForSave();
     const result: number | null = await MySqlModel.insert(context, DataSyncJob.tableName, this, reference);
     return result !== null;
   }
@@ -118,23 +120,28 @@ export abstract class DataSyncJob extends MySqlModel {
    * @private
    */
   private async lockJob(reference: string, context: MyContext): Promise<boolean> {
-    const existingStatus = await MySqlModel.query(
-      context,
-      `SELECT status FROM ${DataSyncJob.tableName} WHERE jobName = ?`,
-      [this.jobName],
-      reference,
-    )
-    if (existingStatus.length > 0 && existingStatus[0].status === DataSyncJobStatus.RUNNING) {
-      return false;
-    }
-
     context.logger.debug({ jobName: this.jobName }, 'Locking data sync job for execution');
     this.status = DataSyncJobStatus.RUNNING;
     this.lockedAt = getCurrentDate();
     this.lastRunAt = getCurrentDate();
+    this.modified = this.lastRunAt;
 
-    const locked: MySqlModel | null = await MySqlModel.update(context, DataSyncJob.tableName, this, reference);
-    return locked && !locked.hasErrors();
+    const result = await MySqlModel.query(
+      context,
+      `UPDATE ${DataSyncJob.tableName}
+       SET status = ?, lockedAt = ?, lastRunAt = ?
+       WHERE jobName = ? AND status <> ?`,
+      [
+        this.status,
+        this.lockedAt,
+        this.lastRunAt,
+        this.jobName,
+        DataSyncJobStatus.RUNNING,
+      ],
+      reference,
+    );
+
+    return result[0]?.affectedRows === 1;
   }
 
   /**
@@ -163,7 +170,7 @@ export abstract class DataSyncJob extends MySqlModel {
     this.cursorTimestamp = cursorTimestamp;
 
     const resp: MySqlModel | null = await MySqlModel.update(context, DataSyncJob.tableName, this, reference);
-    if (resp || !resp.hasErrors()) {
+    if (resp && !resp.hasErrors()) {
       context.logger.error(
         { jobName: this.jobName, error, cursorId },
         'Data synchronization job failed with error'
@@ -190,69 +197,63 @@ export abstract class DataSyncJob extends MySqlModel {
    * @remarks This method should be overridden by subclasses to implement the specific synchronization logic.
    */
   async start(reference: string, context: MyContext, batchSize = 500): Promise<void> {
-    if (await this.lockJob(reference, context)) {
-      let hasMore = true;
-      while (hasMore) {
+    if (!await this.lockJob(reference, context)) {
+      throw new Error(`Data sync job "${this.jobName}" is already locked for execution.`);
+    }
+
+    try {
+      while (true) {
         const batch: DataSyncItem[] = await this.fetchDataToSync(reference, context, batchSize);
 
         if (!batch || batch.length === 0) {
-          // eslint-disable-next-line no-useless-assignment
-          hasMore = false;
           break;
         }
+
         for (const item of batch) {
-          await this.performSync(reference, context, item);
-          this.cursorId = item.cursorId;
+          const synced = await this.performSync(reference, context, item);
+          if (!synced) {
+            throw new Error(`Failed to synchronize item: ${item.plan_id}`);
+          }
+
+          this.cursorId = item.plan_id;
           this.cursorTimestamp = item.modified;
         }
-        // Persist progress after each batch chunk
-        await MySqlModel.update(context, DataSyncJob.tableName, this, reference);
-      }
 
-      // First see where we left off and continue from there
-      const data: DataSyncItem[] = await this.fetchDataToSync(reference, context, batchSize);
-
-      if (Array.isArray(data)) {
-        // Loop through the data and perform synchronization for each item
-        for (const item of data) {
-          try {
-            const synced: boolean = await this.performSync(reference, context, item);
-
-            // If the synchronization fails, save the error and throw an exception
-            // to stop further processing
-            if (!synced) {
-              const msg = `Failed to synchronize item: ${JSON.stringify(item?.cursorId)}`;
-              context.logger.error({ jobName: this.jobName, itemId: item?.cursorId }, msg);
-              await this.saveError(reference, context, msg, item?.cursorId, item?.modified);
-              throw new Error(msg);
-            }
-
-            context.logger.debug(
-              { jobName: this.jobName, itemId: item?.cursorId },
-              `Successfully synchronized item ${item?.cursorId}`
-            );
-
-          } catch (error) {
-            // If an uncaught error occurs during synchronization, save the
-            // error and rethrow it
-            const errorMessage = toErrorMessage(toError(error));
-            context.logger.error({ jobName: this.jobName, itemId: item?.cursorId, error: errorMessage }, errorMessage);
-            await this.saveError(reference, context, errorMessage, item?.cursorId, item?.modified);
-            throw error;
-          }
+        const updated = await MySqlModel.update(
+          context,
+          DataSyncJob.tableName,
+          this,
+          reference,
+        );
+        if (!updated || updated.hasErrors()) {
+          throw new Error(`Unable to save progress for data sync job "${this.jobName}".`);
         }
-
-        // If all items were processed successfully, update the job status to COMPLETED
-        this.status = DataSyncJobStatus.COMPLETED;
-        this.lastSuccessAt = getCurrentDate();
-        this.failureCount = 0;
-        this.errorMessage = null;
-        await MySqlModel.update(context, DataSyncJob.tableName, this, reference);
-      } else {
-        context.logger.debug({ jobName: this.jobName }, 'No data to synchronize for this job.');
       }
-    } else {
-      throw new Error(`Data sync job "${this.jobName}" is already locked for execution.`);
+
+      this.status = DataSyncJobStatus.COMPLETED;
+      this.lastSuccessAt = getCurrentDate();
+      this.failureCount = 0;
+      this.errorMessage = null;
+      const completed = await MySqlModel.update(
+        context,
+        DataSyncJob.tableName,
+        this,
+        reference,
+      );
+      if (!completed || completed.hasErrors()) {
+        throw new Error(`Unable to complete data sync job "${this.jobName}".`);
+      }
+    } catch (error) {
+      const errorMessage = toErrorMessage(toError(error));
+      context.logger.error({ jobName: this.jobName, error: errorMessage }, errorMessage);
+      await this.saveError(
+        reference,
+        context,
+        errorMessage,
+        this.cursorId,
+        this.cursorTimestamp,
+      );
+      throw error;
     }
   }
 
@@ -300,7 +301,7 @@ export class OpenSearchDMPSync extends DataSyncJob {
    * @returns an array of PlanIndexDocumentInterface objects representing the DMP data to be synchronized
    */
   async fetchDataToSync(reference: string, context: MyContext, batchSize: number): Promise<PlanIndexDocumentInterface[]> {
-    const tstamp: string = this.cursorTimestamp || '1970-01-01 00:00:00.000';
+    const tstamp = this.cursorTimestamp;
 
     // Fetch the next batch of Plans that have been modified since the last
     // synchronization, using the cursorTimestamp and cursorId to determine
@@ -309,7 +310,7 @@ export class OpenSearchDMPSync extends DataSyncJob {
     const projectPlanResponses: ProjectPlanResponse[] = await MySqlModel.query(
       context,
       `SELECT p.id AS plan_id, p.dmpId AS dmp_id, p.projectId AS project_id,
-        p.affiliationId AS affiliation_id, p.title AS plan_title, p.languageId AS language_id,
+        p.affiliationId AS affiliation_id, p.title, p.languageId AS language_id,
         p.visibility, p.featured, p.registered, p.created, p.modified,
         proj.title AS project_title, proj.abstractText AS abstract_text,
         proj.startDate AS project_start, proj.endDate AS project_end,
@@ -351,7 +352,7 @@ export class OpenSearchDMPSync extends DataSyncJob {
         return a.planId === plan_id
       });
 
-      return generateIndexItem(
+      const item = generateIndexItem(
         {
           id: project_id,
           title: projectPlanResponse.project_title,
@@ -381,6 +382,8 @@ export class OpenSearchDMPSync extends DataSyncJob {
         associatedObjects.alternateIdentifiers,
         associatedObjects.relatedWorks
       );
+
+      return { ...item, cursorId: plan_id };
     });
   }
 

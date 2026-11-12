@@ -394,18 +394,18 @@ describe('updateIndexItem', () => {
       funder: true,
     });
 
-    jest.spyOn(ProjectMember, 'findByProjectId').mockResolvedValue([member]);
-    jest.spyOn(PlanMember, 'findByPlanId').mockResolvedValue(asPlanMemberList([{ ...planMember, id: planMemberId, projectMemberId: memberId }]));
-    jest.spyOn(ProjectFunding, 'findByProjectId').mockResolvedValue(asProjectFundingList([funding]));
-    jest.spyOn(PlanFunding, 'findByPlanId').mockResolvedValue(asPlanFundingList([{ ...planFunding, projectFundingId: fundingId }]));
+    jest.spyOn(ProjectMember, 'findByProjectIds').mockResolvedValue([member]);
+    jest.spyOn(PlanMember, 'findByPlanIds').mockResolvedValue(asPlanMemberList([{ ...planMember, id: planMemberId, projectMemberId: memberId }]));
+    jest.spyOn(ProjectFunding, 'findByProjectIds').mockResolvedValue(asProjectFundingList([funding]));
+    jest.spyOn(PlanFunding, 'findByPlanIds').mockResolvedValue(asPlanFundingList([{ ...planFunding, projectFundingId: fundingId }]));
     jest.spyOn(Affiliation, 'findByURI').mockImplementation(async (_ref: string, _context: MyContext, uri: string) => {
       if (uri === `${TEST_ROR_BASE}abcd1234`) return memberAffiliation;
       if (uri === funderUri) return funderAffiliation;
       return null;
     });
-    jest.spyOn(AlternateIdentifier, 'findByPlanId').mockResolvedValue(asAlternateIdentifierList([{ alternateIdentifier: '10.1234/demo' }]));
-    jest.spyOn(AcceptedWork, 'findByPlanId').mockResolvedValue(asAcceptedWorkList([{ doi: '10.9999/related' }]));
-    jest.spyOn(Answer, 'findByPlanId').mockResolvedValue(asAnswerList([{ json: buildResearchOutputAnswerJson() }]));
+    jest.spyOn(AlternateIdentifier, 'findByPlanIds').mockResolvedValue(asAlternateIdentifierList([{ alternateIdentifier: '10.1234/demo' }]));
+    jest.spyOn(AcceptedWork, 'findByPlanIds').mockResolvedValue(asAcceptedWorkList([{ doi: '10.9999/related' }]));
+    jest.spyOn(Answer, 'findByPlanIds').mockResolvedValue(asAnswerList([{ json: buildResearchOutputAnswerJson() }]));
 
     await updateIndexItem(ref, context, plan, project);
 

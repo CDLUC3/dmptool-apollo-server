@@ -33,6 +33,7 @@ import { MyContext } from "../context.js";
 import {defaultLanguageId} from "../models/Language.js";
 
 export const DMP_INDEX_NAME = "dmp";
+export const INDEX_NAME = DMP_INDEX_NAME;
 export const DEFAULT_MAX_RESULTS = 100;
 
 /**
@@ -882,7 +883,7 @@ export const generateIndexItem = (
   }
 
   return  {
-    dmp_id: plan.dmpId,
+    dmp_id: stripIdentifierBaseURL(plan.dmpId),
     project_id: project.id,
     plan_id: plan.id,
     affiliation_id: plan.affiliationId,

@@ -242,7 +242,7 @@ export class Answer extends MySqlModel {
   }
 
 
-  // Fetch all of the answers for a versionedSectionId
+  // Fetch all the answers for a versionedSectionId
   static async findByPlanIdAndVersionedSectionId(
     reference: string,
     context: MyContext,
@@ -254,10 +254,18 @@ export class Answer extends MySqlModel {
     return Array.isArray(results) && results.length > 0 ? results.map((ans) => new Answer(ans)) : [];
   }
 
-  // Fetch all of the answers for a plan
+  // Fetch all the answers for a plan
   static async findByPlanId(reference: string, context: MyContext, planId: number): Promise<Answer[]> {
     const sql = `SELECT * FROM answers WHERE planId = ?`;
     const results = await Answer.query(context, sql, [planId.toString()], reference);
+    return Array.isArray(results) && results.length > 0 ? results.map((ans) => new Answer(ans)) : [];
+  }
+
+  // Fetch all the answers for a plans
+  static async findByPlanIds(reference: string, context: MyContext, planIds: number[]): Promise<Answer[]> {
+    const placeholders = planIds.map(() => '?').join(', ');
+    const sql = `SELECT * FROM answers WHERE planId IN (${placeholders})`;
+    const results = await Answer.query(context, sql, planIds.map(id => id?.toString()), reference);
     return Array.isArray(results) && results.length > 0 ? results.map((ans) => new Answer(ans)) : [];
   }
 

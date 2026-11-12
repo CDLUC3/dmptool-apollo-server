@@ -32,7 +32,7 @@ import {
 import { MyContext } from "../context.js";
 import {defaultLanguageId} from "../models/Language.js";
 
-export const INDEX_NAME = "dmp";
+export const DMP_INDEX_NAME = "dmp";
 export const DEFAULT_MAX_RESULTS = 100;
 
 /**
@@ -179,7 +179,8 @@ interface ReconciledFragments {
   ethicalIssuesExist: string;
 }
 
-interface PlanIndexDocumentInterface {
+export interface PlanIndexDocumentInterface {
+  cursorId?: number;
   dmp_id: string;
   project_id: number;
   plan_id: number;
@@ -236,7 +237,7 @@ interface PlanIndexDocumentInterface {
 /**
  * The associated objects related to a plan and project
  */
-interface AssociatedObjectInterface {
+export interface AssociatedObjectInterface {
   alternateIdentifiers: string[];
   relatedWorks: string[];
   answers: Answer[],
@@ -245,6 +246,28 @@ interface AssociatedObjectInterface {
   planMembers: PlanMember[],
   planFunding: PlanFunding[],
   affiliations: Map<string, Affiliation>,
+}
+
+/**
+ * A combined Plan and Project response from the database query
+ */
+export interface ProjectPlanResponse {
+  plan_id: number;
+  dmp_id: string;
+  project_id: number;
+  affiliation_id: string;
+  title: string;
+  language_id: string;
+  visibility: PlanVisibility;
+  featured: boolean;
+  registered: string;
+  created: string;
+  modified: string;
+  project_title: string;
+  abstract_text: string;
+  project_start: string;
+  project_end: string;
+  is_test_project: boolean;
 }
 
 /**
@@ -345,32 +368,34 @@ export function generateSearchTerms(
  *
  * @param reference a string for logging purposes
  * @param context the Apollo server context
- * @param plan the Plan
- * @returns all of the associated objects for the plan
+ * @param projectIds the array of project ids to fetch associated objects for
+ * @param planIds the array of plan ids to fetch associated objects for
+ * @returns all of the associated objects for the plans and projects
  */
-const fetchAssociatedObjects = async (
+export const fetchAssociatedObjects = async (
   reference: string,
   context: MyContext,
-  plan: Plan,
+  projectIds: number[],
+  planIds: number[],
 ): Promise<AssociatedObjectInterface> => {
   // Fetch alternate identifiers
-  const alternateIdentifiers: AlternateIdentifier[] = await AlternateIdentifier.findByPlanId(reference, context, plan.id) || [];
+  const alternateIdentifiers: AlternateIdentifier[] = await AlternateIdentifier.findByPlanIds(reference, context, planIds) || [];
   const alternateIds: string[] = alternateIdentifiers?.map((i: AlternateIdentifier) => {
     return i.alternateIdentifier;
   }).filter(Boolean) ?? [];
 
   // Fetch the related work DOIs
-  const relatedWorks: AcceptedWork[] = await AcceptedWork.findByPlanId(reference, context, plan.id) || [];
+  const relatedWorks: AcceptedWork[] = await AcceptedWork.findByPlanIds(reference, context, planIds) || [];
   const relatedWorkIds: string[] = relatedWorks.map((work: AcceptedWork): string => work.doi) ?? []
 
   // Fetch answers
-  const answers: Answer[] = await Answer.findByPlanId(reference, context, plan.id) || [];
+  const answers: Answer[] = await Answer.findByPlanIds(reference, context, planIds) || [];
 
   // Fetch members and funding
-  const projectMembers: ProjectMember[] = await ProjectMember.findByProjectId(reference, context, plan.projectId) || [];
-  const projectFunding: ProjectFunding[] = await ProjectFunding.findByProjectId(reference, context, plan.projectId) || [];
-  const planMembers: PlanMember[] = await PlanMember.findByPlanId(reference, context, plan.id) || [];
-  const planFunding: PlanFunding[] = await PlanFunding.findByPlanId(reference, context, plan.id) || [];
+  const projectMembers: ProjectMember[] = await ProjectMember.findByProjectIds(reference, context, projectIds) || [];
+  const projectFunding: ProjectFunding[] = await ProjectFunding.findByProjectIds(reference, context, projectIds) || [];
+  const planMembers: PlanMember[] = await PlanMember.findByPlanIds(reference, context, planIds) || [];
+  const planFunding: PlanFunding[] = await PlanFunding.findByPlanIds(reference, context, planIds) || [];
 
   // Build Affiliation Lookup Map from member and funder information
   const affiliations = new Map<string, Affiliation>();
@@ -567,7 +592,7 @@ const convertDataset = (
  * @param planFunding the subset of Project funding associated with the Plan
  * @returns the member, institution and funding info
  */
-const reconcileAssociatedObjects = (
+export const reconcileAssociatedObjects = (
   affiliations: Map<string, Affiliation>,
   projectMembers: ProjectMember[],
   projectFunding: ProjectFunding[],
@@ -714,9 +739,9 @@ export const getIndexItem = async (
 ): Promise<PlanIndexDocumentInterface | undefined> => {
   const openSearch: OpenSearch = context.dataSources.openSearchServerlessDataSource;
 
-  context.logger.debug({ reference, index: INDEX_NAME, dmpId }, "Fetching Plan from index");
+  context.logger.debug({ reference, index: DMP_INDEX_NAME, dmpId }, "Fetching Plan from index");
   const response = await openSearch.getIndexItem<PlanIndexDocumentInterface>(
-    INDEX_NAME,
+    DMP_INDEX_NAME,
     stripIdentifierBaseURL(dmpId)
   );
 
@@ -749,12 +774,12 @@ export const searchIndex = async (
   const openSearch: OpenSearch = context.dataSources.openSearchServerlessDataSource;
 
   context.logger.debug(
-    { reference, INDEX_NAME, query, sort, maxResults },
+    { reference, DMP_INDEX_NAME, query, sort, maxResults },
     'Searching Plan index'
   );
   try {
     const response: IndexSearchResponseInterface<PlanIndexDocumentInterface> = await openSearch.search<PlanIndexDocumentInterface>(
-      INDEX_NAME,
+      DMP_INDEX_NAME,
       {
         size: maxResults,
         from: offset,
@@ -780,26 +805,32 @@ export const searchIndex = async (
 };
 
 /**
- * Update the OpenSearch index with the latest information from the project and plan
+ * Generate the index item for a Plan and Project
  *
- * @param reference the string reference for logging
- * @param context the Apollo server context
+ * @param project the research project
  * @param plan the plan
- * @param project the research project (will be fetched if not provided)
+ * @param affiliations the affiliations and funders as a Map
+ * @param projectMembers the project members
+ * @param projectFunding the project funding
+ * @param planMembers the plan members
+ * @param planFunding the plan funding
+ * @param planAnswers the plan answers
+ * @param alternateIdentifierIds the alternate identifiers
+ * @param relatedWorkIds the related works DOIs
+ * @returns the index document for the plan
  */
-export const updateIndexItem = async (
-  reference: string,
-  context: MyContext,
-  plan: Plan,
-  project?: Project,
-): Promise<void> => {
-  const dmpId: string = stripIdentifierBaseURL(plan.dmpId).trim();
-  const openSearch: OpenSearch = context.dataSources.openSearchServerlessDataSource;
-  // If no project was passed in, look it up
-  if (!project) project = await Project.findById(reference, context, plan.projectId);
-
-  const associatedObjects: AssociatedObjectInterface = await fetchAssociatedObjects(reference, context, plan);
-
+export const generateIndexItem = (
+  project: Partial<Project>,
+  plan: Partial<Plan>,
+  affiliations: Map<string, Affiliation>,
+  projectMembers: ProjectMember[],
+  projectFunding: ProjectFunding[],
+  planMembers: PlanMember[],
+  planFunding: PlanFunding[],
+  planAnswers: Answer[],
+  alternateIdentifierIds: string[],
+  relatedWorkIds: string[]
+): PlanIndexDocumentInterface => {
   const {
     members,
     institutions,
@@ -814,12 +845,12 @@ export const updateIndexItem = async (
     sensitiveData,
     ethicalIssuesExist
   } = reconcileAssociatedObjects(
-    associatedObjects.affiliations,
-    associatedObjects.projectMembers,
-    associatedObjects.projectFunding,
-    associatedObjects.answers,
-    associatedObjects.planMembers,
-    associatedObjects.planFunding
+    affiliations,
+    projectMembers,
+    projectFunding,
+    planAnswers,
+    planMembers,
+    planFunding
   );
 
   // Extract all the repository info
@@ -850,8 +881,8 @@ export const updateIndexItem = async (
     }
   }
 
-  const item: PlanIndexDocumentInterface = {
-    dmp_id: dmpId,
+  return  {
+    dmp_id: plan.dmpId,
     project_id: project.id,
     plan_id: plan.id,
     affiliation_id: plan.affiliationId,
@@ -870,7 +901,7 @@ export const updateIndexItem = async (
     is_test: !!project.isTestProject,
     featured: !!plan.featured,
 
-    alternate_identifier_ids: associatedObjects.alternateIdentifiers,
+    alternate_identifier_ids: alternateIdentifierIds ?? [],
     contributor_ids: members.ids,
     institution_ids: institutions.ids,
     funder_ids: funding.ids,
@@ -878,7 +909,7 @@ export const updateIndexItem = async (
     opportunity_ids: funding.opportunityIds,
     funder_project_ids: funding.funderProjectIds,
     repository_ids: repositoryIds,
-    related_identifier_ids: associatedObjects.relatedWorks,
+    related_identifier_ids: relatedWorkIds ?? [],
     contact_ids: contactIds,
     dataset_ids: [],
     output_formats: [],
@@ -903,10 +934,50 @@ export const updateIndexItem = async (
     funding_display: funding.displayObjects,
     institutions_display: institutions.displayObjects,
   };
+}
+
+/**
+ * Update the OpenSearch index with the latest information from the project and plan
+ *
+ * @param reference the string reference for logging
+ * @param context the Apollo server context
+ * @param plan the plan
+ * @param project the research project (will be fetched if not provided)
+ */
+export const updateIndexItem = async (
+  reference: string,
+  context: MyContext,
+  plan: Plan,
+  project?: Project,
+): Promise<void> => {
+  const dmpId: string = stripIdentifierBaseURL(plan.dmpId).trim();
+  const openSearch: OpenSearch = context.dataSources.openSearchServerlessDataSource;
+  // If no project was passed in, look it up
+  if (!project) project = await Project.findById(reference, context, plan.projectId);
+
+  const associatedObjects: AssociatedObjectInterface = await fetchAssociatedObjects(
+    reference,
+    context,
+    [project.id],
+    [plan.id]
+  );
+
+  const item: PlanIndexDocumentInterface = generateIndexItem(
+    project,
+    plan,
+    associatedObjects.affiliations,
+    associatedObjects.projectMembers,
+    associatedObjects.projectFunding,
+    associatedObjects.planMembers,
+    associatedObjects.planFunding,
+    associatedObjects.answers,
+    associatedObjects.alternateIdentifiers,
+    associatedObjects.relatedWorks
+  );
 
   // Fire off the OpenSearch update
-  context.logger.debug({ reference, index: INDEX_NAME, item }, "Indexing Plan");
-  await openSearch.updateIndexItem(INDEX_NAME, PropertyDefinition, dmpId, item);
+  context.logger.debug({ reference, index: DMP_INDEX_NAME, item }, "Indexing Plan");
+  await openSearch.updateIndexItem(DMP_INDEX_NAME, PropertyDefinition, dmpId, item);
 };
 
 /**
@@ -924,6 +995,6 @@ export const removeIndexItem = async (
   const dmpId: string = stripIdentifierBaseURL(plan.dmpId).trim();
   const openSearch: OpenSearch = context.dataSources.openSearchServerlessDataSource;
 
-  context.logger.debug({ reference, INDEX_NAME, dmpId }, 'Removing Plan from index');
-  await openSearch.removeIndexItem(INDEX_NAME, dmpId);
+  context.logger.debug({ reference, DMP_INDEX_NAME, dmpId }, 'Removing Plan from index');
+  await openSearch.removeIndexItem(DMP_INDEX_NAME, dmpId);
 }

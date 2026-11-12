@@ -51,9 +51,11 @@ function mockAsyncFn() {
 const { Template, TemplateVisibility } = await import("../../models/Template.js");
 const { VersionedTemplate, TemplateVersionType } = await import('../../models/VersionedTemplate.js');
 const {
-  cloneTemplate, generateTemplateVersion, hasPermissionOnTemplate,
-  setDefaultTemplate
+  cloneTemplate, cloneTemplateLinks, generateTemplateLinkVersions, generateTemplateVersion,
+  hasPermissionOnTemplate, setDefaultTemplate
 } = await import('../templateService.js');
+const { TemplateLink, TemplateLinkType } = await import('../../models/TemplateLink.js');
+const { VersionedTemplateLink } = await import('../../models/VersionedTemplateLink.js');
 const { TemplateCollaborator } = await import('../../models/Collaborator.js');
 const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
 const { Section } = await import('../../models/Section.js');
@@ -227,6 +229,9 @@ describe('template versioning', () => {
     // Mock the Tags for each section
     mockTagFindBySectionId = jest.fn<(...args: any[]) => Promise<any>>().mockResolvedValue([]);
     jest.spyOn(Tag, 'findBySectionId').mockImplementation(mockTagFindBySectionId as any);
+
+    // Mock the Template's links (none by default)
+    jest.spyOn(TemplateLink, 'findByTemplateId').mockResolvedValue([]);
 
     const tstamp = getCurrentDate();
 
@@ -485,6 +490,102 @@ describe('template versioning', () => {
     expect(updated.modified).toEqual(tmplt.modified);
     expect(updated.latestPublishVersion).toEqual(newVersion.version);
     expect(updated.isDirty).toEqual(true);
+  });
+
+  it('copies the Template\'s links to the new version', async () => {
+    const tmplt = new Template(templateStore[0]);
+    const links = [
+      new TemplateLink({ id: 1, templateId: tmplt.id, linkType: TemplateLinkType.FUNDER, url: 'https://funder.org/a', text: 'A' }),
+      new TemplateLink({ id: 2, templateId: tmplt.id, linkType: TemplateLinkType.SAMPLE_PLAN, url: 'https://funder.org/b' }),
+    ];
+    jest.spyOn(TemplateLink, 'findByTemplateId').mockResolvedValue(links);
+    const mockLinkCreate = mockAsyncFn().mockImplementation(async function (this: any) { return this; });
+    jest.spyOn(VersionedTemplateLink.prototype, 'create').mockImplementation(mockLinkCreate);
+
+    jest.spyOn(VersionedTemplate, 'insert').mockImplementation(mockInsert);
+    jest.spyOn(VersionedTemplate, 'findVersionedTemplateById').mockImplementation(mockFindVersionedTemplatebyId);
+    jest.spyOn(Template, 'update').mockImplementation(mockUpdate);
+    jest.spyOn(Template, 'findById').mockImplementation(mockFindTemplateById);
+
+    const newVersion = await generateTemplateVersion(context, tmplt, [], context.token.id);
+
+    expect(newVersion.id).toBeTruthy();
+    expect(mockLinkCreate).toHaveBeenCalledTimes(2);
+    const versionedLinks = mockLinkCreate.mock.contexts as any[];
+    expect(versionedLinks.map((l) => l.versionedTemplateId)).toEqual([newVersion.id, newVersion.id]);
+    expect(versionedLinks.map((l) => l.url)).toEqual(['https://funder.org/a', 'https://funder.org/b']);
+    expect(versionedLinks.map((l) => l.linkType)).toEqual([TemplateLinkType.FUNDER, TemplateLinkType.SAMPLE_PLAN]);
+  });
+
+  it('does not finalize the version if a link could not be versioned', async () => {
+    const tmplt = new Template(templateStore[0]);
+    jest.spyOn(TemplateLink, 'findByTemplateId').mockResolvedValue([
+      new TemplateLink({ id: 1, templateId: tmplt.id, linkType: TemplateLinkType.FUNDER, url: 'https://funder.org/a' }),
+    ]);
+    const failed = new VersionedTemplateLink({ url: 'https://funder.org/a' });
+    failed.addError('general', 'Test failure');
+    jest.spyOn(VersionedTemplateLink.prototype, 'create').mockResolvedValue(failed);
+
+    jest.spyOn(VersionedTemplate, 'insert').mockImplementation(mockInsert);
+    jest.spyOn(VersionedTemplate, 'findVersionedTemplateById').mockImplementation(mockFindVersionedTemplatebyId);
+    jest.spyOn(Template, 'update').mockImplementation(mockUpdate);
+    jest.spyOn(Template, 'findById').mockImplementation(mockFindTemplateById);
+
+    const result = await generateTemplateVersion(context, tmplt, [], context.token.id);
+
+    expect(result).toBeNull();
+    // The Template's latestPublishVersion should not have been bumped
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+});
+
+describe('generateTemplateLinkVersions', () => {
+  it('returns true when the Template has no links', async () => {
+    jest.spyOn(TemplateLink, 'findByTemplateId').mockResolvedValue([]);
+    const mockLinkCreate = jest.spyOn(VersionedTemplateLink.prototype, 'create');
+
+    expect(await generateTemplateLinkVersions(context, 1, 2)).toBe(true);
+    expect(mockLinkCreate).not.toHaveBeenCalled();
+  });
+
+  it('returns false and logs when a link cannot be versioned', async () => {
+    jest.spyOn(TemplateLink, 'findByTemplateId').mockResolvedValue([
+      new TemplateLink({ id: 1, templateId: 1, linkType: TemplateLinkType.FUNDER, url: 'https://funder.org/a' }),
+    ]);
+    jest.spyOn(VersionedTemplateLink.prototype, 'create').mockResolvedValue(null);
+
+    expect(await generateTemplateLinkVersions(context, 1, 2)).toBe(false);
+    expect(context.logger.error).toHaveBeenCalled();
+  });
+});
+
+describe('cloneTemplateLinks', () => {
+  it('copies each link onto the new Template', async () => {
+    const sources = [
+      new TemplateLink({ id: 1, templateId: 5, linkType: TemplateLinkType.FUNDER, url: 'https://funder.org/a', text: 'A' }),
+      new VersionedTemplateLink({ id: 2, versionedTemplateId: 9, linkType: TemplateLinkType.SAMPLE_PLAN, url: 'https://funder.org/b' }),
+    ];
+    const mockLinkCreate = mockAsyncFn().mockImplementation(async function (this: any) { return this; });
+    jest.spyOn(TemplateLink.prototype, 'create').mockImplementation(mockLinkCreate);
+
+    expect(await cloneTemplateLinks(context, sources, 77)).toBe(true);
+
+    const copies = mockLinkCreate.mock.contexts as any[];
+    expect(copies.length).toBe(2);
+    expect(copies.map((c) => c.templateId)).toEqual([77, 77]);
+    expect(copies.map((c) => c.id)).toEqual([undefined, undefined]);
+    expect(copies[0].text).toEqual('A');
+    expect(copies[1].linkType).toEqual(TemplateLinkType.SAMPLE_PLAN);
+  });
+
+  it('returns false and logs when a link cannot be copied', async () => {
+    const failed = new TemplateLink({ templateId: 77 });
+    failed.addError('url', 'Invalid URL');
+    jest.spyOn(TemplateLink.prototype, 'create').mockResolvedValue(failed);
+
+    const sources = [new TemplateLink({ id: 1, templateId: 5, linkType: TemplateLinkType.FUNDER, url: 'bad' })];
+    expect(await cloneTemplateLinks(context, sources, 77)).toBe(false);
+    expect(context.logger.error).toHaveBeenCalled();
   });
 });
 

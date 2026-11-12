@@ -42,6 +42,7 @@ const { QuestionCondition } = await import("../../models/QuestionCondition.js");
 const { QuestionConditionGroup } = await import("../../models/QuestionConditionGroup.js");
 const { VersionedQuestionCondition } = await import("../../models/VersionedQuestionCondition.js");
 const { VersionedQuestionConditionGroup } = await import("../../models/VersionedQuestionConditionGroups.js");
+const { TemplateLink } = await import("../../models/TemplateLink.js");
 
 type MySqlModelInstance = MySqlModelType;
 
@@ -509,6 +510,9 @@ describe('Integration test: Template Versioning', () => {
     jest.spyOn(Tag, 'findByQuestionId').mockImplementation(mockFindTagsByQuestionId as any);
     jest.spyOn(Tag.prototype, 'addToVersionedSectionTags').mockImplementation(mockAddToVersionedSectionTags as any);
     jest.spyOn(Tag.prototype, 'addToVersionedQuestionTags').mockImplementation(mockAddToVersionedQuestionTags as any);
+
+    // TemplateLink mocks (the template in these tests has no funder/sample plan links)
+    jest.spyOn(TemplateLink, 'findByTemplateId').mockResolvedValue([]);
   });
 
   afterEach(() => {

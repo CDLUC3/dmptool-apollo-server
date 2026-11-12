@@ -31,6 +31,7 @@ import { typeDefs as superAdminTypeDefs } from './schemas/superAdmin.js';
 import { typeDefs as tagTypeDefs } from './schemas/tag.js';
 import { typeDefs as templateTypeDefs } from './schemas/template.js';
 import { typeDefs as templateCustomizationTypeDefs } from './schemas/templateCustomization.js';
+import { typeDefs as templateLinkTypeDefs } from './schemas/templateLink.js';
 import { typeDefs as userTypeDefs } from './schemas/user.js';
 import { typeDefs as versionedQuestionTypeDefs } from './schemas/versionedQuestion.js';
 import { typeDefs as versionedGuidanceTypeDefs } from './schemas/versionedGuidance.js';
@@ -71,6 +72,7 @@ export const typeDefs = mergeTypeDefs([
   tagTypeDefs,
   templateTypeDefs,
   templateCustomizationTypeDefs,
+  templateLinkTypeDefs,
   userTypeDefs,
   versionedGuidanceTypeDefs,
   versionedQuestionTypeDefs,

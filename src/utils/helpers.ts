@@ -309,3 +309,36 @@ export const getFutureDate = (millisecondsInFuture: number): string => {
   const futureDate = new Date(Date.now() + millisecondsInFuture);
   return formatISO9075(futureDate);
 };
+
+/**
+ * Build a SQL WHERE clause for a free-text search term. The term is split into words (on whitespace
+ * and commas) and every word must match at least one of the fields. This lets "Jane Smith",
+ * "Smith Jane" and "Smith, Jane" find a user whose givenName and surName are stored separately.
+ *
+ * @param term The search term entered by the user.
+ * @param fields The SQL columns to match against (e.g. 'u.givenName'). These are inserted into the SQL
+ * as is, so they must come from code and never from user input. The words are bound as parameters.
+ * @param maxWords The maximum number of words to use, to keep the size of the query bounded.
+ * @returns The clause and its values, or undefined if the term has no words, so that no filter is
+ * applied and all records are returned.
+ */
+export function buildSearchTermFilter(
+  term: string | null | undefined,
+  fields: string[],
+  maxWords = 5,
+): { clause: string; values: string[] } | undefined {
+  if (!Array.isArray(fields) || fields.length === 0) return undefined;
+
+  const words: string[] = (term ?? '')
+    .toLowerCase()
+    .split(/[\s,]+/)
+    .filter((word: string): boolean => word.length > 0)
+    .slice(0, maxWords);
+  if (words.length === 0) return undefined;
+
+  const perWord = `(${fields.map((field: string): string => `LOWER(${field}) LIKE ?`).join(' OR ')})`;
+  return {
+    clause: `(${words.map((): string => perWord).join(' AND ')})`,
+    values: words.flatMap((word: string): string[] => fields.map((): string => `%${word}%`)),
+  };
+}

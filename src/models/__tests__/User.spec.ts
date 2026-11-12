@@ -388,6 +388,35 @@ describe('findByAffiliationId', () => {
     expect(values).toContain('affil-1');
   });
 
+  it('requires every word of a multi-word term to match one of the fields', async () => {
+    await User.findByAffiliationId('testRef', context, 'affil-1', 'Smith, Alice', { type: PaginationType.OFFSET });
+
+    const [, , whereFilters, , values] = (mockQueryWithPagination as jest.Mock).mock.calls[0] as [
+      unknown, string, string[], string, string[]
+    ];
+
+    const termFilter = whereFilters.find((f: string) => f.includes('LIKE ?'));
+    expect(termFilter.match(/LIKE \?/g)).toHaveLength(8);
+    expect(termFilter).toContain(') AND (');
+    expect(termFilter).not.toContain('a.searchName');
+    expect(values).toEqual([
+      'affil-1',
+      ...Array(4).fill('%smith%'),
+      ...Array(4).fill('%alice%'),
+    ]);
+  });
+
+  it.each(['', '   ', undefined])('adds no search term filter when the term is %p, so all affiliation users are returned', async (term) => {
+    await User.findByAffiliationId('testRef', context, 'affil-1', term, { type: PaginationType.OFFSET });
+
+    const [, , whereFilters, , values] = (mockQueryWithPagination as jest.Mock).mock.calls[0] as [
+      unknown, string, string[], string, string[]
+    ];
+
+    expect(whereFilters).toEqual(['u.affiliationId = ?', 'u.isArchived = 0']);
+    expect(values).toEqual(['affil-1']);
+  });
+
   it('filters by role when role is provided', async () => {
     mockQueryWithPagination.mockResolvedValueOnce({
       items: [makeUser(3, UserRole.ADMIN)],
@@ -747,6 +776,33 @@ describe('search', () => {
     expect(values.length).toBe(5);
   });
 
+  it('requires every word of a multi-word term to match one of the fields', async () => {
+    await User.search('testRef', context, 'Alice Smith', { type: PaginationType.OFFSET });
+
+    const callArgs = mockQueryWithPagination.mock.calls[0] as SearchCallArgs;
+    const whereFilters = callArgs[2];
+    const values = callArgs[4];
+
+    const termFilter = whereFilters.find((f: string) => f.includes('LIKE ?'));
+    expect(termFilter.match(/LIKE \?/g)).toHaveLength(10);
+    expect(termFilter).toContain(') AND (');
+    expect(values).toEqual([
+      ...Array(5).fill('%alice%'),
+      ...Array(5).fill('%smith%'),
+    ]);
+  });
+
+  it.each(['', '   ', undefined])('adds no search term filter when the term is %p, so all users are returned', async (term) => {
+    await User.search('testRef', context, term, { type: PaginationType.OFFSET });
+
+    const callArgs = mockQueryWithPagination.mock.calls[0] as SearchCallArgs;
+    const whereFilters = callArgs[2];
+    const values = callArgs[4];
+
+    expect(whereFilters).toEqual(['u.isArchived = 0']);
+    expect(values).toEqual([]);
+  });
+
   it('adds role filter to whereFilters and values when role is provided', async () => {
     await User.search('testRef', context, '', { type: PaginationType.OFFSET }, UserRole.ADMIN);
 
@@ -844,6 +900,6 @@ describe('search', () => {
     const callArgs = mockQueryWithPagination.mock.calls[0] as SearchCallArgs;
     const whereFilters = callArgs[2];
 
-    expect(whereFilters.some((f: string) => f.includes('LOWER(u.givenName) LIKE ?'))).toBe(true);
+    expect(whereFilters.some((f: string) => f.includes('LIKE ?'))).toBe(false);
   });
 });

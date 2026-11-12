@@ -3,6 +3,7 @@ import {
   formatORCID,
   getCurrentDate,
   isNullOrUndefined,
+  buildSearchTermFilter,
 } from '../utils/helpers.js';
 import { prepareObjectForLogs } from '../logger.js';
 import { MySqlModel } from './MySqlModel.js';
@@ -170,14 +171,12 @@ export class User extends MySqlModel {
       values.push(role);
     }
     // Handle the incoming search term
-    const searchTerm = (term ?? '').toLowerCase().trim();
-    if (!isNullOrUndefined(searchTerm)) {
-      whereFilters.push(`(
-        (LOWER(u.givenName) LIKE ? OR
-        LOWER(u.surName) LIKE ? OR
-        LOWER(ue.email) LIKE ? OR
-        LOWER(u.orcid) LIKE ?))`);
-      values.push(`%${searchTerm}%`, `%${searchTerm}%`, `%${searchTerm}%`, `%${searchTerm}%`);
+    // Every word in the term must match one of the fields (so "Jane Smith" matches givenName + surName).
+    // An empty term adds no filter, so all of the affiliation's users are returned
+    const termFilter = buildSearchTermFilter(term, ['u.givenName', 'u.surName', 'ue.email', 'u.orcid']);
+    if (termFilter) {
+      whereFilters.push(termFilter.clause);
+      values.push(...termFilter.values);
     }
 
     // Join users with user_emails
@@ -238,15 +237,12 @@ export class User extends MySqlModel {
     whereFilters.push('u.isArchived = 0');
 
     // Handle the incoming search term
-    const searchTerm = (term ?? '').toLowerCase().trim();
-    if (!isNullOrUndefined(searchTerm)) {
-      whereFilters.push(`(
-        LOWER(u.givenName) LIKE ? OR
-        LOWER(u.surName) LIKE ? OR
-        LOWER(ue.email) LIKE ? OR
-        LOWER(u.orcid) LIKE ? OR
-        LOWER(a.searchName) LIKE ?)`);
-      values.push(`%${searchTerm}%`, `%${searchTerm}%`, `%${searchTerm}%`, `%${searchTerm}%`, `%${searchTerm}%`);
+    // Every word in the term must match one of the fields (so "Jane Smith" matches givenName + surName).
+    // An empty term adds no filter, so all users are returned
+    const termFilter = buildSearchTermFilter(term, ['u.givenName', 'u.surName', 'ue.email', 'u.orcid', 'a.searchName']);
+    if (termFilter) {
+      whereFilters.push(termFilter.clause);
+      values.push(...termFilter.values);
     }
 
     // Add role filter if provided

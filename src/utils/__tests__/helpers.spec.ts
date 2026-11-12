@@ -24,6 +24,7 @@ const {
   removeNullAndUndefinedFromJSON,
   normaliseDate,
   normaliseDateTime,
+  buildSearchTermFilter,
 } = await import('../helpers.js');
 
 describe('Date validation', () => {
@@ -496,5 +497,48 @@ describe('resolveNamingCollision', () => {
     const baseValue = 'Plan (A)+?';
     const existingValues = [baseValue, `${baseValue} 1`, `${baseValue} 7`];
     expect(resolveNamingCollision(baseValue, existingValues)).toBe(`${baseValue} 8`);
+  });
+});
+
+describe('buildSearchTermFilter', () => {
+  const fields = ['u.givenName', 'u.surName'];
+  const perWord = '(LOWER(u.givenName) LIKE ? OR LOWER(u.surName) LIKE ?)';
+
+  it('returns undefined for an empty, blank or missing term so no filter is applied', () => {
+    expect(buildSearchTermFilter('', fields)).toBeUndefined();
+    expect(buildSearchTermFilter('   ', fields)).toBeUndefined();
+    expect(buildSearchTermFilter(' , ,', fields)).toBeUndefined();
+    expect(buildSearchTermFilter(undefined, fields)).toBeUndefined();
+    expect(buildSearchTermFilter(null, fields)).toBeUndefined();
+  });
+
+  it('returns undefined when there are no fields', () => {
+    expect(buildSearchTermFilter('jane', [])).toBeUndefined();
+  });
+
+  it('matches a single word against every field', () => {
+    expect(buildSearchTermFilter('Jane', fields)).toEqual({
+      clause: `(${perWord})`,
+      values: ['%jane%', '%jane%'],
+    });
+  });
+
+  it('requires every word to match one of the fields', () => {
+    expect(buildSearchTermFilter('  Jane   SMITH ', fields)).toEqual({
+      clause: `(${perWord} AND ${perWord})`,
+      values: ['%jane%', '%jane%', '%smith%', '%smith%'],
+    });
+  });
+
+  it('builds the same filter regardless of word order or commas', () => {
+    const reversed = buildSearchTermFilter('Smith, Jane', fields);
+    expect(reversed.clause).toEqual(`(${perWord} AND ${perWord})`);
+    expect(reversed.values).toEqual(['%smith%', '%smith%', '%jane%', '%jane%']);
+  });
+
+  it('limits the number of words used', () => {
+    const result = buildSearchTermFilter('a b c d e f g', fields, 3);
+    expect(result.clause).toEqual(`(${perWord} AND ${perWord} AND ${perWord})`);
+    expect(result.values).toEqual(['%a%', '%a%', '%b%', '%b%', '%c%', '%c%']);
   });
 });

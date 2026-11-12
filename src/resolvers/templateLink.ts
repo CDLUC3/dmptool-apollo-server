@@ -43,7 +43,8 @@ export const FUNDER_ONLY_ERROR = 'Links can only be added to templates owned by 
 // Funder and sample plan links are only available on Templates owned by a funder affiliation
 const isOwnedByFunder = async (reference: string, context: MyContext, template: Template): Promise<boolean> => {
   const owner = await Affiliation.findByURI(reference, context, template.ownerId);
-  return owner?.funder === true;
+  // findByURI returns the raw MySQL row, where the tinyint `funder` column is 1 or 0 rather than a boolean
+  return Boolean(owner?.funder);
 }
 
 // Touch the Template so that it is flagged as having changes that have not been published

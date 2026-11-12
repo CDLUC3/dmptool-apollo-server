@@ -169,6 +169,29 @@ describe('addTemplateLink mutation', () => {
     expect(updateSpy).not.toHaveBeenCalled();
   });
 
+  it('adds the link when the owner\'s funder flag comes from MySQL as 1', async () => {
+    // Affiliation.findByURI returns the raw row, where the tinyint column is the number 1, not true
+    jest.spyOn(Affiliation, 'findByURI').mockResolvedValue({ uri: affiliationId, funder: 1 } as any);
+    const createSpy = jest.spyOn(TemplateLink.prototype, 'create').mockResolvedValue(link);
+    jest.spyOn(Template.prototype, 'update').mockResolvedValue(template);
+
+    const result = await executeQuery(query, variables(), adminToken);
+
+    expect(result.errors).toBeUndefined();
+    expect(result.data.addTemplateLink.errors.general).toBeNull();
+    expect(createSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns an error when the owner\'s funder flag comes from MySQL as 0', async () => {
+    jest.spyOn(Affiliation, 'findByURI').mockResolvedValue({ uri: affiliationId, funder: 0 } as any);
+    const createSpy = jest.spyOn(TemplateLink.prototype, 'create');
+
+    const result = await executeQuery(query, variables(), adminToken);
+
+    expect(result.data.addTemplateLink.errors.general).toEqual(FUNDER_ONLY_ERROR);
+    expect(createSpy).not.toHaveBeenCalled();
+  });
+
   it('returns an error when the Template owner cannot be found', async () => {
     jest.spyOn(Affiliation, 'findByURI').mockResolvedValue(null);
     const createSpy = jest.spyOn(TemplateLink.prototype, 'create');

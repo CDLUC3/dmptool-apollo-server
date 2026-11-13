@@ -141,6 +141,15 @@ export class ProjectFunding extends MySqlModel {
     const results = await ProjectFunding.query(context, sql, [projectFundingId?.toString()], reference);
     return Array.isArray(results) && results.length > 0 ? new ProjectFunding(results[0]) : null;
   }
+
+  // Find all the funding for the projects
+  static async findByProjectIds(reference: string, context: MyContext, projectIds: number[]): Promise<ProjectFunding[]> {
+    const placeholders = projectIds.map((): string => '?').join(', ');
+    const sql = `SELECT * FROM ${this.tableName} WHERE projectId IN (${placeholders})`;
+    const vals: string[] = projectIds.map((id: number) => id?.toString());
+    const results = await ProjectFunding.query(context, sql, vals, reference);
+    return Array.isArray(results) ? results.map((item) => new ProjectFunding(item)) : [];
+  }
 }
 
 // A funding for the plan
@@ -238,7 +247,16 @@ export class PlanFunding extends MySqlModel {
     return Array.isArray(results) && results.length > 0 ? new PlanFunding(results[0]) : null;
   }
 
-  // Find all the funding for the plan using the planId
+  // Find all the funding for the plans
+  static async findByPlanIds(reference: string, context: MyContext, planIds: number[]): Promise<PlanFunding[]> {
+    const placeholders = planIds.map((): string => '?').join(', ');
+    const sql = `SELECT * FROM ${this.tableName} WHERE planId IN (${placeholders})`;
+    const vals: string[] = planIds.map((id: number) => id?.toString());
+    const results = await PlanFunding.query(context, sql, vals, reference);
+    return Array.isArray(results) ? results.map((item) => new PlanFunding(item)) : [];
+  }
+
+  // Find all the funding for the given planId
   static async findByPlanId(reference: string, context: MyContext, planId: number): Promise<PlanFunding[]> {
     const sql = `SELECT * FROM ${this.tableName} WHERE planId = ?`;
     const results = await PlanFunding.query(context, sql, [planId?.toString()], reference);

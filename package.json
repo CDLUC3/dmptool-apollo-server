@@ -21,7 +21,8 @@
     "trivy-med": "sh ./src/scripts/trivy-med.sh",
     "trivy-all": "npm run trivy-high && npm run trivy-med",
     "init-localstack": "localstack-setup/init-aws.sh",
-    "re3data:sync": "ts-node data-migrations/dataSync/re3data-os-populate.ts"
+    "re3data:sync": "ts-node data-migrations/dataSync/re3data-os-populate.ts",
+    "sync:opensearch-dmps": "node --env-file=.env --import tsx src/scripts/syncOpenSearchDmps.ts"
   },
   "compilerOptions": {
     "sourceMap": true

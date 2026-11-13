@@ -14,6 +14,7 @@
     - [Running the App](#running-the-app)
     - [Building for Production](#building-for-production)
     - [Managing the databases](#managing-the-database)
+    - [Running synchronization Jobs](#running-synchronization-jobs)
 - [Querying the Apollo Server](#querying-apollo-server)
     - [Pagination](#pagination)
     - [Errors](#errors)
@@ -27,6 +28,7 @@
     - [Models](#models)
     - [Mocks](#mocks)
     - [Internationalization / Language support](#languages)
+    - [Data synchronization](#data-synchronization)
     - [Tests](#tests)
     - [Conect to ECS instance](#connect-to-ecs-instance)
 - [Environment variables](#environment-variables)
@@ -263,6 +265,10 @@ The development, stage and production environments use AWS RDS to host the MySQL
 - Navigate to the RDS page and note the endpoint URL for the RDS instance
 - Open a terminal window
 - run `session port [CLUSTER-NAME] [RDS-ENDPOINT]  3306:3306`
+
+### Running synchronization Jobs
+
+To add an index entry to ElasticSearch for every Plan in the system run `npm run sync:opensearch-dmps`. This will run a DataSyncJob that will fetch all Plans from the MySQL database and add them to the ElasticSearch index. The job will run in batches of 500 Plans at a time and will continue until all Plans have been indexed.
 
 ## Querying Apollo Server
 
@@ -632,6 +638,17 @@ Note that mocks will refresh each time the server is restarted!
 The languages supported by the system can be found in the `src/models/language.ts` file.
 
 TODO: update with documentation on how to provide translation support for DB based text
+
+### Data synchronization
+
+The system has a DataSyncJob class that can be used to synchronize data between the MySQL database and the OpenSearch index or DynamoDB. This allows us to seed these resources when initializing the application and also allows us to setup scheduled jobs (or run on demand) that sync data based on a given cursor id and timestamp. The DataSyncJob manages its state using the `syncJobStatus` table in the MySQL database. This allows us to run the job in batches and resume from where it left off if it is interrupted for any reason.
+
+When a data sync job is run it:
+- Locks the job so that only one instance of the job can run at a time (this will initialize the DB record if it does not already exist)
+- Fetches a batch of records from the MySQL database based on the last cursor id and timestamp
+- It will then process each record and add it to the OpenSearch index or DynamoDB table (preferably in batches)
+- Once the batch is complete, it will update the cursor id and timestamp in the `syncJobStatus` table and then fetch the next batch of records. This continues until all records have been processed.
+- If the job fails for any reason, it will record the error in the table along with the last cursor id and timestamp. The next time the job is run, it will attempt to resume from the last cursor id and timestamp.
 
 ### Tests
 

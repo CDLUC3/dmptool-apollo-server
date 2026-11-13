@@ -13,6 +13,7 @@ import type { MyContext } from '../../context.js';
 
 const { MySqlModel } = await import('../MySqlModel.js');
 const { AlternateIdentifier } = await import('../AlternateIdentifier.js');
+const { Affiliation } = await import('../Affiliation.js');
 const { Answer } = await import('../Answer.js');
 const { PlanFunding, ProjectFunding } = await import('../Funding.js');
 const { PlanMember, ProjectMember } = await import('../Member.js');
@@ -63,7 +64,7 @@ class TestSyncJob extends DataSyncJob {
   public batches: typeof item[][] = [];
   public syncResult = true;
   public syncError?: Error;
-  public syncedItems: typeof item[] = [];
+  public syncedItems: typeof item[][] = [];
 
   constructor() {
     super({ jobName: 'TestSyncJob' });
@@ -76,7 +77,7 @@ class TestSyncJob extends DataSyncJob {
   async performSync(
     _reference: string,
     _context: MyContext,
-    data: typeof item,
+    data: typeof item[],
   ): Promise<boolean> {
     this.syncedItems.push(data);
     if (this.syncError) throw this.syncError;
@@ -88,6 +89,7 @@ describe('DataSyncJob', () => {
   const context = {
     logger: {
       debug: jest.fn(),
+      warn: jest.fn(),
       error: jest.fn(),
     },
   } as unknown as MyContext;
@@ -153,8 +155,10 @@ describe('DataSyncJob', () => {
   it('persists the plan ID cursor after a successful batch', async () => {
     const job = new TestSyncJob();
     job.batches = [[item], []];
-    jest.spyOn(MySqlModel, 'query').mockResolvedValue([{ affectedRows: 1 }]);
-    jest.spyOn(MySqlModel, 'update').mockResolvedValue(new MySqlModel());
+    jest.spyOn(MySqlModel, 'query')
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ affectedRows: 1 }])
+      .mockResolvedValue([{}]);
 
     await job.start('test', context);
 
@@ -167,25 +171,26 @@ describe('DataSyncJob', () => {
     const job = new TestSyncJob();
     const secondItem = { ...item, plan_id: 43, modified: '2026-01-03T00:00:00.000Z' };
     job.batches = [[item], [secondItem], []];
-    jest.spyOn(MySqlModel, 'query').mockResolvedValue([{ affectedRows: 1 }]);
-    jest.spyOn(MySqlModel, 'update').mockResolvedValue(new MySqlModel());
+    jest.spyOn(MySqlModel, 'query')
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ affectedRows: 1 }])
+      .mockResolvedValue([{}]);
 
     await job.start('test', context, 1);
 
-    expect(job.syncedItems).toEqual([item, secondItem]);
+    expect(job.syncedItems).toEqual([[item], [secondItem]]);
     expect(job.cursorId).toBe(secondItem.plan_id);
-    expect(MySqlModel.update).toHaveBeenCalledTimes(3);
+    expect(MySqlModel.query).toHaveBeenCalledTimes(5);
   });
 
   it('marks a job failed when progress cannot be persisted', async () => {
     const job = new TestSyncJob();
     job.batches = [[item]];
-    const failedErrorSave = new MySqlModel();
-    failedErrorSave.addError('general', 'Database unavailable');
-    jest.spyOn(MySqlModel, 'query').mockResolvedValue([{ affectedRows: 1 }]);
-    jest.spyOn(MySqlModel, 'update')
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce(failedErrorSave);
+    jest.spyOn(MySqlModel, 'query')
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ affectedRows: 1 }])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
 
     await expect(job.start('test', context)).rejects.toThrow(
       'Unable to save progress for data sync job "TestSyncJob".',
@@ -202,10 +207,11 @@ describe('DataSyncJob', () => {
   it('marks a job failed when completion cannot be persisted', async () => {
     const job = new TestSyncJob();
     job.batches = [[]];
-    jest.spyOn(MySqlModel, 'query').mockResolvedValue([{ affectedRows: 1 }]);
-    jest.spyOn(MySqlModel, 'update')
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce(new MySqlModel());
+    jest.spyOn(MySqlModel, 'query')
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ affectedRows: 1 }])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{}]);
 
     await expect(job.start('test', context)).rejects.toThrow(
       'Unable to complete data sync job "TestSyncJob".',
@@ -218,8 +224,10 @@ describe('DataSyncJob', () => {
     const job = new TestSyncJob();
     job.batches = [[item]];
     job.syncError = new Error('OpenSearch unavailable');
-    jest.spyOn(MySqlModel, 'query').mockResolvedValue([{ affectedRows: 1 }]);
-    jest.spyOn(MySqlModel, 'update').mockResolvedValue(new MySqlModel());
+    jest.spyOn(MySqlModel, 'query')
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ affectedRows: 1 }])
+      .mockResolvedValue([{}]);
 
     await expect(job.start('test', context)).rejects.toThrow('OpenSearch unavailable');
 
@@ -247,6 +255,7 @@ describe('DataSyncJob', () => {
     jest.spyOn(ProjectFunding, 'findByProjectIds').mockResolvedValue([]);
     jest.spyOn(PlanMember, 'findByPlanIds').mockResolvedValue([]);
     jest.spyOn(PlanFunding, 'findByPlanIds').mockResolvedValue([]);
+    jest.spyOn(Affiliation, 'findByURIs').mockResolvedValue([]);
 
     const [result] = await job.fetchDataToSync('test', context, 1);
 
@@ -273,8 +282,8 @@ describe('DataSyncJob', () => {
     expect(MySqlModel.query).toHaveBeenCalledWith(
       context,
       expect.stringContaining('p.modified = ? AND p.id > ?'),
-      ['2026-04-01 12:00:00.000', '2026-04-01 12:00:00.000',
-        '2026-04-01 12:00:00.000', '15', '25'],
+      ['2026-04-01 12:00:00', '2026-04-01 12:00:00',
+        '2026-04-01 12:00:00', '15', '25'],
       'fetch',
     );
   });
@@ -283,11 +292,13 @@ describe('DataSyncJob', () => {
     const job = new TestSyncJob();
     job.batches = [[item]];
     job.syncResult = false;
-    jest.spyOn(MySqlModel, 'query').mockResolvedValue([{ affectedRows: 1 }]);
-    jest.spyOn(MySqlModel, 'update').mockResolvedValue(new MySqlModel());
+    jest.spyOn(MySqlModel, 'query')
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ affectedRows: 1 }])
+      .mockResolvedValue([{}]);
 
     await expect(job.start('test', context)).rejects.toThrow(
-      `Failed to synchronize item: ${item.plan_id}`,
+      `Failed to synchronize plans: ${item.plan_id}`,
     );
 
     expect(job.status).toBe(DataSyncJobStatus.FAILED);
@@ -296,16 +307,19 @@ describe('DataSyncJob', () => {
 
   it('does not execute when another worker holds the lock', async () => {
     const job = new TestSyncJob();
-    jest.spyOn(MySqlModel, 'query').mockResolvedValue([{ affectedRows: 0 }]);
+    jest.spyOn(MySqlModel, 'query').mockResolvedValue([
+      { jobName: 'TestSyncJob', status: DataSyncJobStatus.RUNNING },
+    ]);
 
     await expect(job.start('test', context)).rejects.toThrow(
       'Data sync job "TestSyncJob" is already locked for execution.',
     );
+    expect(MySqlModel.query).toHaveBeenCalledTimes(1);
   });
 
-  it('updates OpenSearch with the stripped DMP ID', async () => {
+  it('updates OpenSearch with the stripped DMP IDs', async () => {
     const openSearch = {
-      updateIndexItem: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
+      bulkUpdateIndexItems: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
     };
     const openSearchContext = {
       ...context,
@@ -315,19 +329,18 @@ describe('DataSyncJob', () => {
     } as unknown as MyContext;
     const job = new OpenSearchDMPSync();
 
-    await expect(job.performSync('test', openSearchContext, item)).resolves.toBe(true);
+    await expect(job.performSync('test', openSearchContext, [item])).resolves.toBe(true);
 
-    expect(openSearch.updateIndexItem).toHaveBeenCalledWith(
+    expect(openSearch.bulkUpdateIndexItems).toHaveBeenCalledWith(
       'dmp',
       expect.any(Object),
-      '10.1234/example',
-      item,
+      [{ id: '10.1234/example', item }],
     );
   });
 
-  it('returns false when OpenSearch rejects an item', async () => {
+  it('returns false when OpenSearch rejects a batch', async () => {
     const openSearch = {
-      updateIndexItem: jest.fn<() => Promise<void>>()
+      bulkUpdateIndexItems: jest.fn<() => Promise<void>>()
         .mockRejectedValue(new Error('OpenSearch unavailable')),
     };
     const openSearchContext = {
@@ -338,6 +351,6 @@ describe('DataSyncJob', () => {
     } as unknown as MyContext;
     const job = new OpenSearchDMPSync();
 
-    await expect(job.performSync('test', openSearchContext, item)).resolves.toBe(false);
+    await expect(job.performSync('test', openSearchContext, [item])).resolves.toBe(false);
   });
 });

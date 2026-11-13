@@ -399,18 +399,15 @@ export const fetchAssociatedObjects = async (
   const planFunding: PlanFunding[] = await PlanFunding.findByPlanIds(reference, context, planIds) || [];
 
   // Build Affiliation Lookup Map from member and funder information
-  const affiliations = new Map<string, Affiliation>();
-  for (const m of projectMembers) {
-    if (m.affiliationId && !affiliations.has(m.affiliationId)) {
-      const affiliation: Affiliation = await Affiliation.findByURI(reference, context, m.affiliationId);
-      affiliations.set(m.affiliationId, affiliation);
-    }
-  }
+  const affiliationURIs = new Set<string>(projectMembers.map((m: ProjectMember) => m.affiliationId).filter(Boolean));
   for (const f of projectFunding) {
-    if (f.affiliationId && !affiliations.has(f.affiliationId)) {
-      const affiliation: Affiliation = await Affiliation.findByURI(reference, context, f.affiliationId);
-      affiliations.set(f.affiliationId, affiliation);
-    }
+    if (f.affiliationId) affiliationURIs.add(f.affiliationId);
+  }
+
+  const affiliationObjs: Affiliation[] = await Affiliation.findByURIs(reference, context, Array.from(affiliationURIs)) || [];
+  const affiliations = new Map<string, Affiliation>();
+  for (const a of affiliationObjs) {
+    if (a.uri) affiliations.set(a.uri, a);
   }
 
   return {

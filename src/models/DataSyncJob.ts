@@ -1,6 +1,6 @@
 import { MySqlModel } from "./MySqlModel.js";
 import { MyContext } from "../context.js";
-import { getCurrentDate, stripIdentifierBaseURL } from "../utils/helpers.js";
+import {normaliseDateTime, stripIdentifierBaseURL} from "../utils/helpers.js";
 import { toError } from "graphql/jsutils/toError.js";
 import { toErrorMessage } from "@dmptool/utils";
 import {
@@ -122,26 +122,36 @@ export abstract class DataSyncJob extends MySqlModel {
   private async lockJob(reference: string, context: MyContext): Promise<boolean> {
     context.logger.debug({ jobName: this.jobName }, 'Locking data sync job for execution');
     this.status = DataSyncJobStatus.RUNNING;
-    this.lockedAt = getCurrentDate();
-    this.lastRunAt = getCurrentDate();
-    this.modified = this.lastRunAt;
 
+    const existingJob: MySqlModel[] = await MySqlModel.query(
+      context,
+      `SELECT * FROM ${DataSyncJob.tableName} WHERE jobName = ? AND status = ?`,
+      [this.jobName, DataSyncJobStatus.RUNNING],
+      reference
+    );
+    if (Array.isArray(existingJob) && existingJob.length > 0) {
+      context.logger.warn({ jobName: this.jobName }, 'Data sync job is already locked for execution');
+      return false;
+    }
+
+    // Create the job entry if it doesn't exist, or update it if it does.
+    // This ensures that the job is locked for execution.
     const result = await MySqlModel.query(
       context,
-      `UPDATE ${DataSyncJob.tableName}
-       SET status = ?, lockedAt = ?, lastRunAt = ?
-       WHERE jobName = ? AND status <> ?`,
-      [
-        this.status,
-        this.lockedAt,
-        this.lastRunAt,
-        this.jobName,
-        DataSyncJobStatus.RUNNING,
-      ],
-      reference,
+      `INSERT INTO ${DataSyncJob.tableName}
+         (jobName, status, lockedAt, lastRunAt, created, modified)
+       VALUES (?, ?, NOW(), NOW(), NOW(), NOW())
+       ON DUPLICATE KEY UPDATE status = ?, lockedAt = NOW(), lastRunAt = NOW(), modified = NOW()`,
+      [this.jobName, this.status, this.status],
+      reference
     );
 
-    return result[0]?.affectedRows === 1;
+    if (!result[0] || result[0].affectedRows === 0) {
+      context.logger.error({ jobName: this.jobName }, 'Failed to lock data sync job');
+      return false;
+    }
+
+    return true;
   }
 
   /**
@@ -169,8 +179,22 @@ export abstract class DataSyncJob extends MySqlModel {
     this.cursorId = cursorId;
     this.cursorTimestamp = cursorTimestamp;
 
-    const resp: MySqlModel | null = await MySqlModel.update(context, DataSyncJob.tableName, this, reference);
-    if (resp && !resp.hasErrors()) {
+    const resp: MySqlModel[] = await MySqlModel.query(
+      context,
+      `UPDATE ${DataSyncJob.tableName}
+      SET status = ?, failureCount = ?, errorMessage = ?, cursorId = ?, cursorTimestamp = ?
+      WHERE jobName = ?`,
+      [
+        this.status,
+        (this.failureCount || 0).toString(),
+        this.errorMessage,
+        (this.cursorId || 0).toString(),
+        this.cursorTimestamp,
+        this.jobName
+      ],
+      reference
+    );
+    if (Array.isArray(resp) && resp.length > 0) {
       context.logger.error(
         { jobName: this.jobName, error, cursorId },
         'Data synchronization job failed with error'
@@ -222,28 +246,40 @@ export abstract class DataSyncJob extends MySqlModel {
         this.cursorId = item.plan_id;
         this.cursorTimestamp = item.modified;
 
-        const updated: MySqlModel | null = await MySqlModel.update(
+        const updated: MySqlModel[] = await MySqlModel.query(
           context,
-          DataSyncJob.tableName,
-          this,
+          `UPDATE ${DataSyncJob.tableName}
+          SET cursorId = ?, cursorTimestamp = ?
+          WHERE jobName = ?`,
+          [
+            (this.cursorId || 0).toString(),
+            normaliseDateTime(this.cursorTimestamp),
+            this.jobName
+          ],
           reference,
         );
-        if (!updated || updated.hasErrors()) {
+        if (!Array.isArray(updated) || updated.length === 0) {
           throw new Error(`Unable to save progress for data sync job "${this.jobName}".`);
         }
       }
 
       this.status = DataSyncJobStatus.COMPLETED;
-      this.lastSuccessAt = getCurrentDate();
       this.failureCount = 0;
       this.errorMessage = null;
-      const completed = await MySqlModel.update(
+      const completed = await MySqlModel.query(
         context,
-        DataSyncJob.tableName,
-        this,
+        `UPDATE ${DataSyncJob.tableName}
+        SET status = ?, lastSuccessAt = NOW(), failureCount = ?, errorMessage = ?
+        WHERE jobName = ?`,
+        [
+          this.status,
+          (this.failureCount || 0).toString(),
+          this.errorMessage,
+          this.jobName
+        ],
         reference,
       );
-      if (!completed || completed.hasErrors()) {
+      if (!Array.isArray(completed) || completed.length === 0) {
         throw new Error(`Unable to complete data sync job "${this.jobName}".`);
       }
     } catch (error) {
@@ -304,7 +340,7 @@ export class OpenSearchDMPSync extends DataSyncJob {
    * @returns an array of PlanIndexDocumentInterface objects representing the DMP data to be synchronized
    */
   async fetchDataToSync(reference: string, context: MyContext, batchSize: number): Promise<PlanIndexDocumentInterface[]> {
-    const tstamp = this.cursorTimestamp;
+    const tstamp: string = normaliseDateTime(this.cursorTimestamp);
 
     // Fetch the next batch of Plans that have been modified since the last
     // synchronization, using the cursorTimestamp and cursorId to determine
@@ -318,7 +354,8 @@ export class OpenSearchDMPSync extends DataSyncJob {
         proj.title AS project_title, proj.abstractText AS abstract_text,
         proj.startDate AS project_start, proj.endDate AS project_end,
         proj.isTestProject AS is_test_project
-      FROM plan p JOIN project proj ON p.projectId = proj.id
+      FROM plans p
+        JOIN projects proj ON p.projectId = proj.id
       WHERE p.modified >= ?
         AND (p.modified > ? OR (p.modified = ? AND p.id > ?))
       ORDER BY p.modified ASC, p.id ASC
@@ -326,6 +363,10 @@ export class OpenSearchDMPSync extends DataSyncJob {
       [tstamp, tstamp, tstamp, (this.cursorId || 0).toString(), (batchSize || 500).toString()],
       reference
     );
+    if (!Array.isArray(projectPlanResponses) || projectPlanResponses.length === 0) {
+      context.logger.debug({ jobName: this.jobName, cursorTimestamp: tstamp, cursorId: this.cursorId }, 'No more DMPs to synchronize');
+      return [];
+    }
 
     const associatedObjects: AssociatedObjectInterface = await fetchAssociatedObjects(
       reference,

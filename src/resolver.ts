@@ -35,6 +35,7 @@ import { resolvers as superAdminResolvers } from './resolvers/superAdmin.js';
 import { resolvers as tagResolvers } from './resolvers/tag.js';
 import { resolvers as templateResolvers } from './resolvers/template.js';
 import { resolvers as templateCustomizationResolvers } from './resolvers/templateCustomization.js';
+import { resolvers as templateLinkResolvers } from './resolvers/templateLink.js';
 import { resolvers as userResolvers } from './resolvers/user.js';
 import { resolvers as versionedGuidanceResolvers } from './resolvers/versionedGuidance.js';
 import { resolvers as versionedQuestionResolvers } from './resolvers/versionedQuestion.js';
@@ -80,6 +81,7 @@ export const resolvers: IResolvers = mergeResolvers([
   tagResolvers,
   templateResolvers,
   templateCustomizationResolvers,
+  templateLinkResolvers,
   userResolvers,
   versionedGuidanceResolvers,
   versionedQuestionResolvers,

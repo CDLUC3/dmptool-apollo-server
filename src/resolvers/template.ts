@@ -8,9 +8,12 @@ import { VersionedSection } from '../models/VersionedSection.js';
 import { VersionedQuestion } from "../models/VersionedQuestion.js";
 import { User, UserRole } from '../models/User.js';
 import { Tag } from "../models/Tag.js";
+import { TemplateLink } from "../models/TemplateLink.js";
+import { VersionedTemplateLink } from "../models/VersionedTemplateLink.js";
 import { MyContext } from "../context.js";
 import {
   cloneTemplate,
+  cloneTemplateLinks,
   generateTemplateVersion,
   hasPermissionOnTemplate,
   setDefaultTemplate
@@ -262,6 +265,15 @@ export const resolvers: Resolvers = {
                   newTemplate.addError('sections', 'Created Template but unable to clone all sections');
                 }
               }
+            }
+
+            // Copy the funder and sample plan links
+            const sourceLinks = adminOwnsTemplate
+              ? await TemplateLink.findByTemplateId(reference, context, sourceTemplateId)
+              : await VersionedTemplateLink.findByVersionedTemplateId(reference, context, copyFromVersionedTemplateId);
+            const allLinksCopied = await cloneTemplateLinks(context, sourceLinks, templateId);
+            if (!allLinksCopied) {
+              newTemplate.addError('general', 'Created Template but unable to copy all links');
             }
           }
 

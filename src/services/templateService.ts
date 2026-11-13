@@ -9,6 +9,8 @@ import { MyContext } from "../context.js";
 import { isSuperAdmin } from "./authService.js";
 import { TemplateCollaborator } from "../models/Collaborator.js";
 import { Section } from "../models/Section.js";
+import { TemplateLink } from "../models/TemplateLink.js";
+import { VersionedTemplateLink } from "../models/VersionedTemplateLink.js";
 import { generateSectionVersion } from "./sectionService.js";
 import { prepareObjectForLogs } from "../logger.js";
 import {
@@ -128,8 +130,10 @@ export const generateTemplateVersion = async (
         }
       }
 
-      // Only continue if all of the sections were properly versioned
-      if (allSectionsWereVersioned) {
+      const allLinksWereVersioned = await generateTemplateLinkVersions(context, template.id, created.id);
+
+      // Only continue if all of the sections and links were properly versioned
+      if (allSectionsWereVersioned && allLinksWereVersioned) {
         // Update the template's version and reset the dirty flag
         template.latestPublishVersion = newVersion;
         template.latestPublishDate = created.created;
@@ -175,6 +179,61 @@ export const generateTemplateVersion = async (
   }
   // Something went wrong, so return a null instead
   return null;
+}
+
+// Snapshot all of the Template's links into the versionedTemplateLinks table for the new VersionedTemplate
+//    - returns false if any of the links could not be versioned
+export const generateTemplateLinkVersions = async (
+  context: MyContext,
+  templateId: number,
+  versionedTemplateId: number,
+): Promise<boolean> => {
+  const ref = 'generateTemplateLinkVersions';
+  const links = await TemplateLink.findByTemplateId(ref, context, templateId);
+
+  let allLinksWereVersioned = true;
+  for (const link of links) {
+    const versionedLink = new VersionedTemplateLink({
+      versionedTemplateId,
+      linkType: link.linkType,
+      url: link.url,
+      text: link.text,
+    });
+    const created = await versionedLink.create(context);
+
+    if (!created || created.hasErrors()) {
+      const payload = { templateLinkId: link.id, versionedTemplateId, errors: created?.errors };
+      context.logger.error(prepareObjectForLogs(payload), 'Unable to version template link');
+      allLinksWereVersioned = false;
+    }
+  }
+  return allLinksWereVersioned;
+}
+
+// Copy the links from a Template or VersionedTemplate onto a newly created Template
+//    - returns false if any of the links could not be copied
+export const cloneTemplateLinks = async (
+  context: MyContext,
+  sourceLinks: (TemplateLink | VersionedTemplateLink)[],
+  newTemplateId: number,
+): Promise<boolean> => {
+  let allLinksWereCopied = true;
+  for (const link of sourceLinks) {
+    const copy = new TemplateLink({
+      templateId: newTemplateId,
+      linkType: link.linkType,
+      url: link.url,
+      text: link.text,
+    });
+    const created = await copy.create(context);
+
+    if (!created || created.hasErrors()) {
+      const payload = { sourceLinkId: link.id, newTemplateId, errors: created?.errors };
+      context.logger.error(prepareObjectForLogs(payload), 'Unable to copy template link');
+      allLinksWereCopied = false;
+    }
+  }
+  return allLinksWereCopied;
 }
 
 // Make a copy of the specified Template or PublishedTemplate

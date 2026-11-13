@@ -3,6 +3,9 @@
 ## v1.1.0
 
 ### Added
+- Added `templateLink` schema and resolvers: `addTemplateLink`, `updateTemplateLink` and `removeTemplateLink` mutations, a `links(linkType)` field and a `maxLinks(linkType)` field on `Template`, and a `links(linkType)` field on `VersionedTemplate`. These support the funder links and sample plan links in the Template Builder's "Links" sidebar. Links can only be added or edited when the Template's owner affiliation has `funder` set to `true` (they can always be removed) [#251]
+- Added `update` method to the `TemplateLink` model, and limited a Template to `MAX_TEMPLATE_FUNDER_LINKS` funder links and `MAX_TEMPLATE_SAMPLE_PLAN_LINKS` sample plan links (both default to 5) [#251]
+- Added `generateTemplateLinkVersions` and `cloneTemplateLinks` to `templateService`. Links are now copied into `versionedTemplateLinks` when a Template is versioned, and copied when a Template is created from an existing Template or VersionedTemplate [#251]
 - Added try catch block to `indexDMPService.searchIndex` because the root error was getting lost. It now logs it appropriately 
 - Added local data migration to set `createdById` and `modifiedById` on the existing E2E test accounts (`testadmin@example.com`, `testresearcher@example.com`), since records copied from a user fail validation when they're `NULL` [#561]
 - Added local data migration to add an E2E funder organization ("DMP Tool API Testing Funder") and its `ADMIN` account (`testfunderadmin@example.com`), used by the E2E template customization tests [#561]
@@ -408,6 +411,8 @@
 - Removed `ioredis` package
 
 ### Fixed
+- Fixed `TemplateLink` and `VersionedTemplateLink` URL validation, which was inverted (valid URLs were rejected and invalid ones accepted) [#251]
+- Fixed `VersionedTemplateLink` model to use the `versionedTemplateId` column instead of the non-existent `templateId` column [#251]
 - Fixed `getPlanSectionsAndQuestions` crashing with "Cannot read properties of undefined (reading 'introduction')" for plans whose customization has a custom section. It looked up custom sections by `versionedCustomSections.id` using `customSectionId` values; it now loads the custom sections of the plan's `versionedTemplateCustomizationId` and matches them on `customSectionId`. This also restores the custom section's guidance on its custom questions [#561]
 - Fixed `plan.sections.questions` (`getPlanSectionsAndQuestions`) so each `PlanQuestion` returns `useSampleTextAsDefault`, which was always null, and its `answer` includes saved blank answers. `hasAnswer`, progress and display logic still only count filled answers. The UI needs the flag to prefill sample text, and needs blank answers so it doesn't prefill over them and can update them instead of failing with "Answer already exists" [#581]
 - I was not able to start the app locally because the latest version of `localstack` image no longer uses `curl`. So I switched `docker-compose.yaml` and `localstack-setup/init.aws.sh` to use `python3` in place of `curl` which should be backwards compatible. Also, addressed `zod` and `body-parser` vulnerabilities.

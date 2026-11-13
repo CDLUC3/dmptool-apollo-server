@@ -25,6 +25,10 @@ export const generalConfig = {
   defaultSearchLimit: Number.parseInt(process.env.DEFAULT_SEARCH_LIMIT) || 20,
   maximumSearchLimit: Number.parseInt(process.env.MAXIMUM_SEARCH_LIMIT) || 100,
 
+  // The maximum number of funder and sample plan links that can be added to a Template
+  maxTemplateFunderLinks: Number.parseInt(process.env.MAX_TEMPLATE_FUNDER_LINKS) || 5,
+  maxTemplateSamplePlanLinks: Number.parseInt(process.env.MAX_TEMPLATE_SAMPLE_PLAN_LINKS) || 5,
+
   dmpIdBaseURL: process.env.DMP_ID_BASE_URL || 'https://doi.org/',
   dmpIdShoulder: process.env.DMP_ID_SHOULDER,
 

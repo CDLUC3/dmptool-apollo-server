@@ -77,30 +77,24 @@ describe('VersionedTemplateLink', () => {
   describe('create', () => {
     const originalInsert = VersionedTemplateLink.insert;
     const originalFindById = VersionedTemplateLink.findById;
-    const originalFindByVersionedTemplateAndURL = VersionedTemplateLink.findByVersionedTemplateAndURL;
 
     let insertQuery;
-    let mockFindByVersionedTemplateAndURL;
     let mockFindById;
 
     beforeEach(() => {
       jest.resetAllMocks();
       insertQuery = jest.fn();
-      mockFindByVersionedTemplateAndURL = jest.fn();
       mockFindById = jest.fn();
       (VersionedTemplateLink.insert as jest.Mock) = insertQuery;
-      (VersionedTemplateLink.findByVersionedTemplateAndURL as jest.Mock) = mockFindByVersionedTemplateAndURL;
       (VersionedTemplateLink.findById as jest.Mock) = mockFindById;
     });
 
     afterEach(() => {
       VersionedTemplateLink.insert = originalInsert;
       VersionedTemplateLink.findById = originalFindById;
-      VersionedTemplateLink.findByVersionedTemplateAndURL = originalFindByVersionedTemplateAndURL;
     });
 
     it('should insert into the versionedTemplateLinks table using the versionedTemplateId', async () => {
-      mockFindByVersionedTemplateAndURL.mockResolvedValueOnce(null);
       insertQuery.mockResolvedValueOnce(link.id);
       mockFindById.mockResolvedValueOnce(link);
 
@@ -114,14 +108,6 @@ describe('VersionedTemplateLink', () => {
       // The table has no templateId column, so the model must not send one
       expect(Object.keys(insertQuery.mock.calls[0][2])).not.toContain('templateId');
       expect(result).toEqual(link);
-    });
-
-    it('should return an error if the url is already associated with the version', async () => {
-      mockFindByVersionedTemplateAndURL.mockResolvedValueOnce(new VersionedTemplateLink(linkData));
-
-      const result = await link.create(context);
-      expect(result.errors.general).toContain('already associated');
-      expect(insertQuery).not.toHaveBeenCalled();
     });
 
     it('should return validation errors', async () => {
@@ -155,23 +141,6 @@ describe('VersionedTemplateLink', () => {
     it('findById returns null when there are no results', async () => {
       query.mockResolvedValueOnce([]);
       expect(await VersionedTemplateLink.findById('Test', context, linkData.id)).toBeNull();
-    });
-
-    it('findByVersionedTemplateAndURL searches by versionedTemplateId and url', async () => {
-      query.mockResolvedValueOnce([]);
-      const result = await VersionedTemplateLink.findByVersionedTemplateAndURL(
-        'Test',
-        context,
-        linkData.versionedTemplateId,
-        linkData.url
-      );
-      expect(query).toHaveBeenCalledWith(
-        context,
-        'SELECT * FROM versionedTemplateLinks WHERE versionedTemplateId = ? AND url = ?',
-        [linkData.versionedTemplateId.toString(), linkData.url],
-        'Test'
-      );
-      expect(result).toBeNull();
     });
 
     it('findByVersionedTemplateId returns the links', async () => {

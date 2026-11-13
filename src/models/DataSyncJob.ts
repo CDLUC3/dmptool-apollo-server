@@ -209,17 +209,20 @@ export abstract class DataSyncJob extends MySqlModel {
           break;
         }
 
-        for (const item of batch) {
-          const synced = await this.performSync(reference, context, item);
-          if (!synced) {
-            throw new Error(`Failed to synchronize item: ${item.plan_id}`);
-          }
-
-          this.cursorId = item.plan_id;
-          this.cursorTimestamp = item.modified;
+        const synced = await this.performSync(reference, context, batch);
+        if (!synced) {
+          const planIds = batch.map((item: PlanIndexDocumentInterface) => item.plan_id);
+          throw new Error(
+            `Failed to synchronize plans: ${planIds.join(', ')}`
+          );
         }
 
-        const updated = await MySqlModel.update(
+        // Set the cursor to the last item in the batch for the next iteration
+        const item: PlanIndexDocumentInterface = batch[batch.length - 1];
+        this.cursorId = item.plan_id;
+        this.cursorTimestamp = item.modified;
+
+        const updated: MySqlModel | null = await MySqlModel.update(
           context,
           DataSyncJob.tableName,
           this,
@@ -275,10 +278,10 @@ export abstract class DataSyncJob extends MySqlModel {
    *
    * @param reference a reference string for the synchronization
    * @param context the Apollo context
-   * @param item the data item to be synchronized
+   * @param items the data items to be synchronized
    * @returns void
    */
-  abstract performSync(reference: string, context: MyContext, item: DataSyncItem): Promise<boolean>;
+  abstract performSync(reference: string, context: MyContext, items: DataSyncItem[]): Promise<boolean>;
 }
 
 /**
@@ -392,18 +395,28 @@ export class OpenSearchDMPSync extends DataSyncJob {
    *
    * @param reference a reference string for the synchronization
    * @param context the Apollo context
-   * @param item the PlanIndexDocumentInterface representing the DMP data to be synchronized
+   * @param items the PlanIndexDocumentInterfaces representing the DMP data to be synchronized
    * @returns true if the synchronization was successful, false otherwise
    */
-  async performSync(reference: string, context: MyContext, item: PlanIndexDocumentInterface): Promise<boolean> {
+  async performSync(reference: string, context: MyContext, items: PlanIndexDocumentInterface[]): Promise<boolean> {
     const openSearch: OpenSearch = context.dataSources.openSearchServerlessDataSource;
-    // Fire off the OpenSearch update
-    context.logger.debug({ reference, index: DMP_INDEX_NAME, item }, "Indexing Plan");
-    try{
-      const dmpId: string = stripIdentifierBaseURL(item.dmp_id).trim();
-      await openSearch.updateIndexItem(DMP_INDEX_NAME, PropertyDefinition, dmpId, item);
+
+    // We don't want the base URL in the dmp_id when indexing, so we need to strip it out
+    // the Bulk update also needs an array of objects with the id and the item
+    const bulkBody = items.map((doc: PlanIndexDocumentInterface) => {
+      const dmpId: string = stripIdentifierBaseURL(doc.dmp_id).trim();
+      return { id: dmpId, item: doc };
+    });
+    context.logger.debug(
+      { reference, index: DMP_INDEX_NAME, dmpIds: bulkBody.map(item => item.id) },
+      "Indexing Plans"
+    );
+
+    try {
+      // Bulk update the plans
+      await openSearch.bulkUpdateIndexItems(DMP_INDEX_NAME, PropertyDefinition, bulkBody);
     } catch (error) {
-      context.logger.error({ reference, error }, "Error indexing Plan");
+      context.logger.error({ reference, error }, "Error indexing Plans");
       return false;
     }
     return true;

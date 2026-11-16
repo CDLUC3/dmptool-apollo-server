@@ -3,6 +3,11 @@
 ## v1.1.0
 
 ### Added
+- Added `syncOpenSearchDmps` script to synchronize DMPs with OpenSearch from the CLI. 
+- Added new `syncJobStatus` table to track the status of data sync jobs, including cursor position and error information.
+- Added `DataSyncJob` model to manage data synchronization tasks.
+- Added new `findBy?` methods to several models to support fetching records with arrays of ids
+- Added `npm run sync:opensearch-dmps` to synchronize DMPs with OpenSearch from the CLI.
 - Added try catch block to `indexDMPService.searchIndex` because the root error was getting lost. It now logs it appropriately 
 - Added local data migration to set `createdById` and `modifiedById` on the existing E2E test accounts (`testadmin@example.com`, `testresearcher@example.com`), since records copied from a user fail validation when they're `NULL` [#561]
 - Added local data migration to add an E2E funder organization ("DMP Tool API Testing Funder") and its `ADMIN` account (`testfunderadmin@example.com`), used by the E2E template customization tests [#561]

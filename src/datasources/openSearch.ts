@@ -377,6 +377,41 @@ export class OpenSearch {
   }
 
   /**
+   * Bulk add/update items on the specified index
+   *
+   * @param indexName the name of the index
+   * @param propertyDefinition the structure of an index record
+   * @param items the items to add/update
+   * @returns the bulk response from OpenSearch
+   */
+  async bulkUpdateIndexItems(
+    indexName: string,
+    propertyDefinition: Record<string, MappingProperty>,
+    items: { id: string; item: object }[]
+  ): Promise<void> {
+    // Verify that the index exists and if not create it
+    if (!(await this.findOrInitializeIndex(indexName, propertyDefinition))) {
+      throw new OpenSearchError('BulkUpdateItems: No index found!');
+    }
+
+    const bulkBody = items.flatMap(({ id, item }) => [
+      { index: { _index: indexName, _id: id } },
+      snakeizeKeys(item),
+    ]);
+
+    try {
+      const response = await this.client.bulk({ body: bulkBody });
+      if (response.body.errors) {
+        throw new OpenSearchError('BulkUpdateItems: Some items failed to update.');
+      }
+    } catch (error) {
+      throw new OpenSearchError(
+        `BulkUpdateItems: Failed to bulk update items in ${indexName}. ${error.message}`
+      );
+    }
+  }
+
+  /**
    * Remove an item on the specified index
    *
    * @param indexName the name of the index

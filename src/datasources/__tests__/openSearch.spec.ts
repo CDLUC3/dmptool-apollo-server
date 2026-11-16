@@ -53,6 +53,7 @@ interface MockClientInstance {
     create: jest.Mock<(...args: any[]) => Promise<any>>;
   };
   index: jest.Mock<(...args: any[]) => Promise<any>>;
+  bulk: jest.Mock<(...args: any[]) => Promise<any>>;
   get: jest.Mock<(...args: any[]) => Promise<any>>;
   delete: jest.Mock<(...args: any[]) => Promise<any>>;
   search: jest.Mock<(...args: any[]) => Promise<any>>;
@@ -71,6 +72,7 @@ beforeEach(() => {
       create: jest.fn<(...args: any[]) => Promise<any>>().mockResolvedValue({ statusCode: 200 }),
     },
     index: jest.fn<(...args: any[]) => Promise<any>>().mockResolvedValue({ statusCode: 200 }),
+    bulk: jest.fn<(...args: any[]) => Promise<any>>().mockResolvedValue({ body: { errors: false } }),
     get: jest.fn<(...args: any[]) => Promise<any>>().mockResolvedValue({ body: { _source: { title: 'Example' } }, statusCode: 200 }),
     delete: jest.fn<(...args: any[]) => Promise<any>>().mockResolvedValue({ statusCode: 200 }),
     search: jest.fn<(...args: any[]) => Promise<any>>().mockResolvedValue({ body: null }),
@@ -508,6 +510,48 @@ describe('OpenSearch class', () => {
 
       const os = new OpenSearch(serverlessConfig);
       await expect(os.updateIndexItem(INDEX_NAME, PROP_DEF, DOC_ID, { title: 'test' })).rejects.toThrow(OpenSearchError);
+    });
+  });
+
+  describe('bulkUpdateIndexItems', () => {
+    const INDEX_NAME = 'dmp';
+    const PROP_DEF = { title: { type: 'text' as const } };
+
+    it('writes each item with its ID and snake_case keys', async () => {
+      mockClientInstance.indices.get.mockResolvedValueOnce({
+        body: { [INDEX_NAME]: {} },
+        statusCode: 200,
+      });
+
+      const os = new OpenSearch(serverlessConfig);
+      await os.bulkUpdateIndexItems(INDEX_NAME, PROP_DEF, [
+        { id: '10.1234/one', item: { planTitle: 'First DMP' } },
+        { id: '10.1234/two', item: { planTitle: 'Second DMP' } },
+      ]);
+
+      expect(mockClientInstance.bulk).toHaveBeenCalledWith({
+        body: [
+          { index: { _index: INDEX_NAME, _id: '10.1234/one' } },
+          { plan_title: 'First DMP' },
+          { index: { _index: INDEX_NAME, _id: '10.1234/two' } },
+          { plan_title: 'Second DMP' },
+        ],
+      });
+    });
+
+    it('throws OpenSearchError when OpenSearch reports failed bulk items', async () => {
+      mockClientInstance.indices.get.mockResolvedValueOnce({
+        body: { [INDEX_NAME]: {} },
+        statusCode: 200,
+      });
+      mockClientInstance.bulk.mockResolvedValueOnce({ body: { errors: true } });
+
+      const os = new OpenSearch(serverlessConfig);
+      await expect(
+        os.bulkUpdateIndexItems(INDEX_NAME, PROP_DEF, [
+          { id: '10.1234/one', item: { title: 'First DMP' } },
+        ]),
+      ).rejects.toThrow(OpenSearchError);
     });
   });
 

@@ -186,6 +186,8 @@ export const typeDefs = gql`
 
     "The VersionedSections that go with the VersionedTemplate"
     versionedSections: [VersionedSection!]
+    "The funder and sample plan links captured when the Template was versioned (optionally filtered by type)"
+    links(linkType: TemplateLinkType): [VersionedTemplateLink!]
   }
 
   "A collection of errors related to the VersionedTemplate"

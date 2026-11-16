@@ -1699,6 +1699,8 @@ export type Mutation = {
   addTemplateCollaborator?: Maybe<TemplateCollaborator>;
   /** Add a new customization to a funder template (user must be an Admin) */
   addTemplateCustomization: TemplateCustomizationOverview;
+  /** Add a funder or sample plan link to a Template (user must be an Admin with access to the Template, and the Template must be owned by a funder) */
+  addTemplateLink?: Maybe<TemplateLink>;
   /** Add an email address for the current user */
   addUserEmail?: Maybe<UserEmail>;
   /** Archive a plan */
@@ -1809,6 +1811,8 @@ export type Mutation = {
   removeTemplateCollaborator?: Maybe<TemplateCollaborator>;
   /** Remove a customization (user must be an Admin) */
   removeTemplateCustomization: TemplateCustomization;
+  /** Remove a link from a Template (user must be an Admin with access to the Template) */
+  removeTemplateLink?: Maybe<TemplateLink>;
   /** Anonymize the current user's account (essentially deletes their account without orphaning things) */
   removeUser?: Maybe<User>;
   /** Remove an email address from the current user */
@@ -1907,6 +1911,8 @@ export type Mutation = {
   updateTemplate?: Maybe<Template>;
   /** Update a customization (user must be an Admin) */
   updateTemplateCustomization: TemplateCustomizationOverview;
+  /** Update the URL and/or text of a Template link (user must be an Admin with access to the Template, and the Template must be owned by a funder) */
+  updateTemplateLink?: Maybe<TemplateLink>;
   /** Update the specified user's information (SuperAdmin only) */
   updateUserInfo?: Maybe<User>;
   /** Update the current user's email notifications */
@@ -2113,6 +2119,14 @@ export type MutationAddTemplateCollaboratorArgs = {
 
 export type MutationAddTemplateCustomizationArgs = {
   input: AddTemplateCustomizationInput;
+};
+
+
+export type MutationAddTemplateLinkArgs = {
+  linkType: TemplateLinkType;
+  templateId: Scalars['Int']['input'];
+  text?: InputMaybe<Scalars['String']['input']>;
+  url: Scalars['String']['input'];
 };
 
 
@@ -2391,6 +2405,11 @@ export type MutationRemoveTemplateCustomizationArgs = {
 };
 
 
+export type MutationRemoveTemplateLinkArgs = {
+  templateLinkId: Scalars['Int']['input'];
+};
+
+
 export type MutationRemoveUserEmailArgs = {
   email: Scalars['String']['input'];
 };
@@ -2642,6 +2661,13 @@ export type MutationUpdateTemplateArgs = {
 
 export type MutationUpdateTemplateCustomizationArgs = {
   input: UpdateTemplateCustomizationInput;
+};
+
+
+export type MutationUpdateTemplateLinkArgs = {
+  templateLinkId: Scalars['Int']['input'];
+  text?: InputMaybe<Scalars['String']['input']>;
+  url: Scalars['String']['input'];
 };
 
 
@@ -5433,6 +5459,10 @@ export type Template = {
   latestPublishVersion?: Maybe<Scalars['String']['output']>;
   /** Visibility set for the last published template */
   latestPublishVisibility?: Maybe<TemplateVisibility>;
+  /** The funder and sample plan links associated with the Template (optionally filtered by type) */
+  links?: Maybe<Array<TemplateLink>>;
+  /** The maximum number of links of the specified type that the Template can have */
+  maxLinks?: Maybe<Scalars['Int']['output']>;
   /** The timestamp when the Object was last modifed */
   modified?: Maybe<Scalars['String']['output']>;
   /** The user who last modified the Object */
@@ -5447,6 +5477,18 @@ export type Template = {
   sourceTemplateId?: Maybe<Scalars['Int']['output']>;
   /** The versioned template that this one was derived from */
   sourceVersionedTemplateId?: Maybe<Scalars['Int']['output']>;
+};
+
+
+/** A Template used to create DMPs */
+export type TemplateLinksArgs = {
+  linkType?: InputMaybe<TemplateLinkType>;
+};
+
+
+/** A Template used to create DMPs */
+export type TemplateMaxLinksArgs = {
+  linkType: TemplateLinkType;
 };
 
 /** A user that that belongs to a different affiliation that can edit the Template */
@@ -5582,6 +5624,49 @@ export type TemplateErrors = {
   sourceTemplateId?: Maybe<Scalars['String']['output']>;
   sourceVersionedTemplateId?: Maybe<Scalars['String']['output']>;
 };
+
+/** A link that is displayed alongside a Template */
+export type TemplateLink = {
+  __typename?: 'TemplateLink';
+  /** The timestamp when the Object was created */
+  created?: Maybe<Scalars['String']['output']>;
+  /** The user who created the Object */
+  createdById?: Maybe<Scalars['Int']['output']>;
+  /** Errors associated with the Object */
+  errors?: Maybe<TemplateLinkErrors>;
+  /** The unique identifer for the Object */
+  id?: Maybe<Scalars['Int']['output']>;
+  /** The type of link */
+  linkType: TemplateLinkType;
+  /** The timestamp when the Object was last modifed */
+  modified?: Maybe<Scalars['String']['output']>;
+  /** The user who last modified the Object */
+  modifiedById?: Maybe<Scalars['Int']['output']>;
+  /** The id of the Template the link belongs to */
+  templateId: Scalars['Int']['output'];
+  /** The text to display for the link */
+  text?: Maybe<Scalars['String']['output']>;
+  /** The URL */
+  url: Scalars['String']['output'];
+};
+
+/** A collection of errors related to the TemplateLink */
+export type TemplateLinkErrors = {
+  __typename?: 'TemplateLinkErrors';
+  /** General error messages such as the object already exists */
+  general?: Maybe<Scalars['String']['output']>;
+  linkType?: Maybe<Scalars['String']['output']>;
+  templateId?: Maybe<Scalars['String']['output']>;
+  text?: Maybe<Scalars['String']['output']>;
+  url?: Maybe<Scalars['String']['output']>;
+};
+
+/** The type of link */
+export type TemplateLinkType =
+  /** A link to the funder's website or guidance about the requirements for the Template */
+  | 'FUNDER'
+  /** A link to a sample plan provided by the funder */
+  | 'SAMPLE_PLAN';
 
 /** A search result for templates */
 export type TemplateSearchResult = {
@@ -6594,6 +6679,8 @@ export type VersionedTemplate = {
   id?: Maybe<Scalars['Int']['output']>;
   /** Whether or not this is the default template */
   isDefault?: Maybe<Scalars['Boolean']['output']>;
+  /** The funder and sample plan links captured when the Template was versioned (optionally filtered by type) */
+  links?: Maybe<Array<VersionedTemplateLink>>;
   /** The timestamp when the Object was last modifed */
   modified?: Maybe<Scalars['String']['output']>;
   /** The user who last modified the Object */
@@ -6616,6 +6703,12 @@ export type VersionedTemplate = {
   visibility: TemplateVisibility;
 };
 
+
+/** A snapshot of a Template when it became published. DMPs are created from published templates */
+export type VersionedTemplateLinksArgs = {
+  linkType?: InputMaybe<TemplateLinkType>;
+};
+
 /** A collection of errors related to the VersionedTemplate */
 export type VersionedTemplateErrors = {
   __typename?: 'VersionedTemplateErrors';
@@ -6631,6 +6724,29 @@ export type VersionedTemplateErrors = {
   versionedById?: Maybe<Scalars['String']['output']>;
   versionedSectionIds?: Maybe<Scalars['String']['output']>;
   visibility?: Maybe<Scalars['String']['output']>;
+};
+
+/** A snapshot of a TemplateLink at the time the Template was versioned */
+export type VersionedTemplateLink = {
+  __typename?: 'VersionedTemplateLink';
+  /** The timestamp when the Object was created */
+  created?: Maybe<Scalars['String']['output']>;
+  /** The user who created the Object */
+  createdById?: Maybe<Scalars['Int']['output']>;
+  /** The unique identifer for the Object */
+  id?: Maybe<Scalars['Int']['output']>;
+  /** The type of link */
+  linkType: TemplateLinkType;
+  /** The timestamp when the Object was last modifed */
+  modified?: Maybe<Scalars['String']['output']>;
+  /** The user who last modified the Object */
+  modifiedById?: Maybe<Scalars['Int']['output']>;
+  /** The text to display for the link */
+  text?: Maybe<Scalars['String']['output']>;
+  /** The URL */
+  url: Scalars['String']['output'];
+  /** The id of the VersionedTemplate the link belongs to */
+  versionedTemplateId: Scalars['Int']['output'];
 };
 
 /** An abbreviated view of a Template for pages that allow search/filtering of published Templates */
@@ -7094,6 +7210,9 @@ export type ResolversTypes = {
   TemplateCustomizationOverview: ResolverTypeWrapper<TemplateCustomizationOverview>;
   TemplateCustomizationStatus: TemplateCustomizationStatus;
   TemplateErrors: ResolverTypeWrapper<TemplateErrors>;
+  TemplateLink: ResolverTypeWrapper<TemplateLink>;
+  TemplateLinkErrors: ResolverTypeWrapper<TemplateLinkErrors>;
+  TemplateLinkType: TemplateLinkType;
   TemplateSearchResult: ResolverTypeWrapper<TemplateSearchResult>;
   TemplateSearchResults: ResolverTypeWrapper<TemplateSearchResults>;
   TemplateVersionType: TemplateVersionType;
@@ -7150,6 +7269,7 @@ export type ResolversTypes = {
   VersionedSectionSearchResults: ResolverTypeWrapper<VersionedSectionSearchResults>;
   VersionedTemplate: ResolverTypeWrapper<VersionedTemplate>;
   VersionedTemplateErrors: ResolverTypeWrapper<VersionedTemplateErrors>;
+  VersionedTemplateLink: ResolverTypeWrapper<VersionedTemplateLink>;
   VersionedTemplateSearchResult: ResolverTypeWrapper<VersionedTemplateSearchResult>;
   Work: ResolverTypeWrapper<Work>;
   WorkType: WorkType;
@@ -7364,6 +7484,8 @@ export type ResolversParentTypes = {
   TemplateCustomizationErrors: TemplateCustomizationErrors;
   TemplateCustomizationOverview: TemplateCustomizationOverview;
   TemplateErrors: TemplateErrors;
+  TemplateLink: TemplateLink;
+  TemplateLinkErrors: TemplateLinkErrors;
   TemplateSearchResult: TemplateSearchResult;
   TemplateSearchResults: TemplateSearchResults;
   TypeCount: TypeCount;
@@ -7416,6 +7538,7 @@ export type ResolversParentTypes = {
   VersionedSectionSearchResults: VersionedSectionSearchResults;
   VersionedTemplate: VersionedTemplate;
   VersionedTemplateErrors: VersionedTemplateErrors;
+  VersionedTemplateLink: VersionedTemplateLink;
   VersionedTemplateSearchResult: VersionedTemplateSearchResult;
   Work: Work;
   WorkVersion: WorkVersion;
@@ -8070,6 +8193,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   addTemplate?: Resolver<Maybe<ResolversTypes['Template']>, ParentType, ContextType, RequireFields<MutationAddTemplateArgs, 'name'>>;
   addTemplateCollaborator?: Resolver<Maybe<ResolversTypes['TemplateCollaborator']>, ParentType, ContextType, RequireFields<MutationAddTemplateCollaboratorArgs, 'email' | 'templateId'>>;
   addTemplateCustomization?: Resolver<ResolversTypes['TemplateCustomizationOverview'], ParentType, ContextType, RequireFields<MutationAddTemplateCustomizationArgs, 'input'>>;
+  addTemplateLink?: Resolver<Maybe<ResolversTypes['TemplateLink']>, ParentType, ContextType, RequireFields<MutationAddTemplateLinkArgs, 'linkType' | 'templateId' | 'url'>>;
   addUserEmail?: Resolver<Maybe<ResolversTypes['UserEmail']>, ParentType, ContextType, RequireFields<MutationAddUserEmailArgs, 'email' | 'isPrimary'>>;
   archivePlan?: Resolver<Maybe<ResolversTypes['Plan']>, ParentType, ContextType, RequireFields<MutationArchivePlanArgs, 'planId'>>;
   archiveProject?: Resolver<Maybe<ResolversTypes['Project']>, ParentType, ContextType, RequireFields<MutationArchiveProjectArgs, 'projectId'>>;
@@ -8125,6 +8249,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   removeTag?: Resolver<Maybe<ResolversTypes['Tag']>, ParentType, ContextType, RequireFields<MutationRemoveTagArgs, 'tagId'>>;
   removeTemplateCollaborator?: Resolver<Maybe<ResolversTypes['TemplateCollaborator']>, ParentType, ContextType, RequireFields<MutationRemoveTemplateCollaboratorArgs, 'email' | 'templateId'>>;
   removeTemplateCustomization?: Resolver<ResolversTypes['TemplateCustomization'], ParentType, ContextType, RequireFields<MutationRemoveTemplateCustomizationArgs, 'templateCustomizationId'>>;
+  removeTemplateLink?: Resolver<Maybe<ResolversTypes['TemplateLink']>, ParentType, ContextType, RequireFields<MutationRemoveTemplateLinkArgs, 'templateLinkId'>>;
   removeUser?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType>;
   removeUserEmail?: Resolver<Maybe<ResolversTypes['UserEmail']>, ParentType, ContextType, RequireFields<MutationRemoveUserEmailArgs, 'email'>>;
   requestFeedback?: Resolver<Maybe<ResolversTypes['PlanFeedback']>, ParentType, ContextType, RequireFields<MutationRequestFeedbackArgs, 'planId'>>;
@@ -8172,6 +8297,7 @@ export type MutationResolvers<ContextType = MyContext, ParentType extends Resolv
   updateTag?: Resolver<Maybe<ResolversTypes['Tag']>, ParentType, ContextType, RequireFields<MutationUpdateTagArgs, 'name' | 'tagId'>>;
   updateTemplate?: Resolver<Maybe<ResolversTypes['Template']>, ParentType, ContextType, RequireFields<MutationUpdateTemplateArgs, 'name' | 'templateId'>>;
   updateTemplateCustomization?: Resolver<ResolversTypes['TemplateCustomizationOverview'], ParentType, ContextType, RequireFields<MutationUpdateTemplateCustomizationArgs, 'input'>>;
+  updateTemplateLink?: Resolver<Maybe<ResolversTypes['TemplateLink']>, ParentType, ContextType, RequireFields<MutationUpdateTemplateLinkArgs, 'templateLinkId' | 'url'>>;
   updateUserInfo?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationUpdateUserInfoArgs, 'input'>>;
   updateUserNotifications?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationUpdateUserNotificationsArgs, 'input'>>;
   updateUserProfile?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType, RequireFields<MutationUpdateUserProfileArgs, 'input'>>;
@@ -9290,6 +9416,8 @@ export type TemplateResolvers<ContextType = MyContext, ParentType extends Resolv
   latestPublishDate?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   latestPublishVersion?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   latestPublishVisibility?: Resolver<Maybe<ResolversTypes['TemplateVisibility']>, ParentType, ContextType>;
+  links?: Resolver<Maybe<Array<ResolversTypes['TemplateLink']>>, ParentType, ContextType, Partial<TemplateLinksArgs>>;
+  maxLinks?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType, RequireFields<TemplateMaxLinksArgs, 'linkType'>>;
   modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
@@ -9375,6 +9503,27 @@ export type TemplateErrorsResolvers<ContextType = MyContext, ParentType extends 
   sectionIds?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   sourceTemplateId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   sourceVersionedTemplateId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+};
+
+export type TemplateLinkResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['TemplateLink'] = ResolversParentTypes['TemplateLink']> = {
+  created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  createdById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  errors?: Resolver<Maybe<ResolversTypes['TemplateLinkErrors']>, ParentType, ContextType>;
+  id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  linkType?: Resolver<ResolversTypes['TemplateLinkType'], ParentType, ContextType>;
+  modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  templateId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  text?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  url?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+};
+
+export type TemplateLinkErrorsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['TemplateLinkErrors'] = ResolversParentTypes['TemplateLinkErrors']> = {
+  general?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  linkType?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  templateId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  text?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  url?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 };
 
 export type TemplateSearchResultResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['TemplateSearchResult'] = ResolversParentTypes['TemplateSearchResult']> = {
@@ -9751,6 +9900,7 @@ export type VersionedTemplateResolvers<ContextType = MyContext, ParentType exten
   errors?: Resolver<Maybe<ResolversTypes['VersionedTemplateErrors']>, ParentType, ContextType>;
   id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   isDefault?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
+  links?: Resolver<Maybe<Array<ResolversTypes['VersionedTemplateLink']>>, ParentType, ContextType, Partial<VersionedTemplateLinksArgs>>;
   modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
@@ -9775,6 +9925,18 @@ export type VersionedTemplateErrorsResolvers<ContextType = MyContext, ParentType
   versionedById?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   versionedSectionIds?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   visibility?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+};
+
+export type VersionedTemplateLinkResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['VersionedTemplateLink'] = ResolversParentTypes['VersionedTemplateLink']> = {
+  created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  createdById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  linkType?: Resolver<ResolversTypes['TemplateLinkType'], ParentType, ContextType>;
+  modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  text?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  url?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  versionedTemplateId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
 };
 
 export type VersionedTemplateSearchResultResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['VersionedTemplateSearchResult'] = ResolversParentTypes['VersionedTemplateSearchResult']> = {
@@ -9983,6 +10145,8 @@ export type Resolvers<ContextType = MyContext> = {
   TemplateCustomizationErrors?: TemplateCustomizationErrorsResolvers<ContextType>;
   TemplateCustomizationOverview?: TemplateCustomizationOverviewResolvers<ContextType>;
   TemplateErrors?: TemplateErrorsResolvers<ContextType>;
+  TemplateLink?: TemplateLinkResolvers<ContextType>;
+  TemplateLinkErrors?: TemplateLinkErrorsResolvers<ContextType>;
   TemplateSearchResult?: TemplateSearchResultResolvers<ContextType>;
   TemplateSearchResults?: TemplateSearchResultsResolvers<ContextType>;
   TypeCount?: TypeCountResolvers<ContextType>;
@@ -10012,6 +10176,7 @@ export type Resolvers<ContextType = MyContext> = {
   VersionedSectionSearchResults?: VersionedSectionSearchResultsResolvers<ContextType>;
   VersionedTemplate?: VersionedTemplateResolvers<ContextType>;
   VersionedTemplateErrors?: VersionedTemplateErrorsResolvers<ContextType>;
+  VersionedTemplateLink?: VersionedTemplateLinkResolvers<ContextType>;
   VersionedTemplateSearchResult?: VersionedTemplateSearchResultResolvers<ContextType>;
   Work?: WorkResolvers<ContextType>;
   WorkVersion?: WorkVersionResolvers<ContextType>;

@@ -77,6 +77,11 @@ const { buildContext, mockToken } = await import("../../__mocks__/context.js");
 const { Template } = await import("../../models/Template.js");
 const { VersionedTemplate } = await import("../../models/VersionedTemplate.js");
 const { UserRole } = await import("../../models/User.js");
+const { Section } = await import("../../models/Section.js");
+const { VersionedSection } = await import("../../models/VersionedSection.js");
+const { TemplateLink, TemplateLinkType } = await import("../../models/TemplateLink.js");
+const { VersionedTemplateLink } = await import("../../models/VersionedTemplateLink.js");
+const { AdminNotification } = await import("../../models/AdminNotifications.js");
 
 
 let testServer: ApolloServer;
@@ -326,5 +331,104 @@ describe('templateNameAvailable query', () => {
     expect(result.body.singleResult.errors).toBeUndefined();
     expect(result.body.singleResult.data.templateNameAvailable).toBe(false);
     expect(findSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('addTemplate mutation (copying links)', () => {
+  let newTemplateId: number;
+  let mockLinkCreate: ReturnType<typeof jest.fn>;
+
+  beforeEach(() => {
+    query = `
+      mutation AddTemplate($name: String!, $copyFromTemplateId: Int, $copyFromVersionedTemplateId: Int) {
+        addTemplate(
+          name: $name,
+          copyFromTemplateId: $copyFromTemplateId,
+          copyFromVersionedTemplateId: $copyFromVersionedTemplateId
+        ) {
+          id
+          errors { general }
+        }
+      }
+    `;
+
+    newTemplateId = templateId + 1000;
+    jest.spyOn(Template.prototype, 'create')
+      .mockResolvedValue(new Template({ id: newTemplateId, name: 'Copy', ownerId: affiliationId }));
+    jest.spyOn(AdminNotification, 'addNotificationForAffiliation').mockResolvedValue(undefined);
+    jest.spyOn(Section, 'findByTemplateId').mockResolvedValue([]);
+    jest.spyOn(VersionedSection, 'findByTemplateId').mockResolvedValue([]);
+
+    mockLinkCreate = jest.fn<(...args: any[]) => Promise<any>>()
+      .mockImplementation(async function (this: any) { return this; });
+    jest.spyOn(TemplateLink.prototype, 'create').mockImplementation(mockLinkCreate as any);
+  });
+
+  it('copies the links from a Template owned by the admin', async () => {
+    jest.spyOn(Template, 'findById')
+      .mockResolvedValue(new Template({ id: templateId, name: 'Original', ownerId: affiliationId }));
+    const findLinksSpy = jest.spyOn(TemplateLink, 'findByTemplateId').mockResolvedValue([
+      new TemplateLink({ id: 1, templateId, linkType: TemplateLinkType.FUNDER, url: 'https://funder.org/a' }),
+    ]);
+
+    const result = await executeQuery(query, { name: 'Copy', copyFromTemplateId: templateId }, adminToken);
+
+    expect(result.body.singleResult.errors).toBeUndefined();
+    expect(result.body.singleResult.data.addTemplate.errors.general).toBeNull();
+    expect(findLinksSpy).toHaveBeenCalledWith('addTemplate resolver', expect.anything(), templateId);
+    expect(mockLinkCreate).toHaveBeenCalledTimes(1);
+    const copy = (mockLinkCreate.mock.contexts as any[])[0];
+    expect(copy.templateId).toEqual(newTemplateId);
+    expect(copy.url).toEqual('https://funder.org/a');
+  });
+
+  it('copies the links from a published VersionedTemplate', async () => {
+    const versionedTemplateId = casual.integer(1, 999);
+    jest.spyOn(VersionedTemplate, 'findById')
+      .mockResolvedValue(new VersionedTemplate({ id: versionedTemplateId, templateId, name: 'Published' }));
+    const findLinksSpy = jest.spyOn(VersionedTemplateLink, 'findByVersionedTemplateId').mockResolvedValue([
+      new VersionedTemplateLink({
+        id: 2,
+        versionedTemplateId,
+        linkType: TemplateLinkType.SAMPLE_PLAN,
+        url: 'https://funder.org/sample.pdf',
+      }),
+    ]);
+
+    const result = await executeQuery(
+      query,
+      { name: 'Copy', copyFromVersionedTemplateId: versionedTemplateId },
+      adminToken
+    );
+
+    expect(result.body.singleResult.errors).toBeUndefined();
+    expect(findLinksSpy).toHaveBeenCalledWith('addTemplate resolver', expect.anything(), versionedTemplateId);
+    const copy = (mockLinkCreate.mock.contexts as any[])[0];
+    expect(copy.templateId).toEqual(newTemplateId);
+    expect(copy.linkType).toEqual(TemplateLinkType.SAMPLE_PLAN);
+  });
+
+  it('returns an error when a link could not be copied', async () => {
+    jest.spyOn(Template, 'findById')
+      .mockResolvedValue(new Template({ id: templateId, name: 'Original', ownerId: affiliationId }));
+    jest.spyOn(TemplateLink, 'findByTemplateId').mockResolvedValue([
+      new TemplateLink({ id: 1, templateId, linkType: TemplateLinkType.FUNDER, url: 'https://funder.org/a' }),
+    ]);
+    mockLinkCreate.mockResolvedValue(null);
+
+    const result = await executeQuery(query, { name: 'Copy', copyFromTemplateId: templateId }, adminToken);
+
+    expect(result.body.singleResult.data.addTemplate.id).toEqual(newTemplateId);
+    expect(result.body.singleResult.data.addTemplate.errors.general)
+      .toEqual('Created Template but unable to copy all links');
+  });
+
+  it('does not look up links when creating a Template from scratch', async () => {
+    const findLinksSpy = jest.spyOn(TemplateLink, 'findByTemplateId');
+
+    const result = await executeQuery(query, { name: 'Brand new' }, adminToken);
+
+    expect(result.body.singleResult.errors).toBeUndefined();
+    expect(findLinksSpy).not.toHaveBeenCalled();
   });
 });

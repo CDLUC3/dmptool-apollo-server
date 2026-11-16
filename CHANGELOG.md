@@ -3,6 +3,9 @@
 ## v1.1.0
 
 ### Added
+- Added `templateLink` schema and resolvers: `addTemplateLink`, `updateTemplateLink` and `removeTemplateLink` mutations, a `links(linkType)` field and a `maxLinks(linkType)` field on `Template`, and a `links(linkType)` field on `VersionedTemplate`. These support the funder links and sample plan links in the Template Builder's "Links" sidebar. Links can only be added or edited when the Template's owner affiliation has `funder` set to `true` (they can always be removed) [#251]
+- Added `update` method to the `TemplateLink` model, and limited a Template to `MAX_TEMPLATE_FUNDER_LINKS` funder links and `MAX_TEMPLATE_SAMPLE_PLAN_LINKS` sample plan links (both default to 5) [#251]
+- Added `generateTemplateLinkVersions` and `cloneTemplateLinks` to `templateService`. Links are now copied into `versionedTemplateLinks` when a Template is versioned, and copied when a Template is created from an existing Template or VersionedTemplate [#251]
 - Added `syncOpenSearchDmps` script to synchronize DMPs with OpenSearch from the CLI. 
 - Added new `syncJobStatus` table to track the status of data sync jobs, including cursor position and error information.
 - Added `DataSyncJob` model to manage data synchronization tasks.
@@ -413,6 +416,8 @@
 - Removed `ioredis` package
 
 ### Fixed
+- Fixed `TemplateLink` and `VersionedTemplateLink` URL validation, which was inverted (valid URLs were rejected and invalid ones accepted) [#251]
+- Fixed `VersionedTemplateLink` model to use the `versionedTemplateId` column instead of the non-existent `templateId` column [#251]
 - Fixed the `users` query not finding a user when the search term combines their given name and surname (e.g. "Jane Smith", "Smith, Jane"). `User.search` and `User.findByAffiliationId` now split the term into words and require every word to match one of the fields, using the new `buildSearchTermFilter` helper. An empty term now adds no search filter, so all qualifying users are returned [#389]
 - Fixed `getPlanSectionsAndQuestions` crashing with "Cannot read properties of undefined (reading 'introduction')" for plans whose customization has a custom section. It looked up custom sections by `versionedCustomSections.id` using `customSectionId` values; it now loads the custom sections of the plan's `versionedTemplateCustomizationId` and matches them on `customSectionId`. This also restores the custom section's guidance on its custom questions [#561]
 - Fixed `plan.sections.questions` (`getPlanSectionsAndQuestions`) so each `PlanQuestion` returns `useSampleTextAsDefault`, which was always null, and its `answer` includes saved blank answers. `hasAnswer`, progress and display logic still only count filled answers. The UI needs the flag to prefill sample text, and needs blank answers so it doesn't prefill over them and can update them instead of failing with "Answer already exists" [#581]

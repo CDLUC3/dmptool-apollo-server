@@ -137,6 +137,11 @@ export const typeDefs = gql`
     collaborators: [TemplateCollaborator!]
     "Admin users associated with the template's owner"
     admins: [User!]
+
+    "The funder and sample plan links associated with the Template (optionally filtered by type)"
+    links(linkType: TemplateLinkType): [TemplateLink!]
+    "The maximum number of links of the specified type that the Template can have"
+    maxLinks(linkType: TemplateLinkType!): Int
   }
 
   "A collection of errors related to the Template"

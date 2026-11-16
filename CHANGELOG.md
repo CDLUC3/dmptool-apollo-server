@@ -3,6 +3,18 @@
 ## v1.1.0
 
 ### Added
+- Added `AGENTS.md` and `CLAUDE.md` files
+- Added data migration for the `oauthClientPermissions` table to store the permissions/grants associated with an Oauth client.
+- Added `.npmrc` and `.prettierrc` files
+- Added `prettier` dependency, pegged all dependencies and rebuilt the `package-lock.json` file to remove vulnerabilities
+- Added `disconnectSSO` mutation to the `users` schema
+- Added `hasSSO` boolean and `ssoEntityId` to the `User` type in the schema
+- Added `isHidden` to `PlanQuestion`, so the plan's questions report whether their display logic hides them based on the plan's saved answers. Visibility is decided by `findHiddenQuestionIds` from `@dmptool/utils`, so it follows the same rules as the other services [#366]
+- Added `hiddenVersionedQuestionIds` chained resolver to `Plan`, a lightweight way to get the hidden questions after an answer is saved (e.g. via `addAnswer`/`updateAnswer { plan { hiddenVersionedQuestionIds } }`). It only loads the template's display logic and the saved answers to its trigger questions [#366]
+- Added `findHiddenVersionedQuestionIds` and `findHiddenVersionedQuestionIdsForPlan` to `conditionalLogicService` [#366]
+- Added the `@dmptool/utils` display logic functions to the `@dmptool/utils` Jest mock, using the real implementations [#366]
+- Added `createDefaultAnswersForPlan` in `planService` so that any default selections set for an options questions is set as the `answer` at the time the plan is created. Otherwise, the user sees the default one selected on the PlanOverview page, assumes it is already selected so doesn't click "Save" on it, and when they download the plan, the answer for that question is missing [#366]
+- Added `defaultAnswerForQuestion` in `planService` to get the default selected option(s) [#366]
 - Added a `isPlanReadOnlyForCurrentUser` function to the `planService` to determine if the current user has read-only access to a given plan. [#430]
 - Added a `getAllAvailableGuidanceForVersionedTemplate` function to the `guidanceService` to return all available tagged guidance for a given versioned template [#430]
 - Added `versionedTemplateCustomizationId` column to the `plans` table via data migration, so a Plan stays tied to the version of the template customization that existed when it was created [#388]
@@ -155,6 +167,8 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Updated the `sendContactUsEmail` and `sendEmail` functions in `emailService.ts` so that Contact Us emails will not include the env prefix or "Contact Us form submissions" [#346]
+- Updated `findConditionalLogicForPlan` to return each question's display logic grouped by condition group, and to map each group's trigger question to its `versionedQuestionId` within the plan's versioned template [#366]
 - Updated error messages related to mutations that conflict with existing display logic [#1472]
 - Updated `@dmptool/utils` to `v2.2.3`
 - Updated `dmptool-utils` to `v2.2.2` to get updates related to customizations and a research output bug [#388]
@@ -343,6 +357,8 @@
 - Updates to appease newer version of eslint
 
 ### Removed
+- Added `displayLogicAction` and `displayLogicMatchType` to `updateQuestion` resolver so that it doesn't fall back to default settings whenever a question is edited [#586]
+- Removed `conditionalLogic` and its `VersionedQuestionConditionalLogic` type from `PlanQuestion`, since the plan's display logic is now applied on the server through `isHidden` [#366]
 - Removed `VersionedQuestionCustomization.findActiveByTemplateAffiliationAndQuestion` and `VersionedSectionCustomization.findActiveByTemplateAffiliationAndSection`, which have been replaced by the existing `findByVersionedCustomizationAndVersionedQuestion` and `findByVersionedCustomizationAndVersionedSection` [#388]
 - Removed the private `findTemplateCustomizationId` helper from `PlanSectionProgress` [#388]
 - Removed the reset password logic as this will now be handled by the external Auth service
@@ -373,6 +389,9 @@
 - Removed `ioredis` package
 
 ### Fixed
+- I was not able to start the app locally because the latest version of `localstack` image no longer uses `curl`. So I switched `docker-compose.yaml` and `localstack-setup/init.aws.sh` to use `python3` in place of `curl` which should be backwards compatible. Also, addressed `zod` and `body-parser` vulnerabilities.
+- Fixed issues with `projectImport`: 1. Incorrect permission check due to missing `await`; 2. Made sure to merge existing data with the updates in the input, so we don't set values for missing fields to NULL; 3. Added checks that `funding` or `members` data was provided in the input before trying to iterate over them, which was causing an error; 4. Made sure to include `projectId` in `ProjectFunding.create` and `ProjectMember.create`, because the data wasn't being saved in certain instances [#576]
+- Fixed bug where `ownerAffiliation` was being set in `getPlanSectionsAndQuestions` using `versionedCustomization` even though it could be `null` [#863]
 - Fixed `@graphql-tools/utils` high vulnerability by updating `@graphql-tools/schema` to `v10.1.3`, `@graphql-tools/mock` to `v9.1.16` and `@graphql-tools/merge` to `v9.2.6`. Also, ran `npm audit fix` to address `proxy-addr` vulnerability which comes from `express@5.2.1`.
 - Fixed `@fastify/busboy` (`v3.2.2`) and `http-cache-semantics` (`v4.3.0`) by funning `npm audit fix`. The other high vulnerabilities listed are `development-only` tools, so they don't affect build or production. Updated `buildspec.yaml` to remove the `echo "production=false" >> .npmrc` which was overriding the `npm audit --omit=dev` [#458]
 - Fixed `npm ci` failure on `development` by restoring an in-sync `package-lock.json` (it was out of sync after #838 was merged)
@@ -396,6 +415,7 @@
 - In `preparePaginationOptions` function, wrapped each cursorField with `COALESCE` to handle `NULL` values in SQL `CONCAT`, otherwise if any cursorField is NULL, it would just return a null value due to the way `CONCAT` works [#107]
 - Fixed breaking cloning of template. The `addTemplate` was updated to accept a `copyFromVersionedTemplateId` so that we copy from versioned template, section and questions, when it's not a template from the user's org. Otherwise we check for `copyFromTemplateId` to copy/clone from templates, sections and questions, and if neither are present, we continue to create a new record for `templates` table [#1006]
 - Fixed issue with templates not cloning with sections and questions by updating the `addTemplate` mutation to clone from non-versioned template, section and question [#1006]
+- Fixed a bug in `getPlanSectionsAndQuestions` in `planService` where a template question's own sample text went missing from the Plan one-page design when the plan owner's org had also customized that question. The question's guidance and sample were being added to the `customization-<uri>` guidance source, because the lookup matched any `USER_AFFILIATION` source for the owner's org. The UI reads one sample per guidance source, so only the customization sample was shown. The lookup now matches the `affiliation-<uri>` source by id, so the template and customization samples come back on separate sources and both display. This also stops a second source with a duplicate `affiliation-<uri>` id being created when the plan owner's org is also the template owner
 
 ### Chore
 - Updated `typescript` to `v6.0.3` and fixed high vulnerabilities in `js-yaml` and `nodemailer` [#257]

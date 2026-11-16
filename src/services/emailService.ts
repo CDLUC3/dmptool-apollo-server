@@ -80,10 +80,14 @@ const sendEmail = async (
   subject: string,
   message: string,
   asHTML = true,
-  replyTo: string = emailConfig.helpDeskAddress
+  replyTo: string = emailConfig.helpDeskAddress,
+  includeAppPrefix = true
 ): Promise<boolean> => {
   // Add the App name to the start of the subject line. We include the env when not in production
-  const subjectLine = `${generalConfig.applicationName} - ${subject}`;
+  const subjectLine = includeAppPrefix
+    ? `${generalConfig.applicationName} - ${subject}`
+    : subject;
+
 
   if (['development'].includes(process.env.NODE_ENV || '')) {
     // When running in development mode, we do not have access to AWS SES and we probably don't want to
@@ -340,9 +344,10 @@ export const sendContactUsEmail = async (
     [emailConfig.helpDeskAddress], // to
     [],// cc
     [],// bcc
-    `${emailSubjects.contactUs}: ${subject}`,
+    `${subject}`,
     body,
     true, // asHTML
     email, // replyTo
+    false // includeAppPrefix
   );
 }

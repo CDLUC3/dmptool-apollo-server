@@ -215,7 +215,7 @@ describe('sendEmail', () => {
   it('should send the project collaborators emails when a comment is added', async () => {
     jest.spyOn(logger, 'info');
     const email = casual.email;
-    const emails = Array.from({length: 5}, () => casual.email);
+    const emails = Array.from({ length: 5 }, () => casual.email);
     jest.spyOn(User.prototype, 'getEmail').mockResolvedValue(email);
     const sent = await sendProjectCollaboratorsCommentsAddedEmail(context, emails);
 
@@ -341,13 +341,13 @@ describe('sendEmail', () => {
 
   it('should send feedback request emails to all collaborators', async () => {
     jest.spyOn(logger, 'info');
-    const emails = Array.from({length: 3}, () => casual.email);
+    const emails = Array.from({ length: 3 }, () => casual.email);
     const planOwnerName = `${casual.first_name} ${casual.last_name}`;
     const planURL = `/plans/${casual.uuid}`;
     const planTitle = casual.sentence;
     const feedbackMessage = casual.sentence;
     // Import here to avoid hoisting issues
-    const {sendFeedbackRequestEmail} = await import('../emailService.js');
+    const { sendFeedbackRequestEmail } = await import('../emailService.js');
     const sent = await sendFeedbackRequestEmail(context, planOwnerName, planURL, planTitle, emails, feedbackMessage);
 
     const expectedSubject = `${subjectPrefix} - ${emailSubjects.feedbackRequest}`;
@@ -388,7 +388,7 @@ describe('sendEmail', () => {
 
     const sent = await sendContactUsEmail(context, name, email, subject, message);
 
-    const expectedSubject = `${subjectPrefix} - ${emailSubjects.contactUs}: ${subject}`;
+    const expectedSubject = `${subject}`;
     const attribution = `Sent by ${name} <${email}>`;
     const expectedHtml = emailMessages.contactUs
       .replace('%{message}', message)

@@ -25,6 +25,13 @@ export const DMP_TOMBSTONE_VERSION = actual.DMP_TOMBSTONE_VERSION;
 // ── cloudFormation ─────────────────────────────────────────────────────────
 export const getExport = jest.fn();
 
+// ── displayLogic ───────────────────────────────────────────────────────────
+// Pure functions with no AWS dependencies, so the real implementations are used
+export const extractAnswerValues = actual.extractAnswerValues;
+export const evaluateCondition = actual.evaluateCondition;
+export const isQuestionVisible = actual.isQuestionVisible;
+export const findHiddenQuestionIds = actual.findHiddenQuestionIds;
+
 // ── dynamo ─────────────────────────────────────────────────────────────────
 export const DMPExists = jest.fn();
 export const getAllUniqueDMPIds = jest.fn();

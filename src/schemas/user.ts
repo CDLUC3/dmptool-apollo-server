@@ -21,6 +21,8 @@ export const typeDefs = gql`
     updateUserNotifications(input: UpdateUserNotificationsInput!): User
     "Set the user's ORCID"
     setUserOrcid(orcid: String!): User
+    "Disconnect the current user from their affiliation's SSO"
+    disconnectSSO: User
     "Anonymize the current user's account (essentially deletes their account without orphaning things)"
     removeUser: User
 
@@ -83,8 +85,10 @@ export const typeDefs = gql`
     acceptedTerms: Boolean
     "The user's ORCID"
     orcid: Orcid
-    "The user's SSO ID"
-    ssoId: String
+    "Whether the user has an SSO account connected to their account"
+    hasSSO: Boolean
+    "The SSO entityID for the user's affiliation"
+    ssoEntityId: String
     "The user's preferred language"
     languageId: String!
 
@@ -152,7 +156,7 @@ export const typeDefs = gql`
     affiliationId: String
     otherAffiliationName: String
     orcid: String
-    ssoId: String
+    hasSSO: String
     languageId: String
     password: String
     confirmPassword: String

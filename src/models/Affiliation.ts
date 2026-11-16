@@ -315,6 +315,14 @@ export class Affiliation extends MySqlModel {
     return Array.isArray(results) && results.length > 0 ? this.processResult(results[0]) : null;
   }
 
+  // Return the specified Affiliations based on the URIs
+  static async findByURIs(reference: string, context: MyContext, uris: string[]): Promise<Affiliation[]> {
+    const placeholders = uris.map(() => '?').join(', ');
+    const sql = `SELECT * FROM affiliations WHERE uri in (${placeholders})`;
+    const results = await Affiliation.query(context, sql, uris, reference);
+    return Array.isArray(results) && results.length > 0 ? results.map((r) => this.processResult(r)) : null;
+  }
+
   // Return the specified Affiliation based on it's name
   static async findByName(reference: string, context: MyContext, name: string): Promise<Affiliation> {
     const sql = 'SELECT * FROM affiliations WHERE TRIM(LOWER(name)) = ? OR TRIM(LOWER(displayName)) = ?';

@@ -831,6 +831,20 @@ export class AcceptedWork extends MySqlModel {
     const result = await AcceptedWork.query(context, sql, vals, reference);
     return Array.isArray(result) && result.length > 0 ? result.map((work): AcceptedWork => new AcceptedWork(work)) : [];
   }
+
+  // Find all the AcceptedWorks for the Plans
+  static async findByPlanIds(reference: string, context: MyContext, planIds: number[]): Promise<AcceptedWork[]> {
+    const placeholders = planIds.map(() => '?').join(', ');
+    const sql = `SELECT rw.planId, w.doi, w.id AS workId, wv.id AS workVersionId,
+                   rw.id AS relatedWorkId, rw.relationType, wv.*
+                 FROM relatedWorks rw
+                   INNER JOIN workVersions wv ON rw.workVersionId = wv.id
+                   INNER JOIN works w ON wv.workId = w.id
+                 WHERE rw.status = ? AND rw.planId IN (${placeholders})`;
+    const vals: string[] = [RelatedWorkStatus.ACCEPTED, ...planIds.map(id => id?.toString())];
+    const result = await AcceptedWork.query(context, sql, vals, reference);
+    return Array.isArray(result) && result.length > 0 ? result.map((work): AcceptedWork => new AcceptedWork(work)) : [];
+  }
 }
 
 export enum WorkType {

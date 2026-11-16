@@ -205,6 +205,15 @@ export class ProjectMember extends MySqlModel {
     return Array.isArray(results) ? results.map((item) => new ProjectMember(item)) : [];
   }
 
+  // Find all the members for the projects
+  static async findByProjectIds(reference: string, context: MyContext, projectIds: number[]): Promise<ProjectMember[]> {
+    const placeholders = projectIds.map((): string => '?').join(', ');
+    const sql = `SELECT * FROM ${this.tableName} WHERE projectId IN (${placeholders})`;
+    const vals: string[] = projectIds.map((id: number) => id?.toString());
+    const results = await ProjectMember.query(context, sql, vals, reference);
+    return Array.isArray(results) ? results.map((item) => new ProjectMember(item)) : [];
+  }
+
   // Return all members associated with the Affiliation
   static async findByAffiliation(reference: string, context: MyContext, affiliationId: string): Promise<ProjectMember[]> {
     const sql = `SELECT * FROM ${ProjectMember.tableName} WHERE affiliationId = ? ORDER BY surName, givenName`;
@@ -427,6 +436,15 @@ export class PlanMember extends MySqlModel {
   static async findByPlanId(reference: string, context: MyContext, planId: number): Promise<PlanMember[]> {
     const sql = `SELECT * FROM ${this.tableName} WHERE planId = ? ORDER BY isPrimaryContact DESC`;
     const results = await PlanMember.query(context, sql, [planId?.toString()], reference);
+    return Array.isArray(results) ? results.map((item) => new PlanMember(item)) : [];
+  }
+
+  // Find all the members for the plans
+  static async findByPlanIds(reference: string, context: MyContext, planIds: number[]): Promise<PlanMember[]> {
+    const placeholders = planIds.map((): string => '?').join(', ');
+    const sql = `SELECT * FROM ${this.tableName} WHERE planId IN (${placeholders})`;
+    const vals: string[] = planIds.map((id: number) => id?.toString());
+    const results = await ProjectMember.query(context, sql, vals, reference);
     return Array.isArray(results) ? results.map((item) => new PlanMember(item)) : [];
   }
 

@@ -10,18 +10,6 @@ export const typeDefs = gql`
     removeTemplateLink(templateLinkId: Int!): TemplateLink
   }
 
-  extend type Template {
-    "The funder and sample plan links associated with the Template (optionally filtered by type)"
-    links(linkType: TemplateLinkType): [TemplateLink!]
-    "The maximum number of links of the specified type that the Template can have"
-    maxLinks(linkType: TemplateLinkType!): Int
-  }
-
-  extend type VersionedTemplate {
-    "The funder and sample plan links captured when the Template was versioned (optionally filtered by type)"
-    links(linkType: TemplateLinkType): [VersionedTemplateLink!]
-  }
-
   "The type of link"
   enum TemplateLinkType {
     "A link to the funder's website or guidance about the requirements for the Template"

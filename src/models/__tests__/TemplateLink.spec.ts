@@ -55,14 +55,29 @@ describe('TemplateLink', () => {
       expect(link.modifiedById).toEqual(linkData.modifiedById);
     });
 
-    it('should trim the url and text', () => {
-      const trimmed = new TemplateLink({ ...linkData, url: '  https://example.org  ', text: '  Example  ' });
-      expect(trimmed.url).toEqual('https://example.org');
-      expect(trimmed.text).toEqual('Example');
+    it('should not trim the url and text (trimming happens in prepForSave)', () => {
+      const untrimmed = new TemplateLink({ ...linkData, url: '  https://example.org  ', text: '  Example  ' });
+      expect(untrimmed.url).toEqual('  https://example.org  ');
+      expect(untrimmed.text).toEqual('  Example  ');
     });
 
     it('should handle optional text', () => {
       const noText = new TemplateLink({ ...linkData, text: undefined });
+      expect(noText.text).toBeUndefined();
+    });
+  });
+
+  describe('prepForSave', () => {
+    it('should trim the url and text', () => {
+      const untrimmed = new TemplateLink({ ...linkData, url: '  https://example.org  ', text: '  Example  ' });
+      untrimmed.prepForSave();
+      expect(untrimmed.url).toEqual('https://example.org');
+      expect(untrimmed.text).toEqual('Example');
+    });
+
+    it('should handle optional text', () => {
+      const noText = new TemplateLink({ ...linkData, text: undefined });
+      noText.prepForSave();
       expect(noText.text).toBeUndefined();
     });
   });
@@ -170,6 +185,28 @@ describe('TemplateLink', () => {
       expect(result).toEqual(link);
     });
 
+    it('should trim the url and text before checking for duplicates and saving', async () => {
+      const untrimmed = new TemplateLink({ ...linkData, url: '  https://example.org  ', text: '  Example  ' });
+      mockFindByTemplateAndURL.mockResolvedValueOnce(null);
+      mockFindByTemplateId.mockResolvedValueOnce([]);
+      insertQuery.mockResolvedValueOnce(link.id);
+      mockFindById.mockResolvedValueOnce(link);
+
+      await untrimmed.create(context);
+      expect(mockFindByTemplateAndURL).toHaveBeenCalledWith(
+        'TemplateLink.create',
+        context,
+        linkData.templateId,
+        'https://example.org'
+      );
+      expect(insertQuery).toHaveBeenCalledWith(
+        context,
+        'templateLinks',
+        expect.objectContaining({ url: 'https://example.org', text: 'Example' }),
+        'TemplateLink.create'
+      );
+    });
+
     it('should return an error if the url is already associated with the Template', async () => {
       mockFindByTemplateAndURL.mockResolvedValueOnce(new TemplateLink(linkData));
 
@@ -232,6 +269,27 @@ describe('TemplateLink', () => {
       const result = await link.update(context);
       expect(updateQuery).toHaveBeenCalledTimes(1);
       expect(Object.keys(result.errors).length).toBe(0);
+    });
+
+    it('should trim the url and text before checking for duplicates and saving', async () => {
+      const untrimmed = new TemplateLink({ ...linkData, url: '  https://example.org  ', text: '  Example  ' });
+      mockFindByTemplateAndURL.mockResolvedValueOnce(null);
+      updateQuery.mockResolvedValueOnce(link);
+      mockFindById.mockResolvedValueOnce(link);
+
+      await untrimmed.update(context);
+      expect(mockFindByTemplateAndURL).toHaveBeenCalledWith(
+        'TemplateLink.update',
+        context,
+        linkData.templateId,
+        'https://example.org'
+      );
+      expect(updateQuery).toHaveBeenCalledWith(
+        context,
+        'templateLinks',
+        expect.objectContaining({ url: 'https://example.org', text: 'Example' }),
+        'TemplateLink.update'
+      );
     });
 
     it('should allow the link to keep its own url', async () => {

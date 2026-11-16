@@ -110,6 +110,20 @@ describe('VersionedTemplateLink', () => {
       expect(result).toEqual(link);
     });
 
+    it('should trim the url and text before saving', async () => {
+      const untrimmed = new VersionedTemplateLink({ ...linkData, url: '  https://example.org  ', text: '  Example  ' });
+      insertQuery.mockResolvedValueOnce(link.id);
+      mockFindById.mockResolvedValueOnce(link);
+
+      await untrimmed.create(context);
+      expect(insertQuery).toHaveBeenCalledWith(
+        context,
+        'versionedTemplateLinks',
+        expect.objectContaining({ url: 'https://example.org', text: 'Example' }),
+        'VersionedTemplateLink.create'
+      );
+    });
+
     it('should return validation errors', async () => {
       const invalid = new VersionedTemplateLink({ ...linkData, url: 'invalid' });
 

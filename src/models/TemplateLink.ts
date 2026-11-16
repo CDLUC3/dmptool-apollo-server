@@ -53,8 +53,8 @@ export class TemplateLink extends MySqlModel {
 
     this.templateId = options.templateId;
     this.linkType = options.linkType;
-    this.url = options.url?.trim();
-    this.text = options.text?.trim();
+    this.url = options.url;
+    this.text = options.text;
   }
 
   // Validation to be used prior to saving the record
@@ -67,9 +67,19 @@ export class TemplateLink extends MySqlModel {
     return Object.keys(this.errors).length === 0;
   }
 
+  /**
+ * Ensure data integrity by trimming leading/trailing spaces.
+ */
+  prepForSave(): void {
+    // Remove leading/trailing blank spaces
+    this.url = this.url?.trim();
+    this.text = this.text?.trim();
+  }
+
   // Save the current record
   async create(context: MyContext): Promise<TemplateLink> {
     const reference = 'TemplateLink.create';
+    this.prepForSave();
 
     if (await this.isValid()) {
       // Make sure the link isn't already associated with the Template
@@ -103,6 +113,7 @@ export class TemplateLink extends MySqlModel {
       return new TemplateLink(this);
     }
 
+    this.prepForSave();
     if (await this.isValid()) {
       // Make sure another link on the Template doesn't already use this URL
       const current = await TemplateLink.findByTemplateAndURL(reference, context, this.templateId, this.url);

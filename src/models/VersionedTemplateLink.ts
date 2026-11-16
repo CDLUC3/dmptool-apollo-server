@@ -17,8 +17,8 @@ export class VersionedTemplateLink extends MySqlModel {
 
     this.versionedTemplateId = options.versionedTemplateId;
     this.linkType = options.linkType;
-    this.url = options.url?.trim();
-    this.text = options.text?.trim();
+    this.url = options.url;
+    this.text = options.text;
   }
 
   // Validation to be used prior to saving the record
@@ -33,11 +33,21 @@ export class VersionedTemplateLink extends MySqlModel {
     return Object.keys(this.errors).length === 0;
   }
 
+  /**
+* Ensure data integrity by trimming leading/trailing spaces.
+*/
+  prepForSave(): void {
+    // Remove leading/trailing blank spaces
+    this.url = this.url?.trim();
+    this.text = this.text?.trim();
+  }
+
   // Save the current record
   //   - No duplicate URL check: each version gets a new versionedTemplateId and the
   //     source TemplateLinks were already checked for duplicates when they were saved
   async create(context: MyContext): Promise<VersionedTemplateLink> {
     const reference = 'VersionedTemplateLink.create';
+    this.prepForSave();
 
     if (await this.isValid()) {
       // Save the record and then fetch it

@@ -154,16 +154,16 @@ describe('addTemplateLink mutation', () => {
     expect(updateSpy).not.toHaveBeenCalled();
   });
 
-  it('returns an error when the Template is not owned by a funder', async () => {
+  it('throws a Forbidden error when the Template is not owned by a funder', async () => {
     mockNonFunderOwner();
     const createSpy = jest.spyOn(TemplateLink.prototype, 'create');
     const updateSpy = jest.spyOn(Template.prototype, 'update');
 
     const result = await executeQuery(query, variables(), adminToken);
 
-    expect(result.errors).toBeUndefined();
-    expect(result.data.addTemplateLink.id).toBeNull();
-    expect(result.data.addTemplateLink.errors.general).toEqual(FUNDER_ONLY_ERROR);
+    expect(result.data?.addTemplateLink).toBeFalsy();
+    expect(result.errors[0].extensions.code).toEqual('FORBIDDEN');
+    expect(result.errors[0].message).toEqual(FUNDER_ONLY_ERROR);
     expect(Affiliation.findByURI).toHaveBeenCalledWith('addTemplateLink resolver', expect.anything(), affiliationId);
     expect(createSpy).not.toHaveBeenCalled();
     expect(updateSpy).not.toHaveBeenCalled();
@@ -182,23 +182,25 @@ describe('addTemplateLink mutation', () => {
     expect(createSpy).toHaveBeenCalledTimes(1);
   });
 
-  it('returns an error when the owner\'s funder flag comes from MySQL as 0', async () => {
+  it('throws a Forbidden error when the owner\'s funder flag comes from MySQL as 0', async () => {
     jest.spyOn(Affiliation, 'findByURI').mockResolvedValue({ uri: affiliationId, funder: 0 } as any);
     const createSpy = jest.spyOn(TemplateLink.prototype, 'create');
 
     const result = await executeQuery(query, variables(), adminToken);
 
-    expect(result.data.addTemplateLink.errors.general).toEqual(FUNDER_ONLY_ERROR);
+    expect(result.errors[0].extensions.code).toEqual('FORBIDDEN');
+    expect(result.errors[0].message).toEqual(FUNDER_ONLY_ERROR);
     expect(createSpy).not.toHaveBeenCalled();
   });
 
-  it('returns an error when the Template owner cannot be found', async () => {
+  it('throws a Forbidden error when the Template owner cannot be found', async () => {
     jest.spyOn(Affiliation, 'findByURI').mockResolvedValue(null);
     const createSpy = jest.spyOn(TemplateLink.prototype, 'create');
 
     const result = await executeQuery(query, variables(), adminToken);
 
-    expect(result.data.addTemplateLink.errors.general).toEqual(FUNDER_ONLY_ERROR);
+    expect(result.errors[0].extensions.code).toEqual('FORBIDDEN');
+    expect(result.errors[0].message).toEqual(FUNDER_ONLY_ERROR);
     expect(createSpy).not.toHaveBeenCalled();
   });
 
@@ -279,18 +281,19 @@ describe('updateTemplateLink mutation', () => {
     expect(updateTemplateSpy).not.toHaveBeenCalled();
   });
 
-  it('returns an error when the Template is not owned by a funder', async () => {
+  it('throws a Forbidden error when the Template is not owned by a funder', async () => {
     jest.spyOn(TemplateLink, 'findById').mockResolvedValue(link);
     mockNonFunderOwner();
     const updateLinkSpy = jest.spyOn(TemplateLink.prototype, 'update');
+    const updateTemplateSpy = jest.spyOn(Template.prototype, 'update');
 
     const result = await executeQuery(query, { templateLinkId: link.id, url: 'https://funder.example.org/new' }, adminToken);
 
-    expect(result.errors).toBeUndefined();
-    expect(result.data.updateTemplateLink.errors.general).toEqual(FUNDER_ONLY_ERROR);
-    // The original values are returned unchanged
-    expect(result.data.updateTemplateLink.url).toEqual(link.url);
+    expect(result.data?.updateTemplateLink).toBeFalsy();
+    expect(result.errors[0].extensions.code).toEqual('FORBIDDEN');
+    expect(result.errors[0].message).toEqual(FUNDER_ONLY_ERROR);
     expect(updateLinkSpy).not.toHaveBeenCalled();
+    expect(updateTemplateSpy).not.toHaveBeenCalled();
   });
 
   it('throws a NotFound error when the link does not exist', async () => {
@@ -335,17 +338,19 @@ describe('removeTemplateLink mutation', () => {
     expect(updateTemplateSpy).toHaveBeenCalledTimes(1);
   });
 
-  it('still removes the link when the Template is no longer owned by a funder', async () => {
+  it('throws a Forbidden error when the Template is not owned by a funder', async () => {
     jest.spyOn(TemplateLink, 'findById').mockResolvedValue(link);
     mockNonFunderOwner();
-    const deleteSpy = jest.spyOn(TemplateLink.prototype, 'delete').mockResolvedValue(link);
-    jest.spyOn(Template.prototype, 'update').mockResolvedValue(template);
+    const deleteSpy = jest.spyOn(TemplateLink.prototype, 'delete');
+    const updateTemplateSpy = jest.spyOn(Template.prototype, 'update');
 
     const result = await executeQuery(query, { templateLinkId: link.id }, adminToken);
 
-    expect(result.errors).toBeUndefined();
-    expect(result.data.removeTemplateLink.id).toEqual(link.id);
-    expect(deleteSpy).toHaveBeenCalledTimes(1);
+    expect(result.data?.removeTemplateLink).toBeFalsy();
+    expect(result.errors[0].extensions.code).toEqual('FORBIDDEN');
+    expect(result.errors[0].message).toEqual(FUNDER_ONLY_ERROR);
+    expect(deleteSpy).not.toHaveBeenCalled();
+    expect(updateTemplateSpy).not.toHaveBeenCalled();
   });
 
   it('returns an error when the link could not be removed', async () => {

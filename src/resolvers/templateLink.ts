@@ -11,7 +11,17 @@ import { hasPermissionOnTemplate } from "../services/templateService.js";
 import { ForbiddenError, NotFoundError } from "../utils/graphQLErrors.js";
 import { normaliseDateTime } from "../utils/helpers.js";
 
-// Fetch the Template and verify that the current user is allowed to modify it
+export const FUNDER_ONLY_ERROR = 'Links are only available on Templates owned by a funder';
+
+// Funder and sample plan links are only available on Templates owned by a funder affiliation
+const isOwnedByFunder = async (reference: string, context: MyContext, template: Template): Promise<boolean> => {
+  const owner = await Affiliation.findByURI(reference, context, template.ownerId);
+  // findByURI returns the raw MySQL row, where the tinyint `funder` column is 1 or 0 rather than a boolean
+  return Boolean(owner?.funder);
+}
+
+// Fetch the Template and verify that the current user is allowed to modify its links. Links are
+// only available on Templates owned by a funder
 const findAuthorizedTemplate = async (
   reference: string,
   context: MyContext,
@@ -21,6 +31,10 @@ const findAuthorizedTemplate = async (
   if (!template) throw NotFoundError('Template not found');
 
   if (!(await hasPermissionOnTemplate(context, template))) throw ForbiddenError();
+
+  if (!(await isOwnedByFunder(reference, context, template))) {
+    throw ForbiddenError(FUNDER_ONLY_ERROR);
+  }
 
   return template;
 }
@@ -38,15 +52,6 @@ const findAuthorizedTemplateLink = async (
   return { link, template };
 }
 
-export const FUNDER_ONLY_ERROR = 'Links can only be added to templates owned by a funder';
-
-// Funder and sample plan links are only available on Templates owned by a funder affiliation
-const isOwnedByFunder = async (reference: string, context: MyContext, template: Template): Promise<boolean> => {
-  const owner = await Affiliation.findByURI(reference, context, template.ownerId);
-  // findByURI returns the raw MySQL row, where the tinyint `funder` column is 1 or 0 rather than a boolean
-  return Boolean(owner?.funder);
-}
-
 // Touch the Template so that it is flagged as having changes that have not been published
 const markTemplateAsDirty = async (context: MyContext, template: Template): Promise<void> => {
   await new Template({ ...template }).update(context);
@@ -62,12 +67,6 @@ export const resolvers: Resolvers = {
       async (_, { templateId, linkType, url, text }, context: MyContext): Promise<TemplateLink> => {
         const reference = 'addTemplateLink resolver';
         const template = await findAuthorizedTemplate(reference, context, templateId);
-
-        if (!(await isOwnedByFunder(reference, context, template))) {
-          const link = new TemplateLink({ templateId: template.id, linkType, url, text });
-          link.addError('general', FUNDER_ONLY_ERROR);
-          return link;
-        }
 
         const created = await new TemplateLink({ templateId: template.id, linkType: linkType as TemplateLinkType, url, text })
           .create(context);
@@ -87,11 +86,6 @@ export const resolvers: Resolvers = {
       async (_, { templateLinkId, url, text }, context: MyContext): Promise<TemplateLink> => {
         const reference = 'updateTemplateLink resolver';
         const { link, template } = await findAuthorizedTemplateLink(reference, context, templateLinkId);
-
-        if (!(await isOwnedByFunder(reference, context, template))) {
-          link.addError('general', FUNDER_ONLY_ERROR);
-          return link;
-        }
 
         const toUpdate = new TemplateLink({ ...link, url, text });
         const updated = await toUpdate.update(context);

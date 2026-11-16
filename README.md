@@ -268,7 +268,7 @@ The development, stage and production environments use AWS RDS to host the MySQL
 
 ### Running synchronization Jobs
 
-To add an index entry to ElasticSearch for every Plan in the system run `npm run sync:opensearch-dmps`. This will run a DataSyncJob that will fetch all Plans from the MySQL database and add them to the ElasticSearch index. The job will run in batches of 500 Plans at a time and will continue until all Plans have been indexed.
+To add an index entry to OpenSearch for every Plan in the system run `npm run sync:opensearch-dmps`. This will run a DataSyncJob that will fetch all Plans from the MySQL database and add them to the OpenSearch index. The job will run in batches of 500 Plans at a time and will continue until all Plans have been indexed.
 
 ## Querying Apollo Server
 

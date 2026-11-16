@@ -177,7 +177,7 @@ export abstract class DataSyncJob extends MySqlModel {
     this.failureCount += 1;
     this.errorMessage = error || 'An unknown error occurred during data synchronization.';
     this.cursorId = cursorId;
-    this.cursorTimestamp = cursorTimestamp;
+    this.cursorTimestamp = normaliseDateTime(cursorTimestamp);
 
     const resp: MySqlModel[] = await MySqlModel.query(
       context,

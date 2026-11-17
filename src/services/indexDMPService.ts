@@ -294,8 +294,8 @@ const getInstitutionNameVariants = (
   const variants = new Set<string>();
 
   if (name) variants.add(name.toLowerCase().trim());
-  acronyms?.forEach((a) => variants.add(a.toLowerCase().trim()));
-  aliases?.forEach((a) => variants.add(a.toLowerCase().trim()));
+  acronyms?.forEach((a) => variants.add(a?.toLowerCase()?.trim()));
+  aliases?.forEach((a) => variants.add(a?.toLowerCase()?.trim()));
   variants.delete("");
 
   return Array.from(variants);
@@ -309,9 +309,9 @@ const getInstitutionNameVariants = (
  * @returns an array of name variations
  */
 const getContributorNameVariants = (givenName?: string, familyName?: string): string[] => {
-  const given = cleanString(givenName).toLowerCase();
-  const family = cleanString(familyName).toLowerCase();
-  const firstInit = given.charAt(0);
+  const given = cleanString(givenName)?.toLowerCase();
+  const family = cleanString(familyName)?.toLowerCase();
+  const firstInit = given?.charAt(0);
 
   const variants = new Set<string>();
 
@@ -689,6 +689,8 @@ export const reconcileAssociatedObjects = (
       hostIds.push(...(dataset.displayObject.repository_ids ?? []));
       hostNames.push(...(dataset.displayObject.host_names ?? []));
       for (const flag of dataset.displayObject.data_flags ?? []) {
+        if (!flag) continue;
+
         const normalized = flag.toLowerCase().replace(/[^a-z]/g, '');
         const value = normalized.endsWith('yes') ? 'yes' : normalized.endsWith('no') ? 'no' : 'unknown';
         if (normalized.startsWith('personal')) personalData.add(value);

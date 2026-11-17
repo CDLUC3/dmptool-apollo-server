@@ -21,7 +21,10 @@ const { ProjectCollaborator } = await import('../../models/Collaborator.js');
 const search = resolvers.Query.planSearch as Function;
 const run = (options = {}, token = null) => search({}, { options }, {
   token,
-  logger: { error: jest.fn() },
+  logger: {
+    error: jest.fn(),
+    debug: jest.fn()
+  },
 } as any);
 
 beforeEach(() => {

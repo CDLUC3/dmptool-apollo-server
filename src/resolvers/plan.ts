@@ -238,6 +238,7 @@ export const resolvers: Resolvers = {
         return { items: result.items, totalCount: result.total, offset, count };
       } catch (err) {
         if (err instanceof GraphQLError) throw err;
+
         context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
         throw InternalServerError();
       }

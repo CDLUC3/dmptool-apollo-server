@@ -213,6 +213,7 @@ export const resolvers: Resolvers = {
             filters.push({ term: { visibility: 'public' } });
           }
         }
+        context.logger.debug({ scope, role, filters }, 'Plan search filters');
 
         // Build the sort order for the search query
         const sortMap: Record<string, string> = { title: 'title.keyword', created: 'created', modified: 'modified', language: 'language' };

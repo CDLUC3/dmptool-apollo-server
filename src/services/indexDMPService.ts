@@ -778,6 +778,7 @@ export const searchIndex = async (
     'Searching Plan index'
   );
   try {
+    context.logger.debug({ query, sort, maxResults, offset }, 'Searching Plan index');
     const response: IndexSearchResponseInterface<PlanIndexDocumentInterface> = await openSearch.search<PlanIndexDocumentInterface>(
       DMP_INDEX_NAME,
       {
@@ -792,7 +793,7 @@ export const searchIndex = async (
       throw new Error(`Failed to search index for query: ${JSON.stringify(query)}`);
     }
 
-    context.logger.debug({itemCount: response.items.length}, 'Index search results');
+    context.logger.debug({ itemCount: response.items.length }, 'Index search results');
     const items = response.items
       .filter(item => 'fields' in item)
       .map(item => item.fields) as PlanIndexDocumentInterface[];

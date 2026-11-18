@@ -186,9 +186,9 @@ export const resolvers: Resolvers = {
             .map((id) => stripIdentifierBaseURL(id).trim());
         }
 
-        if (scope === 'public') {
-          filters.push({ term: { visibility: 'public' } });
-        } else if (scope === 'private') {
+        if (scope?.toLowerCase() === 'public') {
+          filters.push({ term: { visibility: 'PUBLIC' } });
+        } else if (scope?.toLowerCase() === 'private') {
           if (role === TokenRole.SUPERADMIN) {
             // Superadmins retain unrestricted access
           } else if (role === TokenRole.RESEARCHER) {
@@ -201,7 +201,7 @@ export const resolvers: Resolvers = {
           }
         } else if (role !== TokenRole.SUPERADMIN) {
           // Default behavior when no scope is specified
-          const visibility = [{ term: { visibility: 'public' } }];
+          const visibility = [{ term: { visibility: 'PUBLIC' } }];
 
           if (role === TokenRole.RESEARCHER) {
             const dmpIds = await getResearcherDmpIds();
@@ -210,9 +210,10 @@ export const resolvers: Resolvers = {
           } else if (role === TokenRole.ADMIN && token.affiliationId) {
             filters.push({ bool: { should: [...visibility, { terms: { affiliation_id: [token.affiliationId] } }], minimum_should_match: 1 } });
           } else {
-            filters.push({ term: { visibility: 'public' } });
+            filters.push({ term: { visibility: 'PUBLIC' } });
           }
         }
+        context.logger.debug({ scope, role, filters }, 'Plan search filters');
 
         // Build the sort order for the search query
         const sortMap: Record<string, string> = { title: 'title.keyword', created: 'created', modified: 'modified', language: 'language' };
@@ -237,6 +238,7 @@ export const resolvers: Resolvers = {
         return { items: result.items, totalCount: result.total, offset, count };
       } catch (err) {
         if (err instanceof GraphQLError) throw err;
+
         context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
         throw InternalServerError();
       }

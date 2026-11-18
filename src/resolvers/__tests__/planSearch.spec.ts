@@ -21,7 +21,10 @@ const { ProjectCollaborator } = await import('../../models/Collaborator.js');
 const search = resolvers.Query.planSearch as Function;
 const run = (options = {}, token = null) => search({}, { options }, {
   token,
-  logger: { error: jest.fn() },
+  logger: {
+    error: jest.fn(),
+    debug: jest.fn()
+  },
 } as any);
 
 beforeEach(() => {
@@ -42,7 +45,7 @@ describe('searchDMPs resolver', () => {
         { multi_match: { query: 'climate', fields: ['title^3', 'abstract', 'project_title'], type: 'best_fields' } },
         { terms: { funder_ids: ['funder-1'] } },
         { range: { created: { gt: '2025-01-01T00:00:00Z' } } },
-        { term: { visibility: 'public' } },
+        { term: { visibility: 'PUBLIC' } },
       ]) },
     }, [{ 'title.keyword': { order: 'asc' } }, { modified: { order: 'desc' } }, { dmp_id: { order: 'asc' } }], 5, 10);
   });
@@ -64,7 +67,7 @@ describe('searchDMPs resolver', () => {
       ['7'], 'Plan search resolver');
     const filter = ((searchIndex as jest.Mock).mock.calls[0][2] as any).bool.filter[0];
     expect(filter.bool.should).toEqual(expect.arrayContaining([
-      { term: { visibility: 'public' } }, { terms: { dmp_id: ['10.1234/dmp-12'] } },
+      { term: { visibility: 'PUBLIC' } }, { terms: { dmp_id: ['10.1234/dmp-12'] } },
     ]));
   });
 
@@ -72,14 +75,14 @@ describe('searchDMPs resolver', () => {
     await run({}, { role: 'ADMIN', affiliationId: 'ror-1' });
     const filter = ((searchIndex as jest.Mock).mock.calls[0][2] as any).bool.filter[0];
     expect(filter.bool.should).toEqual(expect.arrayContaining([
-      { term: { visibility: 'public' } }, { terms: { affiliation_id: ['ror-1'] } },
+      { term: { visibility: 'PUBLIC' } }, { terms: { affiliation_id: ['ror-1'] } },
     ]));
   });
 
   it('public scope returns only public plans for authenticated callers', async () => {
     await run({ scope: 'public' }, { role: 'RESEARCHER', id: 7 });
     const filters = ((searchIndex as jest.Mock).mock.calls[0][2] as any).bool.filter;
-    expect(filters).toEqual([{ term: { visibility: 'public' } }]);
+    expect(filters).toEqual([{ term: { visibility: 'PUBLIC' } }]);
     expect(ProjectCollaborator.query).not.toHaveBeenCalled();
   });
 

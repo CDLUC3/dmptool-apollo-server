@@ -831,6 +831,13 @@ export const searchIndex = async (
       .filter(item => 'fields' in item)
       .map(item => item.fields) as PlanIndexDocumentInterface[];
 
+    // Remove the dmpId from any items that are not published/registered
+    for (const item of items) {
+      if (!item.registered) {
+        item.dmp_id = '';
+      }
+    }
+
     // Convert the response aggregations into a more usable format for the GraphQL response
     // including lookups of the descriptive names for the affiliations, funders,
     // languages, and subjects

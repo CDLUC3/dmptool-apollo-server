@@ -189,6 +189,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Added check in `getRelevantGuidanceForPlan` to ensure there are tags before trying to search for tagged guidance 
 - Fixed an issue in the new plan `search` resolver that was not capitalizing the `visibility` term in the OpenSearch query, which was causing public plans to not be returned in search results
 - Fixed some missing nil checks in the indexDMPService
 - Commented out validation check for `affiliationId` in the `Plan` model, since we have existing plans that are missing this value. Once the data migration is complete we can add it back

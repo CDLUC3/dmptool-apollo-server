@@ -21,7 +21,7 @@ import {
   ProjectCollaboratorAccessLevel
 } from "../models/Collaborator.js";
 import { AlternateIdentifier } from "../models/AlternateIdentifier.js";
-import {normaliseDateTime, stripIdentifierBaseURL} from "../utils/helpers.js";
+import { normaliseDateTime, stripIdentifierBaseURL } from "../utils/helpers.js";
 import {
   AuthenticationError,
   BadUserInputError,
@@ -47,7 +47,11 @@ import {
   PlanVersionSnapshot,
   UpdatePlanInput,
   GuidanceSource,
-  PlanSection, PlanSearchOptions, PlanSearchResults
+  PlanSection,
+  PlanSearchOptions,
+  PlanSearchResults,
+  PublicPlanSearchOptions,
+  PublicPlanSearchResults
 } from "../types.js";
 import { prepareObjectForLogs } from "../logger.js";
 import { toErrorMessage } from "@dmptool/utils";
@@ -62,7 +66,8 @@ import {
   handleAsyncUpdates,
   getPlanVersions,
   getPlanVersionSnapshot,
-  getPlanAndCheckAuthorization, getPlanOwnerAffiliation,
+  getPlanAndCheckAuthorization,
+  getPlanOwnerAffiliation,
   getPlanSectionsAndQuestions,
   isPlanReadOnlyForCurrentUser
 } from "../services/planService.js";
@@ -82,11 +87,112 @@ import {
   replaceEntirePlan
 } from "../services/entirePlanService.js";
 import { getAllAvailableGuidanceForVersionedTemplate } from "../services/guidanceService.js";
-import { searchIndex } from "../services/indexDMPService.js";
+import {
+  PlanIndexSearchResponseInterface,
+  searchIndex
+} from "../services/indexDMPService.js";
 import { UserRole as TokenRole } from "../models/User.js";
 
 export const resolvers: Resolvers = {
   Query: {
+    /**
+     * Search for public plans with pagination support
+     *
+     * @param _ Ignored, this is the entrypoint for the Apollo resolver
+     * @param args the search, filter and sort options
+     * @param context The Apollo context
+     * @returns The Plans
+     * @throws BadUserInputError when the search, filter or sort options are invalid
+     * @throws InternalServerError when a fatal error has occurred
+     */
+    publicPlansSearch: async(
+      _: Record<PropertyKey, never>,
+      { options }: { options: PublicPlanSearchOptions },
+      context: MyContext
+    ): Promise<PublicPlanSearchResults> => {
+      const reference = 'Public plan search resolver';
+
+      try {
+        // Validate the pagination options
+        const limit = Number(options.limit ?? 20);
+        const offset = Number(options.offset ?? 0);
+        if (!Number.isInteger(limit) || limit < 1 || limit > 100 || !Number.isInteger(offset) || offset < 0) {
+          throw BadUserInputError('Invalid pagination values');
+        }
+
+        // Build the sort order for the search query
+        let sort: Record<string, unknown>[] = [];
+        switch (options.sort) {
+          case 'title':
+          case 'title,asc':
+            sort = [{ title: { order: 'asc' } }];
+            break;
+          case 'created':
+          case 'created,desc':
+            sort = [{ created: { order: 'desc' } }];
+            break;
+          case undefined:
+          case 'featured':
+            sort = [{ featured: { order: 'desc' } }];
+            break;
+          default:
+            throw BadUserInputError('Invalid sort value');
+        }
+
+        // Build the filters for the search query
+        const filters: Record<string, unknown>[] = [];
+        filters.push({ term: { visibility: 'PUBLIC' } });
+        if (Array.isArray(options.affiliationIds) && options.affiliationIds.length > 0) {
+          filters.push({ terms: { institution_ids: options.affiliationIds } });
+        }
+        if (Array.isArray(options.funderIds) && options.funderIds.length > 0) {
+          filters.push({ terms: { funder_ids: options.funderIds } });
+        }
+        if (Array.isArray(options.languages) && options.languages.length > 0) {
+          filters.push({ terms: { language: options.languages } });
+        }
+        if (Array.isArray(options.subjects) && options.subjects.length > 0) {
+          filters.push({ terms: { research_domain_id: options.subjects } });
+        }
+        if (typeof options.query === 'string' && options.query.trim().length > 0) {
+          filters.push({
+            multi_match: {
+              query: options.query.trim(),
+              fields: ['title^3', 'abstract', 'project_title'],
+              type: 'best_fields'
+            }
+          });
+        }
+
+        // Send the query to OpenSearch and return the results
+        const result: PlanIndexSearchResponseInterface = await searchIndex(
+          reference,
+          context,
+          { bool: { filter: filters } },
+          sort,
+          limit,
+          offset
+        );
+
+
+
+        return {
+          items: result.items,
+          totalCount: result.totalCount,
+          availableSortFields: ['title', 'created', 'featured'],
+          offset,
+          limit,
+          facets: result.facets
+        };
+
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    },
+
     /**
      * Search for plans based on the provided search, filter and sort options.
      *
@@ -235,7 +341,7 @@ export const resolvers: Resolvers = {
           count,
           offset
         );
-        return { items: result.items, totalCount: result.total, offset, count };
+        return { items: result.items, totalCount: result.totalCount, offset, count };
       } catch (err) {
         if (err instanceof GraphQLError) throw err;
 

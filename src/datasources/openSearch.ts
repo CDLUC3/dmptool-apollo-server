@@ -198,6 +198,27 @@ const snakeizeKeys = <T>(obj: T): DeepSnakeCase<T> => {
 }
 
 /**
+ * Handle OpenSearch errors and throw a custom error with context
+ *
+ * @param indexName the name of the index
+ * @param error the error object from OpenSearch
+ * @param preamble the preamble message to include in the error
+ * @returns never
+ * @throws an OpenSearchError with a detailed message
+ */
+const handleOpenSearchError = (
+  indexName: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  error: any,
+  preamble: string,
+): never => {
+  const detail = JSON.stringify(error?.meta?.body?.error ?? error?.body?.error ?? error, null, 2);
+  throw new OpenSearchError(
+    `"${preamble}" from ${indexName}. ${detail || error.message}`
+  );
+}
+
+/**
  * The shape of an index item returned by a search
  */
 export interface IndexSearchItemInterface {
@@ -211,8 +232,13 @@ export interface IndexSearchItemInterface {
 export interface IndexSearchResponseInterface<T> {
   total: number;
   items: T[];
+  aggregations?: Record<string, IndexSearchResponseAggregation[]>;
 }
 
+export interface IndexSearchResponseAggregation {
+  key: string;
+  docCount: number;
+}
 /**
  * Custom error for the OpenSearch data source
  */
@@ -330,9 +356,7 @@ export class OpenSearch {
       }
 
       // Re-throw or handle non-404 errors (500s, network failures, etc.)
-      throw new OpenSearchError(
-        `GetItem: Failed to retrieve item "${id}" from ${indexName}. ${error.message}`
-      );
+      handleOpenSearchError(indexName, error, `GetItem: Failed to retrieve item "${id}"`);
     }
   }
 
@@ -370,9 +394,8 @@ export class OpenSearch {
         return;
       }
 
-      throw new OpenSearchError(
-        `UpdateItem: Failed to update item "${id}" in ${indexName}. ${error.message}`
-      );
+      // Re-throw or handle non-404 errors (500s, network failures, etc.)
+      handleOpenSearchError(indexName, error, `UpdateItem: Failed to update item "${id}"`);
     }
   }
 
@@ -405,9 +428,8 @@ export class OpenSearch {
         throw new OpenSearchError('BulkUpdateItems: Some items failed to update.');
       }
     } catch (error) {
-      throw new OpenSearchError(
-        `BulkUpdateItems: Failed to bulk update items in ${indexName}. ${error.message}`
-      );
+      // handle non-404 errors (500s, network failures, etc.)
+      handleOpenSearchError(indexName, error, 'BulkUpdateItems: Failed to bulk update items');
     }
   }
 
@@ -439,9 +461,7 @@ export class OpenSearch {
         }
 
         // Re-throw or handle non-404 errors (500s, network failures, etc.)
-        throw new OpenSearchError(
-          `OpenSearch: Failed to remove item "${itemId}" from ${indexName}. ${error.message}`
-        );
+        handleOpenSearchError(indexName, error, `RemoveIndexItem: Failed to remove item "${itemId}"`);
       }
     }
   }
@@ -484,9 +504,28 @@ export class OpenSearch {
         return { _id: hit._id, fields: camelizeKeys(hit._source ?? hit.fields) };
       }) || [];
 
+      // Camelize the aggregation keys and bucket keys for consistency with the rest of the app
+      const aggs = response.body.aggregations
+        ? camelizeKeys(response.body.aggregations)
+        : undefined;
+
+      // Lift the aggregation buckets into a more usable format for the GraphQL response
+      const facets = aggs
+        ? Object.keys(aggs).reduce((acc, key) => {
+            const agg = aggs[key] as { buckets: { key: string; docCount: number }[] };
+
+            acc[key] = agg.buckets.map(bucket => ({
+              key: bucket.key,
+              docCount: bucket.docCount
+            }));
+            return acc;
+          }, {} as Record<string, { key: string; docCount: number }[]>)
+        : undefined;
+
       return {
         total: total || 0,
-        items: items as T[]
+        items: items as T[],
+        aggregations: facets
       };
     } catch (error) {
       // OpenSearch client attaches the HTTP status code to error.meta.statusCode or error.statusCode
@@ -498,9 +537,7 @@ export class OpenSearch {
       }
 
       // Re-throw or handle non-404 errors (500s, network failures, etc.)
-      throw new OpenSearchError(
-        `OpenSearch: Failed to search within ${indexName}. ${error.message}`
-      );
+      handleOpenSearchError(indexName, error, `Search: Failed to search within ${indexName}`);
     }
   }
 }

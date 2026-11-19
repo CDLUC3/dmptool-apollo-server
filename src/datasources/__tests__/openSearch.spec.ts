@@ -629,6 +629,25 @@ describe('OpenSearch class', () => {
       ]);
     });
 
+    it('returns camelized aggregation buckets', async () => {
+      mockClientInstance.indices.get.mockResolvedValueOnce({ body: { [INDEX_NAME]: {} }, statusCode: 200 });
+      mockClientInstance.search.mockResolvedValueOnce({
+        body: {
+          hits: { total: { value: 0 }, hits: [] },
+          aggregations: {
+            institution_ids: { buckets: [{ key: 'institution-1', doc_count: 3 }] },
+          },
+        },
+      });
+
+      const os = new OpenSearch(serverlessConfig);
+      await expect(os.search(INDEX_NAME, QUERY)).resolves.toMatchObject({
+        aggregations: {
+          institutionIds: [{ key: 'institution-1', docCount: 3 }],
+        },
+      });
+    });
+
     it('camelizes the default _source document content', async () => {
       mockClientInstance.indices.get.mockResolvedValueOnce({ body: { [INDEX_NAME]: {} }, statusCode: 200 });
       mockClientInstance.search.mockResolvedValueOnce({

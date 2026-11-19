@@ -29,8 +29,70 @@ const run = (options = {}, token = null) => search({}, { options }, {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  (searchIndex as jest.Mock).mockImplementation(async () => ({ items: [{ dmp_id: 'dmp-1' }], total: 9 }));
+  (searchIndex as jest.Mock).mockImplementation(async () => ({
+    items: [{ dmp_id: 'dmp-1' }],
+    totalCount: 9,
+    facets: { affiliationIds: [], funderIds: [], languages: [], subjects: [] },
+  }));
   (ProjectCollaborator.query as jest.Mock).mockImplementation(async () => [{ dmpId: 'https://doi.org/10.1234/dmp-12' }]);
+});
+
+describe('publicPlansSearch resolver', () => {
+  const publicSearch = resolvers.Query.publicPlansSearch as Function;
+
+  it('builds public filters, query, sort, and pagination', async () => {
+    (searchIndex as jest.Mock).mockImplementation(async () => ({
+      items: [{ plan_id: 1 }],
+      totalCount: 4,
+      facets: { affiliationIds: [], funderIds: [], languages: [], subjects: [] },
+    }));
+
+    await expect(publicSearch({}, {
+      options: {
+        query: ' climate ',
+        offset: 10,
+        limit: 5,
+        sort: 'title,asc',
+        affiliationIds: ['institution-1'],
+        funderIds: ['funder-1'],
+        languages: ['en-US'],
+        subjects: ['domain-1'],
+      },
+    }, {
+      token: null,
+      logger: { error: jest.fn(), debug: jest.fn() },
+    } as any)).resolves.toMatchObject({ totalCount: 4, offset: 10, limit: 5 });
+
+    expect(searchIndex).toHaveBeenCalledWith(
+      'Public plan search resolver',
+      expect.anything(),
+      {
+        bool: {
+          filter: expect.arrayContaining([
+            { term: { visibility: 'PUBLIC' } },
+            { terms: { institution_ids: ['institution-1'] } },
+            { terms: { funder_ids: ['funder-1'] } },
+            { terms: { language: ['en-US'] } },
+            { terms: { research_domain_id: ['domain-1'] } },
+            { multi_match: {
+              query: 'climate',
+              fields: ['title^3', 'abstract', 'project_title'],
+              type: 'best_fields',
+            } },
+          ]),
+        },
+      },
+      [{ title: { order: 'asc' } }],
+      5,
+      10,
+    );
+  });
+
+  it('rejects invalid pagination and sort values', async () => {
+    const args = { token: null, logger: { error: jest.fn(), debug: jest.fn() } };
+    await expect(publicSearch({}, { options: { limit: 0 } }, args as any)).rejects.toThrow();
+    await expect(publicSearch({}, { options: { sort: 'modified' } }, args as any)).rejects.toThrow();
+  });
 });
 
 describe('searchDMPs resolver', () => {

@@ -187,6 +187,26 @@ describe('findBy Queries', () => {
     expect(result).toEqual(null);
   });
 
+  it('findByURIs should query all URIs and return the matching domains', async () => {
+    localQuery.mockResolvedValueOnce([domain]);
+    const uris = [casual.url, casual.url];
+
+    const result = await ResearchDomain.findByURIs('testing', context, uris);
+
+    expect(localQuery).toHaveBeenCalledWith(
+      context,
+      'SELECT * FROM researchDomains WHERE uri IN (?, ?)',
+      uris,
+      'testing',
+    );
+    expect(result).toEqual([domain]);
+  });
+
+  it('findByURIs should return an empty array without querying for no URIs', async () => {
+    await expect(ResearchDomain.findByURIs('testing', context, [])).resolves.toEqual([]);
+    expect(localQuery).not.toHaveBeenCalled();
+  });
+
   it('findByName should call query with correct params and return the object', async () => {
     localQuery.mockResolvedValueOnce([domain]);
     const name = casual.company_name;

@@ -6,6 +6,7 @@ type OpenSearchProperties = NonNullable<
 // Look up the index type to get the singular MappingProperty schema
 export type MappingProperty = NonNullable<OpenSearchProperties>[string];
 import {
+  IndexSearchResponseAggregation,
   IndexSearchResponseInterface,
   OpenSearch,
   tokenizeText
@@ -30,22 +31,29 @@ import {
   ResearchOutputTableRowAnswerType
 } from "@dmptool/types";
 import { MyContext } from "../context.js";
-import {defaultLanguageId} from "../models/Language.js";
+import {
+  defaultLanguageId,
+  supportedLanguageMap,
+} from "../models/Language.js";
+import { ResearchDomain } from "../models/ResearchDomain.js";
 
 export const DMP_INDEX_NAME = "dmp";
 export const INDEX_NAME = DMP_INDEX_NAME;
 export const DEFAULT_MAX_RESULTS = 100;
+const DEFAULT_DMPTOOL_AFFILIATION_URL = 'https://dmptool.org/affiliations/';
+const DEFAULT_ROR_AFFILIATION_URL = 'https://ror.org/';
 
 /**
  * OpenSearch Index Definition
  */
-export const PropertyDefinition: Record<string, MappingProperty> = {
+export const PlanIndexPropertyDefinition: Record<string, MappingProperty> = {
   dmp_id: { type: "keyword" },
   affiliationId: { type: "keyword" },
   project_id: { type: "keyword" },
   plan_id: { type: "keyword" },
   title: { type: "text", fields: { keyword: { type: "keyword", ignore_above: 256 } } },
   project_title: { type: "text", fields: { keyword: { type: "keyword", ignore_above: 256 } } },
+  research_domain_id: { type: "keyword", ignore_above: 256 },
   visibility: { type: "keyword" },
   project_start: { type: "date" },
   project_end: { type: "date" },
@@ -98,6 +106,16 @@ export const PropertyDefinition: Record<string, MappingProperty> = {
   institutions_display: { type: "object", enabled: false },
   repositories_display: { type: "object", enabled: false },
 };
+
+/**
+ * OpenSearch Aggregation Definition for the Plan Index
+ */
+export const PlanIndexAggregationDefinition = {
+  affiliation_ids: { terms: { field: 'institution_ids', size: 1000 } },
+  funder_ids: { terms: { field: 'funder_ids', size: 1000 } },
+  language: { terms: { field: 'language', size: 1000 } },
+  research_domain_id: { terms: { field: 'research_domain_id.keyword', size: 1000 } }
+}
 
 // --- Interfaces ---
 
@@ -180,6 +198,23 @@ interface ReconciledFragments {
   ethicalIssuesExist: string;
 }
 
+export interface PlanIndexSearchResponseInterface {
+  totalCount: number;
+  items: PlanIndexDocumentInterface[];
+  facets: {
+    affiliationIds: PlanIndexSearchResultFacet[];
+    funderIds: PlanIndexSearchResultFacet[];
+    languages: PlanIndexSearchResultFacet[];
+    subjects: PlanIndexSearchResultFacet[];
+  }
+}
+
+export interface PlanIndexSearchResultFacet {
+  id: string;
+  name: string;
+  count: number;
+}
+
 export interface PlanIndexDocumentInterface {
   cursorId?: number;
   dmp_id: string;
@@ -196,6 +231,7 @@ export interface PlanIndexDocumentInterface {
   is_test: boolean;
   featured: boolean;
   abstract?: string | null;
+  research_domain_id?: string;
 
   created: string;
   modified: string;
@@ -269,6 +305,7 @@ export interface ProjectPlanResponse {
   project_start: string;
   project_end: string;
   is_test_project: boolean;
+  research_domain_uri: string;
 }
 
 /**
@@ -761,7 +798,7 @@ export const getIndexItem = async (
  * @param sort the OpenSearch sort (defaults to an empty array)
  * @param maxResults the total number of results to return (defaults to 100)
  * @param offset the offset for pagination (defaults to 0)
- * @returns the index record or undefined if not found
+ * @returns the search results including the total count, items, and faceting information
  */
 export const searchIndex = async (
   reference: string,
@@ -770,13 +807,8 @@ export const searchIndex = async (
   sort: Record<string, unknown>[] = [],
   maxResults: number = DEFAULT_MAX_RESULTS,
   offset = 0,
-): Promise<{ items: PlanIndexDocumentInterface[]; total: number }> => {
+): Promise<PlanIndexSearchResponseInterface> => {
   const openSearch: OpenSearch = context.dataSources.openSearchServerlessDataSource;
-
-  context.logger.debug(
-    { reference, DMP_INDEX_NAME, query, sort, maxResults },
-    'Searching Plan index'
-  );
   try {
     context.logger.debug({ query, sort, maxResults, offset }, 'Searching Plan index');
     const response: IndexSearchResponseInterface<PlanIndexDocumentInterface> = await openSearch.search<PlanIndexDocumentInterface>(
@@ -785,7 +817,8 @@ export const searchIndex = async (
         size: maxResults,
         from: offset,
         query,
-        sort
+        sort,
+        aggregations: PlanIndexAggregationDefinition,
       }
     );
 
@@ -798,7 +831,66 @@ export const searchIndex = async (
       .filter(item => 'fields' in item)
       .map(item => item.fields) as PlanIndexDocumentInterface[];
 
-    return {items, total: response.total};
+    // Convert the response aggregations into a more usable format for the GraphQL response
+    // including lookups of the descriptive names for the affiliations, funders,
+    // languages, and subjects
+    const aggregations: Record<string, IndexSearchResponseAggregation[]> = response.aggregations || {};
+    const affiliationIds: string[] = aggregations?.affiliationIds?.map((entry) => {
+      return String(entry.key).startsWith(DEFAULT_DMPTOOL_AFFILIATION_URL)
+        ? String(entry.key)
+        : `${DEFAULT_ROR_AFFILIATION_URL}${entry.key}`
+    }) || [];
+    const funderIds: string[] = aggregations?.funderIds?.map((entry) => {
+      return String(entry.key).startsWith(DEFAULT_DMPTOOL_AFFILIATION_URL)
+        ? String(entry.key)
+        : `${DEFAULT_ROR_AFFILIATION_URL}${entry.key}`
+    }) || [];
+    const researchDomainIds: string[] = aggregations?.researchDomainId?.map((entry) => String(entry.key)) || [];
+
+    // Find the names of the affiliations and funders and research domains
+    const [affiliations, researchDomains] = await Promise.all([
+      Affiliation.findByURIs(reference, context, [affiliationIds, funderIds].flat()),
+      ResearchDomain.findByURIs(reference, context, researchDomainIds)
+    ]);
+    // Extract the URI to name mappings for the affiliations and research domains for use in the GraphQL response
+    const affiliationMap = new Map<string, string>(
+      (affiliations || []).map((aff) => [aff.uri, aff.displayName])
+    );
+    const researchDomainMap = new Map<string, string>(researchDomains.map((domain) => [domain.uri, domain.name]));
+
+    // Convert the OpenSearch aggregations into facets with descriptive names for the GraphQL response
+    const facets = {
+      affiliationIds: (aggregations?.affiliationIds || []).map((entry) => {
+        const id = String(entry.key);
+        const uri = id.startsWith(DEFAULT_DMPTOOL_AFFILIATION_URL)
+          ? id
+          : `${DEFAULT_ROR_AFFILIATION_URL}${id}`;
+        return { id, name: affiliationMap.get(uri) || '', count: entry.docCount };
+      }),
+      funderIds: (aggregations?.funderIds || []).map((entry) => {
+        const id = String(entry.key);
+        const uri = id.startsWith(DEFAULT_DMPTOOL_AFFILIATION_URL)
+          ? id
+          : `${DEFAULT_ROR_AFFILIATION_URL}${id}`;
+        return { id, name: affiliationMap.get(uri) || '', count: entry.docCount };
+      }),
+      subjects: (aggregations?.researchDomainId || []).map((entry) => {
+        return { id: String(entry.key), name: researchDomainMap.get(entry.key) || '', count: entry.docCount };
+      }),
+      languages: (aggregations?.language || []).map((entry) => {
+        return {
+          id: String(entry.key),
+          name: supportedLanguageMap.get(String(entry.key)) || '',
+          count: entry.docCount
+        };
+      }),
+    };
+
+    return {
+      items,
+      totalCount: response.total,
+      facets
+    };
   } catch (error) {
     context.logger.error({ reference, error, query }, 'Error searching Plan index');
     throw error;
@@ -818,6 +910,7 @@ export const searchIndex = async (
  * @param planAnswers the plan answers
  * @param alternateIdentifierIds the alternate identifiers
  * @param relatedWorkIds the related works DOIs
+ * @param researchDomainURI the research domain (aka subject) URI (optional)
  * @returns the index document for the plan
  */
 export const generateIndexItem = (
@@ -830,7 +923,8 @@ export const generateIndexItem = (
   planFunding: PlanFunding[],
   planAnswers: Answer[],
   alternateIdentifierIds: string[],
-  relatedWorkIds: string[]
+  relatedWorkIds: string[],
+  researchDomainURI?: string
 ): PlanIndexDocumentInterface => {
   const {
     members,
@@ -891,6 +985,7 @@ export const generateIndexItem = (
     modified: new Date(plan.modified).toISOString(),
     title: plan.title?.trim().slice(0, 256),
     language: plan.languageId?.trim() || defaultLanguageId,
+    research_domain_id: researchDomainURI,
 
     project_title: project.title?.trim().slice(0, 256) || undefined,
     abstract: project.abstractText?.trim().slice(0, 512) || undefined,
@@ -963,6 +1058,13 @@ export const updateIndexItem = async (
     [plan.id]
   );
 
+  // Fetch the research domain for the project
+  const researchDomain: ResearchDomain | undefined = await ResearchDomain.findById(
+    reference,
+    context,
+    project.researchDomainId
+  );
+
   const item: PlanIndexDocumentInterface = generateIndexItem(
     project,
     plan,
@@ -973,12 +1075,13 @@ export const updateIndexItem = async (
     associatedObjects.planFunding,
     associatedObjects.answers,
     associatedObjects.alternateIdentifiers,
-    associatedObjects.relatedWorks
+    associatedObjects.relatedWorks,
+    researchDomain?.uri
   );
 
   // Fire off the OpenSearch update
   context.logger.debug({ reference, index: DMP_INDEX_NAME, item }, "Indexing Plan");
-  await openSearch.updateIndexItem(DMP_INDEX_NAME, PropertyDefinition, dmpId, item);
+  await openSearch.updateIndexItem(DMP_INDEX_NAME, PlanIndexPropertyDefinition, dmpId, item);
 };
 
 /**

@@ -10,7 +10,7 @@ import {
   generateIndexItem,
   PlanIndexDocumentInterface,
   ProjectPlanResponse,
-  PropertyDefinition,
+  PlanIndexPropertyDefinition,
 } from "../services/indexDMPService.js";
 import { PlanMember, ProjectMember } from "./Member.js";
 import { PlanFunding, ProjectFunding } from "./Funding.js";
@@ -353,9 +353,10 @@ export class OpenSearchDMPSync extends DataSyncJob {
         p.visibility, p.featured, p.registered, p.created, p.modified,
         proj.title AS project_title, proj.abstractText AS abstract_text,
         proj.startDate AS project_start, proj.endDate AS project_end,
-        proj.isTestProject AS is_test_project
+        proj.isTestProject AS is_test_project, rd.uri AS research_domain_uri
       FROM plans p
         JOIN projects proj ON p.projectId = proj.id
+          LEFT JOIN researchDomains rd ON proj.researchDomainId = rd.id
       WHERE p.modified >= ?
         AND (p.modified > ? OR (p.modified = ? AND p.id > ?))
       ORDER BY p.modified ASC, p.id ASC
@@ -424,7 +425,8 @@ export class OpenSearchDMPSync extends DataSyncJob {
         planFunding,
         planAnswers,
         associatedObjects.alternateIdentifiers,
-        associatedObjects.relatedWorks
+        associatedObjects.relatedWorks,
+        projectPlanResponse.research_domain_uri
       );
 
       return { ...item, cursorId: plan_id };
@@ -455,7 +457,7 @@ export class OpenSearchDMPSync extends DataSyncJob {
 
     try {
       // Bulk update the plans
-      await openSearch.bulkUpdateIndexItems(DMP_INDEX_NAME, PropertyDefinition, bulkBody);
+      await openSearch.bulkUpdateIndexItems(DMP_INDEX_NAME, PlanIndexPropertyDefinition, bulkBody);
     } catch (error) {
       context.logger.error({ reference, error }, "Error indexing Plans");
       return false;

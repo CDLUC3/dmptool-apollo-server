@@ -318,21 +318,30 @@ describe('searchIndex', () => {
       { _id: '11.22222/other', fields: { dmpId: '11.22222/other' } },
     ];
     const documents = items.map(({ fields }) => fields);
-    mockOpenSearch.search.mockResolvedValue({ total: 2, items });
+    mockOpenSearch.search.mockResolvedValue({ total: 2, items, aggregations: {} });
 
-    await expect(searchIndex('ref', context, { match_all: {} }, [], 25)).resolves.toEqual({ items: documents, total: items.length });
+    await expect(searchIndex('ref', context, { match_all: {} }, [], 25)).resolves.toMatchObject({
+      items: documents,
+      totalCount: items.length,
+      facets: { affiliationIds: [], funderIds: [], languages: [], subjects: [] },
+    });
     expect(mockOpenSearch.search).toHaveBeenCalledWith(INDEX_NAME, {
       size: 25,
       from: 0,
       query: { match_all: {} },
       sort: [],
+      aggregations: expect.any(Object),
     });
   });
 
   it('returns an empty array when there are no hits', async () => {
-    mockOpenSearch.search.mockResolvedValue({ total: 0, items: [] });
+    mockOpenSearch.search.mockResolvedValue({ total: 0, items: [], aggregations: {} });
 
-    await expect(searchIndex('ref', context, { match_all: {} })).resolves.toEqual({ items: [], total: 0 });
+    await expect(searchIndex('ref', context, { match_all: {} })).resolves.toMatchObject({
+      items: [],
+      totalCount: 0,
+      facets: { affiliationIds: [], funderIds: [], languages: [], subjects: [] },
+    });
   });
 
   it('throws when search returns no response', async () => {

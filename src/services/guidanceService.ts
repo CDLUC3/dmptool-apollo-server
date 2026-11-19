@@ -1123,6 +1123,9 @@ export async function getRelevantGuidanceForPlan(
   const distinctTagIds: Set<string> = new Set<string>(Array.from(tagIds)
     .map((rt: RelevantTag): string => rt.tagId?.toString())
     .filter(Boolean) as string[]);
+  if (distinctTagIds.size === 0) {
+    return [];
+  }
 
   const placeholders: string = Array.from(distinctTagIds).map(() => '?').join(',');
   const sql = `

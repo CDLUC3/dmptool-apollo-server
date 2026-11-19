@@ -196,6 +196,7 @@
 
 ### Updated
 - Renamed `PropertyDefinition` to `PlanIndexPropertyDefinition` since we're going to need ones for affiliations, etc. in the future
+- Fixed bug in `guidanceService` that was allowing `getRelevantGuidanceForPlan` to run an SQL query when there are no tags
 - Fixed an issue in the new plan `search` resolver that was not capitalizing the `visibility` term in the OpenSearch query, which was causing public plans to not be returned in search results
 - Fixed some missing nil checks in the indexDMPService
 - Commented out validation check for `affiliationId` in the `Plan` model, since we have existing plans that are missing this value. Once the data migration is complete we can add it back

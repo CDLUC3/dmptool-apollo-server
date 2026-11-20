@@ -80,7 +80,7 @@ export class VersionedSectionSearchResult {
     if (isNullOrUndefined(options.sortDir)) options.sortDir = 'DESC';
 
     // Specify the fields available for sorting
-    options.availableSortFields = ['vs.name', 'vs.created', 'vs.bestPractice', 'vt.name', 'vs.modified', 'versionedQuestionCount'];
+    options.availableSortFields = ['vs.name', 'vs.created', 'vt.bestPractice', 'vt.name', 'vs.modified', 'versionedQuestionCount'];
     // Specify the field we want to use for the count
     options.countField = 'vs.id';
 
@@ -102,12 +102,21 @@ export class VersionedSectionSearchResult {
 
     const groupBy = 'GROUP BY vs.id, vs.modified, vs.created, vs.name, vs.introduction, vs.displayOrder, ' +
       'vt.bestPractice, vt.id, vt.name';
-    const response: PaginatedQueryResults<VersionedSectionSearchResult> = await VersionedSection.queryWithPagination(
+    const sortField = MySqlModel.getSafePaginationSortField(opts, 'vs.modified');
+    const sortExpression = sortField === 'versionedQuestionCount'
+      ? '(SELECT COUNT(*) FROM versionedQuestions vqSort WHERE vqSort.versionedSectionId = vs.id)'
+      : sortField;
+    const selectionSql = `SELECT vs.id, ${sortExpression} AS sortValue,
+      (SELECT COUNT(*) FROM versionedQuestions vqCount WHERE vqCount.versionedSectionId = vs.id) AS versionedQuestionCount
+      FROM versionedSections vs
+      INNER JOIN versionedTemplates vt ON vs.versionedTemplateId = vt.id
+      WHERE ${whereFilters.join(' AND ')}`;
+    const hydrateSql = `${sql} WHERE vs.id IN (/* PAGE_IDS */) ${groupBy}`;
+    const response: PaginatedQueryResults<VersionedSectionSearchResult> = await VersionedSection.queryWithOptimizedPagination(
       context,
-      sql,
-      whereFilters,
-      groupBy,
+      selectionSql,
       values,
+      hydrateSql,
       opts,
       reference,
     )
@@ -256,14 +265,15 @@ export class VersionedSection extends MySqlModel {
       opts.cursorField = 'vs.id';
     }
 
-    const sqlStatement = 'SELECT vs.* FROM versionedSections vs';
+    const sortField = MySqlModel.getSafePaginationSortField(opts, 'vs.name');
+    const selectionSql = `SELECT vs.id, ${sortField} AS sortValue FROM versionedSections vs ${whereFilters.length ? `WHERE ${whereFilters.join(' AND ')}` : ''}`;
+    const hydrateSql = 'SELECT vs.* FROM versionedSections vs WHERE vs.id IN (/* PAGE_IDS */)';
 
-    const response: PaginatedQueryResults<VersionedSection> = await VersionedSection.queryWithPagination(
+    const response: PaginatedQueryResults<VersionedSection> = await VersionedSection.queryWithOptimizedPagination(
       context,
-      sqlStatement,
-      whereFilters,
-      '',
+      selectionSql,
       values,
+      hydrateSql,
       opts,
       reference,
     )

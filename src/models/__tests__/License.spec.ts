@@ -76,16 +76,12 @@ describe('findBy Queries', () => {
   const originalQuery = License.query;
 
   let localQuery;
-  let localPaginationQuery
   let context;
   let license;
 
   beforeEach(async () => {
     localQuery = jest.fn();
     (License.query as jest.Mock) = localQuery;
-
-    localPaginationQuery = jest.fn();
-    (License.queryWithPagination as jest.Mock) = localPaginationQuery;
 
     context = await buildMockContextWithToken(logger);
 

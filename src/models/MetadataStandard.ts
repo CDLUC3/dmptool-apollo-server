@@ -176,15 +176,18 @@ export class MetadataStandard extends MySqlModel {
       opts.cursorField = 'm.id';
     }
 
-    const sqlStatement = 'SELECT m.* FROM metadataStandards m ' +
-      'LEFT OUTER JOIN metadataStandardResearchDomains msrd ON m.id = msrd.metadataStandardId';
+    const sortField = MySqlModel.getSafePaginationSortField(opts, 'm.name');
+    const selectionSql = `SELECT DISTINCT m.id, ${sortField} AS sortValue
+      FROM metadataStandards m
+      LEFT OUTER JOIN metadataStandardResearchDomains msrd ON m.id = msrd.metadataStandardId
+      ${whereFilters.length ? `WHERE ${whereFilters.join(' AND ')}` : ''}`;
+    const hydrateSql = 'SELECT m.* FROM metadataStandards m WHERE m.id IN (/* PAGE_IDS */)';
 
-    const response: PaginatedQueryResults<MetadataStandard> = await MetadataStandard.queryWithPagination(
+    const response: PaginatedQueryResults<MetadataStandard> = await MetadataStandard.queryWithOptimizedPagination(
       context,
-      sqlStatement,
-      whereFilters,
-      '',
+      selectionSql,
       values,
+      hydrateSql,
       opts,
       reference,
     )

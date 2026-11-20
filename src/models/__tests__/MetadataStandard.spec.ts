@@ -90,7 +90,7 @@ describe('findBy Queries', () => {
     (MetadataStandard.query as jest.Mock) = localQuery;
 
     localPaginationQuery = jest.fn();
-    (MetadataStandard.queryWithPagination as jest.Mock) = localPaginationQuery;
+    (MetadataStandard.queryWithOptimizedPagination as jest.Mock) = localPaginationQuery;
 
     context = await buildMockContextWithToken(logger);
 
@@ -211,7 +211,14 @@ describe('findBy Queries', () => {
       availableSortFields: sortFields,
     };
     expect(localPaginationQuery).toHaveBeenCalledTimes(1);
-    expect(localPaginationQuery).toHaveBeenCalledWith(context, sql, whereFilters, '', vals, opts, 'testing');
+    const [callContext, selectionSql, selectionValues, hydrationSql, actualOptions] = localPaginationQuery.mock.calls[0];
+    expect(callContext).toBe(context);
+    expect(sql).toContain('FROM metadataStandards m');
+    expect(selectionSql).toContain('FROM metadataStandards m');
+    expect(whereFilters.every((filter: string) => selectionSql.includes(filter))).toBe(true);
+    expect(selectionValues).toEqual(vals);
+    expect(hydrationSql).toContain('m.id IN (/* PAGE_IDS */)');
+    expect(actualOptions).toMatchObject(opts);
     expect(result).toEqual([standard]);
   });
 
@@ -237,7 +244,14 @@ describe('findBy Queries', () => {
       availableSortFields: sortFields,
     };
     expect(localPaginationQuery).toHaveBeenCalledTimes(1);
-    expect(localPaginationQuery).toHaveBeenCalledWith(context, sql, whereFilters, '', vals, opts, 'testing');
+    const [callContext, selectionSql, selectionValues, hydrationSql, actualOptions] = localPaginationQuery.mock.calls[0];
+    expect(callContext).toBe(context);
+    expect(sql).toContain('FROM metadataStandards m');
+    expect(selectionSql).toContain('FROM metadataStandards m');
+    expect(whereFilters.every((filter: string) => selectionSql.includes(filter))).toBe(true);
+    expect(selectionValues).toEqual(vals);
+    expect(hydrationSql).toContain('m.id IN (/* PAGE_IDS */)');
+    expect(actualOptions).toMatchObject(opts);
     expect(result).toEqual([standard]);
   });
 
@@ -260,7 +274,14 @@ describe('findBy Queries', () => {
       availableSortFields: sortFields,
     };
     expect(localPaginationQuery).toHaveBeenCalledTimes(1);
-    expect(localPaginationQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, '', vals, opts, 'testing')
+    const [callContext, selectionSql, selectionValues, hydrationSql, actualOptions] = localPaginationQuery.mock.calls[0];
+    expect(callContext).toBe(context);
+    expect(sql).toContain('FROM metadataStandards m');
+    expect(selectionSql).toContain('FROM metadataStandards m');
+    expect(whereFilters.every((filter: string) => selectionSql.includes(filter))).toBe(true);
+    expect(selectionValues).toEqual(vals);
+    expect(hydrationSql).toContain('m.id IN (/* PAGE_IDS */)');
+    expect(actualOptions).toMatchObject(opts);
     expect(result).toEqual([standard]);
   });
 
@@ -282,7 +303,14 @@ describe('findBy Queries', () => {
     expect(localPaginationQuery).toHaveBeenCalledTimes(1);
     const where = ["(LOWER(m.name) LIKE ? OR LOWER(m.keywords) LIKE ?)"];
     const vals = ["%%", "%%"];
-    expect(localPaginationQuery).toHaveBeenLastCalledWith(context, sql, where, '', vals, opts, 'testing');
+    const [callContext, selectionSql, selectionValues, hydrationSql, actualOptions] = localPaginationQuery.mock.calls[0];
+    expect(callContext).toBe(context);
+    expect(sql).toContain('FROM metadataStandards m');
+    expect(selectionSql).toContain('FROM metadataStandards m');
+    expect(where.every((filter: string) => selectionSql.includes(filter))).toBe(true);
+    expect(selectionValues).toEqual(vals);
+    expect(hydrationSql).toContain('m.id IN (/* PAGE_IDS */)');
+    expect(actualOptions).toMatchObject(opts);
     expect(result).toEqual([standard]);
   });
 

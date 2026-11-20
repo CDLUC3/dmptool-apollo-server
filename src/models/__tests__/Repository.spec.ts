@@ -16,7 +16,6 @@ jest.unstable_mockModule('../../context.js', () => ({
 const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
 const { logger } = await import('../../logger.js');
 const { Repository, REPOSITORY_TYPE } = await import("../Repository.js");
-const { generalConfig } = await import("../../config/generalConfig.js");
 const { isCustomRepository, isRe3DataRepository } = await import("../../types/repository.js");
 
 let context;
@@ -112,7 +111,7 @@ describe('findBy Queries', () => {
   const originalQuery = Repository.query;
 
   let localQuery;
-  let localPaginationQuery
+  let localOptimizedPagination;
   let context;
   let repo;
 
@@ -122,8 +121,8 @@ describe('findBy Queries', () => {
     localQuery = jest.fn();
     (Repository.query as jest.Mock) = localQuery;
 
-    localPaginationQuery = jest.fn();
-    (Repository.queryWithPagination as jest.Mock) = localPaginationQuery;
+    localOptimizedPagination = jest.fn();
+    (Repository.queryWithOptimizedPagination as jest.Mock) = localOptimizedPagination;
 
     context = await buildMockContextWithToken(logger);
 
@@ -225,109 +224,69 @@ describe('findBy Queries', () => {
   });
 
   it('search should work when a search term and repositoryType are specified', async () => {
-    localPaginationQuery.mockResolvedValueOnce([repo]);
+    localOptimizedPagination.mockResolvedValueOnce({ items: [repo], totalCount: null, hasNextPage: false, limit: 10 });
     const term = casual.words(3);
     const repositoryTypes = Object.values(REPOSITORY_TYPE);
     const repositoryType = repositoryTypes[Math.floor(Math.random() * repositoryTypes.length)];
     const result = await Repository.search('testing', context, term, [], null, repositoryType);
-    const sql = 'SELECT r.* FROM repositories r';
-    const vals = [`%${term.toLowerCase()}%`, `%${term.toLowerCase()}%`, `%${term.toLowerCase()}%`,
+    const vals = [`%${term.toLowerCase().trim()}%`, `%${term.toLowerCase().trim()}%`, `%${term.toLowerCase().trim()}%`,
     JSON.stringify(repositoryType)];
-    const whereFilters = ['(LOWER(r.name) LIKE ? OR LOWER(r.description) LIKE ? OR LOWER(r.keywords) LIKE ?)',
-      'JSON_CONTAINS(r.repositoryTypes, ?, \'$\')'];
-    const sortFields = ["r.name", "r.created"];
-    const opts = {
-      cursor: null,
-      limit: generalConfig.defaultSearchLimit,
-      sortField: 'r.name',
-      sortDir: 'ASC',
-      countField: 'r.id',
-      cursorField: 'r.id',
-      availableSortFields: sortFields,
-    };
-    expect(localPaginationQuery).toHaveBeenCalledTimes(1);
-    expect(localPaginationQuery).toHaveBeenCalledWith(context, sql, whereFilters, '', vals, opts, 'testing');
-    expect(result).toEqual([repo]);
+    expect(localOptimizedPagination).toHaveBeenCalledTimes(1);
+    const [, selectionSql, actualValues, hydrateSql, opts] = localOptimizedPagination.mock.calls[0];
+    expect(selectionSql).toContain('r.name LIKE ?');
+    expect(selectionSql).toContain('JSON_CONTAINS(r.repositoryTypes, ?, \'$\')');
+    expect(selectionSql).not.toContain('LOWER(');
+    expect(actualValues).toEqual(vals);
+    expect(hydrateSql).toContain('WHERE r.id IN (/* PAGE_IDS */)');
+    expect(opts.sortField).toBe('r.name');
+    expect(result.items).toEqual([repo]);
   });
 
   it('search should work when no filters are specified', async () => {
-    localPaginationQuery.mockResolvedValueOnce([repo]);
+    localOptimizedPagination.mockResolvedValueOnce({ items: [repo], totalCount: null, hasNextPage: false, limit: 10 });
     const result = await Repository.search('testing', context, null, [], null, null);
-    const sql = 'SELECT r.* FROM repositories r';
-    const vals = ['%%', '%%', '%%'];
-    const whereFilters = [
-      '(LOWER(r.name) LIKE ? OR LOWER(r.description) LIKE ? OR LOWER(r.keywords) LIKE ?)'
-    ];
-    const sortFields = ["r.name", "r.created"];
-    const opts = {
-      cursor: null,
-      limit: generalConfig.defaultSearchLimit,
-      sortField: 'r.name',
-      sortDir: 'ASC',
-      countField: 'r.id',
-      cursorField: 'r.id',
-      availableSortFields: sortFields,
-    };
-    expect(localPaginationQuery).toHaveBeenCalledTimes(1);
-    expect(localPaginationQuery).toHaveBeenCalledWith(context, sql, whereFilters, '', vals, opts, 'testing');
-    expect(result).toEqual([repo]);
+    expect(localOptimizedPagination).toHaveBeenCalledTimes(1);
+    const [, selectionSql, actualValues, hydrateSql] = localOptimizedPagination.mock.calls[0];
+    expect(selectionSql).toContain('FROM repositories r');
+    expect(selectionSql).not.toContain('LIKE ?');
+    expect(actualValues).toEqual([]);
+    expect(hydrateSql).toContain('WHERE r.id IN (/* PAGE_IDS */)');
+    expect(result.items).toEqual([repo]);
   });
 
   it('search should work when only a Repository Type is specified', async () => {
-    localPaginationQuery.mockResolvedValueOnce([repo]);
+    localOptimizedPagination.mockResolvedValueOnce({ items: [repo], totalCount: null, hasNextPage: false, limit: 10 });
     const repositoryTypes = Object.values(REPOSITORY_TYPE);
     const repositoryType = repositoryTypes[Math.floor(Math.random() * repositoryTypes.length)];
     const result = await Repository.search('testing', context, null, [], null, repositoryType);
-    const sql = 'SELECT r.* FROM repositories r';
-    const vals = ['%%', '%%', '%%', JSON.stringify(repositoryType)];
-    const whereFilters = [
-      '(LOWER(r.name) LIKE ? OR LOWER(r.description) LIKE ? OR LOWER(r.keywords) LIKE ?)',
-      'JSON_CONTAINS(r.repositoryTypes, ?, \'$\')'
-    ];
-    const sortFields = ["r.name", "r.created"];
-    const opts = {
-      cursor: null,
-      limit: generalConfig.defaultSearchLimit,
-      sortField: 'r.name',
-      sortDir: 'ASC',
-      countField: 'r.id',
-      cursorField: 'r.id',
-      availableSortFields: sortFields,
-    };
-    expect(localPaginationQuery).toHaveBeenCalledTimes(1);
-    expect(localPaginationQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, '', vals, opts, 'testing');
-    expect(result).toEqual([repo]);
+    expect(localOptimizedPagination).toHaveBeenCalledTimes(1);
+    const [, selectionSql, actualValues] = localOptimizedPagination.mock.calls[0];
+    expect(selectionSql).toContain('JSON_CONTAINS(r.repositoryTypes, ?, \'$\')');
+    expect(selectionSql).not.toContain('LIKE ?');
+    expect(actualValues).toEqual([JSON.stringify(repositoryType)]);
+    expect(result.items).toEqual([repo]);
   });
 
   it('search should work when only a search term is specified', async () => {
-    localPaginationQuery.mockResolvedValueOnce([repo]);
+    localOptimizedPagination.mockResolvedValueOnce({ items: [repo], totalCount: null, hasNextPage: false, limit: 10 });
     const term = casual.words(3);
     const result = await Repository.search('testing', context, term, [], null, null);
-    const sql = 'SELECT r.* FROM repositories r';
-    const vals = [`%${term.toLowerCase()}%`, `%${term.toLowerCase()}%`, `%${term.toLowerCase()}%`];
-    const whereFilters = ['(LOWER(r.name) LIKE ? OR LOWER(r.description) LIKE ? OR LOWER(r.keywords) LIKE ?)'];
-    const sortFields = ["r.name", "r.created"];
-    const opts = {
-      cursor: null,
-      limit: generalConfig.defaultSearchLimit,
-      sortField: 'r.name',
-      sortDir: 'ASC',
-      countField: 'r.id',
-      cursorField: 'r.id',
-      availableSortFields: sortFields,
-    };
-    expect(localPaginationQuery).toHaveBeenCalledTimes(1);
-    expect(localPaginationQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, '', vals, opts, 'testing');
-    expect(result).toEqual([repo]);
+    expect(localOptimizedPagination).toHaveBeenCalledTimes(1);
+    const [, selectionSql, actualValues] = localOptimizedPagination.mock.calls[0];
+    expect(selectionSql).toContain('r.name LIKE ?');
+    expect(selectionSql).toContain('CAST(r.keywords AS CHAR) LIKE ?');
+    expect(selectionSql).not.toContain('LOWER(');
+    expect(actualValues).toEqual([`%${term.toLowerCase().trim()}%`, `%${term.toLowerCase().trim()}%`, `%${term.toLowerCase().trim()}%`]);
+    expect(result.items).toEqual([repo]);
   });
 
   it('search should return empty array if it finds no records', async () => {
-    localPaginationQuery.mockResolvedValueOnce([]);
+    localOptimizedPagination.mockResolvedValueOnce({ items: [], totalCount: null, hasNextPage: false, limit: 10 });
     const term = casual.words(3);
     const repositoryTypes = Object.values(REPOSITORY_TYPE);
     const repositoryType = repositoryTypes[Math.floor(Math.random() * repositoryTypes.length)];
     const result = await Repository.search('testing', context, term, [], null, repositoryType);
-    expect(result).toEqual([]);
+    expect(result.items).toEqual([]);
   });
 });
 

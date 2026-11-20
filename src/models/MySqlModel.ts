@@ -248,8 +248,9 @@ export class MySqlModel {
    * Paginate a lightweight query first, then hydrate only the selected rows.
    * The lightweight query must select `id` and may select additional sort keys;
    * the hydration query is expected to return the full records for those IDs.
-   * Sort expressions must be supplied by trusted application code.
    */
+  // The hydration query must include a placeholder for the IDs, e.g. WHERE id IN (/* PAGE_IDS */).
+  // Sort expressions must be supplied by trusted application code.
   static async queryWithOptimizedPagination<T>(
     apolloContext: MyContext,
     selectionSql: string,
@@ -259,18 +260,23 @@ export class MySqlModel {
     reference = 'undefined caller',
     hydrateValues: MixedArray<string | boolean | Buffer> = [],
   ): Promise<PaginatedQueryResults<T>> {
+    // Determine if the caller requested cursor-based pagination or offset-based pagination
     const isCursor = options.type === PaginationType.CURSOR;
     const offsetOptions: PaginationOptionsForOffsets = isCursor
       ? { ...options, type: PaginationType.OFFSET, offset: 0 }
       : options as PaginationOptionsForOffsets;
     const limit = this.getPaginationLimit(offsetOptions.limit);
     const offset = Math.max(0, offsetOptions.offset ?? 0);
+
+    // Determine the sort field and direction, defaulting to the first available sort field or 'id'
     const availableSortFields = offsetOptions.availableSortFields ?? [];
     const requestedSortField = options.sortField;
     const sortField = requestedSortField && (!availableSortFields.length || availableSortFields.includes(requestedSortField))
       ? requestedSortField
       : availableSortFields[0] ?? 'id';
     const sortDir = (options.sortDir ?? SortDirection.ASC).toUpperCase();
+
+    // Cast the options to PaginationOptionsForCursors to access cursor-specific properties
     const cursorOptions = options as PaginationOptionsForCursors;
     const cursorField = cursorOptions.cursorField ?? (isCursor ? 'id' : undefined);
     if (!['ASC', 'DESC'].includes(sortDir)) {
@@ -278,13 +284,25 @@ export class MySqlModel {
     }
 
     try {
-      let selection = selectionSql.trim().replace(/;$/, '');
+      // Count matching IDs from the lightweight query, without cursor or page limits.
+      const baseSelection = selectionSql.trim().replace(/;$/, '');
+      const countRows = await MySqlModel.query(
+        apolloContext,
+        `SELECT COUNT(*) AS totalCount FROM (${baseSelection}) AS paginationResults`,
+        selectionValues,
+        reference,
+      );
+      const totalCount = Number(countRows?.[0]?.totalCount ?? 0);
+
+      // Prepare the page query, including cursor filtering when requested.
+      let selection = baseSelection;
       const values = [...selectionValues];
       if (isCursor && cursorOptions.cursor && cursorField) {
         const cursorOperator = sortDir === SortDirection.DESC ? '<=' : '>=';
         selection += ` AND ${cursorField} ${cursorOperator} ?`;
         values.push(cursorOptions.cursor);
       }
+      // If the selection SQL does not already include a cursorId alias, add it to the selection
       if (isCursor && cursorField && !/\bAS\s+cursorId\b/i.test(selection)) {
         selection = selection.replace(/^SELECT\s+/i, `SELECT ${cursorField} AS cursorId, `);
       }
@@ -293,6 +311,8 @@ export class MySqlModel {
         : /\bAS\s+sortValue\b/i.test(selection)
           ? 'sortValue'
           : sortField;
+
+      // Execute the selection query to get the IDs of the rows to hydrate
       const selectionRows = await MySqlModel.query(
         apolloContext,
         `${selection} ORDER BY ${orderField} ${sortDir}, id ${sortDir} LIMIT ?${isCursor ? '' : ' OFFSET ?'}`,
@@ -300,15 +320,13 @@ export class MySqlModel {
         reference,
       );
       const rows = Array.isArray(selectionRows) ? selectionRows : [];
-      // This fast path intentionally avoids a full count query. `null` indicates
-      // that callers should use hasNextPage for navigation instead of totalCount.
-      const totalCount = null;
       const hasNextPage = rows.length > limit;
       const pageRows = rows.slice(0, limit);
       const ids = pageRows.map((row) => row.id);
 
       let items: T[] = [];
       if (ids.length) {
+        // Hydrate the selected rows using the provided hydration SQL, which must include a placeholder for the IDs
         const placeholders = ids.map(() => '?').join(', ');
         const hydrated = await MySqlModel.query(
           apolloContext,

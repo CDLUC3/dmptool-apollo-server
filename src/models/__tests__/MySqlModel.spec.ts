@@ -64,7 +64,8 @@ describe('MySqlModel abstract class', () => {
 
     it('selects a page of IDs and hydrates only those rows in page order', async () => {
       const query = jest.fn<(context: MyContext, sql: string, values: unknown[], reference: string) => Promise<unknown[]>>()
-        .mockResolvedValueOnce([{ id: 7, totalCount: 3 }, { id: 9, totalCount: 3 }, { id: 12, totalCount: 3 }])
+        .mockResolvedValueOnce([{ totalCount: 12 }])
+        .mockResolvedValueOnce([{ id: 7 }, { id: 9 }, { id: 12 }])
         .mockResolvedValueOnce([{ id: 9, name: 'second' }, { id: 7, name: 'first' }]);
       (MySqlModel.query as jest.Mock) = query;
 
@@ -77,17 +78,20 @@ describe('MySqlModel abstract class', () => {
         'test pagination',
       );
 
-      expect(query).toHaveBeenCalledTimes(2);
-      expect(query).toHaveBeenNthCalledWith(1, expect.anything(), expect.stringContaining('ORDER BY p.created DESC, id DESC LIMIT ? OFFSET ?'), ['44', '3', '4'], 'test pagination');
-      expect(query).toHaveBeenNthCalledWith(2, expect.anything(), expect.stringContaining('IN (?, ?)'), ['7', '9'], 'test pagination');
+      expect(query).toHaveBeenCalledTimes(3);
+      expect(query).toHaveBeenNthCalledWith(1, expect.anything(), expect.stringContaining('SELECT COUNT(*) AS totalCount FROM (SELECT p.id, p.created FROM plans p WHERE p.createdById = ?) AS paginationResults'), ['44'], 'test pagination');
+      expect(query).toHaveBeenNthCalledWith(2, expect.anything(), expect.stringContaining('ORDER BY p.created DESC, id DESC LIMIT ? OFFSET ?'), ['44', '3', '4'], 'test pagination');
+      expect(query).toHaveBeenNthCalledWith(3, expect.anything(), expect.stringContaining('IN (?, ?)'), ['7', '9'], 'test pagination');
       expect(result.items.map((item) => item.id)).toEqual([7, 9]);
-      expect(result.totalCount).toBeNull();
+      expect(result.totalCount).toBe(12);
       expect(result.hasNextPage).toBe(true);
       expect(result.currentOffset).toBe(4);
     });
 
     it('does not hydrate when the selected page is empty', async () => {
-      const query = jest.fn<(context: MyContext, sql: string, values: unknown[], reference: string) => Promise<unknown[]>>().mockResolvedValueOnce([]);
+      const query = jest.fn<(context: MyContext, sql: string, values: unknown[], reference: string) => Promise<unknown[]>>()
+        .mockResolvedValueOnce([{ totalCount: 0 }])
+        .mockResolvedValueOnce([]);
       (MySqlModel.query as jest.Mock) = query;
 
       const result = await MySqlModel.queryWithOptimizedPagination(
@@ -99,14 +103,15 @@ describe('MySqlModel abstract class', () => {
         'test pagination',
       );
 
-      expect(query).toHaveBeenCalledTimes(1);
+      expect(query).toHaveBeenCalledTimes(2);
       expect(result.items).toEqual([]);
-      expect(result.totalCount).toBeNull();
+      expect(result.totalCount).toBe(0);
       expect(result.hasNextPage).toBe(false);
     });
 
     it('applies cursor filtering and returns the next cursor while hydrating the current page', async () => {
       const query = jest.fn<(context: MyContext, sql: string, values: unknown[], reference: string) => Promise<unknown[]>>()
+        .mockResolvedValueOnce([{ totalCount: 9 }])
         .mockResolvedValueOnce([
           { id: 8, cursorId: 'b8' },
           { id: 9, cursorId: 'b9' },
@@ -124,9 +129,11 @@ describe('MySqlModel abstract class', () => {
         'cursor pagination test',
       );
 
-      expect(query).toHaveBeenNthCalledWith(1, expect.anything(), expect.stringContaining('CONCAT(ue.email, u.id) >= ?'), ['b7', '3'], 'cursor pagination test');
-      expect(query).toHaveBeenNthCalledWith(2, expect.anything(), expect.stringContaining('IN (?, ?)'), ['8', '9'], 'cursor pagination test');
+      expect(query).toHaveBeenNthCalledWith(1, expect.anything(), expect.stringContaining('SELECT COUNT(*) AS totalCount'), [], 'cursor pagination test');
+      expect(query).toHaveBeenNthCalledWith(2, expect.anything(), expect.stringContaining('CONCAT(ue.email, u.id) >= ?'), ['b7', '3'], 'cursor pagination test');
+      expect(query).toHaveBeenNthCalledWith(3, expect.anything(), expect.stringContaining('IN (?, ?)'), ['8', '9'], 'cursor pagination test');
       expect(result.items.map((item) => item.id)).toEqual([8, 9]);
+      expect(result.totalCount).toBe(9);
       expect(result.nextCursor).toBe('b9');
       expect(result.hasNextPage).toBe(true);
       expect(result.currentOffset).toBeUndefined();

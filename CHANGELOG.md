@@ -387,6 +387,7 @@
 - Updates to appease newer version of eslint
 
 ### Removed
+- Removed the placeholder email confirmation message (`sendEmailConfirmationNotification`) and the unused `UserEmail.confirmEmail`. Email confirmation is now handled by `dmptool-auth` (`/email-confirmation/token` and `/email-confirmation/confirm`) [#106]
 - Added `displayLogicAction` and `displayLogicMatchType` to `updateQuestion` resolver so that it doesn't fall back to default settings whenever a question is edited [#586]
 - Removed `conditionalLogic` and its `VersionedQuestionConditionalLogic` type from `PlanQuestion`, since the plan's display logic is now applied on the server through `isHidden` [#366]
 - Removed `VersionedQuestionCustomization.findActiveByTemplateAffiliationAndQuestion` and `VersionedSectionCustomization.findActiveByTemplateAffiliationAndSection`, which have been replaced by the existing `findByVersionedCustomizationAndVersionedQuestion` and `findByVersionedCustomizationAndVersionedSection` [#388]
@@ -419,6 +420,7 @@
 - Removed `ioredis` package
 
 ### Fixed
+- Fixed `User.findByEmail` so it only matches a primary or confirmed email. Collaboration invitations sent to an address that someone has added but not confirmed are no longer attached to that account [#106]
 - Fixed `TemplateLink` and `VersionedTemplateLink` URL validation, which was inverted (valid URLs were rejected and invalid ones accepted) [#251]
 - Fixed `VersionedTemplateLink` model to use the `versionedTemplateId` column instead of the non-existent `templateId` column [#251]
 - Fixed the `users` query not finding a user when the search term combines their given name and surname (e.g. "Jane Smith", "Smith, Jane"). `User.search` and `User.findByAffiliationId` now split the term into words and require every word to match one of the fields, using the new `buildSearchTermFilter` helper. An empty term now adds no search filter, so all qualifying users are returned [#389]

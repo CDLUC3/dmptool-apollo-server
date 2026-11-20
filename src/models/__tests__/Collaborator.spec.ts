@@ -14,7 +14,6 @@ jest.unstable_mockModule('../../context.js', () => ({
 jest.unstable_mockModule('../../services/emailService.js', () => ({
   sendProjectCollaborationEmail: jest.fn(),
   sendTemplateCollaborationEmail: jest.fn(),
-  sendEmailConfirmationNotification: jest.fn(),
 }));
 
 // Dynamic imports AFTER all mocks are registered

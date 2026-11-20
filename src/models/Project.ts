@@ -175,7 +175,7 @@ export class ProjectSearchResult {
       'p.createdById, p.created, p.modifiedById, p.modified, researchDomains.description';
 
     const sortField = MySqlModel.getSafePaginationSortField(opts, 'p.modified');
-    const selectionSql = `SELECT DISTINCT p.id, ${sortField} AS sortValue
+    const selectionSql = `SELECT p.id, ${sortField} AS sortValue
       FROM projects p
       LEFT JOIN researchDomains ON p.researchDomainId = researchDomains.id
       LEFT JOIN users cu ON cu.id = p.createdById

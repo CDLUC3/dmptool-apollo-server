@@ -179,12 +179,6 @@ export class User extends MySqlModel {
       values.push(...termFilter.values);
     }
 
-    // Join users with user_emails
-    const sqlStatement = `
-    SELECT u.* FROM users u
-    LEFT JOIN userEmails ue ON u.id = ue.userId AND ue.isPrimary = 1
-  `;
-
     // Determine the type of pagination being used
     let opts;
     if (options.type === PaginationType.OFFSET) {
@@ -208,12 +202,21 @@ export class User extends MySqlModel {
     // Specify the field we want to use for the count
     opts.countField = 'u.id';
 
-    const response: PaginatedQueryResults<User> = await User.queryWithPagination(
+    const sortField = MySqlModel.getSafePaginationSortField(opts, 'u.created');
+    const selectionSql = `
+      SELECT DISTINCT u.id, ${sortField} AS sortValue${options.type === PaginationType.CURSOR ? ', CONCAT(ue.email, u.id) AS cursorId' : ''}
+      FROM users u
+      LEFT JOIN affiliations a ON u.affiliationId = a.uri
+      LEFT JOIN userEmails ue ON u.id = ue.userId AND ue.isPrimary = 1
+      WHERE ${whereFilters.join(' AND ')}
+    `;
+    const hydrateSql = 'SELECT u.* FROM users u WHERE u.id IN (/* PAGE_IDS */)';
+
+    const response: PaginatedQueryResults<User> = await User.queryWithOptimizedPagination(
       context,
-      sqlStatement,
-      whereFilters,
-      '',
+      selectionSql,
       values,
+      hydrateSql,
       opts,
       reference,
     );
@@ -257,45 +260,43 @@ export class User extends MySqlModel {
       values.push(affiliationId);
     }
 
-    // Determine the type of pagination being used
-    let opts;
-    if (options.type === PaginationType.OFFSET) {
-      opts = {
-        ...options,
-        // Specify the fields available for sorting
-        availableSortFields: ['u.surName', 'u.givenName', 'u.created', 'ue.email', 'u.orcid', 'u.role', 'u.active', 'u.last_sign_in', 'a.name'],
-      } as PaginationOptionsForOffsets;
-    } else {
-      opts = {
-        ...options,
-        // Specify the field we want to use for the cursor (should typically match the sort field)
-        cursorField: 'CONCAT(ue.email, u.id)',
-      } as PaginationOptionsForCursors;
-    }
+    const availableSortFields = ['u.surName', 'u.givenName', 'u.created', 'ue.email', 'u.orcid', 'u.role', 'u.active', 'u.last_sign_in', 'a.name'];
+    const requestedSort = options.sortField && availableSortFields.includes(options.sortField)
+      ? options.sortField
+      : 'u.created';
+    const sortDir = options.sortDir?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    const opts: PaginationOptions = {
+      ...options,
+      sortField: requestedSort,
+      sortDir,
+      ...(options.type === PaginationType.OFFSET
+        ? { availableSortFields }
+        : { cursorField: 'CONCAT(ue.email, u.id)' }),
+    };
 
-    // Set the default sort field and order if none was provided
-    if (isNullOrUndefined(opts.sortField)) opts.sortField = 'u.created';
-    if (isNullOrUndefined(opts.sortDir)) opts.sortDir = 'DESC';
+    const selectionSql = `
+      SELECT DISTINCT u.id, ${requestedSort} AS sortValue${options.type === PaginationType.CURSOR ? ', CONCAT(ue.email, u.id) AS cursorId' : ''}
+      FROM users u
+      LEFT JOIN affiliations a ON u.affiliationId = a.uri
+      LEFT JOIN userEmails ue ON u.id = ue.userId AND ue.isPrimary = 1
+      WHERE ${whereFilters.join(' AND ')}
+    `;
+    const hydrateSql = `
+      SELECT u.*, a.name, a.uri
+      FROM users u
+      LEFT JOIN affiliations a ON u.affiliationId = a.uri
+      LEFT JOIN userEmails ue ON u.id = ue.userId AND ue.isPrimary = 1
+      WHERE u.id IN (/* PAGE_IDS */)
+    `;
 
-    // Specify the field we want to use for the count
-    opts.countField = 'u.id';
-
-    // Join users with user_emails
-    const sqlStatement = `
-    SELECT u.*, a.name, a.uri FROM users u
-                      LEFT JOIN affiliations a ON u.affiliationId = a.uri
-                      LEFT JOIN userEmails ue ON u.id = ue.userId AND ue.isPrimary = 1
-  `;
-
-    const response: PaginatedQueryResults<User> = await User.queryWithPagination(
+    const response: PaginatedQueryResults<User> = await User.queryWithOptimizedPagination(
       context,
-      sqlStatement,
-      whereFilters,
-      '',
+      selectionSql,
       values,
+      hydrateSql,
       opts,
       reference,
-    )
+    );
 
     context.logger.debug(prepareObjectForLogs({ options, response }), reference);
     return response;

@@ -174,12 +174,18 @@ export class ProjectSearchResult {
     const groupByClause = 'GROUP BY p.id, p.title, p.abstractText, p.startDate, p.endDate, p.isTestProject, ' +
       'p.createdById, p.created, p.modifiedById, p.modified, researchDomains.description';
 
-    const response: PaginatedQueryResults<ProjectSearchResult> = await Project.queryWithPagination(
+    const sortField = MySqlModel.getSafePaginationSortField(opts, 'p.modified');
+    const selectionSql = `SELECT DISTINCT p.id, ${sortField} AS sortValue
+      FROM projects p
+      LEFT JOIN researchDomains ON p.researchDomainId = researchDomains.id
+      LEFT JOIN users cu ON cu.id = p.createdById
+      WHERE ${whereFilters.join(' AND ')}`;
+    const hydrateSql = `${sqlStatement} WHERE p.id IN (/* PAGE_IDS */) ${groupByClause}`;
+    const response: PaginatedQueryResults<ProjectSearchResult> = await Project.queryWithOptimizedPagination(
       context,
-      sqlStatement,
-      whereFilters,
-      groupByClause,
+      selectionSql,
       values,
+      hydrateSql,
       opts,
       reference,
     )

@@ -212,7 +212,9 @@ const handleOpenSearchError = (
   error: any,
   preamble: string,
 ): never => {
-  const detail = JSON.stringify(error?.meta?.body?.error ?? error?.body?.error ?? error, null, 2);
+  const detail = (error?.meta || error?.body)
+    ? JSON.stringify(error?.meta?.body?.error ?? error?.body?.error ?? error, null, 2)
+    : undefined;
   throw new OpenSearchError(
     `"${preamble}" from ${indexName}. ${detail || error.message}`
   );
@@ -501,7 +503,7 @@ export class OpenSearch {
       const items: IndexSearchItemInterface[] = response.body.hits.hits.map((hit: SearchHit): IndexSearchItemInterface => {
         // OpenSearch returns document content in `_source` by default. `fields`
         // is only populated when explicitly requested in the search body.
-        return { _id: hit._id, fields: camelizeKeys(hit._source ?? hit.fields) };
+        return { _id: hit._id, fields: hit._source ?? hit.fields };
       }) || [];
 
       // Camelize the aggregation keys and bucket keys for consistency with the rest of the app

@@ -51,7 +51,7 @@ import {
   PlanSearchOptions,
   PlanSearchResults,
   PublicPlanSearchOptions,
-  PublicPlanSearchResults
+  PublicPlanSearchResults, PublicPlanSearchResult
 } from "../types.js";
 import { prepareObjectForLogs } from "../logger.js";
 import { toErrorMessage } from "@dmptool/utils";
@@ -92,6 +92,8 @@ import {
   searchIndex
 } from "../services/indexDMPService.js";
 import { UserRole as TokenRole } from "../models/User.js";
+import {supportedLanguageMap} from "../models/Language.js";
+import {PublicPlanSearchHydrationResult} from "../types/projects.js";
 
 export const resolvers: Resolvers = {
   Query: {
@@ -159,7 +161,8 @@ export const resolvers: Resolvers = {
             multi_match: {
               query: options.query.trim(),
               fields: ['title^3', 'abstract', 'project_title'],
-              type: 'best_fields'
+              type: 'best_fields',
+              minimum_should_match: '75%',
             }
           });
         }
@@ -174,10 +177,45 @@ export const resolvers: Resolvers = {
           offset
         );
 
+        const hydratedItems: PublicPlanSearchResult[] = await Promise.all(result.items.map(async (item) => {
+          const sql = 'SELECT vt.name AS templateTitle, o.displayName AS templateOwnerAffiliationName, ' +
+            'vt.ownerId AS templateOwnerAffiliationURI, u.givenName as ownerGivenName, ' +
+            'u.surName AS ownerSurname, u.orcid AS ownerORCID, a.displayName AS ownerAffiliationName, ' +
+            'p.affiliationId AS ownerAffiliationURI ' +
+            'FROM plans AS p ' +
+            'LEFT JOIN affiliations AS a ON p.affiliationId = a.uri ' +
+            'LEFT JOIN versionedTemplates AS vt ON p.versionedTemplateId = vt.id ' +
+            'LEFT JOIN affiliations AS o ON vt.ownerId = o.uri ' +
+            'LEFT JOIN projectCollaborators AS prjC ON p.projectId = prjC.projectId AND prjc.accessLevel = \'PRIMARY\' ' +
+            'LEFT JOIN users AS u ON prjC.userId = u.id ' +
+            'WHERE p.id = ?';
+          const hydrationResults: PublicPlanSearchHydrationResult[] = await Plan.query(context, sql, [item.plan_id.toString()], reference);
+          if (!Array.isArray(hydrationResults) || hydrationResults.length !== 1) {
+            throw InternalServerError(`Failed to hydrate plan search result for plan ID ${item.plan_id}`);
+          }
 
+          const hydrationResult: PublicPlanSearchHydrationResult = hydrationResults[0];
+          return {
+            projectId: item.project_id,
+            planId: item.plan_id,
+            dmpId: item.registered ? item.dmp_id : null,
+            created: item.created,
+            featured: item.featured,
+            title: item.title || item.project_title,
+            templateTitle: hydrationResult.templateTitle,
+            templateOwnerAffiliationName: hydrationResult.templateOwnerAffiliationName,
+            templateOwnerAffiliationURI: hydrationResult.templateOwnerAffiliationURI,
+            ownerName: [hydrationResult.ownerGivenName, hydrationResult.ownerSurname].join(', '),
+            ownerORCID: hydrationResult.ownerORCID,
+            ownerAffiliationName: hydrationResult.ownerAffiliationName,
+            ownerAffiliationURI: hydrationResult.ownerAffiliationURI,
+            language: supportedLanguageMap.get(item.language),
+            languageCode: item.language,
+          };
+        }));
 
         return {
-          items: result.items,
+          items: hydratedItems,
           totalCount: result.totalCount,
           availableSortFields: ['title', 'created', 'featured'],
           offset,
@@ -341,6 +379,7 @@ export const resolvers: Resolvers = {
           count,
           offset
         );
+
         return { items: result.items, totalCount: result.totalCount, offset, count };
       } catch (err) {
         if (err instanceof GraphQLError) throw err;

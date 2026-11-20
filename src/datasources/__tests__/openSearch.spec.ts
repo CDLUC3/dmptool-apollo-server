@@ -624,8 +624,8 @@ describe('OpenSearch class', () => {
 
       expect(result.total).toBe(2);
       expect(result.items).toEqual([
-        { _id: 'doc-1', fields: { planTitle: 'My DMP' } },
-        { _id: 'doc-2', fields: { planTitle: 'Another DMP' } },
+        { _id: 'doc-1', fields: { plan_title: 'My DMP' } },
+        { _id: 'doc-2', fields: { plan_title: 'Another DMP' } },
       ]);
     });
 
@@ -662,7 +662,7 @@ describe('OpenSearch class', () => {
       const os = new OpenSearch(serverlessConfig);
       await expect(os.search(INDEX_NAME, QUERY)).resolves.toEqual({
         total: 1,
-        items: [{ _id: 'doc-source', fields: { dmpId: '10.1234/example', projectTitle: 'Indexed project' } }],
+        items: [{ _id: 'doc-source', fields: { dmp_id: '10.1234/example', project_title: 'Indexed project' } }],
       });
     });
 

@@ -299,8 +299,20 @@ describe('getIndexItem', () => {
 describe('searchIndex', () => {
   it('returns the items from the response when matches exist', async () => {
     const items = [
-      { _id: '11.22222/demo', fields: { dmpId: '11.22222/demo' } },
-      { _id: '11.22222/other', fields: { dmpId: '11.22222/other' } },
+      {
+        _id: '11.22222/demo',
+        fields: {
+          dmpId: '11.22222/demo',
+          institutions_display: [{ id: 7654, name: 'Demo institution' }]
+        }
+      },
+      {
+        _id: '11.22222/other',
+        fields: {
+          dmpId: '11.22222/other',
+          institutions_display: [{ id: 1234, name: 'Other institution' }]
+        }
+      },
     ];
     const documents = items.map(({ fields }) => fields);
     mockOpenSearch.search.mockResolvedValue({ total: 2, items, aggregations: {} });
@@ -341,18 +353,21 @@ describe('searchIndex', () => {
   });
 
   it('maps aggregation buckets to named facets', async () => {
-    const affiliation = buildAffiliation('https://ror.org/institution-1', {
-      displayName: 'Institution One',
-    });
     const domain = new (await import('../../models/ResearchDomain.js')).ResearchDomain({
       uri: 'https://example.org/research-domain/1',
       name: 'Climate',
     });
-    jest.spyOn(Affiliation, 'findByURIs').mockResolvedValue([affiliation]);
+    // jest.spyOn(Affiliation, 'findByURIs').mockResolvedValue([affiliation]);
     jest.spyOn(ResearchDomain, 'findByURIs').mockResolvedValue([domain]);
     mockOpenSearch.search.mockResolvedValue({
       total: 1,
-      items: [{ _id: 'dmp-1', fields: { dmpId: 'dmp-1' } }],
+      items: [{
+        _id: 'dmp-1',
+        fields: {
+          dmpId: 'dmp-1',
+          institutions_display: [{ id: 'institution-1', name: 'Demo institution' }]
+        }
+      }],
       aggregations: {
         affiliationIds: [{ key: 'institution-1', docCount: 1 }],
         funderIds: [],
@@ -364,7 +379,7 @@ describe('searchIndex', () => {
     await expect(searchIndex('ref', context, { match_all: {} })).resolves.toMatchObject({
       totalCount: 1,
       facets: {
-        affiliationIds: [{ id: 'institution-1', name: 'Institution One', count: 1 }],
+        affiliationIds: [{ id: 'institution-1', name: 'Demo institution', count: 1 }],
         languages: [{ id: 'en-US', name: 'English (US)', count: 1 }],
         subjects: [{ id: domain.uri, name: 'Climate', count: 1 }],
       },

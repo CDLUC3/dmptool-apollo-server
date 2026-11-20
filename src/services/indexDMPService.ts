@@ -40,8 +40,6 @@ import { ResearchDomain } from "../models/ResearchDomain.js";
 export const DMP_INDEX_NAME = "dmp";
 export const INDEX_NAME = DMP_INDEX_NAME;
 export const DEFAULT_MAX_RESULTS = 100;
-const DEFAULT_DMPTOOL_AFFILIATION_URL = 'https://dmptool.org/affiliations/';
-const DEFAULT_ROR_AFFILIATION_URL = 'https://ror.org/';
 
 /**
  * OpenSearch Index Definition
@@ -810,7 +808,12 @@ export const searchIndex = async (
 ): Promise<PlanIndexSearchResponseInterface> => {
   const openSearch: OpenSearch = context.dataSources.openSearchServerlessDataSource;
   try {
-    context.logger.debug({ query, sort, maxResults, offset }, 'Searching Plan index');
+    context.logger.debug({
+      query,
+      sort,
+      maxResults,
+      offset
+    }, 'Searching Plan index');
     const response: IndexSearchResponseInterface<PlanIndexDocumentInterface> = await openSearch.search<PlanIndexDocumentInterface>(
       DMP_INDEX_NAME,
       {
@@ -826,7 +829,7 @@ export const searchIndex = async (
       throw new Error(`Failed to search index for query: ${JSON.stringify(query)}`);
     }
 
-    context.logger.debug({ itemCount: response.items.length }, 'Index search results');
+    context.logger.debug({itemCount: response.items.length}, 'Index search results');
     const items = response.items
       .filter(item => 'fields' in item)
       .map(item => item.fields) as PlanIndexDocumentInterface[];
@@ -838,48 +841,42 @@ export const searchIndex = async (
       }
     }
 
+    // Build an id to name mapping for the affiliations and funders from the index items
+    const displayNamesMap = new Map<string, string>();
+    for (const item of items) {
+      if (item.institutions_display) {
+        for (const inst of item.institutions_display) {
+          if (inst.id && inst.name) {
+            displayNamesMap.set(inst.id, inst.name);
+          }
+        }
+      }
+      if (item.funding_display) {
+        for (const fund of item.funding_display) {
+          if (fund.id && fund.name) {
+            displayNamesMap.set(fund.id, fund.name);
+          }
+        }
+      }
+    }
+
     // Convert the response aggregations into a more usable format for the GraphQL response
     // including lookups of the descriptive names for the affiliations, funders,
     // languages, and subjects
     const aggregations: Record<string, IndexSearchResponseAggregation[]> = response.aggregations || {};
-    const affiliationIds: string[] = aggregations?.affiliationIds?.map((entry) => {
-      return String(entry.key).startsWith(DEFAULT_DMPTOOL_AFFILIATION_URL)
-        ? String(entry.key)
-        : `${DEFAULT_ROR_AFFILIATION_URL}${entry.key}`
-    }) || [];
-    const funderIds: string[] = aggregations?.funderIds?.map((entry) => {
-      return String(entry.key).startsWith(DEFAULT_DMPTOOL_AFFILIATION_URL)
-        ? String(entry.key)
-        : `${DEFAULT_ROR_AFFILIATION_URL}${entry.key}`
-    }) || [];
     const researchDomainIds: string[] = aggregations?.researchDomainId?.map((entry) => String(entry.key)) || [];
-
-    // Find the names of the affiliations and funders and research domains
-    const [affiliations, researchDomains] = await Promise.all([
-      Affiliation.findByURIs(reference, context, [affiliationIds, funderIds].flat()),
-      ResearchDomain.findByURIs(reference, context, researchDomainIds)
-    ]);
-    // Extract the URI to name mappings for the affiliations and research domains for use in the GraphQL response
-    const affiliationMap = new Map<string, string>(
-      (affiliations || []).map((aff) => [aff.uri, aff.displayName])
-    );
+    const researchDomains: ResearchDomain[] = await ResearchDomain.findByURIs(reference, context, researchDomainIds);
     const researchDomainMap = new Map<string, string>(researchDomains.map((domain) => [domain.uri, domain.name]));
 
     // Convert the OpenSearch aggregations into facets with descriptive names for the GraphQL response
     const facets = {
       affiliationIds: (aggregations?.affiliationIds || []).map((entry) => {
         const id = String(entry.key);
-        const uri = id.startsWith(DEFAULT_DMPTOOL_AFFILIATION_URL)
-          ? id
-          : `${DEFAULT_ROR_AFFILIATION_URL}${id}`;
-        return { id, name: affiliationMap.get(uri) || '', count: entry.docCount };
+        return { id, name: displayNamesMap.get(id) || '', count: entry.docCount };
       }),
       funderIds: (aggregations?.funderIds || []).map((entry) => {
         const id = String(entry.key);
-        const uri = id.startsWith(DEFAULT_DMPTOOL_AFFILIATION_URL)
-          ? id
-          : `${DEFAULT_ROR_AFFILIATION_URL}${id}`;
-        return { id, name: affiliationMap.get(uri) || '', count: entry.docCount };
+        return { id, name: displayNamesMap.get(id) || '', count: entry.docCount };
       }),
       subjects: (aggregations?.researchDomainId || []).map((entry) => {
         return { id: String(entry.key), name: researchDomainMap.get(entry.key) || '', count: entry.docCount };

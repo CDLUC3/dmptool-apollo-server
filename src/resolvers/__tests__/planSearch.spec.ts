@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-function-type, @typescript-eslint/no-extraneous-class */
 import { jest } from '@jest/globals';
+import {Plan} from "../../models/Plan.js";
 
 jest.unstable_mockModule('../../services/indexDMPService.js', () => ({
   searchIndex: jest.fn<(...args: any[]) => Promise<any>>(),
@@ -47,6 +48,16 @@ describe('publicPlansSearch resolver', () => {
       facets: { affiliationIds: [], funderIds: [], languages: [], subjects: [] },
     }));
 
+    jest.spyOn(Plan, 'query').mockResolvedValue([{
+      templateTitle: 'Template Title',
+      templateOwnerAffiliationURI: 'https://ror.org/123456789',
+      ownerGivenName: 'Owner Given Name',
+      ownerSurname: 'Owner Surname',
+      ownerORCID: 'Owner ORCID',
+      ownerAffiliationName: 'Owner Affiliation Name',
+      ownerAffiliationURI: 'Owner Affiliation URI'
+    }]);
+
     await expect(publicSearch({}, {
       options: {
         query: ' climate ',
@@ -78,6 +89,7 @@ describe('publicPlansSearch resolver', () => {
               query: 'climate',
               fields: ['title^3', 'abstract', 'project_title'],
               type: 'best_fields',
+              minimum_should_match: "75%",
             } },
           ]),
         },

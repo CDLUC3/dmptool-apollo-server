@@ -482,6 +482,7 @@ export class OpenSearch {
     if ((await this.listIndices(indexName))?.length === 0) {
       throw new OpenSearchError('Search: No index found!');
     }
+    console.log('SEARCH BODY:', JSON.stringify(body, null, 2));
 
     try {
       const response = await this.client.search({
@@ -523,6 +524,9 @@ export class OpenSearch {
             return acc;
           }, {} as Record<string, { key: string; docCount: number }[]>)
         : undefined;
+
+console.log('ITEM 1', JSON.stringify(items[0]?.fields?.institution_ids, null, 2));
+console.log('ITEM 2', JSON.stringify(items[1]?.fields?.institution_ids, null, 2));
 
       return {
         total: total || 0,

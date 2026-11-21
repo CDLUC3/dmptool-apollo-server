@@ -411,6 +411,7 @@ describe('updateIndexItem', () => {
       id: 200,
       projectId: project.id,
       dmpId: `${TEST_DMP_ID_BASE}11.22222/demo-plan`,
+      affiliationId: `${TEST_ROR_BASE}plan-owner123`,
       title: 'My DMP',
       visibility: PlanVisibility.PUBLIC,
       featured: true,
@@ -426,11 +427,31 @@ describe('updateIndexItem', () => {
       orcid: `${TEST_ORCID_BASE}0000-0001-2345-6789`,
       affiliationId: `${TEST_ROR_BASE}abcd1234`,
     });
+    const unrelatedMember = buildProjectMember(301, {
+      projectId: project.id,
+      givenName: 'Unrelated',
+      surName: 'Collaborator',
+      affiliationId: `${TEST_ROR_BASE}unrelated999`,
+    });
+    const memberWithoutAffiliationRecord = buildProjectMember(302, {
+      projectId: project.id,
+      givenName: 'Unmapped',
+      surName: 'Member',
+      affiliationId: `${TEST_ROR_BASE}unmapped999`,
+    });
     const planMember = buildPlanMember(memberId);
     const planMemberId = planMember.id;
     const memberAffiliation = buildAffiliation(`${TEST_ROR_BASE}abcd1234`, {
       name: 'State University',
       displayName: 'State University',
+    });
+    const unrelatedAffiliation = buildAffiliation(`${TEST_ROR_BASE}unrelated999`, {
+      name: 'Unrelated University',
+      displayName: 'Unrelated University',
+    });
+    const planAffiliation = buildAffiliation(`${TEST_ROR_BASE}plan-owner123`, {
+      name: 'Plan Owner University',
+      displayName: 'Plan Owner University',
     });
 
     const fundingId = 400;
@@ -448,19 +469,21 @@ describe('updateIndexItem', () => {
       funder: true,
     });
 
-    jest.spyOn(ProjectMember, 'findByProjectIds').mockResolvedValue([member]);
-    jest.spyOn(PlanMember, 'findByPlanIds').mockResolvedValue(asPlanMemberList([{ ...planMember, id: planMemberId, projectMemberId: memberId }]));
+    jest.spyOn(ProjectMember, 'findByProjectIds').mockResolvedValue([member, unrelatedMember, memberWithoutAffiliationRecord]);
+    jest.spyOn(PlanMember, 'findByPlanIds').mockResolvedValue(asPlanMemberList([{ ...planMember, id: planMemberId, projectMemberId: memberId, isPrimaryContact: true }]));
     jest.spyOn(ProjectFunding, 'findByProjectIds').mockResolvedValue([funding]);
     jest.spyOn(PlanFunding, 'findByPlanIds').mockResolvedValue(asPlanFundingList([{ ...planFunding, projectFundingId: fundingId }]));
     jest.spyOn(Affiliation, 'findByURIs').mockImplementation(async (_ref: string, _context: MyContext, uris: string[]) => {
       return uris.map((uri) => {
         if (uri === `${TEST_ROR_BASE}abcd1234`) return memberAffiliation;
+        if (uri === `${TEST_ROR_BASE}unrelated999`) return unrelatedAffiliation;
+        if (uri === `${TEST_ROR_BASE}plan-owner123`) return planAffiliation;
         if (uri === funderUri) return funderAffiliation;
         return null;
       });
     });
-    jest.spyOn(AlternateIdentifier, 'findByPlanIds').mockResolvedValue(asAlternateIdentifierList([{ alternateIdentifier: '10.1234/demo' }]));
-    jest.spyOn(AcceptedWork, 'findByPlanIds').mockResolvedValue(asAcceptedWorkList([{ doi: '10.9999/related' }]));
+    jest.spyOn(AlternateIdentifier, 'findByPlanIds').mockResolvedValue(asAlternateIdentifierList([{ planId: plan.id, alternateIdentifier: '10.1234/demo' }]));
+    jest.spyOn(AcceptedWork, 'findByPlanIds').mockResolvedValue(asAcceptedWorkList([{ planId: plan.id, doi: '10.9999/related' }]));
     jest.spyOn(Answer, 'findByPlanIds').mockResolvedValue(asAnswerList([{ json: buildResearchOutputAnswerJson() }]));
 
     await updateIndexItem(ref, context, plan, project);
@@ -479,7 +502,13 @@ describe('updateIndexItem', () => {
     expect(doc.related_identifier_ids).toContain('10.9999/related');
     expect(doc.contributor_ids).toContain('0000-0001-2345-6789');
     expect(doc.contributors_search).toEqual(expect.arrayContaining(['jane smith', 'smith, jane']));
-    expect(doc.institution_ids).toContain('abcd1234');
+    expect(doc.institution_ids).toEqual(['abcd1234', 'unrelated999', 'unmapped999', 'plan-owner123']);
+    expect(doc.institutions_display.map((institution) => institution.name)).toEqual([
+      'State University', 'Unrelated University', 'Plan Owner University',
+    ]);
+    expect(doc.contributors_display.map((contributor) => contributor.full_name)).toEqual(['Jane Smith']);
+    expect(doc.funding_display.map((funder) => funder.name)).toEqual(['National Science Foundation']);
+    expect(doc.datasets_display.map((dataset) => dataset.title)).toEqual(['My Dataset']);
     expect(doc.institutions_facets).toContain('State University');
     expect(doc.funder_ids).toContain('funder5678');
     expect(doc.funding_facets).toContain('National Science Foundation');

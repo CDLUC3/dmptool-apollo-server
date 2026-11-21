@@ -14,6 +14,7 @@ import {
 } from "../services/indexDMPService.js";
 import { PlanMember, ProjectMember } from "./Member.js";
 import { PlanFunding, ProjectFunding } from "./Funding.js";
+import { Affiliation } from "./Affiliation.js";
 import { Answer } from "./Answer.js";
 import { OpenSearch } from "../datasources/openSearch.js";
 
@@ -373,7 +374,8 @@ export class OpenSearchDMPSync extends DataSyncJob {
       reference,
       context,
       projectPlanResponses.map((plan: ProjectPlanResponse) => plan.project_id) || [],
-      projectPlanResponses.map((plan: ProjectPlanResponse) => plan.plan_id) || []
+      projectPlanResponses.map((plan: ProjectPlanResponse) => plan.plan_id) || [],
+      projectPlanResponses.map((plan: ProjectPlanResponse) => plan.affiliation_id).filter(Boolean),
     );
 
     // There are many plans and projects, so we need to reconcile the associated
@@ -397,6 +399,27 @@ export class OpenSearchDMPSync extends DataSyncJob {
         return a.planId === plan_id
       });
 
+      // Scope the shared batch affiliation lookup to this project's members,
+      // this plan's owner affiliation, and its linked funders.
+      const planAffiliationURIs = new Set<string>();
+      for (const member of projectMembers) {
+        if (member.affiliationId) planAffiliationURIs.add(member.affiliationId);
+      }
+      if (projectPlanResponse.affiliation_id) {
+        planAffiliationURIs.add(projectPlanResponse.affiliation_id);
+      }
+      const projectFundingIds = new Set(planFunding.map((funding) => funding.projectFundingId));
+      for (const funding of projectFunding) {
+        if (projectFundingIds.has(funding.id) && funding.affiliationId) {
+          planAffiliationURIs.add(funding.affiliationId);
+        }
+      }
+      const planAffiliations = new Map<string, Affiliation>();
+      for (const uri of planAffiliationURIs) {
+        const affiliation = associatedObjects.affiliations.get(uri);
+        if (affiliation) planAffiliations.set(uri, affiliation);
+      }
+
       const item = generateIndexItem(
         {
           id: project_id,
@@ -418,14 +441,14 @@ export class OpenSearchDMPSync extends DataSyncJob {
           created: projectPlanResponse.created,
           modified: projectPlanResponse.modified,
         },
-        associatedObjects.affiliations,
+        planAffiliations,
         projectMembers,
         projectFunding,
         planMembers,
         planFunding,
         planAnswers,
-        associatedObjects.alternateIdentifiers,
-        associatedObjects.relatedWorks,
+        associatedObjects.alternateIdentifiersByPlan.get(plan_id) ?? [],
+        associatedObjects.relatedWorksByPlan.get(plan_id) ?? [],
         projectPlanResponse.research_domain_uri
       );
 

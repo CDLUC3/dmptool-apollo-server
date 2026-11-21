@@ -102,6 +102,7 @@ export const PlanIndexPropertyDefinition: Record<string, MappingProperty> = {
   contributors_display: { type: "object", enabled: false },
   funding_display: { type: "object", enabled: false },
   institutions_display: { type: "object", enabled: false },
+  datasets_display: { type: "object", enabled: false },
   repositories_display: { type: "object", enabled: false },
 };
 
@@ -273,8 +274,8 @@ export interface PlanIndexDocumentInterface {
  * The associated objects related to a plan and project
  */
 export interface AssociatedObjectInterface {
-  alternateIdentifiers: string[];
-  relatedWorks: string[];
+  alternateIdentifiersByPlan: Map<number, string[]>;
+  relatedWorksByPlan: Map<number, string[]>;
   answers: Answer[],
   projectMembers: ProjectMember[],
   projectFunding: ProjectFunding[],
@@ -406,6 +407,7 @@ export function generateSearchTerms(
  * @param context the Apollo server context
  * @param projectIds the array of project ids to fetch associated objects for
  * @param planIds the array of plan ids to fetch associated objects for
+ * @param planAffiliationIds the array of plan affiliation ids to fetch associated objects for
  * @returns all of the associated objects for the plans and projects
  */
 export const fetchAssociatedObjects = async (
@@ -413,16 +415,27 @@ export const fetchAssociatedObjects = async (
   context: MyContext,
   projectIds: number[],
   planIds: number[],
+  planAffiliationIds: string[] = [],
 ): Promise<AssociatedObjectInterface> => {
   // Fetch alternate identifiers
   const alternateIdentifiers: AlternateIdentifier[] = await AlternateIdentifier.findByPlanIds(reference, context, planIds) || [];
-  const alternateIds: string[] = alternateIdentifiers?.map((i: AlternateIdentifier) => {
-    return i.alternateIdentifier;
-  }).filter(Boolean) ?? [];
+  const alternateIdentifiersByPlan = new Map<number, string[]>();
+  for (const identifier of alternateIdentifiers) {
+    if (!identifier.alternateIdentifier) continue;
+    const planIdentifiers = alternateIdentifiersByPlan.get(identifier.planId) ?? [];
+    planIdentifiers.push(identifier.alternateIdentifier);
+    alternateIdentifiersByPlan.set(identifier.planId, planIdentifiers);
+  }
 
   // Fetch the related work DOIs
   const relatedWorks: AcceptedWork[] = await AcceptedWork.findByPlanIds(reference, context, planIds) || [];
-  const relatedWorkIds: string[] = relatedWorks.map((work: AcceptedWork): string => work.doi) ?? []
+  const relatedWorksByPlan = new Map<number, string[]>();
+  for (const work of relatedWorks) {
+    if (!work.doi) continue;
+    const planWorks = relatedWorksByPlan.get(work.planId) ?? [];
+    planWorks.push(work.doi);
+    relatedWorksByPlan.set(work.planId, planWorks);
+  }
 
   // Fetch answers
   const answers: Answer[] = await Answer.findByPlanIds(reference, context, planIds) || [];
@@ -435,6 +448,9 @@ export const fetchAssociatedObjects = async (
 
   // Build Affiliation Lookup Map from member and funder information
   const affiliationURIs = new Set<string>(projectMembers.map((m: ProjectMember) => m.affiliationId).filter(Boolean));
+  for (const affiliationId of planAffiliationIds) {
+    if (affiliationId) affiliationURIs.add(affiliationId);
+  }
   for (const f of projectFunding) {
     if (f.affiliationId) affiliationURIs.add(f.affiliationId);
   }
@@ -442,12 +458,12 @@ export const fetchAssociatedObjects = async (
   const affiliationObjs: Affiliation[] = await Affiliation.findByURIs(reference, context, Array.from(affiliationURIs)) || [];
   const affiliations = new Map<string, Affiliation>();
   for (const a of affiliationObjs) {
-    if (a.uri) affiliations.set(a.uri, a);
+    if (a?.uri) affiliations.set(a.uri, a);
   }
 
   return {
-    alternateIdentifiers: alternateIds,
-    relatedWorks: relatedWorkIds,
+    alternateIdentifiersByPlan,
+    relatedWorksByPlan,
     answers,
     affiliations,
     projectMembers,
@@ -528,6 +544,7 @@ const convertFunding = (
       name: cleanString(funder.displayName),
       acronym: cleanString(funder.acronyms?.[0]),
       funding_status: funding.status || ProjectFundingStatus.PLANNED,
+      grant_id: funding.grantId,
       funding_project_id: funding.funderProjectNumber,
       opportunity_id: funding.funderOpportunityNumber,
     },
@@ -632,8 +649,8 @@ export const reconcileAssociatedObjects = (
   planAnswers: Answer[],
   planMembers: PlanMember[],
   planFunding: PlanFunding[],
+  planAffiliationId?: string,
 ): ReconciledFragments => {
-  const planMemberIds = new Set(planMembers.map((m: PlanMember) => m.projectMemberId));
   const planFundingIds = new Set(planFunding.map((f: PlanFunding) => f.projectFundingId));
 
   // Single-pass reduction helpers
@@ -656,10 +673,12 @@ export const reconcileAssociatedObjects = (
   const hostNames: string[] = [];
   const personalData = new Set<string>();
   const sensitiveData = new Set<string>();
+  const planMembersByProjectMemberId = new Map(planMembers.map((member) => [member.projectMemberId, member]));
 
   // Process Members
   for (const member of projectMembers) {
-    if (!planMemberIds.has(member.id)) continue;
+    const planMember = planMembersByProjectMemberId.get(member.id);
+    if (!planMember) continue;
 
     const converted: ConversionOutput<ContributorDocumentFragment> = convertMember(member as ProjectMember);
     if (!converted) continue;
@@ -667,19 +686,37 @@ export const reconcileAssociatedObjects = (
     membersResult.ids.push(...converted.ids);
     membersResult.search_terms.push(...converted.search_terms);
     membersResult.displayObjects.push(converted.displayObject);
-    if (member.isPrimaryContact) contactIds.push(...converted.ids);
+    if (planMember.isPrimaryContact) contactIds.push(...converted.ids);
   }
 
-  // Process Affiliations
-  for (const affiliation of affiliations.values()) {
-    const converted: ConversionOutput<InstitutionDocumentFragment> = convertAffiliation(affiliation);
+  // Institution facets include all project members and the plan's owning
+  // affiliation, while excluding unrelated batch affiliations and funders.
+  const planInstitutions = new Map<string, Affiliation>();
+  const institutionIds = new Set<string>();
+  for (const member of projectMembers) {
+    if (!member.affiliationId) continue;
+
+    const institutionId = stripIdentifierBaseURL(member.affiliationId).trim();
+    if (institutionId) institutionIds.add(institutionId);
+    const affiliation = affiliations.get(member.affiliationId);
+    if (affiliation?.uri) planInstitutions.set(affiliation.uri, affiliation);
+  }
+  if (planAffiliationId) {
+    const institutionId = stripIdentifierBaseURL(planAffiliationId).trim();
+    if (institutionId) institutionIds.add(institutionId);
+    const affiliation = affiliations.get(planAffiliationId);
+    if (affiliation?.uri) planInstitutions.set(affiliation.uri, affiliation);
+  }
+  for (const affiliation of planInstitutions.values()) {
+    const converted = convertAffiliation(affiliation);
     if (!converted) continue;
 
-    instResult.ids.push(...converted.ids);
+    for (const id of converted.ids) institutionIds.add(id);
     if (converted.facet_value) instResult.facets.push(converted.facet_value);
     instResult.search_terms.push(...converted.search_terms);
     instResult.displayObjects.push(converted.displayObject);
   }
+  instResult.ids = [...institutionIds];
 
   // Process Funding
   for (const funding of projectFunding) {
@@ -949,7 +986,8 @@ export const generateIndexItem = (
     projectFunding,
     planAnswers,
     planMembers,
-    planFunding
+    planFunding,
+    plan.affiliationId,
   );
 
   // Extract all the repository info
@@ -1033,6 +1071,7 @@ export const generateIndexItem = (
     contributors_display: members.displayObjects,
     funding_display: funding.displayObjects,
     institutions_display: institutions.displayObjects,
+    datasets_display: datasets.displayObjects,
   };
 }
 
@@ -1059,7 +1098,8 @@ export const updateIndexItem = async (
     reference,
     context,
     [project.id],
-    [plan.id]
+    [plan.id],
+    plan.affiliationId ? [plan.affiliationId] : [],
   );
 
   // Fetch the research domain for the project
@@ -1078,8 +1118,8 @@ export const updateIndexItem = async (
     associatedObjects.planMembers,
     associatedObjects.planFunding,
     associatedObjects.answers,
-    associatedObjects.alternateIdentifiers,
-    associatedObjects.relatedWorks,
+    associatedObjects.alternateIdentifiersByPlan.get(plan.id) ?? [],
+    associatedObjects.relatedWorksByPlan.get(plan.id) ?? [],
     researchDomain?.uri
   );
 

@@ -416,8 +416,8 @@ describe('updateIndexItem', () => {
         return null;
       });
     });
-    jest.spyOn(AlternateIdentifier, 'findByPlanIds').mockResolvedValue(asAlternateIdentifierList([{ alternateIdentifier: '10.1234/demo' }]));
-    jest.spyOn(AcceptedWork, 'findByPlanIds').mockResolvedValue(asAcceptedWorkList([{ doi: '10.9999/related' }]));
+    jest.spyOn(AlternateIdentifier, 'findByPlanIds').mockResolvedValue(asAlternateIdentifierList([{ planId: plan.id, alternateIdentifier: '10.1234/demo' }]));
+    jest.spyOn(AcceptedWork, 'findByPlanIds').mockResolvedValue(asAcceptedWorkList([{ planId: plan.id, doi: '10.9999/related' }]));
     jest.spyOn(Answer, 'findByPlanIds').mockResolvedValue(asAnswerList([{ json: buildResearchOutputAnswerJson() }]));
 
     await updateIndexItem(ref, context, plan, project);

@@ -263,6 +263,126 @@ describe('DataSyncJob', () => {
     expect(result.title).toBe('Example plan');
   });
 
+  it('keeps indexed plan associations scoped to each plan in the batch', async () => {
+    const job = new OpenSearchDMPSync();
+    jest.spyOn(MySqlModel, 'query').mockResolvedValue([
+      {
+        ...item,
+        plan_id: 11,
+        project_id: 1,
+        dmp_id: 'https://doi.org/10.1234/first',
+        affiliation_id: 'http://ror.example.com/owner-first',
+        title: 'First plan',
+        language_id: 'en',
+        visibility: 'PUBLIC',
+        project_title: 'First project',
+        is_test_project: false,
+      },
+      {
+        ...item,
+        plan_id: 22,
+        project_id: 2,
+        dmp_id: 'https://doi.org/10.1234/second',
+        affiliation_id: 'http://ror.example.com/owner-second',
+        title: 'Second plan',
+        language_id: 'en',
+        visibility: 'PUBLIC',
+        project_title: 'Second project',
+        is_test_project: false,
+      },
+    ]);
+    jest.spyOn(AlternateIdentifier, 'findByPlanIds').mockResolvedValue([
+      new AlternateIdentifier({ planId: 11, alternateIdentifier: 'alternate-first' }),
+      new AlternateIdentifier({ planId: 22, alternateIdentifier: 'alternate-second' }),
+    ]);
+    jest.spyOn(AcceptedWork, 'findByPlanIds').mockResolvedValue([
+      new AcceptedWork({ planId: 11, doi: '10.1234/first' }),
+      new AcceptedWork({ planId: 22, doi: '10.1234/second' }),
+    ]);
+    const outputAnswer = (planId: number, suffix: string) => new Answer({
+      planId,
+      json: JSON.stringify({
+        commonStandardId: 'researchOutputTable',
+        answer: [{
+          commonStandardId: 'researchOutputTableRow',
+          columns: [
+            { commonStandardId: 'title', answer: `Dataset ${suffix}` },
+            { commonStandardId: 'type', answer: 'dataset' },
+            { commonStandardId: 'host', answer: [{ repositoryId: `repo-${suffix}`, repositoryName: `Repository ${suffix}` }] },
+            { commonStandardId: 'license_ref', answer: [{ licenseId: `license-${suffix}` }] },
+            { commonStandardId: 'metadata', answer: [{ metadataStandardId: `standard-${suffix}` }] },
+          ],
+        }],
+      }),
+    });
+    jest.spyOn(Answer, 'findByPlanIds').mockResolvedValue([outputAnswer(11, 'first'), outputAnswer(22, 'second')]);
+
+    const firstMember = new ProjectMember({ id: 101, projectId: 1, affiliationId: 'http://ror.example.com/first', orcid: 'orcid-first', givenName: 'First', surName: 'Member' });
+    const secondMember = new ProjectMember({ id: 202, projectId: 2, affiliationId: 'http://ror.example.com/second', orcid: 'orcid-second', givenName: 'Second', surName: 'Member' });
+    jest.spyOn(ProjectMember, 'findByProjectIds').mockResolvedValue([firstMember, secondMember]);
+    const firstFunding = new ProjectFunding({ id: 301, projectId: 1, affiliationId: 'http://ror.example.com/funder-first', grantId: 'grant-first', funderOpportunityNumber: 'opportunity-first', funderProjectNumber: 'project-first' });
+    const secondFunding = new ProjectFunding({ id: 302, projectId: 2, affiliationId: 'http://ror.example.com/funder-second', grantId: 'grant-second', funderOpportunityNumber: 'opportunity-second', funderProjectNumber: 'project-second' });
+    jest.spyOn(ProjectFunding, 'findByProjectIds').mockResolvedValue([firstFunding, secondFunding]);
+    jest.spyOn(PlanMember, 'findByPlanIds').mockResolvedValue([
+      new PlanMember({ id: 1, planId: 11, projectMemberId: 101, isPrimaryContact: true }),
+      new PlanMember({ id: 2, planId: 22, projectMemberId: 202, isPrimaryContact: true }),
+    ]);
+    jest.spyOn(PlanFunding, 'findByPlanIds').mockResolvedValue([
+      new PlanFunding({ id: 1, planId: 11, projectFundingId: 301 }),
+      new PlanFunding({ id: 2, planId: 22, projectFundingId: 302 }),
+    ]);
+    jest.spyOn(Affiliation, 'findByURIs').mockImplementation(async (_reference, _context, uris) =>
+      uris.map((uri, index) => new Affiliation({
+        id: index + 1,
+        uri,
+        name: uri,
+        displayName: uri,
+        acronyms: [],
+        aliases: [],
+      })),
+    );
+
+    const results = await job.fetchDataToSync('test', context, 2);
+
+    expect(results).toHaveLength(2);
+    expect(results[0].institution_ids).toEqual(['first', 'owner-first']);
+    expect(results[1].institution_ids).toEqual(['second', 'owner-second']);
+    expect(results[0].alternate_identifier_ids).toEqual(['alternate-first']);
+    expect(results[1].alternate_identifier_ids).toEqual(['alternate-second']);
+    expect(results[0].related_identifier_ids).toEqual(['10.1234/first']);
+    expect(results[1].related_identifier_ids).toEqual(['10.1234/second']);
+    expect(results[0].contributor_ids).toEqual(['orcid-first']);
+    expect(results[1].contributor_ids).toEqual(['orcid-second']);
+    expect(results[0].contact_ids).toEqual(['orcid-first']);
+    expect(results[1].contact_ids).toEqual(['orcid-second']);
+    expect(results[0].funder_ids).toEqual(['funder-first']);
+    expect(results[1].funder_ids).toEqual(['funder-second']);
+    expect(results[0].grant_ids).toEqual(['grant-first']);
+    expect(results[1].grant_ids).toEqual(['grant-second']);
+    expect(results[0].opportunity_ids).toEqual(['opportunity-first']);
+    expect(results[1].opportunity_ids).toEqual(['opportunity-second']);
+    expect(results[0].dataset_ids).toEqual([]);
+    expect(results[1].dataset_ids).toEqual([]);
+    expect(results[0].host_ids).toEqual(['repo-first']);
+    expect(results[1].host_ids).toEqual(['repo-second']);
+    expect(results[0].host_names).toEqual(['Repository first']);
+    expect(results[1].host_names).toEqual(['Repository second']);
+    expect(results[0].repository_ids).toEqual(['repo-first']);
+    expect(results[1].repository_ids).toEqual(['repo-second']);
+    expect(results[0].metadata_standard_ids).toEqual(['standard-first']);
+    expect(results[1].metadata_standard_ids).toEqual(['standard-second']);
+    expect(results[0].license_refs).toEqual(['license-first']);
+    expect(results[1].license_refs).toEqual(['license-second']);
+    expect(results[0].contributors_display.map((contributor) => contributor.full_name)).toEqual(['First Member']);
+    expect(results[1].contributors_display.map((contributor) => contributor.full_name)).toEqual(['Second Member']);
+    expect(results[0].funding_display.map((funder) => funder.grant_id)).toEqual(['grant-first']);
+    expect(results[1].funding_display.map((funder) => funder.grant_id)).toEqual(['grant-second']);
+    expect(results[0].institutions_display.map((institution) => institution.name)).toEqual([firstMember.affiliationId, 'http://ror.example.com/owner-first']);
+    expect(results[1].institutions_display.map((institution) => institution.name)).toEqual([secondMember.affiliationId, 'http://ror.example.com/owner-second']);
+    expect(results[0].datasets_display.map((dataset) => dataset.title)).toEqual(['Dataset first']);
+    expect(results[1].datasets_display.map((dataset) => dataset.title)).toEqual(['Dataset second']);
+  });
+
   it('uses the persisted timestamp and ID cursor in the batch query', async () => {
     const job = new OpenSearchDMPSync({
       cursorTimestamp: '2026-04-01 12:00:00.000',

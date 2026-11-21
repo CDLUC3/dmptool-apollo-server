@@ -127,7 +127,7 @@ export const resolvers: Resolvers = {
         switch (options.sort) {
           case 'title':
           case 'title,asc':
-            sort = [{ title: { order: 'asc' } }];
+            sort = [{ 'title.keyword': { order: 'asc' } }];
             break;
           case 'created':
           case 'created,desc':

@@ -94,7 +94,7 @@ describe('publicPlansSearch resolver', () => {
           ]),
         },
       },
-      [{ title: { order: 'asc' } }],
+      [{ 'title.keyword': { order: 'asc' } }],
       5,
       10,
     );

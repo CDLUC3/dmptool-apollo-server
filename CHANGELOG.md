@@ -3,6 +3,12 @@
 ## v1.1.0
 
 ### Added
+- Added the `publicPlansSearch` schema and resolver
+- Added a `handleOpenSearchError` helper to the openSearch data source
+- Added ability to pass OpenSearch aggregations to search queries
+- Added `research_domain_id` to the OpenSearch index for plans so we can filter by subjects
+- Added `supportedLanguageMap` to the `Language` model to facilitate fetching the readable name for a given language code
+- Added `findByURIs` to the `ResearchDomain` model
 - Added `templateLink` schema and resolvers: `addTemplateLink`, `updateTemplateLink` and `removeTemplateLink` mutations, a `links(linkType)` field and a `maxLinks(linkType)` field on `Template`, and a `links(linkType)` field on `VersionedTemplate`. These support the funder links and sample plan links in the Template Builder's "Links" sidebar. Links can only be added or edited when the Template's owner affiliation has `funder` set to `true` (they can always be removed) [#251]
 - Added `update` method to the `TemplateLink` model, and limited a Template to `MAX_TEMPLATE_FUNDER_LINKS` funder links and `MAX_TEMPLATE_SAMPLE_PLAN_LINKS` sample plan links (both default to 5) [#251]
 - Added `generateTemplateLinkVersions` and `cloneTemplateLinks` to `templateService`. Links are now copied into `versionedTemplateLinks` when a Template is versioned, and copied when a Template is created from an existing Template or VersionedTemplate [#251]
@@ -189,6 +195,7 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Renamed `PropertyDefinition` to `PlanIndexPropertyDefinition` since we're going to need ones for affiliations, etc. in the future
 - Fixed bug in `guidanceService` that was allowing `getRelevantGuidanceForPlan` to run an SQL query when there are no tags
 - Fixed an issue in the new plan `search` resolver that was not capitalizing the `visibility` term in the OpenSearch query, which was causing public plans to not be returned in search results
 - Fixed some missing nil checks in the indexDMPService

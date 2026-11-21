@@ -6,6 +6,7 @@ type OpenSearchProperties = NonNullable<
 // Look up the index type to get the singular MappingProperty schema
 export type MappingProperty = NonNullable<OpenSearchProperties>[string];
 import {
+  IndexSearchResponseAggregation,
   IndexSearchResponseInterface,
   OpenSearch,
   tokenizeText
@@ -30,7 +31,11 @@ import {
   ResearchOutputTableRowAnswerType
 } from "@dmptool/types";
 import { MyContext } from "../context.js";
-import {defaultLanguageId} from "../models/Language.js";
+import {
+  defaultLanguageId,
+  supportedLanguageMap,
+} from "../models/Language.js";
+import { ResearchDomain } from "../models/ResearchDomain.js";
 
 export const DMP_INDEX_NAME = "dmp";
 export const INDEX_NAME = DMP_INDEX_NAME;
@@ -39,13 +44,14 @@ export const DEFAULT_MAX_RESULTS = 100;
 /**
  * OpenSearch Index Definition
  */
-export const PropertyDefinition: Record<string, MappingProperty> = {
+export const PlanIndexPropertyDefinition: Record<string, MappingProperty> = {
   dmp_id: { type: "keyword" },
   affiliationId: { type: "keyword" },
   project_id: { type: "keyword" },
   plan_id: { type: "keyword" },
   title: { type: "text", fields: { keyword: { type: "keyword", ignore_above: 256 } } },
   project_title: { type: "text", fields: { keyword: { type: "keyword", ignore_above: 256 } } },
+  research_domain_id: { type: "keyword", ignore_above: 256 },
   visibility: { type: "keyword" },
   project_start: { type: "date" },
   project_end: { type: "date" },
@@ -96,8 +102,19 @@ export const PropertyDefinition: Record<string, MappingProperty> = {
   contributors_display: { type: "object", enabled: false },
   funding_display: { type: "object", enabled: false },
   institutions_display: { type: "object", enabled: false },
+  datasets_display: { type: "object", enabled: false },
   repositories_display: { type: "object", enabled: false },
 };
+
+/**
+ * OpenSearch Aggregation Definition for the Plan Index
+ */
+export const PlanIndexAggregationDefinition = {
+  affiliation_ids: { terms: { field: 'institution_ids', size: 1000 } },
+  funder_ids: { terms: { field: 'funder_ids', size: 1000 } },
+  language: { terms: { field: 'language', size: 1000 } },
+  research_domain_id: { terms: { field: 'research_domain_id.keyword', size: 1000 } }
+}
 
 // --- Interfaces ---
 
@@ -180,6 +197,23 @@ interface ReconciledFragments {
   ethicalIssuesExist: string;
 }
 
+export interface PlanIndexSearchResponseInterface {
+  totalCount: number;
+  items: PlanIndexDocumentInterface[];
+  facets: {
+    affiliationIds: PlanIndexSearchResultFacet[];
+    funderIds: PlanIndexSearchResultFacet[];
+    languages: PlanIndexSearchResultFacet[];
+    subjects: PlanIndexSearchResultFacet[];
+  }
+}
+
+export interface PlanIndexSearchResultFacet {
+  id: string;
+  name: string;
+  count: number;
+}
+
 export interface PlanIndexDocumentInterface {
   cursorId?: number;
   dmp_id: string;
@@ -196,6 +230,7 @@ export interface PlanIndexDocumentInterface {
   is_test: boolean;
   featured: boolean;
   abstract?: string | null;
+  research_domain_id?: string;
 
   created: string;
   modified: string;
@@ -239,8 +274,8 @@ export interface PlanIndexDocumentInterface {
  * The associated objects related to a plan and project
  */
 export interface AssociatedObjectInterface {
-  alternateIdentifiers: string[];
-  relatedWorks: string[];
+  alternateIdentifiersByPlan: Map<number, string[]>;
+  relatedWorksByPlan: Map<number, string[]>;
   answers: Answer[],
   projectMembers: ProjectMember[],
   projectFunding: ProjectFunding[],
@@ -269,6 +304,7 @@ export interface ProjectPlanResponse {
   project_start: string;
   project_end: string;
   is_test_project: boolean;
+  research_domain_uri: string;
 }
 
 /**
@@ -371,6 +407,7 @@ export function generateSearchTerms(
  * @param context the Apollo server context
  * @param projectIds the array of project ids to fetch associated objects for
  * @param planIds the array of plan ids to fetch associated objects for
+ * @param planAffiliationIds the array of plan affiliation ids to fetch associated objects for
  * @returns all of the associated objects for the plans and projects
  */
 export const fetchAssociatedObjects = async (
@@ -378,16 +415,27 @@ export const fetchAssociatedObjects = async (
   context: MyContext,
   projectIds: number[],
   planIds: number[],
+  planAffiliationIds: string[] = [],
 ): Promise<AssociatedObjectInterface> => {
   // Fetch alternate identifiers
   const alternateIdentifiers: AlternateIdentifier[] = await AlternateIdentifier.findByPlanIds(reference, context, planIds) || [];
-  const alternateIds: string[] = alternateIdentifiers?.map((i: AlternateIdentifier) => {
-    return i.alternateIdentifier;
-  }).filter(Boolean) ?? [];
+  const alternateIdentifiersByPlan = new Map<number, string[]>();
+  for (const identifier of alternateIdentifiers) {
+    if (!identifier.alternateIdentifier) continue;
+    const planIdentifiers = alternateIdentifiersByPlan.get(identifier.planId) ?? [];
+    planIdentifiers.push(identifier.alternateIdentifier);
+    alternateIdentifiersByPlan.set(identifier.planId, planIdentifiers);
+  }
 
   // Fetch the related work DOIs
   const relatedWorks: AcceptedWork[] = await AcceptedWork.findByPlanIds(reference, context, planIds) || [];
-  const relatedWorkIds: string[] = relatedWorks.map((work: AcceptedWork): string => work.doi) ?? []
+  const relatedWorksByPlan = new Map<number, string[]>();
+  for (const work of relatedWorks) {
+    if (!work.doi) continue;
+    const planWorks = relatedWorksByPlan.get(work.planId) ?? [];
+    planWorks.push(work.doi);
+    relatedWorksByPlan.set(work.planId, planWorks);
+  }
 
   // Fetch answers
   const answers: Answer[] = await Answer.findByPlanIds(reference, context, planIds) || [];
@@ -400,6 +448,9 @@ export const fetchAssociatedObjects = async (
 
   // Build Affiliation Lookup Map from member and funder information
   const affiliationURIs = new Set<string>(projectMembers.map((m: ProjectMember) => m.affiliationId).filter(Boolean));
+  for (const affiliationId of planAffiliationIds) {
+    if (affiliationId) affiliationURIs.add(affiliationId);
+  }
   for (const f of projectFunding) {
     if (f.affiliationId) affiliationURIs.add(f.affiliationId);
   }
@@ -407,12 +458,12 @@ export const fetchAssociatedObjects = async (
   const affiliationObjs: Affiliation[] = await Affiliation.findByURIs(reference, context, Array.from(affiliationURIs)) || [];
   const affiliations = new Map<string, Affiliation>();
   for (const a of affiliationObjs) {
-    if (a.uri) affiliations.set(a.uri, a);
+    if (a?.uri) affiliations.set(a.uri, a);
   }
 
   return {
-    alternateIdentifiers: alternateIds,
-    relatedWorks: relatedWorkIds,
+    alternateIdentifiersByPlan,
+    relatedWorksByPlan,
     answers,
     affiliations,
     projectMembers,
@@ -493,6 +544,7 @@ const convertFunding = (
       name: cleanString(funder.displayName),
       acronym: cleanString(funder.acronyms?.[0]),
       funding_status: funding.status || ProjectFundingStatus.PLANNED,
+      grant_id: funding.grantId,
       funding_project_id: funding.funderProjectNumber,
       opportunity_id: funding.funderOpportunityNumber,
     },
@@ -597,8 +649,8 @@ export const reconcileAssociatedObjects = (
   planAnswers: Answer[],
   planMembers: PlanMember[],
   planFunding: PlanFunding[],
+  planAffiliationId?: string,
 ): ReconciledFragments => {
-  const planMemberIds = new Set(planMembers.map((m: PlanMember) => m.projectMemberId));
   const planFundingIds = new Set(planFunding.map((f: PlanFunding) => f.projectFundingId));
 
   // Single-pass reduction helpers
@@ -621,10 +673,12 @@ export const reconcileAssociatedObjects = (
   const hostNames: string[] = [];
   const personalData = new Set<string>();
   const sensitiveData = new Set<string>();
+  const planMembersByProjectMemberId = new Map(planMembers.map((member) => [member.projectMemberId, member]));
 
   // Process Members
   for (const member of projectMembers) {
-    if (!planMemberIds.has(member.id)) continue;
+    const planMember = planMembersByProjectMemberId.get(member.id);
+    if (!planMember) continue;
 
     const converted: ConversionOutput<ContributorDocumentFragment> = convertMember(member as ProjectMember);
     if (!converted) continue;
@@ -632,19 +686,37 @@ export const reconcileAssociatedObjects = (
     membersResult.ids.push(...converted.ids);
     membersResult.search_terms.push(...converted.search_terms);
     membersResult.displayObjects.push(converted.displayObject);
-    if (member.isPrimaryContact) contactIds.push(...converted.ids);
+    if (planMember.isPrimaryContact) contactIds.push(...converted.ids);
   }
 
-  // Process Affiliations
-  for (const affiliation of affiliations.values()) {
-    const converted: ConversionOutput<InstitutionDocumentFragment> = convertAffiliation(affiliation);
+  // Institution facets include all project members and the plan's owning
+  // affiliation, while excluding unrelated batch affiliations and funders.
+  const planInstitutions = new Map<string, Affiliation>();
+  const institutionIds = new Set<string>();
+  for (const member of projectMembers) {
+    if (!member.affiliationId) continue;
+
+    const institutionId = stripIdentifierBaseURL(member.affiliationId).trim();
+    if (institutionId) institutionIds.add(institutionId);
+    const affiliation = affiliations.get(member.affiliationId);
+    if (affiliation?.uri) planInstitutions.set(affiliation.uri, affiliation);
+  }
+  if (planAffiliationId) {
+    const institutionId = stripIdentifierBaseURL(planAffiliationId).trim();
+    if (institutionId) institutionIds.add(institutionId);
+    const affiliation = affiliations.get(planAffiliationId);
+    if (affiliation?.uri) planInstitutions.set(affiliation.uri, affiliation);
+  }
+  for (const affiliation of planInstitutions.values()) {
+    const converted = convertAffiliation(affiliation);
     if (!converted) continue;
 
-    instResult.ids.push(...converted.ids);
+    for (const id of converted.ids) institutionIds.add(id);
     if (converted.facet_value) instResult.facets.push(converted.facet_value);
     instResult.search_terms.push(...converted.search_terms);
     instResult.displayObjects.push(converted.displayObject);
   }
+  instResult.ids = [...institutionIds];
 
   // Process Funding
   for (const funding of projectFunding) {
@@ -761,7 +833,7 @@ export const getIndexItem = async (
  * @param sort the OpenSearch sort (defaults to an empty array)
  * @param maxResults the total number of results to return (defaults to 100)
  * @param offset the offset for pagination (defaults to 0)
- * @returns the index record or undefined if not found
+ * @returns the search results including the total count, items, and faceting information
  */
 export const searchIndex = async (
   reference: string,
@@ -770,22 +842,23 @@ export const searchIndex = async (
   sort: Record<string, unknown>[] = [],
   maxResults: number = DEFAULT_MAX_RESULTS,
   offset = 0,
-): Promise<{ items: PlanIndexDocumentInterface[]; total: number }> => {
+): Promise<PlanIndexSearchResponseInterface> => {
   const openSearch: OpenSearch = context.dataSources.openSearchServerlessDataSource;
-
-  context.logger.debug(
-    { reference, DMP_INDEX_NAME, query, sort, maxResults },
-    'Searching Plan index'
-  );
   try {
-    context.logger.debug({ query, sort, maxResults, offset }, 'Searching Plan index');
+    context.logger.debug({
+      query,
+      sort,
+      maxResults,
+      offset
+    }, 'Searching Plan index');
     const response: IndexSearchResponseInterface<PlanIndexDocumentInterface> = await openSearch.search<PlanIndexDocumentInterface>(
       DMP_INDEX_NAME,
       {
         size: maxResults,
         from: offset,
         query,
-        sort
+        sort,
+        aggregations: PlanIndexAggregationDefinition,
       }
     );
 
@@ -793,12 +866,72 @@ export const searchIndex = async (
       throw new Error(`Failed to search index for query: ${JSON.stringify(query)}`);
     }
 
-    context.logger.debug({ itemCount: response.items.length }, 'Index search results');
+    context.logger.debug({itemCount: response.items.length}, 'Index search results');
     const items = response.items
       .filter(item => 'fields' in item)
       .map(item => item.fields) as PlanIndexDocumentInterface[];
 
-    return {items, total: response.total};
+    // Remove the dmpId from any items that are not published/registered
+    for (const item of items) {
+      if (!item.registered) {
+        item.dmp_id = '';
+      }
+    }
+
+    // Build an id to name mapping for the affiliations and funders from the index items
+    const displayNamesMap = new Map<string, string>();
+    for (const item of items) {
+      if (item.institutions_display) {
+        for (const inst of item.institutions_display) {
+          if (inst.id && inst.name) {
+            displayNamesMap.set(inst.id, inst.name);
+          }
+        }
+      }
+      if (item.funding_display) {
+        for (const fund of item.funding_display) {
+          if (fund.id && fund.name) {
+            displayNamesMap.set(fund.id, fund.name);
+          }
+        }
+      }
+    }
+
+    // Convert the response aggregations into a more usable format for the GraphQL response
+    // including lookups of the descriptive names for the affiliations, funders,
+    // languages, and subjects
+    const aggregations: Record<string, IndexSearchResponseAggregation[]> = response.aggregations || {};
+    const researchDomainIds: string[] = aggregations?.researchDomainId?.map((entry) => String(entry.key)) || [];
+    const researchDomains: ResearchDomain[] = await ResearchDomain.findByURIs(reference, context, researchDomainIds);
+    const researchDomainMap = new Map<string, string>(researchDomains.map((domain) => [domain.uri, domain.name]));
+
+    // Convert the OpenSearch aggregations into facets with descriptive names for the GraphQL response
+    const facets = {
+      affiliationIds: (aggregations?.affiliationIds || []).map((entry) => {
+        const id = String(entry.key);
+        return { id, name: displayNamesMap.get(id) || '', count: entry.docCount };
+      }),
+      funderIds: (aggregations?.funderIds || []).map((entry) => {
+        const id = String(entry.key);
+        return { id, name: displayNamesMap.get(id) || '', count: entry.docCount };
+      }),
+      subjects: (aggregations?.researchDomainId || []).map((entry) => {
+        return { id: String(entry.key), name: researchDomainMap.get(entry.key) || '', count: entry.docCount };
+      }),
+      languages: (aggregations?.language || []).map((entry) => {
+        return {
+          id: String(entry.key),
+          name: supportedLanguageMap.get(String(entry.key)) || '',
+          count: entry.docCount
+        };
+      }),
+    };
+
+    return {
+      items,
+      totalCount: response.total,
+      facets
+    };
   } catch (error) {
     context.logger.error({ reference, error, query }, 'Error searching Plan index');
     throw error;
@@ -818,6 +951,7 @@ export const searchIndex = async (
  * @param planAnswers the plan answers
  * @param alternateIdentifierIds the alternate identifiers
  * @param relatedWorkIds the related works DOIs
+ * @param researchDomainURI the research domain (aka subject) URI (optional)
  * @returns the index document for the plan
  */
 export const generateIndexItem = (
@@ -830,7 +964,8 @@ export const generateIndexItem = (
   planFunding: PlanFunding[],
   planAnswers: Answer[],
   alternateIdentifierIds: string[],
-  relatedWorkIds: string[]
+  relatedWorkIds: string[],
+  researchDomainURI?: string
 ): PlanIndexDocumentInterface => {
   const {
     members,
@@ -851,7 +986,8 @@ export const generateIndexItem = (
     projectFunding,
     planAnswers,
     planMembers,
-    planFunding
+    planFunding,
+    plan.affiliationId,
   );
 
   // Extract all the repository info
@@ -891,6 +1027,7 @@ export const generateIndexItem = (
     modified: new Date(plan.modified).toISOString(),
     title: plan.title?.trim().slice(0, 256),
     language: plan.languageId?.trim() || defaultLanguageId,
+    research_domain_id: researchDomainURI,
 
     project_title: project.title?.trim().slice(0, 256) || undefined,
     abstract: project.abstractText?.trim().slice(0, 512) || undefined,
@@ -934,6 +1071,7 @@ export const generateIndexItem = (
     contributors_display: members.displayObjects,
     funding_display: funding.displayObjects,
     institutions_display: institutions.displayObjects,
+    datasets_display: datasets.displayObjects,
   };
 }
 
@@ -960,7 +1098,15 @@ export const updateIndexItem = async (
     reference,
     context,
     [project.id],
-    [plan.id]
+    [plan.id],
+    plan.affiliationId ? [plan.affiliationId] : [],
+  );
+
+  // Fetch the research domain for the project
+  const researchDomain: ResearchDomain | undefined = await ResearchDomain.findById(
+    reference,
+    context,
+    project.researchDomainId
   );
 
   const item: PlanIndexDocumentInterface = generateIndexItem(
@@ -972,13 +1118,14 @@ export const updateIndexItem = async (
     associatedObjects.planMembers,
     associatedObjects.planFunding,
     associatedObjects.answers,
-    associatedObjects.alternateIdentifiers,
-    associatedObjects.relatedWorks
+    associatedObjects.alternateIdentifiersByPlan.get(plan.id) ?? [],
+    associatedObjects.relatedWorksByPlan.get(plan.id) ?? [],
+    researchDomain?.uri
   );
 
   // Fire off the OpenSearch update
   context.logger.debug({ reference, index: DMP_INDEX_NAME, item }, "Indexing Plan");
-  await openSearch.updateIndexItem(DMP_INDEX_NAME, PropertyDefinition, dmpId, item);
+  await openSearch.updateIndexItem(DMP_INDEX_NAME, PlanIndexPropertyDefinition, dmpId, item);
 };
 
 /**

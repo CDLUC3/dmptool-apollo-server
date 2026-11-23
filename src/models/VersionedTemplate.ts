@@ -160,6 +160,114 @@ export class VersionedTemplateSearchResult {
   }
 }
 
+// The fields the Funder Requirements page can sort by
+export const FUNDER_TEMPLATE_SORT_FIELDS = ['vt.name', 'a.displayName', 'vt.modified'];
+
+/**
+ * The public details of a published Template, for the Funder Requirements page. This
+ * page does not require a login, so only return fields that are safe to show to anyone.
+ */
+export class FunderTemplateSearchResult {
+  public id: number;
+  public templateId: number;
+  public name: string;
+  public description?: string;
+  public version: string;
+  public ownerURI: string;
+  public ownerDisplayName: string;
+  public modified: string;
+
+  constructor(options) {
+    this.id = options.id;
+    this.templateId = options.templateId;
+    this.name = options.name;
+    this.description = options.description;
+    this.version = options.version;
+    this.ownerURI = options.ownerURI;
+    this.ownerDisplayName = options.ownerDisplayName;
+    this.modified = options.modified;
+  }
+
+  /**
+   * Search the current published, public Templates that are owned by a funder, plus the
+   * current published default Template if it is public. 
+   *
+   * @param reference The reference string to use for logging
+   * @param context The Apollo context (the caller does not need to be logged in)
+   * @param term Only return Templates whose name or owner's name contains this term (optional)
+   * @param options Pagination options
+   * @returns A paginated list of Templates
+   */
+  static async search(
+    reference: string,
+    context: MyContext,
+    term?: string,
+    options: PaginationOptions = VersionedTemplate.getDefaultPaginationOptions(),
+  ): Promise<PaginatedQueryResults<FunderTemplateSearchResult>> {
+    // These values are enum constants, never user input, so it is safe to put them in the SQL.
+    // Using the enums means a typo is a compile error
+    const whereFilters = [
+      'vt.active = 1',
+      `vt.versionType = '${TemplateVersionType.PUBLISHED}'`,
+      // The default Template must be public too, since anyone can see this page
+      `vt.visibility = '${TemplateVisibility.PUBLIC}'`,
+      '(a.funder = 1 OR vt.isDefault = 1)',
+    ];
+    // Only user input (the search term) goes in values
+    const values: string[] = [];
+
+    const searchTerm = (term ?? '').toLowerCase().trim();
+    if (searchTerm.length > 0) {
+      whereFilters.push('(LOWER(vt.name) LIKE ? OR LOWER(a.searchName) LIKE ?)');
+      values.push(`%${searchTerm}%`, `%${searchTerm}%`);
+    }
+
+    let opts: PaginationOptions;
+    if (options.type === PaginationType.OFFSET) {
+      // The sort field and direction are added to the SQL as-is, and anyone can call this query,
+      // so only accept known values
+      const offsetOpts = options as PaginationOptionsForOffsets;
+      const sortField = FUNDER_TEMPLATE_SORT_FIELDS.includes(offsetOpts.sortField) ? offsetOpts.sortField : 'vt.name';
+      const sortDir = offsetOpts.sortDir?.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+      opts = {
+        ...offsetOpts,
+        // Add the id as a tie breaker (e.g. a funder with several Templates) so that rows don't
+        // move between pages. This becomes `ORDER BY <sortField> <sortDir>, vt.id <sortDir>`
+        sortField: `${sortField} ${sortDir}, vt.id`,
+        sortDir,
+      } as PaginationOptionsForOffsets;
+    } else {
+      opts = { ...options, cursorField: 'vt.id' } as PaginationOptionsForCursors;
+    }
+    opts.countField = 'vt.id';
+    opts.availableSortFields = [...FUNDER_TEMPLATE_SORT_FIELDS];
+
+    const sqlStatement = [
+      'SELECT vt.id, vt.templateId, vt.name, vt.description, vt.version, vt.modified,',
+      'vt.ownerId AS ownerURI, a.displayName AS ownerDisplayName',
+      'FROM versionedTemplates vt',
+      'LEFT JOIN affiliations a ON a.uri = vt.ownerId',
+    ].join(' ');
+
+    const response: PaginatedQueryResults<FunderTemplateSearchResult> = await VersionedTemplate.queryWithPagination(
+      context,
+      sqlStatement,
+      whereFilters,
+      '',
+      values,
+      opts,
+      reference,
+    );
+
+    return {
+      ...response,
+      items: Array.isArray(response?.items)
+        ? response.items.map((item) => new FunderTemplateSearchResult(item))
+        : [],
+    };
+  }
+}
+
 /**
  * High-level details about a template that can be customized by a user. including
  * information about the current customization if applicable

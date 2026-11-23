@@ -18,6 +18,9 @@ export const typeDefs = gql`
 
     "Get the default best practice template."
     defaultTemplate: VersionedTemplate
+
+    "Search the published, public Templates owned by a funder, plus the published default Template if it is public (no login required, used by the Funder Requirements page)"
+    publishedFunderTemplates(term: String, paginationOptions: PaginationOptions): FunderTemplateSearchResults
   }
 
   "Template version type"
@@ -88,6 +91,47 @@ export const typeDefs = gql`
     modified: String
     "The id of the template customization (undefined means the template has not been customized yet)"
     versionedTemplateCustomizationId: Int
+  }
+
+  type FunderTemplateSearchResults implements PaginatedQueryResults {
+    "The FunderTemplateSearchResults that match the search criteria"
+    items: [FunderTemplateSearchResult]
+    "The total number of possible items"
+    totalCount: Int
+    "The number of items returned"
+    limit: Int
+    "The cursor to use for the next page of results (for infinite scroll/load more)"
+    nextCursor: String
+    "The current offset of the results (for standard offset pagination)"
+    currentOffset: Int
+    "Whether or not there is a next page"
+    hasNextPage: Boolean
+    "Whether or not there is a previous page"
+    hasPreviousPage: Boolean
+    "The sortFields that are available for this query (for standard offset pagination only!)"
+    availableSortFields: [String]
+  }
+
+  "The public details of a published Template, for the Funder Requirements page"
+  type FunderTemplateSearchResult {
+    "The id of the VersionedTemplate (use this to download the Template)"
+    id: Int!
+    "The id of the template that this version is based on"
+    templateId: Int
+    "The name/title of the template"
+    name: String!
+    "A description of the purpose of the template"
+    description: String
+    "The major.minor semantic version"
+    version: String
+    "The URI of the affiliation that owns the Template"
+    ownerURI: String
+    "The display name of the affiliation that owns the Template"
+    ownerDisplayName: String
+    "The timestamp when the Template was last modified"
+    modified: String
+    "The funder and sample plan links captured when the Template was published (optionally filtered by type)"
+    links(linkType: TemplateLinkType): [VersionedTemplateLink!]
   }
 
   type CustomizableTemplateSearchResults implements PaginatedQueryResults {

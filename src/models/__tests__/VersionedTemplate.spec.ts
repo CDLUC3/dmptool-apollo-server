@@ -30,7 +30,9 @@ const {
   TemplateVersionType,
   VersionedTemplate,
   VersionedTemplateSearchResult,
-  CustomizableTemplateSearchResult
+  CustomizableTemplateSearchResult,
+  FunderTemplateSearchResult,
+  FUNDER_TEMPLATE_SORT_FIELDS,
 } = await import('../VersionedTemplate.js');
 
 const {
@@ -171,6 +173,147 @@ describe('VersionedTemplateSearchResult', () => {
       expect(localQuery).toHaveBeenCalledTimes(1);
       expect(result).toEqual([]);
     });
+  });
+});
+
+describe('FunderTemplateSearchResult', () => {
+  const originalPaginationQuery = VersionedTemplate.queryWithPagination;
+  let localPaginationQuery;
+
+  const sql = 'SELECT vt.id, vt.templateId, vt.name, vt.description, vt.version, vt.modified, ' +
+    'vt.ownerId AS ownerURI, a.displayName AS ownerDisplayName ' +
+    'FROM versionedTemplates vt ' +
+    'LEFT JOIN affiliations a ON a.uri = vt.ownerId';
+  const baseFilters = [
+    'vt.active = 1',
+    "vt.versionType = 'PUBLISHED'",
+    // Both funder Templates and the default Template must be public
+    "vt.visibility = 'PUBLIC'",
+    '(a.funder = 1 OR vt.isDefault = 1)',
+  ];
+
+  const row = {
+    id: 12,
+    templateId: 3,
+    name: 'NSF Polar Programs',
+    description: 'Polar research',
+    version: 'v2',
+    modified: '2026-11-01 10:00:00',
+    ownerURI: 'https://ror.org/021nxhr62',
+    ownerDisplayName: 'National Science Foundation (nsf.gov)',
+  };
+
+  const offsetOptions = (overrides = {}): PaginationOptionsForOffsets => ({
+    type: PaginationType.OFFSET,
+    limit: 10,
+    offset: 0,
+    ...overrides,
+  });
+
+  beforeEach(() => {
+    localPaginationQuery = jest.fn();
+    (VersionedTemplate.queryWithPagination as jest.Mock) = localPaginationQuery;
+    localPaginationQuery.mockResolvedValue({ items: [row], totalCount: 1, limit: 10, hasNextPage: false });
+  });
+
+  afterEach(() => {
+    VersionedTemplate.queryWithPagination = originalPaginationQuery;
+  });
+
+  it('only returns active, published, public Templates that are owned by a funder or are the default Template', async () => {
+    await FunderTemplateSearchResult.search('Test', context, undefined, offsetOptions());
+
+    expect(localPaginationQuery).toHaveBeenCalledWith(
+      context,
+      sql,
+      baseFilters,
+      '',
+      // Without a search term there is no user input, so nothing needs a placeholder
+      [],
+      expect.objectContaining({ countField: 'vt.id', availableSortFields: FUNDER_TEMPLATE_SORT_FIELDS }),
+      'Test'
+    );
+  });
+
+  it('does not filter by the search term when it is blank', async () => {
+    await FunderTemplateSearchResult.search('Test', context, '   ', offsetOptions());
+
+    const [, , whereFilters, , values] = localPaginationQuery.mock.calls[0];
+    expect(whereFilters).toEqual(baseFilters);
+    expect(values).toEqual([]);
+  });
+
+  it('searches the Template name and owner name, ignoring case', async () => {
+    await FunderTemplateSearchResult.search('Test', context, '  NSF ', offsetOptions());
+
+    const [, , whereFilters, , values] = localPaginationQuery.mock.calls[0];
+    expect(whereFilters).toEqual([...baseFilters, '(LOWER(vt.name) LIKE ? OR LOWER(a.searchName) LIKE ?)']);
+    // The search term is user input, so it must always be a placeholder value
+    expect(values).toEqual(['%nsf%', '%nsf%']);
+  });
+
+  it('sorts by the requested field and adds the id as a tie breaker', async () => {
+    await FunderTemplateSearchResult.search(
+      'Test',
+      context,
+      undefined,
+      offsetOptions({ sortField: 'a.displayName', sortDir: 'desc' })
+    );
+
+    const opts = localPaginationQuery.mock.calls[0][5];
+    expect(opts.sortField).toEqual('a.displayName DESC, vt.id');
+    expect(opts.sortDir).toEqual('DESC');
+  });
+
+  it('defaults to sorting by name, ascending', async () => {
+    await FunderTemplateSearchResult.search('Test', context, undefined, offsetOptions());
+
+    const opts = localPaginationQuery.mock.calls[0][5];
+    expect(opts.sortField).toEqual('vt.name ASC, vt.id');
+    expect(opts.sortDir).toEqual('ASC');
+  });
+
+  it('ignores sort fields and directions that are not allowed, since they are added to the SQL as-is', async () => {
+    await FunderTemplateSearchResult.search(
+      'Test',
+      context,
+      undefined,
+      offsetOptions({ sortField: 'vt.id; DROP TABLE users', sortDir: 'ASC; DROP TABLE users' })
+    );
+
+    const opts = localPaginationQuery.mock.calls[0][5];
+    expect(opts.sortField).toEqual('vt.name ASC, vt.id');
+    expect(opts.sortDir).toEqual('ASC');
+  });
+
+  it('uses the id as the cursor for cursor pagination', async () => {
+    const cursorOptions = { type: PaginationType.CURSOR, cursor: null, limit: 10 } as PaginationOptionsForCursors;
+    await FunderTemplateSearchResult.search('Test', context, undefined, cursorOptions);
+
+    const opts = localPaginationQuery.mock.calls[0][5];
+    expect(opts.cursorField).toEqual('vt.id');
+  });
+
+  it('returns FunderTemplateSearchResults with only the public fields', async () => {
+    // A field the query does not select (e.g. if the SQL changes later) must not be passed through
+    localPaginationQuery.mockResolvedValueOnce({
+      items: [{ ...row, modifiedById: 99 }],
+      totalCount: 1,
+      limit: 10,
+      hasNextPage: false,
+    });
+    const result = await FunderTemplateSearchResult.search('Test', context, undefined, offsetOptions());
+
+    expect(result.totalCount).toEqual(1);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).toBeInstanceOf(FunderTemplateSearchResult);
+    expect({ ...result.items[0] }).toEqual(row);
+  });
+
+  it('returns an empty list when there are no results', async () => {
+    localPaginationQuery.mockResolvedValueOnce({ items: [], totalCount: 0, limit: 10, hasNextPage: false });
+    const result = await FunderTemplateSearchResult.search('Test', context, undefined, offsetOptions());
+    expect(result.items).toEqual([]);
   });
 });
 

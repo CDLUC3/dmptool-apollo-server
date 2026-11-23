@@ -6788,16 +6788,12 @@ export type VersionedTemplateLink = {
   __typename?: 'VersionedTemplateLink';
   /** The timestamp when the Object was created */
   created?: Maybe<Scalars['String']['output']>;
-  /** The user who created the Object */
-  createdById?: Maybe<Scalars['Int']['output']>;
   /** The unique identifer for the Object */
   id?: Maybe<Scalars['Int']['output']>;
   /** The type of link */
   linkType: TemplateLinkType;
   /** The timestamp when the Object was last modifed */
   modified?: Maybe<Scalars['String']['output']>;
-  /** The user who last modified the Object */
-  modifiedById?: Maybe<Scalars['Int']['output']>;
   /** The text to display for the link */
   text?: Maybe<Scalars['String']['output']>;
   /** The URL */
@@ -10016,11 +10012,9 @@ export type VersionedTemplateErrorsResolvers<ContextType = MyContext, ParentType
 
 export type VersionedTemplateLinkResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['VersionedTemplateLink'] = ResolversParentTypes['VersionedTemplateLink']> = {
   created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  createdById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   linkType?: Resolver<ResolversTypes['TemplateLinkType'], ParentType, ContextType>;
   modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   text?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   url?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   versionedTemplateId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;

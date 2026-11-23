@@ -187,4 +187,20 @@ describe('publishedFunderTemplates', () => {
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0].extensions.code).toEqual('INTERNAL_SERVER');
   });
+
+  it.each(['createdById', 'modifiedById'])('does not let anyone ask for the links\' %s user id', async (field) => {
+    const findSpy = jest.spyOn(VersionedTemplateLink, 'findByVersionedTemplateId').mockResolvedValue([]);
+
+    const result = await executeQuery(
+      `query { publishedFunderTemplates { items { links { url ${field} } } } }`,
+      {},
+      null
+    );
+
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0].extensions.code).toEqual('GRAPHQL_VALIDATION_FAILED');
+    expect(result.errors[0].message).toContain(`Cannot query field "${field}" on type "VersionedTemplateLink"`);
+    expect(searchSpy).not.toHaveBeenCalled();
+    expect(findSpy).not.toHaveBeenCalled();
+  });
 });

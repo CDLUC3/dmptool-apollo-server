@@ -38,7 +38,7 @@ describe('ProjectSearchResult', () => {
     jest.resetAllMocks();
 
     localQuery = jest.fn();
-    (Project.queryWithPagination as jest.Mock) = localQuery;
+    (Project.queryWithOptimizedPagination as jest.Mock) = localQuery;
 
     context = await buildMockContextWithToken(logger);
 
@@ -164,7 +164,16 @@ describe('ProjectSearchResult', () => {
         availableSortFields: sortFields,
       };
       expect(localQuery).toHaveBeenCalledTimes(1);
-      expect(localQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, groupBy, vals, opts, 'Test')
+      const [callContext, selectionSql, selectionValues, hydrationSql, actualOptions, reference] = localQuery.mock.calls[0];
+      expect(callContext).toBe(context);
+      expect(sql).toContain('FROM projects p');
+      expect(groupBy).toContain('GROUP BY p.id');
+      expect(selectionSql).toContain('FROM projects p');
+      expect(whereFilters.every((filter: string) => selectionSql.includes(filter))).toBe(true);
+      expect(selectionValues).toEqual(vals);
+      expect(hydrationSql).toContain('p.id IN (/* PAGE_IDS */)');
+      expect(actualOptions).toMatchObject(opts);
+      expect(reference).toBe('Test');
       expect(result).toEqual({ items: [projectSearchResult] });
     });
 
@@ -174,10 +183,8 @@ describe('ProjectSearchResult', () => {
       await ProjectSearchResult.search('Test', context, null, projectSearchResult.createdById, null,
         { accessLevel: ProjectCollaboratorAccessLevel.EDIT });
 
-      const [, , whereFilters, , vals] = localQuery.mock.calls[0];
-      expect(whereFilters).toContain(
-        '(p.id IN (SELECT projectId FROM projectCollaborators WHERE userId = ? AND accessLevel = ?))'
-      );
+      const [, selectionSql, vals] = localQuery.mock.calls[0];
+      expect(selectionSql).toContain('(p.id IN (SELECT projectId FROM projectCollaborators WHERE userId = ? AND accessLevel = ?))');
       expect(vals).toEqual([
         '%%', '%%',
         context.token.id.toString(), 'EDIT',

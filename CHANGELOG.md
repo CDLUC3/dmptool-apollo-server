@@ -196,6 +196,8 @@
 - added data-migration to fix question JSON so that `"selected": 0` is now `"selected": false` (and `1` -> `true`).
 
 ### Updated
+- Replaced `queryWithPagination` function with `queryWithOptimizedPagination`
+- Updated all functions that call the new `queryWithOptimizedPagination` function so that they have lighter weight queries that run as a first-pass to do the filter, search, sort and pagination. And then a second-pass query to hydrate ONLY the records that will be returned on the current page. 
 - Renamed `PropertyDefinition` to `PlanIndexPropertyDefinition` since we're going to need ones for affiliations, etc. in the future
 - Fixed bug in `guidanceService` that was allowing `getRelevantGuidanceForPlan` to run an SQL query when there are no tags
 - Fixed an issue in the new plan `search` resolver that was not capitalizing the `visibility` term in the OpenSearch query, which was causing public plans to not be returned in search results

@@ -17,9 +17,6 @@ import { Tag } from "./Tag.js";
 import {
   PaginatedQueryResults,
   PaginationOptions,
-  PaginationOptionsForCursors,
-  PaginationOptionsForOffsets,
-  PaginationType
 } from '../types/general.js';
 import { prepareObjectForLogs } from '../logger.js';
 
@@ -158,19 +155,30 @@ export class PlanSearchResult {
     term?: string,
   ): Promise<PaginatedQueryResults<PlanSearchResult>> {
     const whereFilters = ['p.createdById = ?'];
-    const values = [userId.toString()];
+    const values: string[] = [userId.toString()];
+    let templateJoin = '';
 
     // Handle the incoming search term
     const searchTerm = (term ?? '').toLowerCase().trim();
     if (searchTerm) {
+      templateJoin = 'LEFT JOIN versionedTemplates vt ON vt.id = p.versionedTemplateId';
       whereFilters.push(`(
-      LOWER(p.title) LIKE ? OR
-      LOWER(vt.name) LIKE ?
+      p.title LIKE ? OR
+      vt.name LIKE ?
     )`);
       values.push(`%${searchTerm}%`, `%${searchTerm}%`);
     }
 
-    const sqlStatement = `
+    // Lightweight selection query to do the search, filtering, sorting and pagination
+    const selectionSql = `
+      SELECT p.id, p.title, p.status, p.created, p.modified, p.registered, p.visibility
+      FROM plans p
+      ${templateJoin}
+      WHERE ${whereFilters.join(' AND ')}
+    `;
+
+    //
+    const hydrateSql = `
     SELECT p.id, p.createdById,
       CONCAT(cu.givenName, ' ', cu.surName) createdBy, p.created,
       CONCAT(cm.givenName, ' ', cm.surName) modifiedBy, p.modified,
@@ -191,6 +199,7 @@ export class PlanSearchResult {
     LEFT JOIN planFundings ON planFundings.planId = p.id
     LEFT JOIN projectFundings ON projectFundings.id = planFundings.projectFundingId
     LEFT JOIN affiliations fundings ON projectFundings.affiliationId = fundings.uri
+    WHERE p.id IN (/* PAGE_IDS */)
   `;
 
     const groupBy = `
@@ -199,29 +208,23 @@ export class PlanSearchResult {
     p.dmpId, cr.givenName, cr.surName, p.registered, p.featured, vt.name
   `;
 
-    let opts;
-    if (options.type === PaginationType.OFFSET) {
-      opts = {
-        ...options,
-        availableSortFields: ['p.title', 'p.status', 'p.created', 'p.modified', 'p.registered', 'p.visibility'],
-      } as PaginationOptionsForOffsets;
-    } else {
-      opts = {
-        ...options,
-        cursorField: 'CONCAT(p.title, p.id)',
-      } as PaginationOptionsForCursors;
-    }
+    const availableSortFields = ['p.title', 'p.status', 'p.created', 'p.modified', 'p.registered', 'p.visibility'];
+    const requestedSort = options.sortField && availableSortFields.includes(options.sortField)
+      ? options.sortField
+      : 'p.created';
+    const opts = {
+      ...options,
+      sortField: requestedSort,
+      sortDir: options.sortDir === 'ASC' ? 'ASC' : 'DESC',
+      availableSortFields,
+      cursorField: 'p.id'
+    } as PaginationOptions;
 
-    if (isNullOrUndefined(opts.sortField)) opts.sortField = 'p.created';
-    if (isNullOrUndefined(opts.sortDir)) opts.sortDir = 'DESC';
-    opts.countField = 'p.id';
-
-    const response: PaginatedQueryResults<PlanSearchResult> = await Plan.queryWithPagination(
+    const response = await Plan.queryWithOptimizedPagination<PlanSearchResult>(
       context,
-      sqlStatement,
-      whereFilters,
-      groupBy,
+      selectionSql,
       values,
+      `${hydrateSql} ${groupBy}`,
       opts,
       reference,
     );

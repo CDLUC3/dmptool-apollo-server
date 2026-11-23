@@ -427,14 +427,15 @@ export class AffiliationSearch {
       opts.cursorField = 'a.id';
     }
 
-    const sqlStatement = 'SELECT a.* FROM affiliations a';
+    const sortField = MySqlModel.getSafePaginationSortField(opts, 'a.displayName');
+    const selectionSql = `SELECT a.id, ${sortField} AS sortValue FROM affiliations a WHERE ${whereFilters.join(' AND ')}`;
+    const hydrateSql = 'SELECT a.* FROM affiliations a WHERE a.id IN (/* PAGE_IDS */)';
 
-    const response: PaginatedQueryResults<AffiliationSearch> = await Affiliation.queryWithPagination(
+    const response: PaginatedQueryResults<AffiliationSearch> = await Affiliation.queryWithOptimizedPagination(
       context,
-      sqlStatement,
-      whereFilters,
-      '',
+      selectionSql,
       values,
+      hydrateSql,
       opts,
       reference
     )
@@ -500,15 +501,15 @@ export class AffiliationSearch {
     }
 
     // Simple query to get affiliations by URI
-    const sqlStatement = `SELECT a.* FROM affiliations a`;
-    const groupByClause = '';
+    const sortField = MySqlModel.getSafePaginationSortField(opts, 'a.displayName');
+    const selectionSql = `SELECT a.id, ${sortField} AS sortValue FROM affiliations a WHERE ${whereFilters.join(' AND ')}`;
+    const hydrateSql = 'SELECT a.* FROM affiliations a WHERE a.id IN (/* PAGE_IDS */)';
 
-    const response: PaginatedQueryResults<AffiliationSearch> = await Affiliation.queryWithPagination(
+    const response: PaginatedQueryResults<AffiliationSearch> = await Affiliation.queryWithOptimizedPagination(
       context,
-      sqlStatement,
-      whereFilters,
-      groupByClause,
+      selectionSql,
       values,
+      hydrateSql,
       opts,
       reference
     );

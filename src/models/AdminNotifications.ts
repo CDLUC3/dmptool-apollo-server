@@ -67,17 +67,18 @@ export class AdminNotificationResults extends MySqlModel {
       opts.cursorField = 'id';
     }
 
-    const sqlStatement = 'SELECT adminNotifications.* FROM adminNotifications';
+    if (options.type === PaginationType.OFFSET) opts.availableSortFields = ['created'];
+    const sortField = MySqlModel.getSafePaginationSortField(opts, 'created');
+    const selectionSql = `SELECT id, ${sortField} AS sortValue FROM adminNotifications ${whereFilters.length ? `WHERE ${whereFilters.join(' AND ')}` : ''}`;
+    const hydrateSql = 'SELECT adminNotifications.* FROM adminNotifications WHERE id IN (/* PAGE_IDS */)';
 
-    return AdminNotificationResults.queryWithPagination(
+    return AdminNotificationResults.queryWithOptimizedPagination(
       context,
-      sqlStatement,
-      whereFilters,
-      '',
+      selectionSql,
       values,
+      hydrateSql,
       opts,
       reference,
-      true,
     );
   }
 

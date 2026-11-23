@@ -232,14 +232,15 @@ export class ResearchDomain extends MySqlModel {
       opts.cursorField = 'rd.id';
     }
 
-    const sqlStatement = 'SELECT rd.* FROM researchDomains rd';
+    const sortField = MySqlModel.getSafePaginationSortField(opts, 'rd.name');
+    const selectionSql = `SELECT rd.id, ${sortField} AS sortValue FROM researchDomains rd ${whereFilters.length ? `WHERE ${whereFilters.join(' AND ')}` : ''}`;
+    const hydrateSql = 'SELECT rd.* FROM researchDomains rd WHERE rd.id IN (/* PAGE_IDS */)';
 
-    const response: PaginatedQueryResults<ResearchDomain> = await ResearchDomain.queryWithPagination(
+    const response: PaginatedQueryResults<ResearchDomain> = await ResearchDomain.queryWithOptimizedPagination(
       context,
-      sqlStatement,
-      whereFilters,
-      '',
+      selectionSql,
       values,
+      hydrateSql,
       opts,
       reference,
     )

@@ -45,7 +45,7 @@ describe('TemplateSearchResult', () => {
     (Template.query as jest.Mock) = localQuery;
 
     localPaginationQuery = jest.fn();
-    (Template.queryWithPagination as jest.Mock) = localPaginationQuery;
+    (Template.queryWithOptimizedPagination as jest.Mock) = localPaginationQuery;
 
     context = await buildMockContextWithToken(logger);
 
@@ -102,7 +102,14 @@ describe('TemplateSearchResult', () => {
         availableSortFields: sortFields,
       };
       expect(localPaginationQuery).toHaveBeenCalledTimes(1);
-      expect(localPaginationQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, '', vals, opts, 'Test');
+      const [callContext, selectionSql, selectionValues, hydrationSql, actualOptions] = localPaginationQuery.mock.calls[0];
+      expect(callContext).toBe(context);
+      expect(sql).toContain('FROM templates t');
+      expect(selectionSql).toContain('FROM templates t');
+      expect(whereFilters.every((filter: string) => selectionSql.includes(filter))).toBe(true);
+      expect(selectionValues).toEqual(vals);
+      expect(hydrationSql).toContain('t.id IN (/* PAGE_IDS */)');
+      expect(actualOptions).toMatchObject(opts);
       expect(result).toEqual([templateSearchResult]);
     });
 

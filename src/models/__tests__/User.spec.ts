@@ -14,12 +14,12 @@ jest.unstable_mockModule('../../context.js', () => ({
 import type { UserRole as UserRoleType } from '../User.js';
 
 type SearchQueryWithPaginationFn = (
-  reference: string,
   context: unknown,
-  whereFilters: string[],
-  groupBy: unknown,
+  selectionSql: string,
   values: string[],
+  hydrateSql: string,
   opts: Record<string, unknown>,
+  reference: string,
 ) => Promise<{
   items: InstanceType<typeof User>[];
   totalCount: number;
@@ -353,7 +353,7 @@ describe('findByAffiliationId', () => {
       hasPreviousPage: false,
       pageInfo: {},
     };
-    mockQueryWithPagination = jest.spyOn(User, 'queryWithPagination').mockResolvedValue(mockPaginatedResults) as unknown as jest.Mock<() => Promise<{
+    mockQueryWithPagination = jest.spyOn(User, 'queryWithOptimizedPagination').mockResolvedValue(mockPaginatedResults) as unknown as jest.Mock<() => Promise<{
       items: InstanceType<typeof User>[];
       totalCount: number;
       hasNextPage: boolean;
@@ -379,23 +379,20 @@ describe('findByAffiliationId', () => {
     expect(result.items[1].givenName).toBe('Bob');
 
 
-    const [, , whereFilters, , values] = (User.queryWithPagination as jest.Mock).mock.calls[0] as [
-      unknown, string, string[], string, string[]
-    ];
+    const [, selectionSql, values] = (User.queryWithOptimizedPagination as jest.Mock).mock.calls[0];
+    const whereFilters = selectionSql;
 
     expect(whereFilters).toContain('u.affiliationId = ?');
-    expect(whereFilters.every((f: string) => !f.includes('u.role = ?'))).toBe(true);
+    expect(whereFilters).not.toContain('u.role = ?');
     expect(values).toContain('affil-1');
   });
 
   it('requires every word of a multi-word term to match one of the fields', async () => {
     await User.findByAffiliationId('testRef', context, 'affil-1', 'Smith, Alice', { type: PaginationType.OFFSET });
 
-    const [, , whereFilters, , values] = (mockQueryWithPagination as jest.Mock).mock.calls[0] as [
-      unknown, string, string[], string, string[]
-    ];
+    const [, whereFilters, values] = (mockQueryWithPagination as jest.Mock).mock.calls[0] as [unknown, string, string[]];
 
-    const termFilter = whereFilters.find((f: string) => f.includes('LIKE ?'));
+    const termFilter = whereFilters;
     expect(termFilter.match(/LIKE \?/g)).toHaveLength(8);
     expect(termFilter).toContain(') AND (');
     expect(termFilter).not.toContain('a.searchName');
@@ -409,11 +406,10 @@ describe('findByAffiliationId', () => {
   it.each(['', '   ', undefined])('adds no search term filter when the term is %p, so all affiliation users are returned', async (term) => {
     await User.findByAffiliationId('testRef', context, 'affil-1', term, { type: PaginationType.OFFSET });
 
-    const [, , whereFilters, , values] = (mockQueryWithPagination as jest.Mock).mock.calls[0] as [
-      unknown, string, string[], string, string[]
-    ];
+    const [, whereFilters, values] = (mockQueryWithPagination as jest.Mock).mock.calls[0] as [unknown, string, string[]];
 
-    expect(whereFilters).toEqual(['u.affiliationId = ?', 'u.isArchived = 0']);
+    expect(whereFilters).toContain('u.affiliationId = ?');
+    expect(whereFilters).toContain('u.isArchived = 0');
     expect(values).toEqual(['affil-1']);
   });
 
@@ -432,7 +428,8 @@ describe('findByAffiliationId', () => {
       UserRole.ADMIN,
     );
 
-    const [, , whereFilters, , values] = (mockQueryWithPagination as jest.Mock).mock.calls[0];
+    const [, selectionSql, values] = (mockQueryWithPagination as jest.Mock).mock.calls[0] as [unknown, string, string[]];
+    const whereFilters = selectionSql;
     expect(whereFilters).toContain('u.role = ?');
     expect(values).toContain(UserRole.ADMIN);
     expect(result.items.length).toBe(1);
@@ -444,10 +441,9 @@ describe('findByAffiliationId', () => {
       { type: PaginationType.OFFSET },
     );
 
-    const [, , whereFilters, ,] = (mockQueryWithPagination as jest.Mock).mock.calls[0] as [
-      unknown, string, string[], string, string[]
-    ];
-    expect(whereFilters.every((f: string) => !f.includes('u.role = ?'))).toBe(true);
+    const [, selectionSql] = (mockQueryWithPagination as jest.Mock).mock.calls[0];
+    const whereFilters = selectionSql;
+    expect(whereFilters).not.toContain('u.role = ?');
   });
 
   it('passes the search term through to the query values', async () => {
@@ -456,10 +452,8 @@ describe('findByAffiliationId', () => {
       { type: PaginationType.OFFSET },
     );
 
-    const [, , whereFilters, , values] = (mockQueryWithPagination as jest.Mock).mock.calls[0] as [
-      unknown, string, string[], string, string[]
-    ];
-    expect(whereFilters.some((f: string) => f.includes('LOWER(u.givenName) LIKE ?'))).toBe(true);
+    const [, whereFilters, values] = (mockQueryWithPagination as jest.Mock).mock.calls[0] as [unknown, string, string[]];
+    expect(whereFilters).toContain('LOWER(u.givenName) LIKE ?');
     expect(values.some((v: string) => v.includes('alice'))).toBe(true);
   });
 
@@ -469,9 +463,7 @@ describe('findByAffiliationId', () => {
       { type: PaginationType.OFFSET, sortField: 'u.surName', sortDir: 'ASC' },
     );
 
-    const [, , , , , opts] = (mockQueryWithPagination as jest.Mock).mock.calls[0] as [
-      unknown, string, string[], string, string[], Record<string, unknown>
-    ]
+    const [, , , , opts] = (mockQueryWithPagination as jest.Mock).mock.calls[0] as [unknown, string, string[], string, Record<string, unknown>]
     expect(opts.availableSortFields).toBeDefined();
     expect(opts.availableSortFields).toContain('u.surName');
     expect(opts.sortField).toBe('u.surName');
@@ -484,9 +476,7 @@ describe('findByAffiliationId', () => {
       { type: PaginationType.CURSOR },
     );
 
-    const [, , , , , opts] = (mockQueryWithPagination as jest.Mock).mock.calls[0] as [
-      unknown, string, string[], string, string[], Record<string, unknown>
-    ]
+    const [, , , , opts] = (mockQueryWithPagination as jest.Mock).mock.calls[0] as [unknown, string, string[], string, Record<string, unknown>]
     expect(opts.cursorField).toBeDefined();
     expect(opts.availableSortFields).toBeUndefined();
   });
@@ -497,9 +487,7 @@ describe('findByAffiliationId', () => {
       { type: PaginationType.OFFSET },
     );
 
-    const [, , , , , opts] = (mockQueryWithPagination as jest.Mock).mock.calls[0] as [
-      unknown, string, string[], string, string[], Record<string, unknown>
-    ]
+    const [, , , , opts] = (mockQueryWithPagination as jest.Mock).mock.calls[0] as [unknown, string, string[], string, Record<string, unknown>]
     expect(opts.sortField).toBe('u.created');
     expect(opts.sortDir).toBe('DESC');
   });
@@ -773,7 +761,7 @@ describe('search', () => {
       pageInfo: {},
     };
 
-    mockQueryWithPagination = jest.spyOn(User, 'queryWithPagination').mockResolvedValue(mockPaginatedResults) as unknown as jest.Mock<SearchQueryWithPaginationFn>;
+    mockQueryWithPagination = jest.spyOn(User, 'queryWithOptimizedPagination').mockResolvedValue(mockPaginatedResults) as unknown as jest.Mock<SearchQueryWithPaginationFn>;
 
   });
 
@@ -781,11 +769,9 @@ describe('search', () => {
     jest.clearAllMocks();
   });
 
-  type SearchCallArgs = [
-    unknown, unknown, string[], unknown, string[], Record<string, unknown>
-  ];
+  type SearchCallArgs = [unknown, string, string[], string, Record<string, unknown>, string];
 
-  it('calls queryWithPagination and returns matching users', async () => {
+  it('calls queryWithOptimizedPagination and returns matching users', async () => {
     const result = await User.search('testRef', context, 'alice', { type: PaginationType.OFFSET });
 
     expect(mockQueryWithPagination).toHaveBeenCalledTimes(1);
@@ -793,15 +779,15 @@ describe('search', () => {
     expect(result.totalCount).toBe(2);
   });
 
-  it('passes the search term into whereFilters and values', async () => {
+  it('passes the search term into the selection query and values', async () => {
     await User.search('testRef', context, 'alice', { type: PaginationType.OFFSET });
 
     const callArgs = mockQueryWithPagination.mock.calls[0] as SearchCallArgs;
-    const whereFilters = callArgs[2];
-    const values = callArgs[4];
+    const selectionSql = callArgs[1];
+    const values = callArgs[2];
 
-    expect(whereFilters.some((f: string) => f.includes('LOWER(u.givenName) LIKE ?'))).toBe(true);
-    expect(whereFilters.some((f: string) => f.includes('LOWER(a.searchName) LIKE ?'))).toBe(true);
+    expect(selectionSql).toContain('LOWER(u.givenName) LIKE ?');
+    expect(selectionSql).toContain('LOWER(a.searchName) LIKE ?');
     expect(values.every((v: string) => v === '%alice%')).toBe(true);
     expect(values.length).toBe(5);
   });
@@ -810,10 +796,10 @@ describe('search', () => {
     await User.search('testRef', context, 'Alice Smith', { type: PaginationType.OFFSET });
 
     const callArgs = mockQueryWithPagination.mock.calls[0] as SearchCallArgs;
-    const whereFilters = callArgs[2];
-    const values = callArgs[4];
+    const selectionSql = callArgs[1];
+    const values = callArgs[2];
 
-    const termFilter = whereFilters.find((f: string) => f.includes('LIKE ?'));
+    const termFilter = selectionSql.match(/WHERE ([\s\S]*?)\n\s*`?$/)?.[1];
     expect(termFilter.match(/LIKE \?/g)).toHaveLength(10);
     expect(termFilter).toContain(') AND (');
     expect(values).toEqual([
@@ -826,10 +812,10 @@ describe('search', () => {
     await User.search('testRef', context, term, { type: PaginationType.OFFSET });
 
     const callArgs = mockQueryWithPagination.mock.calls[0] as SearchCallArgs;
-    const whereFilters = callArgs[2];
-    const values = callArgs[4];
+    const selectionSql = callArgs[1];
+    const values = callArgs[2];
 
-    expect(whereFilters).toEqual(['u.isArchived = 0']);
+    expect(selectionSql).toContain('WHERE u.isArchived = 0');
     expect(values).toEqual([]);
   });
 
@@ -837,10 +823,10 @@ describe('search', () => {
     await User.search('testRef', context, '', { type: PaginationType.OFFSET }, UserRole.ADMIN);
 
     const callArgs = mockQueryWithPagination.mock.calls[0] as SearchCallArgs;
-    const whereFilters = callArgs[2];
-    const values = callArgs[4];
+    const selectionSql = callArgs[1];
+    const values = callArgs[2];
 
-    expect(whereFilters).toContain('u.role = ?');
+    expect(selectionSql).toContain('u.role = ?');
     expect(values).toContain(UserRole.ADMIN);
   });
 
@@ -848,20 +834,20 @@ describe('search', () => {
     await User.search('testRef', context, '', { type: PaginationType.OFFSET });
 
     const callArgs = mockQueryWithPagination.mock.calls[0] as SearchCallArgs;
-    const whereFilters = callArgs[2];
+    const selectionSql = callArgs[1];
 
-    expect(whereFilters.every((f: string) => !f.includes('u.role = ?'))).toBe(true);
+    expect(selectionSql).not.toContain('u.role = ?');
   });
 
   it('includes both term and role filters when both are provided', async () => {
     await User.search('testRef', context, 'alice', { type: PaginationType.OFFSET }, UserRole.ADMIN);
 
     const callArgs = mockQueryWithPagination.mock.calls[0] as SearchCallArgs;
-    const whereFilters = callArgs[2];
-    const values = callArgs[4];
+    const selectionSql = callArgs[1];
+    const values = callArgs[2];
 
-    expect(whereFilters.some((f: string) => f.includes('LOWER(u.givenName) LIKE ?'))).toBe(true);
-    expect(whereFilters).toContain('u.role = ?');
+    expect(selectionSql).toContain('LOWER(u.givenName) LIKE ?');
+    expect(selectionSql).toContain('u.role = ?');
     expect(values).toContain('%alice%');
     expect(values).toContain(UserRole.ADMIN);
   });
@@ -870,7 +856,7 @@ describe('search', () => {
     await User.search('testRef', context, '', { type: PaginationType.OFFSET, sortField: 'u.surName', sortDir: 'ASC' });
 
     const callArgs = mockQueryWithPagination.mock.calls[0] as SearchCallArgs;
-    const opts = callArgs[5];
+    const opts = callArgs[4];
 
     expect(opts.availableSortFields).toBeDefined();
     expect(opts.availableSortFields).toContain('u.surName');
@@ -884,7 +870,7 @@ describe('search', () => {
     await User.search('testRef', context, '', { type: PaginationType.CURSOR });
 
     const callArgs = mockQueryWithPagination.mock.calls[0] as SearchCallArgs;
-    const opts = callArgs[5];
+    const opts = callArgs[4];
 
     expect(opts.cursorField).toBe('CONCAT(ue.email, u.id)');
     expect(opts.availableSortFields).toBeUndefined();
@@ -894,19 +880,17 @@ describe('search', () => {
     await User.search('testRef', context, '', { type: PaginationType.OFFSET });
 
     const callArgs = mockQueryWithPagination.mock.calls[0] as SearchCallArgs;
-    const opts = callArgs[5];
+    const opts = callArgs[4];
 
     expect(opts.sortField).toBe('u.created');
     expect(opts.sortDir).toBe('DESC');
   });
 
-  it('sets countField to u.id', async () => {
+  it('hydrates only the selected page of user IDs', async () => {
     await User.search('testRef', context, '', { type: PaginationType.OFFSET });
 
     const callArgs = mockQueryWithPagination.mock.calls[0] as SearchCallArgs;
-    const opts = callArgs[5];
-
-    expect(opts.countField).toBe('u.id');
+    expect(callArgs[3]).toContain('WHERE u.id IN (/* PAGE_IDS */)');
   });
 
   it('returns empty results when no users match', async () => {
@@ -928,8 +912,8 @@ describe('search', () => {
     await User.search('testRef', context, '', { type: PaginationType.OFFSET });
 
     const callArgs = mockQueryWithPagination.mock.calls[0] as SearchCallArgs;
-    const whereFilters = callArgs[2];
+    const selectionSql = callArgs[1];
 
-    expect(whereFilters.some((f: string) => f.includes('LIKE ?'))).toBe(false);
+    expect(selectionSql).not.toContain('LIKE ?');
   });
 });

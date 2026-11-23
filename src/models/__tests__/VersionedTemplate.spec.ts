@@ -66,7 +66,7 @@ describe('VersionedTemplateSearchResult', () => {
     localQuery = jest.fn();
     (VersionedTemplate.query as jest.Mock) = localQuery;
     localPaginationQuery = jest.fn();
-    (VersionedTemplate.queryWithPagination as jest.Mock) = localPaginationQuery;
+    (VersionedTemplate.queryWithOptimizedPagination as jest.Mock) = localPaginationQuery;
 
     context = await buildMockContextWithToken(logger);
 
@@ -130,7 +130,16 @@ describe('VersionedTemplateSearchResult', () => {
         availableSortFields: sortFields
       };
       expect(localPaginationQuery).toHaveBeenCalledTimes(1);
-      expect(localPaginationQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, '', vals, opts, 'Test');
+      const [callContext, selectionSql, selectionValues, hydrationSql, actualOptions, reference, hydrationValues] = localPaginationQuery.mock.calls[0];
+      expect(callContext).toBe(context);
+      expect(sql).toContain('FROM versionedTemplates vt');
+      expect(selectionSql).toContain('FROM versionedTemplates vt');
+      expect(whereFilters.every((filter: string) => selectionSql.includes(filter))).toBe(true);
+      expect(selectionValues).toEqual(vals);
+      expect(hydrationSql).toContain('vt.id IN (/* PAGE_IDS */)');
+      expect(actualOptions).toMatchObject(opts);
+      expect(reference).toBe('Test');
+      expect(hydrationValues).toEqual([context.token.affiliationId]);
       expect(result).toEqual([versionedTemplateSearchResult]);
     });
 
@@ -318,7 +327,6 @@ describe('FunderTemplateSearchResult', () => {
 });
 
 describe('CustomizableTemplateSearchResult', () => {
-  const originalQuery = VersionedTemplate.queryWithPagination;
   const originalGetDefaultPaginationOptions = VersionedTemplate.getDefaultPaginationOptions;
 
   let localPaginationQuery;
@@ -331,7 +339,7 @@ describe('CustomizableTemplateSearchResult', () => {
     jest.resetAllMocks();
 
     localPaginationQuery = jest.fn();
-    (VersionedTemplate.queryWithPagination as jest.Mock) = localPaginationQuery;
+    (VersionedTemplate.queryWithOptimizedPagination as jest.Mock) = localPaginationQuery;
 
     localCountQuery = jest.fn();
     (VersionedTemplate.query as jest.Mock) = localCountQuery;
@@ -360,7 +368,6 @@ describe('CustomizableTemplateSearchResult', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
-    VersionedTemplate.queryWithPagination = originalQuery;
     VersionedTemplate.getDefaultPaginationOptions = originalGetDefaultPaginationOptions;
   });
 
@@ -402,9 +409,16 @@ describe('CustomizableTemplateSearchResult', () => {
       };
 
       expect(localPaginationQuery).toHaveBeenCalledTimes(1);
-      expect(localPaginationQuery).toHaveBeenCalledWith(context, expect.any(String), whereFilters, '', vals, expectedOpts, 'Test', false);
-      expect(localCountQuery).toHaveBeenCalledTimes(1);
-      expect(localCountQuery).toHaveBeenCalledWith(context, expect.any(String), vals, 'Test');
+      const [callContext, selectionSql, selectionValues, hydrationSql, actualOpts, reference, hydrationValues] = localPaginationQuery.mock.calls[0];
+      expect(callContext).toBe(context);
+      expect(selectionSql).toContain('SELECT vt.id, tc_sub.lastCustomized AS sortValue');
+      expect(whereFilters.every(filter => selectionSql.includes(filter))).toBe(true);
+      expect(selectionValues).toEqual(['test-affiliation-123', ...vals]);
+      expect(hydrationSql).toContain('vt.id IN (/* PAGE_IDS */)');
+      expect(actualOpts).toMatchObject(expectedOpts);
+      expect(reference).toBe('Test');
+      expect(hydrationValues).toEqual(['test-affiliation-123']);
+      expect(localCountQuery).not.toHaveBeenCalled();
       expect(result).toEqual(mockResponse);
     });
 
@@ -436,8 +450,9 @@ describe('CustomizableTemplateSearchResult', () => {
       const vals = ['%test template%', '%test template%', 'test-affiliation-123'];
 
       expect(localPaginationQuery).toHaveBeenCalledTimes(1);
-      expect(localPaginationQuery.mock.calls[0][2]).toEqual(whereFilters);
-      expect(localPaginationQuery.mock.calls[0][4]).toEqual(vals);
+      expect(whereFilters.every((filter: string) => localPaginationQuery.mock.calls[0][1].includes(filter))).toBe(true);
+      expect(localPaginationQuery.mock.calls[0][2]).toEqual(['test-affiliation-123', ...vals]);
+      expect(localPaginationQuery.mock.calls[0][3]).toContain('vt.id IN (/* PAGE_IDS */)');
       expect(result).toEqual(mockResponse);
     });
 
@@ -470,8 +485,9 @@ describe('CustomizableTemplateSearchResult', () => {
       const vals = ['%%', '%%', status, 'test-affiliation-123'];
 
       expect(localPaginationQuery).toHaveBeenCalledTimes(1);
-      expect(localPaginationQuery.mock.calls[0][2]).toEqual(whereFilters);
-      expect(localPaginationQuery.mock.calls[0][4]).toEqual(vals);
+      expect(whereFilters.every((filter: string) => localPaginationQuery.mock.calls[0][1].includes(filter))).toBe(true);
+      expect(localPaginationQuery.mock.calls[0][2]).toEqual(['test-affiliation-123', ...vals]);
+      expect(localPaginationQuery.mock.calls[0][3]).toContain('vt.id IN (/* PAGE_IDS */)');
       expect(result).toEqual(mockResponse);
     });
 
@@ -504,8 +520,9 @@ describe('CustomizableTemplateSearchResult', () => {
       const vals = ['%%', '%%', migrationStatus, 'test-affiliation-123'];
 
       expect(localPaginationQuery).toHaveBeenCalledTimes(1);
-      expect(localPaginationQuery.mock.calls[0][2]).toEqual(whereFilters);
-      expect(localPaginationQuery.mock.calls[0][4]).toEqual(vals);
+      expect(whereFilters.every((filter: string) => localPaginationQuery.mock.calls[0][1].includes(filter))).toBe(true);
+      expect(localPaginationQuery.mock.calls[0][2]).toEqual(['test-affiliation-123', ...vals]);
+      expect(localPaginationQuery.mock.calls[0][3]).toContain('vt.id IN (/* PAGE_IDS */)');
       expect(result).toEqual(mockResponse);
     });
 
@@ -542,8 +559,9 @@ describe('CustomizableTemplateSearchResult', () => {
       const vals = ['%template search%', '%template search%', status, migrationStatus, 'test-affiliation-123'];
 
       expect(localPaginationQuery).toHaveBeenCalledTimes(1);
-      expect(localPaginationQuery.mock.calls[0][2]).toEqual(whereFilters);
-      expect(localPaginationQuery.mock.calls[0][4]).toEqual(vals);
+      expect(whereFilters.every((filter: string) => localPaginationQuery.mock.calls[0][1].includes(filter))).toBe(true);
+      expect(localPaginationQuery.mock.calls[0][2]).toEqual(['test-affiliation-123', ...vals]);
+      expect(localPaginationQuery.mock.calls[0][3]).toContain('vt.id IN (/* PAGE_IDS */)');
       expect(result).toEqual(mockResponse);
     });
 
@@ -578,7 +596,7 @@ describe('CustomizableTemplateSearchResult', () => {
       };
 
       expect(localPaginationQuery).toHaveBeenCalledTimes(1);
-      expect(localPaginationQuery.mock.calls[0][5]).toEqual(expectedOpts);
+      expect(localPaginationQuery.mock.calls[0][4]).toMatchObject(expectedOpts);
       expect(result).toEqual(mockResponse);
     });
 
@@ -611,7 +629,7 @@ describe('CustomizableTemplateSearchResult', () => {
       };
 
       expect(localPaginationQuery).toHaveBeenCalledTimes(1);
-      expect(localPaginationQuery.mock.calls[0][5]).toEqual(expectedOpts);
+      expect(localPaginationQuery.mock.calls[0][4]).toMatchObject(expectedOpts);
       expect(result).toEqual(mockResponse);
     });
 

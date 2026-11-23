@@ -86,7 +86,7 @@ export class TemplateSearchResult {
       opts.cursorField = 't.id';
     }
 
-    const sqlStatement = 'SELECT t.id, t.name, t.description, t.latestPublishVisibility, t.bestPractice, t.isDirty, ' +
+    const hydrationSelect = 'SELECT t.id, t.name, t.description, t.latestPublishVisibility, t.bestPractice, t.isDirty, ' +
       't.latestPublishVersion, t.latestPublishDate, t.ownerId, a.displayName, t.isDefault, ' +
       't.createdById, TRIM(CONCAT(cu.givenName, CONCAT(\' \', cu.surName))) as createdByName, t.created, ' +
       't.modifiedById, TRIM(CONCAT(mu.givenName, CONCAT(\' \', mu.surName))) as modifiedByName, t.modified ' +
@@ -95,12 +95,18 @@ export class TemplateSearchResult {
       'INNER JOIN users cu ON cu.id = t.createdById ' +
       'INNER JOIN users mu ON mu.id = t.modifiedById';
 
-    const response: PaginatedQueryResults<TemplateSearchResult> = await Template.queryWithPagination(
+    const sortField = MySqlModel.getSafePaginationSortField(opts, 't.modified');
+    const selectionSql = `SELECT t.id, ${sortField} AS sortValue FROM templates t
+      INNER JOIN affiliations a ON a.uri = t.ownerId
+      INNER JOIN users cu ON cu.id = t.createdById
+      INNER JOIN users mu ON mu.id = t.modifiedById
+      WHERE ${whereFilters.join(' AND ')}`;
+    const hydrateSql = `${hydrationSelect} WHERE t.id IN (/* PAGE_IDS */)`;
+    const response: PaginatedQueryResults<TemplateSearchResult> = await Template.queryWithOptimizedPagination(
       context,
-      sqlStatement,
-      whereFilters,
-      '',
+      selectionSql,
       values,
+      hydrateSql,
       opts,
       reference,
     )

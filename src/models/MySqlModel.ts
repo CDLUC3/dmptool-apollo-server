@@ -299,12 +299,16 @@ export class MySqlModel {
       const values = [...selectionValues];
       if (isCursor && cursorOptions.cursor && cursorField) {
         const cursorOperator = sortDir === SortDirection.DESC ? '<=' : '>=';
-        selection += ` AND ${cursorField} ${cursorOperator} ?`;
+        selection += ` ${selection.includes('WHERE') ? 'AND' : 'WHERE'} ${cursorField} ${cursorOperator} ?`;
         values.push(cursorOptions.cursor);
       }
       // If the selection SQL does not already include a cursorId alias, add it to the selection
       if (isCursor && cursorField && !/\bAS\s+cursorId\b/i.test(selection)) {
         selection = selection.replace(/^SELECT\s+/i, `SELECT ${cursorField} AS cursorId, `);
+        selection = selection.replace(
+          /^\s*SELECT(?:\s+(?:DISTINCT|ALL))?\s+/i,
+          (match) => `${match}${cursorField} AS cursorId, `
+        );
       }
       const orderField = isCursor && cursorField
         ? 'cursorId'
@@ -342,7 +346,7 @@ export class MySqlModel {
         items,
         limit,
         totalCount,
-        ...(isCursor ? { nextCursor: hasNextPage ? pageRows[pageRows.length - 1]?.cursorId : null } : { currentOffset: offset }),
+        ...(isCursor ? { nextCursor: hasNextPage ? rows[rows.length - 1]?.cursorId : null } : { currentOffset: offset }),
         hasNextPage,
         ...(!isCursor ? { hasPreviousPage: offset > 0, availableSortFields: offsetOptions.availableSortFields ?? [] } : {}),
       };

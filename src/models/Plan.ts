@@ -217,6 +217,7 @@ export class PlanSearchResult {
       sortField: requestedSort,
       sortDir: options.sortDir === 'ASC' ? 'ASC' : 'DESC',
       availableSortFields,
+      cursorField: 'p.id'
     } as PaginationOptions;
 
     const response = await Plan.queryWithOptimizedPagination<PlanSearchResult>(

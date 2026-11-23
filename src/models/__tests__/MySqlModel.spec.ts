@@ -134,7 +134,7 @@ describe('MySqlModel abstract class', () => {
       expect(query).toHaveBeenNthCalledWith(3, expect.anything(), expect.stringContaining('IN (?, ?)'), ['8', '9'], 'cursor pagination test');
       expect(result.items.map((item) => item.id)).toEqual([8, 9]);
       expect(result.totalCount).toBe(9);
-      expect(result.nextCursor).toBe('b9');
+      expect(result.nextCursor).toBe('c10');
       expect(result.hasNextPage).toBe(true);
       expect(result.currentOffset).toBeUndefined();
     });

@@ -294,7 +294,7 @@ export class CustomizableTemplateSearchResult {
 
     const sortField = MySqlModel.getSafePaginationSortField(opts, 'tc_sub.lastCustomized');
     const selectionSql = `SELECT vt.id, ${sortField} AS sortValue ${fromClause} WHERE ${whereFilters.join(' AND ')}`;
-    const hydrateSql = `SELECT vt.id AS versionedTemplateId, vt.name, vt.version, vt.description,
+    const hydrateSql = `SELECT vt.id, vt.id AS versionedTemplateId, vt.name, vt.version, vt.description,
       vt.bestPractice, vt.modified AS lastModified,
       a.uri AS affiliationId, a.name AS affiliationName,
       tc_sub.templateCustomizationId, tc_sub.status, tc_sub.migrationStatus,

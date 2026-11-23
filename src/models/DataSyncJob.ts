@@ -10,10 +10,11 @@ import {
   generateIndexItem,
   PlanIndexDocumentInterface,
   ProjectPlanResponse,
-  PropertyDefinition,
+  PlanIndexPropertyDefinition,
 } from "../services/indexDMPService.js";
 import { PlanMember, ProjectMember } from "./Member.js";
 import { PlanFunding, ProjectFunding } from "./Funding.js";
+import { Affiliation } from "./Affiliation.js";
 import { Answer } from "./Answer.js";
 import { OpenSearch } from "../datasources/openSearch.js";
 
@@ -353,9 +354,10 @@ export class OpenSearchDMPSync extends DataSyncJob {
         p.visibility, p.featured, p.registered, p.created, p.modified,
         proj.title AS project_title, proj.abstractText AS abstract_text,
         proj.startDate AS project_start, proj.endDate AS project_end,
-        proj.isTestProject AS is_test_project
+        proj.isTestProject AS is_test_project, rd.uri AS research_domain_uri
       FROM plans p
         JOIN projects proj ON p.projectId = proj.id
+          LEFT JOIN researchDomains rd ON proj.researchDomainId = rd.id
       WHERE p.modified >= ?
         AND (p.modified > ? OR (p.modified = ? AND p.id > ?))
       ORDER BY p.modified ASC, p.id ASC
@@ -372,7 +374,8 @@ export class OpenSearchDMPSync extends DataSyncJob {
       reference,
       context,
       projectPlanResponses.map((plan: ProjectPlanResponse) => plan.project_id) || [],
-      projectPlanResponses.map((plan: ProjectPlanResponse) => plan.plan_id) || []
+      projectPlanResponses.map((plan: ProjectPlanResponse) => plan.plan_id) || [],
+      projectPlanResponses.map((plan: ProjectPlanResponse) => plan.affiliation_id).filter(Boolean),
     );
 
     // There are many plans and projects, so we need to reconcile the associated
@@ -396,6 +399,27 @@ export class OpenSearchDMPSync extends DataSyncJob {
         return a.planId === plan_id
       });
 
+      // Scope the shared batch affiliation lookup to this project's members,
+      // this plan's owner affiliation, and its linked funders.
+      const planAffiliationURIs = new Set<string>();
+      for (const member of projectMembers) {
+        if (member.affiliationId) planAffiliationURIs.add(member.affiliationId);
+      }
+      if (projectPlanResponse.affiliation_id) {
+        planAffiliationURIs.add(projectPlanResponse.affiliation_id);
+      }
+      const projectFundingIds = new Set(planFunding.map((funding) => funding.projectFundingId));
+      for (const funding of projectFunding) {
+        if (projectFundingIds.has(funding.id) && funding.affiliationId) {
+          planAffiliationURIs.add(funding.affiliationId);
+        }
+      }
+      const planAffiliations = new Map<string, Affiliation>();
+      for (const uri of planAffiliationURIs) {
+        const affiliation = associatedObjects.affiliations.get(uri);
+        if (affiliation) planAffiliations.set(uri, affiliation);
+      }
+
       const item = generateIndexItem(
         {
           id: project_id,
@@ -417,14 +441,15 @@ export class OpenSearchDMPSync extends DataSyncJob {
           created: projectPlanResponse.created,
           modified: projectPlanResponse.modified,
         },
-        associatedObjects.affiliations,
+        planAffiliations,
         projectMembers,
         projectFunding,
         planMembers,
         planFunding,
         planAnswers,
-        associatedObjects.alternateIdentifiers,
-        associatedObjects.relatedWorks
+        associatedObjects.alternateIdentifiersByPlan.get(plan_id) ?? [],
+        associatedObjects.relatedWorksByPlan.get(plan_id) ?? [],
+        projectPlanResponse.research_domain_uri
       );
 
       return { ...item, cursorId: plan_id };
@@ -455,7 +480,7 @@ export class OpenSearchDMPSync extends DataSyncJob {
 
     try {
       // Bulk update the plans
-      await openSearch.bulkUpdateIndexItems(DMP_INDEX_NAME, PropertyDefinition, bulkBody);
+      await openSearch.bulkUpdateIndexItems(DMP_INDEX_NAME, PlanIndexPropertyDefinition, bulkBody);
     } catch (error) {
       context.logger.error({ reference, error }, "Error indexing Plans");
       return false;

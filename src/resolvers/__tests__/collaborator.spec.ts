@@ -18,7 +18,6 @@ jest.unstable_mockModule('../../datasources/cache.js', () => ({
 
 jest.unstable_mockModule('../../services/emailService.js', () => ({
   emailSubjects: {
-    emailConfirmation: 'Please confirm your email address',
     projectCollaboration: 'You were invited to collaborate on a data management plan',
     templateCollaboration: 'You were invited to collaborate on a template',
     projectCollaboratorCommentsAdded: 'New comments added to the plan',
@@ -27,7 +26,6 @@ jest.unstable_mockModule('../../services/emailService.js', () => ({
     contactUs: 'Contact Us form submission',
   },
   emailMessages: {
-    emailConfirmation: '',
     projectCollaboration: '',
     templateCollaboration: '',
     projectCollaboratorCommentsAdded: '',
@@ -36,7 +34,6 @@ jest.unstable_mockModule('../../services/emailService.js', () => ({
     contactUs: '',
     sendResetPassword: '',
   },
-  sendEmailConfirmationNotification: jest.fn(),
   sendTemplateCollaborationEmail: jest.fn(),
   sendProjectCollaborationEmail: jest.fn(),
   sendProjectCollaboratorsCommentsAddedEmail: jest.fn(),

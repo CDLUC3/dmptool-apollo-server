@@ -137,11 +137,14 @@ export class User extends MySqlModel {
   }
 
   // Find the User by their email address
+  // Only a primary or confirmed email identifies its owner. Unconfirmed aliases are ignored so that
+  // adding someone else's address to your account does not give you their collaboration invitations.
   static async findByEmail(reference: string, context: MyContext, email: string): Promise<User | null> {
     const emails = await UserEmail.findByEmail(reference, context, email);
-    if (!emails || emails.length === 0) return null;
+    const owner = emails?.find((entry) => Boolean(entry.isPrimary) || Boolean(entry.isConfirmed));
+    if (!owner) return null;
 
-    return await User.findById(reference, context, emails[0].userId);
+    return await User.findById(reference, context, owner.userId);
   }
 
   // Find the User by their service account id (REST API clientId)

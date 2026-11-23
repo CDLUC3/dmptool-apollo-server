@@ -82,6 +82,7 @@ const { Answer } = await import('../../models/Answer.js');
 const { ProjectMember, PlanMember } = await import('../../models/Member.js');
 const { PlanFunding, ProjectFunding, ProjectFundingStatus } = await import('../../models/Funding.js');
 const { Affiliation } = await import('../../models/Affiliation.js');
+const { ResearchDomain } = await import('../../models/ResearchDomain.js');
 const { AlternateIdentifier } = await import('../../models/AlternateIdentifier.js');
 const { AcceptedWork } = await import('../../models/RelatedWork.js');
 
@@ -237,6 +238,8 @@ beforeEach(() => {
   jest.spyOn(PlanMember, 'findByPlanIds').mockResolvedValue([]);
   jest.spyOn(PlanFunding, 'findByPlanIds').mockResolvedValue([]);
   jest.spyOn(Affiliation, 'findByURI').mockResolvedValue(null);
+  jest.spyOn(Affiliation, 'findByURIs').mockResolvedValue([]);
+  jest.spyOn(ResearchDomain, 'findByURIs').mockResolvedValue([]);
   jest.spyOn(Project, 'findById').mockResolvedValue(null);
 });
 
@@ -296,34 +299,90 @@ describe('getIndexItem', () => {
 describe('searchIndex', () => {
   it('returns the items from the response when matches exist', async () => {
     const items = [
-      { _id: '11.22222/demo', fields: { dmpId: '11.22222/demo' } },
-      { _id: '11.22222/other', fields: { dmpId: '11.22222/other' } },
+      {
+        _id: '11.22222/demo',
+        fields: {
+          dmpId: '11.22222/demo',
+          institutions_display: [{ id: 7654, name: 'Demo institution' }]
+        }
+      },
+      {
+        _id: '11.22222/other',
+        fields: {
+          dmpId: '11.22222/other',
+          institutions_display: [{ id: 1234, name: 'Other institution' }]
+        }
+      },
     ];
     const documents = items.map(({ fields }) => fields);
-    mockOpenSearch.search.mockResolvedValue({ total: 2, items });
+    mockOpenSearch.search.mockResolvedValue({ total: 2, items, aggregations: {} });
 
-    await expect(searchIndex('ref', context, { match_all: {} }, [], 25)).resolves.toEqual({ items: documents, total: 2 });
+    await expect(searchIndex('ref', context, { match_all: {} }, [], 25)).resolves.toEqual({
+      items: documents,
+      totalCount: 2,
+      facets: { affiliationIds: [], funderIds: [], languages: [], subjects: [] },
+    });
     expect(mockOpenSearch.search).toHaveBeenCalledWith(INDEX_NAME, {
       size: 25,
       from: 0,
       query: { match_all: {} },
       sort: [],
+      aggregations: expect.any(Object),
     });
   });
 
   it('returns an empty array when there are no hits', async () => {
-    mockOpenSearch.search.mockResolvedValue({ total: 0, items: [] });
+    mockOpenSearch.search.mockResolvedValue({ total: 0, items: [], aggregations: {} });
 
-    await expect(searchIndex('ref', context, { match_all: {} })).resolves.toEqual({ items: [], total: 0 });
+    await expect(searchIndex('ref', context, { match_all: {} })).resolves.toEqual({
+      items: [],
+      totalCount: 0,
+      facets: { affiliationIds: [], funderIds: [], languages: [], subjects: [] },
+    });
   });
 
   it('passes an offset to OpenSearch and preserves the total count', async () => {
     const items = [{ _id: '11.22222/second-page', fields: { dmpId: '11.22222/second-page' } }];
-    mockOpenSearch.search.mockResolvedValue({ total: 21, items });
+    mockOpenSearch.search.mockResolvedValue({ total: 21, items, aggregations: {} });
     await expect(searchIndex('ref', context, { match_all: {} }, [{ created: 'desc' }], 20, 20))
-      .resolves.toEqual({ items: [items[0].fields], total: 21 });
+      .resolves.toMatchObject({ items: [items[0].fields], totalCount: 21 });
     expect(mockOpenSearch.search).toHaveBeenCalledWith(INDEX_NAME, {
       size: 20, from: 20, query: { match_all: {} }, sort: [{ created: 'desc' }],
+      aggregations: expect.any(Object),
+    });
+  });
+
+  it('maps aggregation buckets to named facets', async () => {
+    const domain = new (await import('../../models/ResearchDomain.js')).ResearchDomain({
+      uri: 'https://example.org/research-domain/1',
+      name: 'Climate',
+    });
+    // jest.spyOn(Affiliation, 'findByURIs').mockResolvedValue([affiliation]);
+    jest.spyOn(ResearchDomain, 'findByURIs').mockResolvedValue([domain]);
+    mockOpenSearch.search.mockResolvedValue({
+      total: 1,
+      items: [{
+        _id: 'dmp-1',
+        fields: {
+          dmpId: 'dmp-1',
+          institutions_display: [{ id: 'institution-1', name: 'Demo institution' }]
+        }
+      }],
+      aggregations: {
+        affiliationIds: [{ key: 'institution-1', docCount: 1 }],
+        funderIds: [],
+        language: [{ key: 'en-US', docCount: 1 }],
+        researchDomainId: [{ key: domain.uri, docCount: 1 }],
+      },
+    });
+
+    await expect(searchIndex('ref', context, { match_all: {} })).resolves.toMatchObject({
+      totalCount: 1,
+      facets: {
+        affiliationIds: [{ id: 'institution-1', name: 'Demo institution', count: 1 }],
+        languages: [{ id: 'en-US', name: 'English (US)', count: 1 }],
+        subjects: [{ id: domain.uri, name: 'Climate', count: 1 }],
+      },
     });
   });
 
@@ -352,6 +411,7 @@ describe('updateIndexItem', () => {
       id: 200,
       projectId: project.id,
       dmpId: `${TEST_DMP_ID_BASE}11.22222/demo-plan`,
+      affiliationId: `${TEST_ROR_BASE}plan-owner123`,
       title: 'My DMP',
       visibility: PlanVisibility.PUBLIC,
       featured: true,
@@ -367,11 +427,31 @@ describe('updateIndexItem', () => {
       orcid: `${TEST_ORCID_BASE}0000-0001-2345-6789`,
       affiliationId: `${TEST_ROR_BASE}abcd1234`,
     });
+    const unrelatedMember = buildProjectMember(301, {
+      projectId: project.id,
+      givenName: 'Unrelated',
+      surName: 'Collaborator',
+      affiliationId: `${TEST_ROR_BASE}unrelated999`,
+    });
+    const memberWithoutAffiliationRecord = buildProjectMember(302, {
+      projectId: project.id,
+      givenName: 'Unmapped',
+      surName: 'Member',
+      affiliationId: `${TEST_ROR_BASE}unmapped999`,
+    });
     const planMember = buildPlanMember(memberId);
     const planMemberId = planMember.id;
     const memberAffiliation = buildAffiliation(`${TEST_ROR_BASE}abcd1234`, {
       name: 'State University',
       displayName: 'State University',
+    });
+    const unrelatedAffiliation = buildAffiliation(`${TEST_ROR_BASE}unrelated999`, {
+      name: 'Unrelated University',
+      displayName: 'Unrelated University',
+    });
+    const planAffiliation = buildAffiliation(`${TEST_ROR_BASE}plan-owner123`, {
+      name: 'Plan Owner University',
+      displayName: 'Plan Owner University',
     });
 
     const fundingId = 400;
@@ -389,19 +469,21 @@ describe('updateIndexItem', () => {
       funder: true,
     });
 
-    jest.spyOn(ProjectMember, 'findByProjectIds').mockResolvedValue([member]);
-    jest.spyOn(PlanMember, 'findByPlanIds').mockResolvedValue(asPlanMemberList([{ ...planMember, id: planMemberId, projectMemberId: memberId }]));
+    jest.spyOn(ProjectMember, 'findByProjectIds').mockResolvedValue([member, unrelatedMember, memberWithoutAffiliationRecord]);
+    jest.spyOn(PlanMember, 'findByPlanIds').mockResolvedValue(asPlanMemberList([{ ...planMember, id: planMemberId, projectMemberId: memberId, isPrimaryContact: true }]));
     jest.spyOn(ProjectFunding, 'findByProjectIds').mockResolvedValue([funding]);
     jest.spyOn(PlanFunding, 'findByPlanIds').mockResolvedValue(asPlanFundingList([{ ...planFunding, projectFundingId: fundingId }]));
     jest.spyOn(Affiliation, 'findByURIs').mockImplementation(async (_ref: string, _context: MyContext, uris: string[]) => {
       return uris.map((uri) => {
         if (uri === `${TEST_ROR_BASE}abcd1234`) return memberAffiliation;
+        if (uri === `${TEST_ROR_BASE}unrelated999`) return unrelatedAffiliation;
+        if (uri === `${TEST_ROR_BASE}plan-owner123`) return planAffiliation;
         if (uri === funderUri) return funderAffiliation;
         return null;
       });
     });
-    jest.spyOn(AlternateIdentifier, 'findByPlanIds').mockResolvedValue(asAlternateIdentifierList([{ alternateIdentifier: '10.1234/demo' }]));
-    jest.spyOn(AcceptedWork, 'findByPlanIds').mockResolvedValue(asAcceptedWorkList([{ doi: '10.9999/related' }]));
+    jest.spyOn(AlternateIdentifier, 'findByPlanIds').mockResolvedValue(asAlternateIdentifierList([{ planId: plan.id, alternateIdentifier: '10.1234/demo' }]));
+    jest.spyOn(AcceptedWork, 'findByPlanIds').mockResolvedValue(asAcceptedWorkList([{ planId: plan.id, doi: '10.9999/related' }]));
     jest.spyOn(Answer, 'findByPlanIds').mockResolvedValue(asAnswerList([{ json: buildResearchOutputAnswerJson() }]));
 
     await updateIndexItem(ref, context, plan, project);
@@ -420,7 +502,13 @@ describe('updateIndexItem', () => {
     expect(doc.related_identifier_ids).toContain('10.9999/related');
     expect(doc.contributor_ids).toContain('0000-0001-2345-6789');
     expect(doc.contributors_search).toEqual(expect.arrayContaining(['jane smith', 'smith, jane']));
-    expect(doc.institution_ids).toContain('abcd1234');
+    expect(doc.institution_ids).toEqual(['abcd1234', 'unrelated999', 'unmapped999', 'plan-owner123']);
+    expect(doc.institutions_display.map((institution) => institution.name)).toEqual([
+      'State University', 'Unrelated University', 'Plan Owner University',
+    ]);
+    expect(doc.contributors_display.map((contributor) => contributor.full_name)).toEqual(['Jane Smith']);
+    expect(doc.funding_display.map((funder) => funder.name)).toEqual(['National Science Foundation']);
+    expect(doc.datasets_display.map((dataset) => dataset.title)).toEqual(['My Dataset']);
     expect(doc.institutions_facets).toContain('State University');
     expect(doc.funder_ids).toContain('funder5678');
     expect(doc.funding_facets).toContain('National Science Foundation');

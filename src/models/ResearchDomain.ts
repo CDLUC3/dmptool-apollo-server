@@ -305,6 +305,14 @@ export class ResearchDomain extends MySqlModel {
     return Array.isArray(results) && results.length > 0 ? new ResearchDomain(results[0]) : null;
   }
 
+  static async findByURIs(reference: string, context: MyContext, uris: string[]): Promise<ResearchDomain[]> {
+    if (!uris || uris.length === 0) return [];
+
+    const sql = `SELECT * FROM researchDomains WHERE uri IN (${uris.map(() => '?').join(', ')})`;
+    const results = await ResearchDomain.query(context, sql, uris, reference);
+    return Array.isArray(results) ? results.map((entry) => new ResearchDomain(entry)) : [];
+  }
+
   static async findByName(reference: string, context: MyContext, name: string): Promise<ResearchDomain> {
     const sql = `SELECT * FROM researchDomains WHERE LOWER(name) = ?`;
     const searchTerm = (name ?? '');

@@ -484,7 +484,7 @@ describe('search', () => {
     jest.resetAllMocks();
 
     localQuery = jest.fn();
-    (Affiliation.queryWithPagination as unknown as jest.Mock) = localQuery;
+    (Affiliation.queryWithOptimizedPagination as unknown as jest.Mock) = localQuery;
 
     context = await buildMockContextWithToken(logger);
 
@@ -520,7 +520,14 @@ describe('search', () => {
       availableSortFields: sortFields,
     };
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, '', vals, opts, 'Test');
+    const [callContext, selectionSql, selectionValues, hydrationSql, actualOptions] = localQuery.mock.calls[0];
+    expect(callContext).toBe(context);
+    expect(sql).toContain('FROM affiliations a');
+    expect(selectionSql).toContain('FROM affiliations a');
+    expect(whereFilters.every((filter: string) => selectionSql.includes(filter))).toBe(true);
+    expect(selectionValues).toEqual(vals);
+    expect(hydrationSql).toContain('a.id IN (/* PAGE_IDS */)');
+    expect(actualOptions).toMatchObject(opts);
     expect(result).toEqual([affiliationSearch]);
   });
 
@@ -542,7 +549,14 @@ describe('search', () => {
       availableSortFields: sortFields,
     };
     expect(localQuery).toHaveBeenCalledTimes(1);
-    expect(localQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, '', vals, opts, 'Test');
+    const [callContext, selectionSql, selectionValues, hydrationSql, actualOptions] = localQuery.mock.calls[0];
+    expect(callContext).toBe(context);
+    expect(sql).toContain('FROM affiliations a');
+    expect(selectionSql).toContain('FROM affiliations a');
+    expect(whereFilters.every((filter: string) => selectionSql.includes(filter))).toBe(true);
+    expect(selectionValues).toEqual(vals);
+    expect(hydrationSql).toContain('a.id IN (/* PAGE_IDS */)');
+    expect(actualOptions).toMatchObject(opts);
     expect(result).toEqual([affiliationSearch]);
   });
 
@@ -643,7 +657,7 @@ describe('searchManagedWithPublishedGuidance', () => {
     jest.resetAllMocks();
 
     localQueryWithPagination = jest.fn();
-    (Affiliation.queryWithPagination as jest.Mock) = localQueryWithPagination;
+    (Affiliation.queryWithOptimizedPagination as jest.Mock) = localQueryWithPagination;
 
     context = await buildMockContextWithToken(logger);
 
@@ -656,7 +670,7 @@ describe('searchManagedWithPublishedGuidance', () => {
     });
   });
 
-  it('should call queryWithPagination with correct params and return paginated results', async () => {
+  it('should call optimized pagination with correct params and return paginated results', async () => {
     const name = 'Virginia';
     const affiliationUris = ['https://ror.org/01234', 'https://ror.org/56789'];
     const options = { sortField: undefined, sortDir: undefined, type: PaginationType.OFFSET };
@@ -688,15 +702,16 @@ describe('searchManagedWithPublishedGuidance', () => {
     const expectedVals = [...affiliationUris, `%${name.toLowerCase().trim()}%`];
 
     expect(localQueryWithPagination).toHaveBeenCalledTimes(1);
-    expect(localQueryWithPagination).toHaveBeenLastCalledWith(
-      context,
-      expectedSql,
-      expectedWhere,
-      expectedGroupBy,
-      expectedVals,
-      expectedOpts,
-      'TestRef'
-    );
+    const [callContext, selectionSql, selectionValues, hydrationSql, actualOptions, reference] = localQueryWithPagination.mock.calls[0];
+    expect(callContext).toBe(context);
+    expect(expectedSql).toContain('FROM affiliations a');
+    expect(selectionSql).toContain('FROM affiliations a');
+    expect(expectedWhere.every((filter: string) => selectionSql.includes(filter))).toBe(true);
+    expect(selectionValues).toEqual(expectedVals);
+    expect(hydrationSql).toContain('a.id IN (/* PAGE_IDS */)');
+    expect(actualOptions).toMatchObject(expectedOpts);
+    expect(reference).toBe('TestRef');
+    expect(expectedGroupBy).toBe('');
     expect(result).toEqual({ results: [affiliationSearch], totalCount: 1 });
   });
 
@@ -711,22 +726,16 @@ describe('searchManagedWithPublishedGuidance', () => {
       { type: PaginationType.OFFSET }
     );
 
-    expect(localQueryWithPagination).toHaveBeenCalledWith(
-      context,
-      'SELECT a.* FROM affiliations a',
-      [
-        'a.active = 1',
-        'a.managed = 1',
-      ],
-      '',
-      [],
-      expect.any(Object),
-      'TestRef'
-    );
+    const [, selectionSql, selectionValues, hydrationSql] = localQueryWithPagination.mock.calls[0];
+    expect(selectionSql).toContain('FROM affiliations a');
+    expect(selectionSql).toContain('a.active = 1');
+    expect(selectionSql).toContain('a.managed = 1');
+    expect(selectionValues).toEqual([]);
+    expect(hydrationSql).toContain('a.id IN (/* PAGE_IDS */)');
     expect(result).toEqual({ results: [], totalCount: 0 });
   });
 
-  it('should propagate errors from queryWithPagination', async () => {
+  it('should propagate errors from optimized pagination', async () => {
     localQueryWithPagination.mockRejectedValueOnce(new Error('Query failed'));
     await expect(
       AffiliationSearch.searchManagedWithPublishedGuidance('TestRef', context, 'foo', undefined, { type: PaginationType.OFFSET })

@@ -233,6 +233,7 @@ export const resolvers: Resolvers = {
 
     /**
      * Search for plans based on the provided search, filter and sort options.
+     * (PUBLIC FACING - NO AUTHENTICATION REQUIRED)
      *
      * @param _ Ignored, this is the entrypoint for the Apollo resolver
      * @param args the search, filter and sort options

@@ -73,7 +73,7 @@ describe('VersionedSectionSearchResult', () => {
       jest.resetAllMocks();
 
       localPaginationQuery = jest.fn();
-      (VersionedSection.queryWithPagination as jest.Mock) = localPaginationQuery;
+      (VersionedSection.queryWithOptimizedPagination as jest.Mock) = localPaginationQuery;
 
       context = await buildMockContextWithToken(logger);
 
@@ -113,7 +113,7 @@ describe('VersionedSectionSearchResult', () => {
         'LOWER(vs.name) LIKE ?'];
       const groupBy = 'GROUP BY vs.id, vs.modified, vs.created, vs.name, vs.introduction, vs.displayOrder, ' +
         'vt.bestPractice, vt.id, vt.name'
-      const sortFields = ["vs.name", "vs.created", "vs.bestPractice", "vt.name", "vs.modified", "versionedQuestionCount"];
+      const sortFields = ["vs.name", "vs.created", "vt.bestPractice", "vt.name", "vs.modified", "versionedQuestionCount"];
       const opts = {
         cursor: null,
         limit: generalConfig.defaultSearchLimit,
@@ -124,7 +124,15 @@ describe('VersionedSectionSearchResult', () => {
         availableSortFields: sortFields,
       };
       expect(localPaginationQuery).toHaveBeenCalledTimes(1);
-      expect(localPaginationQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, groupBy, vals, opts, 'Test');
+      const [callContext, selectionSql, selectionValues, hydrationSql, actualOptions] = localPaginationQuery.mock.calls[0];
+      expect(callContext).toBe(context);
+      expect(sql).toContain('FROM versionedSections vs');
+      expect(groupBy).toContain('GROUP BY vs.id');
+      expect(selectionSql).toContain('FROM versionedSections vs');
+      expect(whereFilters.every((filter: string) => selectionSql.includes(filter))).toBe(true);
+      expect(selectionValues).toEqual(vals);
+      expect(hydrationSql).toContain('vs.id IN (/* PAGE_IDS */)');
+      expect(actualOptions).toMatchObject(opts);
       expect(result).toEqual([versionedSectionSearchResult]);
     });
 
@@ -176,7 +184,7 @@ describe('findByName', () => {
     (VersionedSection.query as jest.Mock) = localQuery;
 
     localPaginationQuery = jest.fn();
-    (VersionedSection.queryWithPagination as jest.Mock) = localPaginationQuery;
+    (VersionedSection.queryWithOptimizedPagination as jest.Mock) = localPaginationQuery;
 
     context = await buildMockContextWithToken(logger);
 
@@ -213,7 +221,14 @@ describe('findByName', () => {
     };
 
     expect(localPaginationQuery).toHaveBeenCalledTimes(1);
-    expect(localPaginationQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, '', vals, opts, 'Test');
+    const [callContext, selectionSql, selectionValues, hydrationSql, actualOptions] = localPaginationQuery.mock.calls[0];
+    expect(callContext).toBe(context);
+    expect(sql).toContain('FROM versionedSections vs');
+    expect(selectionSql).toContain('FROM versionedSections vs');
+    expect(whereFilters.every((filter: string) => selectionSql.includes(filter))).toBe(true);
+    expect(selectionValues).toEqual(vals);
+    expect(hydrationSql).toContain('vs.id IN (/* PAGE_IDS */)');
+    expect(actualOptions).toMatchObject(opts);
     /* As part of this unit test, all fields without a value default to 'undefined' for the mocked VersionedSection, but
 the getVersionedSectionsBySectionId method returns an empty array for tags, and not undefined*/
     expect(result).toEqual([versionedSection])

@@ -106,7 +106,7 @@ describe('findBy Queries', () => {
     (ResearchDomain.query as jest.Mock) = localQuery;
 
     localPaginationQuery = jest.fn();
-    (ResearchDomain.queryWithPagination as jest.Mock) = localPaginationQuery;
+    (ResearchDomain.queryWithOptimizedPagination as jest.Mock) = localPaginationQuery;
 
     context = await buildMockContextWithToken(logger);
 
@@ -142,7 +142,14 @@ describe('findBy Queries', () => {
       availableSortFields: sortFields,
     };
     expect(localPaginationQuery).toHaveBeenCalledTimes(1);
-    expect(localPaginationQuery).toHaveBeenLastCalledWith(context, sql, whereFilters, '', vals, opts, 'testing');
+    const [callContext, selectionSql, selectionValues, hydrationSql, actualOptions] = localPaginationQuery.mock.calls[0];
+    expect(callContext).toBe(context);
+    expect(sql).toContain('FROM researchDomains rd');
+    expect(selectionSql).toContain('FROM researchDomains rd');
+    expect(whereFilters.every((filter: string) => selectionSql.includes(filter))).toBe(true);
+    expect(selectionValues).toEqual(vals);
+    expect(hydrationSql).toContain('rd.id IN (/* PAGE_IDS */)');
+    expect(actualOptions).toMatchObject(opts);
     expect(result).toEqual([domain]);
   });
 

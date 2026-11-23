@@ -659,12 +659,19 @@ export class RelatedWorkSearchResult extends MySqlModel {
     }
 
     // Fetch query
-    const response: PaginatedQueryResults<RelatedWorkSearchResult> = await RelatedWorkSearchResult.queryWithPagination(
+    const sortField = options.sortField;
+    const selectionSql = `SELECT rw.id, ${sortField} AS sortValue
+      FROM relatedWorks rw
+      LEFT JOIN plans p ON rw.planId = p.id
+      LEFT JOIN workVersions wv ON rw.workVersionId = wv.id
+      LEFT JOIN works w ON wv.workId = w.id
+      WHERE ${whereFilters.join(' AND ')}`;
+    const hydrateSql = `${this.sqlStatement} WHERE rw.id IN (/* PAGE_IDS */)`;
+    const response: PaginatedQueryResults<RelatedWorkSearchResult> = await RelatedWorkSearchResult.queryWithOptimizedPagination(
       context,
-      this.sqlStatement,
-      whereFilters,
-      '',
+      selectionSql,
       values,
+      hydrateSql,
       opts,
       reference,
     );

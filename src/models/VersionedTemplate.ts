@@ -125,15 +125,22 @@ export class VersionedTemplateSearchResult {
 
     values.unshift(userAffiliationId);
 
-    const response: PaginatedQueryResults<VersionedTemplateSearchResult> = await VersionedTemplate.queryWithPagination(
+    const sortField = MySqlModel.getSafePaginationSortField(opts, 'vt.modified');
+    const selectionSql = `SELECT DISTINCT vt.id, ${sortField} AS sortValue
+      FROM versionedTemplates vt
+      LEFT JOIN affiliations a ON a.uri = vt.ownerId
+      LEFT JOIN versionedTemplateCustomizations vtc ON vtc.currentVersionedTemplateId = vt.id AND vtc.affiliationId = ? AND vtc.active = 1
+      WHERE ${whereFilters.join(' AND ')}`;
+    const hydrateSql = `${sqlStatement} WHERE vt.id IN (/* PAGE_IDS */)`;
+    const response: PaginatedQueryResults<VersionedTemplateSearchResult> = await VersionedTemplate.queryWithOptimizedPagination(
       context,
-      sqlStatement,
-      whereFilters,
-      '',
+      selectionSql,
       values,
+      hydrateSql,
       opts,
       reference,
-    )
+      [userAffiliationId],
+    );
 
     context.logger.debug(prepareObjectForLogs({ options, response }), reference);
     return response;
@@ -281,43 +288,29 @@ export class CustomizableTemplateSearchResult {
             CONCAT(u.givenName, ' ', u.surName) AS lastCustomizedByName
           FROM templateCustomizations tc
             LEFT JOIN users u ON u.id = tc.modifiedById
-          WHERE tc.affiliationId = '${userAffiliationId}' AND tc.migrationStatus = 'OK'
+          WHERE tc.affiliationId = ? AND tc.migrationStatus = 'OK'
         ) AS tc_sub ON tc_sub.currentVersionedTemplateId = vt.id
     `;
 
-    const sqlStatement = `
-      SELECT vt.id AS versionedTemplateId, vt.name, vt.version, vt.description,
-             vt.bestPractice, vt.modified AS lastModified,
-             a.uri AS affiliationId, a.name AS affiliationName,
-             tc_sub.templateCustomizationId, tc_sub.status, tc_sub.migrationStatus,
-             tc_sub.isDirty, tc_sub.lastCustomizedById, tc_sub.lastCustomizedByName,
-             tc_sub.lastCustomized
-      ${fromClause}
-    `;
-
-    const response: PaginatedQueryResults<CustomizableTemplateSearchResult> = await VersionedTemplate.queryWithPagination(
+    const sortField = MySqlModel.getSafePaginationSortField(opts, 'tc_sub.lastCustomized');
+    const selectionSql = `SELECT vt.id, ${sortField} AS sortValue ${fromClause} WHERE ${whereFilters.join(' AND ')}`;
+    const hydrateSql = `SELECT vt.id, vt.id AS versionedTemplateId, vt.name, vt.version, vt.description,
+      vt.bestPractice, vt.modified AS lastModified,
+      a.uri AS affiliationId, a.name AS affiliationName,
+      tc_sub.templateCustomizationId, tc_sub.status, tc_sub.migrationStatus,
+      tc_sub.isDirty, tc_sub.lastCustomizedById, tc_sub.lastCustomizedByName,
+      tc_sub.lastCustomized
+      ${fromClause} WHERE vt.id IN (/* PAGE_IDS */)`;
+    const response: PaginatedQueryResults<CustomizableTemplateSearchResult> = await VersionedTemplate.queryWithOptimizedPagination(
       context,
-      sqlStatement,
-      whereFilters,
-      '',
-      values,
+      selectionSql,
+      [userAffiliationId, ...values],
+      hydrateSql,
       opts,
       reference,
-      false
-    )
-    let items = response.items.map(row => new CustomizableTemplateSearchResult(row));
-
-    // Get our own total count because the one in MySQLModel doesn't work for
-    // queries where the last FROM clause is a subquery
-    const countResponse = await VersionedTemplate.query(
-      context,
-      `SELECT COUNT(vt.id) AS count ${fromClause} WHERE ${whereFilters.join(' AND ')}`,
-      values,
-      reference
+      [userAffiliationId],
     );
-    if (Array.isArray(countResponse) && countResponse.length > 0) {
-      response.totalCount = countResponse[0]?.count ?? 0;
-    }
+    let items = response.items.map(row => new CustomizableTemplateSearchResult(row));
 
     if (!isNullOrUndefined(migrationStatus) && migrationStatus === TemplateCustomizationMigrationStatus.ORPHANED) {
       // We now need to do a pass to find any orphaned or stale customizations

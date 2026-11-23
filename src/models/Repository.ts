@@ -1,7 +1,7 @@
 import { MyContext } from "../context.js";
 import { prepareObjectForLogs } from "../logger.js";
-import { PaginatedQueryResults, PaginationOptions, PaginationOptionsForCursors, PaginationOptionsForOffsets, PaginationType } from "../types/general.js";
-import { isNullOrUndefined, randomHex, validateURL } from "../utils/helpers.js";
+import { PaginatedQueryResults, PaginationOptions } from "../types/general.js";
+import { randomHex, validateURL } from "../utils/helpers.js";
 import { MySqlModel } from "./MySqlModel.js";
 import { ResearchDomain } from "./ResearchDomain.js";
 
@@ -172,13 +172,13 @@ export class Repository extends MySqlModel {
     repositoryType: string,
     options: PaginationOptions = Repository.getDefaultPaginationOptions()
   ): Promise<PaginatedQueryResults<Repository>> {
-    const whereFilters = [];
-    const values = [];
+    const whereFilters: string[] = [];
+    const values: string[] = [];
+    const searchTerm = (term ?? '').toLowerCase().trim();
 
     // Handle the incoming search term
-    const searchTerm = (term ?? '').toLowerCase().trim();
-    if (!isNullOrUndefined(searchTerm)) {
-      whereFilters.push('(LOWER(r.name) LIKE ? OR LOWER(r.description) LIKE ? OR LOWER(r.keywords) LIKE ?)');
+    if (searchTerm) {
+      whereFilters.push('(r.name LIKE ? OR r.description LIKE ? OR CAST(r.keywords AS CHAR) LIKE ?)');
       values.push(`%${searchTerm}%`, `%${searchTerm}%`, `%${searchTerm}%`);
     }
     // Handle the incoming repository type (already in lowercase format from re3data standard)
@@ -195,32 +195,30 @@ export class Repository extends MySqlModel {
     // Note: subjects are from re3data (OpenSearch) and have no matches in custom repositories
     // so they are not included in the custom repository search filter
 
-    // Set the default sort field and order if none was provided
-    if (isNullOrUndefined(options.sortField)) options.sortField = 'r.name';
-    if (isNullOrUndefined(options.sortDir)) options.sortDir = 'ASC';
+    const availableSortFields = ['r.name', 'r.created'];
+    const sortField = options.sortField && availableSortFields.includes(options.sortField)
+      ? options.sortField
+      : 'r.name';
+    const opts: PaginationOptions = {
+      ...options,
+      sortField,
+      sortDir: options.sortDir?.toUpperCase() === 'DESC' ? 'DESC' : 'ASC',
+      availableSortFields,
+    };
 
-    // Specify the fields available for sorting
-    options.availableSortFields = ['r.name', 'r.created'];
-    // Specify the field we want to use for the count
-    options.countField = 'r.id';
+    const sortColumn = sortField === 'r.created' ? 'r.created' : 'r.name';
+    const selectionSql = `
+      SELECT r.id, ${sortColumn} AS sortValue
+      FROM repositories r
+      ${whereFilters.length ? `WHERE ${whereFilters.join(' AND ')}` : ''}
+    `;
+    const hydrateSql = 'SELECT r.* FROM repositories r WHERE r.id IN (/* PAGE_IDS */)';
 
-    // Determine the type of pagination we are using and then set any additional options we need
-    let opts;
-    if (options.type === PaginationType.OFFSET) {
-      opts = options as PaginationOptionsForOffsets;
-    } else {
-      opts = options as PaginationOptionsForCursors;
-      opts.cursorField = 'r.id';
-    }
-
-    const sqlStatement = 'SELECT r.* FROM repositories r';
-
-    const response: PaginatedQueryResults<Repository> = await Repository.queryWithPagination(
+    const response: PaginatedQueryResults<Repository> = await Repository.queryWithOptimizedPagination(
       context,
-      sqlStatement,
-      whereFilters,
-      '',
+      selectionSql,
       values,
+      hydrateSql,
       opts,
       reference,
     )

@@ -33,15 +33,13 @@ const validNotificationData = {
   modified: new Date().toISOString(),
 };
 
-type QueryWithPaginationFn = (
+type OptimizedPaginationFn = (
   context: MyContext,
-  sqlStatement: string,
-  whereFilters: string[],
-  groupBy: string,
-  values: string[],
+  selectionSql: string,
+  selectionValues: string[],
+  hydrateSql: string,
   opts: unknown,
   reference: string,
-  distinct?: boolean,
 ) => Promise<PaginatedQueryResults<InstanceType<typeof AdminNotificationResults>>>;
 
 type FindByUserIdFn = (
@@ -299,64 +297,62 @@ describe('AdminNotificationResults', () => {
   });
 
   describe('findByUserId', () => {
-    const originalQuery = AdminNotificationResults.queryWithPagination;
-    let mockQuery: jest.Mock<QueryWithPaginationFn>;
+    let mockQuery: jest.Mock<OptimizedPaginationFn>;
 
     beforeEach(() => {
-      mockQuery = jest.fn<QueryWithPaginationFn>()
+      mockQuery = jest.fn<OptimizedPaginationFn>()
         .mockResolvedValue({ items: [], totalCount: 0, limit: 25, hasNextPage: false });
-      (AdminNotificationResults.queryWithPagination as unknown as jest.Mock) = mockQuery;
+      (AdminNotificationResults.queryWithOptimizedPagination as unknown as jest.Mock) = mockQuery;
     });
-
-
-    afterEach(() => {
-      AdminNotificationResults.queryWithPagination = originalQuery;
-    });
-
 
     it('should filter by userId when provided', async () => {
       await AdminNotificationResults.findByUserId('Test', context, 123);
-      const [, , whereFilters, , values] = mockQuery.mock.calls[0];
+      const [, selectionSql, values] = mockQuery.mock.calls[0];
+      const whereFilters = selectionSql;
       expect(whereFilters).toContain('userId = ?');
       expect(values).toContain('123');
     });
 
     it('should not filter by userId when null (superAdmin)', async () => {
       await AdminNotificationResults.findByUserId('Test', context, null);
-      const [, , whereFilters, , values] = mockQuery.mock.calls[0];
+      const [, selectionSql, values] = mockQuery.mock.calls[0];
+      const whereFilters = selectionSql;
       expect(whereFilters).not.toContain('userId = ?');
       expect(values).toHaveLength(0);
     });
 
     it('should filter by isRead = true when provided', async () => {
       await AdminNotificationResults.findByUserId('Test', context, null, undefined, true);
-      const [, , whereFilters] = mockQuery.mock.calls[0];
+      const [, selectionSql] = mockQuery.mock.calls[0];
+      const whereFilters = selectionSql;
       expect(whereFilters).toContain('isRead = 1');
     });
 
     it('should filter by isRead = false when provided', async () => {
       await AdminNotificationResults.findByUserId('Test', context, null, undefined, false);
-      const [, , whereFilters] = mockQuery.mock.calls[0];
+      const [, selectionSql] = mockQuery.mock.calls[0];
+      const whereFilters = selectionSql;
       expect(whereFilters).toContain('isRead = 0');
     });
 
     it('should not filter by isRead when not provided', async () => {
       await AdminNotificationResults.findByUserId('Test', context, null);
-      const [, , whereFilters] = mockQuery.mock.calls[0];
-      expect(whereFilters.some((f: string) => f.includes('isRead'))).toBe(false);
+      const [, selectionSql] = mockQuery.mock.calls[0];
+      const whereFilters = selectionSql;
+      expect(whereFilters).not.toContain('isRead');
     });
 
     it('should use cursor pagination by default', async () => {
       await AdminNotificationResults.findByUserId('Test', context, null);
-      const [, , , , , opts] = mockQuery.mock.calls[0];
-      expect((opts as PaginationOptionsForCursors).cursorField).toBe('id');
+      const [, , , , options] = mockQuery.mock.calls[0] as unknown as [unknown, unknown, unknown, unknown, PaginationOptionsForCursors];
+      expect((options as PaginationOptionsForCursors).cursorField).toBe('id');
     });
 
     it('should sort by created DESC by default', async () => {
       await AdminNotificationResults.findByUserId('Test', context, null);
-      const [, , , , , opts] = mockQuery.mock.calls[0];
-      expect((opts as { sortField: string }).sortField).toBe('created');
-      expect((opts as { sortDir: string }).sortDir).toBe('DESC');
+      const [, , , , options] = mockQuery.mock.calls[0] as unknown as [unknown, unknown, unknown, unknown, { sortField: string; sortDir: string }];
+      expect(options.sortField).toBe('created');
+      expect(options.sortDir).toBe('DESC');
     });
   });
 

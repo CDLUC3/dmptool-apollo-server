@@ -3775,6 +3775,102 @@ export type ProjectSearchResults = PaginatedQueryResults & {
   totalCount?: Maybe<Scalars['Int']['output']>;
 };
 
+/** The options for searching/filtering/sorting public plans */
+export type PublicPlanSearchOptions = {
+  /** The affiliation ids to filter the public plans search results by */
+  affiliationIds?: InputMaybe<Array<Scalars['String']['input']>>;
+  /** The funder ids to filter the public plans search results by */
+  funderIds?: InputMaybe<Array<Scalars['String']['input']>>;
+  /** The languages to filter the public plans search results by */
+  languages?: InputMaybe<Array<Scalars['String']['input']>>;
+  /** The number of items to return */
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  /** The offset to start the search from (used for standard offset pagination only!) */
+  offset?: InputMaybe<Scalars['Int']['input']>;
+  /** The search term to use for the public plans search */
+  query?: InputMaybe<Scalars['String']['input']>;
+  /** The sort field and direction. Options are 'featured', 'created,desc', 'title,asc'. Default is 'featured' */
+  sort?: InputMaybe<Scalars['String']['input']>;
+  /** The subjects to filter the public plans search results by */
+  subjects?: InputMaybe<Array<Scalars['String']['input']>>;
+};
+
+/** A public representation of a plan for use in the public plans search results */
+export type PublicPlanSearchResult = {
+  __typename?: 'PublicPlanSearchResult';
+  /** The timestamp when the Object was created */
+  created?: Maybe<Scalars['String']['output']>;
+  /** The DMP id/DOI for the plan (applicable if the plan has been registered/published) */
+  dmpId?: Maybe<Scalars['String']['output']>;
+  /** Whether the plan is featured on the public plans page */
+  featured?: Maybe<Scalars['Boolean']['output']>;
+  /** The human readable language name for the plan */
+  language?: Maybe<Scalars['String']['output']>;
+  /** The language code for the plan */
+  languageCode?: Maybe<Scalars['String']['output']>;
+  /** The URI for the owner of the plan */
+  ownerAffiliationName?: Maybe<Scalars['String']['output']>;
+  /** The URI for the affiliation that owns the plan */
+  ownerAffiliationURI?: Maybe<Scalars['String']['output']>;
+  /** The name of the owner of the plan */
+  ownerName?: Maybe<Scalars['String']['output']>;
+  /** The ORCID of the owner of the plan */
+  ownerORCID?: Maybe<Scalars['String']['output']>;
+  /** The unique identifier for the Object */
+  planId?: Maybe<Scalars['Int']['output']>;
+  /** The unique identifier for the Project */
+  projectId?: Maybe<Scalars['Int']['output']>;
+  /** The name of the affiliation that owns the template the plan is based on */
+  templateOwnerAffiliationName?: Maybe<Scalars['String']['output']>;
+  /** The URI for the affiliation that owns the template the plan is based on */
+  templateOwnerAffiliationURI?: Maybe<Scalars['String']['output']>;
+  /** The name of the template the plan is based on */
+  templateTitle?: Maybe<Scalars['String']['output']>;
+  /** The title of the plan */
+  title?: Maybe<Scalars['String']['output']>;
+};
+
+/** A facet for the public plans search results */
+export type PublicPlanSearchResultFacet = {
+  __typename?: 'PublicPlanSearchResultFacet';
+  /** The number of plans that match the facet */
+  count: Scalars['Int']['output'];
+  /** The unique identifier for the facet */
+  id: Scalars['String']['output'];
+  /** The name of the facet */
+  name: Scalars['String']['output'];
+};
+
+/** Faceting information for the public plans search results */
+export type PublicPlanSearchResultFacets = {
+  __typename?: 'PublicPlanSearchResultFacets';
+  /** The affiliations contained within the public plans search results */
+  affiliationIds: Array<PublicPlanSearchResultFacet>;
+  /** The funder ids contained within the public plans search results */
+  funderIds: Array<PublicPlanSearchResultFacet>;
+  /** The languages contained within the public plans search results */
+  languages: Array<PublicPlanSearchResultFacet>;
+  /** The subjects contained within the public plans search results */
+  subjects: Array<PublicPlanSearchResultFacet>;
+};
+
+/** Results from the public plans search */
+export type PublicPlanSearchResults = {
+  __typename?: 'PublicPlanSearchResults';
+  /** The sortFields that are available for this query (for standard offset pagination only!) */
+  availableSortFields: Array<Scalars['String']['output']>;
+  /** The faceting information for the public plans search results */
+  facets: PublicPlanSearchResultFacets;
+  /** The public plans that match the search criteria */
+  items: Array<PublicPlanSearchResult>;
+  /** The number of items returned */
+  limit: Scalars['Int']['output'];
+  /** The current offset of the results (for standard offset pagination only!) */
+  offset: Scalars['Int']['output'];
+  /** The total number of possible items */
+  totalCount: Scalars['Int']['output'];
+};
+
 /** A normalized question result covering both base and custom questions, with answer status */
 export type PublishedQuestion = {
   __typename?: 'PublishedQuestion';
@@ -3953,6 +4049,8 @@ export type Query = {
   projectMembers?: Maybe<Array<Maybe<ProjectMember>>>;
   /** Get data for a specific version of a plan */
   publicPlanVersionByDMPId?: Maybe<PlanVersionSnapshot>;
+  /** Search for public plans with pagination support */
+  publicPlansSearch: PublicPlanSearchResults;
   /** Get the published VersionedQuestionConditionGroups (and their nested conditions) for the specified versioned question */
   publishedConditionGroupsForQuestion?: Maybe<Array<Maybe<VersionedQuestionConditionGroup>>>;
   /** Get a specific published custom question based on versionedCustomQuestionId */
@@ -4328,6 +4426,11 @@ export type QueryProjectMembersArgs = {
 export type QueryPublicPlanVersionByDmpIdArgs = {
   dmpId: Scalars['String']['input'];
   version: Scalars['String']['input'];
+};
+
+
+export type QueryPublicPlansSearchArgs = {
+  options: PublicPlanSearchOptions;
 };
 
 
@@ -7142,6 +7245,11 @@ export type ResolversTypes = {
   ProjectSearchResultFunding: ResolverTypeWrapper<ProjectSearchResultFunding>;
   ProjectSearchResultMember: ResolverTypeWrapper<ProjectSearchResultMember>;
   ProjectSearchResults: ResolverTypeWrapper<ProjectSearchResults>;
+  PublicPlanSearchOptions: PublicPlanSearchOptions;
+  PublicPlanSearchResult: ResolverTypeWrapper<PublicPlanSearchResult>;
+  PublicPlanSearchResultFacet: ResolverTypeWrapper<PublicPlanSearchResultFacet>;
+  PublicPlanSearchResultFacets: ResolverTypeWrapper<PublicPlanSearchResultFacets>;
+  PublicPlanSearchResults: ResolverTypeWrapper<PublicPlanSearchResults>;
   PublishedQuestion: ResolverTypeWrapper<PublishedQuestion>;
   PublishedTemplateMetaDataResults: ResolverTypeWrapper<PublishedTemplateMetaDataResults>;
   PublishedTemplateSearchResults: ResolverTypeWrapper<PublishedTemplateSearchResults>;
@@ -7428,6 +7536,11 @@ export type ResolversParentTypes = {
   ProjectSearchResultFunding: ProjectSearchResultFunding;
   ProjectSearchResultMember: ProjectSearchResultMember;
   ProjectSearchResults: ProjectSearchResults;
+  PublicPlanSearchOptions: PublicPlanSearchOptions;
+  PublicPlanSearchResult: PublicPlanSearchResult;
+  PublicPlanSearchResultFacet: PublicPlanSearchResultFacet;
+  PublicPlanSearchResultFacets: PublicPlanSearchResultFacets;
+  PublicPlanSearchResults: PublicPlanSearchResults;
   PublishedQuestion: PublishedQuestion;
   PublishedTemplateMetaDataResults: PublishedTemplateMetaDataResults;
   PublishedTemplateSearchResults: PublishedTemplateSearchResults;
@@ -8872,6 +8985,46 @@ export type ProjectSearchResultsResolvers<ContextType = MyContext, ParentType ex
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
+export type PublicPlanSearchResultResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PublicPlanSearchResult'] = ResolversParentTypes['PublicPlanSearchResult']> = {
+  created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  dmpId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  featured?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
+  language?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  languageCode?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  ownerAffiliationName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  ownerAffiliationURI?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  ownerName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  ownerORCID?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  planId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  projectId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  templateOwnerAffiliationName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  templateOwnerAffiliationURI?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  templateTitle?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  title?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+};
+
+export type PublicPlanSearchResultFacetResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PublicPlanSearchResultFacet'] = ResolversParentTypes['PublicPlanSearchResultFacet']> = {
+  count?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+};
+
+export type PublicPlanSearchResultFacetsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PublicPlanSearchResultFacets'] = ResolversParentTypes['PublicPlanSearchResultFacets']> = {
+  affiliationIds?: Resolver<Array<ResolversTypes['PublicPlanSearchResultFacet']>, ParentType, ContextType>;
+  funderIds?: Resolver<Array<ResolversTypes['PublicPlanSearchResultFacet']>, ParentType, ContextType>;
+  languages?: Resolver<Array<ResolversTypes['PublicPlanSearchResultFacet']>, ParentType, ContextType>;
+  subjects?: Resolver<Array<ResolversTypes['PublicPlanSearchResultFacet']>, ParentType, ContextType>;
+};
+
+export type PublicPlanSearchResultsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PublicPlanSearchResults'] = ResolversParentTypes['PublicPlanSearchResults']> = {
+  availableSortFields?: Resolver<Array<ResolversTypes['String']>, ParentType, ContextType>;
+  facets?: Resolver<ResolversTypes['PublicPlanSearchResultFacets'], ParentType, ContextType>;
+  items?: Resolver<Array<ResolversTypes['PublicPlanSearchResult']>, ParentType, ContextType>;
+  limit?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  offset?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  totalCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+};
+
 export type PublishedQuestionResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PublishedQuestion'] = ResolversParentTypes['PublishedQuestion']> = {
   customQuestionId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   guidanceText?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -8965,6 +9118,7 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   projectMember?: Resolver<Maybe<ResolversTypes['ProjectMember']>, ParentType, ContextType, RequireFields<QueryProjectMemberArgs, 'projectMemberId'>>;
   projectMembers?: Resolver<Maybe<Array<Maybe<ResolversTypes['ProjectMember']>>>, ParentType, ContextType, RequireFields<QueryProjectMembersArgs, 'projectId'>>;
   publicPlanVersionByDMPId?: Resolver<Maybe<ResolversTypes['PlanVersionSnapshot']>, ParentType, ContextType, RequireFields<QueryPublicPlanVersionByDmpIdArgs, 'dmpId' | 'version'>>;
+  publicPlansSearch?: Resolver<ResolversTypes['PublicPlanSearchResults'], ParentType, ContextType, RequireFields<QueryPublicPlansSearchArgs, 'options'>>;
   publishedConditionGroupsForQuestion?: Resolver<Maybe<Array<Maybe<ResolversTypes['VersionedQuestionConditionGroup']>>>, ParentType, ContextType, RequireFields<QueryPublishedConditionGroupsForQuestionArgs, 'versionedQuestionId'>>;
   publishedCustomQuestion?: Resolver<Maybe<ResolversTypes['VersionedCustomQuestion']>, ParentType, ContextType, RequireFields<QueryPublishedCustomQuestionArgs, 'versionedCustomQuestionId'>>;
   publishedCustomQuestions?: Resolver<Maybe<Array<Maybe<ResolversTypes['PublishedQuestion']>>>, ParentType, ContextType, RequireFields<QueryPublishedCustomQuestionsArgs, 'planId' | 'versionedCustomSectionId'>>;
@@ -10098,6 +10252,10 @@ export type Resolvers<ContextType = MyContext> = {
   ProjectSearchResultFunding?: ProjectSearchResultFundingResolvers<ContextType>;
   ProjectSearchResultMember?: ProjectSearchResultMemberResolvers<ContextType>;
   ProjectSearchResults?: ProjectSearchResultsResolvers<ContextType>;
+  PublicPlanSearchResult?: PublicPlanSearchResultResolvers<ContextType>;
+  PublicPlanSearchResultFacet?: PublicPlanSearchResultFacetResolvers<ContextType>;
+  PublicPlanSearchResultFacets?: PublicPlanSearchResultFacetsResolvers<ContextType>;
+  PublicPlanSearchResults?: PublicPlanSearchResultsResolvers<ContextType>;
   PublishedQuestion?: PublishedQuestionResolvers<ContextType>;
   PublishedTemplateMetaDataResults?: PublishedTemplateMetaDataResultsResolvers<ContextType>;
   PublishedTemplateSearchResults?: PublishedTemplateSearchResultsResolvers<ContextType>;

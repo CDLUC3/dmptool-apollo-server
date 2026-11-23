@@ -1,10 +1,8 @@
 import { MyContext } from "../context.js";
-import { sendEmailConfirmationNotification } from "../services/emailService.js";
 import {
   validateEmail,
   getCurrentDate,
 } from '../utils/helpers.js';
-import { TemplateCollaborator } from "./Collaborator.js";
 import { MySqlModel } from "./MySqlModel.js";
 
 // Reepresents one of the user's email addresses
@@ -34,45 +32,6 @@ export class UserEmail extends MySqlModel {
     if (!validateEmail(this.email)) this.addError('email', 'Invalid email address');
 
     return Object.keys(this.errors).length === 0;
-  }
-
-  // Confirm the user owns the email
-  static async confirmEmail(context: MyContext, userId: number, email: string): Promise<UserEmail> {
-    const ref = 'UserEmail.confirmEmail';
-    // Fetch all of the existing records with the current email
-    const userEmail = await UserEmail.findByUserIdAndEmail(ref, context, userId, email);
-
-    if (userEmail) {
-      // Fetch all of the other instances of this email
-      const allEmails = await UserEmail.findByEmail(ref, context, email);
-      const otherEmails = allEmails.filter((entry) => { return entry.userId !== userId });
-
-      // If the email has already been confirmed by another account set an error message
-      if (otherEmails && otherEmails.find((other) => { return other.isConfirmed; })) {
-        userEmail.addError('email', 'Email has already been confirmed by another account');
-        return userEmail;
-
-      } else {
-        // Update the confirmed flag
-        userEmail.isConfirmed = true;
-        const updated = await userEmail.update(context);
-
-        // Claim any invitations to collaborate on a Template by assigning the userId
-        const tmpltCollabs = await TemplateCollaborator.findByEmail(ref, context, email);
-        for (const collab of tmpltCollabs) {
-          collab.userId = userId;
-          await collab.update(context);
-        }
-
-        // Remove any other instances of the email that are out there for other users
-        for (const other of otherEmails) {
-          await other.delete(context);
-        }
-
-        return updated;
-      }
-    }
-    return userEmail;
   }
 
   // Custom Insert logic
@@ -125,13 +84,9 @@ export class UserEmail extends MySqlModel {
       if (Object.keys(this.errors).length === 0) {
         // Save the record and then fetch it
         const newId = await UserEmail.insert(context, this.tableName, this, ref);
-        const created = await UserEmail.findById(ref, context, newId);
-
-        if (created) {
-          // Send out an email confirmation notification. No async, can happen in background
-          await sendEmailConfirmationNotification(context, created.email);
-        }
-        return created;
+        // The confirmation email is sent by the dmptool-auth service, which the UI calls once the
+        // email has been added. See POST /email-confirmation/token in dmptool-auth.
+        return await UserEmail.findById(ref, context, newId);
       }
     }
     // Otherwise return as-is with all the errors

@@ -43,7 +43,6 @@ const { logger } = await import("../../logger.js");
 const {
   emailMessages,
   emailSubjects,
-  sendEmailConfirmationNotification,
   sendProjectCollaborationEmail,
   sendTemplateCollaborationEmail,
   sendProjectCollaboratorsCommentsAddedEmail,
@@ -70,27 +69,6 @@ afterEach(() => {
 })
 
 describe('sendEmail', () => {
-  it('sends the confirmation email', async () => {
-    jest.spyOn(logger, 'info');
-    const email = casual.email;
-    const sent = await sendEmailConfirmationNotification(context, email);
-
-    const expectedSubject = `${subjectPrefix} - ${emailSubjects.emailConfirmation}`
-
-    expect(sent).toBe(true);
-    expect(logger.info).toHaveBeenCalledTimes(1);
-    expect(mockSendEmail).toHaveBeenCalledWith({
-      "bcc": "",
-      "cc": "",
-      "from": `"${generalConfig.applicationName}" <${emailConfig.doNotReplyAddress}>`,
-      "html": emailMessages.emailConfirmation,
-      "replyTo": emailConfig.helpDeskAddress,
-      "sender": emailConfig.doNotReplyAddress,
-      "subject": expectedSubject,
-      "to": email,
-    });
-  });
-
   it('sends the template collaboration email', async () => {
     jest.spyOn(logger, 'info');
     const email = casual.email;

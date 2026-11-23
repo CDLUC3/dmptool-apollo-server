@@ -3,6 +3,12 @@
 ## v1.1.0
 
 ### Added
+- Added the `publicPlansSearch` schema and resolver
+- Added a `handleOpenSearchError` helper to the openSearch data source
+- Added ability to pass OpenSearch aggregations to search queries
+- Added `research_domain_id` to the OpenSearch index for plans so we can filter by subjects
+- Added `supportedLanguageMap` to the `Language` model to facilitate fetching the readable name for a given language code
+- Added `findByURIs` to the `ResearchDomain` model
 - Added `templateLink` schema and resolvers: `addTemplateLink`, `updateTemplateLink` and `removeTemplateLink` mutations, a `links(linkType)` field and a `maxLinks(linkType)` field on `Template`, and a `links(linkType)` field on `VersionedTemplate`. These support the funder links and sample plan links in the Template Builder's "Links" sidebar. Links can only be added or edited when the Template's owner affiliation has `funder` set to `true` (they can always be removed) [#251]
 - Added `update` method to the `TemplateLink` model, and limited a Template to `MAX_TEMPLATE_FUNDER_LINKS` funder links and `MAX_TEMPLATE_SAMPLE_PLAN_LINKS` sample plan links (both default to 5) [#251]
 - Added `generateTemplateLinkVersions` and `cloneTemplateLinks` to `templateService`. Links are now copied into `versionedTemplateLinks` when a Template is versioned, and copied when a Template is created from an existing Template or VersionedTemplate [#251]
@@ -191,6 +197,7 @@
 ### Updated
 - Replaced `queryWithPagination` function with `queryWithOptimizedPagination`
 - Updated all functions that call the new `queryWithOptimizedPagination` function so that they have lighter weight queries that run as a first-pass to do the filter, search, sort and pagination. And then a second-pass query to hydrate ONLY the records that will be returned on the current page. 
+- Renamed `PropertyDefinition` to `PlanIndexPropertyDefinition` since we're going to need ones for affiliations, etc. in the future
 - Fixed bug in `guidanceService` that was allowing `getRelevantGuidanceForPlan` to run an SQL query when there are no tags
 - Fixed an issue in the new plan `search` resolver that was not capitalizing the `visibility` term in the OpenSearch query, which was causing public plans to not be returned in search results
 - Fixed some missing nil checks in the indexDMPService
@@ -389,6 +396,7 @@
 - Updates to appease newer version of eslint
 
 ### Removed
+- Removed the placeholder email confirmation message (`sendEmailConfirmationNotification`) and the unused `UserEmail.confirmEmail`. Email confirmation is now handled by `dmptool-auth` (`/email-confirmation/token` and `/email-confirmation/confirm`) [#106]
 - Added `displayLogicAction` and `displayLogicMatchType` to `updateQuestion` resolver so that it doesn't fall back to default settings whenever a question is edited [#586]
 - Removed `conditionalLogic` and its `VersionedQuestionConditionalLogic` type from `PlanQuestion`, since the plan's display logic is now applied on the server through `isHidden` [#366]
 - Removed `VersionedQuestionCustomization.findActiveByTemplateAffiliationAndQuestion` and `VersionedSectionCustomization.findActiveByTemplateAffiliationAndSection`, which have been replaced by the existing `findByVersionedCustomizationAndVersionedQuestion` and `findByVersionedCustomizationAndVersionedSection` [#388]
@@ -421,6 +429,7 @@
 - Removed `ioredis` package
 
 ### Fixed
+- Fixed `User.findByEmail` so it only matches a primary or confirmed email. Collaboration invitations sent to an address that someone has added but not confirmed are no longer attached to that account [#106]
 - Fixed `TemplateLink` and `VersionedTemplateLink` URL validation, which was inverted (valid URLs were rejected and invalid ones accepted) [#251]
 - Fixed `VersionedTemplateLink` model to use the `versionedTemplateId` column instead of the non-existent `templateId` column [#251]
 - Fixed the `users` query not finding a user when the search term combines their given name and surname (e.g. "Jane Smith", "Smith, Jane"). `User.search` and `User.findByAffiliationId` now split the term into words and require every word to match one of the fields, using the new `buildSearchTermFilter` helper. An empty term now adds no search filter, so all qualifying users are returned [#389]

@@ -14,30 +14,17 @@ jest.unstable_mockModule('../../context.js', () => ({
 jest.unstable_mockModule('../../services/emailService.js', () => ({
   sendProjectCollaborationEmail: jest.fn(),
   sendTemplateCollaborationEmail: jest.fn(),
-  sendEmailConfirmationNotification: jest.fn(),
 }));
 
 //Dynamic imports AFTER all mocks are registered
 const { buildMockContextWithToken } = await import('../../__mocks__/context.js');
 const { logger } = await import('../../logger.js');
-const { User } = await import("../User.js");
 const { UserEmail } = await import("../UserEmail.js");
-const { TemplateCollaborator } = await import("../Collaborator.js");
-const { sendEmailConfirmationNotification } = await import("../../services/emailService.js");
 
 let context;
-let mockUser;
 
 beforeEach(async () => {
   jest.resetAllMocks();
-
-  mockUser = new User({
-    id: casual.integer(1, 999),
-    givenName: casual.first_name,
-    surName: casual.last_name,
-    affiliationId: casual.url,
-    acceptedTerms: true,
-  });
 
   context = buildMockContextWithToken(logger);
 });
@@ -209,130 +196,6 @@ describe('findBy functions', () => {
   });
 });
 
-describe('confirmEmail', () => {
-  let mockUserEmail;
-  let mockOtherEmails;
-  let mockTemplateCollaborators;
-
-  let mockFindUserEmailById;
-  let mockFindUserEmailByUserIdAndEmail;
-  let mockFindUserEmailByEmail;
-  let mockUpdate;
-  let mockFindTemplateCollaboratorByEmail;
-  let mockFindTemplateCollaboratorById;
-  let mockUpdateTemplateCollaborator;
-  let mockDelete;
-
-  beforeEach(async () => {
-    context = buildMockContextWithToken(logger);
-
-    mockUserEmail = new UserEmail({ id: casual.integer(1, 99), email: casual.email, userId: mockUser.id });
-
-    mockOtherEmails = [
-      new UserEmail({ id: 1, email: mockUserEmail.email, userId: casual.integer(99991, 999999) }),
-      new UserEmail({ id: 2, email: mockUserEmail.email, userId: casual.integer(99991, 999999) }),
-    ];
-
-    mockTemplateCollaborators = [
-      new TemplateCollaborator({ id: 1, email: mockUserEmail.email, templateId: casual.integer(1, 999) }),
-      new TemplateCollaborator({ id: 2, email: mockUserEmail.email, templateId: casual.integer(1, 999) }),
-    ]
-
-    mockFindUserEmailById = jest.fn();
-    (UserEmail.findById as jest.Mock) = mockFindUserEmailById;
-
-    mockFindUserEmailByUserIdAndEmail = jest.fn();
-    (UserEmail.findByUserIdAndEmail as jest.Mock) = mockFindUserEmailByUserIdAndEmail;
-
-    mockFindUserEmailByEmail = jest.fn();
-    (UserEmail.findByEmail as jest.Mock) = mockFindUserEmailByEmail;
-
-    mockFindTemplateCollaboratorByEmail = jest.fn();
-    (TemplateCollaborator.findByEmail as jest.Mock) = mockFindTemplateCollaboratorByEmail;
-
-    mockFindTemplateCollaboratorById = jest.fn();
-    (TemplateCollaborator.findById as jest.Mock) = mockFindTemplateCollaboratorById;
-
-    mockUpdateTemplateCollaborator = jest.fn();
-    (TemplateCollaborator.update as jest.Mock) = mockUpdateTemplateCollaborator;
-
-    mockUpdate = jest.fn();
-    (UserEmail.update as jest.Mock) = mockUpdate;
-    (TemplateCollaborator.update as jest.Mock) = mockUpdate;
-
-    mockDelete = jest.fn();
-    (UserEmail.delete as jest.Mock) = mockDelete;
-  });
-
-  it('returns null if the UserEmail does not exist', async () => {
-    mockFindUserEmailByUserIdAndEmail.mockResolvedValue(null);
-    expect(await UserEmail.confirmEmail(context, mockUser.id, mockUser.email)).toBeFalsy();
-  });
-
-  it('returns the UserEmail with errors if it was already confirmed by another user', async () => {
-    mockFindUserEmailByUserIdAndEmail.mockResolvedValue(mockUserEmail);
-
-    mockOtherEmails[0].isConfirmed = true;
-    mockFindUserEmailByEmail.mockResolvedValue(mockOtherEmails);
-    const result = await UserEmail.confirmEmail(context, mockUser.id, mockUser.email)
-    expect(result).toEqual(mockUserEmail);
-    expect(result.errors['email']).toEqual('Email has already been confirmed by another account');
-  });
-
-  it('returns the confirmed UserEmail if successful', async () => {
-    mockFindUserEmailByUserIdAndEmail.mockResolvedValue(mockUserEmail);
-    mockFindUserEmailByEmail.mockResolvedValue([]);
-    const confirmedEmail = structuredClone(mockUserEmail);
-    confirmedEmail.isConfirmed = true;
-    mockFindUserEmailById.mockResolvedValue(confirmedEmail);
-    mockFindTemplateCollaboratorByEmail.mockResolvedValue([]);
-
-    const result = await UserEmail.confirmEmail(context, mockUser.id, mockUserEmail.email)
-    expect(result).toEqual(confirmedEmail);
-    expect(Object.keys(result.errors).length).toBe(0);
-    expect(mockUpdate).toHaveBeenCalledTimes(1);
-  });
-
-  it('claims open collaboration invites if successful', async () => {
-    mockFindUserEmailByUserIdAndEmail.mockResolvedValue(mockUserEmail);
-    mockFindUserEmailByEmail.mockResolvedValue([]);
-    const confirmedEmail = structuredClone(mockUserEmail);
-    confirmedEmail.isConfirmed = true;
-    mockFindUserEmailById.mockResolvedValue(confirmedEmail);
-    mockFindTemplateCollaboratorByEmail.mockResolvedValue(mockTemplateCollaborators);
-    mockFindTemplateCollaboratorById.mockResolvedValue(mockTemplateCollaborators[0]);
-    mockUpdateTemplateCollaborator.mockResolvedValue(mockTemplateCollaborators[0]);
-
-    // Mock the instance method update for each collaborator
-    for (const collab of mockTemplateCollaborators) {
-      collab.update = jest.fn<() => Promise<InstanceType<typeof TemplateCollaborator>>>().mockResolvedValue(collab);
-    }
-
-    const result = await UserEmail.confirmEmail(context, mockUser.id, mockUserEmail.email)
-    expect(result).toEqual(confirmedEmail);
-    expect(Object.keys(result.errors).length).toBe(0);
-    expect(mockUpdate).toHaveBeenCalledTimes(1);
-    for (const collab of mockTemplateCollaborators) {
-      expect(collab.update).toHaveBeenCalledTimes(1);
-    }
-  });
-
-  it('removes other unconfirmed records associated with other users if successful', async () => {
-    mockFindUserEmailByUserIdAndEmail.mockResolvedValue(mockUserEmail);
-    mockFindUserEmailByEmail.mockResolvedValue(mockOtherEmails);
-    const confirmedEmail = structuredClone(mockUserEmail);
-    confirmedEmail.isConfirmed = true;
-    mockFindUserEmailById.mockResolvedValue(confirmedEmail);
-    mockFindTemplateCollaboratorByEmail.mockResolvedValue([]);
-
-    const result = await UserEmail.confirmEmail(context, mockUser.id, mockUserEmail.email)
-    expect(result).toEqual(confirmedEmail);
-    expect(Object.keys(result.errors).length).toBe(0);
-    expect(mockUpdate).toHaveBeenCalledTimes(1);
-    expect(mockDelete).toHaveBeenCalledTimes(2);
-  });
-});
-
 describe('create', () => {
   let mockUserEmail;
 
@@ -363,7 +226,6 @@ describe('create', () => {
     mockInsert = jest.fn<() => Promise<InstanceType<typeof UserEmail>>>().mockResolvedValue(mockUserEmail);
     (UserEmail.insert as jest.Mock) = mockInsert;
 
-    jest.mocked(sendEmailConfirmationNotification).mockResolvedValue(true);
   });
 
   it('returns the UserEmail with errors if it is not valid', async () => {

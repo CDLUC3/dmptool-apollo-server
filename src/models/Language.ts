@@ -6,5 +6,9 @@ export const supportedLanguages = [
   { id: "pt-BR", name: "Português (Brasil)" },
 ];
 
+export const supportedLanguageMap = new Map<string, string>(
+  supportedLanguages.map(({ id, name }) => [id, name])
+);
+
 // The default Language
 export const defaultLanguageId = 'en-US';

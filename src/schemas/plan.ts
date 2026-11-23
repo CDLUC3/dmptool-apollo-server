@@ -2,6 +2,8 @@ import { gql } from 'graphql-tag';
 
 export const typeDefs = gql`
   extend type Query {
+    "Search for public plans with pagination support"
+    publicPlansSearch(options: PublicPlanSearchOptions!): PublicPlanSearchResults!
     "Get all plans for the research project with pagination support"
     plans(userId: Int!, term: String, paginationOptions: PaginationOptions): PaginatedPlanResults
     "Search/filter plans"
@@ -443,6 +445,98 @@ export const typeDefs = gql`
 
     "Whether the question is hidden by its display logic, based on the plan's saved answers"
     isHidden: Boolean
+  }
+
+  "A public representation of a plan for use in the public plans search results"
+  type PublicPlanSearchResult {
+    "The unique identifier for the Project"
+    projectId: Int
+    "The unique identifier for the Object"
+    planId: Int
+    "The title of the plan"
+    title: String
+    "The name of the template the plan is based on"
+    templateTitle: String
+    "The name of the affiliation that owns the template the plan is based on"
+    templateOwnerAffiliationName: String
+    "The URI for the affiliation that owns the template the plan is based on"
+    templateOwnerAffiliationURI: String
+    "The DMP id/DOI for the plan (applicable if the plan has been registered/published)"
+    dmpId: String
+    "Whether the plan is featured on the public plans page"
+    featured: Boolean
+    "The name of the owner of the plan"
+    ownerName: String
+    "The URI for the owner of the plan"
+    ownerAffiliationName: String
+    "The URI for the affiliation that owns the plan"
+    ownerAffiliationURI: String
+    "The ORCID of the owner of the plan"
+    ownerORCID: String
+    "The timestamp when the Object was created"
+    created: String
+    "The human readable language name for the plan"
+    language: String
+    "The language code for the plan"
+    languageCode: String
+  }
+
+  "Results from the public plans search"
+  type PublicPlanSearchResults {
+    "The public plans that match the search criteria"
+    items: [PublicPlanSearchResult!]!
+    "The total number of possible items"
+    totalCount: Int!
+    "The current offset of the results (for standard offset pagination only!)"
+    offset: Int!
+    "The number of items returned"
+    limit: Int!
+    "The sortFields that are available for this query (for standard offset pagination only!)"
+    availableSortFields: [String!]!
+    "The faceting information for the public plans search results"
+    facets: PublicPlanSearchResultFacets!
+  }
+
+  "Faceting information for the public plans search results"
+  type PublicPlanSearchResultFacets {
+    "The affiliations contained within the public plans search results"
+    affiliationIds: [PublicPlanSearchResultFacet!]!
+    "The funder ids contained within the public plans search results"
+    funderIds: [PublicPlanSearchResultFacet!]!
+    "The languages contained within the public plans search results"
+    languages: [PublicPlanSearchResultFacet!]!
+    "The subjects contained within the public plans search results"
+    subjects: [PublicPlanSearchResultFacet!]!
+  }
+
+  "A facet for the public plans search results"
+  type PublicPlanSearchResultFacet {
+    "The unique identifier for the facet"
+    id: String!
+    "The name of the facet"
+    name: String!
+    "The number of plans that match the facet"
+    count: Int!
+  }
+
+  "The options for searching/filtering/sorting public plans"
+  input PublicPlanSearchOptions {
+    "The offset to start the search from (used for standard offset pagination only!)"
+    offset: Int = 0
+    "The number of items to return"
+    limit: Int = 20
+    "The sort field and direction. Options are 'featured', 'created,desc', 'title,asc'. Default is 'featured'"
+    sort: String
+    "The search term to use for the public plans search"
+    query: String
+    "The affiliation ids to filter the public plans search results by"
+    affiliationIds: [String!]
+    "The funder ids to filter the public plans search results by"
+    funderIds: [String!]
+    "The languages to filter the public plans search results by"
+    languages: [String!]
+    "The subjects to filter the public plans search results by"
+    subjects: [String!]
   }
 
   input UpdatePlanInput {

@@ -10,7 +10,6 @@ import { prepareObjectForLogs } from "../logger.js";
 import { generalConfig } from '../config/generalConfig.js';
 
 export const emailSubjects = {
-  emailConfirmation: 'Please confirm your email address',
   projectCollaboration: 'You were invited to collaborate on a data management plan',
   templateCollaboration: 'You were invited to collaborate on a template',
   projectCollaboratorCommentsAdded: 'New comments added to the plan',
@@ -20,7 +19,6 @@ export const emailSubjects = {
 }
 
 export const emailMessages = {
-  emailConfirmation: `<p>This is a placeholder until we get the email confirmation tokens setup.</p>`,
   projectCollaboration: `
 <p>%{inviterName} has invited you to collaborate on their data management plan: "%{projectTitle}".</p>
 <p>Placeholder text for a project collaboration email.</p>
@@ -128,19 +126,6 @@ const sendEmail = async (
     }
     return false;
   }
-}
-
-// Send out an email asking the user to confirm the email address
-export const sendEmailConfirmationNotification = async (context: MyContext, email: string): Promise<boolean> => {
-  return await sendEmail(
-    context,
-    'EmailConfirmation',
-    [email],
-    [],
-    [],
-    emailSubjects.emailConfirmation,
-    emailMessages.emailConfirmation,
-  );
 }
 
 // Send out the collaboration email. Note that the emails should be different based on whether or not

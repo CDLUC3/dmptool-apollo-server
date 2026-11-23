@@ -542,11 +542,41 @@ describe('findByEmail', () => {
 
   it('should call query with correct params and return the user', async () => {
     const email = casual.email;
-    emailQuery.mockResolvedValueOnce([{ userId: user.id }]);
+    emailQuery.mockResolvedValueOnce([{ userId: user.id, isPrimary: true, isConfirmed: false }]);
     localQuery.mockResolvedValueOnce(user);
     const result = await User.findByEmail('Testing', context, email);
     expect(emailQuery).toHaveBeenCalledTimes(1);
     expect(emailQuery).toHaveBeenLastCalledWith('Testing', context, email);
+    expect(localQuery).toHaveBeenCalledTimes(1);
+    expect(localQuery).toHaveBeenLastCalledWith('Testing', context, user.id);
+    expect(result).toEqual(user);
+  });
+
+  it('should return the user when the email is a confirmed alias', async () => {
+    const email = casual.email;
+    emailQuery.mockResolvedValueOnce([{ userId: user.id, isPrimary: false, isConfirmed: true }]);
+    localQuery.mockResolvedValueOnce(user);
+    const result = await User.findByEmail('Testing', context, email);
+    expect(localQuery).toHaveBeenLastCalledWith('Testing', context, user.id);
+    expect(result).toEqual(user);
+  });
+
+  it('should return null if the email is only an unconfirmed alias', async () => {
+    const email = casual.email;
+    emailQuery.mockResolvedValueOnce([{ userId: user.id, isPrimary: false, isConfirmed: false }]);
+    const result = await User.findByEmail('Testing', context, email);
+    expect(localQuery).not.toHaveBeenCalled();
+    expect(result).toEqual(null);
+  });
+
+  it('should skip unconfirmed aliases on other accounts and return the confirmed owner', async () => {
+    const email = casual.email;
+    emailQuery.mockResolvedValueOnce([
+      { userId: user.id + 100, isPrimary: false, isConfirmed: false },
+      { userId: user.id, isPrimary: false, isConfirmed: true },
+    ]);
+    localQuery.mockResolvedValueOnce(user);
+    const result = await User.findByEmail('Testing', context, email);
     expect(localQuery).toHaveBeenCalledTimes(1);
     expect(localQuery).toHaveBeenLastCalledWith('Testing', context, user.id);
     expect(result).toEqual(user);

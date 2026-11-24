@@ -229,43 +229,46 @@ export class FunderTemplateSearchResult {
       values.push(`%${searchTerm}%`, `%${searchTerm}%`);
     }
 
-    let opts: PaginationOptions;
-    if (options.type === PaginationType.OFFSET) {
-      // The sort field and direction are added to the SQL as-is, and anyone can call this query,
-      // so only accept known values
-      const offsetOpts = options as PaginationOptionsForOffsets;
-      const sortField = FUNDER_TEMPLATE_SORT_FIELDS.includes(offsetOpts.sortField) ? offsetOpts.sortField : 'vt.name';
-      const sortDir = offsetOpts.sortDir?.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
-      opts = {
-        ...offsetOpts,
-        // Add the id as a tie breaker (e.g. a funder with several Templates) so that rows don't
-        // move between pages. This becomes `ORDER BY <sortField> <sortDir>, vt.id <sortDir>`
-        sortField: `${sortField} ${sortDir}, vt.id`,
-        sortDir,
-      } as PaginationOptionsForOffsets;
-    } else {
-      opts = { ...options, cursorField: 'vt.id' } as PaginationOptionsForCursors;
-    }
-    opts.countField = 'vt.id';
-    opts.availableSortFields = [...FUNDER_TEMPLATE_SORT_FIELDS];
+    // The sort field is added to the SQL as-is, and anyone can call this query, so only accept
+    // known values. (queryWithOptimizedPagination also checks the field against availableSortFields,
+    // and adds the id as a tie breaker so that rows don't move between pages.)
+    const sortField = FUNDER_TEMPLATE_SORT_FIELDS.includes(options.sortField) ? options.sortField : 'vt.name';
+    const sortDir = options.sortDir?.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+    const opts = {
+      ...options,
+      sortField,
+      sortDir,
+      availableSortFields: [...FUNDER_TEMPLATE_SORT_FIELDS],
+      cursorField: 'vt.id',
+    } as PaginationOptions;
 
-    const sqlStatement = [
+    // Find the ids of the matching Templates for the requested page, then fetch the public
+    // fields for just those Templates. Every Template has an owner affiliation, and the page
+    // shows its display name, so an inner JOIN leaves out any Template whose owner is missing
+    const selectionSql = [
+      `SELECT vt.id, ${sortField} AS sortValue`,
+      'FROM versionedTemplates vt',
+      'JOIN affiliations a ON a.uri = vt.ownerId',
+      `WHERE ${whereFilters.join(' AND ')}`,
+    ].join(' ');
+    const hydrateSql = [
       'SELECT vt.id, vt.templateId, vt.name, vt.description, vt.version, vt.modified,',
       'vt.ownerId AS ownerURI, a.displayName AS ownerDisplayName',
       'FROM versionedTemplates vt',
-      'LEFT JOIN affiliations a ON a.uri = vt.ownerId',
+      'JOIN affiliations a ON a.uri = vt.ownerId',
+      'WHERE vt.id IN (/* PAGE_IDS */)',
     ].join(' ');
 
-    const response: PaginatedQueryResults<FunderTemplateSearchResult> = await VersionedTemplate.queryWithPagination(
+    const response: PaginatedQueryResults<FunderTemplateSearchResult> = await VersionedTemplate.queryWithOptimizedPagination(
       context,
-      sqlStatement,
-      whereFilters,
-      '',
+      selectionSql,
       values,
+      hydrateSql,
       opts,
       reference,
     );
 
+    context.logger.debug(prepareObjectForLogs({ options, response }), reference);
     return {
       ...response,
       items: Array.isArray(response?.items)

@@ -26,11 +26,14 @@ const { TemplateVisibility } = await import("../Template.js");
 const { defaultLanguageId } = await import('../Language.js');
 const { getRandomEnumValue } = await import('../../__tests__/helpers.js');
 const { generalConfig } = await import('../../config/generalConfig.js');
+const { MySqlModel } = await import('../MySqlModel.js');
 const {
   TemplateVersionType,
   VersionedTemplate,
   VersionedTemplateSearchResult,
-  CustomizableTemplateSearchResult
+  CustomizableTemplateSearchResult,
+  FunderTemplateSearchResult,
+  FUNDER_TEMPLATE_SORT_FIELDS,
 } = await import('../VersionedTemplate.js');
 
 const {
@@ -180,6 +183,188 @@ describe('VersionedTemplateSearchResult', () => {
       expect(localQuery).toHaveBeenCalledTimes(1);
       expect(result).toEqual([]);
     });
+  });
+});
+
+describe('FunderTemplateSearchResult', () => {
+  const originalOptimizedPagination = VersionedTemplate.queryWithOptimizedPagination;
+  let localOptimizedPagination;
+
+  const filters = "vt.active = 1 AND vt.versionType = 'PUBLISHED' AND vt.visibility = 'PUBLIC' " +
+    'AND (a.funder = 1 OR vt.isDefault = 1)';
+  const selectionSql = (sortField = 'vt.name', extraFilter = '') =>
+    `SELECT vt.id, ${sortField} AS sortValue FROM versionedTemplates vt ` +
+    // An inner JOIN, so a Template whose owner affiliation is missing is left out
+    `JOIN affiliations a ON a.uri = vt.ownerId WHERE ${filters}${extraFilter}`;
+  const hydrateSql = 'SELECT vt.id, vt.templateId, vt.name, vt.description, vt.version, vt.modified, ' +
+    'vt.ownerId AS ownerURI, a.displayName AS ownerDisplayName ' +
+    'FROM versionedTemplates vt ' +
+    'JOIN affiliations a ON a.uri = vt.ownerId ' +
+    'WHERE vt.id IN (/* PAGE_IDS */)';
+
+  const row = {
+    id: 12,
+    templateId: 3,
+    name: 'NSF Polar Programs',
+    description: 'Polar research',
+    version: 'v2',
+    modified: '2026-11-01 10:00:00',
+    ownerURI: 'https://ror.org/021nxhr62',
+    ownerDisplayName: 'National Science Foundation (nsf.gov)',
+  };
+
+  const offsetOptions = (overrides = {}): PaginationOptionsForOffsets => ({
+    type: PaginationType.OFFSET,
+    limit: 10,
+    offset: 0,
+    ...overrides,
+  });
+
+  // The arguments of the last call to queryWithOptimizedPagination
+  const lastCall = () => {
+    const [ctx, selection, values, hydrate, opts, reference] = localOptimizedPagination.mock.calls.at(-1);
+    return { ctx, selection, values, hydrate, opts, reference };
+  };
+
+  beforeEach(() => {
+    localOptimizedPagination = jest.fn();
+    (VersionedTemplate.queryWithOptimizedPagination as jest.Mock) = localOptimizedPagination;
+    localOptimizedPagination.mockResolvedValue({ items: [row], totalCount: 1, limit: 10, hasNextPage: false });
+  });
+
+  afterEach(() => {
+    VersionedTemplate.queryWithOptimizedPagination = originalOptimizedPagination;
+  });
+
+  it('only returns active, published, public Templates that are owned by a funder or are the default Template', async () => {
+    await FunderTemplateSearchResult.search('Test', context, undefined, offsetOptions());
+
+    const { ctx, selection, values, hydrate, opts, reference } = lastCall();
+    expect(ctx).toBe(context);
+    expect(selection).toEqual(selectionSql());
+    // Without a search term there is no user input, so nothing needs a placeholder
+    expect(values).toEqual([]);
+    // Only the public fields are fetched, for the Templates on the requested page
+    expect(hydrate).toEqual(hydrateSql);
+    expect(opts).toEqual(expect.objectContaining({
+      type: PaginationType.OFFSET,
+      offset: 0,
+      limit: 10,
+      availableSortFields: FUNDER_TEMPLATE_SORT_FIELDS,
+      cursorField: 'vt.id',
+    }));
+    expect(reference).toEqual('Test');
+  });
+
+  it('does not filter by the search term when it is blank', async () => {
+    await FunderTemplateSearchResult.search('Test', context, '   ', offsetOptions());
+
+    const { selection, values } = lastCall();
+    expect(selection).toEqual(selectionSql());
+    expect(values).toEqual([]);
+  });
+
+  it('searches the Template name and owner name, ignoring case', async () => {
+    await FunderTemplateSearchResult.search('Test', context, '  NSF ', offsetOptions());
+
+    const { selection, values } = lastCall();
+    expect(selection).toEqual(selectionSql('vt.name', ' AND (LOWER(vt.name) LIKE ? OR LOWER(a.searchName) LIKE ?)'));
+    // The search term is user input, so it must always be a placeholder value
+    expect(values).toEqual(['%nsf%', '%nsf%']);
+  });
+
+  it('sorts by the requested field and direction', async () => {
+    await FunderTemplateSearchResult.search(
+      'Test',
+      context,
+      undefined,
+      offsetOptions({ sortField: 'a.displayName', sortDir: 'desc' })
+    );
+
+    const { selection, opts } = lastCall();
+    expect(selection).toEqual(selectionSql('a.displayName'));
+    expect(opts.sortField).toEqual('a.displayName');
+    expect(opts.sortDir).toEqual('DESC');
+  });
+
+  it('defaults to sorting by name, ascending', async () => {
+    await FunderTemplateSearchResult.search('Test', context, undefined, offsetOptions());
+
+    const { opts } = lastCall();
+    expect(opts.sortField).toEqual('vt.name');
+    expect(opts.sortDir).toEqual('ASC');
+  });
+
+  it('ignores sort fields and directions that are not allowed, since they are added to the SQL as-is', async () => {
+    await FunderTemplateSearchResult.search(
+      'Test',
+      context,
+      undefined,
+      offsetOptions({ sortField: 'vt.id; DROP TABLE users', sortDir: 'ASC; DROP TABLE users' })
+    );
+
+    const { selection, opts } = lastCall();
+    expect(selection).toEqual(selectionSql());
+    expect(selection).not.toContain('DROP');
+    expect(opts.sortField).toEqual('vt.name');
+    expect(opts.sortDir).toEqual('ASC');
+  });
+
+  it('uses the id as the cursor for cursor pagination', async () => {
+    const cursorOptions = { type: PaginationType.CURSOR, cursor: null, limit: 10 } as PaginationOptionsForCursors;
+    await FunderTemplateSearchResult.search('Test', context, undefined, cursorOptions);
+
+    const { opts } = lastCall();
+    expect(opts.type).toEqual(PaginationType.CURSOR);
+    expect(opts.cursorField).toEqual('vt.id');
+  });
+
+  it('pages with the id as a tie breaker, so Templates with the same sort value do not move between pages', async () => {
+    // Run the real pagination helper, and check the SQL it sends to the database
+    VersionedTemplate.queryWithOptimizedPagination = originalOptimizedPagination;
+    const querySpy = jest.spyOn(MySqlModel, 'query')
+      .mockResolvedValueOnce([{ totalCount: 1 }])
+      .mockResolvedValueOnce([{ id: row.id, sortValue: row.ownerDisplayName }])
+      .mockResolvedValueOnce([row]);
+
+    const result = await FunderTemplateSearchResult.search(
+      'Test',
+      context,
+      undefined,
+      offsetOptions({ offset: 10, sortField: 'a.displayName', sortDir: 'ASC' })
+    );
+
+    const pageQuery = querySpy.mock.calls[1];
+    expect(pageQuery[1]).toEqual(`${selectionSql('a.displayName')} ORDER BY sortValue ASC, id ASC LIMIT ? OFFSET ?`);
+    expect(pageQuery[2]).toEqual(['11', '10']);
+    const fetchQuery = querySpy.mock.calls[2];
+    expect(fetchQuery[1]).toEqual(hydrateSql.replace('/* PAGE_IDS */', '?'));
+    expect(fetchQuery[2]).toEqual([String(row.id)]);
+    expect(result.items).toEqual([new FunderTemplateSearchResult(row)]);
+    expect(result.currentOffset).toEqual(10);
+    querySpy.mockRestore();
+  });
+
+  it('returns FunderTemplateSearchResults with only the public fields', async () => {
+    // A field the query does not select (e.g. if the SQL changes later) must not be passed through
+    localOptimizedPagination.mockResolvedValueOnce({
+      items: [{ ...row, modifiedById: 99 }],
+      totalCount: 1,
+      limit: 10,
+      hasNextPage: false,
+    });
+    const result = await FunderTemplateSearchResult.search('Test', context, undefined, offsetOptions());
+
+    expect(result.totalCount).toEqual(1);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).toBeInstanceOf(FunderTemplateSearchResult);
+    expect({ ...result.items[0] }).toEqual(row);
+  });
+
+  it('returns an empty list when there are no results', async () => {
+    localOptimizedPagination.mockResolvedValueOnce({ items: [], totalCount: 0, limit: 10, hasNextPage: false });
+    const result = await FunderTemplateSearchResult.search('Test', context, undefined, offsetOptions());
+    expect(result.items).toEqual([]);
   });
 });
 

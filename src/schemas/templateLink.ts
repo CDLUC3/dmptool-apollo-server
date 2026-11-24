@@ -55,15 +55,13 @@ export const typeDefs = gql`
   }
 
   "A snapshot of a TemplateLink at the time the Template was versioned"
+  # This type is returned by the public publishedFunderTemplates query, so it does not
+  # include the createdById and modifiedById user ids (they are still stored)
   type VersionedTemplateLink {
     "The unique identifer for the Object"
     id: Int
-    "The user who created the Object"
-    createdById: Int
     "The timestamp when the Object was created"
     created: String
-    "The user who last modified the Object"
-    modifiedById: Int
     "The timestamp when the Object was last modifed"
     modified: String
 

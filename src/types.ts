@@ -1289,6 +1289,55 @@ export type FunderPopularityResult = {
   uri: Scalars['String']['output'];
 };
 
+/** The public details of a published Template, for the Funder Requirements page */
+export type FunderTemplateSearchResult = {
+  __typename?: 'FunderTemplateSearchResult';
+  /** A description of the purpose of the template */
+  description?: Maybe<Scalars['String']['output']>;
+  /** The id of the VersionedTemplate (use this to download the Template) */
+  id: Scalars['Int']['output'];
+  /** The funder and sample plan links captured when the Template was published (optionally filtered by type) */
+  links?: Maybe<Array<VersionedTemplateLink>>;
+  /** The timestamp when the Template was last modified */
+  modified?: Maybe<Scalars['String']['output']>;
+  /** The name/title of the template */
+  name: Scalars['String']['output'];
+  /** The display name of the affiliation that owns the Template */
+  ownerDisplayName?: Maybe<Scalars['String']['output']>;
+  /** The URI of the affiliation that owns the Template */
+  ownerURI?: Maybe<Scalars['String']['output']>;
+  /** The id of the template that this version is based on */
+  templateId?: Maybe<Scalars['Int']['output']>;
+  /** The major.minor semantic version */
+  version?: Maybe<Scalars['String']['output']>;
+};
+
+
+/** The public details of a published Template, for the Funder Requirements page */
+export type FunderTemplateSearchResultLinksArgs = {
+  linkType?: InputMaybe<TemplateLinkType>;
+};
+
+export type FunderTemplateSearchResults = PaginatedQueryResults & {
+  __typename?: 'FunderTemplateSearchResults';
+  /** The sortFields that are available for this query (for standard offset pagination only!) */
+  availableSortFields?: Maybe<Array<Maybe<Scalars['String']['output']>>>;
+  /** The current offset of the results (for standard offset pagination) */
+  currentOffset?: Maybe<Scalars['Int']['output']>;
+  /** Whether or not there is a next page */
+  hasNextPage?: Maybe<Scalars['Boolean']['output']>;
+  /** Whether or not there is a previous page */
+  hasPreviousPage?: Maybe<Scalars['Boolean']['output']>;
+  /** The FunderTemplateSearchResults that match the search criteria */
+  items?: Maybe<Array<Maybe<FunderTemplateSearchResult>>>;
+  /** The number of items returned */
+  limit?: Maybe<Scalars['Int']['output']>;
+  /** The cursor to use for the next page of results (for infinite scroll/load more) */
+  nextCursor?: Maybe<Scalars['String']['output']>;
+  /** The total number of possible items */
+  totalCount?: Maybe<Scalars['Int']['output']>;
+};
+
 /** A Guidance item contains guidance text and associated tag id */
 export type Guidance = {
   __typename?: 'Guidance';
@@ -4059,6 +4108,8 @@ export type Query = {
   publishedCustomQuestions?: Maybe<Array<Maybe<PublishedQuestion>>>;
   /** Fetch a specific VersionedCustomSection for a plan - resolved via the caller's affiliation */
   publishedCustomSection?: Maybe<VersionedCustomSection>;
+  /** Search the published, public Templates owned by a funder, plus the published default Template if it is public (no login required, used by the Funder Requirements page) */
+  publishedFunderTemplates?: Maybe<FunderTemplateSearchResults>;
   /** Get a specific VersionedQuestion based on versionedQuestionId */
   publishedQuestion?: Maybe<VersionedQuestion>;
   /** Search for VersionedQuestions that belong to Section specified by sectionId and answer status for a plan */
@@ -4453,6 +4504,12 @@ export type QueryPublishedCustomQuestionsArgs = {
 export type QueryPublishedCustomSectionArgs = {
   customSectionId: Scalars['Int']['input'];
   planId: Scalars['Int']['input'];
+};
+
+
+export type QueryPublishedFunderTemplatesArgs = {
+  paginationOptions?: InputMaybe<PaginationOptions>;
+  term?: InputMaybe<Scalars['String']['input']>;
 };
 
 
@@ -6834,16 +6891,12 @@ export type VersionedTemplateLink = {
   __typename?: 'VersionedTemplateLink';
   /** The timestamp when the Object was created */
   created?: Maybe<Scalars['String']['output']>;
-  /** The user who created the Object */
-  createdById?: Maybe<Scalars['Int']['output']>;
   /** The unique identifer for the Object */
   id?: Maybe<Scalars['Int']['output']>;
   /** The type of link */
   linkType: TemplateLinkType;
   /** The timestamp when the Object was last modifed */
   modified?: Maybe<Scalars['String']['output']>;
-  /** The user who last modified the Object */
-  modifiedById?: Maybe<Scalars['Int']['output']>;
   /** The text to display for the link */
   text?: Maybe<Scalars['String']['output']>;
   /** The URL */
@@ -7065,6 +7118,7 @@ export type ResolversInterfaceTypes<_RefType extends Record<string, unknown>> = 
     | ( AffiliationSearchResults )
     | ( CollaboratorSearchResults )
     | ( CustomizableTemplateSearchResults )
+    | ( FunderTemplateSearchResults )
     | ( MetadataStandardSearchResults )
     | ( PaginatedPlanResults )
     | ( ProjectSearchResults )
@@ -7156,6 +7210,8 @@ export type ResolversTypes = {
   Funder: ResolverTypeWrapper<Funder>;
   FunderInput: FunderInput;
   FunderPopularityResult: ResolverTypeWrapper<FunderPopularityResult>;
+  FunderTemplateSearchResult: ResolverTypeWrapper<FunderTemplateSearchResult>;
+  FunderTemplateSearchResults: ResolverTypeWrapper<FunderTemplateSearchResults>;
   Guidance: ResolverTypeWrapper<Guidance>;
   GuidanceErrors: ResolverTypeWrapper<GuidanceErrors>;
   GuidanceGroup: ResolverTypeWrapper<GuidanceGroup>;
@@ -7458,6 +7514,8 @@ export type ResolversParentTypes = {
   Funder: Funder;
   FunderInput: FunderInput;
   FunderPopularityResult: FunderPopularityResult;
+  FunderTemplateSearchResult: FunderTemplateSearchResult;
+  FunderTemplateSearchResults: FunderTemplateSearchResults;
   Guidance: Guidance;
   GuidanceErrors: GuidanceErrors;
   GuidanceGroup: GuidanceGroup;
@@ -8106,6 +8164,30 @@ export type FunderPopularityResultResolvers<ContextType = MyContext, ParentType 
   uri?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
 };
 
+export type FunderTemplateSearchResultResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['FunderTemplateSearchResult'] = ResolversParentTypes['FunderTemplateSearchResult']> = {
+  description?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  links?: Resolver<Maybe<Array<ResolversTypes['VersionedTemplateLink']>>, ParentType, ContextType, Partial<FunderTemplateSearchResultLinksArgs>>;
+  modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  ownerDisplayName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  ownerURI?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  templateId?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  version?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+};
+
+export type FunderTemplateSearchResultsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['FunderTemplateSearchResults'] = ResolversParentTypes['FunderTemplateSearchResults']> = {
+  availableSortFields?: Resolver<Maybe<Array<Maybe<ResolversTypes['String']>>>, ParentType, ContextType>;
+  currentOffset?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  hasNextPage?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
+  hasPreviousPage?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
+  items?: Resolver<Maybe<Array<Maybe<ResolversTypes['FunderTemplateSearchResult']>>>, ParentType, ContextType>;
+  limit?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  nextCursor?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  totalCount?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
 export type GuidanceResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['Guidance'] = ResolversParentTypes['Guidance']> = {
   created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   createdById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
@@ -8457,7 +8539,7 @@ export type PaginatedPlanResultsResolvers<ContextType = MyContext, ParentType ex
 };
 
 export type PaginatedQueryResultsResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['PaginatedQueryResults'] = ResolversParentTypes['PaginatedQueryResults']> = {
-  __resolveType: TypeResolveFn<'AffiliationSearchResults' | 'CollaboratorSearchResults' | 'CustomizableTemplateSearchResults' | 'MetadataStandardSearchResults' | 'PaginatedPlanResults' | 'ProjectSearchResults' | 'PublishedTemplateSearchResults' | 'RelatedWorkSearchResults' | 'RepositorySearchResults' | 'ResearchDomainSearchResults' | 'TemplateSearchResults' | 'UserSearchResults' | 'VersionedSectionSearchResults', ParentType, ContextType>;
+  __resolveType: TypeResolveFn<'AffiliationSearchResults' | 'CollaboratorSearchResults' | 'CustomizableTemplateSearchResults' | 'FunderTemplateSearchResults' | 'MetadataStandardSearchResults' | 'PaginatedPlanResults' | 'ProjectSearchResults' | 'PublishedTemplateSearchResults' | 'RelatedWorkSearchResults' | 'RepositorySearchResults' | 'ResearchDomainSearchResults' | 'TemplateSearchResults' | 'UserSearchResults' | 'VersionedSectionSearchResults', ParentType, ContextType>;
 };
 
 export type PlanResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['Plan'] = ResolversParentTypes['Plan']> = {
@@ -9123,6 +9205,7 @@ export type QueryResolvers<ContextType = MyContext, ParentType extends Resolvers
   publishedCustomQuestion?: Resolver<Maybe<ResolversTypes['VersionedCustomQuestion']>, ParentType, ContextType, RequireFields<QueryPublishedCustomQuestionArgs, 'versionedCustomQuestionId'>>;
   publishedCustomQuestions?: Resolver<Maybe<Array<Maybe<ResolversTypes['PublishedQuestion']>>>, ParentType, ContextType, RequireFields<QueryPublishedCustomQuestionsArgs, 'planId' | 'versionedCustomSectionId'>>;
   publishedCustomSection?: Resolver<Maybe<ResolversTypes['VersionedCustomSection']>, ParentType, ContextType, RequireFields<QueryPublishedCustomSectionArgs, 'customSectionId' | 'planId'>>;
+  publishedFunderTemplates?: Resolver<Maybe<ResolversTypes['FunderTemplateSearchResults']>, ParentType, ContextType, Partial<QueryPublishedFunderTemplatesArgs>>;
   publishedQuestion?: Resolver<Maybe<ResolversTypes['VersionedQuestion']>, ParentType, ContextType, RequireFields<QueryPublishedQuestionArgs, 'versionedQuestionId'>>;
   publishedQuestions?: Resolver<Maybe<Array<Maybe<ResolversTypes['PublishedQuestion']>>>, ParentType, ContextType, RequireFields<QueryPublishedQuestionsArgs, 'planId' | 'versionedSectionId'>>;
   publishedSection?: Resolver<Maybe<ResolversTypes['VersionedSection']>, ParentType, ContextType, RequireFields<QueryPublishedSectionArgs, 'versionedSectionId'>>;
@@ -10083,11 +10166,9 @@ export type VersionedTemplateErrorsResolvers<ContextType = MyContext, ParentType
 
 export type VersionedTemplateLinkResolvers<ContextType = MyContext, ParentType extends ResolversParentTypes['VersionedTemplateLink'] = ResolversParentTypes['VersionedTemplateLink']> = {
   created?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  createdById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   id?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   linkType?: Resolver<ResolversTypes['TemplateLinkType'], ParentType, ContextType>;
   modified?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  modifiedById?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   text?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   url?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   versionedTemplateId?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
@@ -10182,6 +10263,8 @@ export type Resolvers<ContextType = MyContext> = {
   ExternalProject?: ExternalProjectResolvers<ContextType>;
   Funder?: FunderResolvers<ContextType>;
   FunderPopularityResult?: FunderPopularityResultResolvers<ContextType>;
+  FunderTemplateSearchResult?: FunderTemplateSearchResultResolvers<ContextType>;
+  FunderTemplateSearchResults?: FunderTemplateSearchResultsResolvers<ContextType>;
   Guidance?: GuidanceResolvers<ContextType>;
   GuidanceErrors?: GuidanceErrorsResolvers<ContextType>;
   GuidanceGroup?: GuidanceGroupResolvers<ContextType>;

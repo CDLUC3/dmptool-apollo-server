@@ -1,10 +1,12 @@
 import {
+  FunderTemplateSearchResults,
   PublishedTemplateSearchResults,
   PublishedTemplateMetaDataResults,
   Resolvers, CustomizableTemplateSearchResults
 } from "../types.js";
 import {
   CustomizableTemplateSearchResult,
+  FunderTemplateSearchResult,
   VersionedTemplate, VersionedTemplateSearchResult
 } from "../models/VersionedTemplate.js";
 import { User } from '../models/User.js';
@@ -12,6 +14,8 @@ import { MyContext } from "../context.js";
 import { Template } from "../models/Template.js";
 import { Affiliation } from "../models/Affiliation.js";
 import { VersionedSection } from "../models/VersionedSection.js";
+import { VersionedTemplateLink } from "../models/VersionedTemplateLink.js";
+import { TemplateLinkType } from "../models/TemplateLink.js";
 import { AuthenticationError, ForbiddenError, InternalServerError } from "../utils/graphQLErrors.js";
 import { isAdmin, isAuthorized } from "../services/authService.js";
 import { prepareObjectForLogs } from "../logger.js";
@@ -176,6 +180,45 @@ export const resolvers: Resolvers = {
         context.logger.error(prepareObjectForLogs(err), `Failure in defaultTemplate resolver`);
         throw InternalServerError();
       }
+    },
+
+    // Search the published, public Templates owned by a funder, plus the default Template
+    //    - called by the public Funder Requirements page, so no login is required
+    publishedFunderTemplates: async (_, { term, paginationOptions }, context: MyContext): Promise<FunderTemplateSearchResults> => {
+      const reference = 'publishedFunderTemplates resolver';
+
+      try {
+        const opts = !isNullOrUndefined(paginationOptions) && paginationOptions.type === PaginationType.OFFSET
+          ? paginationOptions as PaginationOptionsForOffsets
+          : { ...paginationOptions, type: PaginationType.CURSOR } as PaginationOptionsForCursors;
+
+        return await FunderTemplateSearchResult.search(reference, context, term, opts);
+      } catch (err) {
+        if (err instanceof GraphQLError) throw err;
+
+        context.logger.error(prepareObjectForLogs(err), `Failure in ${reference}`);
+        throw InternalServerError();
+      }
+    },
+  },
+
+  FunderTemplateSearchResult: {
+    // Chained resolver to fetch the links that were captured when the Template was published
+    //    - used by the public Funder Requirements page, so no login is required
+    links: async (parent: FunderTemplateSearchResult, { linkType }, context: MyContext): Promise<VersionedTemplateLink[]> => {
+      if (parent.id) {
+        return await VersionedTemplateLink.findByVersionedTemplateId(
+          'Chained FunderTemplateSearchResult.links',
+          context,
+          parent.id,
+          linkType as TemplateLinkType
+        );
+      }
+      return [];
+    },
+
+    modified: (parent: FunderTemplateSearchResult) => {
+      return normaliseDateTime(parent.modified);
     },
   },
 

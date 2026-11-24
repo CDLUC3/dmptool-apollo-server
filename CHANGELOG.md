@@ -3,6 +3,7 @@
 ## v1.1.0
 
 ### Added
+- Added the `publishedFunderTemplates(term, paginationOptions)` query for the public Funder Requirements page. It does not require a login, and returns the active, published, `PUBLIC` versioned Templates whose owner affiliation has `funder` set to `true`, plus the active, published default Template if it is also `PUBLIC`. (The old DMP Tool listed the default Template whatever its visibility, but this page does not require a login.) Each `FunderTemplateSearchResult` has only public fields and a `links(linkType)` field with the funder and sample plan links captured when the Template was published. Since these links are now public, the `VersionedTemplateLink` type no longer exposes the `createdById` and `modifiedById` user ids (they are still stored). Offset pagination can sort by `vt.name`, `a.displayName` or `vt.modified`; any other sort field or direction is ignored, because they are added to the SQL as-is [#653]
 - Added the `publicPlansSearch` schema and resolver
 - Added a `handleOpenSearchError` helper to the openSearch data source
 - Added ability to pass OpenSearch aggregations to search queries
